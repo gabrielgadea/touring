@@ -1,0 +1,33 @@
+# omarchy-bootorder-guard.service — SYSTEM unit (root): reafirma o Limine como
+# primeira entrada do BootOrder da UEFI a cada boot do Omarchy.
+#
+# Instalar:
+#   sudo install -m755 client/omarchy/bin/bootorder_guard.sh /usr/local/bin/omarchy-bootorder-guard
+#   sudo install -m644 client/omarchy/systemd/omarchy-bootorder-guard.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now omarchy-bootorder-guard.service
+#
+# Por que unit de SISTEMA e não hook post-boot.d: escrever na NVRAM exige root, e
+# os hooks do Omarchy rodam como usuário — precisariam de sudo sem senha, que é a
+# exceção temporária que este programa quer remover, não institucionalizar.
+#
+# Por que Type=oneshot + RemainAfterExit: a reasserção é um ato pontual no boot,
+# não um serviço vivo. `Restart=always` é REJEITADO pelo systemd em Type=oneshot
+# (service_verify, ENOEXEC) — não há atalho aqui, e nem faria sentido.
+[Unit]
+Description=Re-assert Limine first in the UEFI BootOrder
+Documentation=file:///home/gabrielgadea/projects/touring/client/omarchy/bin/bootorder_guard.sh
+ConditionPathExists=/sys/firmware/efi
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/omarchy-bootorder-guard
+# Um firmware que recusa a escrita não deve deixar o boot em estado degradado:
+# o guarda já registra o motivo no journal e o próximo boot tenta de novo.
+SuccessExitStatus=0 1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,54 @@
+# routines.example.toml — exemplo das 5 rotinas ARMS
+# Copiar para ~/Work/routines.toml e ajustar antes de rodar:
+#   cp client/omarchy/routines.example.toml ~/Work/routines.toml
+#   python3 client/omarchy/bin/routines_gen.py apply
+
+[defaults]
+model   = "sonnet"
+effort  = "medium"
+mode    = "acceptEdits"
+cwd     = "~/Work"
+log     = "~/Work/runs.log"
+
+# 1. Validate all — diariamente às 07:00, executa validate_all.sh
+[[routine]]
+id          = "validate-all"
+at          = "07:00"
+runner      = "local"
+cmd         = "~/projects/touring/client/omarchy/bin/validate_all.sh"
+description = "Run validate_all.sh and write ~/Work/state/validate-<ts>.json"
+
+# 2. Inbox digest — diariamente às 08:00, skill inbox-digest
+[[routine]]
+id          = "inbox-digest"
+at          = "08:00"
+runner      = "local"
+skill       = "inbox-digest"
+description = "Summarise email/messages into ~/Work/inbox-digest.md"
+
+# 3. Brain MOC — todo domingo às 06:00, skill brain-moc (modelo haiku)
+[[routine]]
+id          = "brain-moc"
+at          = "Sun 06:00"
+runner      = "local"
+skill       = "brain-moc"
+model       = "haiku"
+effort      = "low"
+description = "Refresh second-brain MOC: touring memory moc → ~/Work/brain/moc.md"
+
+# 4. Touring scout — a cada 6 horas (00:00, 06:00, 12:00, 18:00)
+[[routine]]
+id          = "touring-scout"
+at          = "*:00/6"
+runner      = "local"
+cmd         = "touring explore 'touring weekly scout' 2>&1 | tee -a ~/Work/logs/touring-scout.log"
+description = "Loop-until-dry exploration of touring repo for drift and opportunities"
+
+# 5. Docs drift — toda segunda às 09:00, rotina cloud (GitHub /schedule)
+[[routine]]
+id          = "docs-drift"
+at          = "Mon 09:00"
+runner      = "cloud"
+repo        = "gabrielgadea/touring"
+prompt      = "Review ARCHITECTURE.md vs code for drift; open issue if found"
+description = "Check docs/code drift weekly — runs as cloud GitHub Action"

@@ -1,0 +1,11 @@
+{
+  "phase": "C4",
+  "entities": [
+    {
+      "entity_id": "phase:C4",
+      "type": "phase",
+      "description": "A5 em ctx_execute_tools.rs (stderr vazio ensina no-match) + E4 no banner (--timeout-ms 30000); cargo check + suite server + guard D8 13/13 verdes"
+    }
+  ],
+  "relations": []
+}

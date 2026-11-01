@@ -1,0 +1,43 @@
+# Fragment `plan-pack` — planning done by the craft that already encodes planning.
+#
+# The persona says WHO acts and under which refusals; the `skill` says WHICH CRAFT
+# is applied. Until 2026-08-20 only the first travelled, so every planning agent in
+# the library re-derived from scratch what `taco-planning` already encodes: 9
+# scored dimensions, VGP-verified ground truth, gap detection, confidence tagging
+# and `plan_validator`. That is not orchestration — it is duplicated knowledge
+# running in parallel, the very antipattern P1 forbids between skills.
+#
+# The binding is lint-checked on both silent-failure axes: a skill that does not
+# exist, and a skill switched `off` in `skillOverrides`, are ERRORS here rather
+# than a Skill call that returns nothing and reads exactly like success.
+[fragment]
+description = "Plan a change under the taco-planning craft (9 dims, VGP ground truth, validator)"
+inputs = ["intent", "evidence"]
+entry = "plan"
+
+[node.plan]
+type = "agent"
+driver = "claude"
+tier = "sota"
+skill = "taco-planning"
+prompt = "Write the implementation plan for: {{inputs.intent}}. Evidence gathered so far: {{inputs.evidence}}. Follow the skill's protocol: collect ground truth FIRST (never assume a symbol exists — verify it), score the 9 dimensions, tag every claim FACT | INFERENCE | SPECULATION, and declare the exact write-set the implementer needs. A plan whose claims are untagged is not finished."
+# Read-only tools: planning verifies, it does not mutate. The bound skill is why
+# this node is nonetheless not PROVABLY read-only — a skill can do anything the
+# session can, and `node_readonly` answers `None` rather than pretending.
+allowed_tools = ["Read", "Grep", "Glob", "Bash"]
+permission_mode = "acceptEdits"
+session = "fresh"
+timeout_ms = 900000
+# The seam: the host flow continues from here (or fails into its own handler).
+on_pass = "__exit__"
+on_fail = "__exit_fail__"
+
+[node.plan.persona]
+role = "planner"
+description = "Plans under taco-planning; refuses to plan on unverified ground truth"
+stance = "evidence_first"
+scope = "the plan document and its verifiable claims — not the implementation"
+bar = "every claim carries FACT | INFERENCE | SPECULATION and every named symbol was verified to exist"
+refuses = "planning around a symbol you could not verify"
+forbids = "inventing file paths, APIs or line numbers to make a step look concrete"
+emits = "PLAN_READY=<yes|no> DIMS_BELOW_7=<n> UNVERIFIED_CLAIMS=<n>"

@@ -1,0 +1,11 @@
+mutantes rc=0 2026-10-17T11:21:35-03:00
+  mortos=36
+release rc=0 2026-10-17T11:40:33-03:00
+novo=/home/gabrielgadea/.claude/touring/vgp/binarios/4047373f/touring
+juizes ev rc=0 2026-10-17T11:59:52-03:00
+regua ev v2 rc=0
+regua ev v3 rc=0
+juizes bak rc=0 2026-10-17T12:13:12-03:00
+regua bak v2 rc=0
+regua bak v3 rc=0
+FIM

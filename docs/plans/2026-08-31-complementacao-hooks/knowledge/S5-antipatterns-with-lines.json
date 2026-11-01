@@ -1,0 +1,45 @@
+{
+  "phase": "S5-antipatterns-with-lines",
+  "entities": [
+    {
+      "entity_id": "phase:S5-antipatterns-with-lines",
+      "type": "phase",
+      "description": "pre_write::antipattern_signals passa a usar detect_antipatterns_with_lines e prefixa cada aviso com L{linha} (linha 0 fica sem prefixo) \u2014 sinal acionavel (A5) sobre o conteudo PROPOSTO. maybe_add_eval_check preservado. Teste test_pre_write_antipattern_signal_carries_line_numbers (RED comportamental -> GREEN); suite pre_write 69/69 com features; clippy handlers (features de producao) limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S5-antipatterns-with-lines|produces|memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done",
+      "source": "phase:S5-antipatterns-with-lines",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S5-antipatterns-with-lines:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

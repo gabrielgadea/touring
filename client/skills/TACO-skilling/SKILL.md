@@ -168,7 +168,7 @@ The intelligence layer the bare skill-creator has no access to:
 | Discover | past lessons | `touring memory recall "<intent>"` |
 | Discover | symbol / pattern search | `touring tantivy search "<query>"` |
 | Discover | known pitfalls | `touring gotcha match <file>` |
-| Design | task DAG for complex skills | `touring decompose create` |
+| Design | task DAG for complex skills | `touring decompose create`, then take each unit with `touring decompose claim <task> --owner skilling-<n>` — two sessions must never re-derive the same skill |
 | Enrich | VGP — does the symbol exist? | `touring index find <symbol>` |
 | Enrich | generate scripts | `Write tool (script Python)` |
 | Persist | store the lesson | `touring memory store --tier semantic` |
@@ -201,7 +201,13 @@ over re-deriving the same analysis by hand (Rule #2).
 ## Hard rules
 
 1. **Discover before creating.** Never create a skill that duplicates an existing
-   one — `discover.py` Phase 1 is mandatory. Overlap → extend or compose instead.
+   one — `discover.py` Phase 1 is mandatory. Overlap → extend or compose instead. The same
+   test applies BELOW the skill: if the procedure being written is already a
+   fragment (`touring adw fragments` — 13 live), the skill CITES it and never
+   restates it. Prose restating a fragment is a second implementation, and no
+   correction to the fragment will ever reach it — measured 25/07/2026, when a
+   shell-injection fix reached the mirror and the instantiations but never the
+   deployed library `adw from-template` copies from. Ref: `Touring/references/skill-operating-principles.md` (P1).
 2. **Generate code through `Touring-native tooling`.** edição-com-gate: `.py`/`.sh` and other code
    are created via `Write tool*`, never the Write tool.
 3. **Refine prunes.** Every REFINE that adds content runs the hygiene gate; over
@@ -217,6 +223,33 @@ over re-deriving the same analysis by hand (Rule #2).
    analyse it deterministically (`triggering_audit.py`, `mine_transcripts.py`, the
    `touring` CLI), never simulate it with paid LLM calls. The model reads the
    script's report and decides; the script does the bulk work.
+8. **Declaração e executor reconciliados por teste (guard D8 cruzado, 2026-08-25).**
+   Quando uma skill/hook DECLARA comportamento ("X passa", "Y colapsa", "Z é negado"),
+   um teste DEVE ler o predicado do executor e exigir que a declaração case com ele —
+   o texto que promete o que o executor não aplica é o anti-padrão D8
+   (`rules/touring-4-pillars.md`), e ele recorre: 25/08, a seção de sessão dizia
+   "ls/wc/sed-n passam" enquanto o T3-B os negava na 2ª do turno. Modelo:
+   `~/projects/touring/scripts/test_code_mode_sdk_section.py` — lê
+   `CODE_MODE_COLLAPSED_CLASSES` do Rust e reconcilia com o texto da seção.
+9. **Guard estrutural exige prova por mutação (0→1→0).** Um guard novo só existe se
+   remover a proteção o faz falhar e restaurá-la o faz passar — medido nos dois
+   sentidos, nunca assumido. O guard que achou o 7º sítio (depois 30) que a varredura
+   manual perdeu (`scripts/test_ceg_serial_gate_metrics.py`) é o modelo: a correção
+   pontual mascara o defeito, o guard o mantém corrigido — e a mutação prova que o
+   guard guarda.
+10. **MUST (E) — Verification before completion (transversal Marcel Point #1, 2026-09-01)** — NO COMPLETION CLAIMS WITHOUT FRESH EVIDENCE. Before stating "done", "fixed", "passes", "ready", "ship", or any success synonym, you MUST have run the verification command in **this turn** and seen the output. Red-green cycle for regressions: write test → run (pass) → revert fix → run (MUST FAIL) → restore → run (pass). Source: obra `superpowers:verification-before-completion` (Iron Law) cross-pollinated 2026-09-01; closes universal gap (E) RED-GREEN-REFACTOR across 7 skills (Marcel Point #1 do Gabriel — single MUST idêntico, single commit). Rationalization table (apply verbatim):
+
+| Excuse | Reality |
+|---|---|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence ≠ evidence |
+| "Just this once" | No exceptions |
+| "Linter passed" | Linter ≠ compiler |
+| "Agent said success" | Verify independently |
+| "I'm tired" | Exhaustion ≠ excuse |
+| "Partial check is enough" | Partial proves nothing |
+
+**Skip condition**: applies only to claims about code this skill produces/modifies/audits. Read-only reconnaissance (mapping, search, recall) is exempt.
 
 ---
 

@@ -1,0 +1,342 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) 1.667% > 1% (10/600)",
+  "falso deny (arquivo) limite superior 95% 2.81% > 1% (10/600, taxa 1.667%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.57% > 1% (2/400, taxa 0.500%) — com n=400 o teto admite no máximo 0 falso(s)",
+  "p95 1009.7 ms > 1000.0 ms",
+  "falso deny (arquivo) piorou: 10 > base 2"
+ ],
+ "inconclusivo": false,
+ "inconclusivo_motivo": "",
+ "timeouts_camada2": 56,
+ "camada2_sem_veredito": 147,
+ "taxa_timeouts_camada2": 0.05263157894736842,
+ "patamar_timeouts_camada2": 0.2,
+ "sinal_camada2": "presente",
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 10,
+   "n": 600,
+   "taxa": 0.016666666666666666,
+   "limite_superior_95": 0.02810635894210589,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 2,
+   "n": 400,
+   "taxa": 0.005,
+   "limite_superior_95": 0.01565517993646815,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.9230769230769231,
+  "inline": 0.8518518518518519
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   6,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   1,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "9ed99fb98cbf",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/aposenta_v1.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "lineno",
+     "linha": 43,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"lineno\" for class \"AST\"\n  Attribute \"lineno\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f2fe38f67432",
+   "balde": "arquivo",
+   "path": "/home/gabrielgadea/projects/analise/backend/tests/unit/services/test_hybrid_pipeline_flags.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "QDRANT_AVAILABLE",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "\"QDRANT_AVAILABLE\" is not a known attribute of module \"services.hybrid_pipeline\"",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "QDRANT_AVAILABLE",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "\"QDRANT_AVAILABLE\" is not a known attribute of module \"services.hybrid_pipeline\"",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "HybridRetriever",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "\"HybridRetriever\" is not a known attribute of module \"services.hybrid_pipeline\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "16a0a0f8019e",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/r19/mover_esquerda.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "decorator_list",
+     "linha": 45,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"decorator_list\" for class \"stmt\"\n  Attribute \"decorator_list\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6fc020dcec27",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/converte_carregadores.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "targets",
+     "linha": 71,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"targets\" for class \"stmt\"\n  Attribute \"targets\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "59803cbd8d0b",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/placar_rootdir.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "rootdirs",
+     "linha": 60,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6a324204bcea",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/wilson_vivos.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "lineno",
+     "linha": 42,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"lineno\" for class \"AST\"\n  Attribute \"lineno\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8e4e8fb32f64",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/deps/v3_corte.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "name",
+     "linha": 35,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"name\" for class \"stmt\"\n  Attribute \"name\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7dc34b129481",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/dividir_figuras.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "decorator_list",
+     "linha": 44,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"decorator_list\" for class \"stmt\"\n  Attribute \"decorator_list\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8aea29a769e2",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_donas.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "842eaf471b82",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/remove_testes_v1.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "lineno",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"lineno\" for class \"AST\"\n  Attribute \"lineno\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "2106f0ebf279",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "exit",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "de4fb0258f41",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `laya.common` não tem atributo `__file__`",
+     "reais": [
+      "Any",
+      "ContextVar",
+      "DecisionModel",
+      "Dict",
+      "F",
+      "List",
+      "Optional",
+      "QTYPES"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "avisos_em_negativos": 52,
+ "defeito_de_corpus": [],
+ "p95_ms": 1009.677458,
+ "chamadas": 1064,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}

@@ -72,89 +72,12 @@ If a fix would shrink what the code can do, it is the wrong fix. Find the one
 that makes the code *more* of an orchestration instrument, not less. The full
 strategy catalog is in [references/potentialization.md](references/potentialization.md).
 
-## Proof discipline
 
-"Prove it in practice" is literal. A phase is not complete on assertion — it is
-complete when a command was *run* and its output shown.
 
-- A claim like "the flow works" is invalid without the executed command + output.
-- "exit 0 always" is an invariant — prove it by running the entry points and
-  showing the exit code, including on edge-case input.
-- An E2E test written but not run proves nothing. Run it; show the run.
-- Mark anything you could not execute `UNVERIFIED` — never as passing.
 
-## Elite 50-dimension quality gate (PURPOSE + HARMONY)
 
-Purpose-fidelity is the *what*; the 50-dimension elite harness is the *how well*.
-A cross-audit is not complete until the touched code clears the 50-dim bar — and
-the **6 BLOCK dims (P0)** are direct audit-fail conditions: a secret, an OWASP
-injection, a known-CVE dep, an insecure config, a deprecated API, or an EOL
-package is a defect the audit must surface and the fix must remediate (REGRA #0:
-remediate, never suppress). Engine: `touring-quality` (standalone binary, real).
-Keystone: `~/.claude/rules/elite-50-quality.md`.
 
-```bash
-# 6 BLOCK dims — any FAIL (<0.5) is an audit finding, fail-closed
-for dim in F2.1 F2.4 F2.5 F2.6 F4.3 F4.5; do
-  touring-quality check --gate "$dim" --target "$FILE" --format json
-done
-# Delivery floor — Gold (0.80) on the audited tree
-touring-quality score "$TARGET" --workspace --fail-below 0.80
-touring-quality list                                   # 50 dims + enforcement glyph
-```
 
-| 50-dim tier | Audit verdict |
-|---|---|
-| 💎 ≥0.95 Diamond · 🥇 ≥0.90 Platinum | clean — record evidence |
-| 🥈 ≥0.80 Gold | **minimum pass** for a TACO delivery |
-| 🥉/⚪ 0.60–0.79 | finding: remediate (potentialize) before "in harmony" |
-| ⚫ <0.60 OR any P0 FAIL | audit FAIL — fix via `Edit tool`, re-score |
-
-⚠ Real commands only: `touring-quality {score,check,list}` (hyphen, standalone). **NOT** `touring quality`, `score --gate`, `--enforce`, nor `generator de qualidade dedicado (inexistente)` (PLANNED W7 → use `Edit tool`). Per-dim → agent-owner mapping in the keystone; per-dim rules in `~/.claude/skills/touring-elite/references/quality/D01..D52.md`.
-
-## Touring integration
-
-| Phase | Capability | Command |
-|-------|------------|---------|
-| MAP | workspace + crate graph | `touring ast workspace-info` |
-| MAP | full dependency tree | `touring ast blast <file>` |
-| MAP | source→sink module chains | `touring wiring chains` |
-| HARMONY | orphan pub symbols | `touring wiring orphans -j` |
-| HARMONY | full module audit | `touring wiring audit -j` |
-| HARMONY | dependency cycles | `touring wiring cycles` |
-| HARMONY | **50-dim elite quality** | `touring-quality score <tree> --fail-below 0.80` |
-| PURPOSE | symbol exists / signature | `touring index find` · `touring ast find` |
-| PURPOSE | **6 BLOCK dims (P0)** | `touring-quality check --gate F2.1\|F2.4\|F2.5\|F2.6\|F4.3\|F4.5 --target <FILE>` |
-| E2E PROOF | composite system health | `touring e2e -j` |
-| FIX | apply corrections | `Edit tool` |
-| REPORT | persist the audit | `touring memory store` · `touring diary write` |
-
-The deep per-symbol audit can be delegated to the `touring-auditor` subagent —
-see [references/audit-workflow.md](references/audit-workflow.md). If the daemon
-is degraded, fall back to `cargo` / `grep` / filesystem scans and mark those
-findings `daemon_degraded` — a degraded daemon never aborts the audit.
-
-## Scripts — this skill's layer 3
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/scan_debt.py` | Walk the tree for dead code, `allow(unused/dead_code)`, TODO/FIXME/HACK/XXX, `unimplemented!`/`todo!()`, pending/WIP markers |
-| `scripts/harmony_map.py` | Aggregate `touring wiring` orphans/audit/cycles into one harmony report |
-| `scripts/prove_invariants.py` | Run entry points / tests, verify exit-0 and interface contracts |
-| `scripts/lib.py` | Shared helpers — `touring` CLI wrappers, tree walk, command capture |
-
-Run any executable script with `--help`. They are deterministic — a debt scan
-re-done by hand varies; the script does not.
-
-**Touring Diagnostic Arsenal** (`~/.claude/skills/Touring/scripts/`, shared) supplies the systemic evidence per phase — scope-able to the audited tree (crate/dir/file), artifacts to `$DIAG_OUT`:
-
-| Phase | Arsenal script | Executed evidence it produces |
-|-------|----------------|-------------------------------|
-| **1 MAP** | `workspace_arch_diag.py` · `crate_arch_diag.py <t>` | inter-crate DAG (Tarjan cycles, layers, fan-in blast) + intra-crate God-objects + module coupling |
-| **3 DEBT** | `clone_blocks.py <file>` | Type-1 clones classified real-dedup vs scaffold-FP (feeds REGRA #0 — don't game the FPs) |
-| **4/6 HARMONY + PROOF** | `systemic_diag_v2.py <t>` · `crate_50dim_matrix.py <crate>` | **50-dim × architecture × security fused** risk (the 6 P0 BLOCK dims + CVE + cycle, blast-amplified) — the harmony verdict, lossless per-dim |
-
-These make "prove it in practice" literal for the architecture + security + quality axes at once, not one lens at a time. **Reporting Contract (MANDATORY)**: the audit report MUST relay each arsenal diagnostic in full — the 7 elite sections (VERDICT · SCORECARD · FINDINGS all-breadth · FUSED RISK · ROOT-CAUSE · PROVENANCE · ACTIONS); a single-lever summary replacing the full breakdown is a violation. Spec + enforcement: `~/.claude/skills/Touring/scripts/report_contract.py` (footer printed by every diagnostic).
 
 ## Hard rules
 
@@ -188,3 +111,10 @@ These make "prove it in practice" literal for the architecture + security + qual
 | REGRA #0 potentialization strategy catalog | [references/potentialization.md](references/potentialization.md) |
 | Building E2E tests that prove integration | [references/e2e-proof.md](references/e2e-proof.md) |
 | Deep per-symbol audit subagent | the `touring-auditor` agent |
+---
+
+## Referencia movida (compactação 65, 08/10/2026)
+
+Esta skill ficou abaixo do corte de 20.000 caracteres do Claude Code, para que o procedimento inteiro chegue ao modelo depois de uma compactação. O material abaixo foi movido **verbatim** para [`references/cross-audit-camadas.md`](references/cross-audit-camadas.md) — nada foi perdido, apenas movido.
+
+**No arquivo movido:** Disciplina de prova, elite 50-dim, scripts da camada 3, enriquecimento de contexto, integração Touring e as hard rules de causa-raiz.

@@ -1,0 +1,394 @@
+{
+ "summary": {
+  "golden": {
+   "n": 25,
+   "keyword_acc": 1.0,
+   "laya_acc": 0.88,
+   "laya_acc_conf_ge_0.8": [
+    16,
+    16
+   ]
+  },
+  "real": {
+   "n": 12,
+   "keyword_acc": 0.833,
+   "laya_acc": 0.417,
+   "laya_acc_conf_ge_0.8": [
+    2,
+    4
+   ]
+  }
+ },
+ "rows": [
+  {
+   "text": "Create a FastAPI endpoint for user registration",
+   "gold": "code",
+   "keyword": "code",
+   "laya": "code",
+   "conf": 0.913,
+   "route": "english",
+   "ms": 446.7,
+   "set": "golden"
+  },
+  {
+   "text": "Implement a binary search function in Python",
+   "gold": "code",
+   "keyword": "code",
+   "laya": "code",
+   "conf": 0.959,
+   "route": "english",
+   "ms": 17.4,
+   "set": "golden"
+  },
+  {
+   "text": "Crie um módulo de autenticação com JWT",
+   "gold": "code",
+   "keyword": "code",
+   "laya": "code",
+   "conf": 0.8248,
+   "route": "multilingual",
+   "ms": 8.9,
+   "set": "golden"
+  },
+  {
+   "text": "Write a React component for a data table",
+   "gold": "code",
+   "keyword": "code",
+   "laya": "code",
+   "conf": 0.915,
+   "route": "english",
+   "ms": 17.1,
+   "set": "golden"
+  },
+  {
+   "text": "Build a CLI tool that parses CSV files",
+   "gold": "code",
+   "keyword": "code",
+   "laya": "code",
+   "conf": 0.7131,
+   "route": "english",
+   "ms": 17.2,
+   "set": "golden"
+  },
+  {
+   "text": "Fix the KeyError on line 42 of parser.py",
+   "gold": "debug",
+   "keyword": "debug",
+   "laya": "debug",
+   "conf": 0.9563,
+   "route": "english",
+   "ms": 19.0,
+   "set": "golden"
+  },
+  {
+   "text": "This function crashes with a TypeError when input is None",
+   "gold": "debug",
+   "keyword": "debug",
+   "laya": "debug",
+   "conf": 0.9615,
+   "route": "english",
+   "ms": 18.7,
+   "set": "golden"
+  },
+  {
+   "text": "Corrija o erro de conexão no módulo de banco de dados",
+   "gold": "debug",
+   "keyword": "debug",
+   "laya": "refactor",
+   "conf": 0.6828,
+   "route": "multilingual",
+   "ms": 10.7,
+   "set": "golden"
+  },
+  {
+   "text": "Track down the memory leak in this service",
+   "gold": "debug",
+   "keyword": "debug",
+   "laya": "debug",
+   "conf": 0.8932,
+   "route": "english",
+   "ms": 17.7,
+   "set": "golden"
+  },
+  {
+   "text": "Debug why the API returns 500 on POST requests",
+   "gold": "debug",
+   "keyword": "debug",
+   "laya": "debug",
+   "conf": 0.9934,
+   "route": "english",
+   "ms": 17.3,
+   "set": "golden"
+  },
+  {
+   "text": "Refactor the user service to follow SOLID principles",
+   "gold": "refactor",
+   "keyword": "refactor",
+   "laya": "refactor",
+   "conf": 0.9476,
+   "route": "english",
+   "ms": 19.1,
+   "set": "golden"
+  },
+  {
+   "text": "Simplify the nested if-else chain in process_order",
+   "gold": "refactor",
+   "keyword": "refactor",
+   "laya": "refactor",
+   "conf": 0.9733,
+   "route": "english",
+   "ms": 17.1,
+   "set": "golden"
+  },
+  {
+   "text": "Limpe e otimize a classe DatabaseManager",
+   "gold": "refactor",
+   "keyword": "refactor",
+   "laya": "refactor",
+   "conf": 0.3906,
+   "route": "english",
+   "ms": 18.8,
+   "set": "golden"
+  },
+  {
+   "text": "Write unit tests for the payment processor module",
+   "gold": "test",
+   "keyword": "test",
+   "laya": "test",
+   "conf": 0.9906,
+   "route": "english",
+   "ms": 17.0,
+   "set": "golden"
+  },
+  {
+   "text": "Add pytest fixtures for the database connection",
+   "gold": "test",
+   "keyword": "test",
+   "laya": "test",
+   "conf": 0.8629,
+   "route": "english",
+   "ms": 17.4,
+   "set": "golden"
+  },
+  {
+   "text": "Crie testes de cobertura para o serviço de autenticação",
+   "gold": "test",
+   "keyword": "test",
+   "laya": "test",
+   "conf": 0.8156,
+   "route": "multilingual",
+   "ms": 9.3,
+   "set": "golden"
+  },
+  {
+   "text": "Explain how the event loop works in asyncio",
+   "gold": "analysis",
+   "keyword": "analysis",
+   "laya": "code",
+   "conf": 0.1594,
+   "route": "english",
+   "ms": 17.2,
+   "set": "golden"
+  },
+  {
+   "text": "Review the architecture of the relay module",
+   "gold": "analysis",
+   "keyword": "analysis",
+   "laya": "analysis",
+   "conf": 0.4571,
+   "route": "english",
+   "ms": 17.2,
+   "set": "golden"
+  },
+  {
+   "text": "Analise por que a latência aumentou após o deploy",
+   "gold": "analysis",
+   "keyword": "analysis",
+   "laya": "analysis",
+   "conf": 0.7093,
+   "route": "multilingual",
+   "ms": 8.9,
+   "set": "golden"
+  },
+  {
+   "text": "Suggest alternative approaches for caching user sessions",
+   "gold": "creative",
+   "keyword": "creative",
+   "laya": "code",
+   "conf": 0.3854,
+   "route": "english",
+   "ms": 17.1,
+   "set": "golden"
+  },
+  {
+   "text": "Proponha uma estratégia de migração para microserviços",
+   "gold": "creative",
+   "keyword": "creative",
+   "laya": "creative",
+   "conf": 0.8165,
+   "route": "multilingual",
+   "ms": 18.6,
+   "set": "golden"
+  },
+  {
+   "text": "Plan the migration from monolith to microservices",
+   "gold": "plan",
+   "keyword": "plan",
+   "laya": "plan",
+   "conf": 0.9203,
+   "route": "english",
+   "ms": 19.3,
+   "set": "golden"
+  },
+  {
+   "text": "Planeje as etapas para implementar CI/CD completo",
+   "gold": "plan",
+   "keyword": "plan",
+   "laya": "plan",
+   "conf": 0.799,
+   "route": "english",
+   "ms": 18.2,
+   "set": "golden"
+  },
+  {
+   "text": "Hello",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "general",
+   "conf": 0.7775,
+   "route": "english",
+   "ms": 17.0,
+   "set": "golden"
+  },
+  {
+   "text": "What time is it?",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "general",
+   "conf": 0.837,
+   "route": "english",
+   "ms": 17.0,
+   "set": "golden"
+  },
+  {
+   "text": "<task-notification> Agent \"Digerir cookbooks do Jev\" finished. O digest está gravado. Ele ",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "debug",
+   "conf": 0.619,
+   "route": "multilingual",
+   "ms": 11.9,
+   "set": "real"
+  },
+  {
+   "text": "<task-notification> Agent \"Ecossistema e recepção do Jev\" finished. O relatório está grava",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "debug",
+   "conf": 0.8955,
+   "route": "multilingual",
+   "ms": 12.4,
+   "set": "real"
+  },
+  {
+   "text": "<task-notification> Background command \"Roda o ADW strategy-loop (recall, diagnóstico, exp",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "code",
+   "conf": 0.1783,
+   "route": "english",
+   "ms": 21.8,
+   "set": "real"
+  },
+  {
+   "text": "Stop hook feedback: Loop Engineering: not converged (3/30). Unmet clauses: ['dag_done']. N",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "plan",
+   "conf": 0.5109,
+   "route": "english",
+   "ms": 19.7,
+   "set": "real"
+  },
+  {
+   "text": "[SYSTEM NOTIFICATION - NOT USER INPUT] This is an automated background-task event, NOT a m",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "general",
+   "conf": 0.2355,
+   "route": "english",
+   "ms": 21.7,
+   "set": "real"
+  },
+  {
+   "text": "Tool loaded.",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "general",
+   "conf": 0.8703,
+   "route": "english",
+   "ms": 17.4,
+   "set": "real"
+  },
+  {
+   "text": "Publique",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "general",
+   "conf": 0.2654,
+   "route": "english",
+   "ms": 17.6,
+   "set": "real"
+  },
+  {
+   "text": "ok, obrigado",
+   "gold": "general",
+   "keyword": "general",
+   "laya": "general",
+   "conf": 0.2939,
+   "route": "english",
+   "ms": 21.2,
+   "set": "real"
+  },
+  {
+   "text": "faça uma exploração exaustiva, uma pesquisa profunda e uma análise completa e detalhada a ",
+   "gold": "analysis",
+   "keyword": "general",
+   "laya": "code",
+   "conf": 0.2283,
+   "route": "multilingual",
+   "ms": 10.3,
+   "set": "real"
+  },
+  {
+   "text": "faça mais uma rodada de exploração exaustiva, pesquisa profunda e análise completa e detal",
+   "gold": "analysis",
+   "keyword": "general",
+   "laya": "code",
+   "conf": 0.2179,
+   "route": "multilingual",
+   "ms": 9.6,
+   "set": "real"
+  },
+  {
+   "text": "corrija o defeito do hook OUTER que anuncia artefatos que não disparou",
+   "gold": "debug",
+   "keyword": "debug",
+   "laya": "refactor",
+   "conf": 0.8779,
+   "route": "multilingual",
+   "ms": 8.1,
+   "set": "real"
+  },
+  {
+   "text": "escreva testes para o roteador do factory",
+   "gold": "test",
+   "keyword": "test",
+   "laya": "test",
+   "conf": 0.9256,
+   "route": "multilingual",
+   "ms": 8.5,
+   "set": "real"
+  }
+ ]
+}

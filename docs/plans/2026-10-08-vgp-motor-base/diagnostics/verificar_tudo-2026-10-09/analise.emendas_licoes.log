@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.0.3, pluggy-1.6.0
+benchmark: 5.3.0 (defaults: timer=time.perf_counter disable_gc=False min_rounds=5 min_time=0.000005 max_time=1.0 calibration_precision=10 warmup=False warmup_iterations=100000)
+rootdir: /home/gabrielgadea/projects/analise
+configfile: pyproject.toml
+plugins: hypothesis-6.150.3, asyncio-1.3.0, cov-7.0.0, anyio-4.14.2, Faker-40.1.2, typeguard-4.4.3, respx-0.23.1, benchmark-5.3.0, syrupy-6.0.0, langsmith-0.12.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 80 items
+
+docs/plans/2026-10-05-emendas-pimenta/diagnostics/test_gravar_licoes.py . [  1%]
+........................................................................ [ 91%]
+.......                                                                  [100%]
+--------------------------- kazuba-vigia-de-memória ----------------------------
+
+[kazuba-vigia-de-rss] vigia mede a soma de RSS (sem scope próprio com teto): uma página compartilhada conta uma vez por processo que a mapeia, e arquivo em tmpfs não aparece — para a métrica do kernel (anon+shmem do scope) rode por scripts/utils/pytest_com_teto.py
+[kazuba-vigia-de-rss] sem teto de kernel nesta sessão (nenhum memory.max finito no cgroup): um laço em C que segura o GIL cega o vigia — medido em 24/09/2026: 17,6 s sem amostrar na suíte eleitoral+publicação — e ali nada tem chão; para teto duro use scripts/utils/pytest_com_teto.py
+============================== 80 passed in 0.44s ==============================

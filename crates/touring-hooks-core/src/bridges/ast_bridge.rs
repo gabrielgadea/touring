@@ -139,6 +139,158 @@ pub fn extract_file_imports(source: &str, file_path: &str) -> Vec<(String, Vec<S
         .collect()
 }
 
+/// The imports that are USES of what they name — the ones a consumer edge is
+/// recorded for. [`extract_file_imports`] minus what the file only forwards or
+/// never touches: Rust re-exports (`pub use`, `pub(crate) use`) and Python
+/// names never referenced outside the import statements (an `__all__` or
+/// `__init__.py` façade, a dead import). Decision of 18/09/2026 (Gabriel):
+/// importing is not using, in both languages. The rebuild and the hook path
+/// both reach this through `record_import_consumers`.
+///
+/// Symbols are removed, never modules: an import left with no symbol records
+/// nothing downstream.
+pub fn extract_consumed_imports(source: &str, file_path: &str) -> Vec<(String, Vec<String>)> {
+    let imports = extract_file_imports(source, file_path);
+    match Lang::from_path(Path::new(file_path)) {
+        Some(Lang::Rust) => {
+            // A re-export the file ALSO names in its own code is a use of it
+            // (`pub use a::X;` then `[X, …]` in a table).
+            let used = touring_code::ast::graph::rust_names_used_outside_use(source);
+            let forwarded: std::collections::HashSet<(String, String)> =
+                touring_code::ast::graph::rust_reexports(source)
+                    .into_iter()
+                    .flat_map(|imp| {
+                        let module = imp.module_path;
+                        imp.symbols.into_iter().map(move |s| (module.clone(), s))
+                    })
+                    .filter(|(_, symbol)| !used.contains(symbol))
+                    .collect();
+            drop_symbols(imports, |module, symbol| {
+                forwarded.contains(&(module.to_string(), symbol.to_string()))
+            })
+        }
+        Some(Lang::Python) => {
+            let unreferenced = touring_code::ast::graph::python_unreferenced_imports(source);
+            drop_symbols(imports, |_, symbol| unreferenced.contains(symbol))
+        }
+        _ => imports,
+    }
+}
+
+#[cfg(test)]
+mod consumed_import_tests {
+    use super::extract_consumed_imports;
+
+    fn symbols_of(imports: &[(String, Vec<String>)], module: &str) -> Vec<String> {
+        imports
+            .iter()
+            .filter(|(m, _)| m == module)
+            .flat_map(|(_, s)| s.clone())
+            .collect()
+    }
+
+    /// A document or a data file holds no `use`: pinned as an invariant of this extractor.
+    ///
+    /// This is NOT the reproduction of the `kind_unknown` row that appeared on 03/10/2026 (a
+    /// `wiring_map` row, `consumer_file = CLAUDE.md`, `consumer_type = rust_import`, written when
+    /// that file was edited): it passed on the unmodified extractor, which is how that defect was
+    /// traced to ANOTHER step of the edit path. XA-17 was fixed there, in
+    /// `record_direct_path_consumers` (`touring-hook-runtime/src/wiring.rs`, `4c49ab1b`), and its
+    /// reproduction is `a_path_quoted_in_prose_is_not_a_consumer_edge` in `wiring_tests.rs`. This
+    /// test guards a different function and cannot fail against the code before that fix. The
+    /// positive control keeps it from passing by an extractor that reads nothing at all.
+    #[test]
+    fn prose_and_data_files_are_not_consumers() {
+        let prose = "A travessia credita o modulo: `use crate::a::b::Z;`\n\n\
+                     ```rust\nuse crate::a::b::Z;\n```\n";
+        for path in [
+            "CLAUDE.md",
+            "docs/notes.md",
+            "Cargo.toml",
+            "ci.yml",
+            "data.json",
+            "index.html",
+            "site.css",
+        ] {
+            assert!(
+                extract_consumed_imports(prose, path).is_empty(),
+                "{path}: an example written in prose must not become a consumer edge"
+            );
+        }
+        let code = "use crate::a::b::Z;\n\nfn f() -> Z {\n    Z\n}\n";
+        assert!(
+            !extract_consumed_imports(code, "src/lib.rs").is_empty(),
+            "positive control: a Rust file that uses what it imports still consumes"
+        );
+    }
+
+    /// Código citado em Markdown (fence ou prosa) não é consumo de import.
+    ///
+    /// 09/10/2026: este teste lia o CLAUDE.md do workspace via `include_str!` e
+    /// tinha uma premissa viva — "o exemplo `use crate::a::b::Z` ainda está no
+    /// arquivo". A reestruturação documental (o changelog movido ao
+    /// CHANGELOG.md:390) removeu o exemplo e o teste quebrou sem que o extrator
+    /// mudasse: a premissa num doc vivo era o defeito. O exemplo vem inline nos
+    /// dois formatos que o doc real usa; o comportamento provado é o mesmo.
+    #[test]
+    fn markdown_with_cited_code_is_not_a_consumer() {
+        let md = "# Guia\n\nUse assim:\n\n```rust\nuse crate::a::b::Z;\n```\n\n\
+                  E o `crate::a::b::Z` citado em prosa segue sendo citação.\n";
+        assert!(
+            extract_consumed_imports(md, "CLAUDE.md").is_empty(),
+            "markdown com código citado não pode consumir nada"
+        );
+    }
+
+    /// The Python extractor reports the ORIGINAL name of `a as b`, and the
+    /// filter judges the local one: `No as N` used as `N()` stays a use.
+    #[test]
+    fn a_python_facade_forwards_and_only_used_names_remain() {
+        let src = "from pkg.gravacao import supersede, grava\n\
+                   from pkg.modelo import No as N\n\
+                   __all__ = [\"supersede\", \"grava\"]\n\n\
+                   def f():\n    return grava(N())\n";
+        let imports = extract_consumed_imports(src, "pkg/fachada.py");
+        assert_eq!(symbols_of(&imports, "pkg.gravacao"), ["grava"]);
+        assert_eq!(symbols_of(&imports, "pkg.modelo"), ["No"]);
+    }
+
+    #[test]
+    fn a_rust_reexport_is_subtracted_and_a_plain_use_kept() {
+        let src = "pub use crate::a::Foo;\nuse crate::a::Bar;\n\nfn f() -> Bar { Bar }\n";
+        let imports = extract_consumed_imports(src, "src/lib.rs");
+        assert_eq!(symbols_of(&imports, "crate::a"), ["Bar"]);
+    }
+
+    /// `handlers/mod.rs` re-exports each assist and lists it in its own table:
+    /// eleven handlers read as orphans until the table counted (18/09/2026).
+    #[test]
+    fn a_rust_reexport_the_file_also_uses_is_a_use() {
+        let src = "pub use auto_import::AUTO_IMPORT;\npub use auto_wire::AUTO_WIRE;\n\n\
+                   pub const ALL: &[(&str, Handler)] = &[(\"auto_import\", AUTO_IMPORT)];\n";
+        let imports = extract_consumed_imports(src, "src/handlers/mod.rs");
+        assert_eq!(symbols_of(&imports, "auto_import"), ["AUTO_IMPORT"]);
+        assert!(
+            symbols_of(&imports, "auto_wire").is_empty(),
+            "only forwarded"
+        );
+    }
+}
+
+/// `imports` with every `(module, symbol)` that `drop` accepts removed.
+fn drop_symbols(
+    imports: Vec<(String, Vec<String>)>,
+    drop: impl Fn(&str, &str) -> bool,
+) -> Vec<(String, Vec<String>)> {
+    imports
+        .into_iter()
+        .map(|(module, symbols)| {
+            let kept = symbols.into_iter().filter(|s| !drop(&module, s)).collect();
+            (module, kept)
+        })
+        .collect()
+}
+
 /// Extract method-call / associated-function-call identifiers used in
 /// the file. Captures `.method()` dispatch and `Type::assoc_fn()` syntax
 /// that the import-based extractor misses.
@@ -644,7 +796,7 @@ pub fn compute_blast_radius_cross_feature(
 /// breaking API changes after an edit.
 #[must_use]
 pub fn diff_pub_api_surface(old_source: &str, new_source: &str, file_path: &str) -> Option<String> {
-    let lang = Lang::from_path(Path::new(file_path))?;
+    let lang = code_lang(file_path)?;
 
     let old_syms = extract_symbols(old_source, lang).ok()?;
     let new_syms = extract_symbols(new_source, lang).ok()?;
@@ -673,7 +825,7 @@ pub fn diff_pub_api_from_snapshot(
     new_source: &str,
     file_path: &str,
 ) -> Option<String> {
-    let lang = Lang::from_path(Path::new(file_path))?;
+    let lang = code_lang(file_path)?;
     let new_syms = extract_symbols(new_source, lang).ok()?;
     let new_pub = extract_pub_symbols(&new_syms);
 
@@ -687,18 +839,27 @@ pub fn diff_pub_api_from_snapshot(
     Some(format_symbol_diff(&diff))
 }
 
+/// The language of `file_path` when it is CODE — the only kind with a public API surface
+/// (S28, 25/09/2026). Markup and data files have structure (headings, keys) the symbol
+/// extractor reads, but a changed heading is not an API change.
+fn code_lang(file_path: &str) -> Option<Lang> {
+    Lang::from_path(Path::new(file_path)).filter(Lang::is_code)
+}
+
 /// Parse pub symbols from the compact JSON format stored in knowledge.db.
 ///
 /// Expects: `[{"name":"foo","kind":"function","is_public":true,"line":1}, ...]`
 /// Filters to `is_public == true` and maps `kind` string to `SymbolKind`.
+///
+/// `None` when any entry does not say whether it is public (S221, 25/09/2026): the
+/// live `{symbol_name, is_definition, …}` shape carries no visibility, and reading
+/// its absence as `false` made every current symbol a `+pub` after any small Edit.
+/// A baseline that cannot state the old surface compares nothing.
 fn parse_pub_symbols_from_json(json: &str) -> Option<Vec<PubSymbol>> {
     let arr: Vec<serde_json::Value> = serde_json::from_str(json).ok()?;
     let mut pub_syms = Vec::new();
     for item in &arr {
-        let is_public = item
-            .get("is_public")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let is_public = item.get("is_public").and_then(serde_json::Value::as_bool)?;
         if !is_public {
             continue;
         }
@@ -1067,6 +1228,43 @@ def simple():
         let source = "pub fn foo() {}\n";
         let result = diff_pub_api_surface(source, source, "test.rs");
         assert!(result.is_none(), "no API change should return None");
+    }
+
+    /// S28 (plan 2026-09-25): a Markdown heading is not API — `.md` edits were reported
+    /// as "API surface changed" in post-edit. Only code languages have a public surface.
+    #[test]
+    fn markdown_headings_are_not_api_surface() {
+        let old = "# Title\n\n## Old section\n\ntext\n";
+        let new = "# Title\n\n## New section\n\ntext\n";
+        assert_eq!(
+            diff_pub_api_surface(old, new, "README.md"),
+            None,
+            "headings are not API"
+        );
+        assert_eq!(diff_pub_api_from_snapshot("[]", new, "docs/guide.md"), None);
+        assert_eq!(
+            diff_pub_api_surface("{\"a\": 1}", "{\"b\": 1}", "conf.json"),
+            None,
+            "data is not API"
+        );
+        assert!(
+            diff_pub_api_surface("pub fn a() {}", "pub fn b() {}", "lib.rs").is_some(),
+            "control: code still reports its surface"
+        );
+    }
+
+    /// S221 (25/09/2026): the live `symbols_json` of the analise has the shape
+    /// `{file_path, symbol_name, line, column, is_definition, kind}` — no `is_public`.
+    /// Read as "nothing was public", it turned every current symbol into `+pub` after
+    /// any small Edit. A snapshot that cannot say what was public is not a baseline.
+    #[test]
+    fn a_snapshot_without_visibility_is_not_a_baseline() {
+        let live_shape = r#"[{"file_path":"m.py","symbol_name":"handler","line":1,"column":0,"is_definition":true,"kind":"function"}]"#;
+        let src = "def handler():\n    return 1\n\n\ndef helper():\n    return 2\n";
+        assert_eq!(diff_pub_api_from_snapshot(live_shape, src, "m.py"), None);
+        // Control: a snapshot that DOES carry visibility still reports a real change.
+        let with_visibility = r#"[{"name":"handler","kind":"function","is_public":true,"line":1}]"#;
+        assert!(diff_pub_api_from_snapshot(with_visibility, src, "m.py").is_some());
     }
 
     #[test]

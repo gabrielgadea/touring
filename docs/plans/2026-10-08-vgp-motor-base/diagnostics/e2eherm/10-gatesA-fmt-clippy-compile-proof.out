@@ -1,0 +1,38 @@
+hw-slot: aguardando — temp 90C > 88C
+### fmt
+fmt rc=0
+### clippy
+clippy rc=0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 11s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+### compile wave25
+compile rc=0
+/home/gabrielgadea/projects/touring/target/wt-e2eherm/debug/deps/wave25_task_enrichment_e2e-cc6e53cde38dd564
+### 1. suite window (clean env)
+suite rc=0 wall=2.25s
+E2EHERM-RAN enter_plan_mode: control="" seeded="memory: e2eherm-seed-plan-mode"
+test enter_plan_mode_prompt_is_treated_as_subject ... ok
+test non_task_non_file_tool_returns_empty_context ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+E2EHERM-RAN task_create: control="" seeded="memory: e2eherm-seed-task-create"
+test task_create_payload_returns_enriched_context ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.25s
+dbs 20 | tables identical 263 | tables changed 0 | files w/ new mtime/size 0
+### 2. read-only mount namespace window
+ro rc=0 trees_ro=5
+E2EHERM-RAN enter_plan_mode: control="" seeded="memory: e2eherm-seed-plan-mode"
+test enter_plan_mode_prompt_is_treated_as_subject ... ok
+test non_task_non_file_tool_returns_empty_context ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+E2EHERM-RAN task_create: control="" seeded="memory: e2eherm-seed-task-create"
+test task_create_payload_returns_enriched_context ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s
+dbs 20 | tables identical 263 | tables changed 0 | files w/ new mtime/size 0
+### 3. ambient control (no suite)
+dbs 20 | tables identical 263 | tables changed 0 | files w/ new mtime/size 0
+gatesA rc=0

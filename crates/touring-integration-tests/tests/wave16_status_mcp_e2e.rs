@@ -19,11 +19,35 @@ use touring_hooks::health_delta::{
     STREAK_ALERT_THRESHOLD, compute_signals_delta, discard_pre_health, record_pre_signals,
     regression_streak, reset_streak, status_json,
 };
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::private_daemon_env;
 
-const TOURING_BIN: &str = "/home/gabrielgadea/.claude/rust/target/release/touring";
+/// The product binary: prefer `release` when it exists, else `debug`.
+///
+/// Release-only resolution made this file's tests pass on a developer box (where
+/// `update-touring` leaves a release build behind) and fail on every clean CI
+/// runner with `spawn touring: NotFound`. Mirrors the convention already used by
+/// `graph_service_e2e.rs`.
+fn touring_bin() -> std::path::PathBuf {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let workspace = std::path::Path::new(manifest_dir)
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("workspace root");
+    let release = workspace.join("target/release/touring");
+    if release.exists() {
+        release
+    } else {
+        workspace.join("target/debug/touring")
+    }
+}
 
 fn binary_available() -> bool {
-    std::path::Path::new(TOURING_BIN).exists()
+    touring_bin().exists()
 }
 
 fn drive_regressions(path: &str, n: u32) {
@@ -44,6 +68,7 @@ fn drive_regressions(path: &str, n: u32) {
 // ── Axis 1: pure status_json aggregate is well-formed ───────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis1_status_json_aggregate_is_well_formed() {
     let out = status_json(None);
     let v: serde_json::Value = serde_json::from_str(&out).expect("valid JSON");
@@ -67,6 +92,7 @@ fn axis1_status_json_aggregate_is_well_formed() {
 // ── Axis 2: pure status_json per-path matches recorded streak state ─────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis2_status_json_per_path_matches_state() {
     let path = "/wave16e2e/axis2.rs";
     reset_streak(path);
@@ -81,12 +107,14 @@ fn axis2_status_json_per_path_matches_state() {
 // ── Axis 3: `touring status -j` includes `health_delta` key ─────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis3_touring_status_includes_health_delta_key() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["status", "-j"])
         .output()
         .expect("spawn touring status");
@@ -107,6 +135,7 @@ fn axis3_touring_status_includes_health_delta_key() {
 // ── Axis 4: status_json is byte-identical between aggregate calls ───────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis4_status_json_aggregate_is_stable_shape() {
     // Schema is stable across calls (counters may differ but keys must match).
     let a = status_json(None);
@@ -131,6 +160,7 @@ fn axis4_status_json_aggregate_is_stable_shape() {
 // ── Axis 5: MCP tool function signatures resolve (compile-time check) ───────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis5_mcp_helpers_compile_and_return_string() {
     // The MCP tools call status_json + reset_json directly — same as
     // the CLI handlers. We verify the pure functions are reachable
@@ -148,6 +178,7 @@ fn axis5_mcp_helpers_compile_and_return_string() {
 // ── Axis 6: CLI handler / pure function / MCP tool share JSON SHAPE ─────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis6_single_source_of_truth_invariant() {
     // Note: the daemon process and the test process have separate
     // `STREAK_CACHE` singletons (process-scoped). We can't compare
@@ -157,10 +188,11 @@ fn axis6_single_source_of_truth_invariant() {
     let path = "/wave16e2e/axis6.rs";
     let pure = status_json(Some(path));
     if !binary_available() {
-        eprintln!("skipping CLI half: {TOURING_BIN} not built");
+        eprintln!("skipping CLI half: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["health-delta", "status", path])
         .output()
         .expect("spawn touring");
@@ -194,12 +226,14 @@ fn axis6_single_source_of_truth_invariant() {
 // ── Axis 7: `touring status -j` is parseable end-to-end ─────────────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis7_touring_status_parses_full_dashboard() {
     if !binary_available() {
-        eprintln!("skipping: {TOURING_BIN} not built");
+        eprintln!("skipping: {} not built", touring_bin().display());
         return;
     }
-    let out = Command::new(TOURING_BIN)
+    let out = Command::new(touring_bin())
+        .envs(private_daemon_env())
         .args(["status", "-j"])
         .output()
         .expect("spawn");
@@ -228,6 +262,7 @@ fn axis7_touring_status_parses_full_dashboard() {
 // ── Axis 8: regression_streak field reflects underlying state ───────────────
 
 #[test]
+#[serial_test::serial(health_delta)]
 fn axis8_regression_streak_field_reflects_state() {
     let path = "/wave16e2e/axis8.rs";
     reset_streak(path);

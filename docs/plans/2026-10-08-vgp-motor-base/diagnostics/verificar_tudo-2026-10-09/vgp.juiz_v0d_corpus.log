@@ -1,0 +1,5 @@
+entradas 81 · positivos 51 · negativos 30
+  FALTA negativos 30 < 300
+  FALTA re-sorteio com a semente não devolve os mesmos ids
+  FALTA controle positivo do corpus: 30/51 = 59% < 70%
+veredito: 3 pendências

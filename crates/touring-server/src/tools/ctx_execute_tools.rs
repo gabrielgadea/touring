@@ -82,8 +82,60 @@ pub struct CtxExecuteInput {
     pub cwd: Option<String>,
 }
 
-/// Result of a sandboxed `ctx_execute` invocation.
+/// W1 d3/S-1.1 — orthogonal failure taxonomy (dsh-derived, 6 kinds): a budget
+/// expiry is not an exception, an abort is not a timeout, and a substrate
+/// death is neither. Each kind steers a DIFFERENT correction by the model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunFailureKind {
+    /// The program itself failed (non-zero exit with its own error output).
+    Exception,
+    /// A budget (wall-clock or CPU busy time) expired and the process was killed.
+    Timeout,
+    /// The execution was denied/cancelled before or during the run (e.g. lock conflict).
+    Abort,
+    /// The subprocess died abnormally or could not be launched.
+    ProcExit,
+    /// The request itself was malformed (bad args / unsupported input).
+    InvalidOutput,
+    /// Captured output hit the sandbox byte cap and was cut — data was LOST,
+    /// not merely elided; rerun producing less output or read the stored file.
+    OutputLimit,
+}
+
+/// W1 d3/S-1.1 — which pipeline stage the failure belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RunPhase {
+    /// Before any process existed: language/args validation.
+    Parse,
+    /// Launching the subprocess.
+    Spawn,
+    /// While the program was running.
+    Execute,
+}
+
+/// W1 d3/S-1.1 — structured failure descriptor attached to a run result.
+/// `message` is written for the model to self-correct (P9/P15).
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunFailure {
+    /// Orthogonal failure class.
+    pub kind: RunFailureKind,
+    /// Pipeline stage where it happened.
+    pub phase: RunPhase,
+    /// Human/model-readable cause naming the next action.
+    pub message: String,
+}
+
+/// `bytes_elided == 0` é o caso comum (nada foi cortado) — omiti-lo mantém
+/// o payload enxuto sem perder a informação quando ela existe.
+fn is_zero(v: &u64) -> bool {
+    *v == 0
+}
+
+/// Result of a sandboxed `ctx_execute` invocation.
+#[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CtxExecuteOutput {
     /// Captured standard output of the executed program.
@@ -101,6 +153,44 @@ pub struct CtxExecuteOutput {
     pub stdout_truncated: bool,
     /// Whether `stderr` was truncated to fit the size cap.
     pub stderr_truncated: bool,
+    /// W1 d3/S-1.1 — structured failure taxonomy; `None` on a clean success.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure: Option<RunFailure>,
+    /// W1 d3/S-1.2 — full-output locator on disk when the inline view was
+    /// truncated (the complete stdout is already persisted by the sandbox).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stored_path: Option<String>,
+    /// W1 d3/S-1.2 — how to read the full output (P19: spill with a
+    /// retrieval hint, never a silent cut).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retrieval_hint: Option<String>,
+    /// Bytes que a elisão manteve FORA do contexto (saída completa − inline).
+    ///
+    /// Exposto porque o `record_code_mode_run` logo abaixo incrementa um counter
+    /// do PROCESSO, e o `touring run` é um CLI efêmero: o incremento morria com
+    /// ele enquanto o `journal_run` da linha seguinte — que escreve em disco —
+    /// sobrevivia. Medido em 24/08/2026: 163 linhas de journal contra
+    /// `code_mode_runs_count = 0` no daemon. Com o valor aqui, o adaptador CLI
+    /// retransmite ao daemon, que é quem o `gate-metrics` lê.
+    #[serde(skip_serializing_if = "is_zero", default)]
+    pub bytes_elided: u64,
+    /// B1 (2026-09-02) — bytes the run left in its private temp dir, measured
+    /// before the dir was removed. Journaled by B2; surfaced so the caller
+    /// sees the cost of a run that scribbles.
+    #[serde(skip_serializing_if = "is_zero", default)]
+    pub tmp_bytes: u64,
+    /// C2-W0 S-5.2 — this execution's identity (`run-<epoch_ms>-<pid>`).
+    /// The same id keys `run_journal.jsonl`, reaches the sandbox child as
+    /// `TOURING_RUN_ID`, and prefixes each orchestrate sub-call's `origin`
+    /// (`<run_id>:code:<n>`) in the daemon's `run_subcalls.jsonl` — one id
+    /// correlates CLI, sandbox, and daemon.
+    pub run_id: String,
+    /// P2 (27/10/2026) — how many times this EXACT program body (same
+    /// `code_hash`) appears in the journal tail before this run. The CLI turns
+    /// `>= 2` into the recurrence harvest nudge (the 3rd identical run is the
+    /// signal the static shape hint cannot see).
+    #[serde(skip_serializing_if = "is_zero", default)]
+    pub prior_same_program: u64,
 }
 
 fn parse_language(lang: &str) -> Result<SandboxLanguage> {
@@ -144,13 +234,105 @@ fn inject_args(code: &str, args: &serde_json::Value, lang: SandboxLanguage) -> S
     }
 }
 
-fn truncate(s: &str, max_bytes: usize) -> (String, bool) {
+/// W1 d3/S-1.2 — head/tail preview: keep 3/4 of the cap from the start and
+/// 1/4 from the end with an explicit elision marker. The tail is where a
+/// program's FINAL result usually lives — a head-only cut hid exactly the
+/// bytes the model needed.
+fn truncate_head_tail(s: &str, max_bytes: usize) -> (String, bool) {
     let bytes = s.as_bytes();
     if bytes.len() <= max_bytes {
         return (s.to_string(), false);
     }
-    let truncated: String = String::from_utf8_lossy(&bytes[..max_bytes]).to_string();
-    (truncated, true)
+    let head_len = max_bytes * 3 / 4;
+    let tail_len = max_bytes - head_len;
+    let head = String::from_utf8_lossy(&bytes[..head_len]);
+    let tail = String::from_utf8_lossy(&bytes[bytes.len() - tail_len..]);
+    let elided = bytes.len() - head_len - tail_len;
+    (
+        format!("{head}\n... [{elided} bytes elided] ...\n{tail}"),
+        true,
+    )
+}
+
+/// W1 d3/S-1.2 — inline caps for the run result, env-overridable so a caller
+/// that wants the full million bytes inline can ask for it explicitly.
+fn inline_caps() -> (usize, usize) {
+    fn cap(var: &str, default: usize) -> usize {
+        std::env::var(var)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    }
+    (
+        cap("TOURING_RUN_MAX_STDOUT_BYTES", 8 * 1024),
+        cap("TOURING_RUN_MAX_STDERR_BYTES", 4 * 1024),
+    )
+}
+
+/// Cross-audit 27/08 (QW-2/3/4) — ajustes POR CHAMADA do `touring run`; antes
+/// só existiam como env vars globais do processo. Todo campo `None` preserva
+/// o comportamento anterior (default do engine / env var).
+#[derive(Debug, Default, Clone)]
+pub struct RunTunables {
+    /// Busy-time (CPU) budget do filho em ms — override do default 60 s.
+    pub compute_ms: Option<u64>,
+    /// Cap do stdout INLINE em bytes (a íntegra sempre vai para o spill).
+    pub max_stdout_bytes: Option<usize>,
+    /// Cap do stderr INLINE em bytes.
+    pub max_stderr_bytes: Option<usize>,
+    /// Bytes entregues ao stdin do programa (`touring run --input <file>`).
+    pub stdin_bytes: Option<Vec<u8>>,
+    /// NET-1 (28/08): portas TCP de saída concedidas (`--allow-net-port`).
+    /// `None`/`Some(vec![])` = deny-all (default). Residual aceito e
+    /// documentado: Landlock filtra por PORTA, não por host.
+    pub allow_net_ports: Option<Vec<u16>>,
+    /// OUT-1 (28/08): espelha a saída do programa no stderr do pai CONFORME
+    /// chega (`touring run --stream`); o envelope JSON continua no stdout.
+    pub stream: bool,
+    /// F4 P2 (2026-09-01): destino do espelho de sinais do SDK orchestrate —
+    /// exportado ao filho como `TOURING_SDK_SIGNAL_MIRROR` com grant de
+    /// escrita Landlock no ARQUIVO (o dir `~/.claude/touring` segue
+    /// read-only). `None` = sem export (todo run não-orchestrate).
+    pub sdk_signal_mirror: Option<std::path::PathBuf>,
+    /// B2 (2026-09-02): where the body came from — journaled so the reuse
+    /// KPI can tell a script that lives somewhere from text typed inline.
+    pub source: Option<RunSource>,
+    /// B2: the `--harvest <slug>` of this run, journaled.
+    pub harvest: Option<String>,
+    /// B2: `--brief` requested, journaled.
+    pub brief: bool,
+    /// B2: `--orchestrate` SDK injected, journaled.
+    pub orchestrate: bool,
+}
+
+/// B2 — origin of the program body a run executed.
+#[derive(Debug, Clone, Default)]
+pub struct RunSource {
+    /// `"file"` | `"inline"` | `"stdin"`.
+    pub kind: &'static str,
+    /// The script path when `kind == "file"`.
+    pub path: Option<String>,
+}
+
+/// B2 — the per-run facts the journal carries beyond the outcome: origin,
+/// harvest, presentation flags and the bytes the run left in its private tmp.
+#[derive(Debug, Clone, Default)]
+pub struct JournalMeta {
+    /// Origin of the body (`None` when the caller did not declare it).
+    pub source: Option<RunSource>,
+    /// `--harvest <slug>`, if any.
+    pub harvest: Option<String>,
+    /// `--brief` requested.
+    pub brief: bool,
+    /// `--orchestrate` injected.
+    pub orchestrate: bool,
+    /// B1 `tmp_bytes` measured before the run's private tmp was removed.
+    pub tmp_bytes: u64,
+    /// N6 (2026-09-23): the ladder's top similar block for this program as
+    /// `(entry_key, similarity)` when one exists — the discovery hint that
+    /// was display-only and therefore never measured (`ladder_enrolled` 390
+    /// beside `ladder_reused` 10: the gap is discovery, and it was invisible).
+    pub hint: Option<(String, f64)>,
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -169,6 +351,1188 @@ fn run_forbidden_scan(lang: SandboxLanguage, code: &str) -> Vec<String> {
     })
 }
 
+/// B2 (2026-09-02) — the journal record, built apart from the write so a test
+/// can hold it without touching `~/.claude/touring/run_journal.jsonl`. v2 adds
+/// `source`/`file`/`harvest`/`brief`/`orchestrate`/`tmp_bytes`: the M1 ruler
+/// counted 6.435 runs and could not say how many came from a file, how many
+/// were harvested or how much tmp they left — `harvest_flagged: 0` was a gap
+/// in the instrument, not a fact about the runs.
+///
+/// P2 (27/10/2026, portfólio de scripts — pedido do Gabriel): v3 adds
+/// `code_hash` (a REAL hash of the program body — the legacy
+/// `code_hash_stdout_bytes` carries stdout length, never a hash) and
+/// `prior_same_hash` (how many times this exact body ran before, tail-scan of
+/// the journal): recurrence is the harvest signal the static hint cannot see
+/// (medido 27/10: `--harvest` 0× como comando real em 2.420 transcripts).
+///
+/// P2-v2 (mesmo dia, ordem do Gabriel): v4 adds `code_simhash` (SimHash-64,
+/// hex) — a identidade EXATA provou-se rara demais (duplicata exata = 1% dos
+/// eventos de criação); a recriação real é por SEMELHANça, e é ela que o gate
+/// de repetição lê na cauda do journal.
+#[allow(clippy::too_many_arguments)]
+fn journal_record(
+    run_id: &str,
+    language: &str,
+    stdout_full: &str,
+    exit_code: i32,
+    duration_ms: u64,
+    failure_kind: Option<RunFailureKind>,
+    bytes_elided: u64,
+    meta: &JournalMeta,
+    code_hash: &str,
+    prior_same_hash: u32,
+    code_simhash: u64,
+    code_simhash_v2: u64,
+) -> serde_json::Value {
+    serde_json::json!({
+        "ts": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        "run_id": run_id,
+        "language": language,
+        "code_hash_stdout_bytes": stdout_full.len(),
+        "code_hash": code_hash,
+        "code_simhash": format!("{code_simhash:016x}"),
+        "code_simhash_v2": format!("{code_simhash_v2:016x}"),
+        "prior_same_hash": prior_same_hash,
+        "exit_code": exit_code,
+        "duration_ms": duration_ms,
+        "failure_kind": failure_kind.map(|k| serde_json::to_value(k).ok()),
+        "bytes_elided": bytes_elided,
+        "source": meta.source.as_ref().map(|s| s.kind),
+        "file": meta.source.as_ref().and_then(|s| s.path.clone()),
+        "harvest": meta.harvest,
+        "brief": meta.brief,
+        "orchestrate": meta.orchestrate,
+        "hint": meta.hint.as_ref().map(|(key, sim)| serde_json::json!({
+            "key": key,
+            "sim": sim,
+        })),
+        "tmp_bytes": meta.tmp_bytes,
+    })
+}
+
+/// N6 (2026-09-23) — the ladder's top similar block for this program as
+/// `(entry_key, similarity)`. The discovery hint existed at display time and
+/// was never journaled, so "did the library offer something?" had no answer
+/// (`ladder_enrolled` 390 × `ladder_reused` 10 — the gap is discovery, and it
+/// was invisible). Journaling it here — the one funnel every run path crosses
+/// (CLI + MCP) — makes coverage measurable. Fail-open everywhere: a hint is
+/// observability, never something a run may fail for.
+fn snippet_hint_for(code: &str, cwd: Option<&str>) -> Option<(String, f64)> {
+    let root = cwd
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())?;
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&root);
+    if !db.exists() {
+        return None;
+    }
+    let conn = rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()?;
+    let m = touring_intelligence::rl::memory::snippet_stats::similar_snippets(&conn, code, 1)
+        .ok()?
+        .into_iter()
+        .next()?;
+    Some((m.entry_key, m.similarity))
+}
+
+/// W4 d4/S-4.1 — append one JSONL record per execution to the run journal
+/// (`~/.claude/touring/run_journal.jsonl`). The journal is the durable trace
+/// the counterfactual KPI reads from; sub-call identity joins it in W5.
+/// Fail-open: any I/O error is swallowed — observability never blocks a run.
+///
+/// P2 (27/10/2026) — returns how many times this exact `code_hash` appeared in
+/// the journal BEFORE this record (the recurrence the harvest nudge reads).
+#[allow(clippy::too_many_arguments)]
+fn journal_run(
+    run_id: &str,
+    language: &str,
+    stdout_full: &str,
+    exit_code: i32,
+    duration_ms: u64,
+    failure_kind: Option<RunFailureKind>,
+    bytes_elided: u64,
+    meta: &JournalMeta,
+    code_hash: &str,
+    code_simhash: u64,
+    code_simhash_v2: u64,
+) -> u32 {
+    let Some(home) = std::env::var_os("HOME") else {
+        return 0;
+    };
+    let dir = std::path::Path::new(&home).join(".claude/touring");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return 0;
+    }
+    let journal = dir.join("run_journal.jsonl");
+    // P2 — counted BEFORE the append so the record does not see itself.
+    let prior = count_prior_same_hash(&journal, code_hash);
+    let record = journal_record(
+        run_id,
+        language,
+        stdout_full,
+        exit_code,
+        duration_ms,
+        failure_kind,
+        bytes_elided,
+        meta,
+        code_hash,
+        prior,
+        code_simhash,
+        code_simhash_v2,
+    );
+    append_journal_record(&journal, &record);
+    prior
+}
+
+/// Acrescenta UM registro ao journal — UMA escrita, o registro inteiro.
+///
+/// Duas chamadas (o corpo e o `\n`) deixavam DOIS escritores emendarem entre
+/// elas: medido em 31/10/2026 no journal real — 400 linhas inválidas em
+/// 47.102, 99 delas com 2+ `run_id` (ids 1 ms apartados). Com `O_APPEND` e o
+/// registro inteiro numa SÓ chamada, o kernel posiciona no fim e escreve o
+/// bloco de uma vez.
+///
+/// Acima do `PIPE_BUF` a garantia POSIX não cobre o tamanho: aí o `flock`
+/// exclusivo serializa os escritores (mesmo padrão do lock do daemon).
+fn append_journal_record(path: &std::path::Path, record: &serde_json::Value) {
+    let Ok(mut linha) = serde_json::to_string(record) else {
+        return;
+    };
+    linha.push('\n');
+    let bytes = linha.as_bytes();
+    let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    else {
+        return;
+    };
+    use std::io::Write;
+    if bytes.len() > PIPE_BUF {
+        // Acima do PIPE_BUF a garantia POSIX de atomicidade não cobre o
+        // tamanho: o flock exclusivo serializa os escritores.
+        let _guard = JournalLock::acquire(&f);
+        let _ = f.write_all(bytes);
+        return;
+    }
+    // Até o PIPE_BUF: UMA chamada de escrita (o registro e o `\n` no mesmo
+    // buffer) — `write` e NÃO `write_all`: `write_all` pode emitir VÁRIAS
+    // syscalls quando a escrita é parcial, e cada syscall é um ponto de
+    // emendo.
+    match f.write(bytes) {
+        Ok(n) if n == bytes.len() => {}
+        Ok(n) => {
+            // Escrita parcial: o resto vai sob flock — senão o registro fica
+            // cortado no meio e a linha vira lixo.
+            let _guard = JournalLock::acquire(&f);
+            let _ = f.write_all(&bytes[n..]);
+        }
+        Err(_) => {}
+    }
+}
+
+/// `PIPE_BUF` — o limite em que o POSIX garante que uma escrita em arquivo
+/// regular com `O_APPEND` é atômica entre escritores (Linux: 4096).
+const PIPE_BUF: usize = 4096;
+
+// flock(2) — declarado localmente (o mesmo padrão do lock do daemon, em
+// `crates/touring-dispatch/src/daemon.rs`) para não puxar `libc` como
+// dependência nova.
+const LOCK_EX: std::os::raw::c_int = 2;
+const LOCK_UN: std::os::raw::c_int = 8;
+
+unsafe extern "C" {
+    fn flock(fd: std::os::unix::io::RawFd, operation: std::os::raw::c_int) -> std::os::raw::c_int;
+}
+
+/// O lock exclusivo do journal. Fail-open: se o `flock` falhar, a escrita
+/// segue — o journal nunca bloqueia uma run (observabilidade não trava o
+/// trabalho).
+///
+/// Guarda o FD, não o `&File`: o guard precisa conviver com a escrita
+/// mutável no mesmo arquivo.
+struct JournalLock {
+    fd: std::os::unix::io::RawFd,
+}
+
+impl JournalLock {
+    fn acquire(file: &std::fs::File) -> Self {
+        let fd = std::os::unix::io::AsRawFd::as_raw_fd(file);
+        // SAFETY: `flock(2)` com um fd válido; o retorno é apenas observado.
+        let rc = unsafe { flock(fd, LOCK_EX) };
+        if rc != 0 {
+            tracing::debug!("journal: flock falhou; a escrita segue sem lock");
+        }
+        Self { fd }
+    }
+}
+
+impl Drop for JournalLock {
+    fn drop(&mut self) {
+        // SAFETY: idem — liberar o lock (o SO também libera no close do fd).
+        unsafe {
+            flock(self.fd, LOCK_UN);
+        }
+    }
+}
+
+/// P2-v2 (27/10/2026, ordem do Gabriel: "é preciso um critério por semelhança") —
+/// SimHash-64 do corpo NORMALIZADO (tokens, sem comentários/linhas vazias) sobre
+/// shingles de 3 tokens, FNV-1a 64 como hash base (determinístico entre processos,
+/// ao contrário do `hash()` do protótipo Python). Dois corpos que diferem só por
+/// ruído de edição (renomear var, reordenar, cortar comentário) caem a poucos bits
+/// de distância — medido em `calibrate_simhash.py` sobre os 14 campeões reais de
+/// recriação: positivos máx 8, negativos mín 20, **τ=10** com margem larga.
+pub(crate) fn code_simhash(code: &str) -> u64 {
+    let tokens = simhash_tokens(code);
+    if tokens.len() < 3 {
+        return fnv1a_tokens(&tokens);
+    }
+    simhash_vote(tokens.windows(3).map(fnv1a_tokens))
+}
+
+/// τ do gate de recriação sobre `code_simhash_v2`, escolhido pelos dados ANTES
+/// de mudar o default (acordo com a coordenadora, 28/10/2026): partição de
+/// TREINO do gold congelado do portfólio + campeões, τ ∈ 8..12, só o sinal de
+/// corpo. τ=9 é o maior com precisão 1,00 (recall 0,95); τ=10 admite 2 falsos
+/// positivos. Registro: `analise/docs/plans/2026-10-27-portfolio-scripts-harness/
+/// diagnostics/grade_tau_rust_v2.json`.
+pub(crate) const SIMHASH_V2_TAU: u32 = 9;
+
+/// v2 (28/10/2026) — o mesmo SimHash, mas cada shingle DISTINTO vota UMA vez.
+/// No `code_simhash` (v1) cada shingle vota quantas vezes ocorre, e linhas
+/// decorativas (`print("=" * 60)`, réguas de `─`) viram dezenas de shingles
+/// idênticos que vencem a votação do resto do programa: medido no corpus
+/// congelado do portfólio, programas sem relação colidiam a distância 0
+/// (Jaccard 0,066), e a precisão do gate no treino era 0,53 a τ=9 contra 1,00
+/// aqui. O conjunto acompanha o Jaccard de shingles. A deduplicação é pelo
+/// TEXTO do shingle (tokens concatenados), a mesma do port Python
+/// `portfolio/simhash.py --distintos`; o v1 segue gravado para continuidade.
+pub(crate) fn code_simhash_v2(code: &str) -> u64 {
+    let tokens = simhash_tokens(code);
+    if tokens.len() < 3 {
+        return fnv1a_tokens(&tokens);
+    }
+    let distintos: std::collections::BTreeSet<String> =
+        tokens.windows(3).map(|w| w.concat()).collect();
+    simhash_vote(distintos.iter().map(|s| fnv1a_tokens(&[s.as_str()])))
+}
+
+/// Tokens do corpo NORMALIZADO: sem linhas vazias nem de comentário, cortados
+/// em fronteira de não-(alfanumérico|_) com o separador colado ao token.
+fn simhash_tokens(code: &str) -> Vec<&str> {
+    code.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("//"))
+        .flat_map(|l| {
+            l.split_inclusive(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .collect::<Vec<_>>()
+        })
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
+/// FNV-1a 64 sobre os bytes dos tokens em sequência (= sobre a concatenação).
+fn fnv1a_tokens(tokens: &[&str]) -> u64 {
+    let mut h = 0xcbf29ce484222325u64;
+    for t in tokens {
+        for b in t.as_bytes() {
+            h = (h ^ u64::from(*b)).wrapping_mul(0x100000001b3);
+        }
+    }
+    h
+}
+
+/// A votação bit a bit do SimHash-64 sobre os hashes de shingle.
+fn simhash_vote(hashes: impl Iterator<Item = u64>) -> u64 {
+    let mut v = [0i32; 64];
+    for h in hashes {
+        for (bit, cell) in v.iter_mut().enumerate() {
+            *cell += if (h >> bit) & 1 == 1 { 1 } else { -1 };
+        }
+    }
+    v.iter().enumerate().fold(
+        0u64,
+        |acc, (bit, &c)| if c > 0 { acc | (1 << bit) } else { acc },
+    )
+}
+
+/// P2-v2 — um prior semelhante: quem, a que distância, e se foi harvestado.
+#[derive(Debug, Clone)]
+pub(crate) struct PriorSimilar {
+    /// run_id da execução anterior (o endereço para investigar).
+    pub run_id: String,
+    /// Distância de Hamming ao corpo atual (≤ τ por construção).
+    pub dist: u32,
+    /// slug do --harvest daquela run, quando houve (a rota pronta para reuso).
+    pub harvest: Option<String>,
+}
+
+/// P2-v2 — os priors com distância ≤ `tau` na cauda do journal (512 KiB, o
+/// mesmo recorte de recência do `count_prior_same_hash`). Filtra por substring
+/// `"code_simhash"` antes de parsear a linha (a cauda tem centenas de linhas,
+/// o parse só roda nas que têm o campo — v4 em diante). Fail-open: [].
+///
+/// `campo` nomeia a versão do hash (`"code_simhash"` ou `"code_simhash_v2"`):
+/// só se compara v2 com v2 — uma linha antiga, sem o campo, não casa nada, em
+/// vez de comparar dois hashes de votações diferentes (acordo de 28/10/2026).
+/// O resultado da busca de precedentes: os priors E as linhas malformadas que
+/// a cauda tinha.
+///
+/// T-1 (31/10/2026): a linha malformada é CONTADA e EXPOSTA. Pulada em
+/// silêncio, ela esconde que o journal está corrompido — e a leitura parcial
+/// (um prior que não voltou) parece "não havia precedente".
+#[derive(Debug, Default)]
+pub(crate) struct PriorSearch {
+    /// Precedentes dentro do τ, do mais perto ao mais longe.
+    pub priors: Vec<PriorSimilar>,
+    /// Linhas da cauda que não parsearam.
+    pub malformed_lines: u64,
+}
+
+/// P2-v2 (27/10/2026, ordem do Gabriel: "é preciso um critério por semelhança")
+/// — os precedentes no journal que casam com o SimHash do corpo atual: o que
+/// o gate de recriação usa para dizer "isto aqui já rodou".
+///
+/// `campo` nomeia a versão do hash (`"code_simhash"` ou `"code_simhash_v2"`):
+/// só se compara v2 com v2 — uma linha antiga, sem o campo, não casa nada, em
+/// vez de comparar dois hashes de votações diferentes (acordo de 28/10/2026).
+pub(crate) fn find_prior_similar(
+    journal: &std::path::Path,
+    campo: &str,
+    simhash: u64,
+    tau: u32,
+) -> PriorSearch {
+    let marca = format!("\"{campo}\"");
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(journal) else {
+        return PriorSearch::default();
+    };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024)))
+        .is_err()
+    {
+        return PriorSearch::default();
+    }
+    let mut buf = Vec::new();
+    if f.read_to_end(&mut buf).is_err() {
+        return PriorSearch::default();
+    }
+    let Ok(text) = String::from_utf8(buf) else {
+        return PriorSearch::default(); // cauda cortou um char no meio — a próxima run reconta
+    };
+    let mut out = Vec::new();
+    let mut malformed_lines = 0u64;
+    for line in text.lines().filter(|l| l.contains(&marca)) {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            // T-1 (31/10/2026): CONTADA, não pulada em silêncio — uma cauda
+            // corrompida por escrita concorrente é o sintoma, e o gate precisa
+            // poder dizer que a viu.
+            malformed_lines += 1;
+            continue;
+        };
+        let Some(h) = v
+            .get(campo)
+            .and_then(|x| x.as_str())
+            .and_then(|x| u64::from_str_radix(x, 16).ok())
+        else {
+            continue;
+        };
+        let dist = (h ^ simhash).count_ones();
+        if dist <= tau {
+            out.push(PriorSimilar {
+                run_id: v
+                    .get("run_id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
+                dist,
+                harvest: v
+                    .get("harvest")
+                    .and_then(|x| x.as_str())
+                    .map(str::to_string),
+            });
+        }
+    }
+    out.sort_by_key(|p| p.dist);
+    PriorSearch {
+        priors: out,
+        malformed_lines,
+    }
+}
+
+/// P2 (27/10/2026) — stable identity of the program body for the recurrence
+/// signal: sha256 truncated to 16 hex chars. Collisions across a local journal
+/// are negligible (2^64 space, milhares de entradas), and a stable hash lets
+/// "the SAME program ran N×" be counted — the legacy `code_hash_stdout_bytes`
+/// field carries stdout LENGTH, not a hash, and cannot answer it.
+fn code_hash_of(code: &str) -> String {
+    use sha2::Digest;
+    let digest = sha2::Sha256::digest(code.as_bytes());
+    digest[..8].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// P2 — count prior journal entries with the same `code_hash` scanning only
+/// the journal TAIL (last 512 KiB): older runs fade out by design, a recency
+/// bias that matches the question being asked ("is this program being re-run
+/// LATELY?"), not "did it ever run". Byte-level match on the fixed JSON key —
+/// no per-line parse. Fail-open: any I/O problem reads as zero (the nudge
+/// simply does not fire, never a wrong count).
+fn count_prior_same_hash(journal: &std::path::Path, hash: &str) -> u32 {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(journal) else {
+        return 0;
+    };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024)))
+        .is_err()
+    {
+        return 0;
+    }
+    let mut buf = Vec::new();
+    if f.read_to_end(&mut buf).is_err() {
+        return 0;
+    }
+    let needle = format!("\"code_hash\":\"{hash}\"").into_bytes();
+    if needle.len() > buf.len() {
+        return 0;
+    }
+    buf.windows(needle.len())
+        .filter(|w| *w == needle.as_slice())
+        .count() as u32
+}
+
+#[cfg(test)]
+mod journal_v2_tests {
+    use super::*;
+
+    /// B2 (2026-09-02): the journal record carries WHERE the program came from,
+    /// whether it was harvested/brief/orchestrate, and the bytes it left in its
+    /// private tmp — the fields the reuse KPI (C4) reads. Pure builder, so the
+    /// real `~/.claude/touring/run_journal.jsonl` is never touched by a test.
+    #[test]
+    fn journal_record_carries_source_harvest_brief_orchestrate_and_tmp_bytes() {
+        let meta = JournalMeta {
+            source: Some(RunSource {
+                kind: "file",
+                path: Some("/tmp/claude-1000/s/scratchpad/probe.py".to_string()),
+            }),
+            harvest: Some("probe-tmp".to_string()),
+            brief: true,
+            orchestrate: false,
+            tmp_bytes: 4096,
+            hint: Some(("snippet:varre-wiring:2026-09-01".to_string(), 0.87)),
+        };
+        let rec = journal_record(
+            "run-1", "python", "out", 0, 12, None, 3, &meta, "hash-a", 0, 0, 0,
+        );
+        assert_eq!(rec["run_id"], "run-1");
+        assert_eq!(rec["source"], "file");
+        assert_eq!(rec["file"], "/tmp/claude-1000/s/scratchpad/probe.py");
+        assert_eq!(rec["harvest"], "probe-tmp");
+        assert_eq!(rec["brief"], true);
+        assert_eq!(rec["orchestrate"], false);
+        // N6: the discovery hint travels in the record (was display-only).
+        assert_eq!(rec["hint"]["key"], "snippet:varre-wiring:2026-09-01");
+        assert_eq!(rec["hint"]["sim"], 0.87);
+        let meta_sem = JournalMeta::default();
+        let rec_sem = journal_record(
+            "run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1, 0, 0,
+        );
+        assert!(
+            rec_sem["hint"].is_null(),
+            "no match → null, never a fabricated hint"
+        );
+        assert_eq!(rec["tmp_bytes"], 4096);
+        assert_eq!(rec["bytes_elided"], 3);
+    }
+
+    #[test]
+    fn journal_record_without_meta_keeps_v1_shape_plus_nulls() {
+        let rec = journal_record(
+            "run-2",
+            "bash",
+            "",
+            1,
+            5,
+            None,
+            0,
+            &JournalMeta::default(),
+            "hash-b",
+            2,
+            0,
+            0,
+        );
+        assert!(rec["source"].is_null());
+        assert!(rec["file"].is_null());
+        assert!(rec["harvest"].is_null());
+        assert_eq!(rec["brief"], false);
+        assert_eq!(rec["orchestrate"], false);
+        assert_eq!(rec["tmp_bytes"], 0);
+        assert_eq!(rec["exit_code"], 1);
+    }
+
+    /// P2 (27/10/2026): o registro carrega a identidade estável do programa
+    /// (`code_hash`) e a recorrência medida ANTES do append (`prior_same_hash`)
+    /// — os dois campos que o nudge de harvest por recorrência lê.
+    #[test]
+    fn journal_record_carries_code_hash_and_prior_count() {
+        let rec = journal_record(
+            "run-3",
+            "python",
+            "out",
+            0,
+            7,
+            None,
+            0,
+            &JournalMeta::default(),
+            "0123456789abcdef",
+            2,
+            0,
+            0,
+        );
+        assert_eq!(rec["code_hash"], "0123456789abcdef");
+        assert_eq!(rec["prior_same_hash"], 2);
+    }
+
+    /// P2 — o hash é estável (mesma entrada, mesmo hash) e sensível ao corpo
+    /// (corpos distintos, hashes distintos); 16 hex chars de um sha256.
+    #[test]
+    fn code_hash_of_is_stable_and_body_sensitive() {
+        let a = code_hash_of("print(1)");
+        assert_eq!(a, code_hash_of("print(1)"));
+        assert_ne!(a, code_hash_of("print(2)"));
+        assert_eq!(a.len(), 16);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// P2 — a contagem lê só a cauda do journal e casa a chave JSON exata;
+    /// journal ausente ou ilegível lê zero (fail-open, nunca contagem errada).
+    #[test]
+    fn count_prior_same_hash_reads_the_tail_and_fails_open() {
+        let dir = std::env::temp_dir().join(format!("touring-p2-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let journal = dir.join("run_journal.jsonl");
+        let hash = code_hash_of("corpo-x");
+        let other = code_hash_of("corpo-y");
+        let mut lines = String::new();
+        for _ in 0..3 {
+            lines.push_str(&format!("{{\"code_hash\":\"{hash}\",\"ts\":1}}\n"));
+        }
+        lines.push_str(&format!("{{\"code_hash\":\"{other}\",\"ts\":2}}\n"));
+        std::fs::write(&journal, lines).expect("write");
+        assert_eq!(count_prior_same_hash(&journal, &hash), 3);
+        assert_eq!(count_prior_same_hash(&journal, &other), 1);
+        assert_eq!(count_prior_same_hash(&journal, &code_hash_of("nunca")), 0);
+        assert_eq!(
+            count_prior_same_hash(&dir.join("nao-existe.jsonl"), &hash),
+            0,
+            "journal ausente lê zero, não erro"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// P2-v2 — o SimHash é estável, insensível a ruído de comentário/blank, e
+    /// SENSÍVEL a outro programa: é o critério por semelhança que a identidade
+    /// exata não dava (ordem do Gabriel, 27/10). Corpos de teste têm ≥8 linhas
+    /// porque o gate tem piso de 5 (medido: com 3 linhas há shingles demais por
+    /// token — uma troca de 1 char move 11 bits; o τ=10 foi calibrado sobre
+    /// programas REAIS de 2-37 KB, não sobre minis).
+    #[test]
+    fn code_simhash_ignores_comment_noise_and_separates_programs() {
+        let base = "import json\nimport sys\nfrom pathlib import Path\n\ndef main():\n    dados = json.loads(Path(sys.argv[1]).read_text())\n    total = sum(d['v'] for d in dados)\n    print(json.dumps({'total': total, 'n': len(dados)}))\n";
+        let a = code_simhash(base);
+        // comentário e linha em branco a mais NÃO mudam o hash (são normalizados)
+        let b = code_simhash(&format!("# relatório semanal\n{base}\n"));
+        assert_eq!(a, b, "ruído de comentário/blank é normalizado fora");
+        // edição mínima num corpo real: troca de um campo
+        let c = code_simhash(&base.replace("'total'", "'soma'"));
+        let dist = (a ^ c).count_ones();
+        assert!(dist <= 10, "edição mínima fica dentro do τ: dist={dist}");
+        let outro = code_simhash(
+            "use std::fs;\nuse std::path::PathBuf;\n\nfn main() {\n    let raiz = PathBuf::from(\"/tmp\");\n    let mut n = 0u32;\n    for e in fs::read_dir(raiz).unwrap() { n += e.is_ok() as u32; }\n    println!(\"{n}\");\n}\n",
+        );
+        let dist_longe = (a ^ outro).count_ones();
+        assert!(
+            dist_longe > 10,
+            "programa distinto fica fora do τ: dist={dist_longe}"
+        );
+    }
+
+    /// P2-v2 — a busca casa ≤τ, rejeita >τ, devolve run_id/harvest do prior e
+    /// lê só a cauda; journal sem o campo (linhas v3-) não casa nada.
+    #[test]
+    fn find_prior_similar_respects_tau_and_reads_metadata() {
+        let dir = std::env::temp_dir().join(format!("touring-p2v2-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let journal = dir.join("run_journal.jsonl");
+        let base = "import json\nimport sys\nfrom pathlib import Path\n\ndef main():\n    dados = json.loads(Path(sys.argv[1]).read_text())\n    total = sum(d['v'] for d in dados)\n    print(json.dumps({'total': total, 'n': len(dados)}))\n";
+        let h = code_simhash(base);
+        let perto = code_simhash(&base.replace("'total'", "'soma'"));
+        let longe = code_simhash(
+            "use std::fs;\nuse std::path::PathBuf;\n\nfn main() {\n    let raiz = PathBuf::from(\"/tmp\");\n    let mut n = 0u32;\n    for e in fs::read_dir(raiz).unwrap() { n += e.is_ok() as u32; }\n    println!(\"{n}\");\n}\n",
+        );
+        let mut s = String::new();
+        s.push_str("{\"run_id\":\"run-v3\",\"code_hash\":\"abc\"}\n"); // v3: sem simhash
+        s.push_str(&format!(
+            "{{\"run_id\":\"run-perto\",\"code_simhash\":\"{perto:016x}\",\"harvest\":\"meu-snippet\"}}\n"
+        ));
+        s.push_str(&format!(
+            "{{\"run_id\":\"run-longe\",\"code_simhash\":\"{longe:016x}\",\"harvest\":null}}\n"
+        ));
+        std::fs::write(&journal, s).expect("write");
+        let busca = find_prior_similar(&journal, "code_simhash", h, 10);
+        let achados = &busca.priors;
+        assert_eq!(achados.len(), 1, "só o similar casa: {achados:?}");
+        assert_eq!(achados[0].run_id, "run-perto");
+        assert_eq!(achados[0].harvest.as_deref(), Some("meu-snippet"));
+        assert!(achados[0].dist <= 10);
+        assert_eq!(
+            busca.malformed_lines, 0,
+            "a fixture é válida: nenhuma linha malformada"
+        );
+        assert!(
+            find_prior_similar(&dir.join("nao-existe.jsonl"), "code_simhash", h, 10)
+                .priors
+                .is_empty(),
+            "fail-open: journal ausente = sem priors"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T-1 (31/10/2026) — o journal NÃO pode ser corrompido por concorrência.
+    ///
+    /// O defeito: o registro era escrito em DUAS chamadas (o corpo e o `\n`),
+    /// e dois processos emendavam entre elas — 400 linhas inválidas em
+    /// 47.102 no journal real, 99 delas com 2+ `run_id` (ids 1 ms apartados).
+    ///
+    /// O teste re-executa o próprio binário de teste em N PROCESSOS (o modo
+    /// filho é o MESMO teste, com a variável de ambiente que o faz só
+    /// escrever — é o que impede a recursão). Cada processo anexa M
+    /// registros; o journal final tem de ter ZERO linhas inválidas e N×M
+    /// registros.
+    #[test]
+    fn journal_append_is_atomic_across_processes() {
+        const FILHOS: usize = 12;
+        const POR_FILHO: usize = 250;
+
+        // Modo filho: só escreve e sai.
+        if let Ok(dir) = std::env::var("TOURING_JOURNAL_RACE_DIR") {
+            let journal_path = std::path::PathBuf::from(dir).join("run_journal.jsonl");
+            for i in 0..POR_FILHO {
+                append_journal_record(
+                    &journal_path,
+                    &serde_json::json!({
+                        "run_id": format!("run-corrida-{i}"),
+                        "language": "bash",
+                        "ts": i,
+                        "exit_code": 0,
+                        "duration_ms": 1,
+                        "failure_kind": serde_json::Value::Null,
+                        "bytes_elided": 0,
+                        "code_hash_stdout_bytes": 0,
+                        "code_hash": "abc",
+                        "code_simhash": "0000000000000000",
+                        "code_simhash_v2": "0000000000000000",
+                        "prior": 0,
+                    }),
+                );
+            }
+            return;
+        }
+
+        let dir = std::env::temp_dir().join(format!("touring-journal-race-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let exe = std::env::current_exe().expect("current_exe");
+        let mut filhos = Vec::new();
+        for _ in 0..FILHOS {
+            let mut c = std::process::Command::new(&exe);
+            c.env("TOURING_JOURNAL_RACE_DIR", &dir);
+            c.arg("journal_append_is_atomic_across_processes");
+            c.arg("--nocapture");
+            c.arg("--test-threads=1");
+            filhos.push(c.spawn().expect("spawn do filho"));
+        }
+        for mut f in filhos {
+            assert!(f.wait().expect("wait do filho").success(), "o filho falhou");
+        }
+
+        let path = dir.join("run_journal.jsonl");
+        let conteudo = std::fs::read_to_string(&path).expect("lê o journal");
+        let mut invalidas = 0u64;
+        let mut total = 0u64;
+        for line in conteudo.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            total += 1;
+            if serde_json::from_str::<serde_json::Value>(line).is_err() {
+                invalidas += 1;
+            }
+        }
+        assert_eq!(invalidas, 0, "linhas inválidas no journal: {invalidas}");
+        assert_eq!(
+            total,
+            (FILHOS * POR_FILHO) as u64,
+            "registros: {total} (esperado {})",
+            FILHOS * POR_FILHO
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Programa realista (>5 linhas não vazias, o piso do gate) para os testes do v2.
+    const PROG_V2: &str = r#"import json
+import sys
+from pathlib import Path
+
+
+def carregar(caminho):
+    dados = json.loads(Path(caminho).read_text(encoding="utf-8"))
+    return [d for d in dados if d.get("ativo")]
+
+
+def resumir(itens):
+    total = sum(i["valor"] for i in itens)
+    maior = max((i["valor"] for i in itens), default=0)
+    return {"total": total, "maior": maior, "n": len(itens)}
+
+
+def main():
+    itens = carregar(sys.argv[1])
+    print(json.dumps(resumir(itens), ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
+"#;
+
+    /// Dois programas sem relação embrulhados nas MESMAS réguas decorativas.
+    fn banners(corpo: &str) -> String {
+        let regua = "print(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\n".repeat(6);
+        format!("{regua}{corpo}{regua}")
+    }
+
+    /// v2 (28/10/2026) — paridade com o port Python `portfolio/simhash.py`
+    /// (`simhash64(x, distintos=True)`), valores calculados por ele; e o v1
+    /// segue bit a bit o que era antes da extração do tokenizador.
+    #[test]
+    fn code_simhash_v2_matches_the_python_port_and_v1_is_unchanged() {
+        let banner = banners(
+            "import csv\nimport sys\n\nwith open(sys.argv[1]) as f:\n    linhas = list(csv.reader(f))\nprint(len(linhas))\n",
+        );
+        for (codigo, v1, v2) in [
+            ("", 0xcbf29ce484222325u64, 0xcbf29ce484222325u64),
+            ("a b", 0x089c4407b545986a, 0x089c4407b545986a),
+            (PROG_V2, 0x447bdb935846aa01, 0x047bdb935944aa01),
+            (banner.as_str(), 0x56250d359e69bc4f, 0x76065d100c48914b),
+        ] {
+            assert_eq!(code_simhash(codigo), v1, "v1 mudou: {codigo:?}");
+            assert_eq!(
+                code_simhash_v2(codigo),
+                v2,
+                "v2 diverge do port: {codigo:?}"
+            );
+        }
+    }
+
+    /// Regressão do defeito medido no corpus do portfólio: réguas decorativas
+    /// dominavam a votação do v1 e colavam programas sem relação. O controle
+    /// (v1 colide) prova que o par exercita o defeito; o v2 os separa.
+    #[test]
+    fn code_simhash_v2_separates_programs_sharing_decorative_banners() {
+        let a = banners(
+            "import csv\nimport sys\n\nwith open(sys.argv[1]) as f:\n    linhas = list(csv.reader(f))\nprint(len(linhas))\n",
+        );
+        let b = banners(
+            "import socket\n\ns = socket.socket()\ns.connect(('localhost', 8080))\ns.send(b'ping')\nprint(s.recv(64))\n",
+        );
+        let d1 = (code_simhash(&a) ^ code_simhash(&b)).count_ones();
+        assert!(
+            d1 <= SIMHASH_V2_TAU,
+            "controle: o v1 colide o par (dist={d1})"
+        );
+        let d2 = (code_simhash_v2(&a) ^ code_simhash_v2(&b)).count_ones();
+        assert!(d2 > SIMHASH_V2_TAU, "v2 separa o par: dist={d2}");
+    }
+
+    /// Controle positivo: a variante editada (campo renomeado) ainda casa ≤ τ,
+    /// e um programa distinto fica fora.
+    #[test]
+    fn code_simhash_v2_keeps_edited_variants_within_tau() {
+        let h = code_simhash_v2(PROG_V2);
+        let editado = code_simhash_v2(&PROG_V2.replace("total", "soma"));
+        let d = (h ^ editado).count_ones();
+        assert!(d <= SIMHASH_V2_TAU, "variante editada casa: dist={d}");
+        let outro = code_simhash_v2(
+            "use std::collections::BTreeMap;\nuse std::fs;\n\nfn main() {\n    let texto = fs::read_to_string(\"entrada.txt\").expect(\"ler\");\n    let mut contagem: BTreeMap<&str, u32> = BTreeMap::new();\n    for palavra in texto.split_whitespace() {\n        *contagem.entry(palavra).or_insert(0) += 1;\n    }\n    for (p, n) in &contagem {\n        println!(\"{p}\\t{n}\");\n    }\n}\n",
+        );
+        let longe = (h ^ outro).count_ones();
+        assert!(
+            longe > SIMHASH_V2_TAU,
+            "programa distinto fica fora: dist={longe}"
+        );
+    }
+
+    /// Só v2 contra v2: uma linha antiga com o MESMO valor no campo v1 não casa
+    /// quando a busca é pelo campo v2; a linha com o campo v2 casa.
+    #[test]
+    fn find_prior_similar_compares_only_the_named_hash_version() {
+        let dir = std::env::temp_dir().join(format!("touring-v2-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let journal = dir.join("run_journal.jsonl");
+        let h = code_simhash_v2(PROG_V2);
+        std::fs::write(
+            &journal,
+            format!(
+                "{{\"run_id\":\"run-v1\",\"code_simhash\":\"{h:016x}\"}}\n{{\"run_id\":\"run-v2\",\"code_simhash\":\"0000000000000000\",\"code_simhash_v2\":\"{h:016x}\"}}\n"
+            ),
+        )
+        .expect("write");
+        let busca = find_prior_similar(&journal, "code_simhash_v2", h, SIMHASH_V2_TAU);
+        let achados = &busca.priors;
+        assert_eq!(achados.len(), 1, "só a linha v2 casa: {achados:?}");
+        assert_eq!(achados[0].run_id, "run-v2");
+        assert_eq!(achados[0].dist, 0);
+        assert_eq!(
+            busca.malformed_lines, 0,
+            "a fixture é válida: nenhuma linha malformada"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// O registro do journal grava os dois hashes, v1 e v2.
+    #[test]
+    fn journal_record_carries_both_simhash_versions() {
+        let rec = journal_record(
+            "run-4",
+            "python",
+            "out",
+            0,
+            7,
+            None,
+            0,
+            &JournalMeta::default(),
+            "0123456789abcdef",
+            0,
+            0xff,
+            0x0f,
+        );
+        assert_eq!(rec["code_simhash"], "00000000000000ff");
+        assert_eq!(rec["code_simhash_v2"], "000000000000000f");
+    }
+}
+
+/// V-10 (31/10/2026) — o que a falha precisa saber para ENSINAR a rota.
+///
+/// O `failure.message` é o campo que o modelo LÊ (no V0e: 39 das 606 falhas
+/// eram mensagens que deviam teach a rota e não teach). A rota depende de
+/// três fatos que o resultado cru do sandbox não carrega: o orçamento
+/// aplicado, a linguagem do programa e de onde veio o corpo.
+struct FailureContext<'a> {
+    /// O orçamento de parede que o motor aplicou (`config.timeout_ms`).
+    timeout_ms: u64,
+    /// A linguagem como o chamador a escreveu — a rota a teach é por linguagem.
+    lang: &'a str,
+    /// De onde veio o corpo (`--code` inline, `--file` ou `--stdin`).
+    source: Option<&'a RunSource>,
+}
+
+/// V-10 (31/10/2026) — a lição do timeout é a ÚLTIMA linha do stderr.
+///
+/// O CEG compõe o stderr do timeout como `stderr parcial do filho + "\n" +
+/// lição` (`sandbox_executor.rs::timeout_outcome_with_cause`), então a
+/// ÚLTIMA linha é a lição e a PRIMEIRA é do filho. Medido no binário 30.4.101
+/// (31/10): com o filho escrevendo stderr antes de estourar o relógio,
+/// `failure.message` era 'trabalho parcial do filho' — o orçamento de 30000ms
+/// e a correção `--timeout-ms <N>` sumiam do campo que o modelo lê.
+///
+/// A checagem por "timeout" não é decorativa: se a redação mudar, o motor
+/// reescreve a lição com o orçamento que ELE aplicou — o orçamento fica
+/// SEMPRE no campo que o modelo lê.
+fn timeout_teach_line(stderr: &str) -> Option<&str> {
+    let last = stderr.lines().rev().find(|l| !l.trim().is_empty())?;
+    if last.to_lowercase().contains("timeout") {
+        Some(last)
+    } else {
+        None
+    }
+}
+
+/// The one failure a finished sandbox run reports, in the order the model
+/// should correct them: timeout, cut output, a file cut at the file-size cap,
+/// death by a signal, a non-zero exit. `None` for a clean run.
+fn run_failure(
+    r: &touring_hooks::sandbox_executor::SandboxResult,
+    stderr: &str,
+    ctx: &FailureContext<'_>,
+) -> Option<RunFailure> {
+    let first_stderr_line = stderr
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("")
+        .to_string();
+    let (kind, message) = if r.exit_code == -2 {
+        // V-10 (31/10/2026): a lição do timeout é a ÚLTIMA linha do stderr —
+        // o CEG compõe `stderr parcial do filho + "\n" + lição`
+        // (`sandbox_executor.rs::timeout_outcome_with_cause`), então a
+        // PRIMEIRA linha é do FILHO. Pegar a primeira era perder o orçamento:
+        // medido no binário 30.4.101, com o filho escrevendo stderr antes de
+        // estourar o relógio, `failure.message` era 'trabalho parcial do
+        // filho' e o orçamento de 30000ms sumia do campo que o modelo lê.
+        //
+        // Quando a lição não está no stderr, o MOTOR a reescreve com o
+        // orçamento que ELE aplicou — a redação é a do CEG (fonte única).
+        (
+            RunFailureKind::Timeout,
+            timeout_teach_line(stderr)
+                .map(str::to_owned)
+                .unwrap_or_else(|| {
+                    touring_hooks::sandbox_executor::timeout_teach_message(ctx.timeout_ms)
+                }),
+        )
+    } else if r.was_truncated || r.stderr_truncated {
+        (
+            RunFailureKind::OutputLimit,
+            format!(
+                "output hit the sandbox byte cap and was cut (stdout_truncated={}, \
+                 stderr_truncated={}); emit less output or read the stored file",
+                r.was_truncated, r.stderr_truncated
+            ),
+        )
+    } else if !r.capped_files.is_empty() {
+        // 18/09/2026 (analise): a child killed by the file-size cap is invisible
+        // when the program carries on and exits 0, and the file is left cut at
+        // exactly the cap. The cap is the sandbox's doing, so the run says so.
+        (
+            RunFailureKind::OutputLimit,
+            touring_hooks::sandbox_executor::describe_capped_files(&r.capped_files),
+        )
+    } else if let Some(signal) = r.signal {
+        (
+            RunFailureKind::Exception,
+            killed_by(signal, &first_stderr_line),
+        )
+    } else if r.exit_code != 0 {
+        // V-10 (31/10/2026): um corpo que o shell não parseou tem uma CORREÇÃO
+        // concreta (o corpo inline, não o programa) — e ela só pode ser
+        // ensinada quando a assinatura está no stderr do shell.
+        let mut message = silent_exit(r.exit_code, first_stderr_line);
+        if let Some(route) = shell_syntax_route(ctx, stderr) {
+            message.push_str(&route);
+        }
+        (RunFailureKind::Exception, message)
+    } else {
+        return None;
+    };
+    Some(RunFailure {
+        kind,
+        phase: RunPhase::Execute,
+        message,
+    })
+}
+
+/// A death by signal, named with the cap behind it (18/09/2026: the number
+/// was dropped and every signal read as "a resource cap likely fired").
+fn killed_by(signal: i32, first_stderr_line: &str) -> String {
+    let cause = touring_hooks::sandbox_executor::describe_signal(signal);
+    if first_stderr_line.is_empty() {
+        format!("process was killed by {cause} — not the program's own exit code")
+    } else {
+        format!("process was killed by {cause}; first stderr line: {first_stderr_line}")
+    }
+}
+
+/// A non-zero exit: the first stderr line, or a message that teaches when
+/// stderr is empty.
+fn silent_exit(exit_code: i32, first_stderr_line: String) -> String {
+    if !first_stderr_line.is_empty() {
+        first_stderr_line
+    } else if exit_code < 0 {
+        // 30/08 (analise-a2): a negative exit is a death by signal with the
+        // number unknown here, not the program's code; SIGKILL leaves no
+        // stderr. This message used to be the "no match" one and the operator
+        // read an rlimit kill as a timeout.
+        format!(
+            "process was killed by a signal (exit {exit_code}) before finishing — a \
+             resource cap likely fired (the CPU rlimit scales with --timeout-ms; memory \
+             is capped at 80% of RAM). Empty stderr is typical of SIGKILL; this is not \
+             the program's own exit code"
+        )
+    } else {
+        // A5: a silent non-zero exit teaches nothing, and 71.6% of real failures
+        // land here (M1 ruler, 2026-08-28). The dominant silent case is
+        // grep/test/diff "no match", which exits 1 by DESIGN: name it so the model
+        // stops retrying the same body and handles the empty result instead.
+        format!(
+            "process exited with code {exit_code} with empty stderr — for grep/test/diff \
+             exit 1 usually means 'no match', a valid result to handle (append `|| true` \
+             if so), not an error to retry"
+        )
+    }
+}
+
+/// V-10 (31/10/2026) — a assinatura de um programa que o SHELL não parseou.
+///
+/// Medido no binário 30.4.101 (31/10/2026): `touring run --lang bash --code
+/// 'echo "oi'` → rc=2 e stderr `bash: -c: line 1: unexpected EOF while
+/// looking for matching `"'`.
+///
+/// Cuidado com a OUTRA camada: quando as aspas quebram no shell do CHAMADOR
+/// (stderr `bash: -c: line 1: unexpected EOF while looking for matching `''`,
+/// com aspa SIMPLES), o `touring` NUNCA CHEGA A RODAR — nenhuma mensagem do
+/// produto alcança esse caso. Por isso a assinatura exige o prefixo do shell:
+/// sem ele, um programa que só imprimiu "syntax error" no próprio output
+/// receberia uma rota que não é dele.
+fn is_shell_syntax_error(stderr: &str) -> bool {
+    let shell_reports = stderr.contains("bash: -c:")
+        || stderr.contains("/bin/bash:")
+        || stderr.contains("sh: -c:")
+        || stderr.contains("/bin/sh:");
+    shell_reports
+        && (stderr.contains("unexpected EOF while looking for matching")
+            || stderr.contains("unexpected end of file while looking for matching")
+            || stderr.contains("syntax error"))
+}
+
+/// V-10 (31/10/2026) — a rota de um corpo que o shell não parseou.
+///
+/// O que FUNCIONA (medido no binário 30.4.101, 31/10): `touring run --lang
+/// bash --file prog.sh` → rc=0 e stdout "oi de um arquivo" — o corpo de um
+/// arquivo não é reinterpretado pelo shell do chamador.
+///
+/// O que NÃO entra na rota: `--args '[…]'` — para bash ela é NO-OP (medido:
+/// `printf "%s|" "$@"` imprimiu `|`, não os argumentos) e, de todo modo,
+/// `--args` nunca foi uma correção de aspas: argumento não é corpo.
+fn shell_syntax_route(ctx: &FailureContext<'_>, stderr: &str) -> Option<String> {
+    if !is_shell_syntax_error(stderr) {
+        return None;
+    }
+    match ctx.source.map(|s| s.kind) {
+        // O corpo já veio de um arquivo: `--file` seria a MESMA rota, e uma
+        // rota que não muda nada não é uma rota — o arquivo é que está
+        // quebrado.
+        Some("file") => Some(
+            "\ncorrection: the body came from a FILE and the shell could not parse it — the \
+             file has unbalanced quotes; fix the file and re-run the SAME file."
+                .to_string(),
+        ),
+        Some("stdin") => Some(
+            "\ncorrection: the body came from STDIN and the shell could not parse it — the \
+             program's quotes are unbalanced; fix the body and re-run."
+                .to_string(),
+        ),
+        _ => Some(format!(
+            "\ncorrection: the inline body did not reach the shell intact (nested quotes) — \
+             write the program to a file and run the file: `touring run --lang {lang} \
+             --file {exemplo}` — a file body is not re-parsed by the caller's shell.",
+            lang = ctx.lang,
+            exemplo = exemplo_de_arquivo(ctx.lang),
+        )),
+    }
+}
+
+/// O nome de exemplo do arquivo da rota (o corpo é o mesmo texto).
+///
+/// A tabela espelha os apelidos de `parse_language` — a rota ensina um
+/// comando que o chamador pode colar, e um `.txt` para uma linguagem que
+/// tem nome próprio seria um consejo que nao serve.
+fn exemplo_de_arquivo(lang: &str) -> &'static str {
+    const TABELA: &[(&str, &str)] = &[
+        ("py", "prog.py"),
+        ("python", "prog.py"),
+        ("sh", "prog.sh"),
+        ("bash", "prog.sh"),
+        ("shell", "prog.sh"),
+        ("js", "prog.js"),
+        ("javascript", "prog.js"),
+        ("bun", "prog.js"),
+        ("node", "prog.js"),
+        ("ts", "prog.ts"),
+        ("typescript", "prog.ts"),
+        ("rb", "prog.rb"),
+        ("ruby", "prog.rb"),
+        ("go", "prog.go"),
+        ("golang", "prog.go"),
+        ("pl", "prog.pl"),
+        ("perl", "prog.pl"),
+        ("r", "prog.R"),
+        ("rlang", "prog.R"),
+        ("ex", "prog.exs"),
+        ("elixir", "prog.exs"),
+        ("php", "prog.php"),
+        ("rs", "prog.rs"),
+        ("rust", "prog.rs"),
+    ];
+    let l = lang.to_lowercase();
+    TABELA
+        .iter()
+        .find(|(apelido, _)| *apelido == l)
+        .map_or("prog.txt", |(_, arquivo)| *arquivo)
+}
+
+/// W0 d0 + W1 d3/S-1.1 — turn the raw sandbox result into the adapter's view:
+/// `(stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure)`.
+///
+/// Propagates the REAL captured stderr (before 2026-08-23 the success arm
+/// materialized `String::new()`) and derives the structured failure with
+/// priority Timeout > OutputLimit > Exception — one failure, the one whose
+/// correction the model should attempt first.
+#[allow(clippy::type_complexity)]
+fn derive_run_outcome(
+    result: std::result::Result<touring_hooks::sandbox_executor::SandboxResult, SandboxError>,
+    ctx: &FailureContext<'_>,
+) -> (
+    String,
+    String,
+    i32,
+    bool,
+    Option<String>,
+    Option<RunFailure>,
+) {
+    match result {
+        Ok(r) => {
+            let stdout_bytes = if let Some(ref path) = r.stored_path {
+                std::fs::read(path).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            let stdout_str = String::from_utf8_lossy(&stdout_bytes).to_string();
+            let failure = run_failure(&r, &r.stderr, ctx);
+            let stored = r.stored_path.as_ref().map(|p| p.display().to_string());
+            (
+                stdout_str,
+                r.stderr,
+                r.exit_code,
+                r.stderr_truncated,
+                stored,
+                failure,
+            )
+        }
+        Err(e) => {
+            let (kind, phase) = match &e {
+                SandboxError::Spawn(_) => (RunFailureKind::ProcExit, RunPhase::Spawn),
+                SandboxError::Timeout(_) => (RunFailureKind::Timeout, RunPhase::Execute),
+                SandboxError::InvalidArgs(_) => (RunFailureKind::InvalidOutput, RunPhase::Parse),
+                SandboxError::Conflict { .. } => (RunFailureKind::Abort, RunPhase::Spawn),
+                SandboxError::Io(_) => (RunFailureKind::ProcExit, RunPhase::Execute),
+            };
+            let failure = Some(RunFailure {
+                kind,
+                phase,
+                message: e.to_string(),
+            });
+            (String::new(), e.to_string(), -1, false, None, failure)
+        }
+    }
+}
+
 /// Run `code` for `language` inside the sandbox and return captured output.
 ///
 /// Enforces the 64 KB size cap, applies the active [`ForbiddenCallPolicy`]
@@ -180,6 +1544,7 @@ pub async fn ctx_execute_impl(
     timeout_ms: Option<u64>,
     _cwd: Option<String>,
     allow_forbidden: Option<bool>,
+    tunables: Option<RunTunables>,
 ) -> Result<CtxExecuteOutput> {
     const MAX_CODE_BYTES: usize = 64 * 1024;
     if code.len() > MAX_CODE_BYTES {
@@ -204,16 +1569,54 @@ pub async fn ctx_execute_impl(
         return Err(CtxExecuteError::ForbiddenCalls(forbidden));
     }
 
+    // N6 — computed on the USER's code (never the args-injected form, the same
+    // rule the display hint follows) and read BEFORE `code` moves into
+    // `final_code` below; one sub-ms read on the ladder, journaled either way.
+    let snippet_hint = snippet_hint_for(&code, _cwd.as_deref());
+    // P2 (27/10/2026) — the program's stable identity, also computed BEFORE the
+    // move: the journal's recurrence count joins on it. P2-v2: e o SimHash para
+    // o gate de semelhança (a identidade exata provou-se rara demais).
+    let code_hash = code_hash_of(&code);
+    let code_simhash = code_simhash(&code);
+    let code_simhash_v2 = code_simhash_v2(&code);
+
     let final_code = if let Some(ref a) = args {
         inject_args(&code, a, lang)
     } else {
         code
     };
-    let timeout = timeout_ms.unwrap_or(30_000).min(120_000);
+    // Cross-audit 27/08 (QW-3): teto do wall-clock sobe de 120 s para 600 s —
+    // compilação pesada (rustc em projeto grande) estrangulava nos 120 s. O hot
+    // loop segue contido: RLIMIT_CPU=30 s (kernel) + busy budget de CPU abaixo.
+    let timeout = timeout_ms.unwrap_or(30_000).min(600_000);
+    // C2-W0 S-5.2 — mint this execution's identity. It keys the journal,
+    // reaches the child as TOURING_RUN_ID, and prefixes every orchestrate
+    // sub-call's origin (`<run_id>:code:<n>`) at the daemon.
+    let run_id = format!(
+        "run-{}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0),
+        std::process::id()
+    );
     let config = SandboxConfig {
         timeout_ms: timeout,
         max_output_bytes: 1_000_000,
         fallback_on_timeout: true,
+        run_id: Some(run_id.clone()),
+        compute_ms: tunables
+            .as_ref()
+            .and_then(|t| t.compute_ms)
+            .or(Some(60_000)),
+        stdin_bytes: tunables.as_ref().and_then(|t| t.stdin_bytes.clone()),
+        allow_net_ports: tunables
+            .as_ref()
+            .and_then(|t| t.allow_net_ports.clone())
+            .unwrap_or_default(),
+        stream_output: tunables.as_ref().is_some_and(|t| t.stream),
+        sdk_signal_mirror: tunables.as_ref().and_then(|t| t.sdk_signal_mirror.clone()),
+        ..SandboxConfig::default()
     };
     let tool_name = match lang {
         SandboxLanguage::JavaScript => "SandboxJavaScript",
@@ -247,21 +1650,32 @@ pub async fn ctx_execute_impl(
     let start = Instant::now();
     let result = execute_in_sandbox(tool_name, sandbox_args, config).await;
     let duration_ms = start.elapsed().as_millis() as u64;
-    let (stdout, stderr, exit_code) = match result {
-        Ok(r) => {
-            let stdout_bytes = if let Some(ref path) = r.stored_path {
-                std::fs::read(path).unwrap_or_default()
-            } else {
-                Vec::new()
-            };
-            let stdout_str = String::from_utf8_lossy(&stdout_bytes).to_string();
-            (stdout_str, String::new(), r.exit_code)
-        }
-        Err(e) => (String::new(), e.to_string(), -1),
+    // B1 — what the run left in its private tmp (0 on a spawn/timeout error).
+    let tmp_bytes = result.as_ref().map(|r| r.tmp_bytes).unwrap_or(0);
+    // V-10 (31/10/2026) — a falha precisa saber o orçamento, a linguagem e a
+    // origem do corpo para ENSINAR a rota: o `failure.message` é o campo que
+    // o modelo lê (no V0e, 39 das 606 falhas eram mensagens que deviam teach
+    // a rota e não teach).
+    let failure_ctx = FailureContext {
+        timeout_ms: timeout,
+        lang: &language,
+        source: tunables.as_ref().and_then(|t| t.source.as_ref()),
     };
-    const MAX_STDOUT: usize = 8 * 1024;
-    const MAX_STDERR: usize = 4 * 1024;
-    let (stdout_trunc, stdout_truncated) = truncate(&stdout, MAX_STDOUT);
+    let (stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure) =
+        derive_run_outcome(result, &failure_ctx);
+    let (env_stdout, env_stderr) = inline_caps();
+    // QW-2 — o pedido por chamada (flags do `touring run`) vence a env var.
+    let (max_stdout, max_stderr) = (
+        tunables
+            .as_ref()
+            .and_then(|t| t.max_stdout_bytes)
+            .unwrap_or(env_stdout),
+        tunables
+            .as_ref()
+            .and_then(|t| t.max_stderr_bytes)
+            .unwrap_or(env_stderr),
+    );
+    let (stdout_trunc, stdout_truncated) = truncate_head_tail(&stdout, max_stdout);
 
     // P1.4 Warn mode: emit warning to stderr when forbidden calls found but policy != Block.
     let final_stderr = if policy == ForbiddenCallPolicy::Warn && !forbidden.is_empty() {
@@ -275,43 +1689,452 @@ pub async fn ctx_execute_impl(
         stderr
     };
 
-    let (stderr_trunc, stderr_truncated) = truncate(&final_stderr, MAX_STDERR);
+    let (stderr_trunc, adapter_stderr_truncated) = truncate_head_tail(&final_stderr, max_stderr);
+    let stderr_truncated = adapter_stderr_truncated || sandbox_stderr_truncated;
+    // W4 d4/S-4.1+S-4.2 — journal the execution and count the MEASURED
+    // context savings of the spill (full bytes − inline bytes). Fail-open:
+    // observability never blocks the run path.
+    let bytes_elided = (stdout.len() + final_stderr.len())
+        .saturating_sub(stdout_trunc.len() + stderr_trunc.len()) as u64;
+    touring_hooks::shared::gate_metrics::record_code_mode_run(bytes_elided);
+    let journal_meta = JournalMeta {
+        source: tunables.as_ref().and_then(|t| t.source.clone()),
+        harvest: tunables.as_ref().and_then(|t| t.harvest.clone()),
+        brief: tunables.as_ref().is_some_and(|t| t.brief),
+        orchestrate: tunables.as_ref().is_some_and(|t| t.orchestrate),
+        tmp_bytes,
+        hint: snippet_hint,
+    };
+    let prior_same_program = journal_run(
+        &run_id,
+        &language,
+        &stdout,
+        exit_code,
+        duration_ms,
+        failure.as_ref().map(|f| f.kind),
+        bytes_elided,
+        &journal_meta,
+        &code_hash,
+        code_simhash,
+        code_simhash_v2,
+    );
+    // W1 d3/S-1.2 — when the inline view lost bytes and the full output is on
+    // disk, hand the model the locator + how to read it (P19).
+    let retrieval_hint = match (&stored_path, stdout_truncated || stderr_truncated) {
+        (Some(p), true) => Some(format!(
+            "full stdout on disk: Read {p} --offset N --limit M, or grep '<pattern>' {p}"
+        )),
+        _ => None,
+    };
     Ok(CtxExecuteOutput {
+        bytes_elided,
+        tmp_bytes,
         stdout: stdout_trunc,
         stderr: stderr_trunc,
         exit_code,
         duration_ms,
         forbidden_calls: forbidden,
         stdout_truncated,
+        // Honest flag: truncated at EITHER boundary (sandbox cap or the
+        // adapter's inline cap) — `stderr_truncated: false` with swallowed
+        // content was the lie that hid the d0 bug.
         stderr_truncated,
+        failure,
+        stored_path: if stdout_truncated || stderr_truncated {
+            stored_path
+        } else {
+            None
+        },
+        retrieval_hint,
+        run_id,
+        prior_same_program: u64::from(prior_same_program),
     })
 }
 
 /// Serialize a `ctx_execute` result (success or error) into the canonical
 /// JSON envelope returned to MCP consumers.
 pub fn format_output(
-    result: std::result::Result<CtxExecuteOutput, CtxExecuteError>,
+    result: std::result::Result<&CtxExecuteOutput, &CtxExecuteError>,
 ) -> serde_json::Value {
     match result {
-        Ok(output) => serde_json::json!({
-            "success": true,
-            "stdout": output.stdout,
-            "stderr": output.stderr,
-            "exit_code": output.exit_code,
-            "duration_ms": output.duration_ms,
-            "forbidden_calls": output.forbidden_calls,
-            "stdout_truncated": output.stdout_truncated,
-            "stderr_truncated": output.stderr_truncated,
-        }),
+        Ok(output) => {
+            // 18/09/2026 — `success` was `true` whenever the executor RETURNED, so a
+            // program that exited 1, or was killed by its wall-clock budget, read as a
+            // success. MCP puts a tool-execution failure INSIDE the result with the
+            // error flag set (spec 2025-11-25, "Error Handling"); the envelope now
+            // carries the two facts apart: `executed` (the executor produced a result)
+            // and `success` (the PROGRAM succeeded — see [`program_succeeded`]).
+            let mut v = serde_json::json!({
+                "success": program_succeeded(output),
+                "executed": true,
+                "stdout": output.stdout,
+                "stderr": output.stderr,
+                "exit_code": output.exit_code,
+                "duration_ms": output.duration_ms,
+                "forbidden_calls": output.forbidden_calls,
+                "stdout_truncated": output.stdout_truncated,
+                "stderr_truncated": output.stderr_truncated,
+            });
+            // W1 d3 — taxonomy + spill locator ride along when present.
+            if let Some(f) = &output.failure {
+                v["failure"] = serde_json::json!({
+                    "kind": f.kind, "phase": f.phase, "message": f.message,
+                });
+            }
+            // P2 (27/10/2026) — the recurrence count is observability too:
+            // without it in the envelope the nudge fired but the number was
+            // invisible (medido ao vivo: journal certo, payload zerado).
+            if output.prior_same_program > 0 {
+                v["prior_same_program"] = serde_json::json!(output.prior_same_program);
+            }
+            if let Some(p) = &output.stored_path {
+                v["stored_path"] = serde_json::json!(p);
+            }
+            if let Some(h) = &output.retrieval_hint {
+                v["retrieval_hint"] = serde_json::json!(h);
+            }
+            // Cross-audit 04/09/2026 — `run_id` e `tmp_bytes` viviam só no envelope
+            // ad-hoc da CLI. Como este e' o serializador CANONICO, mante-los fora
+            // fazia o canal MCP perder a chave que junta run_journal.jsonl a
+            // run_subcalls.jsonl. `tmp_bytes` e' elidido quando zero: o comum e' nao
+            // sobrar nada, e um zero explicito seria ruido em toda resposta.
+            v["run_id"] = serde_json::json!(output.run_id);
+            if output.tmp_bytes > 0 {
+                v["tmp_bytes"] = serde_json::json!(output.tmp_bytes);
+            }
+            v
+        }
         Err(e) => serde_json::json!({
             "success": false,
+            "executed": false,
             "error": e.to_string(),
         }),
     }
 }
 
+/// Whether the PROGRAM succeeded: it exited 0 and the run carries no failure
+/// (timeout, abort, output cut by the byte cap, …). The one predicate behind the
+/// envelope's `success` and the MCP result's `isError`, so they cannot disagree.
+#[must_use]
+pub(crate) fn program_succeeded(output: &CtxExecuteOutput) -> bool {
+    output.exit_code == 0 && output.failure.is_none()
+}
+
+#[cfg(test)]
+mod run_failure_tests {
+    use super::*;
+    use touring_hooks::sandbox_executor::SandboxResult;
+
+    fn finished(exit_code: i32, signal: Option<i32>, capped: &[&str]) -> SandboxResult {
+        SandboxResult {
+            exit_code,
+            output_bytes: 0,
+            was_truncated: false,
+            content_hash: String::new(),
+            stored_path: None,
+            summary: touring_ceg::gateway::OutputSummary::empty(exit_code),
+            stderr: String::new(),
+            stderr_truncated: false,
+            tmp_bytes: 0,
+            signal,
+            capped_files: capped.iter().map(ToString::to_string).collect(),
+        }
+    }
+
+    /// V-10 (31/10/2026) — um run que morre deixando stderr.
+    fn finished_with_stderr(exit_code: i32, stderr: &str) -> SandboxResult {
+        SandboxResult {
+            stderr: stderr.to_string(),
+            ..finished(exit_code, None, &[])
+        }
+    }
+
+    /// V-10 (31/10/2026) — o contexto padrão da falha: o orçamento default
+    /// (30000ms, o do motor) e um corpo inline.
+    fn ctx_padrao() -> FailureContext<'static> {
+        FailureContext {
+            timeout_ms: 30_000,
+            lang: "bash",
+            source: None,
+        }
+    }
+
+    /// 18/09/2026 (analise): `sqlite3 … .backup` died at the file-size cap, the
+    /// script went on to `echo $?`, and the envelope read success.
+    #[test]
+    fn a_file_cut_at_the_cap_fails_a_run_that_exited_zero() {
+        let f = run_failure(&finished(0, None, &["big.bin"]), "", &ctx_padrao())
+            .expect("a truncated file is not green");
+        assert!(matches!(f.kind, RunFailureKind::OutputLimit));
+        for part in ["SIGXFSZ", "256 MiB", "big.bin", "153"] {
+            assert!(f.message.contains(part), "{part}: {}", f.message);
+        }
+    }
+
+    #[test]
+    fn a_death_by_signal_names_the_signal_and_its_cap() {
+        let kill = run_failure(&finished(-1, Some(9), &[]), "", &ctx_padrao()).expect("failure");
+        assert!(matches!(kill.kind, RunFailureKind::Exception));
+        assert!(kill.message.contains("SIGKILL") && kill.message.contains("memory cap"));
+
+        let term = run_failure(&finished(-1, Some(15), &[]), "Terminated", &ctx_padrao())
+            .expect("failure");
+        assert!(
+            term.message.contains("signal 15") && term.message.contains("Terminated"),
+            "{}",
+            term.message
+        );
+    }
+
+    #[test]
+    fn a_clean_run_has_no_failure_and_a_silent_exit_still_teaches() {
+        assert!(run_failure(&finished(0, None, &[]), "", &ctx_padrao()).is_none());
+        let silent = run_failure(&finished(1, None, &[]), "", &ctx_padrao()).expect("failure");
+        assert!(silent.message.contains("no match"), "{}", silent.message);
+    }
+
+    /// V-10 (31/10/2026) — o orçamento tem de estar no campo que o MODELO LÊ.
+    ///
+    /// O caso medido no binário 30.4.101 (31/10): o filho escreve no stderr
+    /// ANTES de o relógio estourar, e o `failure.message` ficava com a linha do
+    /// filho — o orçamento de 30000ms e a correção `--timeout-ms <N>` sumiam
+    /// do campo que o modelo lê. O fixture monta o stderr como o sandbox o
+    /// monta (o do filho + a lição) e usa a REDAÇÃO REAL do CEG
+    /// (`timeout_teach_message`): se a redação mudar, o teste muda junto.
+    #[test]
+    fn o_timeout_no_message_nomeia_o_orcamento_e_a_correcao() {
+        let teach = touring_hooks::sandbox_executor::timeout_teach_message(30_000);
+        let stderr = format!("trabalho parcial do filho\n{teach}");
+        let f = run_failure(&finished_with_stderr(-2, &stderr), &stderr, &ctx_padrao())
+            .expect("o timeout é uma falha");
+        assert!(matches!(f.kind, RunFailureKind::Timeout));
+        assert!(
+            f.message.contains("30000ms"),
+            "o orçamento sumiu: {}",
+            f.message
+        );
+        assert!(
+            f.message.contains("--timeout-ms"),
+            "a correção sumiu: {}",
+            f.message
+        );
+        assert!(
+            !f.message.contains("trabalho parcial"),
+            "a linha do filho roubou o campo: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — sem lição no stderr, o MOTOR escreve a lição com o
+    /// orçamento que ELE aplicou: o orçamento está sempre no campo que o
+    /// modelo lê.
+    #[test]
+    fn o_timeout_sem_licao_no_stderr_reescreve_a_licao_com_o_orcamento_aplicado() {
+        let stderr = "trabalho parcial do filho\n";
+        let f = run_failure(&finished_with_stderr(-2, stderr), stderr, &ctx_padrao())
+            .expect("o timeout é uma falha");
+        assert!(matches!(f.kind, RunFailureKind::Timeout));
+        assert!(
+            f.message.contains("30000ms"),
+            "o orçamento sumiu: {}",
+            f.message
+        );
+        assert!(
+            f.message.contains("--timeout-ms"),
+            "a correção sumiu: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — a rota do shell que quebrou, com o stderr REAL.
+    ///
+    /// Medido no binário 30.4.101 (31/10): `touring run --lang bash --code
+    /// 'echo "oi'` → rc=2 e stderr
+    /// `bash: -c: line 1: unexpected EOF while looking for matching `"'`.
+    /// A rota ensinada é a que FUNCIONA (medida no mesmo binário):
+    /// `touring run --lang bash --file prog.sh` → rc=0.
+    #[test]
+    fn a_sintaxe_do_shell_ensina_a_rota_do_arquivo() {
+        const STDERR_REAL: &str =
+            "bash: -c: line 1: unexpected EOF while looking for matching `\"'";
+        let source = RunSource {
+            kind: "inline",
+            path: None,
+        };
+        let ctx = FailureContext {
+            timeout_ms: 30_000,
+            lang: "bash",
+            source: Some(&source),
+        };
+        let f = run_failure(&finished_with_stderr(2, STDERR_REAL), STDERR_REAL, &ctx)
+            .expect("a falha existe");
+        assert!(matches!(f.kind, RunFailureKind::Exception));
+        assert!(f.message.contains("--file"), "a rota sumiu: {}", f.message);
+        assert!(
+            f.message.contains("touring run --lang bash --file prog.sh"),
+            "a rota não é copiável: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — um corpo que já veio de um ARQUIVO não pode receber
+    /// a rota do arquivo: seria a mesma rota, e uma rota que não muda nada não
+    /// é uma rota.
+    #[test]
+    fn um_corpo_que_veio_de_arquivo_nao_ensina_a_rota_do_arquivo() {
+        const STDERR_REAL: &str =
+            "bash: -c: line 1: unexpected EOF while looking for matching `\"'";
+        let source = RunSource {
+            kind: "file",
+            path: Some("/tmp/prog.sh".to_string()),
+        };
+        let ctx = FailureContext {
+            timeout_ms: 30_000,
+            lang: "bash",
+            source: Some(&source),
+        };
+        let f = run_failure(&finished_with_stderr(2, STDERR_REAL), STDERR_REAL, &ctx)
+            .expect("a falha existe");
+        assert!(
+            !f.message.contains("--file"),
+            "rota que não muda nada: {}",
+            f.message
+        );
+        assert!(
+            f.message.contains("FILE"),
+            "a origem não foi nomeada: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — controle NEGATIVO: a rota do shell só entra quando a
+    /// assinatura está no stderr do shell. Um `command not found` do próprio
+    /// shell e um `SyntaxError` do Python são falhas comuns — ganhar a rota do
+    /// shell seria ensinar a coisa errada.
+    #[test]
+    fn uma_falha_comum_nao_ganha_a_rota_do_shell() {
+        for stderr in [
+            "bash: -c: line 1: rg: command not found",
+            "Traceback (most recent call last):\n  File \"x.py\", line 1\nSyntaxError: invalid syntax",
+        ] {
+            let f = run_failure(&finished_with_stderr(1, stderr), stderr, &ctx_padrao())
+                .expect("a falha existe");
+            assert!(
+                !f.message.contains("--file"),
+                "rota inventada para {stderr:?}: {}",
+                f.message
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    /// Cross-audit 04/09/2026 — o envelope canonico e' UM, e os tres chamadores
+    /// (adaptador MCP, `full_payload` da CLI e este) leem dele.
+    ///
+    /// Ate hoje havia tres serializadores independentes para o mesmo resultado, e
+    /// eles divergiram nas DUAS direcoes: a CLI tinha `run_id`/`tmp_bytes` que o
+    /// canonico nao tinha, e o canonico tinha `success`/`retrieval_hint` que a CLI
+    /// nao tinha — enquanto o adaptador MCP, o consumidor que a doc de
+    /// `format_output` nomeia, emitia apenas os 7 campos base e nao chamava
+    /// `format_output` nenhuma vez. O prejuizo era do consumidor MCP: sem taxonomia
+    /// de falha e sem o localizador do spill, nao havia como ler a saida elidida.
+    ///
+    /// Este teste fixa o conjunto. Um campo novo que apareca em so um dos tres
+    /// caminhos reabre exatamente a divergencia que a unificacao fechou.
+    #[test]
+    fn envelope_canonico_carrega_o_conjunto_que_os_tres_caminhos_compartilham() {
+        let out = CtxExecuteOutput {
+            stdout: "ok".into(),
+            exit_code: 0,
+            duration_ms: 7,
+            stdout_truncated: true,
+            stored_path: Some("/tmp/spill.txt".into()),
+            retrieval_hint: Some("leia com sed -n '1,80p'".into()),
+            tmp_bytes: 4096,
+            run_id: "run-1-2".into(),
+            ..Default::default()
+        };
+        let v = format_output(Ok(&out));
+        for campo in [
+            "success",
+            "executed",
+            "stdout",
+            "stderr",
+            "exit_code",
+            "duration_ms",
+            "stdout_truncated",
+            "stderr_truncated",
+            "stored_path",
+            "retrieval_hint",
+            "run_id",
+            "tmp_bytes",
+        ] {
+            assert!(
+                v.get(campo).is_some(),
+                "o envelope canonico perdeu `{campo}`: {v}"
+            );
+        }
+        assert_eq!(v["run_id"], "run-1-2");
+        assert_eq!(v["tmp_bytes"], 4096);
+    }
+
+    /// 18/09/2026 — `success` e' o veredito do PROGRAMA, `executed` o do executor.
+    /// Antes, `success: true` saia junto de `exit_code: 1` e de `failure.kind: timeout`.
+    #[test]
+    fn success_is_the_programs_verdict_and_executed_the_executors() {
+        let verdict = |out: &CtxExecuteOutput| {
+            let v = format_output(Ok(out));
+            (v["success"].as_bool(), v["executed"].as_bool())
+        };
+        let clean = CtxExecuteOutput::default();
+        assert_eq!(verdict(&clean), (Some(true), Some(true)));
+        let exited = CtxExecuteOutput {
+            exit_code: 1,
+            ..Default::default()
+        };
+        assert_eq!(verdict(&exited), (Some(false), Some(true)));
+        let timed_out = CtxExecuteOutput {
+            exit_code: -2,
+            failure: Some(RunFailure {
+                kind: RunFailureKind::Timeout,
+                phase: RunPhase::Execute,
+                message: "budget".into(),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(verdict(&timed_out), (Some(false), Some(true)));
+        // Exit 0 with the output cut by the byte cap: data was lost, not a success.
+        let cut = CtxExecuteOutput {
+            failure: Some(RunFailure {
+                kind: RunFailureKind::OutputLimit,
+                phase: RunPhase::Execute,
+                message: "cap".into(),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(verdict(&cut), (Some(false), Some(true)));
+        let refused = format_output(Err(&CtxExecuteError::InvalidLanguage("cobol".into())));
+        assert_eq!(
+            (refused["success"].as_bool(), refused["executed"].as_bool()),
+            (Some(false), Some(false))
+        );
+    }
+
+    /// `tmp_bytes` e' elidido quando zero — o comum e' o run nao deixar nada, e um
+    /// zero explicito em toda resposta seria ruido que o leitor aprende a ignorar.
+    #[test]
+    fn tmp_bytes_zero_nao_entra_no_envelope() {
+        let out = CtxExecuteOutput {
+            run_id: "run-3-4".into(),
+            ..Default::default()
+        };
+        let v = format_output(Ok(&out));
+        assert!(v.get("tmp_bytes").is_none(), "zero nao deve aparecer: {v}");
+        assert!(v.get("run_id").is_some(), "run_id sempre viaja: {v}");
+    }
+
     use super::*;
 
     #[test]
@@ -332,13 +2155,17 @@ mod tests {
     }
 
     #[test]
-    fn test_truncate() {
+    fn test_truncate_head_tail() {
         let long = "x".repeat(100);
-        let (trunc, was_trunc) = truncate(&long, 50);
+        let (trunc, was_trunc) = truncate_head_tail(&long, 50);
         assert!(was_trunc);
-        assert_eq!(trunc.len(), 50);
+        assert!(trunc.contains("bytes elided"), "elision is explicit");
+        assert!(
+            trunc.starts_with('x') && trunc.ends_with('x'),
+            "head and tail kept"
+        );
         let short = "hello";
-        let (trunc, was_trunc) = truncate(short, 50);
+        let (trunc, was_trunc) = truncate_head_tail(short, 50);
         assert!(!was_trunc);
         assert_eq!(trunc, "hello");
     }
@@ -347,6 +2174,107 @@ mod tests {
     fn test_code_too_large() {
         let lang = parse_language("js");
         assert!(lang.is_ok());
+    }
+
+    /// C2-W0 S-5.2 — every execution carries its minted identity: the same
+    /// `run-<epoch_ms>-<pid>` keys the journal, reaches the child as
+    /// `TOURING_RUN_ID`, and prefixes sub-call origins at the daemon.
+    #[tokio::test]
+    async fn ctx_execute_output_carries_run_id() {
+        let out = ctx_execute_impl(
+            "python".to_string(),
+            "print(1)".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("run");
+        assert!(
+            out.run_id.starts_with("run-"),
+            "run_id must be minted with the run- prefix, got {:?}",
+            out.run_id
+        );
+        assert_eq!(out.exit_code, 0);
+    }
+
+    // ── Cross-audit 27/08 — quick-wins QW-1..QW-4 ────────────────────────
+
+    /// QW-4: `--input` bytes reach the program's stdin.
+    #[tokio::test]
+    async fn tunables_stdin_bytes_reach_the_program() {
+        let out = ctx_execute_impl(
+            "python".to_string(),
+            "import sys; print('GOT:' + sys.stdin.read().strip())".to_string(),
+            None,
+            None,
+            None,
+            None,
+            Some(crate::tools::ctx_execute_tools::RunTunables {
+                stdin_bytes: Some(b"payload-via-input\n".to_vec()),
+                ..Default::default()
+            }),
+        )
+        .await
+        .expect("run");
+        assert_eq!(out.exit_code, 0);
+        assert!(
+            out.stdout.contains("GOT:payload-via-input"),
+            "stdin entregue ao programa: {:?}",
+            out.stdout
+        );
+    }
+
+    /// QW-1: TMPDIR is declared (=/tmp, a write root Landlock already grants)
+    /// so tools honouring it have a temp dir.
+    #[tokio::test]
+    async fn child_sees_tmpdir_pointing_to_tmp() {
+        let out = ctx_execute_impl(
+            "bash".to_string(),
+            "echo \"TMPDIR=$TMPDIR\"; mktemp -d >/dev/null && echo MKTEMP_OK".to_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .expect("run");
+        assert_eq!(out.exit_code, 0);
+        assert!(
+            out.stdout.contains("TMPDIR=/tmp"),
+            "TMPDIR: {:?}",
+            out.stdout
+        );
+        assert!(out.stdout.contains("MKTEMP_OK"), "mktemp: {:?}", out.stdout);
+    }
+
+    /// QW-2: per-call inline caps override the 8 KB default — a 10 KB stdout
+    /// stays whole inline when the caller asks for it.
+    #[tokio::test]
+    async fn tunables_max_stdout_bytes_overrides_the_inline_cap() {
+        let out = ctx_execute_impl(
+            "python".to_string(),
+            "print('x' * 10000)".to_string(),
+            None,
+            None,
+            None,
+            None,
+            Some(crate::tools::ctx_execute_tools::RunTunables {
+                max_stdout_bytes: Some(64 * 1024),
+                ..Default::default()
+            }),
+        )
+        .await
+        .expect("run");
+        assert_eq!(out.exit_code, 0);
+        assert!(
+            out.stdout.contains(&"x".repeat(10_000)),
+            "stdout inline integral com o cap pedido (len={})",
+            out.stdout.len()
+        );
     }
 
     // P1.3 unit tests — ast_forbidden_scan integration.
@@ -388,36 +2316,39 @@ mod tests {
     // the parallel test runner (observed flaky pattern, see memory F2).
     #[test]
     fn test_policy_from_env_all_cases() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // Case 1: no env vars → Warn (the phased-rollout default).
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Warn);
 
         // Case 2: OFF=1 → Off.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_OFF", "1") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Off);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
 
         // Case 3: ENFORCE=1 → Block.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_ENFORCE", "1") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Block);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
 
         // Case 4: OFF wins over ENFORCE when both are set (off is checked first).
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_OFF", "1") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_ENFORCE", "1") };
         assert_eq!(ForbiddenCallPolicy::from_env(), ForbiddenCallPolicy::Off);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
     }
 

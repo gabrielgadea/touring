@@ -1,0 +1,45 @@
+{
+  "phase": "S5",
+  "entities": [
+    {
+      "entity_id": "phase:S5",
+      "type": "phase",
+      "description": "Rodada 2 fechada: Laya/laya-mlx pesquisado (laya-mlx s\u00f3 macOS; rota PyTorch na RTX 4060), experimento local com dados do Touring (6-15 ms/pergunta; zero-shot fraco: tipo de mem\u00f3ria 0,50, roteamento 0,36 < maioria 0,58, relev\u00e2ncia 0/2, intent real 42%), varredura (JSON for\u00e7ado s\u00f3 no factory; factory 9 roteamentos; prompt-enhance por palavra-chave em todo prompt), contrato do Jev (subprocessadores nos EUA, DPA sem LGPD, MCA 19/09 com licen\u00e7a perp\u00e9tua p/ Telemetry, JAMS, teto US$ 50). Estrat\u00e9gia v2: ordem P1-P7, professor\u2192aluno, R10-R15, plano G0-G5. P\u00e1gina republicada (v2)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790097198101133178:S5:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790097198101133178",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790097198101133178",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S5|produces|memory:loop:task_1790097198101133178:S5:done",
+      "source": "phase:S5",
+      "type": "produces",
+      "target": "memory:loop:task_1790097198101133178:S5:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790097198101133178:S5:done|generated-by|loop:loop:task_1790097198101133178",
+      "source": "memory:loop:task_1790097198101133178:S5:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790097198101133178"
+    },
+    {
+      "relation_id": "memory:loop:task_1790097198101133178:S5:done|generated-by|dag:decomp:task_1790097198101133178",
+      "source": "memory:loop:task_1790097198101133178:S5:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790097198101133178"
+    }
+  ]
+}

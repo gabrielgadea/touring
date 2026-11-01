@@ -242,6 +242,31 @@ impl BranchFs {
     pub fn snapshot_dir(&self) -> &Path {
         self.snapshot_dir.path()
     }
+
+    /// Content of `path` as it was when the branch was created.
+    ///
+    /// `Ok(None)` when the file was absent at branch time; `Err` when `path` is not part
+    /// of this branch or the snapshot copy cannot be read. Lets callers DESCRIBE a change
+    /// (e.g. a line diff) without restoring anything.
+    pub fn snapshot_content(&self, path: &Path) -> Result<Option<Vec<u8>>, BranchFsError> {
+        let abs = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map_err(BranchFsError::Cwd)?
+                .join(path)
+        };
+        match self.snapshots.get(&abs) {
+            None => Err(BranchFsError::NotInSnapshot(abs.display().to_string())),
+            Some(None) => Ok(None),
+            Some(Some(snap)) => std::fs::read(snap)
+                .map(Some)
+                .map_err(|e| BranchFsError::Read {
+                    path: snap.display().to_string(),
+                    source: e,
+                }),
+        }
+    }
 }
 
 /// Errors from [`BranchFs`] snapshot, restore, and drift-check operations.

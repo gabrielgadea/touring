@@ -59,7 +59,7 @@ fn analyze_input_validation_dim(target: &Path) -> Result<(f32, String)> {
     }
 
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_input_validation(&raw, lang);
 
     let value = score_input_validation(&r);

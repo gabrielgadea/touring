@@ -36,10 +36,11 @@ enum CascadeCmd {
 
 /// Entry point for the `touring cascade …` subcommand.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match CascadeCli::try_parse_from(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<CascadeCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(CascadeCmd::Queue) {
         CascadeCmd::Queue => {

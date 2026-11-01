@@ -1,0 +1,11 @@
+{
+  "phase": "p4_rerank_curated",
+  "entities": [
+    {
+      "entity_id": "phase:p4_rerank_curated",
+      "type": "phase",
+      "description": "R5 em 2 liga\u00e7\u00f5es: (1) recall RRF agora incrementa access_count das entries servidas no DB can\u00f4nico \u2014 curated_recall_share e never_recalled_ratio passam a medir o retrieval que declaram; (2) rerank_by_case_value ganha eixo de proced\u00eancia: dentro da classe de valor, curadoria antes de tra\u00e7o de processo (outcome:/decomp:/subtask:/loop:/adw:), sort est\u00e1vel. Teste da ordem completo; clippy 0."
+    }
+  ],
+  "relations": []
+}

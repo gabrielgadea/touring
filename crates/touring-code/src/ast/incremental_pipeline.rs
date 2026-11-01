@@ -530,7 +530,14 @@ impl IncrementalPipeline {
             return Vec::new();
         };
 
-        self.run_query(&query, tree, source, file_path, lang)
+        // A markdown file is also ONE searchable document (its frontmatter name,
+        // else its first heading, else its stem) — a memory with no heading is
+        // otherwise invisible to every search (`ast::markdown_text`).
+        crate::ast::markdown_text::with_document_symbol(
+            file_path,
+            source,
+            self.run_query(&query, tree, source, file_path, lang),
+        )
     }
 
     /// Execute a compiled query against a tree and return symbol locations.
@@ -564,8 +571,7 @@ impl IncrementalPipeline {
                 };
                 if capture_name == "name" {
                     let node = capture.node;
-                    if let Some(parent) = node.parent() {
-                        let key = (parent.start_byte(), parent.end_byte());
+                    if let Some((parent, key)) = crate::ast::symbols::defining_node(node) {
                         if seen.contains(&key) {
                             continue;
                         }
@@ -1125,6 +1131,33 @@ mod tests {
             .collect();
         assert!(names.contains(&"hello"), "Missing 'hello' in {names:?}");
         assert!(names.contains(&"world"), "Missing 'world' in {names:?}");
+    }
+
+    /// The index path must agree with `extract_symbols`: a tuple-unpacked module
+    /// binding defines EVERY name, each with the kind of the binding — not the
+    /// first name alone typed as `pattern_list` (26/09/2026: `index find SENADOR`
+    /// came back empty while `file_knowledge` already had it).
+    #[test]
+    fn test_process_file_indexes_every_name_of_a_module_tuple_unpacking() {
+        let mut pipeline = IncrementalPipeline::new();
+        let source = "PRESIDENTE, GOVERNADOR, SENADOR = \"1\", \"3\", \"5\"\n(low, high) = 0, 9\n";
+        let result = pipeline.process_file("teto.py", source).unwrap();
+
+        let got: Vec<(&str, Option<&str>)> = result
+            .symbols_added
+            .iter()
+            .map(|s| (s.symbol_name.as_str(), s.kind.as_deref()))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("PRESIDENTE", Some("const")),
+                ("GOVERNADOR", Some("const")),
+                ("SENADOR", Some("const")),
+                ("low", Some("variable")),
+                ("high", Some("variable")),
+            ]
+        );
     }
 
     #[test]

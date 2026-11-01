@@ -1,0 +1,60 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "ast",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "doctor",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "e2e",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "evolution",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "gotcha",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "index",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "mcts",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "memory",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "status",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "wiring",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/elite-50-quality.md",
+      "fingerprint": "11084fb5ee028005df1b753b34eacb99ddbee9fbdca1063da7ab725eedb9f873"
+    }
+  ]
+}

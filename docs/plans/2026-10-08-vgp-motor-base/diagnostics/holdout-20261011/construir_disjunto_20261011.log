@@ -1,0 +1,22 @@
+hw-slot: aguardando — temp 94C > 88C
+19:14:08 corte: 2026-10-09T18:14:31.894Z | vivo sha_tree: b06b89113c869097 | exclusoes: {'ids': 2257, 'tool_use_ids': 1281, 'shas': 2270, 'comandos': 1312}
+19:14:08 cotas de projeto (mistura do vivo escalada): {'touring': 72, 'analise': 518, 'simulador-urna-rs-2026': 4, '.claude': 6} | teto por arquivo: 18 | teto por sessao: 18
+<snap>:17: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+<snap>:48: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+<snap>:15: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:28: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:18: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+<snap>:19: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+19:14:24 pool inline/tmp: {'c': 2575, 'heredoc': 2831, 'touring_run': 995, 'tmp_escrito_e_executado': 1} | cabe sob o teto de sessao: {'c': 1119, 'heredoc': 1088, 'touring_run': 406, 'tmp_escrito_e_executado': 1} | excluidos por chave: {'tool_use_id ja no vivo/temporal': 1015, 'tool_use_id duplicado (pai/subagente)': 67, 'depois do corte': 293, 'conteudo ja no vivo/temporal': 17}
+/home/gabrielgadea/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+  [
+/home/gabrielgadea/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+  [
+19:19:00 ARQUIVO ok: {"aceitos": 600, "n": 600, "por_projeto": {"touring": 72, "analise": 518, "simulador-urna-rs-2026": 4, ".claude": 6}, "cotas": {"touring": 72, "analise": 518, "simulador-urna-rs-2026": 4, ".claude": 6}, "rejeicoes": {"id ja no vivo/temporal": 365, "conteudo nao reconstroi": 339, "conteudo ja visto (vivo/temporal/amostra)": 18, "cota do projeto cheia (ou projeto sem cota)": 3902}, "max_por_arquivo": 5, "arquivos_distintos": 542, "candidatos_no_universo": 13266}
+-> /home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011/entradas_inline_neg.jsonl (600 linhas) · snaps em /home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011/snap_inline_neg
+   snaps que NAO compilam: 0 []
+19:19:00 INLINE ok: {'c': (200, 200), 'heredoc': (200, 200), 'touring_run': (200, 200), 'tmp_escrito_e_executado': (0, 100)}
+<unknown>:7: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+19:20:14 estado_no_instante ok: {'entradas': 1200, 'motivos': {'o arquivo nasceu nesta edição (antes = vazio)': 294, 'ok': 306, 'inline: o programa inteiro é novo (sem delta)': 600}, 'overlays': 272}
+19:20:15 FIM | vivo e temporal intocados: True | wall_s: 366.8
+rc=0

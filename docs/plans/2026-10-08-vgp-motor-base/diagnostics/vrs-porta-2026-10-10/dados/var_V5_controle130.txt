@@ -1,0 +1,1 @@
+{"manifesto_sha16": "89195ccb6356702e", "arquivos": 130, "arquivos_com_achado": 23, "achados": 76, "achados_por_classe": {"import": 41, "nome": 35}, "veredito": {"allow": 105, "warn": 23, "unknown": 2}, "por_zona_[arquivos,com_achado]": {"benches": [7, 0], "examples": [3, 0], "src": [90, 14], "tests": [30, 9]}, "p95_ms": 28.803696}

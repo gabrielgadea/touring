@@ -62,7 +62,7 @@ fn analyze_solid_dim(target: &Path) -> Result<(f32, String)> {
     }
 
     // Non-Rust / unparseable: average cyclomatic complexity per function.
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let m = estimate_complexity(&raw, lang);
     let value = score_solid_fallback(m.avg_complexity);
     let evidence = format!(

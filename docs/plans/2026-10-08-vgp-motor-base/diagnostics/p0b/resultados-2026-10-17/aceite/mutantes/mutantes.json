@@ -1,0 +1,450 @@
+{
+ "RED": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_from_import_do_atributo_implicito_nao_nega_e_do_inventado_nega",
+   "touring-code:vgp::lang::python::tests::p0b_a_modulo_stdlib_de_tabela_fechada_tem_os_implicitos_e_o_inventado_nega",
+   "touring-code:vgp::lang::python::tests::p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde",
+   "touring-code:vgp::lang::python::tests::p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome",
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde",
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro",
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg",
+   "touring-code:vgp::sombra::tests::p0b_b_fusao_controles_sem_sinal_dinamico_a_camada2_segue_escalando",
+   "touring-code:vgp::sombra::tests::p0b_b_fusao_nao_deixa_a_camada2_negar_por_cima_do_dinamico_da_camada_1",
+   "touring-pyright:pyright::tests::check_dynamic_scope_only_warns_in_every_bucket",
+   "touring-pyright:pyright::tests::escopo_concrete_class_member_is_tipo_a_static_type_never_an_existence_claim",
+   "touring-pyright:pyright::tests::escopo_forma_needs_the_last_segment_to_be_a_builtin_type",
+   "touring-pyright:pyright::tests::escopo_names_that_are_not_dunders_keep_their_class_scope",
+   "touring-pyright:pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem",
+   "touring-pyright:pyright::tests::p0b_b_membro_de_objeto_que_nao_e_modulo_so_avisa_em_todo_balde",
+   "touring-pyright:pyright::tests::p0b_b_modulo_externo_membro_privado_ou_dunder_abstem_em_todo_balde",
+   "touring-pyright:pyright::tests::severidade_policy_p4_every_cell"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 156 passed; 9 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s",
+   "touring-pyright: test result: FAILED. 168 passed; 8 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.33s"
+  ],
+  "cauda": ""
+ },
+ "A1-MODULE_HAS-SEM-IMPLICITOS": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_from_import_do_atributo_implicito_nao_nega_e_do_inventado_nega",
+   "touring-code:vgp::lang::python::tests::p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.07s"
+  ],
+  "cauda": ""
+ },
+ "A2-FILE-SEMPRE": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_atributo_implicito_depende_de_arquivo_e_de_pacote"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "A3-PATH-EM-MODULO-COMUM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_atributo_implicito_depende_de_arquivo_e_de_pacote",
+   "touring-code:vgp::lang::python::tests::p0b_a_controles_inexistencia_de_verdade_e_path_de_modulo_comum_seguem_negando"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "A4a-SEM-NAME": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_atributo_implicito_depende_de_arquivo_e_de_pacote",
+   "touring-code:vgp::lang::python::tests::p0b_a_from_import_do_atributo_implicito_nao_nega_e_do_inventado_nega",
+   "touring-code:vgp::lang::python::tests::p0b_a_modulo_stdlib_de_tabela_fechada_tem_os_implicitos_e_o_inventado_nega",
+   "touring-code:vgp::lang::python::tests::p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 161 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "A4b-SEM-BUILTINS": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_atributo_implicito_depende_de_arquivo_e_de_pacote",
+   "touring-code:vgp::lang::python::tests::p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+  ],
+  "cauda": ""
+ },
+ "A5-STDLIB-FECHADA-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_modulo_stdlib_de_tabela_fechada_tem_os_implicitos_e_o_inventado_nega"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "A6-STDLIB-FILE-NEGA": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_a_modulo_stdlib_de_tabela_fechada_tem_os_implicitos_e_o_inventado_nega"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "A7-ARQUIVO-DO-MODULO-NAO-REGISTRADO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so",
+   "touring-code:vgp::lang::python::tests::p0b_a_from_import_do_atributo_implicito_nao_nega_e_do_inventado_nega",
+   "touring-code:vgp::lang::python::tests::p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde",
+   "touring-code:vgp::lang::python::tests::p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 161 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C1-SO-INIT-DA-CLASSE": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome",
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde",
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro",
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 161 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C2-PRIMEIRA-BASE": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C3-C3-VIRA-DFS": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so",
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.04s"
+  ],
+  "cauda": ""
+ },
+ "C4-IDENTIDADE-SO-PELO-NOME": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so",
+   "touring-code:vgp::lang::python::tests::p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome",
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 162 passed; 3 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C5-BASE-IRRESOLVIDA-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde",
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C6-NEW-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.07s"
+  ],
+  "cauda": ""
+ },
+ "C7-INIT_SUBCLASS-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C8-SIGNATURE-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C9-METACLASSE-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C10-BASE-NAMEDTUPLE-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C11-INIT-POR-ATRIBUICAO-NAO-ABSTEM": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.04s"
+  ],
+  "cauda": ""
+ },
+ "C12-EXCEPTION-NAO-E-NEUTRA": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C13-DATACLASS-GERADO-IGNORADO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro",
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C14-SEM-OBJECT-INIT": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+  ],
+  "cauda": ""
+ },
+ "C15-KWARG-DE-CLASSE-NAO-REGISTRADO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C16-SELF-NO-INIT-PROPRIO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro",
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "C17-SELF-NO-INIT-HERDADO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome",
+   "touring-code:vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro",
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 162 passed; 3 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "B1-TIPO-VIRA-PROJETO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::check_dynamic_scope_only_warns_in_every_bucket",
+   "touring-pyright:pyright::tests::escopo_concrete_class_member_is_tipo_a_static_type_never_an_existence_claim",
+   "touring-pyright:pyright::tests::escopo_forma_needs_the_last_segment_to_be_a_builtin_type",
+   "touring-pyright:pyright::tests::escopo_names_that_are_not_dunders_keep_their_class_scope",
+   "touring-pyright:pyright::tests::p0b_b_membro_de_objeto_que_nao_e_modulo_so_avisa_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 171 passed; 5 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.42s"
+  ],
+  "cauda": ""
+ },
+ "B2-TIPO-NEGA": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::check_dynamic_scope_only_warns_in_every_bucket",
+   "touring-pyright:pyright::tests::p0b_b_membro_de_objeto_que_nao_e_modulo_so_avisa_em_todo_balde",
+   "touring-pyright:pyright::tests::severidade_policy_p4_every_cell"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 173 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.42s"
+  ],
+  "cauda": ""
+ },
+ "B3-ABSTENCAO-EXTERNA-DESLIGADA": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem",
+   "touring-pyright:pyright::tests::p0b_b_modulo_externo_membro_privado_ou_dunder_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 174 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.41s"
+  ],
+  "cauda": ""
+ },
+ "B4-ABSTENCAO-EM-QUALQUER-ESCOPO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::p0b_b_controles_o_publico_de_modulo_externo_e_o_privado_de_modulo_do_projeto_seguem_negando"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 175 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.46s"
+  ],
+  "cauda": ""
+ },
+ "B5-ABSTENCAO-SO-PRIVADO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem",
+   "touring-pyright:pyright::tests::p0b_b_modulo_externo_membro_privado_ou_dunder_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 174 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.92s"
+  ],
+  "cauda": ""
+ },
+ "B6-ABSTENCAO-SO-DUNDER": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem",
+   "touring-pyright:pyright::tests::p0b_b_modulo_externo_membro_privado_ou_dunder_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 174 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.40s"
+  ],
+  "cauda": ""
+ },
+ "B7-ABSTENCAO-SO-ATRIBUTO-NAO-IMPORT": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 175 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.40s"
+  ],
+  "cauda": ""
+ },
+ "B8-ABSTENCAO-TAMBEM-DO-PUBLICO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::check_builtin_member_is_forma_and_only_warns_in_every_bucket",
+   "touring-pyright:pyright::tests::check_project_file_policy_p2_warn_for_own_deny_for_external",
+   "touring-pyright:pyright::tests::check_reports_only_the_delta_against_disk",
+   "touring-pyright:pyright::tests::p0b_b_controles_o_publico_de_modulo_externo_e_o_privado_de_modulo_do_projeto_seguem_negando",
+   "touring-pyright:pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem",
+   "touring-pyright:pyright::tests::p0b_b_membro_de_objeto_que_nao_e_modulo_so_avisa_em_todo_balde"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 170 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.55s"
+  ],
+  "cauda": ""
+ },
+ "B9-FUSAO-NAO-VETA-INCERTO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::sombra::tests::p0b_b_fusao_controles_sem_sinal_dinamico_a_camada2_segue_escalando",
+   "touring-code:vgp::sombra::tests::p0b_b_fusao_nao_deixa_a_camada2_negar_por_cima_do_dinamico_da_camada_1"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 163 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "B10-FUSAO-NUNCA-ESCALA": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::sombra::tests::p0b_b_fusao_controles_sem_sinal_dinamico_a_camada2_segue_escalando"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 164 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ }
+}

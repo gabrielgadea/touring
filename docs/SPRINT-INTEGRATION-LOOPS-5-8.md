@@ -39,7 +39,7 @@ Este documento consolida os resultados dos Loops 5 a 8 do TACO, focados em **int
 
 **Resultado**: 116 → 54 warnings (-53%)
 
-**Limite обнаруженный**: A meta de <10 warnings e matematicamente inviavel em um unico sprint. Requer sprint dedicado com refatoracao massiva de doc comments.
+**Limite encontrado**: A meta de <10 warnings e matematicamente inviavel em um unico sprint. Requer sprint dedicado com refatoracao massiva de doc comments.
 
 ---
 

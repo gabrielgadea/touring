@@ -6,6 +6,21 @@ fn fresh_metrics() -> GateMetrics {
     GateMetrics::default()
 }
 
+/// F0.3d (2026-09-01): a per-hook dispatch counter. `hook_dispatch_latency`
+/// aggregates every hook, so `post-bash` and `post-tool-rl` were
+/// indistinguishable while chasing the live post-bash deliveries that never
+/// reached the mirror (42/47 lost, no daemon-side evidence either way).
+#[test]
+fn hook_dispatch_by_name_counts_per_hook() {
+    record_hook_dispatch_named("f03d-test-post-bash");
+    record_hook_dispatch_named("f03d-test-post-bash");
+    record_hook_dispatch_named("f03d-test-post-tool-rl");
+    let by_name = hook_dispatch_by_name();
+    assert_eq!(by_name.get("f03d-test-post-bash").copied(), Some(2));
+    assert_eq!(by_name.get("f03d-test-post-tool-rl").copied(), Some(1));
+    assert!(!by_name.contains_key("f03d-never-dispatched"));
+}
+
 #[test]
 fn test_default_counters_are_zero() {
     let m = fresh_metrics();
@@ -23,6 +38,102 @@ fn test_record_functions_are_additive() {
     record_pre_edit_fast_path();
     let after = global().pre_edit_fast_path_count.load(Ordering::Relaxed);
     assert_eq!(after - baseline_fast, 2);
+}
+
+#[test]
+fn gate_fatigue_computa_ratio_por_gate_e_autoconsiste() {
+    // S5b/c — a matemática do KPI: ratio = bypassed/(denied+bypassed), por
+    // gate e global; fp_candidate = ratio>0.20 com volume≥10. Baseline-delta
+    // (o processo acumula de outros testes) + autoconsistência absoluta.
+    use crate::gate_metrics::{GateEvent, GateId, record_gate_event};
+    let bd = global().gate_events[GateId::G2 as usize][GateEvent::Denied as usize]
+        .load(Ordering::Relaxed);
+    let bb = global().gate_events[GateId::G2 as usize][GateEvent::Bypassed as usize]
+        .load(Ordering::Relaxed);
+    for _ in 0..2 {
+        record_gate_event(GateId::G2, GateEvent::Denied);
+    }
+    for _ in 0..3 {
+        record_gate_event(GateId::G2, GateEvent::Bypassed);
+    }
+    let snap = GateMetricsSnapshot::capture();
+    let g2 = snap
+        .gate_fatigue
+        .per_gate
+        .iter()
+        .find(|e| e.gate == "g2_pipe_exit")
+        .expect("g2 no fatigue");
+    assert_eq!(g2.denied - bd, 2);
+    assert_eq!(g2.bypassed - bb, 3);
+    let esperado = g2.bypassed as f64 / (g2.denied + g2.bypassed) as f64;
+    assert!((g2.bypass_ratio.unwrap() - esperado).abs() < 1e-9);
+    // total = soma das linhas; flag autoconsistente com a regra declarada
+    let soma_d: u64 = snap.gate_fatigue.per_gate.iter().map(|e| e.denied).sum();
+    let soma_b: u64 = snap.gate_fatigue.per_gate.iter().map(|e| e.bypassed).sum();
+    assert_eq!(soma_d, snap.gate_fatigue.denied_total);
+    assert_eq!(soma_b, snap.gate_fatigue.bypassed_total);
+    for e in &snap.gate_fatigue.per_gate {
+        let volume = e.denied + e.bypassed;
+        let flag_esperado = e.bypass_ratio.is_some_and(|r| r > 0.20) && volume >= 10;
+        assert_eq!(e.fp_candidate, flag_esperado, "{} inconsistente", e.gate);
+    }
+}
+
+#[test]
+fn native_injection_counters_are_additive_and_snapshotted() {
+    // N5 — família completa: field + init + record + capture (mesma prova do
+    // bash_calls_denominator).
+    let bf = global()
+        .native_injection_followed_count
+        .load(Ordering::Relaxed);
+    let br = global()
+        .native_injection_resisted_count
+        .load(Ordering::Relaxed);
+    let bc = global()
+        .native_injection_code_route_count
+        .load(Ordering::Relaxed);
+    record_native_injection_followed();
+    record_native_injection_resisted();
+    record_native_injection_code_route();
+    record_native_injection_code_route();
+    assert_eq!(
+        global()
+            .native_injection_followed_count
+            .load(Ordering::Relaxed)
+            - bf,
+        1
+    );
+    assert_eq!(
+        global()
+            .native_injection_resisted_count
+            .load(Ordering::Relaxed)
+            - br,
+        1
+    );
+    assert_eq!(
+        global()
+            .native_injection_code_route_count
+            .load(Ordering::Relaxed)
+            - bc,
+        2
+    );
+    let snap = GateMetricsSnapshot::capture();
+    assert!(snap.native_injection_followed_count >= 1);
+    assert!(snap.native_injection_resisted_count >= 1);
+    assert!(snap.native_injection_code_route_count >= 2);
+}
+
+#[test]
+fn bash_calls_denominator_is_counted_and_snapshotted() {
+    // W0 S-0.1 — `record_bash_call` feeds the code-mode adoption denominator
+    // and the snapshot mirrors it (family: field + init + record + capture).
+    let baseline = global().bash_calls_total_count.load(Ordering::Relaxed);
+    record_bash_call();
+    record_bash_call();
+    let after = global().bash_calls_total_count.load(Ordering::Relaxed);
+    assert_eq!(after - baseline, 2);
+    let snap = GateMetricsSnapshot::capture();
+    assert!(snap.bash_calls_total_count >= after);
 }
 
 #[test]
@@ -76,6 +187,12 @@ fn test_snapshot_zero_ratio_when_no_calls() {
         mcts_shadow_timeout_count: 0,
         mcts_shadow_deadlock_detected_count: 0,
         ann_search_latency: LatencySnapshot::default(),
+        embedding_latency: LatencySnapshot::default(),
+        embedding_texts_cuda_count: 0,
+        embedding_texts_cpu_count: 0,
+        embedding_cuda_fallback_count: 0,
+        embedding_cuda_fallback_reason: String::new(),
+        embedding_device: String::new(),
         memory_rss_mb: 0.0,
         memory_virt_mb: 0.0,
         tantivy_stream_enqueued_count: 0,
@@ -248,6 +365,12 @@ fn test_snapshot_ratio_50_percent() {
         mcts_shadow_timeout_count: 0,
         mcts_shadow_deadlock_detected_count: 0,
         ann_search_latency: LatencySnapshot::default(),
+        embedding_latency: LatencySnapshot::default(),
+        embedding_texts_cuda_count: 0,
+        embedding_texts_cpu_count: 0,
+        embedding_cuda_fallback_count: 0,
+        embedding_cuda_fallback_reason: String::new(),
+        embedding_device: String::new(),
         memory_rss_mb: 0.0,
         memory_virt_mb: 0.0,
         tantivy_stream_enqueued_count: 0,
@@ -620,6 +743,51 @@ fn snapshot_missing_memory_fields_deserializes_with_defaults() {
 }
 
 #[test]
+fn test_embedding_runs_are_counted_per_device_and_labelled() {
+    let cuda_before = global().embedding_texts_cuda_count.load(Ordering::Relaxed);
+    let cpu_before = global().embedding_texts_cpu_count.load(Ordering::Relaxed);
+    let fallback_before = global()
+        .embedding_cuda_fallback_count
+        .load(Ordering::Relaxed);
+
+    record_embedding_run_cuda(32, 28_000);
+    assert!(global().embedding_texts_cuda_count.load(Ordering::Relaxed) >= cuda_before + 32);
+    record_embedding_run_cpu(1, 8_000);
+    assert!(global().embedding_texts_cpu_count.load(Ordering::Relaxed) >= cpu_before + 1);
+    record_embedding_cuda_fallback(
+        "cuda: Failed to load library /x/libonnxruntime_providers_shared.so",
+    );
+    assert!(
+        global()
+            .embedding_cuda_fallback_count
+            .load(Ordering::Relaxed)
+            >= fallback_before + 1
+    );
+    assert!(
+        GateMetricsSnapshot::capture()
+            .embedding_cuda_fallback_reason
+            .contains("libonnxruntime_providers_shared.so"),
+        "the snapshot must carry the reason verbatim"
+    );
+
+    assert_eq!(embedding_device_label(0), "none");
+    assert_eq!(embedding_device_label(EMBEDDING_DEVICE_CPU), "cpu");
+    assert_eq!(embedding_device_label(EMBEDDING_DEVICE_CUDA), "cuda");
+
+    let json = serde_json::to_string(&GateMetricsSnapshot::capture()).expect("serialize");
+    for key in [
+        "embedding_latency",
+        "embedding_texts_cuda_count",
+        "embedding_texts_cpu_count",
+        "embedding_cuda_fallback_count",
+        "embedding_cuda_fallback_reason",
+        "embedding_device",
+    ] {
+        assert!(json.contains(key), "gate-metrics JSON must carry {key}");
+    }
+}
+
+#[test]
 fn test_tantivy_record_functions_are_additive() {
     let baseline_upserts = global().tantivy_upsert_count.load(Ordering::Relaxed);
     let baseline_latency = global().tantivy_query_latency_us.load(Ordering::Relaxed);
@@ -771,4 +939,31 @@ fn actor_queue_observability_records_and_snapshots() {
     assert!(json.contains("actor_queue_wait"));
     assert!(json.contains("actor_budget_timeout_count"));
     assert!(json.contains("actor_send_timeout_count"));
+}
+
+/// C2-W0 d4/S-5.2 — one sub-call increments the counter and adds the EXACT
+/// payload+output byte sum (the counterfactual tool-part tool calling would
+/// have injected into the context).
+#[test]
+fn record_code_mode_subcall_sums_counterfactual_bytes() {
+    let baseline_count = global().code_mode_subcalls_count.load(Ordering::Relaxed);
+    let baseline_bytes = global()
+        .code_mode_subcall_bytes_total
+        .load(Ordering::Relaxed);
+
+    record_code_mode_subcall(120, 4_380);
+    record_code_mode_subcall(10, 0);
+
+    assert_eq!(
+        global().code_mode_subcalls_count.load(Ordering::Relaxed) - baseline_count,
+        2
+    );
+    assert_eq!(
+        global()
+            .code_mode_subcall_bytes_total
+            .load(Ordering::Relaxed)
+            - baseline_bytes,
+        4_510,
+        "bytes are exact sums, never estimates"
+    );
 }

@@ -1,0 +1,11 @@
+{
+  "phase": "P2c2",
+  "entities": [
+    {
+      "entity_id": "phase:P2c2",
+      "type": "phase",
+      "description": "nextest: retries 3\u21920 no [profile.ci] e 2\u21920 no [profile.default] \u2014 mascaramento da classe de starvation removido (medido: --no-fail-fast 17 falhas, com retries 0)"
+    }
+  ],
+  "relations": []
+}

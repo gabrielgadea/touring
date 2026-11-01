@@ -29,7 +29,7 @@ use crate::shared::metadata_collector::TokenBudget;
 use crate::shared::parser_cache_global::global_cache;
 use crate::shared::result_ext::{OptionExt, ResultExt};
 use crate::shared::signal_pipeline::{
-    SignalContext, SignalPipeline, StaticSignalLayer, build_graph_pipeline,
+    SignalPipeline, StaticSignalLayer, build_graph_pipeline, context_for_read,
 };
 use crate::shared::signals::{
     assemble_scored_context, blast_radius_signal, enrich_with_cognitive, normalize_scores,
@@ -347,7 +347,13 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
 
     // Layer 5 (S-03, SNR slice): plan-scope — when THIS file belongs to an active
     // loop-engineering plan, surface the plan + the command for its ready subtasks.
-    maybe_inject_plan_scope(&mut context, &rel_path, &runtime.project_root, max_chars);
+    maybe_inject_plan_scope(
+        &mut context,
+        &rel_path,
+        &runtime.project_root,
+        max_chars,
+        input,
+    );
 
     match context {
         Some(ctx) if !ctx.is_empty() => {
@@ -409,9 +415,14 @@ fn maybe_inject_plan_scope(
     rel_path: &str,
     project_root: &std::path::Path,
     max_chars: usize,
+    input: &serde_json::Value,
 ) {
     let remaining = remaining_budget(context, max_chars);
-    if let Some(signal) = plan_scope_signal(rel_path, project_root, remaining) {
+    let session = input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default();
+    if let Some(signal) = plan_scope_signal(rel_path, project_root, remaining, session) {
         append_to_context(context, signal);
     }
 }
@@ -432,6 +443,7 @@ fn plan_scope_signal(
     rel_path: &str,
     project_root: &std::path::Path,
     max_chars: usize,
+    session: &str,
 ) -> Option<String> {
     if max_chars < 80 {
         return None;
@@ -462,12 +474,27 @@ fn plan_scope_signal(
         let field = |k: &str| marker.get(k).and_then(|v| v.as_str()).unwrap_or_default();
         let (task, scope, cwd, status) =
             (field("task"), field("scope"), field("cwd"), field("status"));
-        if marker_covers(rel_path, project_root_str, scope, cwd, status) {
+        if marker_names_readers_plan(task, field("session_id"), session)
+            && marker_covers(rel_path, project_root_str, scope, cwd, status)
+        {
             let line = format_plan_scope_line(task, scope);
             return Some(truncate_str(&line, max_chars).to_string());
         }
     }
     None
+}
+
+/// Is this marker the reader's own REAL plan? The `OUTER` placeholder (armed before a DAG
+/// is registered) names no task, so its `touring decompose ready OUTER` fails; and a marker
+/// stamped for another session is never the reader's — `loop_marker.py`'s own rule. Seen live
+/// 27/09/2026 after S31 revived this handler: every read in one session announced another
+/// session's `OUTER`. An unknown session on either side keeps the project-wide behaviour.
+fn marker_names_readers_plan(task: &str, marker_session: &str, reader_session: &str) -> bool {
+    let placeholder = task.is_empty() || task == "OUTER";
+    let foreign = !marker_session.is_empty()
+        && !reader_session.is_empty()
+        && marker_session != reader_session;
+    !placeholder && !foreign
 }
 
 /// Is `name` the canonical active marker `active-<hex>.json` (NOT the archived /
@@ -498,8 +525,15 @@ fn marker_covers(rel_path: &str, project_root: &str, scope: &str, cwd: &str, sta
     }
     let scope = scope.trim_end_matches('/');
     if let Some(abs_scope) = scope.strip_prefix('/') {
-        // Absolute scope: compare against the file's absolute path.
-        let abs = format!("{}/{}", project_root.trim_end_matches('/'), rel_path);
+        // Absolute scope: compare against the file's absolute path. A file OUTSIDE the project
+        // arrives with an absolute `rel_path`; prefixing the root would make
+        // `<root>//home/…/other-repo/…` look like it sits inside `<root>` (27/09/2026: a touring
+        // file read from the analise session was announced as ∈ the analise loop).
+        let abs = if rel_path.starts_with('/') {
+            rel_path.to_string()
+        } else {
+            format!("{}/{}", project_root.trim_end_matches('/'), rel_path)
+        };
         path_within(&abs, &format!("/{abs_scope}"))
     } else {
         // Relative scope: only valid within the marker's own workspace.
@@ -607,7 +641,7 @@ fn build_db_context(
 
     // Cognitive enrichment: risk, gotchas, predicted co-edits
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = enrich_with_cognitive(cognitive, file_path, true);
+        let enriched = enrich_with_cognitive(cognitive, file_path, true, None);
         if !enriched.is_empty() {
             append_cognitive_section(&mut context, enriched);
         }
@@ -965,11 +999,17 @@ fn build_parallel_signal_pipeline(
         ),
     );
 
-    pipeline.execute(
-        &SignalContext::new(rel_path, "")
-            .with_cila(cila_level)
-            .with_hook("pre_read"),
-    )
+    // S2 (2026-09-05, plano substrato-de-artefato do `analise`): símbolos documentais
+    // (leis, acórdãos, resoluções, SEI) com relevância por nó — só para `.md` sob
+    // `relatoria/` e só em projetos com a ponte U10a; gate próprio em CILA >= 2.
+    pipeline = pipeline.add_layer(
+        crate::shared::doc_symbol_signal::DocSymbolSignalLayer::with_root(
+            runtime.project_root.clone(),
+        ),
+    );
+
+    // S0 v2: tool identity travels with the context (no mutation on a read).
+    pipeline.execute(&context_for_read(rel_path, cila_level))
 }
 
 /// Default token budget for context injection (characters).

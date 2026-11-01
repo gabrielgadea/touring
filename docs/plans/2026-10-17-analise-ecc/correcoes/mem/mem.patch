@@ -1,0 +1,1693 @@
+diff --git a/crates/touring-ceg/Cargo.toml b/crates/touring-ceg/Cargo.toml
+index c6de82d9..9714dfac 100644
+--- a/crates/touring-ceg/Cargo.toml
++++ b/crates/touring-ceg/Cargo.toml
+@@ -33,7 +33,7 @@ serde = { workspace = true, features = ["derive"] }
+ serde_json = { workspace = true }
+ thiserror = { workspace = true }
+ tracing = { workspace = true }
+-regex = { workspace = true } # T-09: token-format secret redaction in redact_secrets
++regex = { workspace = true } # gateway::summarize (the secret redactor moved to touring-foundation::text_sanitize)
+ tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
+ moka = { workspace = true }
+ blake3 = { workspace = true }
+diff --git a/crates/touring-ceg/src/gateway/sandbox_executor.rs b/crates/touring-ceg/src/gateway/sandbox_executor.rs
+index ab3debf0..6e8f44d8 100644
+--- a/crates/touring-ceg/src/gateway/sandbox_executor.rs
++++ b/crates/touring-ceg/src/gateway/sandbox_executor.rs
+@@ -14,12 +14,9 @@
+ //!   without shell interpolation (command-injection safe).
+ //! - `blake3` (workspace dep) — content-addressable hashing.
+ 
+-use std::borrow::Cow;
+ use std::path::{Path, PathBuf};
+-use std::sync::LazyLock;
+ use std::time::Duration;
+ 
+-use regex::Regex;
+ use serde_json::Value;
+ use thiserror::Error;
+ use tokio::io::AsyncReadExt;
+@@ -1746,80 +1743,12 @@ fn runtime_python_version(runtime: &Path) -> Option<(u32, u32)> {
+     ver
+ }
+ 
+-/// T-09 (2026-06-15) — token-format secret patterns, matched ANYWHERE in a line.
+-/// The env-var-name pass in [`redact_secrets`] only catches `KEY=value`; these
+-/// catch a raw token value with no surrounding key (e.g. a `ghp_…` pasted into an
+-/// error message or a `Bearer sk-…` header).
+-static SECRET_TOKEN_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+-    [
+-        r"gh[pousr]_[A-Za-z0-9_]{20,}", // GitHub PAT / OAuth / refresh / server / user
+-        r"sk-[A-Za-z0-9_-]{20,}",       // OpenAI (incl. sk-proj-…)
+-        r"AKIA[0-9A-Z]{16}",            // AWS access key id
+-        r"xox[baprs]-[A-Za-z0-9-]{10,}", // Slack bot/app/user/refresh/legacy tokens
+-    ]
+-    .iter()
+-    .filter_map(|p| Regex::new(p).ok())
+-    .collect()
+-});
+-
+-/// I-12 / T-09 — Redact secret-like material from captured output before it is
+-/// stored, logged, or surfaced to the LLM. Three passes:
+-/// 1. **PEM private-key blocks** — `-----BEGIN … PRIVATE KEY-----` … `-----END …`
+-///    are dropped wholesale (header, base64 body, and footer).
+-/// 2. **Env-var name pass** — a line containing a known credential var name
+-///    (`GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY`, …) has its `KEY=value` / `KEY: value`
+-///    value replaced (catches secrets whose value has no recognizable token format).
+-/// 3. **Token-format pass (T-09)** — `SECRET_TOKEN_PATTERNS` redact a raw token
+-///    value (GitHub/OpenAI/AWS/Slack) anywhere in the remaining text.
+-pub fn redact_secrets(s: &str) -> String {
+-    let needles: &[&str] = &[
+-        "GH_TOKEN",
+-        "GITHUB_TOKEN",
+-        "AWS_SECRET_ACCESS_KEY",
+-        "AWS_ACCESS_KEY_ID",
+-        "AWS_SESSION_TOKEN",
+-        "ANTHROPIC_API_KEY",
+-        "OPENAI_API_KEY",
+-        "NPM_TOKEN",
+-    ];
+-    let mut out = String::with_capacity(s.len());
+-    let mut in_pem = false;
+-    for line in s.lines() {
+-        // Pass 1: PEM private-key block — drop BEGIN, base64 body, and END.
+-        if line.contains("-----BEGIN") && line.contains("PRIVATE KEY") {
+-            in_pem = true;
+-            out.push_str("[REDACTED PEM PRIVATE KEY]\n");
+-            continue;
+-        }
+-        if in_pem {
+-            if line.contains("-----END") && line.contains("PRIVATE KEY") {
+-                in_pem = false;
+-            }
+-            continue;
+-        }
+-        // Pass 2: env-var name → redact the value after the first `=`/`:`.
+-        let mut redacted: Cow<'_, str> = Cow::Borrowed(line);
+-        if needles.iter().any(|n| line.contains(n))
+-            && let Some(eq_idx) = line.find(['=', ':'])
+-        {
+-            redacted = Cow::Owned(format!("{} [REDACTED]", &line[..=eq_idx]));
+-        }
+-        // Pass 3: token-format patterns anywhere in the (possibly redacted) line.
+-        for re in SECRET_TOKEN_PATTERNS.iter() {
+-            if re.is_match(&redacted) {
+-                redacted = Cow::Owned(re.replace_all(&redacted, "[REDACTED]").into_owned());
+-            }
+-        }
+-        out.push_str(&redacted);
+-        out.push('\n');
+-    }
+-    // Preserve final-newline behaviour: if s ended without \n, drop the one
+-    // we appended at the end of the last iteration.
+-    if !s.ends_with('\n') && out.ends_with('\n') {
+-        out.pop();
+-    }
+-    out
+-}
++/// I-12 / T-09 — secret redaction for captured output. The implementation moved to
++/// [`touring_foundation::text_sanitize`] so crates below the CEG (the memory write
++/// path in `touring-intelligence`) share THE redactor instead of a second copy;
++/// re-exported here so every existing `sandbox_executor::redact_secrets` caller
++/// (and the T-09 regression tests below) keeps resolving.
++pub use touring_foundation::text_sanitize::redact_secrets;
+ 
+ /// Computes the blake3 hex digest of the captured output (64 chars).
+ pub fn hash_output(bytes: &[u8]) -> String {
+diff --git a/crates/touring-cli/src/cli/evolution.rs b/crates/touring-cli/src/cli/evolution.rs
+index a14d4ada..ee4ae802 100644
+--- a/crates/touring-cli/src/cli/evolution.rs
++++ b/crates/touring-cli/src/cli/evolution.rs
+@@ -354,7 +354,10 @@ pub fn cli_evolution_drift(rt: &mut HookRuntime, _payload: &serde_json::Value) -
+             "older_bash_success_rate": older_rate,
+             "total_gotchas": total_gotchas,
+             "gotchas_with_hits": gotchas_with_hits,
+-            "total_prevented_errors": gotchas_prevented,
++            // C7 (2026-10-17): no producer exists for `prevented_errors`, so the
++            // raw SUM is an absent signal shown as `null`, never as a zero.
++            "total_prevented_errors": db.reported_prevented(gotchas_prevented),
++            "prevented_measured": db.prevented_measured(),
+         }
+     }).to_string()
+ }
+@@ -471,7 +474,9 @@ pub fn cli_evolution_insights(rt: &mut HookRuntime, _payload: &serde_json::Value
+         "gotcha_coverage": {
+             "total": gotcha_total,
+             "with_hits": gotcha_hits,
+-            "prevented_errors": gotcha_prevented,
++            // C7 (2026-10-17): absent signal -> `null` (see `evolution drift`).
++            "prevented_errors": db.reported_prevented(gotcha_prevented),
++            "prevented_measured": db.prevented_measured(),
+             "resolved": resolved_gotchas,
+         }
+     }).to_string()
+diff --git a/crates/touring-cli/src/cli/gotcha.rs b/crates/touring-cli/src/cli/gotcha.rs
+index aabfc8eb..559570e9 100644
+--- a/crates/touring-cli/src/cli/gotcha.rs
++++ b/crates/touring-cli/src/cli/gotcha.rs
+@@ -186,9 +186,16 @@ pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
+             |r| r.get(0),
+         )
+         .unwrap_or(0);
++    // C7 (2026-10-17): `prevented` has no production producer, so the raw
++    // column reads 0 on every real db ("0 prevented in 388.840 hits") — an
++    // absent signal is not a zero (law L2). `null` + the flag + the note that
++    // names what is missing, until a real producer exists.
++    let db = &rt.ctx.knowledge;
+     serde_json::json!(
+         { "total" : total, "resolved" : resolved, "unresolved" : total as i64 - resolved,
+-        "total_hits" : hits, "total_prevented" : prevented }
++        "total_hits" : hits, "total_prevented" : db.reported_prevented(prevented),
++        "prevented_measured" : db.prevented_measured(),
++        "prevented_note" : db.prevented_note() }
+     )
+     .to_string()
+ }
+@@ -277,3 +284,50 @@ pub fn cli_gotcha_init(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
+     )
+     .to_string()
+ }
++
++/// C7 (2026-10-17): `prevented` has no production producer, so every surface
++/// that reports it shows `null` (+ the flag and the missing-piece note), never
++/// the fabricated zero of an unwritten column.
++#[cfg(test)]
++mod prevented_signal_tests {
++    use super::cli_gotcha_stats;
++    use crate::runtime::HookRuntime;
++    use serde_json::json;
++
++    fn runtime_with_hits() -> (tempfile::TempDir, HookRuntime) {
++        let tmp = tempfile::TempDir::new().unwrap();
++        let rt = HookRuntime::new(tmp.path()).unwrap();
++        let id = rt
++            .ctx
++            .knowledge
++            .add_gotcha("c7probe", "a pitfall", "warning", None)
++            .unwrap();
++        for _ in 0..4 {
++            rt.ctx.knowledge.increment_gotcha_hit(id);
++        }
++        (tmp, rt)
++    }
++
++    #[test]
++    fn gotcha_stats_reports_prevented_as_null_with_the_missing_piece() {
++        let (_tmp, mut rt) = runtime_with_hits();
++        let out: serde_json::Value =
++            serde_json::from_str(&cli_gotcha_stats(&mut rt, &json!({}))).unwrap();
++        assert!(out["total_hits"].as_i64().unwrap() >= 4, "{out}");
++        assert!(out["total_prevented"].is_null(), "fabricated zero: {out}");
++        assert_eq!(out["prevented_measured"], false, "{out}");
++        let note = out["prevented_note"].as_str().expect("note present");
++        assert!(note.contains("no producer"), "{note}");
++    }
++
++    #[test]
++    fn memory_stats_reports_prevented_as_null_too() {
++        let (_tmp, mut rt) = runtime_with_hits();
++        let out: serde_json::Value =
++            serde_json::from_str(&crate::cli::memory::cli_memory_stats(&mut rt, &json!({})))
++                .unwrap();
++        let stats = &out["gotcha_stats"];
++        assert!(stats["total_prevented"].is_null(), "fabricated zero: {out}");
++        assert_eq!(stats["prevented_measured"], false, "{out}");
++    }
++}
+diff --git a/crates/touring-cli/src/cli/handlers/dispatch.rs b/crates/touring-cli/src/cli/handlers/dispatch.rs
+index 3e853c17..b746912c 100644
+--- a/crates/touring-cli/src/cli/handlers/dispatch.rs
++++ b/crates/touring-cli/src/cli/handlers/dispatch.rs
+@@ -142,8 +142,12 @@ pub struct GotchaStats {
+     /// Sum of `hit_count` across all gotchas — how often they matched.
+     pub total_hits: usize,
+     /// Sum of `prevented_errors` across all gotchas — matches credited with
+-    /// preventing a real error.
+-    pub total_prevented: usize,
++    /// preventing a real error. `None` (JSON `null`) while the signal has no
++    /// producer: an absent signal is not a zero (C7, 2026-10-17).
++    pub total_prevented: Option<usize>,
++    /// Whether `total_prevented` is measured. `false` means the `null` above
++    /// is "unknown", never "none were prevented".
++    pub prevented_measured: bool,
+ }
+ /// Aggregate counts over the knowledge store.
+ #[derive(Serialize)]
+diff --git a/crates/touring-cli/src/cli/memory.rs b/crates/touring-cli/src/cli/memory.rs
+index 90dac397..9e42c310 100644
+--- a/crates/touring-cli/src/cli/memory.rs
++++ b/crates/touring-cli/src/cli/memory.rs
+@@ -13,6 +13,7 @@ use crate::cli_handlers::{
+ use crate::runtime::HookRuntime;
+ use rusqlite::params;
+ use touring_analysis::e2e::schema_guard;
++use touring_foundation::text_sanitize::{sanitize_json_items, sanitize_json_strings};
+ 
+ /// Entries a single `memory reindex` call will embed before yielding.
+ ///
+@@ -548,7 +549,8 @@ pub fn cli_memory_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
+         gotcha_stats: GotchaStats {
+             total_count: gotcha_total,
+             total_hits: gotcha_hits as usize,
+-            total_prevented: gotcha_prevented as usize,
++            total_prevented: db.reported_prevented(gotcha_prevented).map(|p| p as usize),
++            prevented_measured: db.prevented_measured(),
+         },
+         // One connection computes all three memory metrics (entries, tagged,
+         // coverage) — three opens of the same file would triple the latency
+@@ -843,7 +845,7 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
+     //
+     // `entries` below stays byte-identical to the pre-04/08 behaviour — this
+     // is a new channel, not a change to the old one.
+-    let cases = partition_cases(
++    let mut cases = partition_cases(
+         &memory_recall_rrf_merge_n(&[&entries[..], &ann_results[..], &tfidf_results[..]], 60).0,
+     );
+ 
+@@ -1009,6 +1011,12 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
+     // noise floor) only ever saw ageless entries. Backfill at the choke point
+     // so every delivered entry carries its age regardless of the winning arm.
+     crate::cli::shared::memory_backfill_stored_at(&memory_dbs, &mut merged_entries);
++    // C6 (2026-10-17): recall hands stored text back to the model as context.
++    // Rows written before the write-side guard may still hold secrets or
++    // bidi/zero-width characters — clean every delivered string on the way
++    // OUT (entries and the labelled cases), without rewriting the database.
++    sanitize_json_items(&mut merged_entries);
++    sanitize_json_strings(&mut cases);
+     let entry_count = merged_entries.len();
+     let ann_count = ann_results.len();
+     let tag_filter_json = tag_filter.as_ref().map(|f| {
+@@ -1322,7 +1330,7 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
+             .to_string();
+         }
+     };
+-    let entries: Vec<serde_json::Value> = stmt
++    let mut entries: Vec<serde_json::Value> = stmt
+         .query_map(params![limit], |row| {
+             let mut entry = serde_json::json!({
+                 "key": row.get::<_, String>(0)?,
+@@ -1350,6 +1358,9 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
+         })
+         .map(|rows| rows.filter_map(|r| r.ok()).collect())
+         .unwrap_or_default();
++    // C6 (2026-10-17): clean stored text on the way OUT (rows may predate the
++    // write-side guard); the database is not rewritten.
++    sanitize_json_items(&mut entries);
+     let count = entries.len();
+     // The pheromone-health number, reported because it was invisible: 11 of
+     // 7360 entries carried a reward when this was written (0,15%), so the
+@@ -2345,3 +2356,134 @@ mod pheromone_decay_tests {
+         );
+     }
+ }
++
++/// C6 (2026-10-17): recall/list hand stored text back to the model as context,
++/// so rows that predate the write-side guard are cleaned on the way OUT.
++#[cfg(test)]
++mod recall_sanitize_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use super::{cli_memory_list, cli_memory_recall};
++    use crate::runtime::HookRuntime;
++    use serde_json::json;
++
++    fn fake_key() -> String {
++        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
++    }
++
++    /// A runtime whose memory.db holds ONE row planted the way pre-guard
++    /// writers did (raw SQL, no sanitization).
++    fn runtime_with_legacy_row(key: &str, value: &str) -> (tempfile::TempDir, HookRuntime) {
++        let tmp = tempfile::TempDir::new().unwrap();
++        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
++        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
++        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
++        rusqlite::Connection::open(&db)
++            .unwrap()
++            .execute(
++                "INSERT INTO memory_entries (key, tier, value, entry_type) \
++                 VALUES (?1, 'semantic', ?2, 'lesson')",
++                [key, value],
++            )
++            .unwrap();
++        let rt = HookRuntime::new(tmp.path()).unwrap();
++        (tmp, rt)
++    }
++
++    fn served_value(out: &str, key: &str) -> String {
++        let v: serde_json::Value = serde_json::from_str(out).unwrap();
++        v["entries"]
++            .as_array()
++            .expect("entries")
++            .iter()
++            .find(|e| e["key"] == key)
++            .unwrap_or_else(|| panic!("{key} not served: {out}"))["value"]
++            .as_str()
++            .unwrap()
++            .to_string()
++    }
++
++    #[test]
++    fn recall_cleans_a_legacy_secret_on_the_way_out() {
++        let key = fake_key();
++        let (_tmp, mut rt) = runtime_with_legacy_row(
++            "c6-recall-old",
++            &format!("c6recallprobe use {key} \u{202E}tail"),
++        );
++        let out = cli_memory_recall(&mut rt, &json!({"query": "c6recallprobe"}));
++        assert!(!out.contains(&key), "secret leaked through recall: {out}");
++        let served = served_value(&out, "c6-recall-old");
++        assert!(
++            served.contains("[REDACTED]") && !served.contains('\u{202E}'),
++            "{served:?}"
++        );
++    }
++
++    #[test]
++    fn recall_serves_a_clean_entry_untouched() {
++        let plain = "c6cleanprobe guidance: use `cargo test`.\n\tpr\u{f3}ximo passo";
++        let (_tmp, mut rt) = runtime_with_legacy_row("c6-recall-clean", plain);
++        let out = cli_memory_recall(&mut rt, &json!({"query": "c6cleanprobe"}));
++        assert_eq!(served_value(&out, "c6-recall-clean"), plain);
++    }
++
++    #[test]
++    fn list_cleans_a_legacy_secret_on_the_way_out() {
++        let key = fake_key();
++        let (_tmp, mut rt) =
++            runtime_with_legacy_row("c6-list-old", &format!("listing {key} \u{200B}end"));
++        let out = cli_memory_list(&mut rt, &json!({"limit": 10}));
++        assert!(!out.contains(&key), "secret leaked through list: {out}");
++        let served = served_value(&out, "c6-list-old");
++        assert_eq!(served, "listing [REDACTED] end");
++    }
++}
++
++/// C6 (2026-10-17): the labelled `cases` channel of recall serves the
++/// auto-recorded outcomes `entries` hides — it is a second way out for stored
++/// text and must be cleaned like the first.
++#[cfg(test)]
++mod recall_cases_sanitize_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use super::cli_memory_recall;
++    use crate::runtime::HookRuntime;
++    use serde_json::json;
++
++    #[test]
++    fn recall_cases_channel_is_cleaned_too() {
++        let key = ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat();
++        let tmp = tempfile::TempDir::new().unwrap();
++        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
++        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
++        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
++        // A mined repair: error text carries a secret, the resolution is clean.
++        let mined = json!({
++            "tool": "Bash",
++            "error": format!("c6casesprobe auth failed with {key}\u{202E}"),
++            "resolution_input": "retry with the env var",
++        })
++        .to_string();
++        rusqlite::Connection::open(&db)
++            .unwrap()
++            .execute(
++                "INSERT INTO memory_entries (key, tier, value, entry_type) \
++                 VALUES ('outcome:c6casesprobe:failure', 'reference', ?1, 'transcript_lesson')",
++                [&mined],
++            )
++            .unwrap();
++        let mut rt = HookRuntime::new(tmp.path()).unwrap();
++        let out = cli_memory_recall(&mut rt, &json!({"query": "c6casesprobe"}));
++        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
++        // Not vacuous: the case really is served through the `cases` channel.
++        assert!(
++            v["cases"].to_string().contains("c6casesprobe"),
++            "the outcome must reach `cases`: {out}"
++        );
++        assert!(!out.contains(&key), "secret leaked through recall: {out}");
++        assert!(
++            !out.contains('\u{202E}'),
++            "bidi leaked through recall: {out}"
++        );
++    }
++}
+diff --git a/crates/touring-cli/src/cli_e2e.rs b/crates/touring-cli/src/cli_e2e.rs
+index ed8e8667..7c6b1863 100644
+--- a/crates/touring-cli/src/cli_e2e.rs
++++ b/crates/touring-cli/src/cli_e2e.rs
+@@ -878,7 +878,9 @@ fn phase_knowledge(rt: &mut HookRuntime) -> PhaseResult {
+             "bash_outcome_count": bash_count,
+             "gotcha_total": gotcha_total,
+             "gotcha_hit_rate_pct": format!("{:.1}", gotcha_effectiveness * 100.0),
+-            "gotcha_prevented_errors": gotcha_prevented,
++            // C7 (2026-10-17): unmeasured signal -> `null`, never a fake zero.
++            "gotcha_prevented_errors": db.reported_prevented(gotcha_prevented),
++            "gotcha_prevented_measured": db.prevented_measured(),
+             "memory_entries": memory_count,
+             "coedit_pairs": coedit_pairs,
+             "access_count": access_count,
+diff --git a/crates/touring-foundation/src/lib.rs b/crates/touring-foundation/src/lib.rs
+index 4772a004..de6d048e 100644
+--- a/crates/touring-foundation/src/lib.rs
++++ b/crates/touring-foundation/src/lib.rs
+@@ -59,6 +59,10 @@ pub mod governor;
+ /// Shared BM25 ranking math (one scorer for every intent-ranked corpus).
+ pub mod text_rank;
+ 
++/// Secret redaction + invisible/control-character stripping for model-visible text
++/// (the memory write path and recall output share this one implementation).
++pub mod text_sanitize;
++
+ pub mod hash;
+ pub mod health;
+ pub mod health_events;
+diff --git a/crates/touring-foundation/src/text_sanitize.rs b/crates/touring-foundation/src/text_sanitize.rs
+new file mode 100644
+index 00000000..58970a8b
+--- /dev/null
++++ b/crates/touring-foundation/src/text_sanitize.rs
+@@ -0,0 +1,347 @@
++// touring-quality:allow-secrets — the tests below embed synthetic-secret
++// fixtures on purpose (assembled at runtime, never a real credential), the
++// detect-secrets / gitleaks `pragma: allowlist secret` convention.
++//! Text sanitization shared by every writer and reader of free text that is
++//! later replayed to a model as context (memory store/recall, sandbox output).
++//!
++//! Two independent defences, one module so they can never drift apart:
++//!
++//! 1. **Secrets** — [`redact_secrets`] (PEM blocks, credential env-var names,
++//!    GitHub/OpenAI/AWS/Slack token formats). Moved here from
++//!    `touring-ceg::gateway::sandbox_executor` (which re-exports it) so that
++//!    crates *below* the CEG — `touring-intelligence`'s `RlmMemory`, the unified
++//!    memory write path — can use the ONE redactor instead of growing a second.
++//! 2. **Invisible / control characters** — [`strip_invisible`] removes bidi
++//!    overrides and isolates, zero-width characters, the Unicode Tag block and
++//!    C0 controls. These render as nothing (or reorder the visible text) yet are
++//!    read by a model, which makes them a carrier for hidden instructions.
++//!
++//! [`sanitize_memory_text`] composes both (invisibles first, so a zero-width
++//! character spliced into a token cannot hide it from the token patterns) and
++//! reports what it changed, so a caller can tell the user instead of silently
++//! altering their text.
++
++use std::borrow::Cow;
++use std::sync::LazyLock;
++
++use regex::Regex;
++
++/// Token-format secret patterns, matched ANYWHERE in a line. The env-var-name
++/// pass in [`redact_secrets`] only catches `KEY=value`; these catch a raw token
++/// value with no surrounding key (e.g. a GitHub PAT pasted into an error
++/// message, or an OpenAI key in an `Authorization` header).
++static SECRET_TOKEN_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
++    [
++        r"gh[pousr]_[A-Za-z0-9_]{20,}", // GitHub PAT / OAuth / refresh / server / user
++        r"sk-[A-Za-z0-9_-]{20,}",       // OpenAI (incl. sk-proj-…)
++        r"AKIA[0-9A-Z]{16}",            // AWS access key id
++        r"xox[baprs]-[A-Za-z0-9-]{10,}", // Slack bot/app/user/refresh/legacy tokens
++    ]
++    .iter()
++    .filter_map(|p| Regex::new(p).ok())
++    .collect()
++});
++
++/// Credential env-var names whose `KEY=value` / `KEY: value` value is redacted.
++const SECRET_ENV_NEEDLES: &[&str] = &[
++    "GH_TOKEN",
++    "GITHUB_TOKEN",
++    "AWS_SECRET_ACCESS_KEY",
++    "AWS_ACCESS_KEY_ID",
++    "AWS_SESSION_TOKEN",
++    "ANTHROPIC_API_KEY",
++    "OPENAI_API_KEY",
++    "NPM_TOKEN",
++];
++
++/// Redact secret-like material from text before it is stored, logged, or
++/// surfaced to the LLM. Three passes:
++/// 1. **PEM private-key blocks** — `-----BEGIN … PRIVATE KEY-----` … `-----END …`
++///    are dropped wholesale (header, base64 body, and footer).
++/// 2. **Env-var name pass** — a line containing a known credential var name
++///    (`GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY`, …) has its `KEY=value` / `KEY: value`
++///    value replaced (catches secrets whose value has no recognizable token format).
++/// 3. **Token-format pass** — `SECRET_TOKEN_PATTERNS` redact a raw token
++///    value (GitHub/OpenAI/AWS/Slack) anywhere in the remaining text.
++///
++/// Idempotent: redacting already-redacted text returns it unchanged.
++pub fn redact_secrets(s: &str) -> String {
++    redact_secrets_counted(s).0
++}
++
++/// Passes 2 and 3 over a single line outside a PEM block, with the number of
++/// redactions applied. A line whose env-var value is already `[REDACTED]`
++/// rebuilds to itself and counts zero.
++fn redact_line(line: &str) -> (Cow<'_, str>, usize) {
++    let mut redactions = 0usize;
++    let mut redacted: Cow<'_, str> = Cow::Borrowed(line);
++    if SECRET_ENV_NEEDLES.iter().any(|n| line.contains(n))
++        && let Some(eq_idx) = line.find(['=', ':'])
++    {
++        let replaced = format!("{} [REDACTED]", &line[..=eq_idx]);
++        if replaced != line {
++            redactions += 1;
++        }
++        redacted = Cow::Owned(replaced);
++    }
++    for re in SECRET_TOKEN_PATTERNS.iter() {
++        let hits = re.find_iter(&redacted).count();
++        if hits > 0 {
++            redactions += hits;
++            redacted = Cow::Owned(re.replace_all(&redacted, "[REDACTED]").into_owned());
++        }
++    }
++    (redacted, redactions)
++}
++
++/// [`redact_secrets`] plus the number of redactions it performed: one per PEM
++/// block, one per line whose env-var value was replaced, and one per token
++/// match. A line that was already redacted counts zero (the replacement is
++/// identical), which is what makes a second pass over clean text report `0`.
++pub fn redact_secrets_counted(s: &str) -> (String, usize) {
++    let mut out = String::with_capacity(s.len());
++    let mut redactions = 0usize;
++    let mut in_pem = false;
++    for line in s.lines() {
++        // Pass 1: PEM private-key block — drop BEGIN, base64 body, and END.
++        if line.contains("-----BEGIN") && line.contains("PRIVATE KEY") {
++            in_pem = true;
++            out.push_str("[REDACTED PEM PRIVATE KEY]\n");
++            redactions += 1;
++            continue;
++        }
++        if in_pem {
++            if line.contains("-----END") && line.contains("PRIVATE KEY") {
++                in_pem = false;
++            }
++            continue;
++        }
++        let (redacted, n) = redact_line(line);
++        redactions += n;
++        out.push_str(&redacted);
++        out.push('\n');
++    }
++    // Preserve final-newline behaviour: if s ended without \n, drop the one
++    // we appended at the end of the last iteration.
++    if !s.ends_with('\n') && out.ends_with('\n') {
++        out.pop();
++    }
++    (out, redactions)
++}
++
++/// True for a character that renders as nothing, or reorders the visible
++/// text, and so can carry instructions a human reviewer never sees.
++///
++/// - U+200B..=U+200F — zero-width space/joiners, LRM, RLM
++/// - U+202A..=U+202E — bidi embeddings and overrides
++/// - U+2066..=U+2069 — bidi isolates
++/// - U+E0000..=U+E007F — the Tag block (invisible "ASCII smuggling")
++/// - C0 controls except `\n` and `\t`
++///
++/// U+FEFF is handled by [`strip_invisible`], not here: a byte-order mark at
++/// the very start of a text is legitimate, in the middle it is not.
++fn is_invisible(c: char) -> bool {
++    matches!(
++        c,
++        '\u{200B}'..='\u{200F}'
++            | '\u{202A}'..='\u{202E}'
++            | '\u{2066}'..='\u{2069}'
++            | '\u{E0000}'..='\u{E007F}'
++    ) || (c < '\u{20}' && c != '\n' && c != '\t')
++}
++
++/// Removes invisible and control characters (see [`is_invisible`]) and any
++/// U+FEFF that is not the first character. Returns the cleaned text and how
++/// many characters were removed; borrows the input when there is nothing to
++/// remove.
++pub fn strip_invisible(s: &str) -> (Cow<'_, str>, usize) {
++    let dirty = |&(i, c): &(usize, char)| is_invisible(c) || (c == '\u{FEFF}' && i != 0);
++    let removed = s.char_indices().filter(dirty).count();
++    if removed == 0 {
++        return (Cow::Borrowed(s), 0);
++    }
++    let cleaned: String = s
++        .char_indices()
++        .filter(|ic| !dirty(ic))
++        .map(|(_, c)| c)
++        .collect();
++    (Cow::Owned(cleaned), removed)
++}
++
++/// Outcome of [`sanitize_memory_text`]: the cleaned text and what was altered.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct Sanitized {
++    /// The text after invisible-character removal and secret redaction.
++    pub text: String,
++    /// Number of secret redactions applied (PEM block / env value / token).
++    pub secrets: usize,
++    /// Number of invisible or control characters removed.
++    pub invisible: usize,
++}
++
++impl Sanitized {
++    /// True when the text was altered in any way.
++    pub fn changed(&self) -> bool {
++        self.secrets > 0 || self.invisible > 0
++    }
++
++    /// `{"secrets": n, "invisible": m}` — the shape the store responses carry.
++    /// Always built (zeros when nothing changed): an absent key would be
++    /// ambiguous between "nothing to clean" and "an older daemon".
++    pub fn to_json(&self) -> serde_json::Value {
++        serde_json::json!({ "secrets": self.secrets, "invisible": self.invisible })
++    }
++}
++
++/// Sanitizes free text headed for (or coming from) model-visible storage:
++/// strips invisible/control characters first, then redacts secrets, so a
++/// zero-width character spliced into a token cannot hide it from the token
++/// patterns. Idempotent.
++pub fn sanitize_memory_text(s: &str) -> Sanitized {
++    let (stripped, invisible) = strip_invisible(s);
++    let (text, secrets) = redact_secrets_counted(&stripped);
++    Sanitized {
++        text,
++        secrets,
++        invisible,
++    }
++}
++
++/// Sanitizes every string leaf of a JSON value in place (object keys are left
++/// alone) and returns `(secrets, invisible)` totals. Used on the READ side:
++/// recall output is cleaned before it is handed back as context, without
++/// rewriting the database.
++pub fn sanitize_json_strings(v: &mut serde_json::Value) -> (usize, usize) {
++    let add = |acc: (usize, usize), c: (usize, usize)| (acc.0 + c.0, acc.1 + c.1);
++    match v {
++        serde_json::Value::String(s) => {
++            let out = sanitize_memory_text(s);
++            let counts = (out.secrets, out.invisible);
++            if out.changed() {
++                *s = out.text;
++            }
++            counts
++        }
++        serde_json::Value::Array(items) => items
++            .iter_mut()
++            .fold((0, 0), |acc, item| add(acc, sanitize_json_strings(item))),
++        serde_json::Value::Object(map) => map
++            .values_mut()
++            .fold((0, 0), |acc, item| add(acc, sanitize_json_strings(item))),
++        _ => (0, 0),
++    }
++}
++
++/// [`sanitize_json_strings`] over a slice of values (a recall/query result
++/// list), returning the summed `(secrets, invisible)`.
++pub fn sanitize_json_items(items: &mut [serde_json::Value]) -> (usize, usize) {
++    items.iter_mut().fold((0, 0), |acc, item| {
++        let c = sanitize_json_strings(item);
++        (acc.0 + c.0, acc.1 + c.1)
++    })
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// A synthetic OpenAI-shaped key assembled at runtime so no literal in the
++    /// source matches the secret detectors.
++    fn fake_openai_key() -> String {
++        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
++    }
++
++    /// A synthetic GitHub-PAT-shaped token assembled at runtime.
++    fn fake_github_token() -> String {
++        ["gh", "p_", "0123456789abcdefghijklmnopqrstuv"].concat()
++    }
++
++    #[test]
++    fn redacts_token_without_env_name_and_counts_it() {
++        let key = fake_openai_key();
++        let (out, n) = redact_secrets_counted(&format!("use {key} for the call"));
++        assert!(!out.contains(&key), "token leaked: {out}");
++        assert!(out.contains("[REDACTED]"));
++        assert_eq!(n, 1);
++    }
++
++    #[test]
++    fn redaction_is_idempotent_and_second_pass_counts_zero() {
++        let text = format!(
++            "GH_TOKEN={}\nAWS_SECRET_ACCESS_KEY: wxyz\n-----BEGIN RSA PRIVATE KEY-----\nQUJD\n-----END RSA PRIVATE KEY-----\n",
++            fake_github_token()
++        );
++        let (once, n1) = redact_secrets_counted(&text);
++        let (twice, n2) = redact_secrets_counted(&once);
++        assert_eq!(n1, 3, "env value, env value, PEM block: {once}");
++        assert_eq!(once, twice);
++        assert_eq!(n2, 0, "second pass must count nothing");
++    }
++
++    #[test]
++    fn plain_text_is_untouched_including_non_ascii() {
++        // Latin accents, an emoji and CJK (escaped: the source stays Latin).
++        let s = "Ol\u{e1}, mundo!\n\tA\u{e7}\u{e3}o: \u{65E5}\u{672C}\u{8A9E} e emoji \u{1F642} ok.\nsegunda linha";
++        let out = sanitize_memory_text(s);
++        assert_eq!(out.text, s);
++        assert!(!out.changed());
++    }
++
++    #[test]
++    fn strips_bidi_zero_width_tag_block_and_c0_controls() {
++        let s =
++            "a\u{202E}b\u{200B}c\u{2066}d\u{2069}e\u{E0041}f\u{0007}g\u{001B}h\u{FEFF}i\n\tkeep";
++        let (out, n) = strip_invisible(s);
++        assert_eq!(out, "abcdefghi\n\tkeep");
++        assert_eq!(n, 8);
++    }
++
++    #[test]
++    fn leading_bom_is_kept_but_inner_bom_is_removed() {
++        let (out, n) = strip_invisible("\u{FEFF}start\u{FEFF}end");
++        assert_eq!(out, "\u{FEFF}startend");
++        assert_eq!(n, 1);
++    }
++
++    #[test]
++    fn zero_width_inside_a_token_does_not_hide_it() {
++        let key = fake_openai_key();
++        let split = format!("{}\u{200B}{}", &key[..10], &key[10..]);
++        let out = sanitize_memory_text(&split);
++        assert_eq!(out.invisible, 1);
++        assert_eq!(out.secrets, 1);
++        assert!(
++            !out.text.contains(&key[10..]),
++            "token survived: {}",
++            out.text
++        );
++    }
++
++    #[test]
++    fn json_strings_are_sanitized_recursively_and_keys_left_alone() {
++        let key = fake_openai_key();
++        let mut v = serde_json::json!({
++            "entries": [{"key": "k", "value": format!("tok {key}")}],
++            "note": "a\u{202E}b",
++            "n": 3,
++        });
++        let (secrets, invisible) = sanitize_json_strings(&mut v);
++        assert_eq!((secrets, invisible), (1, 1));
++        assert_eq!(v["note"], "ab");
++        assert!(!v.to_string().contains(&key));
++        assert_eq!(v["n"], 3);
++    }
++
++    #[test]
++    fn json_items_sum_the_counts_over_the_list() {
++        let key = fake_openai_key();
++        let mut items = vec![
++            serde_json::json!({"value": format!("a {key}")}),
++            serde_json::json!({"value": "clean"}),
++            serde_json::json!({"value": "x\u{200B}y"}),
++        ];
++        assert_eq!(sanitize_json_items(&mut items), (1, 1));
++        assert_eq!(items[1]["value"], "clean");
++        assert_eq!(items[2]["value"], "xy");
++    }
++}
+diff --git a/crates/touring-hook-runtime/src/ceg_impls.rs b/crates/touring-hook-runtime/src/ceg_impls.rs
+index 63478c9a..e8c71fdd 100644
+--- a/crates/touring-hook-runtime/src/ceg_impls.rs
++++ b/crates/touring-hook-runtime/src/ceg_impls.rs
+@@ -11,6 +11,7 @@
+ 
+ use crate::embeddings::semantic_or_hash_embedding;
+ use crate::hook_runtime::HookRuntime;
++use touring_foundation::text_sanitize::{Sanitized, sanitize_json_items, sanitize_memory_text};
+ 
+ /// Injects an immediate RL reward for a tool into the runtime Q-table, clamping the value to `[-1.0, 1.0]`.
+ pub fn cli_learning_reward(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+@@ -188,12 +189,49 @@ fn parse_memory_store_payload(
+     })
+ }
+ 
++/// The free-text fields of a store payload after sanitization (C6, 2026-10-17).
++///
++/// A stored value is replayed to the model as recall context, so it is cleaned
++/// BEFORE any sink sees it: the SQL row (which `RlmMemory::store_rich` also
++/// guards), the ANN mirror and its embedding. The response reports what
++/// changed instead of altering the user's text silently.
++struct CleanedTexts {
++    value: Sanitized,
++    context: Option<Sanitized>,
++}
++
++impl CleanedTexts {
++    fn of(parsed: &MemoryStorePayload<'_>) -> Self {
++        Self {
++            value: sanitize_memory_text(parsed.value),
++            context: parsed.outcome_context.map(sanitize_memory_text),
++        }
++    }
++
++    /// `{"secrets": n, "invisible": m}` summed over every cleaned field.
++    fn report(&self) -> serde_json::Value {
++        let (secrets, invisible) = std::iter::once(&self.value)
++            .chain(self.context.as_ref())
++            .fold((0, 0), |(s, i), c| (s + c.secrets, i + c.invisible));
++        serde_json::json!({ "secrets": secrets, "invisible": invisible })
++    }
++
++    /// Points the payload at the cleaned text.
++    fn apply<'s>(&'s self, parsed: &mut MemoryStorePayload<'s>) {
++        parsed.value = &self.value.text;
++        parsed.outcome_context = self.context.as_ref().map(|c| c.text.as_str());
++    }
++}
++
+ /// Persists a key/value memory entry into the SQLite store and mirrors it into the ANN recall corpus.
+ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+-    let parsed = match parse_memory_store_payload(payload) {
++    let mut parsed = match parse_memory_store_payload(payload) {
+         Ok(p) => p,
+         Err(msg) => return serde_json::json!({ "error": msg }).to_string(),
+     };
++    let cleaned = CleanedTexts::of(&parsed);
++    let sanitized = cleaned.report();
++    cleaned.apply(&mut parsed);
+     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+     if let Some(parent) = memory_db_path.parent() {
+         std::fs::create_dir_all(parent).ok();
+@@ -297,6 +335,7 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
+             });
+             serde_json::json!(
+                 { "key" : key, "tier" : tier, "type" : entry_type, "status" : "stored", "ann_indexed" : ann_indexed,
++                  "sanitized" : sanitized,
+                   "ignored_facets" : ignored_tags.iter().map(|t| t.to_json()).collect::<Vec<_>>(),
+                   "contract" : contract }
+             )
+@@ -443,6 +482,12 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
+             fts_search_entries(&conn, &text, tag_keys.as_deref(), limit)
+         }
+     });
++    // C6 (2026-10-17): rows already in the database predate the write-side
++    // guard — clean them on the way OUT, without rewriting the store.
++    let result = result.map(|(mut hits, total)| {
++        sanitize_json_items(&mut hits);
++        (hits, total)
++    });
+     match result {
+         // W0 S-0.3 — honest pagination: a count without the universe is
+         // unreadable as a universe (the 2026-08-24 retraction: a default
+@@ -1023,3 +1068,151 @@ mod memory_store_migration_tests {
+         }
+     }
+ }
++
++/// C6 (2026-10-17): `memory store` redacts secrets and strips invisible
++/// characters before any sink sees the text, and `memory query` cleans rows
++/// that predate the guard on the way out.
++#[cfg(test)]
++mod memory_sanitize_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use crate::hook_runtime::HookRuntime;
++    use serde_json::json;
++
++    fn fake_key() -> String {
++        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
++    }
++
++    fn stored_value(root: &std::path::Path, key: &str) -> String {
++        let db = touring_foundation::TouringConfig::memory_db_canonical(root);
++        rusqlite::Connection::open(db)
++            .unwrap()
++            .query_row(
++                "SELECT value FROM memory_entries WHERE key = ?1",
++                [key],
++                |r| r.get(0),
++            )
++            .unwrap()
++    }
++
++    #[test]
++    fn store_redacts_the_secret_and_reports_what_it_changed() {
++        let tmp = tempfile::TempDir::new().unwrap();
++        let mut rt = HookRuntime::new(tmp.path()).unwrap();
++        let key = fake_key();
++        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_store(
++            &mut rt,
++            &json!({"key": "c6-store", "value": format!("deploy {key}\u{202E}x\u{200B}y"),
++                    "entry_type": "lesson"}),
++        ))
++        .unwrap();
++        assert_eq!(out["status"], "stored", "{out}");
++        assert_eq!(out["sanitized"]["secrets"], 1, "{out}");
++        assert_eq!(out["sanitized"]["invisible"], 2, "{out}");
++        let stored = stored_value(tmp.path(), "c6-store");
++        assert!(!stored.contains(&key), "secret reached the db: {stored}");
++        // The invisibles sat BETWEEN the key and the "xy" tail: once stripped, the
++        // token is contiguous and the redaction takes the tail with it.
++        assert_eq!(stored, "deploy [REDACTED]");
++    }
++
++    #[test]
++    fn store_of_clean_text_reports_zero_and_keeps_it_byte_identical() {
++        let tmp = tempfile::TempDir::new().unwrap();
++        let mut rt = HookRuntime::new(tmp.path()).unwrap();
++        let plain = "Ol\u{e1}: use `cargo test`.\n\tpr\u{f3}ximo passo";
++        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_store(
++            &mut rt,
++            &json!({"key": "c6-plain", "value": plain, "entry_type": "lesson"}),
++        ))
++        .unwrap();
++        assert_eq!(
++            out["sanitized"],
++            json!({"secrets": 0, "invisible": 0}),
++            "{out}"
++        );
++        assert_eq!(stored_value(tmp.path(), "c6-plain"), plain);
++    }
++
++    #[test]
++    fn query_cleans_a_legacy_row_on_the_way_out_without_rewriting_it() {
++        let tmp = tempfile::TempDir::new().unwrap();
++        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
++        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
++        // Create the schema, then plant a row the way pre-guard writers did.
++        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
++        let key = fake_key();
++        let raw = format!("c6legacyprobe token {key} \u{202E}tail");
++        rusqlite::Connection::open(&db)
++            .unwrap()
++            .execute(
++                "INSERT INTO memory_entries (key, tier, value, entry_type) \
++                 VALUES ('c6-old', 'semantic', ?1, 'lesson')",
++                [&raw],
++            )
++            .unwrap();
++        let mut rt = HookRuntime::new(tmp.path()).unwrap();
++        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_query(
++            &mut rt,
++            &json!({"query": "c6legacyprobe"}),
++        ))
++        .unwrap();
++        let served = out["results"][0]["value"].as_str().expect("a hit");
++        assert!(
++            !served.contains(&key),
++            "secret leaked through query: {served}"
++        );
++        assert!(!served.contains('\u{202E}'), "bidi leaked: {served:?}");
++        assert!(served.contains("[REDACTED]"));
++        assert_eq!(
++            stored_value(tmp.path(), "c6-old"),
++            raw,
++            "read must not rewrite"
++        );
++    }
++}
++
++/// C6 (2026-10-17): the ANN recall corpus is a SECOND sink of `memory store`
++/// (it keeps its own copy of the text and an embedding of it); it must receive
++/// the cleaned text, not the raw one.
++#[cfg(test)]
++mod memory_sanitize_ann_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use crate::hook_runtime::HookRuntime;
++    use serde_json::json;
++
++    #[test]
++    fn store_mirrors_the_cleaned_text_into_the_ann_corpus() {
++        let tmp = tempfile::TempDir::new().unwrap();
++        let mut rt = HookRuntime::new(tmp.path()).unwrap();
++        rt.init_ann_memory();
++        let key = ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat();
++        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_store(
++            &mut rt,
++            &json!({"key": "c6-ann", "value": format!("c6annprobe deploy {key}\u{202E} done"),
++                    "entry_type": "lesson"}),
++        ))
++        .unwrap();
++        assert_eq!(
++            out["ann_indexed"], true,
++            "the ANN mirror must be live: {out}"
++        );
++        let probe = crate::embeddings::semantic_or_hash_embedding("c6annprobe deploy");
++        let hits = rt
++            .ctx
++            .ann_recall
++            .borrow()
++            .as_ref()
++            .expect("ann corpus")
++            .search(&probe, 10);
++        assert!(!hits.is_empty(), "the stored entry must be in the corpus");
++        for hit in &hits {
++            assert!(
++                !hit.content.contains(&key) && !hit.content.contains('\u{202E}'),
++                "ANN corpus kept the raw text: {:?}",
++                hit.content
++            );
++        }
++    }
++}
+diff --git a/crates/touring-intelligence/src/rl/memory/rlm.rs b/crates/touring-intelligence/src/rl/memory/rlm.rs
+index 4828c90c..63f9b0bf 100644
+--- a/crates/touring-intelligence/src/rl/memory/rlm.rs
++++ b/crates/touring-intelligence/src/rl/memory/rlm.rs
+@@ -10,6 +10,7 @@ use thiserror::Error;
+ 
+ use super::palace::PalaceHierarchy;
+ use super::tags;
++use touring_foundation::text_sanitize::sanitize_memory_text;
+ 
+ /// Errors that can occur in RLM memory operations.
+ #[derive(Error, Debug)]
+@@ -102,6 +103,14 @@ pub struct MemoryMatch {
+     pub accessed_at: i64,
+ }
+ 
++impl MemoryMatch {
++    /// The match with its `value` cleaned for replay as model context.
++    fn sanitized(mut self) -> Self {
++        self.value = sanitize_memory_text(&self.value).text;
++        self
++    }
++}
++
+ /// RLM Memory storage backed by SQLite.
+ #[derive(Debug)]
+ pub struct RlmMemory {
+@@ -196,6 +205,22 @@ impl<'a> RichMemoryEntry<'a> {
+             ..Self::default()
+         }
+     }
++
++    /// The free-text fields (`value`, `outcome_context`) as they may be written.
++    ///
++    /// C6 (2026-10-17): a stored value is replayed to the model as recall
++    /// context, so secrets are redacted and bidi/zero-width/control characters
++    /// stripped at the ONE place every writer funnels through
++    /// ([`RlmMemory::store_rich`]), not at each caller. Idempotent: a caller
++    /// that sanitized first (to report counts) pays one cheap re-scan and
++    /// writes the same text.
++    fn sanitized_texts(&self) -> (String, Option<String>) {
++        (
++            sanitize_memory_text(self.value).text,
++            self.outcome_context
++                .map(|ctx| sanitize_memory_text(ctx).text),
++        )
++    }
+ }
+ 
+ impl RlmMemory {
+@@ -658,6 +683,9 @@ impl RlmMemory {
+         let embedding_bytes: Option<Vec<u8>> = entry
+             .embedding
+             .map(|emb| emb.iter().flat_map(|f| f.to_le_bytes()).collect());
++        // C6 (2026-10-17): the single choke point of every memory write (see
++        // `RichMemoryEntry::sanitized_texts`).
++        let (value, outcome_context) = entry.sanitized_texts();
+ 
+         self.conn.execute(
+             "INSERT INTO memory_entries
+@@ -684,7 +712,7 @@ impl RlmMemory {
+             params![
+                 entry.key,
+                 entry.tier,
+-                entry.value,
++                value,
+                 entry_type,
+                 now,
+                 embedding_bytes,
+@@ -692,7 +720,7 @@ impl RlmMemory {
+                 entry.graph_blast_radius,
+                 entry.palace_path,
+                 entry.outcome_reward,
+-                entry.outcome_context,
++                outcome_context,
+                 entry.importance,
+                 i64::from(entry.pinned),
+             ],
+@@ -1078,7 +1106,13 @@ impl RlmMemory {
+             })?
+             .collect::<std::result::Result<Vec<_>, _>>()?;
+ 
+-        Ok(rows)
++        // C6 (2026-10-17): `search` is the recall that the cortex handlers replay
++        // into hook context (`[rlm] …`). Rows written before the write-side guard
++        // may still hold secrets or bidi/zero-width characters — clean every
++        // delivered value on the way OUT. Key-addressed reads (`get*`,
++        // `scan_prefix`) stay raw on purpose: callers read-modify-write state
++        // through them.
++        Ok(rows.into_iter().map(MemoryMatch::sanitized).collect())
+     }
+ 
+     /// Normalize a loosely-typed `created_at`/`accessed_at` cell to epoch
+@@ -2419,3 +2453,108 @@ mod tests {
+         );
+     }
+ }
++
++/// C6 (2026-10-17): the write path redacts secrets and strips bidi/zero-width
++/// characters at the ONE place every writer funnels through.
++#[cfg(test)]
++mod sanitize_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use super::*;
++    use tempfile::TempDir;
++
++    fn fake_key() -> String {
++        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
++    }
++
++    fn row_texts(mem: &RlmMemory, key: &str) -> (String, Option<String>) {
++        mem.conn
++            .query_row(
++                "SELECT value, outcome_context FROM memory_entries WHERE key = ?1",
++                params![key],
++                |r| Ok((r.get(0)?, r.get(1)?)),
++            )
++            .expect("row")
++    }
++
++    #[test]
++    fn store_rich_redacts_secrets_and_strips_bidi_before_the_row_lands() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let key = fake_key();
++        let dirty = format!("deploy with {key} now\u{202E}x\u{200B}y");
++        let mut entry = RichMemoryEntry::new("c6-rlm", "semantic", &dirty);
++        entry.outcome_context = Some(dirty.as_str());
++        mem.store_rich(&entry).unwrap();
++
++        let (value, ctx) = row_texts(&mem, "c6-rlm");
++        let ctx = ctx.expect("outcome_context stored");
++        for text in [&value, &ctx] {
++            assert!(!text.contains(&key), "secret reached the row: {text}");
++            assert!(!text.contains('\u{202E}') && !text.contains('\u{200B}'));
++        }
++        assert_eq!(value, "deploy with [REDACTED] nowxy");
++        assert_eq!(ctx, value, "outcome_context is cleaned by the same rules");
++    }
++
++    #[test]
++    fn store_rich_keeps_ordinary_text_byte_identical() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let plain = "Lesson: run `cargo test -p x`.\n\tNext: a\u{e7}\u{e3}o \u{1F642} done";
++        mem.store_rich(&RichMemoryEntry::new("c6-plain", "semantic", plain))
++            .unwrap();
++        assert_eq!(row_texts(&mem, "c6-plain").0, plain);
++    }
++
++    #[test]
++    fn re_storing_already_clean_text_is_a_fixed_point() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let dirty = format!(
++            "GH_TOKEN={}\nplain line",
++            ["gh", "p_", "0123456789abcdefghijklmnop"].concat()
++        );
++        mem.store_rich(&RichMemoryEntry::new("c6-fix", "semantic", &dirty))
++            .unwrap();
++        let once = row_texts(&mem, "c6-fix").0;
++        mem.store_rich(&RichMemoryEntry::new("c6-fix", "semantic", &once))
++            .unwrap();
++        assert_eq!(row_texts(&mem, "c6-fix").0, once);
++        assert!(once.contains("GH_TOKEN= [REDACTED]") && once.contains("plain line"));
++    }
++
++    #[test]
++    fn search_cleans_a_legacy_row_on_the_way_out_without_rewriting_it() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let key = fake_key();
++        // A row planted the way pre-guard writers did (raw SQL, no sanitization).
++        let raw = format!("c6searchprobe token {key} \u{202E}tail");
++        mem.conn
++            .execute(
++                "INSERT INTO memory_entries (key, tier, value, entry_type) \
++                 VALUES ('c6-old', 'working', ?1, 'lesson')",
++                params![raw],
++            )
++            .unwrap();
++        let hits = mem.search("c6searchprobe", None, 5).unwrap();
++        assert_eq!(hits.len(), 1);
++        assert!(
++            !hits[0].value.contains(&key),
++            "secret leaked: {}",
++            hits[0].value
++        );
++        assert!(
++            !hits[0].value.contains('\u{202E}'),
++            "bidi leaked: {:?}",
++            hits[0].value
++        );
++        assert!(hits[0].value.contains("[REDACTED]"));
++        assert_eq!(
++            row_texts(&mem, "c6-old").0,
++            raw,
++            "read must not rewrite the row"
++        );
++    }
++}
+diff --git a/crates/touring-quality/src/verifications/f2_4_secrets.rs b/crates/touring-quality/src/verifications/f2_4_secrets.rs
+index 741e53bc..f9da30ac 100644
+--- a/crates/touring-quality/src/verifications/f2_4_secrets.rs
++++ b/crates/touring-quality/src/verifications/f2_4_secrets.rs
+@@ -1140,8 +1140,9 @@ fn is_detector_own_source(target: &Path) -> bool {
+     // be "leaking" those patterns — they are the operational definitions. This
+     // matches the `is_detector_own_source` allowlist used by the F2.4 verifier
+     // for its own crate, extended to other crates that ship their own secret
+-    // detectors (`touring-ceg::gateway::sandbox_executor::SECRET_TOKEN_PATTERNS`,
+-    // etc.). Real user code that PREFIXES a value with `ghp_…` / `sk_live_…` etc.
++    // detectors (`touring-foundation::text_sanitize::SECRET_TOKEN_PATTERNS` — moved
++    // there from `touring-ceg::gateway::sandbox_executor` on 2026-10-17 and carrying
++    // the `touring-quality:allow-secrets` pragma — etc.). Real user code that PREFIXES a value with `ghp_…` / `sk_live_…` etc.
+     // still scores 0.0 — the matcher is fine-grained enough to ignore raw regex
+     // source like `r"gh[pousr]_[A-Za-z0-9_]{20,}"` which never contains a literal
+     // `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_` token.
+diff --git a/crates/touring-server/src/memory_store.rs b/crates/touring-server/src/memory_store.rs
+index 625975dc..5cad8dfe 100644
+--- a/crates/touring-server/src/memory_store.rs
++++ b/crates/touring-server/src/memory_store.rs
+@@ -5,6 +5,7 @@
+ use std::path::Path;
+ use std::sync::Arc;
+ use thiserror::Error;
++use touring_foundation::text_sanitize::{sanitize_json_strings, sanitize_memory_text};
+ use touring_intelligence::rl::memory::recall::{ChunkMatch, RecallStats, SemanticRecall};
+ use touring_intelligence::rl::memory::rlm::{
+     MemoryMatch as RlmMatch, MemoryStats as RlmStats, MemoryTier, RlmMemory,
+@@ -164,6 +165,22 @@ impl MemoryResult {
+     pub fn is_empty(&self) -> bool {
+         self.rlm_matches.is_empty() && self.semantic_matches.is_empty()
+     }
++
++    /// C6 (2026-10-17): the matches are handed back to the model as recall
++    /// context. Rows written before the write-side guard may still hold
++    /// secrets or bidi/zero-width characters — clean the SemanticRecall half
++    /// on the way OUT (the database is not rewritten). The RLM half is already
++    /// cleaned by [`RlmMemory::search`], the one place every RLM recall goes
++    /// through.
++    pub(crate) fn sanitized(mut self) -> Self {
++        for m in &mut self.semantic_matches {
++            m.content = sanitize_memory_text(&m.content).text;
++            if let Some(meta) = m.metadata.as_mut() {
++                sanitize_json_strings(meta);
++            }
++        }
++        self
++    }
+ }
+ 
+ /// Unified memory store combining RLM and SemanticRecall
+@@ -226,9 +243,14 @@ impl MemoryStore {
+     /// Store with an optional pre-computed embedding override
+     pub(crate) fn store_with_embedding(
+         &self,
+-        entry: MemoryEntry,
++        mut entry: MemoryEntry,
+         precomputed_embedding: Option<Vec<f32>>,
+     ) -> Result<()> {
++        // C6 (2026-10-17): the funnel of `store` and `store_batch`, and the MCP
++        // `touring_memory_store` path. `RlmMemory::store_rich` guards the SQL
++        // row; the SemanticRecall chunk below is a SECOND sink that would
++        // otherwise keep the raw text, so the value is cleaned before either.
++        entry.value = sanitize_memory_text(&entry.value).text;
+         let tier = MemoryTier::parse_tier(&entry.tier)?;
+ 
+         // Use provided embedding, entry's own, or None
+@@ -355,7 +377,8 @@ impl MemoryStore {
+         Ok(MemoryResult {
+             rlm_matches,
+             semantic_matches,
+-        })
++        }
++        .sanitized())
+     }
+ 
+     /// Query with auto-embedding of the query text via GPU service
+@@ -611,3 +634,135 @@ mod tests {
+         assert_eq!(stats.embedding_dim, 768);
+     }
+ }
++
++/// C6 (2026-10-17): the MCP/server memory path redacts secrets and strips
++/// invisible characters in BOTH sinks (RLM row and SemanticRecall chunk), and
++/// cleans rows that predate the guard on the way out.
++#[cfg(test)]
++mod sanitize_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use super::*;
++    use tempfile::TempDir;
++
++    fn fake_key() -> String {
++        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
++    }
++
++    fn fresh_store(dir: &TempDir) -> MemoryStore {
++        MemoryStore::new(&dir.path().join("rlm.db"), &dir.path().join("recall.db")).unwrap()
++    }
++
++    #[test]
++    fn store_redacts_the_secret_in_both_sinks() {
++        let dir = TempDir::new().unwrap();
++        let store = fresh_store(&dir);
++        let key = fake_key();
++        store
++            .store(MemoryEntry::new(
++                "c6-srv",
++                "working",
++                format!("deploy {key}\u{202E} done"),
++            ))
++            .unwrap();
++
++        let rlm = store.get("c6-srv", "working").unwrap().expect("row");
++        assert!(!rlm.contains(&key) && !rlm.contains('\u{202E}'), "{rlm:?}");
++
++        let chunks = store.recall().fts_search("deploy", 10).unwrap();
++        assert!(
++            !chunks.is_empty(),
++            "the SemanticRecall sink must hold the chunk"
++        );
++        for c in &chunks {
++            assert!(
++                !c.content.contains(&key),
++                "chunk kept the secret: {}",
++                c.content
++            );
++            assert!(
++                !c.content.contains('\u{202E}'),
++                "chunk kept bidi: {:?}",
++                c.content
++            );
++        }
++    }
++
++    #[test]
++    fn store_keeps_ordinary_text_byte_identical() {
++        let dir = TempDir::new().unwrap();
++        let store = fresh_store(&dir);
++        let plain = "Plain lesson: run `cargo test`.\n\tpr\u{f3}ximo passo";
++        store
++            .store(MemoryEntry::new("c6-plain", "working", plain))
++            .unwrap();
++        assert_eq!(
++            store.get("c6-plain", "working").unwrap().as_deref(),
++            Some(plain)
++        );
++    }
++
++    #[test]
++    fn query_cleans_a_legacy_row_on_the_way_out() {
++        let dir = TempDir::new().unwrap();
++        let store = fresh_store(&dir);
++        let key = fake_key();
++        // A row planted the way pre-guard writers did (raw SQL).
++        rusqlite::Connection::open(dir.path().join("rlm.db"))
++            .unwrap()
++            .execute(
++                "INSERT INTO memory_entries (key, tier, value, entry_type) \
++                 VALUES ('c6-old', 'working', ?1, 'lesson')",
++                [format!("c6srvprobe token {key} \u{202E}tail")],
++            )
++            .unwrap();
++        let result = store
++            .query(MemoryQuery::new("c6srvprobe").with_top_k(10))
++            .unwrap();
++        assert_eq!(result.rlm_matches.len(), 1);
++        let served = &result.rlm_matches[0].value;
++        assert!(
++            !served.contains(&key),
++            "secret leaked through query: {served}"
++        );
++        assert!(!served.contains('\u{202E}'), "bidi leaked: {served:?}");
++        assert!(served.contains("[REDACTED]"));
++    }
++
++    #[test]
++    fn query_cleans_a_legacy_semantic_chunk_on_the_way_out() {
++        let dir = TempDir::new().unwrap();
++        let store = fresh_store(&dir);
++        let key = fake_key();
++        // A chunk planted the way pre-guard writers did (straight into the sink).
++        store
++            .recall()
++            .store_chunk(
++                &format!("c6chunkprobe token {key} \u{202E}tail"),
++                None,
++                Some(&serde_json::json!({"note": format!("meta {key}")})),
++            )
++            .unwrap();
++        let result = store
++            .query(
++                MemoryQuery::new("c6chunkprobe")
++                    .with_top_k(10)
++                    .with_fts(true),
++            )
++            .unwrap();
++        assert_eq!(result.semantic_matches.len(), 1);
++        let chunk = &result.semantic_matches[0];
++        assert!(
++            !chunk.content.contains(&key),
++            "content leaked: {}",
++            chunk.content
++        );
++        assert!(
++            !chunk.content.contains('\u{202E}'),
++            "bidi leaked: {:?}",
++            chunk.content
++        );
++        let meta = chunk.metadata.as_ref().expect("metadata").to_string();
++        assert!(!meta.contains(&key), "metadata leaked: {meta}");
++    }
++}
+diff --git a/crates/touring-server/src/server/tools_core.rs b/crates/touring-server/src/server/tools_core.rs
+index 92a967db..d1573561 100644
+--- a/crates/touring-server/src/server/tools_core.rs
++++ b/crates/touring-server/src/server/tools_core.rs
+@@ -1,5 +1,6 @@
+ use super::*;
+ use crate::daemon_client::daemon_query;
++use touring_foundation::text_sanitize::sanitize_memory_text;
+ 
+ /// Resolve the canonical on-disk path for the entity-registry SQLite DB.
+ ///
+@@ -374,6 +375,12 @@ impl TouringServer {
+             .value
+             .or(p.content)
+             .ok_or_else(|| McpError::invalid_params("'value' (or 'content') is required", None))?;
++        // C6 (2026-10-17): clean BEFORE the embedding is computed (a vector of
++        // the raw text would encode the secret) and report what changed.
++        // `MemoryStore::store_with_embedding` guards every sink again.
++        let cleaned = sanitize_memory_text(&value);
++        let sanitized = cleaned.to_json();
++        let value = cleaned.text;
+ 
+         let mut entry = MemoryEntry::new(&key, &tier, &value);
+         if let Some(ref et) = p.entry_type {
+@@ -401,6 +408,7 @@ impl TouringServer {
+             "value_length": value.len(),
+             "entry_type": p.entry_type,
+             "embedded": embedded,
++            "sanitized": sanitized,
+         });
+         self.graph_svc.inject(&mut output, &gctx);
+ 
+diff --git a/crates/touring-server/src/server/tools_infra.rs b/crates/touring-server/src/server/tools_infra.rs
+index 62a5b439..3247a5a0 100644
+--- a/crates/touring-server/src/server/tools_infra.rs
++++ b/crates/touring-server/src/server/tools_infra.rs
+@@ -955,6 +955,10 @@ impl TouringServer {
+         let action = params.0.action.as_deref().unwrap_or("list");
+         let file_filter = params.0.file_path.as_deref();
+         let limit = params.0.limit.unwrap_or(50);
++        // C7 (2026-10-17): `prevented_errors` has no production producer, so the
++        // raw column is a fabricated zero. Report `null` (+ the flag) until one
++        // exists — an absent signal is not a zero (law L2).
++        let prevented_measured = touring_storage::knowledge::FileKnowledgeDB::PREVENTED_MEASURED;
+ 
+         // Check if decay_score column exists (added in S8 migration)
+         let has_decay: bool = conn
+@@ -1011,7 +1015,7 @@ impl TouringServer {
+                         "language": r.get::<_, Option<String>>(4)?,
+                         "symbol_name": r.get::<_, Option<String>>(5)?,
+                         "hit_count": r.get::<_, i64>(6)?,
+-                        "prevented_errors": r.get::<_, i64>(7)?,
++                        "prevented_errors": prevented_measured.then_some(r.get::<_, i64>(7)?),
+                         "created_at": r.get::<_, String>(8)?,
+                     });
+                     if has_decay && let serde_json::Value::Object(ref mut map) = entry {
+@@ -1041,7 +1045,7 @@ impl TouringServer {
+                 .collect();
+ 
+                 let count = rows.len();
+-                serde_json::json!({ "gotchas": rows, "count": count })
++                serde_json::json!({ "gotchas": rows, "count": count, "prevented_measured": prevented_measured })
+             }
+             "stats" => {
+                 let query = "SELECT pattern, COUNT(*) as cnt, SUM(hit_count) as total_hits, \
+@@ -1057,7 +1061,7 @@ impl TouringServer {
+                             "pattern": r.get::<_, String>(0)?,
+                             "gotcha_count": r.get::<_, i64>(1)?,
+                             "total_hits": r.get::<_, i64>(2)?,
+-                            "total_prevented": r.get::<_, i64>(3)?,
++                            "total_prevented": prevented_measured.then_some(r.get::<_, i64>(3)?),
+                         }))
+                     })
+                     .map_err(|e| McpError::internal_error(format!("query: {e}"), None))?
+@@ -1077,6 +1081,7 @@ impl TouringServer {
+                     "stats": rows,
+                     "total_gotchas": total_gotchas,
+                     "total_patterns": total_patterns,
++                    "prevented_measured": prevented_measured,
+                 })
+             }
+             other => {
+diff --git a/crates/touring-storage/src/knowledge/gotchas.rs b/crates/touring-storage/src/knowledge/gotchas.rs
+index 12ff25f2..06ea7281 100644
+--- a/crates/touring-storage/src/knowledge/gotchas.rs
++++ b/crates/touring-storage/src/knowledge/gotchas.rs
+@@ -193,7 +193,46 @@ impl FileKnowledgeDB {
+         );
+         let _ = self.conn.execute(&sql, params![gotcha_id]);
+     }
++    /// Whether `prevented_errors` is a MEASURED signal.
++    ///
++    /// C7 (2026-10-17): `false`, because [`Self::increment_gotcha_prevented`] has
++    /// no production caller — the column is written only by tests, so it reads
++    /// `0` on every real database. Reporting that `0` ("0 errors prevented in
++    /// 388.840 hits") is a lie by omission: an absent signal is not a zero
++    /// (law L2). While this is `false`, every surface that REPORTS the value
++    /// goes through [`Self::reported_prevented`] and shows `null`.
++    ///
++    /// Flip it only together with a real caller; the guard test
++    /// `prevented_flag_matches_the_existence_of_a_production_producer` fails
++    /// when the flag and the call graph disagree in either direction.
++    pub const PREVENTED_MEASURED: bool = false;
++    /// What is missing for `prevented_errors` to become measurable — shown next
++    /// to the `null` so the reader learns the fix, not just the gap.
++    pub const PREVENTED_NOTE: &'static str = "prevented_errors has no producer: \
++        increment_gotcha_prevented is never called outside tests, and hit_count counts \
++        warnings DISPLAYED, not errors avoided. Missing: a signal tying a shown warning to a \
++        later change of action (e.g. the gotcha's error pattern not recurring in the next edits \
++        of the same file).";
++    /// Whether `prevented_errors` is measured (instance form of
++    /// [`Self::PREVENTED_MEASURED`], for callers that only hold a db handle).
++    pub fn prevented_measured(&self) -> bool {
++        Self::PREVENTED_MEASURED
++    }
++    /// [`Self::PREVENTED_NOTE`] while the signal is unmeasured, `None` once a
++    /// producer exists (nothing left to explain).
++    pub fn prevented_note(&self) -> Option<&'static str> {
++        (!Self::PREVENTED_MEASURED).then_some(Self::PREVENTED_NOTE)
++    }
++    /// The `prevented` aggregate as it may be REPORTED: the raw column value
++    /// while it is measured, `None` (JSON `null`) while it is not.
++    pub fn reported_prevented(&self, raw: i64) -> Option<i64> {
++        Self::PREVENTED_MEASURED.then_some(raw)
++    }
+     /// Get aggregate gotcha statistics: (total_count, total_hits, total_prevented).
++    ///
++    /// The third slot is the RAW column sum — `0` when nothing ever wrote it.
++    /// Anything that shows it to a user must pass it through
++    /// [`Self::reported_prevented`].
+     pub fn gotcha_stats(&self) -> (usize, i64, i64) {
+         let sql = format!(
+             "SELECT COUNT(*), COALESCE(SUM(hit_count), 0), COALESCE(SUM(prevented_errors), 0)
+diff --git a/crates/touring-storage/src/knowledge/tests.rs b/crates/touring-storage/src/knowledge/tests.rs
+index c37785ba..5104fc5a 100644
+--- a/crates/touring-storage/src/knowledge/tests.rs
++++ b/crates/touring-storage/src/knowledge/tests.rs
+@@ -1353,3 +1353,87 @@ fn legacy_rows_are_labelled_unverified_by_the_migration() {
+         .unwrap();
+     assert_eq!(origin, "legacy_unverified");
+ }
++
++// C7 (2026-10-17): `prevented_errors` has no production producer, so the raw
++// column is a fabricated zero. Reporting it as "0 prevented in N hits" is a
++// lie by omission (law L2: an absent signal is not a zero).
++
++#[test]
++fn unmeasured_prevented_is_reported_as_null_not_zero() {
++    let (_tmp, db) = test_db();
++    let id = db
++        .add_gotcha("bridge", "test gotcha", "warning", None)
++        .unwrap();
++    for _ in 0..3 {
++        db.increment_gotcha_hit(id);
++    }
++    let (_total, hits, raw) = db.gotcha_stats();
++    assert!(hits >= 3, "hits are displays and DO accumulate: {hits}");
++    assert_eq!(raw, 0, "the raw column stays 0 — nothing ever wrote it");
++    assert_eq!(db.reported_prevented(raw), None, "0 must not be reported");
++    assert!(!db.prevented_measured());
++    let note = db.prevented_note().expect("the note names what is missing");
++    assert!(note.contains("increment_gotcha_prevented"), "{note}");
++
++    // Even a test-only write to the column must not surface while unmeasured:
++    // the gate is the PRODUCER's existence, not the column's value.
++    db.increment_gotcha_prevented(id);
++    let (_, _, raw) = db.gotcha_stats();
++    assert_eq!(raw, 1);
++    assert_eq!(db.reported_prevented(raw), None);
++}
++
++/// Every `.rs` under a `src/` directory of the workspace crates, minus build
++/// output and test-only files.
++fn production_sources(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
++    let Ok(entries) = std::fs::read_dir(dir) else {
++        return;
++    };
++    for entry in entries.flatten() {
++        let path = entry.path();
++        let name = entry.file_name().to_string_lossy().into_owned();
++        if path.is_dir() {
++            if !matches!(
++                name.as_str(),
++                "target" | ".git" | ".claude" | "node_modules" | "tests"
++            ) {
++                production_sources(&path, out);
++            }
++        } else if name.ends_with(".rs") && name != "tests.rs" && !name.ends_with("_tests.rs") {
++            out.push(path);
++        }
++    }
++}
++
++#[test]
++fn prevented_flag_matches_the_existence_of_a_production_producer() {
++    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
++    let mut files = Vec::new();
++    production_sources(&crates, &mut files);
++    assert!(
++        files.len() > 100,
++        "the scan must really cover the workspace"
++    );
++    let definition = std::path::Path::new("knowledge").join("gotchas.rs");
++    let producers: Vec<String> = files
++        .iter()
++        .filter(|f| !f.ends_with(&definition))
++        .filter_map(|f| {
++            let text = std::fs::read_to_string(f).ok()?;
++            text.lines()
++                .any(|l| {
++                    let l = l.trim_start();
++                    !l.starts_with("//")
++                        && l.contains("increment_gotcha_prevented(")
++                        && !l.contains("fn increment_gotcha_prevented")
++                })
++                .then(|| f.display().to_string())
++        })
++        .collect();
++    assert_eq!(
++        !producers.is_empty(),
++        FileKnowledgeDB::PREVENTED_MEASURED,
++        "PREVENTED_MEASURED must be true iff production code calls \
++         increment_gotcha_prevented (callers: {producers:?})"
++    );
++}

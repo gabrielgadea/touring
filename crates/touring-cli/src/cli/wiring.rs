@@ -138,8 +138,14 @@ pub fn cli_wiring_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> 
 /// Lists orphan public symbols (pub items with no consumers) from the wiring graph as JSON.
 pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let db = &rt.ctx.knowledge;
+    // H2 (2026-08-12): `trusted` counts only non-heuristic consumer edges —
+    // a symbol consumed solely by name-matching reports as orphan here.
+    let trusted = payload
+        .get("trusted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let orphans: Vec<WiringOrphan> = db
-        .orphan_symbols()
+        .orphan_symbols_with_trust(trusted)
         .map(|entries| {
             entries
                 .into_iter()
@@ -154,6 +160,24 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         .unwrap_or_default();
     let symbol_names: Vec<String> = orphans.iter().map(|o| o.symbol_name.clone()).collect();
     let dead_patterns = touring_analysis::scan_dead_patterns(&symbol_names);
+    // B4 (15/09/2026): a symbol consumed ONLY by its own file is not an orphan —
+    // something uses it — and is not wired to the project either. It stays out of
+    // `orphans` (the judge's baseline does not move) and is reported here, because
+    // the remedy is different: make it private, or give it its first consumer.
+    let internal_only: Vec<WiringOrphan> = db
+        .internal_only_symbols()
+        .map(|entries| {
+            entries
+                .into_iter()
+                .map(|e| WiringOrphan {
+                    module_file: e.module_file,
+                    symbol_name: e.symbol_name,
+                    symbol_kind: e.symbol_kind,
+                    visibility: e.visibility,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     // S1 (2026-08-07): the orphan count alone cannot say whether a symbol is
     // dead or merely invisible to the resolver. `resolution` reports the other
     // half — call sites that resolved to nothing (`name_only_candidates`) and
@@ -232,13 +256,15 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         }
         return serde_json::json!(
             { "orphans" : orphans, "dead_patterns" : dead_patterns, "orphan_count" :
-            orphans.len(), "diagnostics" : diagnostics, "diagnostic_count" : diagnostics
-            .len(), "resolution" : resolution, }
+            orphans.len(), "internal_only" : internal_only, "internal_only_count" :
+            internal_only.len(), "diagnostics" : diagnostics, "diagnostic_count" :
+            diagnostics.len(), "resolution" : resolution, }
         )
         .to_string();
     }
     serde_json::json!(
         { "orphans" : orphans, "dead_patterns" : dead_patterns, "orphan_count" : orphans
+        .len(), "internal_only" : internal_only, "internal_only_count" : internal_only
         .len(), "resolution" : resolution, }
     )
     .to_string()
@@ -252,7 +278,8 @@ pub fn cli_wiring_orphans(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
 /// Invariant C-2: integration_score = wired_count/total_pub (1.0 when total_pub=0).
 /// Orphan symbol names are fetched only for modules with wired_count < total_pub.
 pub fn cli_wiring_modules(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
-    let cache_key = crate::shared::query_cache::make_key("cli_wiring_modules", "v1");
+    let cache_key =
+        crate::shared::query_cache::make_key(&rt.project_root, "cli_wiring_modules", "v1");
     if let Some(cached) = crate::shared::query_cache::get(&cache_key) {
         return cached;
     }
@@ -374,8 +401,19 @@ pub fn cli_wiring_cycles(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .get("workspace_root")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    let all_cycles =
-        crate::wiring::find_all_cycles(&rt.ctx.knowledge, workspace_root_filter.as_deref(), true);
+    // H2 (2026-08-12): `trusted` excludes the name-matching heuristic edges
+    // (`ast_inferred`) — the giant-SCC is 100% fabricated by them (measured:
+    // 7 SCCs incl. 917-module giant → 0 trusted). Default keeps back-compat.
+    let trusted = payload
+        .get("trusted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let all_cycles = crate::wiring::find_all_cycles(
+        &rt.ctx.knowledge,
+        workspace_root_filter.as_deref(),
+        true,
+        trusted,
+    );
     let cycles: Vec<_> = all_cycles
         .into_iter()
         .filter(|c| c.depth >= min_depth)
@@ -411,6 +449,79 @@ pub fn cli_wiring_cycles(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     }
     lines.join("\n")
 }
+
+/// Handle `cli-wiring-scip-ingest` (H2, 2026-08-12) — runs `rust-analyzer scip`
+/// on the project (or reads a pre-generated `{"file": "…"}` index) and writes
+/// the compiler-resolved cross-file edges into `wiring_map` with
+/// `contract_source='scip_resolved'`, replacing the previous resolved set.
+///
+/// This is the type-aware counterweight to the name-matching heuristic: after
+/// ingest, `wiring cycles --trusted` / `wiring orphans --trusted` answer from
+/// import-resolved + rustc-resolved edges only. Deliberately an explicit
+/// command, never hook-triggered: `rust-analyzer scip` takes seconds to
+/// minutes on a workspace, so it must not ride any hot path.
+pub fn cli_wiring_scip_ingest(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let generated = rt.project_root.join("index.scip");
+    let scip_path: std::path::PathBuf = match payload.get("file").and_then(|v| v.as_str()) {
+        Some(f) => std::path::PathBuf::from(f),
+        None => {
+            if let Err(msg) = run_rust_analyzer_scip(&rt.project_root) {
+                return serde_json::json!({ "error": msg }).to_string();
+            }
+            generated
+        }
+    };
+    let bytes = match std::fs::read(&scip_path) {
+        Ok(b) => b,
+        Err(e) => {
+            return serde_json::json!({
+                "error": format!("cannot read {}: {e}", scip_path.display())
+            })
+            .to_string();
+        }
+    };
+    let workspace_root = rt.project_root.to_string_lossy().to_string();
+    let result = touring_hook_runtime::scip_ingest::ingest_scip_bytes(
+        rt.ctx.knowledge.conn_ref(),
+        &bytes,
+        &workspace_root,
+    );
+    // The index is a derived artifact (regenerable in one command) — never
+    // leave it behind when WE generated it (REGRA #12 hygiene); a caller-owned
+    // --file stays untouched.
+    if payload.get("file").is_none() {
+        std::fs::remove_file(&scip_path).ok();
+    }
+    match result {
+        Ok(report) => serde_json::json!({
+            "status": "ingested",
+            "workspace_root": workspace_root,
+            "report": report,
+        })
+        .to_string(),
+        Err(e) => serde_json::json!({ "error": format!("scip ingest failed: {e}") }).to_string(),
+    }
+}
+
+/// Spawns `rust-analyzer scip .` against `project_root` (writes `index.scip`
+/// there). Separated from the handler so the spawn diagnostics stay readable.
+fn run_rust_analyzer_scip(project_root: &std::path::Path) -> Result<(), String> {
+    let status = std::process::Command::new("rust-analyzer")
+        .arg("scip")
+        .arg(".")
+        .current_dir(project_root)
+        .status();
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        Ok(s) => Err(format!(
+            "rust-analyzer scip exited with {s}; generate manually: rust-analyzer scip . && touring wiring scip-ingest --file index.scip"
+        )),
+        Err(e) => Err(format!(
+            "failed to spawn rust-analyzer: {e}; rust-analyzer 1.74+ required (subcommand scip)"
+        )),
+    }
+}
+
 /// Handle `cli-wiring-suggest` — returns wiring suggestions for an orphan symbol.
 /// Supports bulk mode when `orphan_symbols` (array) is provided.
 pub fn cli_wiring_suggest(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {

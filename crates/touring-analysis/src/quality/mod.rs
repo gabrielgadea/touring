@@ -10,7 +10,7 @@
 /// diferindo apenas no nome. Além da duplicação Type-1 que a dimensão F1.3 mede,
 /// isso era um risco de manutenção concreto: acrescentar um campo custava 35
 /// edições. É o mesmo motivo que levou `touring-quality` a consolidar as 42
-/// cópias de `lang_from_ext` em 02/07/2026.
+/// cópias de `lang_from_ext` (hoje `lang_of`) em 02/07/2026.
 ///
 /// Os nomes históricos (`IoReport`, `CachingReport`, …) seguem existindo como
 /// **aliases**, então nenhum chamador muda e a sintaxe de literal de struct
@@ -178,6 +178,11 @@ pub mod design_patterns;
 /// Markdown without code blocks. Source: `/vale-cli/vale` (Medium
 /// reputation) + rustdoc doctests; backs the F3.12 dimension.
 pub mod doc_accuracy;
+/// DOM XSS sinks (`innerHTML`, `insertAdjacentHTML`, `document.write`,
+/// `dangerouslySetInnerHTML`) fed by untrusted data — intra-function taint over JS/TS
+/// (D-4 "F21INNER"). Fed to [`security::SecurityAnalyzer::analyze`] as ADVISORIES:
+/// reported, never scored, never blocking.
+pub(crate) mod dom_sinks;
 /// Type-1 (exact, modulo whitespace) block clone detection (jscpd/CPD-style):
 /// runs of consecutive meaningful production lines recurring verbatim; backs the
 /// F1.3 dimension.
@@ -264,6 +269,10 @@ pub mod perf_tests;
 /// `/othneildrew/best-readme-template` (High reputation, bench 85); backs
 /// the F3.11 dimension.
 pub mod polyglot_semantic;
+/// Python code-shaped injection sinks the payload registry cannot see (S51): dynamic
+/// `eval`/`exec` (CWE-95) and SQL assembled inside `execute` (CWE-89). Fed to
+/// [`security::SecurityAnalyzer::analyze`] before its region filter.
+pub(crate) mod python_sinks;
 pub mod quality_finding;
 pub mod readme;
 pub mod rust_semantic;
@@ -335,7 +344,7 @@ pub mod test_pyramid;
 /// survive. Backs the F3.2 dimension.
 pub mod test_quality;
 pub use build_config::{BuildConfigReport, analyze_build_config, score_build_config};
-pub use cicd::{CicdReport, analyze_cicd, score_cicd};
+pub use cicd::{CiFinding, CiRule, CiSeverity, CicdReport, analyze_cicd, score_cicd};
 pub use deploy::{DeployReport, analyze_deploy, score_deploy};
 pub use env::{EnvReport, analyze_env, score_env};
 pub use frameworks::{FrameworksReport, analyze_frameworks, score_frameworks};
@@ -374,7 +383,7 @@ pub use db_perf::{DbPerfReport, analyze_db_perf, score_db_perf};
 pub use dep_health::{DepHealthAnalyzer, DepHealthReport};
 pub use design_patterns::{DesignPatternReport, analyze_design_patterns, score_design_patterns};
 pub use doc_accuracy::{DocAccuracyReport, analyze_doc_accuracy, score_doc_accuracy};
-pub use duplication::{DuplicationReport, analyze_duplication};
+pub use duplication::{DuplicationReport, analyze_duplication, analyze_duplication_segmented};
 pub use edge_cases::{EdgeCasesReport, analyze_edge_cases, score_edge_cases};
 pub use fast_hash::fast_content_hash;
 pub use frontend::{FrontendReport, analyze_frontend, score_frontend};

@@ -380,7 +380,7 @@ Cada wave aplica o protocolo TACO:
 
 ## 7. Subtasks (Detalhamento)
 
-Para节省 espaço, os subtasks já estão listados inline na Seção 4 (tabela por wave).
+Para economizar espaço, os subtasks já estão listados inline na Seção 4 (tabela por wave).
 
 **Princípio de granularidade**: cada subtask é uma **única Edit/Write/Command** executável em ≤ 15 minutos. Tasks são unidades de acceptance; subtasks são unidades de execução.
 

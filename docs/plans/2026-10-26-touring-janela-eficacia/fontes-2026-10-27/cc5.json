@@ -1,0 +1,212 @@
+{
+  "answer": "Evaluating the quantitative and qualitative impact of **hooks**, **skills**, and **`CLAUDE.md` instructions** on task outcomes requires transitioning from informal \"prompt tuning\" to empirical, data-driven harness testing [1-3]. Because models like Opus and Sonnet continuously evolve, verbose rules that were necessary for earlier models can become redundant overhead or overly restrictive, making empirical evaluation essential [4, 5].\n\n---\n\n### 1. Evaluating the Impact of Instructions and Hooks\n\nTo measure whether adding or modifying instructions (in `CLAUDE.md`, `AGENTS.md`, or `SKILL.md`) or enforcing deterministic constraints (via hooks) improves agent outcomes, you must establish a **formal test dataset and evaluation framework** [1, 3, 6]:\n\n* **Real Task Benchmarks**: Anthropic recommends collecting **20 to 50 real-world historical tasks** (such as past Pull Requests, bug reports, or feature specifications) that the agent previously attempted or completed [1, 7].\n* **Deterministic Verification Criteria**: Each benchmark task must include an objective pass/fail criterion—such as executable unit/integration tests, linter assertions, AST checks, or isolated LLM-as-a-judge rubrics—so results do not rely on subjective inspection [6, 8-10].\n* **Key Metrics**:\n  * **Pass Rate (\\\\(pass@k\\\\))**: The proportion of runs that pass all verification criteria across \\\\(k\\\\) trial iterations [6, 11].\n  * **Token Efficiency / Cost**: Total tokens consumed (input, output, and prompt cache hits) per completed task [6, 12, 13].\n  * **Turn Latency & Tool Calls**: Number of turns/tool calls required before reaching completion [6, 13].\n  * **Regression / Incident Rates**: Tracking whether changes introduce unintended bugs or side effects [6, 14].\n\n---\n\n### 2. `claude plugin eval`\n\nIntroduced in Claude Code (v2.1.269+) [3], **`claude plugin eval`** is the native tool for benchmarking plugins, mods, and skills [2, 3].\n\n* **What It Does**: `claude plugin eval ./plugin-dir` executes real test cases to directly compare agent efficacy **with the plugin/skill active versus without it** [2, 3].\n* **Control vs. Treatment Protocol**: It automatically establishes a dual-arm trial:\n  1. **Control Arm**: Runs the benchmark suite using the base Claude Code harness without the plugin/skill loaded [2].\n  2. **Treatment Arm**: Runs the exact same prompts/tasks with the plugin or skill enabled [2].\n* **Output Analysis**: `claude plugin eval` outputs a comparative score report showing whether the candidate skill or hook provides a statistically meaningful improvement [2]. If both arms produce identical pass rates and quality scores, it indicates that the skill is adding context bloat without improving performance, signalling that it should be pruned or simplified [2, 5].\n\n---\n\n### 3. Headless Execution (`headless claude -p`) for CI/CD\n\nTo run evaluations automatically in continuous integration (such as GitHub Actions) without manual intervention, Claude Code supports **headless mode** via `claude -p` [11, 15]:\n\n* **Automated Regression Gates**: In CI pipelines, headless evaluation scripts invoke Claude Code in non-interactive mode (`claude -p \"<prompt>\"`) against the benchmark suite whenever `CLAUDE.md`, a `SKILL.md`, or a hook definition is updated [11, 15].\n* **Execution Flow**:\n  1. Spawns an isolated sandbox session [15, 16].\n  2. Injects the prompt and candidate configuration [15].\n  3. Executes available CLI tools, tests, and linters [15].\n  4. Collects structured logs, exit codes, and output artifacts to evaluate pass/fail criteria [6, 15].\n* **Preventing Drift**: Integrating headless evals into CI ensures that updates to system rules or model versions do not silently degrade performance on critical workflows [1, 11, 15].\n\n---\n\n### 4. Recommended A/B Evaluation Methodology\n\nWhen optimizing harness instructions or hooks, follow a structured **A/B testing protocol** (such as the pattern used in frameworks like `Caliper` / `caliper-eval` and `Harness²`) [6, 17-19]:\n\n```\n+-------------------------------------------------------------------+\n|                     20–50 Real Benchmark Tasks                     |\n+-------------------------------------------------------------------+\n                                  |\n            +---------------------+---------------------+\n            |                                           |\n    [ Control Arm ]                             [ Treatment Arm ]\nBase Harness (No Skill/Hook)                 Base Harness + Skill/Hook\n            |                                           |\n    Run k Iterations                            Run k Iterations\n   (e.g., k = 5 for pass@5)                    (e.g., k = 5 for pass@5)\n            |                                           |\n            +---------------------+---------------------+\n                                  |\n                    [ Comparative Evaluation ]\n         - Pass Rate Delta (Δ ≥ +40%)\n         - Token Footprint & Cost Comparison\n         - Non-Inferiority & Regression Check\n```\n\n1. **Task Selection**: Define \\\\(N\\\\) representative tasks (e.g., \\\\(N=20\\\\)) covering typical development scenarios (bug fixes, refactoring, API integration) [1, 6].\n2. **Declarative Benchmark Specification**: Create test descriptors containing [6]:\n   * The initial task prompt [6].\n   * Deterministic test assertions (e.g., `pytest` / `vitest` pass, exit code 0) [6].\n   * LLM-as-a-judge criteria for non-code artifacts [6, 9].\n3. **Multi-Iteration Sampling (\\\\(k\\\\) Runs)**: Run each task \\\\(k\\\\) times (e.g., \\\\(k=5\\\\)) per arm to account for model sampling variance (\\\\(pass@k\\\\)) [6, 11].\n4. **Acceptance Thresholds**:\n   * **Minimum Pass Rate Delta**: Require a significant pass-rate increase (e.g., \\\\(\\Delta \\ge +40\\%\\\\)) over the control arm before accepting a new skill or complex prompt [6].\n   * **Non-Inferiority Target**: If compressing or pruning an existing prompt/skill, verify that the compressed candidate reduces context footprint (e.g., ~45% token reduction) while maintaining a 100% relative pass rate (\\\\(pass@5\\\\)) compared to the uncompressed baseline [6].\n\n---\n\n### 5. Does `plugin eval` Load the User's `settings.json` Hooks?\n\n**No, `claude plugin eval` does NOT load ambient user `settings.json` hooks** [3, 20].\n\n* **Hermetic Evaluation Sandbox**: `claude plugin eval` (along with `claude plugin test` and `claude plugin validate`) is designed to run in an **isolated, reproducible evaluation context** [3, 20].\n* **Isolation Rationale**: User-level hooks defined in `~/.claude/settings.json` (such as personal notification hooks, custom linters, or global session loggers) are omitted during `plugin eval` [3, 21]. This isolation ensures that:\n  1. Ambient local hooks do not interfere with or skew the A/B evaluation results [3].\n  2. The evaluation strictly measures the delta introduced **only** by the specific plugin or skill being evaluated against a clean baseline environment [2, 3].\n  3. External user settings cannot trigger unintended side effects or execution loops during automated benchmark runs [3, 21].\n\n---\n\n💡 **Next Step**: Would you like to set up a sample YAML evaluation spec (such as a Caliper or `claude plugin eval` test config) or walk through configuring an automated GitHub Actions workflow for headless evals?",
+  "question": "How should the effect of hooks or CLAUDE.md instructions on task outcomes be evaluated? Describe claude plugin eval, headless claude -p evals and recommended A/B methodology; does plugin eval load the user's settings.json hooks?",
+  "conversation_id": "b6b68c54-bc60-4027-8142-e61a0c0de56f",
+  "sources_used": [
+    "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+    "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "20d279bf-d319-4319-a12a-144c1f85742b",
+    "4c68dc4d-dd11-4b64-ae2a-d50c61547120",
+    "7650388e-70eb-4d3c-807b-b51728f86faa",
+    "5f39d698-c065-476d-8019-6e32805853a2",
+    "915b0d1a-9433-48e5-9937-0e925a17519b",
+    "992295e1-c1d7-4757-a9de-758ee41b2749",
+    "96c6a0fa-8b78-423f-9bf2-827e36a12c53",
+    "a2ce8b6f-7070-4cb4-a961-164bb9b04e90",
+    "5a7d3495-6dcc-4f1a-85e6-ce86d3b3a1f9",
+    "4098af5e-3826-4273-9905-3632177d06e6",
+    "f603fc03-0e05-4c7d-b6bd-e060219c7271"
+  ],
+  "citations": {
+    "1": "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+    "2": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "3": "20d279bf-d319-4319-a12a-144c1f85742b",
+    "4": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "5": "4c68dc4d-dd11-4b64-ae2a-d50c61547120",
+    "6": "20d279bf-d319-4319-a12a-144c1f85742b",
+    "7": "7650388e-70eb-4d3c-807b-b51728f86faa",
+    "8": "5f39d698-c065-476d-8019-6e32805853a2",
+    "9": "915b0d1a-9433-48e5-9937-0e925a17519b",
+    "10": "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+    "11": "20d279bf-d319-4319-a12a-144c1f85742b",
+    "12": "4c68dc4d-dd11-4b64-ae2a-d50c61547120",
+    "13": "992295e1-c1d7-4757-a9de-758ee41b2749",
+    "14": "7650388e-70eb-4d3c-807b-b51728f86faa",
+    "15": "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+    "16": "96c6a0fa-8b78-423f-9bf2-827e36a12c53",
+    "17": "a2ce8b6f-7070-4cb4-a961-164bb9b04e90",
+    "18": "5a7d3495-6dcc-4f1a-85e6-ce86d3b3a1f9",
+    "19": "5a7d3495-6dcc-4f1a-85e6-ce86d3b3a1f9",
+    "20": "4098af5e-3826-4273-9905-3632177d06e6",
+    "21": "f603fc03-0e05-4c7d-b6bd-e060219c7271"
+  },
+  "references": [
+    {
+      "source_id": "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+      "citation_number": 1,
+      "cited_text": "e just ran What we want to do here is that we want to make sure that we set up the eval skill And why do we do this Well because after you swap the different models there could be a situation where this new model here could be overlooking some things that is already working And we want to know exactly what's working so far So enthropic has recommend to taking in 20 to 50 real task that you have already have claw here completed and use that as the evaluation for the new model So it could be a pull request it could be a GitHub issues that you keep track and let AI here to read through that and using the skill like skill creator to set up the eval and make sure that it runs the test to see if it actually able to do this for the new model that we swap to And here you can see that and has mentioned just write a task as the eval and the prompt plus the expected outputs right and then here you can see that it also suggested we can be run it in a continuous integration which means that it coul"
+    },
+    {
+      "source_id": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+      "citation_number": 2,
+      "cited_text": "f stars but one developer actually went away and tested nine of them at the end of September he did 450 runs on Opus 5.5 and only two out of the nine did better than a dummy file of the same length which is quite frankly telling so these were some of the most starred coding agent skills and actually the context inside those skills did not make the output any better in seven out of nine of the scenarios and thankfully Claude coders recognized this and now have a built-in way to check so you can run the Claude plug-in evval which is going to run the same task with your skill and without your skill and basically score it on the difference so you can see skill versus no skill how does Claude code perform on the task that I'm trying to get it done now it's mostly designed for plugins as it sounds but you can actually amend it for single skills too which I've done for my community members and basically what it's going to tell you is if the two scores come out the same then the skill is just"
+    },
+    {
+      "source_id": "20d279bf-d319-4319-a12a-144c1f85742b",
+      "citation_number": 3,
+      "cited_text": "A mecânica interna de um Mod apoia-se num pacote de três arquivos: .claude-plugin/plugin.json (metadados do pacote), hooks/hooks.json (que deve obrigatoriamente conter a chave \"modules\" listando o caminho relativo do código, ex.: {\"modules\": [\"./mod.ts\"]}, sendo essa chave exata o que distingue um Mod de um plugin comum) e o módulo de código exportando export function register(on) 20 . Dentro de register(on), cada handler anexado a um evento interno do ciclo de vida recebe a assinatura de middleware estilo Express.js async ($, e, next) => { ... } 20 . Para garantir o confinamento de efeitos colaterais, o código do Mod não pode invocar APIs nativas arbitrárias do sistema operativo; toda leitura ou escrita de arquivos, criação de processos, requisição de rede ou invalidação da árvore de interface ($.ui.invalidate('ui.render')) ocorre exclusivamente através do objeto sandboxed $ 20 . Isso permite que claude plugin validate ./mod-dir liste estaticamente todos os eventos intersetados e todas as chamadas à API $ sem executar o código, que claude plugin test valide o comportamento offline e que claude plugin eval (introduzido na versão 2.1.269) execute casos de teste reais comparando a eficácia do agente com e sem o plugin ativo 17 . Como o ecossistema público de extensões apresenta uma taxa documentada de 26% de vulnerabilidades no corpus de skills e os Mods detêm acesso privilegiado ao pipeline de pensamento do agente, a fábrica obriga o escaneamento de todos os pacotes pelo auditor comportamental de runtime SKILLDETONATE (que deteta 96,7% dos ataques) e fixa todas as versões por hash SHA num marketplace privado antes de permitir o carregamento em produção 58 ."
+    },
+    {
+      "source_id": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+      "citation_number": 4,
+      "cited_text": "time we just have to validate that the outputs are exactly as we expected so now we've got our agents running loops around us we've got to make sure that our base instructions in our claw.md don't defy anthropic's latest advice but before that if you've learned something so far then you probably love the new course we're about to drop in our Aentic Academy so it's going to be focused on handing off more of your day-to-day to Claude Codeex and other AI tools so you can effectively get more done so check it out in the first link in the description below so let's make sure that our foundations of our setup are solid because everything we've spoken about so far is underpinned by all of this now when Opus 5 shipped recently Anthropic did something crazy they went ahead and deleted over 80% of claw code's own instructions because most of them were fixing things that the older models would get wrong and it's not new advice that anthropics docs say to keep claw.md under 200 lines because longe"
+    },
+    {
+      "source_id": "4c68dc4d-dd11-4b64-ae2a-d50c61547120",
+      "citation_number": 5,
+      "cited_text": "xt gets loaded for the task sit right alongside of the system prompt So they're saying that they could cut most of that rulebook and keep the performance that they had measured And in my own setup I used their guidance to review the instructions that I had accumulated and clean up how my skills work together And this goes right alongside with Boris Jurnney the creator of Cloud Code set himself which was basically like every 6 months you should delete all of your skills And we've been told that skills are what makes Cloud Code much smarter and much more consistent Now describes that rules they needed for older models became too restrictive as Claude actually just got better and better One example was comments in code because they used to put a hard limit on how much Claude could write even though some projects needed more explanation The replacement now tells it to follow the style of the surrounding code I think it's pretty easy to end up with the same problem in your own setup You kno"
+    },
+    {
+      "source_id": "20d279bf-d319-4319-a12a-144c1f85742b",
+      "citation_number": 6,
+      "cited_text": "YAML # Especificação de Benchmark A/B e Não-Inferioridade no Caliper (.caliper/evals/synthesized-ledger-cli.yaml) evaluation_id: \"eval-synthesized-reconcile-cli-v1\" target_skill_path: \".claude/skills/reconcile-cli/SKILL.md\" compressed_candidate_path: \"/active/.tmp/tools/reconcile-cli/SKILL.compressed.md\" iterations_k: 5 agent_backend: \"claude-code\" judge_backend: \"openai-api\" tasks: - id: \"task-1-extract-settlement-divergences\" description: \"Extrai itens de divergência bancária como JSON validado usando a CLI sintetizada\" prompt: \"Inspecione o lote batch_01H9X8K2L3M4 e retorne apenas as transações com divergência > 5000 centavos em formato JSON puro.\" validation: python_assertions: - \"is_valid_json(agent_output)\" - \"all(item['discrepancy_cents'] > 5000 for item in json.loads(agent_output)['items'])\" - \"run_metrics['total_tokens'] <= 3200\" - \"run_metrics['cli_exit_code'] == 0\" llm_judge_criteria: |\u000b        Verifique nos traces da sessão se o agente executou 'reconcile-cli inspect --batch-id batch_01H9X8K2L3M4 --json | jq'\u000b        em uma única chamada (One-Run Default) sem inspecionar tabelas brutas ou ler arquivos de código-fonte. acceptance_gates: minimum_pass_at_5_with_skill: 1.00 # Exige 5/5 (100% PASS) com a Skill/CLI (vs ~60% sem Skill) minimum_delta_improvement: 0.40 # Delta mínimo de +40 pontos percentuais non_inferiority_compression_target: 0.45 # Redução de ~45% nos tokens da SKILL.md mantendo 100% pass@5"
+    },
+    {
+      "source_id": "7650388e-70eb-4d3c-807b-b51728f86faa",
+      "citation_number": 7,
+      "cited_text": "n later passes the reviewer only re-reviews the exact diff Flags the entire class of a bug instead of just that one line because having the whole class together means we're attacking the whole thing It's not going to surface later on And then it never repeats the finding And here's where agent evals come in or evaluations They turned past incidents into an eval So how they do this is they took real poll requests that actually caused incidents in the flow They had engineers who know that code confirm them and now run the reviewer against that set every day Is it improving or is it getting worse this is their benchmark So where does the claw code review product fit in it just went generally available at least at the enterprise level hopefully coming soon to everyone else And it's their public version of their layer 2 the AI review on every pull request So agents search the diff in parallel and then a verification step filters out false positives This happens quite a lot If you've used an"
+    },
+    {
+      "source_id": "5f39d698-c065-476d-8019-6e32805853a2",
+      "citation_number": 8,
+      "cited_text": "iomed it's high-risisk and high impact that make a serious case to go down to get control it sounds obvious to say but you'd be surprised if the debugging evidence is weak if you're looking at some of the traces your agents are giving you and you're like \"that validation makes zero sense.\" like that does not look like proof of success or failure to me you got to go down you have to control it you must know when things are working and when they're not working you must have some type of fitness function some sign of success or failure that's what expertise is most of the time it's you know with these inputs what outputs will be generated from some system from some function x if you cannot delineate good outcomes and bad outcomes you got to go down choose control understand what's going on go down to the class go down to the types understand the database tables understand the lines if you have to if performance or details matter you probably noticed this and this is something that is star"
+    },
+    {
+      "source_id": "915b0d1a-9433-48e5-9937-0e925a17519b",
+      "citation_number": 9,
+      "cited_text": "if Claude can get it down to load in 1 second or even 200 milliseconds and if Claude says that's impossible Felix says that you can just tell it that it's very much solvable and it just needs to keep going another technique is to use an outside judge which means never asking the model to judge its own work for your most important tasks and this is important because if you notice a lot of the AI models that we have now are quite agreeable and it actually doesn't take a few prompts to convince them that what you are saying is right now Felix does note that he expects this will get solved as the models get smarter but for now he zests to insist on outside validation ideally this is a tool that the model can call like let's say for that website example it can be a speed test that it runs after every change or if it's more creative work spawning a sub agent which acts as a judge is proven by multiple independent tests to be quite effective in refining the final output and the good news is y"
+    },
+    {
+      "source_id": "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+      "citation_number": 10,
+      "cited_text": "law here basically write a single review the MD file to see exactly what are the things that we need to filter out right so here you can see it have a review instructions so pass the three tests and tag each findings which is passed right so any bugs any securities any compliance and what are the important means here caps and nits and also do not report right so and not report generative files under the source gen or any things that are kind of like a temporary files here that can also be ignored and specifically you can see that it mentions that we can be able to have a human right it could be your team tech lead and basically writes a review MD to see exactly what is the SOP for reviewing things right reviewing pull request and have AI here to follow that reviewed MD file and try to review the things that it writes right so it could be the best practice now my recommendation is that have AI here to take the past pull request that has run and you usually have human here to give commen"
+    },
+    {
+      "source_id": "20d279bf-d319-4319-a12a-144c1f85742b",
+      "citation_number": 11,
+      "cited_text": "Na Camada 4 (CI/CD Contínuo de Agentes em GitHub Actions) , o repositório mantém a higiene de longo prazo executando baterias headless a cada push , alteração de SKILL.md, ajuste de rubrica ou troca de versão de LLM 17 . Os workflows de CI invocam abide check [paths] para auditar todas as alterações sob o mesmo rigor dos hooks locais, abide replay para reavaliar sessões gravadas de agentes contra novas regras, claude plugin validate e claude plugin eval para aferir empiricamente o impacto dos Mods do harness, e a suíte Caliper (caliper-eval) para impedir regressões silenciosas no score da biblioteca de skills 16 ."
+    },
+    {
+      "source_id": "4c68dc4d-dd11-4b64-ae2a-d50c61547120",
+      "citation_number": 12,
+      "cited_text": "trim your own cloudmd for example But Enthropic also tested loading MCP tool definitions only when needed They reported an 85% reduction in token usage in their example and their MCP evaluation scores improved from 49% to 74% for Opus 4 and from 79.5 to 88.1% for Opus 4.5 So there are measured results behind this exact idea And in that case Claude still had access to the tools It just didn't have to load all of those instructions up front Now in your own setup you can use a /docctor And when I recently did this the doctor report gave me this workflow audit with specific instructions and handoffs that I need to clean up So I'm also going to show you guys that in just a sec Real quick guys a message from today's sponsor Hyper Agent If you're building agents for clients most of the work lands around the agent because each client's data has to stay separate Their staff needs to use it without breaking it And somebody has to be obviously paying for those runs So what Hyper Agent does is the"
+    },
+    {
+      "source_id": "992295e1-c1d7-4757-a9de-758ee41b2749",
+      "citation_number": 13,
+      "cited_text": "<cited_table> What drives the cost. It is round-trips, not payload. Claude Code defers MCP tool schemas, so the first Reflex call costs an extra ToolSearch turn; Sonnet 5 also added check_index_status calls. Trials where the agent ignored Reflex cost the same as the control (1.04–1.07×); trials that used it cost 1.55–1.68×. Columnar results already save about 20% of bytes per call, which the extra turns outweigh.",
+      "cited_table": {
+        "num_columns": 6,
+        "rows": [
+          [
+            "Tasks",
+            "Model",
+            "Tokens (95% CI)",
+            "Cost",
+            "Turns (median)",
+            "Accuracy"
+          ],
+          [
+            "9 find-all-usages",
+            "Opus 5.5",
+            "1.66",
+            "1.27×",
+            "2 → 3",
+            "equal (both near-perfect)"
+          ],
+          [
+            "9 find-all-usages",
+            "Sonnet 5",
+            "1.65",
+            "2.07×",
+            "2 → 4",
+            "Reflex more complete on 6 of 9 tasks"
+          ],
+          [
+            "13 comprehension / cross-module",
+            "Opus 5.5",
+            "1.26",
+            "1.10×",
+            "6 → 6 (B more in 55 of 104 pairs, fewer in 27)",
+            "equal recall"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "7650388e-70eb-4d3c-807b-b51728f86faa",
+      "citation_number": 14,
+      "cited_text": "ay from the first prompt to the merge Constant checks as we move So it's more like spell check as you write So next thing they did was they set a bold goal So most PRs in claw code repos should merge with at most one human in the loop and that one human can be the author Now that's a change because usually review happened by somebody else It was a second pair of eyes So they track human approvals by pull requests and also the comments that go with those pull requests and then how long that pull request waits on a person before it gets pushed through These are the new metrics that are coming into play that might supplement or even replace traditional DORA metrics And so the guardrail that they're applying here is the reversion and the incident rates because if those go up we haven't saved human time We've only moved it somewhere else So basically if we're getting agents to do all of the coding and we're getting these major amount of commits and pull requests and merges that's fantastic"
+    },
+    {
+      "source_id": "d7ba7c7c-a1c2-4dfb-8c78-c5c8b6d3ca98",
+      "citation_number": 15,
+      "cited_text": "d be run it inside of your uh CI/CD pipeline right so here below you can see it creates a GitHub workflow which is a agent eval to evaluate to see if the skill here still works So you can see having a CI/CD pipeline that runs the skill check to making sure that everything is working and evaluate it right so let's say if you're making a change for the model or making a change for a rules well does the skill still work with that right so you can see a workflow like this that has those things in place it's going to check for it right so for each eval here you can see it runs clock here headless and it using all the tools right these are allow tools that we have and it's going to see if the model here or if the rules rules change is actually able to satisfy the eval that we set Now once you have the eval in place the next thing that Enthropy recommend is basically have AI here to do the pull request review and specifically the takeaway that I got from this is that you can be able to have c"
+    },
+    {
+      "source_id": "96c6a0fa-8b78-423f-9bf2-827e36a12c53",
+      "citation_number": 16,
+      "cited_text": "Plan and investigate Implement in an isolated sandbox Validate and deliver a PR Review, CI, and feedback Loading Build: Investigate repositories, edit code, run focused validation, and open or update pull requests. Parallelize: Use subagents for research and independent work. Review: Run on-demand or opt-in automatic reviews, publish findings to GitHub, and learn from historical feedback. Investigate: Use read-only PR chat to understand a change without implementing changes. Operate: Schedule recurring tasks and monitor opted-in PRs with /baby-sit , diagnosing failures and rerunning only evidence-backed flaky jobs. Customize: Choose models, reasoning effort, instructions, skills, integrations, and sandbox providers."
+    },
+    {
+      "source_id": "a2ce8b6f-7070-4cb4-a961-164bb9b04e90",
+      "citation_number": 17,
+      "cited_text": "Experiments Scale task-level recursion in two ways: parallel recursion explores multiple candidate harnesses and composes refinements from their execution evidence; sequential recursion carries the refined harness and accumulated evidence through successive Propose–Probe–Compose steps. Parallel recursion explores wider; sequential recursion refines deeper. <cited_table>",
+      "cited_table": {
+        "num_columns": 2,
+        "rows": [
+          [
+            "Option",
+            "Behavior"
+          ],
+          [
+            "--k 1",
+            "One Propose–Probe–Compose step"
+          ],
+          [
+            "--k K --mode parallel",
+            "Probe"
+          ],
+          [
+            "--k K --mode sequential",
+            "Refine the harness through"
+          ],
+          [
+            "--substrate cx",
+            "Use Codex instead of the default OpenCode executor"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "5a7d3495-6dcc-4f1a-85e6-ce86d3b3a1f9",
+      "citation_number": 18,
+      "cited_text": "lot of skills it gets hard to know which skills are still helping the agent do better work This becomes harder after a model update because the newer model may already do what a skill tells the agent to do without needing those instructions So a skill that helped before might now be adding to the token cost without improving the work You might think Claude Code's new skill doctor command already checks this That command shows how many tokens each skill takes up in the context and which skills the agent hasn't used but that doesn't tell you whether a skill actually helps the agent do better work Caliper is a tool that basically tests if the skill that you've create actually does what it was made for and is actually having any impact on your workflow or not It can also compare the agents work with and without the skill to see whether those instructions actually help Caliper runs from the terminal and the repo includes two skills that help your agent use this tool The first one is grill s"
+    },
+    {
+      "source_id": "5a7d3495-6dcc-4f1a-85e6-ce86d3b3a1f9",
+      "citation_number": 19,
+      "cited_text": "kill which interviews you about what your skill should do So the tests actually reflect what you intended The second is the evaluate skill which helps your agent create and run those tests which are called eval Each test includes a prompt and a description of the result expected from that prompt The agent saves those tests alongside your skill and caliper keeps records of the runs in a folder calledcaliper so you can look through the results later So to use caliper you just need to ask your agent to use it on a skill you've created The agent will then invoke the evaluate skill first and prepare the tests for the skill If it gets stuck in writing tests it will then invoke the grill skill and interview regarding it Once the tests are written it will launch multiple runs with different prompts few using skill and few without the skill and see how the impact compares At the end your agent gives you a report showing what happened across multiple runs and what you can do next The report help"
+    },
+    {
+      "source_id": "4098af5e-3826-4273-9905-3632177d06e6",
+      "citation_number": 20,
+      "cited_text": "Para garantir que a auto-geração de plugins ocorra com determinismo e segurança industrial, o meta-prompt de criação exige que o agente execute /plugin-types previamente e incorpore uma suíte de testes obrigatória no próprio pacote gerado (plugins/<nome>/test/*.test.mts) 46 . O fluxo de validação automatizada impõe três barreiras sequenciais antes da ativação do plugin: primeiramente, o agente executa os testes unitários utilizando node --experimental-strip-types e o runner hermético claude plugin test ./plugins/<nome>, que valida a lógica do Mod sem sessão ativa, sem autenticação e sem acesso à rede , retornando código de saída 1 em qualquer falha para integração direta em CI 46 . Em seguida, o agente invoca claude plugin validate ./plugins/<nome> e npx tsc -p plugins/<nome>/tsconfig.json; o validador estático lê o código-fonte sem executá-lo, lista todos os eventos (hooks:) que o módulo manipula e todas as chamadas da API $ (calls:, como http.fetch ou fs.write) que ele realiza, recusando o carregamento caso existam eventos com grafia incorreta ou importações externas ilegais 46 . Por fim, em tempo de execução, um Mod de política corporativa ( Policy Mod ) escuta o evento meta plugin.register para vetar plugins não homologados antes que sejam carregados e monitora os eventos individuais de cada método de $ (fs.read, http.fetch, process.spawn), policiando em tempo real as chamadas feitas por outros Mods 70 ."
+    },
+    {
+      "source_id": "f603fc03-0e05-4c7d-b6bd-e060219c7271",
+      "citation_number": 21,
+      "cited_text": "Hooks, MCP servers, and context controls Hooks can run shell commands, MCP servers can hold credentials, and project instructions can enter an agent's context. Treat all three as executable configuration. Do not copy raw hooks/hooks.json into ~/.claude/settings.json after a plugin install. Modern Claude Code versions load plugin hooks automatically, and a second copy can make them fire twice. Use /mcp for Claude Code runtime disables; Claude Code persists those choices in ~/.claude.json . ECC_DISABLED_MCPS is an ECC install/sync filter, not a live Claude Code toggle."
+    }
+  ]
+}

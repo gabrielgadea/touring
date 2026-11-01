@@ -1,0 +1,223 @@
+[
+ {
+  "operador": "nome_tipo",
+  "motivo_antes": "sem_erro",
+  "motivo_agora": "sem_erro",
+  "rel": "crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs",
+  "linha": 600,
+  "nome": "ScopeMap -> ScoelMap",
+  "esperado": "E0412",
+  "observado": []
+ },
+ {
+  "operador": "nome_tipo",
+  "motivo_antes": "codigo_inesperado",
+  "motivo_agora": "codigo_inesperado",
+  "rel": "crates/touring-hook-handlers/src/mcts_materializer.rs",
+  "linha": 194,
+  "nome": "HookRuntime -> HookRuntimeConfig",
+  "esperado": "E0412",
+  "observado": [
+   "E0425@194: cannot find type `HookRuntimeConfig` in this scope"
+  ]
+ },
+ {
+  "operador": "nome_tipo",
+  "motivo_antes": "codigo_inesperado",
+  "motivo_agora": "codigo_inesperado",
+  "rel": "crates/touring-hooks-core/src/mutation_test.rs",
+  "linha": 75,
+  "nome": "PathBuf -> PuthBuf",
+  "esperado": "E0412",
+  "observado": [
+   "E0425@75: cannot find type `PuthBuf` in this scope"
+  ]
+ },
+ {
+  "operador": "nome_tipo",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-assists/src/handlers/change_visibility.rs",
+  "linha": 21,
+  "nome": "VisibilityLevel -> VisibilityLevbel",
+  "esperado": "E0412",
+  "observado": [
+   "E0425@21: cannot find type `VisibilityLevbel` in this scope",
+   "E0599@101: no method named `next` found for enum `VisibilityLevel` in the current scope"
+  ]
+ },
+ {
+  "operador": "nome_tipo",
+  "motivo_antes": "sem_erro",
+  "motivo_agora": "sem_erro",
+  "rel": "crates/touring-storage/src/knowledge/models.rs",
+  "linha": 94,
+  "nome": "FileKnowledge -> FileKnowledfge",
+  "esperado": "E0412",
+  "observado": []
+ },
+ {
+  "operador": "nome_tipo",
+  "motivo_antes": "codigo_inesperado",
+  "motivo_agora": "codigo_inesperado",
+  "rel": "crates/touring-offensive/src/erickson/confidence.rs",
+  "linha": 279,
+  "nome": "Default -> RawDefault",
+  "esperado": "E0412",
+  "observado": [
+   "E0405@279: cannot find trait `RawDefault` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use_chaves",
+  "motivo_antes": "sem_erro",
+  "motivo_agora": "sem_erro",
+  "rel": "crates/touring-hook-handlers/src/hooks/post_read.rs",
+  "linha": 16,
+  "nome": "FileRelation -> FileRelationInfo",
+  "esperado": "E0432",
+  "observado": []
+ },
+ {
+  "operador": "import_use_chaves",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-hooks-core/src/callgraph_enrichment.rs",
+  "linha": 8,
+  "nome": "CallGraph -> CalGlraph",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@8: unresolved import `touring_code::ast::call_graph::CalGlraph`",
+   "E0425@40: cannot find type `CallGraph` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use_chaves",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-assists/src/handlers/merge_imports.rs",
+  "linha": 6,
+  "nome": "Assists -> AssistsConfig",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@6: unresolved import `crate::AssistsConfig`",
+   "E0425@130: cannot find type `Assists` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use_chaves",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-offensive/src/concolic.rs",
+  "linha": 32,
+  "nome": "VulnerabilityPattern -> VulnerabilityPatternConfig",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@32: unresolved import `crate::vuln::VulnerabilityPatternConfig`",
+   "E0405@410: cannot find trait `VulnerabilityPattern` in this scope",
+   "E0405@596: cannot find trait `VulnerabilityPattern` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use_chaves",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-simd/src/similarity/topk.rs",
+  "linha": 16,
+  "nome": "CosineSimilarity -> CosneSimilarity",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@16: unresolved import `crate::similarity::CosneSimilarity`",
+   "E0599@132: no method named `cosine` found for struct `cosine::CosineComputer` in the current scope",
+   "E0599@140: no method named `cosine` found for struct `cosine::CosineComputer` in the current scope"
+  ]
+ },
+ {
+  "operador": "import_use_chaves",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-storage/src/embeddings/providers/fastembed.rs",
+  "linha": 33,
+  "nome": "EmbeddingProvider -> EmbtddingProvider",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@33: unresolved import `crate::embeddings::EmbtddingProvider`",
+   "E0405@517: cannot find trait `EmbeddingProvider` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use",
+  "motivo_antes": "sem_erro",
+  "motivo_agora": "sem_erro",
+  "rel": "crates/touring-hook-handlers/src/hooks/post_tool_failure.rs",
+  "linha": 17,
+  "nome": "llm_judge -> llm_pudge",
+  "esperado": "E0432",
+  "observado": []
+ },
+ {
+  "operador": "import_use",
+  "motivo_antes": "sem_erro",
+  "motivo_agora": "sem_erro",
+  "rel": "crates/touring-hook-handlers/src/hooks/post_feedback.rs",
+  "linha": 21,
+  "nome": "antipatterns -> antipahtterns",
+  "esperado": "E0432",
+  "observado": []
+ },
+ {
+  "operador": "import_use",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-assists/src/handlers/convert_to_guarded_return.rs",
+  "linha": 8,
+  "nome": "truncate_str -> truncate_str_core",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@8: unresolved import `touring_foundation::truncate_str_core`",
+   "E0425@60: cannot find function `truncate_str` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-hooks-core/src/ecosystem.rs",
+  "linha": 9,
+  "nome": "FileKnowledgeDB -> FileKowledgeDB",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@9: unresolved import `crate::knowledge::FileKowledgeDB`",
+   "E0425@80: cannot find type `FileKnowledgeDB` in this scope",
+   "E0425@99: cannot find type `FileKnowledgeDB` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-assists/src/handlers/add_missing_match_arms.rs",
+  "linha": 9,
+  "nome": "truncate_str -> truncate_str_core",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@9: unresolved import `touring_foundation::truncate_str_core`",
+   "E0425@93: cannot find function `truncate_str` in this scope",
+   "E0425@96: cannot find function `truncate_str` in this scope"
+  ]
+ },
+ {
+  "operador": "import_use",
+  "motivo_antes": "outro_erro_no_arquivo",
+  "motivo_agora": "outro_erro_no_arquivo",
+  "rel": "crates/touring-simd/src/simd_utils/horizontal.rs",
+  "linha": 8,
+  "nome": "ops -> oqh",
+  "esperado": "E0432",
+  "observado": [
+   "E0432@8: unresolved import `super::oqh`",
+   "E0433@19: cannot find module or crate `ops` in this scope",
+   "E0433@115: cannot find module or crate `ops` in this scope"
+  ]
+ }
+]

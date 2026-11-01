@@ -1,0 +1,326 @@
+{
+ "question": "--ultrathink --sequential-thinking Investigação exaustiva, completa, detalhada e analítica do repositório https://github.com/affaan-m/ECC (provavelmente \"Everything Claude Code\", de Affaan Mustafa; verificar o nome, a origem e o histórico): o que é, arquitetura, inventário de agents/skills/hooks/rules/commands/configs MCP, mecanismos de memória e aprendizado contínuo (\"instincts\"/learning), verificação e avaliação (evals, gates, testes), segurança (permissões, hooks de proteção, segredos), economia de tokens e de contexto, compatibilidade multi-harness (Claude Code, Codex, Cursor, OpenCode), adoção (estrelas, forks, discussões, críticas de terceiros) e a evidência que sustenta cada afirmação de ganho. Objetivo final: identificar tudo o que serve de lição ou inspiração para complementar, corrigir, aperfeiçoar e refinar o Touring, um orquestrador agentic para Claude Code com daemon Rust, índice de código (tree-sitter, tantivy), memória facetada com recall, hooks PreToolUse/PostToolUse em Rust e Python, code mode em sandbox (Landlock), workflows ADW duráveis, gates de qualidade (50 dimensões) e KPIs. Separar fato verificado de afirmação não verificada e citar as fontes.",
+ "summary": "O ECC (affaan-m/ECC, MIT, de Affaan Mustafa, renomeado de everything-claude-code) é um catálogo-plugin muito popular (282 mil estrelas e 42 mil forks em 17/10/2026; release 2.2.3 de 01/10/2026) que se apresenta como substrato cross-harness para Claude Code, Codex, Cursor, OpenCode e Gemini. O núcleo técnico que vale estudar está em quatro peças: o aprendizado contínuo v2 ('instincts' por projeto, observados por hooks e destilados por um observer Haiku em segundo plano, opt-in), o pipeline de observação (redação de segredos antes da escrita, teto de 5000 chars, rotação de 10 MB, retenção de 30 dias), o AgentShield (pontuação só por dedução, em que defesas não somam pontos) e o eval-harness, que se recusa a executar código candidato sem contenção de SO verificada. Nenhum ganho declarado pelo ECC foi medido: os números de economia são afirmações sem fonte, e a única medição de efeito, o piloto do GateGuard com 72 sessões e quatro braços (um deles placebo), deu resultado nulo por efeito-teto, registrando só o custo (+45% de turnos, +28% de tokens). Para o Touring, as lições mais fortes são de método e de higiene, não de catálogo. A primeira é o desenho experimental com braço placebo, um braço sem a pergunta-alvo e tarefas que não fiquem no teto, para julgar os gates do code mode. As outras: separar fricção de verificação nos gates, redação + rotação + retenção em todo escritor JSONL, pontuação por dedução nas dimensões de segurança, a distinção pass@k × pass^k nos gates de release (o retry-once do gate 5.5 tem semântica de pass@2), recusa fail-closed para executar código candidato e a regra de que recibos produzidos pelo julgado não são evidência. A verification-loop do ECC, escrita em prosa, confirma por contraste que o juiz por exit code do Touring (loop_converged.py) é a escolha mais forte.",
+ "findings": [
+  {
+   "claim": "Identidade e adoção: o affaan-m/ECC (MIT) se descreve como 'The agent harness performance optimization system'. O README de 17/10/2026 declara 71 agents, 311 skills, 97 legacy command shims e a release 2.2.3 (01/10/2026). A API do GitHub registra 282.235 estrelas, 41.957 forks, criação em 18/01/2026 e último push em 15/10/2026. O repositório foi renomeado de 'everything-claude-code': essa URL resolve para affaan-m/ECC, e o README só fala em 'legacy alias'. A vitória no hackathon Anthropic x Forum Ventures (set/2025) é autodeclarada pelo autor. Lição para o Touring: popularidade não é evidência de efeito. Nenhuma das 18 afirmações confirmadas liga as 282 mil estrelas a um ganho medido.",
+   "confidence": "high",
+   "sources": [
+    "https://github.com/affaan-m/ECC",
+    "gh api repos/affaan-m/ECC (stargazers_count, forks_count, created_at, pushed_at, releases/latest v2.2.3)"
+   ],
+   "evidence": "O verificador leu o README completo (dois segmentos, 0-138k chars) e conferiu pela API: stargazers_count=282235, forks_count=41957, license MIT, releases/latest v2.2.3 publicada em 2026-10-01T23:00:36Z. A consulta gh api repos/affaan-m/everything-claude-code resolve para affaan-m/ECC. As contagens 71/311/97 são do próprio README; os arquivos não foram contados. O AgentShield é de outro hackathon (Cerebral Valley x Anthropic, fev/2026), segundo o README.",
+   "vote": "3-0"
+  },
+  {
+   "claim": "Desenho do aprendizado contínuo (continuous-learning-v2, v2.1.0). Fato: hooks PreToolUse/PostToolUse capturam toda chamada de tool. O v1, baseado em Stop hook no fim da sessão, foi deprecado em 28/04/2026 e segue disponível como opt-in. Um observer em segundo plano roda headless (claude --model ${ECC_OBSERVER_MODEL:-haiku} --print, com ECC_SKIP_OBSERVE=1 e ECC_HOOK_PROFILE=minimal para não observar a si mesmo) e destila 'instincts' atômicos com confiança. Esse observer vem DESLIGADO por padrão (observer.enabled=false). No SessionStart entram no máximo 6 instincts (ECC_MAX_INJECTED_INSTINCTS=6) com confiança >= 0,7, ordenados por confiança + relevância de projeto/stack. Os instincts são escopados por projeto: o ID tem 12 hex de sha256, tirado de CLAUDE_PROJECT_DIR, senão do git remote, senão do toplevel, senão vai para o global. A promoção a global usa limiares fixos no código (>= 2 projetos, média >= 0,8), mas é um comando em lote rodado por humano com confirmação [y/N]; nenhum hook a chama. O /evolve agrupa instincts em candidatos a skill/command/agent e só os lista, a menos que receba --generate. A 'Memory Vault' (formato Markdown ecc.memory.v1 em .ecc/memory e ~/.ecc/memory) é separada do armazenamento de instincts. Lições para o Touring: (a) destilação de lições fora do contexto principal, num processo barato (Haiku) com guarda anti-recursão, que é o mesmo gotcha do TOURING_WORK_OUTER_DISABLED=1 nos agentes headless de ADW e uma aplicação concreta do roteamento para Haiku hoje subusado; (b) orçamento de injeção por sessão com contagem máxima + limiar + ranking por relevância, complementando o teto CILA, que é por chamada; (c) promoção projeto→global com limiares explícitos e aprovação humana em lote. O Touring tem promote_tier entre tiers, mas não promoção entre projetos; (d) ID de projeto pelo git remote, portável entre máquinas, em vez do caminho.",
+   "confidence": "high",
+   "sources": [
+    "https://github.com/affaan-m/ECC",
+    "https://raw.githubusercontent.com/affaan-m/ECC/main/skills/continuous-learning-v2/SKILL.md",
+    "ECC scripts/hooks/session-start.js (L38-39)",
+    "ECC agents/observer-loop.sh (L399), agents/observer.md",
+    "ECC instinct-cli.py (L113, L127-129, ~L1662-1698)"
+   ],
+   "evidence": "Linhas 38-39 de session-start.js: DEFAULT_INSTINCT_CONFIDENCE_THRESHOLD = 0.7 e DEFAULT_MAX_INJECTED_INSTINCTS = 6, ambas sobrescrevíveis por env. Em cli.py, PROMOTE_CONFIDENCE_THRESHOLD = 0.8 e PROMOTE_MIN_PROJECTS = 2; _promote_auto pede input('Promote N instincts to global? [y/N]') quando não há --force. Um grep em observe.sh, observer-loop.sh, session-guardian.sh e start-observer.sh não achou nenhuma chamada a promote. O termo 'Auto-promotion criteria' do SKILL.md exagera: um verificador votou contra por isso (2-1 na afirmação [6]). A frase 'Sessions are distilled into summaries, instincts, and skills' está numa tabela de marketing e não é resultado medido. Lado Touring, checado nesta sessão: crates/touring-server/src/memory_store.rs tem promote_tier(key, old_tier, new_tier) e nenhuma função de promoção entre projetos (grep raso).",
+   "vote": "3-0, 3-0, 2-1 (o 2-1 corrigiu 'auto-promoção' para 'promoção em lote aprovada por humano')"
+  },
+  {
+   "claim": "Pipeline de observação e higiene de dados. Fato: observe.sh grava um registro por chamada em observations.jsonl, separado por projeto. A fase 'pre' gera tool_start com o input; qualquer outra gera tool_complete com o output. Cada registro tem timestamp, event, tool, session, project_id e project_name. Input e output são cortados em 5000 chars (2000 no fallback de parse_error). O arquivo gira para observations.archive/ a cada 10 MB. Arquivos observations-*.jsonl com mais de 30 dias são apagados, e um marcador .last-purge limita a frequência; na prática, cerca de uma vez a cada 48 h, porque find -mtime +1 só casa após 2 dias. Segredos são redigidos ANTES da escrita por uma regex de quantificadores limitados (chave api_key|token|secret|password|authorization|credentials|auth + valor de 8 a 256 chars, que vira [REDACTED]); ela foi criada depois de um backtracking catastrófico que pôs o Python em 100% de CPU (#2278). Os autores admitem que é só defesa em profundidade: 'arbitrary content still requires a metadata-only capture boundary'. Sessões de subagente e não interativas são puladas antes de qualquer escrita. Lições para o Touring: (a) aplicar o quarteto redação-antes-da-escrita + teto por campo + rotação por tamanho + retenção em TODO escritor JSONL (activity.jsonl, run_journal.jsonl, eventos do prose_integrity, TOURING_HOOK_TRACE_FILE). O antecedente interno direto é o log do watcher do MCP, que encheu o /tmp com 25,5 GB; (b) usar as lacunas da regex do ECC como mutantes contra o redact_secrets do Touring: valor com menos de 8 chars, caracteres fora da classe (!@#) e cauda vazando além de 256; (c) declarar explicitamente a fronteira 'metadata-only' para conteúdo arbitrário.",
+   "confidence": "high",
+   "sources": [
+    "https://raw.githubusercontent.com/affaan-m/ECC/main/skills/continuous-learning-v2/hooks/observe.sh",
+    "ECC scripts/detect-project.sh"
+   ],
+   "evidence": "O verificador leu observe.sh, com 699 linhas, último commit 401faee091 em 11/10/2026. Os trechos relevantes: L21 HOOK_PHASE; L224 no seletor de evento; L238-245 json.dumps(...)[:5000]; L201 MAX_FILE_SIZE_MB=10; L206 find -mtime +30 -delete; L204-207 PURGE_MARKER; L340 o comentário 'defense in depth'. O verificador também executou a regex: api_key=sk-abcdef1234567 vira api_key=[REDACTED]; password=short passa sem redação; num segredo de 300 chars a cauda vaza; uma entrada patológica de 100k chars termina em 0,007 s. Lado Touring, checado nesta sessão: redact_secrets existe em gateway/sandbox_executor e o transcript_miner o usa (SEC-05, L525-531). Não verifiquei se os demais escritores JSONL redigem nem se fazem rotação.",
+   "vote": "3-0, 3-0, 3-0"
+  },
+  {
+   "claim": "O piloto de efetividade do GateGuard, feito pelo próprio ECC, não mostrou benefício. Fato: docker/gateguard-effectiveness/ rodou sessões reais do Claude com 4 braços (sem gate, gate, gate sem a pergunta-alvo de cada armadilha, gate placebo) × 6 tarefas armadilhadas × 3 repetições = 72 sessões, em sonnet, no commit bdf2dca6. Todos os braços passaram 18/18 (score 1,000; McNemar p = 1), então só se mediu o CUSTO: mediana de 4,5 turnos sem gate contra 6 com gate (+45%) e +28% de tokens, número que está no doc de desenho e não no changelog. Os autores atribuem o resultado a efeito-teto: o fato decisivo de cada armadilha podia ser achado no repositório. Registraram o resultado negativo no CHANGELOG e afirmam que as hipóteses seguem 'não testadas', não refutadas. Lições para o Touring: adotar esse desenho de 4 braços, com placebo e com a pergunta-alvo removida, para julgar os gates do code mode (G1-G11), o pre-edit e o evidence_guard. Montar armadilhas cujo fato decisivo NÃO esteja no repositório, para fugir do teto. Medir custo em turnos e em tokens junto com o efeito. Publicar resultados nulos no CHANGELOG. Tudo isso encaixa na cultura de pré-registro que o Touring já tem (gate de prosa com n >= 30 e Wilson-95, sombra r3, ABBA pareado).",
+   "confidence": "high",
+   "sources": [
+    "https://raw.githubusercontent.com/affaan-m/ECC/main/CHANGELOG.md (seção Unreleased, L8, L16-17)",
+    "ECC docs/gateguard/question-effectiveness.md (L158-180)"
+   ],
+   "evidence": "Texto literal do CHANGELOG: '72 sessions in which every arm passed every trial ... so it measured the gate's cost (about 45% more turns) and nothing about its effect'. A L8 acrescenta que as 'Hidden-intent trials did not show it helps for the external-contract question'. O verificador fez grep no changelog inteiro por benchmark|saving|reduc|faster|%|cost|eval e não achou nenhuma medição de economia ou de benefício. É uma admissão negativa do próprio autor, não marketing.",
+   "vote": "3-0"
+  },
+  {
+   "claim": "O GateGuard fact-force é fricção, não verificação. Fato: gateguard-fact-force.js (PreToolUse, 2574 linhas) nega o primeiro Edit/Write/MultiEdit/NotebookEdit de cada arquivo na sessão e pede fatos concretos escolhidos pela classe do alvo (importadores, API pública, schemas). No momento da negação, a chave do arquivo já é marcada como checada no diretório de estado (~/.gateguard, ou GATEGUARD_STATE_DIR; expira após 30 min ocioso ou 8 h), então a retentativa idêntica passa. Nenhum caminho de código lê ou valida os fatos apresentados. Há várias liberações que dispensam a negação: crédito por busca prévia no mesmo turno (Glob/Grep/LS/shell que cite o stem do arquivo), edição só de comentário ou espaço, colapso de arquivos irmãos novos, teto de negações por sessão, GATEGUARD_EXEMPT_GLOBS, bypass de subagente (exceto alvos sensíveis ou com hard link) e liberação quando a escrita do estado falha. Lições para o Touring: (a) auditar os gates do Touring à procura do padrão 'nega uma vez, a retentativa idêntica passa' sem checar o conteúdo, porque isso custa turnos e não verifica nada; (b) a peça que verifica de fato é o crédito por busca prévia, que confere o comportamento (houve investigação nomeando o arquivo) e não a narrativa, na linha do G3 edit-sem-read; (c) documentar e instrumentar cada condição de fail-open, como o ECC faz no design-notes, coerente com a lição interna 'advisory curto-circuita o deny'.",
+   "confidence": "medium",
+   "sources": [
+    "https://github.com/affaan-m/ECC/blob/main/scripts/hooks/gateguard-fact-force.js",
+    "ECC docs/gateguard/design-notes.md",
+    "ECC scripts/lib/gateguard-turn-scan.js"
+   ],
+   "evidence": "No código: L92 define STATE_DIR. Perto de L1935 há o comentário 'A first-touch denial marks the file checked so the retry passes'. Entre L2376 e L2426, isChecked faz recordDecision('pass-checked') e devolve o input sem mudança. O turn scanner só analisa as chamadas de tool. Houve um voto contra (2-1) porque 'nega no primeiro toque de cada arquivo' exagera a frequência, dadas as liberações listadas.",
+   "vote": "2-1"
+  },
+  {
+   "claim": "O AgentShield pontua só por dedução. Fato: affaan-m/agentshield (criado em 11/02/2026, último push em 10/09/2026) tem 5 categorias (secrets, permissions, hooks, mcp, agents). Cada uma parte de 100 e perde pontos por achado: critical 25, high 15, medium 5, low 2, info 0. O score geral é a média; as notas vão de A (>= 90) a F (< 40). Defesas detectadas aparecem no relatório mas NÃO somam pontos ('the score cannot be gamed by adding decorative deny rules'). As deduções são ponderadas por runtimeConfidence: exemplo de template ou de docs vale 0,25×, opcional local do projeto 0,75×, cache ou manifesto de plugin 0,5×, com teto de 10 pontos por arquivo e categoria para templates. Qualquer achado critical faz o processo sair com exit 2. A GitHub Action affaan-m/agentshield@v1 emite SARIF 2.1.0 quando recebe format: sarif. Lições para o Touring: (a) checar se alguma das 50 dimensões do touring-quality, ou o BestPracticesGate (que verifica a DECLARAÇÃO), premia a presença de declarações, o que abre espaço para jogar com declarações decorativas; nas dimensões P0 de segurança (F2.x), adotar a regra só-dedução; (b) ponderar achados por contexto de execução (template, docs, cache) em vez de contar todos por igual; (c) emitir SARIF e exit code por severidade, para integrar com CI e com a aba de code scanning.",
+   "confidence": "high",
+   "sources": [
+    "https://github.com/affaan-m/agentshield",
+    "agentshield src/reporter/score.ts (SCORE_DEDUCTIONS, computeScore, scoreToGrade)",
+    "agentshield src/index.ts (L743-745)",
+    "agentshield action.yml"
+   ],
+   "evidence": "O verificador leu o README e o código: SCORE_DEDUCTIONS = {critical:25, high:15, medium:5, low:2, info:0}; computeScore(findings) nunca consulta as defesas; src/index.ts tem process.exit(2) quando critical > 0; a tag v1 existe; o format padrão da Action é terminal, e o SARIF só sai a pedido.",
+   "vote": "3-0"
+  },
+  {
+   "claim": "Regras do AgentShield para hooks e MCP. Fato: entre as cerca de 40 regras hooks-* e cerca de 25 ids mcp-* no código, há estas: hooks-injection (interpolação ${file}/${var} em sh -c, curl, wget, onde o nome de arquivo vira código); hooks-exfiltration (curl para URL http(s) externa, com ou sem -X POST); hooks-no-error-handling (2>/dev/null, || true, || : em hooks de segurança que 'passam' quando falham), que só olha settings.json e não manifestos de plugin; mcp-npx-supply-chain (npx -y, vetor de typosquatting); mcp-url-transport e mcp-remote (servidores remotos SSE/HTTP); mcp-hardcoded-env (token literal no env do MCP). Lições para o Touring: (a) a classe hooks-injection é a mesma do defeito interno 'injeção de template nas ADWs' (26 comandos em 7 specs interpolavam vars na shell); vale portar essas regras para uma auditoria estática de client/claude/hooks.settings.json, ~/.claude/settings.json e das specs .touring/adw/*.toml; (b) a regra de falha silenciosa obriga a separar fail-open DELIBERADO e telemetrado (invariante exit 0 do CEG, hooks fail-open) de silenciamento com 2>/dev/null || true, que é exatamente o padrão a banir; (c) auditar os servidores MCP configurados atrás de npx -y e de token literal.",
+   "confidence": "medium",
+   "sources": [
+    "https://github.com/affaan-m/agentshield",
+    "agentshield src/rules/hooks.ts (~L900, ~L938, ~L969)",
+    "agentshield src/rules/mcp.ts (L282, L342, L537), src/rules/mcp-remote.ts"
+   ],
+   "evidence": "O verificador confirmou cada regra no código-fonte. Houve um voto contra (2-1) porque a afirmação original dizia 'três coisas', o que subconta muito, e fundia curl-external com curl-interpolation. As contagens do README são internamente inconsistentes: '268 rules / 15 modules' no cabeçalho contra 102 na tabela-resumo.",
+   "vote": "2-1"
+  },
+  {
+   "claim": "O eval-harness tem metas de confiabilidade, recusa fail-closed e uma regra de não-evidência. Fato: (1) as metas recomendadas são pass@3 >= 0,90 para evals de capacidade (pelo menos 1 sucesso em 3) e pass^3 = 1,00 para regressões em caminhos release-critical (os 3 runs passam). O arquivo é inconsistente consigo mesmo: '> 90%' nas seções anteriores, '>= 0,90' na seção v1.8, e pass^3 = 100% para TODA regressão na L125. São metas, não medições, e todos os percentuais do arquivo são metas ou relatórios de exemplo inventados. (2) A execução de código candidato está desligada em todo SO 'because no verified OS containment backend is implemented'. gate run, runGate, runVariant e o child launch direto recusam com gate.isolation_required, e nenhuma flag de confiança nem executor fornecido pelo chamador contorna isso; em gate.js, requireSupportedIsolation() lança incondicionalmente. (3) 'Do not present static warnings, a capsule receipt, or successful utility tests as candidate containment or promotion evidence'. Um gate futuro exigiria fronteira de SO revisada de forma independente, checker e canal de auditoria protegidos e rejeição fatal de baseline falho; a validação operacional dos utilitários de retrospectiva está pendente. Lições para o Touring: (a) o retry-once do gate 5.5 do propagate-release.sh e a re-medição única do S1a dão a esses gates semântica de pass@2, o oposto da recomendação pass^k para caminhos release-critical. Vale avaliar um gate de estabilidade pass^k para a prova comportamental, pesando o transiente documentado (project actor drenando o índice). (b) Para executar código candidato (racing de ADW, escada de trust A13/--harvest), adotar recusa fail-closed sem bypass por flag, em contraste com o invariante fail-open do CEG, que serve à sessão e não à avaliação de candidato. (c) Codificar no loop_converged.py e nos gates a regra 'artefato produzido pelo julgado não é evidência de contenção nem de promoção', que generaliza a lição interna 'juiz gravável pelo julgado'. O Touring tem Landlock (crates/touring-ceg/src/capability/enforce_linux.rs), mas não atinge a barra do ECC de fronteira revisada de forma independente: a memória registra que um waiver do CEG deixou o curl alcançar a rede.",
+   "confidence": "high",
+   "sources": [
+    "https://github.com/affaan-m/ECC/blob/main/skills/eval-harness/SKILL.md (L96-101, L99, L124-125, L260-271, L288-292)",
+    "ECC scripts/lib/eval-harness/gate.js",
+    "ECC docs/architecture/eval-harness-frameworks.md (L4, L21, L263-291, L361)"
+   ],
+   "evidence": "O SKILL.md tem 305 linhas, último commit 0765f7a2 em 27/09/2026. gate.js lança GateError('gate.isolation_required', ...) sem parâmetro que permita contornar. O doc de arquitetura repete de forma independente que 'Candidate execution and promotion are unavailable' e que 'Their tests are not evidence of an operational gate'. Lado Touring: o verificador confirmou landlock = 0.4 em crates/touring-ceg/Cargo.toml, e esta sessão listou capability/{enforce_linux,profile,scope,limits}.rs.",
+   "vote": "3-0, 3-0, 3-0"
+  },
+  {
+   "claim": "A verification-loop é um checklist em prosa, não um gate. Fato: tem 6 fases (build, type check, lint, testes com coverage, grep de segurança por sk-/api_key/console.log, git diff --stat), cada uma um snippet bash passado por | tail -20 ou | sed -n. A regra de parada é uma instrução ao modelo ('If build fails, STOP'; 'Fix critical ones before continuing'). Nada lê exit code. A meta de 80% de coverage é um comentário bash, e o veredito READY/NOT READY é um relatório que o modelo preenche. Os entrypoints /verify (legacy shim e .opencode) também são prosa. O PR #3455 (10/10/2026) corrigiu a perda de status por SIGPIPE com pipefail, mas nada age sobre esse status. Lições para o Touring: confirma por contraste que o juiz por exit code (loop_converged.py, Stop hook com manifesto, Lei L2) é a escolha certa. O mesmo bug, '| tail engole o exit', já foi pago no Touring (gate 5.5, leitura por ${PIPESTATUS[0]}). Vale um guard estático contra skills que prescrevem pipe para tail ou sed sem checar o status.",
+   "confidence": "high",
+   "sources": [
+    "https://github.com/affaan-m/ECC/blob/main/skills/verification-loop/SKILL.md",
+    "ECC legacy-command-shims/commands/verify.md",
+    "ECC .opencode/commands/verify.md"
+   ],
+   "evidence": "O verificador leu o arquivo (135 linhas, HTTP 200), último commit a003286e em 10/10/2026, e confirmou que o set -o pipefail adicionado em 08/10/2026 (9c21aaa6) só faz o status aparecer na saída. scripts/ci/verify-release-gates.js gateia o CI do próprio ECC e não tem relação com esta skill.",
+   "vote": "3-0"
+  },
+  {
+   "claim": "Economia de contexto: configuração e instalação seletiva, sem medição. Fato: skills carregam sob demanda e rules ficam sempre carregadas, daí o conselho de instalar rules seletivamente. O plugin anuncia ao modelo todo o catálogo instalado, e o README recomenda um perfil seletivo ou manual 'when context footprint matters'. A injeção do SessionStart tem teto de 8000 chars (ECC_SESSION_START_MAX_CHARS; constante na L42 de session-start.js). O manifesto do plugin Claude (v2.2.3) declara mcpServers: {}, ou seja, nenhum MCP ligado. Só a config gerenciada e o .mcp.json da raiz trazem UM conector padrão (chrome-devtools, fixado em chrome-devtools-mcp@1.10.1), depois de uma auditoria de junho de 2026 que aposentou 6 padrões anteriores. Os números de economia do README e do docs/token-optimization.md ('~60% cost reduction', 'handles 80%+', '200k → ~70k', 'Haiku ~80% cheaper') não têm método. Lições para o Touring: (a) teto rígido de chars na injeção do SessionStart, somado ao teto CILA por chamada; (b) uma política de conectores MCP com auditoria periódica e um único padrão. Esta sessão mostrou dezenas de servidores MCP configurados, dois deles falhando a conexão; (c) o Touring já fez a migração rules→skills (03/09) e o estreitamento do anúncio MCP no code mode, que é o equivalente estrutural; (d) não importar os percentuais do ECC, que não têm fonte.",
+   "confidence": "medium",
+   "sources": [
+    "https://github.com/affaan-m/ECC (README L554, L607-609, L1251-1253, L1325, L1377, L1851-1933)",
+    "ECC .claude-plugin/plugin.json",
+    "ECC docs/MCP-CONNECTOR-POLICY.md",
+    "ECC docs/token-optimization.md"
+   ],
+   "evidence": "Houve um voto contra (2-1) porque a afirmação original dizia que 'só chrome-devtools está ligado por padrão' sem qualificar: no caminho do plugin Claude, nenhum MCP é ligado. Também é impreciso dizer que o README 'não mostra medições': há números, mas sem método. A citação de apoio cobre só a recomendação de perfil seletivo; o restante foi conferido em outras seções do README e no código.",
+   "vote": "2-1"
+  },
+  {
+   "claim": "Multi-harness com limites declarados. Fato: a partir da 2.0.0-rc.1 (28/04/2026), o ECC se documenta como 'reusable cross-harness substrate' para Claude Code, Codex, Cursor, OpenCode e Gemini (docs/architecture/cross-harness.md). A 1.9.0 (20/03/2026) trouxe Antigravity via --target e scripts de customização do Codex CLI; a 2.2.0 (25/08/2026) trouxe um adaptador fino para Pi e instalação nativa do Antigravity 2.0 em .agents/. O próprio doc declara os limites: Gemini é 'compatibility surface, not full hook parity'; os hooks do Codex são 'instruction-backed'; as rules não são idênticas entre harnesses; e a rc.1 'não é claim de GA'. Lições para o Touring: publicar uma matriz de paridade por harness que separe o que é IMPOSTO por executor do que é só instrução, aplicando a doutrina D8 (enforcement mora no executor) aos namespaces .gemini, .jules, .serena e .specify que já existem. A Memory Vault (ecc.memory.v1, Markdown local e inspecionável) sugere versionar um schema neutro de handoff para RETOMADA e OKF.",
+   "confidence": "high",
+   "sources": [
+    "https://raw.githubusercontent.com/affaan-m/ECC/main/CHANGELOG.md (2.0.0-rc.1, 2.2.0, 1.9.0)",
+    "ECC docs/architecture/cross-harness.md",
+    "https://github.com/affaan-m/ECC (README L1259, Memory Vault)"
+   ],
+   "evidence": "O verificador leu o CHANGELOG (334 linhas; entrada mais recente 2.2.3, de 01/10/2026). A palavra 'substrate' só aparece a partir da rc.1. A afirmação é sobre autodescrição; paridade real de suporte não foi demonstrada.",
+   "vote": "3-0"
+  },
+  {
+   "claim": "Transversal: nenhum ganho declarado pelo ECC tem medição. Fato: o SKILL.md do continuous-learning-v2 afirma que hooks disparam '100% of the time' e skills '~50-80%', sem medição, citação ou link; o arquivo ainda se contradiz, dizendo que o v1 observava via Stop hook na L41 e 'relied on skills' na L346. Os percentuais de economia do README não têm método. O CHANGELOG não traz benchmark de benefício. A única medição de efeito publicada, o piloto do GateGuard, é nula e registrou só custo. Um verificador citou medições de terceiros sobre a ativação de skills (cerca de 20-55%, dependendo do modelo) que não batem com o número do ECC; essas medições não foram verificadas de forma independente. Lição para o Touring: a cultura de medição do Touring (touring kpi, baseline do e2e por mediana n=5, pré-registro, Wilson-95) é um diferencial real diante de um projeto de 282 mil estrelas. Há uma oportunidade concreta: medir com o transcript_miner a taxa real de ativação de skills e de adesão a hooks nas transcrições locais, e publicar o número com método, onde o ECC só afirma.",
+   "confidence": "high",
+   "sources": [
+    "https://github.com/affaan-m/everything-claude-code/tree/main/skills/continuous-learning-v2 (byte-idêntico ao de affaan-m/ECC)",
+    "https://raw.githubusercontent.com/affaan-m/ECC/main/CHANGELOG.md",
+    "https://github.com/affaan-m/ECC",
+    "ECC docs/gateguard/question-effectiveness.md"
+   ],
+   "evidence": "Os dois SKILL.md, nos dois repositórios, têm 14149 bytes e o cmp os dá como idênticos; um grep por benchmark|measur|study volta vazio. O próprio SKILL.md mina o '100%' ao alertar que copiar o hook para settings.json causa execução duplicada e erros de resolução de ${CLAUDE_PLUGIN_ROOT}. O verificador fez grep no CHANGELOG sem achar medição de benefício. O piloto GateGuard tem 72 sessões, McNemar p = 1.",
+   "vote": "3-0 (afirmações [3] e [10]), 2-1 (afirmação [2])"
+  }
+ ],
+ "caveats": "Sensibilidade temporal: tudo foi lido em 17/10/2026 contra main (último push 15/10/2026). As contagens de estrelas e forks, e o número de agents, skills e shims, mudam rápido. As contagens 71/311/97 são do README e os arquivos não foram contados. Fontes: quase todas são primárias (README, CHANGELOG, SKILL.md e código do próprio ECC e do AgentShield). Isso dá força às afirmações sobre COMO o ECC funciona e nenhuma força a ganhos, que em nenhum caso foram medidos. Nenhuma crítica independente de terceiros (issues, discussões, posts) sobreviveu à verificação, então a parte da pergunta sobre adoção e críticas segue sem cobertura além dos números do GitHub. Afirmações refutadas na votação, que não devem ser usadas: a semântica exata dos níveis de confiança (0,3 'sugerido', 0,7 'auto-aprovado') e as regras de decaimento (0-3; os valores 0,3 a 0,9 aparecem no SKILL.md, mas os detalhes de comportamento e decaimento não se sustentaram); a 'promoção automática' a global (refutada 0-3 nessa formulação; o código exige comando humano com confirmação); a contagem de hooks em hooks.json (27 hooks em 8 eventos, 1-2); o mapeamento por perfil minimal/standard/strict de cada hook (0-3; há indício de que o mecanismo run-with-flags com perfis existe, mas o mapeamento afirmado não foi confirmado); o classificador de comandos destrutivos do GateGuard (1-2); e os metadados do AgentShield (estrelas, forks, nome do pacote npm ecc-agentshield, ausência de releases; 0-3). Lado Touring: as verificações locais desta síntese foram greps rasos. Achei redact_secrets usado pelo transcript_miner, promote_tier sem promoção entre projetos, os arquivos Landlock do CEG e nenhum TOURING_HOOK_PROFILE. Não verifiquei se todos os escritores JSONL redigem e fazem rotação. As lições para o Touring são hipóteses de melhoria até serem medidas. A sugestão de pass^k para o gate 5.5 tem de pesar o transiente documentado que motivou o retry-once. O contexto de terceiros sobre a taxa de ativação de skills (cerca de 20-55%) veio de um verificador e não foi checado de forma independente.",
+ "openQuestions": [
+  "As críticas de terceiros ao ECC (issues, discussões, análises de segurança da cadeia de suprimentos de um plugin com 282 mil estrelas que instala hooks e scripts na máquina do usuário) dizem o quê? Nenhuma sobreviveu à verificação nesta rodada.",
+  "O mecanismo de perfil de hook do ECC (run-with-flags.js com minimal/standard/strict por hook) funciona como? O mapeamento detalhado foi refutado, mas o mecanismo parece existir; seria um modelo de kill switch granular por hook, que se compara aos kill switches globais por env do Touring.",
+  "Um experimento de 4 braços no estilo GateGuard (sem gate, gate, gate sem a pergunta-alvo, placebo), com armadilhas fora do teto, mostraria efeito dos gates do code mode e do pre-edit do Touring, ou só custo, como no ECC?",
+  "Qual é a taxa real de ativação de skills e de adesão a hooks nas transcrições locais, medida com o transcript_miner, e quantos escritores JSONL do Touring gravam sem redação, sem teto e sem rotação?"
+ ],
+ "refuted": [
+  {
+   "claim": "Instinct confidence is a weighted 0.3-0.9 scale with fixed behavioural tiers. 0.3 means suggested but not enforced, and 0.7 means auto-approved for application. Confidence goes up with repeated observation and no user correction, and goes down with an explicit correction, a long time without observation, or contradicting evidence. The doc publishes no update formula and no empirical validation of these thresholds.",
+   "vote": "0-3",
+   "source": "https://raw.githubusercontent.com/affaan-m/ECC/main/skills/continuous-learning-v2/SKILL.md"
+  },
+  {
+   "claim": "Learned behavior is stored as atomic 'instincts', each with one trigger and one action. Each instinct has a confidence score from 0.3 to 0.9, and fixed thresholds decide what happens: at 0.3 it is suggested but not enforced, and at 0.7 it is auto-approved. Repeated observation and agreement raise confidence. User correction, contradicting evidence or long absence lower it. No numeric decay rate is given.",
+   "vote": "0-3",
+   "source": "https://github.com/affaan-m/everything-claude-code/tree/main/skills/continuous-learning-v2"
+  },
+  {
+   "claim": "Instincts are scoped to a project by default. The project is found in this order: CLAUDE_PROJECT_DIR, then a hash of the git remote URL (portable across machines), then the repo toplevel path, then a global fallback. An instinct is promoted to global automatically when the same ID appears in 2 or more projects with an average confidence of at least 0.8.",
+   "vote": "0-3",
+   "source": "https://github.com/affaan-m/everything-claude-code/tree/main/skills/continuous-learning-v2"
+  },
+  {
+   "claim": "AgentShield (npm package ecc-agentshield, repo affaan-m/agentshield, MIT) is a static security auditor for Claude Code configurations. It is part of the ECC ecosystem and was built at the Claude Code Hackathon in February 2026. Its rule count is internally inconsistent: the headline says 268 rules across 15 modules, but the README's summary table adds up to 102 rules plus 14 patterns. When fetched it showed 1.3k stars, 285 forks, 221 commits and no published releases.",
+   "vote": "0-3",
+   "source": "https://github.com/affaan-m/agentshield"
+  },
+  {
+   "claim": "Destructive Bash and PowerShell commands are matched by classifyDestructiveCommand: recursive force rm, destructive git operations, dd if=/of=, and SQL drop/delete/truncate sent to SQL clients. Wrappers such as find -exec, sh -c and su are followed up to a recursion depth of 4, and anything deeper is denied (fail-closed). Matching is keyed by a sha256 hash of the command. The first attempt is denied and the agent is asked for the request and the purpose of the command. An identical retry is then allowed. Routine shell commands are gated once per session, and read-only commands are exempt.",
+   "vote": "1-2",
+   "source": "https://github.com/affaan-m/ECC/blob/main/scripts/hooks/gateguard-fact-force.js"
+  },
+  {
+   "claim": "In the main branch (the last commit touching the file is dated 2026-10-11, 'fix: preserve rollback version state and bounded runtime workflows'), ECC's hooks/hooks.json declares 27 hook commands across 8 events. The counts I parsed are PreToolUse 10, Stop 8, SessionStart 2, PostToolUse 2, PostToolUseFailure 2, UserPromptSubmit 1, PreCompact 1 and SessionEnd 1. This contradicts the '26 hooks across 9 events' label the workflow gave the source. The JSON has only the matcher, hooks, type, command, async and timeout keys and no description fields, so what each hook does can only be inferred from script names.",
+   "vote": "1-2",
+   "source": "https://github.com/affaan-m/ECC/blob/main/hooks/hooks.json"
+  },
+  {
+   "claim": "Hooks are gated by a runtime profile. Almost every hook runs through scripts/hooks/run-with-flags.js, which takes a namespaced hook id (for example pre:edit-write:gateguard-fact-force or stop:format-typecheck) and an allowlist drawn from minimal, standard and strict. Only hookify-runtime (on PreToolUse, UserPromptSubmit and Stop), plan-canvas-pending, session-end, evaluate-session, cost-tracker and session-end-marker are enabled under the 'minimal' profile. Every guard (config-protection, gateguard-fact-force, governance-capture, mcp-health-check) is limited to standard and strict. This per-hook, profile-level switch is a design that can be compared with Touring's global env-var kill switches.",
+   "vote": "0-3",
+   "source": "https://github.com/affaan-m/ECC/blob/main/hooks/hooks.json"
+  }
+ ],
+ "unverified": [],
+ "sources": [
+  {
+   "url": "https://github.com/affaan-m/ECC",
+   "quality": "primary",
+   "angle": "Primário e arquitetura (repo, origem, inventário)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://raw.githubusercontent.com/affaan-m/ECC/main/CHANGELOG.md",
+   "quality": "primary",
+   "angle": "Primário e arquitetura (repo, origem, inventário)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://eu.36kr.com/en/p/3823966768943239",
+   "quality": "secondary",
+   "angle": "Primário e arquitetura (repo, origem, inventário)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://emelia.io/pt/hub/everything-claude-code-explained",
+   "quality": "unreliable",
+   "angle": "Primário e arquitetura (repo, origem, inventário)",
+   "claimCount": 0
+  },
+  {
+   "url": "https://www.augmentcode.com/learn/everything-claude-code-118k-stars",
+   "quality": "blog",
+   "angle": "Primário e arquitetura (repo, origem, inventário)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://raw.githubusercontent.com/affaan-m/ECC/main/skills/continuous-learning-v2/SKILL.md",
+   "quality": "primary",
+   "angle": "Memória e aprendizado contínuo (instincts)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://raw.githubusercontent.com/affaan-m/ECC/main/skills/continuous-learning-v2/hooks/observe.sh",
+   "quality": "primary",
+   "angle": "Memória e aprendizado contínuo (instincts)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://mintlify.wiki/affaan-m/everything-claude-code/guides/continuous-learning",
+   "quality": "secondary",
+   "angle": "Memória e aprendizado contínuo (instincts)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://playbooks.com/skills/affaan-m/everything-claude-code/continuous-learning-v2",
+   "quality": "unreliable",
+   "angle": "Memória e aprendizado contínuo (instincts)",
+   "claimCount": 0
+  },
+  {
+   "url": "https://github.com/affaan-m/everything-claude-code/tree/main/skills/continuous-learning-v2",
+   "quality": "primary",
+   "angle": "Memória e aprendizado contínuo (instincts)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://skills.cat/skills/affaan-m/everything-claude-code/continuous-learning-v2",
+   "quality": "secondary",
+   "angle": "Memória e aprendizado contínuo (instincts)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/agentshield",
+   "quality": "primary",
+   "angle": "Verificação, evals e segurança",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/ECC/blob/main/scripts/hooks/gateguard-fact-force.js",
+   "quality": "primary",
+   "angle": "Verificação, evals e segurança",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/ECC/blob/main/hooks/hooks.json",
+   "quality": "primary",
+   "angle": "Verificação, evals e segurança",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/ECC/blob/main/skills/eval-harness/SKILL.md",
+   "quality": "primary",
+   "angle": "Verificação, evals e segurança",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/ECC/blob/main/skills/verification-loop/SKILL.md",
+   "quality": "primary",
+   "angle": "Verificação, evals e segurança",
+   "claimCount": 5
+  },
+  {
+   "url": "https://raw.githubusercontent.com/affaan-m/ECC/main/docs/token-optimization.md",
+   "quality": "primary",
+   "angle": "Economia de tokens/contexto e multi-harness",
+   "claimCount": 5
+  },
+  {
+   "url": "https://raw.githubusercontent.com/affaan-m/ECC/main/skills/context-budget/SKILL.md",
+   "quality": "primary",
+   "angle": "Economia de tokens/contexto e multi-harness",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/ECC/pull/3248",
+   "quality": "primary",
+   "angle": "Adoção e crítica de terceiros (cético)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://github.com/affaan-m/ECC/issues/2608",
+   "quality": "forum",
+   "angle": "Adoção e crítica de terceiros (cético)",
+   "claimCount": 5
+  },
+  {
+   "url": "https://api.github.com/repos/affaan-m/ECC",
+   "quality": "primary",
+   "angle": "Adoção e crítica de terceiros (cético)",
+   "claimCount": 5
+  }
+ ],
+ "stats": {
+  "angles": 5,
+  "sourcesFetched": 21,
+  "claimsExtracted": 95,
+  "claimsVerified": 25,
+  "confirmed": 18,
+  "killed": 7,
+  "unverified": 0,
+  "afterSynthesis": 12,
+  "urlDupes": 2,
+  "budgetDropped": 7,
+  "agentCalls": 103
+ }
+}

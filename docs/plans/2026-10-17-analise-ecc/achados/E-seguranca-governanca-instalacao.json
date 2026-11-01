@@ -1,0 +1,245 @@
+{
+ "area": "E-seguranca-governanca-instalacao",
+ "ecc_resumo": "ECC v2.2.3 tem 311 skills, 71 agents, 97 commands, 23 rules e 16 alvos de harness. A segurança é um guia, mais gates de CI executáveis: validador de workflows, scan de Unicode oculto, scan de IOC a cada 6h, pr-burst-guard, verify-release-gates e 68/68 actions por SHA. Também há hooks (GateGuard com 2.574 linhas, config-protection). O 'Prompt Defense Baseline' é só texto: 71/71 agents, 0 skills, 0 commands. A instalação tem 46 módulos, 7 perfis, install-state com digest e doctor/repair/uninstall. A paridade entre harnesses vem de um scorecard de 4 estados. Fila de PRs: ledger de salvage, actions/stale (30d+7d) e burst guard. Há 1 mantenedor de fato (haelyra: 234 dos últimos 300 commits) e nenhum autor bot nesses 300.",
+ "findings": [
+  {
+   "id": "E1",
+   "mecanismo": "Validador executável de segurança de workflows",
+   "evidencia_ecc": "scripts/ci/validate-workflow-security.js:185 — 'id-token: write must be scoped to a publish-only job, not the entire workflow'. Também :168 (persist-credentials:false) e :217 (proíbe actions/cache).",
+   "como_funciona": "Regex em CI e no cron de 6h (supply-chain-watch.yml). Cobre pull_request_target com checkout do PR, id-token no workflow inteiro, id-token+cache e install sem --ignore-scripts. Origem: incidente TanStack (cache poisoning + OIDC).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "release.yml:23-26 tem id-token:write no nível do workflow e :68 usa Swatinem/rust-cache no job build. ci.yml:163-170: job gates com contents:write em pull_request, checkout sem persist-credentials. 11 de 43 'uses' sem SHA (dtolnay/rust-toolchain); 0 persist-credentials. `touring-quality check --gate F4.7` dá ci.yml 0.970 Diamond apesar de 'action pinned by mutable tag'. cicd.rs não tem regra id-token/persist-credentials/pull_request_target e pune a AUSÊNCIA de cache (cicd.rs:146).",
+   "licao_tipo": "corrigir",
+   "proposta": "Portar as regras para cicd.rs (F4.7) como BLOCK em workflows de release. Corrigir os 4 sítios: id-token só no job release, sem rust-cache no build assinado, persist-credentials:false, dtolnay por SHA. Não punir ausência de cache nesses jobs.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Release sem cache fica mais lento. SHA do dtolnay exige bump (Dependabot github-actions cobre).",
+   "confianca": 0.85
+  },
+  {
+   "id": "E2",
+   "mecanismo": "Gate de release por evidência da API (tag assinada + CI no mesmo SHA)",
+   "evidencia_ecc": "scripts/ci/verify-release-gates.js:229 — 'Release tag signature is not verified'. Linhas 16-17: CodeQL completa as 3 categorias em UMA tentativa.",
+   "como_funciona": "Cliente GitHub com deadline global, paginação limitada e validação de formato. Exige tag anotada verificada, tag==commit do checkout e ci.yml/CodeQL verdes naquele SHA.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "release.yml:18-22 dispara em push de tag v*; o job release (:119-122) só tem needs: build. Nenhum job confere o CI do SHA nem a assinatura da tag. Os gates fortes ficam em scripts/propagate-release.sh, na máquina do operador, e uma tag empurrada os contorna.",
+   "licao_tipo": "complementar",
+   "proposta": "Job verify antes do build: `gh api` confere tag assinada, tag==SHA e ci.yml success; build e release dependem dele. Reusar o padrão deadline + paginação limitada.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Assinatura GitHub 'valid' não é lista de signatários autorizados (o próprio ECC admite em :227).",
+   "confianca": 0.8
+  },
+  {
+   "id": "E3",
+   "mecanismo": "Gate de entrada contra Unicode oculto (ASCII smuggling)",
+   "evidencia_ecc": "scripts/ci/check-unicode-safety.js:124-125 — 'an attacker hides instructions inside ASCII-looking strings (PR bodies, SKILL.md, frontmatter), the LLM consumes the tag bytes'.",
+   "como_funciona": "Varre o repo inteiro (ZW, bidi, bloco Tag E0000-E007F, U+180E, 115F/1160, 3164, 2061-2064, seletores de variação). Reporta arquivo:linha:coluna e codepoint. --write limpa só .md/.txt.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "prose_integrity_gate.py:49-62 (SCRIPTS) cobre CJK/kana/hangul/cirílico/árabe etc. na SAÍDA do agente; não cobre ZW, bidi nem bloco Tag. Medido por regex: 0 arquivos perigosos em ~/.claude/skills (860 arquivos), rules, agents, commands, CLAUDE.md x2, T/crates (2062) e T/scripts (348). 2 literais U+FEFF em client/hooks/agent_model_gate.py:126 e no teste :195; 2 U+200B em docs/indefinidos/touring-pro.md:348,351. Sem passo de CI.",
+   "licao_tipo": "complementar",
+   "proposta": "scripts/check_unicode_safety.py (mesmas faixas) em CI e propagate-release. Trocar os 2 U+FEFF literais por escape \\ufeff. Adicionar a classe 'invisível' ao prose gate em sombra. Escopo: skills, rules, agents, CLAUDE.md, client/.",
+   "valor": "alto",
+   "custo": "P",
+   "risco": "U+FEFF legítimo em regex de BOM pede allowlist ou escape. A ferramenta Write decodifica escapes (gerar por script).",
+   "confianca": 0.8
+  },
+  {
+   "id": "E4",
+   "mecanismo": "Proteção de arquivos de config/lint contra edição pelo agente",
+   "evidencia_ecc": "scripts/hooks/config-protection.js:5-6 — 'Agents frequently modify these to make checks pass instead of fixing the actual code.'",
+   "como_funciona": "PreToolUse bloqueia (exit 2) Edit/Write em eslint/prettier/biome/ruff/shellcheck existentes. Permite a criação inicial. pyproject fica de fora de propósito.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "grep de deny.toml|clippy.toml|rustfmt.toml|ruff.toml|rust-toolchain.toml em crates/touring-hook-handlers/src, client/hooks e scripts só acha scripts/touring_premium_refactor_2026/* (legado). Nenhum handler protege essas configs. Memória 'Juiz gravável pelo julgado' descreve o risco. Outro mecanismo de proteção não foi buscado.",
+   "licao_tipo": "complementar",
+   "proposta": "Handler pre_edit/pre_write com conjunto protegido: deny.toml, clippy.toml, rustfmt.toml, rust-toolchain.toml, .cargo/config.toml, .github/workflows/*, .ruff.toml e juízes (loop_converged.py). Começar em sombra, depois ask com token por comando.",
+   "valor": "alto",
+   "custo": "P",
+   "risco": "Atrito em edições legítimas; mitigar com sombra + token e medir pela taxa de falso positivo.",
+   "confianca": 0.6
+  },
+  {
+   "id": "E5",
+   "mecanismo": "Instalação seletiva declarativa: perfis, módulos, install-state, doctor/repair",
+   "evidencia_ecc": "manifests/install-modules.json:27-29 — '\"defaultInstall\": true, \"cost\": \"light\", \"stability\": \"stable\"'. docs/SELECTIVE-INSTALL-ARCHITECTURE.md:723 — 'enough detail for uninstall to remove only ECC-managed outputs'.",
+   "como_funciona": "46 módulos (targets, dependencies, cost, stability) e 7 perfis. validate-install-manifests.js rejeita id duplicado, dependência desconhecida e perfil full incompleto. install-state grava digest por operação; doctor/repair comparam o desejado com o real.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`touring component list --project .` lista 10 componentes e 5 'optional' são backup: touring-daemon.old, touring-hook.old, touring-quality-score.bak-20260903, touring-quality.real.bak, touring.old. `touring init -l` responde 'No profiles found in ~/.claude/touring/profiles/'. Há `install_claude_hooks.py --check` (OK: no drift) e `sync-client-skills.py --check` (CLEAN, 377 arquivos).",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "Manifesto declarativo de componentes (o catálogo hoje vem do filesystem) com validador que rejeita *.old/*.bak. Entregar 3 perfis (minimal/dev/full) com cost/stability. Gravar install-state com digest para o doctor/repair dos assets de client/.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Dois catálogos podem divergir; o validador de CI deve ser a trava.",
+   "confianca": 0.75
+  },
+  {
+   "id": "E6",
+   "mecanismo": "Perfil de contexto com orçamento de tokens bloqueante",
+   "evidencia_ecc": "manifests/context-profiles/lean@1.json:11 — '\"budget\": { \"tokens\": 8000, \"mode\": \"blocking\" }'. Eager de 3 skills; o resto é 'routed' (:9).",
+   "como_funciona": "O registro de skills é derivado do install-modules. validate-context-profiles.js e validate-carrier-closure.js (grafo estático de require) provam que o subconjunto é fechado e cabe no orçamento.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "scripts/test_skill_size_guard.py mede SKILL.md por tamanho (≤20.000 chars): rc=0 hoje. Nenhum chamador em .github/workflows/*.yml nem em propagate-release.sh (git grep: só docs/plans). ~/.claude/skills tem 189 entradas. O orçamento agregado da listagem eager não foi medido (skill_picker não inspecionado).",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "Ligar o guard ao propagate-release (o lado vivo existe lá). Medir e gatear o total de tokens da listagem eager no KPI, com piso bloqueante como lean@1.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Orçamento arbitrário; calibrar por medição (E2 da diretriz de economia).",
+   "confianca": 0.7
+  },
+  {
+   "id": "E7",
+   "mecanismo": "Scorecard de paridade entre harnesses com estados honestos",
+   "evidencia_ecc": "scripts/lib/harness-adapter-compliance.js:12 — 'the harness does not expose the runtime hook/session surface ECC needs for enforcement'. scripts/harness-adapter-compliance.js:74: `--check` falha se registros ou docs divergirem.",
+   "como_funciona": "Registros com state (Native/Adapter-backed/Instruction-backed/Reference-only), unsupported_surfaces, verification_commands e last_verified_at obrigatórios. O --check valida registros e docs. validate-skill-host-compat.js lê tokens ${CLAUDE_*} em cópias Codex.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "`sessoes_irmas.py --text` devolve só sessão/backend/modelo/estado/pid (minimax MiniMax-M3.1-Flash-Preview; anthropic). prose_integrity_gate.py:5 mede 1,22% de bloco com alfabeto estranho no Opus 5.5 contra 4,20% no MiniMax. A diferença entre backends é real e medida, mas não há matriz de quais gates valem em cada um.",
+   "licao_tipo": "complementar",
+   "proposta": "docs/backend-parity.json com os 4 estados por backend (hooks, prose gate, CEG, matriz de modelos) e um --check no CI.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Registro envelhece; last_verified_at obrigatório e --check amenizam.",
+   "confianca": 0.65
+  },
+  {
+   "id": "E8",
+   "mecanismo": "Eval de gate com controle negativo contra baseline e invariante 'nunca allow'",
+   "evidencia_ecc": "docs/security/evidence/gateguard-fact-force.md:60-61 — 'Negative control: the same gate run against main's hook reports the 8 bypasses as SARIF errors.' Linha 32: o hook nunca emite permissionDecision allow.",
+   "como_funciona": "gateguard-eval.js --baseline <sha> --sarif roda 20 cenários (184 chamadas, 87 must-deny) nos dois lados. O SARIF é byte-idêntico entre execuções e vira artefato de evidência.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "Os guards do Touring são provados por mutação (ci.yml:332) e a prova comportamental (35 asserções) fica no gate 5.5. Sem comparação com o release anterior. 'permissionDecision allow' só aparece em crates/touring-hook-handlers/src/hooks/permission_request.rs (:19,:32 doc, :557 teste); 10 emissões deny. Nenhum teste fixa 'PreToolUse nunca emite allow'.",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "Teste que varre as saídas de todos os PreToolUse e afirma 'sem allow'. No gate 5.5, rodar os cenários also contra o binário do release anterior como controle negativo.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Baseline antigo pode falhar por drift de ambiente e não por bypass.",
+   "confianca": 0.6
+  },
+  {
+   "id": "E9",
+   "mecanismo": "Consistência entre detectores e lista de falsos positivos conhecidos",
+   "evidencia_ecc": "docs/ECC-PRO-SECURITY-ROADMAP.md:68 — 'Fix the false-positive cluster that punishes correct hardening'. agents/security-reviewer.md:79-84 lista falsos positivos (.env.example, credenciais de teste).",
+   "como_funciona": "O scanner passou a tratar --no-verify em permissions.deny como proibição, não como uso. Há lista explícita de FPs por regra.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "Arquivo-sonda no scratchpad: `touring-quality check --gate F2.1` acusa CMDi (CWE-78) em `subprocess.run(\"ls \" + user, shell=True)` (2 matches), mas `touring scan` devolve '0 CWE(s), p0_block=false' para o mesmo arquivo. F2.4 acusa a chave de exemplo da AWS (AKIAIOSFODNN7EXAMPLE). `touring-quality list` chama F2.4 de 'Cryptographic Issues' e rules/elite-50-quality.md o chama de 'Secrets'.",
+   "licao_tipo": "corrigir",
+   "proposta": "Um registro único de detectores; teste de corpus em que `scan` e F2.1 concordam. Lista de placeholders documentados (AKIAIOSFODNN7EXAMPLE) para F2.4. Alinhar o nome de F2.4 na regra.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Não verifiquei a causa raiz: `scan` pode ter escopo de linguagem menor.",
+   "confianca": 0.6
+  },
+  {
+   "id": "E10",
+   "mecanismo": "Sanitizador independente pré-publicação (somente leitura, PASS/FAIL)",
+   "evidencia_ecc": "agents/opensource-sanitizer.md:19 — 'you **never trust the forker's work**. Verify everything independently.' scripts/ci/validate-no-personal-paths.js:6 cobre só /Users e C:\\Users.",
+   "como_funciona": "7 passos: segredos, PII, referências internas, arquivos perigosos (.env, *.pem, .claude/settings.json, *.map), completude do .env.example, histórico git e arquivos não legíveis. Gera relatório PASS/FAIL. Os passos 1-3 do agent usam /home/<user> como padrão; o validador de CI não.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`git grep /home/gabrielgadea` fora de docs/plans: 452 arquivos e 1.423 ocorrências (232 em docs/kpi, 17 em client/skills, 12 em crates/inferlets). `git ls-files` não lista nomes tipo .env/.pem/credentials.json. `touring scan-pii` é hook de Write, sem varredura de árvore nem de histórico. Visibilidade do repo: memória touring-repo-publico-2026-08-02 (não reverificada).",
+   "licao_tipo": "complementar",
+   "proposta": "scripts/sanitize_check.py somente leitura: padrões de segredo, /home/<user>, arquivos perigosos, grep no histórico. Entra no propagate-release. Higienizar o gerador de docs/kpi (232 arquivos).",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Caminhos pessoais em docs de auditoria podem ser deliberados; exigir allowlist por prefixo, como docs/fixes/ no ECC.",
+   "confianca": 0.7
+  },
+  {
+   "id": "E11",
+   "mecanismo": "Comparação: governança semântica de skills e política de MCP",
+   "evidencia_ecc": "scripts/ci/validate-skills.js:15 — 'Frontmatter findings default to WARN so CI does not break'. docs/MCP-CONNECTOR-POLICY.md:3: 'ECC ships exactly one default MCP connector.'",
+   "como_funciona": "As skills passam só por estrutura (SKILL.md presente, name/description, host-compat) e por contagens de catálogo. A política de MCP é um default de 1 servidor, chrome-devtools, com o resto opt-in.",
+   "touring_estado": "superior",
+   "touring_evidencia": "ci.yml:275-291: skill pin gate bloqueia comando ensinado que não existe em `touring --help` e fonte pinada por sha256. :292-311: gate de princípios e testes dos gates. O servidor MCP expõe ≈22 ferramentas curadas, com TOURING_MCP_ALL_TOOLS=1 para listar todas (instruções do servidor nesta sessão).",
+   "licao_tipo": "refinar",
+   "proposta": "Manter o rumo. Adotar só o lint de portabilidade de host (tokens ${CLAUDE_*}) se o Touring passar a espelhar skills para outros harnesses.",
+   "valor": "baixo",
+   "custo": "P",
+   "risco": "Nenhum.",
+   "confianca": 0.8
+  }
+ ],
+ "anti_licoes": [
+  "Prompt Defense Baseline copiado em texto: 71/71 agents, 0/311 skills, 0/97 commands; único teste que cita o termo é tests/docs/copilot-support.test.js (varredura por grep). É a persuasão que a memória protocol-adherence-diagnosis mediu e viu falhar.",
+  "Testes de presença textual como 'validação de guardrail' (tests/ci/agent-instruction-safety.test.js:85-88: heading + regex). É declaração sem executor (anti-padrão D8).",
+  "Validador de frontmatter em WARN por padrão (validate-skills.js:15). Medido: 38/311 SKILL.md acima de 500 linhas, 27 sem origin, 33 sem 'when to use/activate'.",
+  "Lista fixa de pacote@versão maliciosos em código (scan-supply-chain-iocs.js:14-130+, 853 linhas) envelhece; o Touring tem cargo-deny com base de advisories dinâmica.",
+  "docs/LANE-RULES.md:14 proíbe 'independent review of your own output, hashing manifests, ledgers, acceptance JSONs' — o oposto da doutrina L2/L3 do Touring; não importar.",
+  "Banir actions/cache em todos os workflows (validate-workflow-security.js:213-221) tira cache de CI de Rust sem necessidade; restringir a jobs com id-token ou pull_request_target.",
+  "Sandbox como snippet de docker-compose (the-security-guide.md:130-162). O CEG do Touring é imposto no kernel: nesta sessão X6 negou 'socket' e '.write(' sob o perfil Sandboxed, e landlock: KernelEnforced foi reportado; enforce_linux.rs:19,:334 cobre rede TCP e :354-366 nega UDP via seccomp."
+ ],
+ "claims_nao_verificados": [
+  "Os 3.596 PRs não são verificáveis no clone, que não tem metadados de PR. Só medi 300 commits: haelyra 234, montjeffrey 35, 13 com (#N), 0 autores bot. Sem evidência de auto-merge. Mecanismos visíveis: salvage ledger, actions/stale (30d+7d) e pr-burst-guard (>5 em 20min fecha; >10 bloqueia).",
+  "Comportamento ao vivo do pr-burst-guard e do GateGuard (A/B 9,0 vs 6,75 é auto-reportado).",
+  "Internos do AgentShield (repo externo); docs/gateguard/*.",
+  "Se `install_claude_hooks.py --check` roda agendado (hoje 'OK: no drift').",
+  "Causa raiz da divergência `touring scan` x F2.1.",
+  "Nenhum script do ECC foi executado, por regra: tudo sobre o ECC vem de leitura."
+ ],
+ "symbol_verification": [
+  {
+   "simbolo_ou_caminho": ".github/workflows/release.yml:23-26,68",
+   "categoria": "found",
+   "evidencia": "Read: permissions id-token:write no nível do workflow; Swatinem/rust-cache na linha 68 do job build."
+  },
+  {
+   "simbolo_ou_caminho": "crates/touring-analysis/src/quality/cicd.rs (sha_pinned_action_clean, detect_unpinned_action:81, detect_no_cache:146)",
+   "categoria": "found",
+   "evidencia": "`touring tantivy search` achou sha_pinned_action_clean; grep achou os detectores."
+  },
+  {
+   "simbolo_ou_caminho": "validate_workflow_security (Touring)",
+   "categoria": "not_found",
+   "evidencia": "`touring index find validate_workflow_security` → count 0."
+  },
+  {
+   "simbolo_ou_caminho": "~/.claude/rules/skill-hygiene.md (REGRA #13)",
+   "categoria": "not_found",
+   "evidencia": "Listagem de ~/.claude/rules: 17 arquivos, sem skill-hygiene.md."
+  },
+  {
+   "simbolo_ou_caminho": "package_skill.py",
+   "categoria": "found_via_grep",
+   "evidencia": "find: só em ~/.claude/plugins/cache/.../skill-creator e skills/synced; não está em ~/.claude/skills/skill-creator nem em scripts/."
+  },
+  {
+   "simbolo_ou_caminho": "scripts/test_skill_size_guard.py",
+   "categoria": "found",
+   "evidencia": "rc=0 ('nenhuma SKILL.md acima do limite'); git grep: sem chamador em CI nem propagate-release."
+  },
+  {
+   "simbolo_ou_caminho": "touring attest-contract -j",
+   "categoria": "found",
+   "evidencia": "attested:true, 7 claims, file_count 18, digest blake3."
+  },
+  {
+   "simbolo_ou_caminho": "client/hooks/block_git.sh",
+   "categoria": "found",
+   "evidencia": "Executado: deny em push --force e reset --hard; `git commit --no-verify` sai sem saída (permitido). O repo não tem hooks git (hooksPath vazio), então o bypass é inócuo hoje."
+  },
+  {
+   "simbolo_ou_caminho": "touring-quality check --gate F2.4 / F2.1",
+   "categoria": "found",
+   "evidencia": "F2.4 acusou segredo hardcoded; F2.1 acusou CMDi CWE-78 na linha 5 do probe."
+  },
+  {
+   "simbolo_ou_caminho": "scripts/sync-client-skills.py --check; install_claude_hooks.py --check",
+   "categoria": "found",
+   "evidencia": "'CLEAN 377 arquivos espelhados'; 'OK: no drift'."
+  }
+ ],
+ "cobertura": {
+  "arquivos_lidos": 68,
+  "principais": [
+   "the-security-guide.md",
+   "SECURITY.md",
+   "CLAUDE.md",
+   "docs/security/supply-chain-incident-response.md",
+   "docs/security/evidence/gateguard-fact-force.md",
+   "scripts/ci/{validate-workflow-security,check-unicode-safety,pr-burst-guard,verify-release-gates,validate-skills,validate-skill-host-compat}.js",
+   "scripts/lib/harness-adapter-compliance.js",
+   "manifests/install-{profiles,modules}.json",
+   "docs/{MCP-CONNECTOR-POLICY,SKILL-PLACEMENT-POLICY,skill-adaptation-policy,SELECTIVE-INSTALL-ARCHITECTURE,stale-pr-salvage-ledger}.md",
+   ".github/workflows/{ci,pr-burst-guard,maintenance,supply-chain-watch}.yml"
+  ],
+  "nao_lidos": "Só cabeçalhos ou trechos: gateguard-fact-force.js (2.574 linhas), block-no-verify.js, platform-audit.js, discussion-audit.js, harness-audit.js, catalog.js, release-approval-gate.js, mcp-health-check.js, install-state.schema.json, tests/test_docs_governance_audit.py (110 de 905 linhas). Outras skills security-* só por título. As 311 skills só em estatísticas agregadas (scripts em /tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/e/)."
+ }
+}

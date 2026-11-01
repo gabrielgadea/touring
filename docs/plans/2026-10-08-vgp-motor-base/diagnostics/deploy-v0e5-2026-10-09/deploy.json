@@ -1,0 +1,18 @@
+{
+ "release": "30.4.95",
+ "conteudo": "release agrupado V0e5 (ordem do Gabriel: 'siga com as recomendações do §8'): (c) guarda ptrace do /proc · item 3 (rótulo pelas contagens + duração limpa + nota única na cabeça via replace_owned_note) · item 1-D (S3 avisa, nunca nega; KPI soma denied+advised+in_burst) · achado ao vivo: reescritas G1/G2/G8 preservam os campos da chamada e declaram --timeout-ms · cargo fmt --all (57 arquivos só-formatação)",
+ "deploy_utc": "2026-10-09T16:32:42Z",
+ "metodo": "btime+starttime de /proc/<pid>/stat do daemon per-project do analise (PID 756733), nao o relogio de parede",
+ "exe": "/home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring-daemon",
+ "passos": {
+  "0a_elite": "rc 0 composite 0.9569 Diamond",
+  "0b_clippy_workspace": "rc 0 (re-rodado apos o conserto das reescritas e o fmt: passo0b_clippy_v2.log)",
+  "0c_suites": "fmt-check 0 · cli 653/0 · foundation 538/0 · hooks-core 530/0 · hook-handlers(post-hooks) 729/0 · storage(knowledge) 289/0",
+  "2_dryrun": "rc 0",
+  "3_stop_before_propagate": "rc 0 (703s), global PID 751583, rotulo 30.4.95, doctor 9/9 ok",
+  "4_prova": "prova_code_mode_ceg 41/41 + sonda de decisao 5/5 (S3 aviso sem decisao, G8/G2 com campos e orcamento)",
+  "5_propagate": "rc 0 (24s), prova 41/41, analise e konverter lock=30.4.95 / touring 30.4.95",
+  "drift": "6a reconciliacao: ledger linha 124 (C1 30.4.94, c, lote 2026-10-09-release-30.4.95); 392->393; A1/A2/A3/A4 rc 0"
+ },
+ "nao_tocado": "diagnostics/item1.json do compactacao-65"
+}

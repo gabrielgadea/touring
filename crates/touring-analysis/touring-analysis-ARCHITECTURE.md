@@ -51,7 +51,7 @@ Code quality analysis and metrics engine — provides Halstead metrics, cyclomat
 
 - touring-hooks: quality signals for post-edit quality tracking
 - touring-server: quality reports via CLI ast quality
-- touring-learning: blast radius feeding RL reward
+- touring-intelligence::rl (era touring-learning): blast radius feeding RL reward
 - touring-generator: TDG grade gate in plan pipeline
 
 ## Technology

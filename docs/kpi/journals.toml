@@ -1,0 +1,386 @@
+# Manifesto de journals do runtime (`~/.claude/touring`) — decisão N6, 17/10/2026.
+#
+# Cada journal declara: caminho, tipo, ESCRITORES, LEITORES (com a janela que cada um precisa),
+# retenção, política de expiração e rollup. `scripts/journal_gc.py` poda SÓ o que este manifesto
+# prova que ninguém precisa; `--verificar` confere o manifesto contra o código que ele nomeia.
+#
+# Janela de leitor (`janela_dias`):
+#   N     o leitor lê só os últimos N dias; a retenção do journal precisa ser >= N
+#   0     o leitor recebe o caminho por parâmetro (--trace PATH) e roda sobre cópia/arquivo:
+#         não exige histórico no arquivo vivo
+#   "toda"  o leitor lê o ARQUIVO INTEIRO (ou ninguém verificou). Bloqueia a poda — fail-closed.
+#           Desbloquear é mudança no leitor (janelar, ou ler rollup + recente), nunca no manifesto.
+# `verificada = true` só onde a janela foi lida no código; o resto é tratado como "toda".
+#
+# Expiração: `arquivar` move as linhas vencidas para `arquivo/<nome>.<AAAA-MM>.gz` (gzip, um
+# membro por poda) e grava o rollup antes; `apagar` só descarta (permitido sem rollup apenas
+# quando NINGUÉM lê o journal). Dias são UTC; timestamps sem offset agrupam pela data literal.
+#
+# ACHADOS DA PRIMEIRA PASSADA (18/10/2026):
+#   * `oom_slice_gate.jsonl` é gravado por um hook do projeto analise
+#     (`~/projects/analise/.claude/hooks/oom_slice_gate.py`, não versionado lá) — achado em 18/10/2026;
+#     entra como escritor EXTERNO e sem leitor no Touring.
+#   * Escritores sem leitor (REGRA #0): hooks_complement, compactions, daemon_crash, memwatch,
+#     scope_shield, disk_watch, disk_cleanup, context_check, hw_slot, cpu_health, daemon_stderr,
+#     logs_pontuais.
+#   * Deriva de nome: `scripts/update-touring` rotaciona `daemon-stderr.log` (hífen), o daemon
+#     grava `daemon.stderr.log` (ponto) — a proteção de 10 MiB nunca alcança o arquivo real.
+#   * Leitores de arquivo inteiro: touring-code/journal.rs lê o run_journal.jsonl TODO (o KPI
+#     code_mode_adherence é sobre o acervo inteiro), e kpi.rs lê o run_subcalls.jsonl TODO.
+#   * `activity.jsonl` global está parado desde ~27/08 (o escritor atual grava em
+#     `<projeto>/.claude/touring/`); a cópia global é resíduo.
+
+versao = 1
+base = "~/.claude/touring"
+
+[censo]
+diretorios = [".", "logs"]
+extensoes = [".jsonl", ".log"]
+
+# ── hook_trace: 1 linha por invocação de touring-hook (o maior arquivo do runtime) ──────────────
+[[journal]]
+id = "hook_trace"
+caminho = "hook_trace.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-hook-runtime/src/hook_trace.rs"]
+leitores = [
+  { arquivo = "crates/touring-cli/src/cli/kpi/daemon_availability.rs", janela_dias = 2, verificada = true, nota = "WINDOW_MS = 48 h" },
+  { arquivo = "scripts/r3_latency_by_day.py", janela_dias = 0, verificada = true, nota = "--trace PATH: roda sobre cópia ou arquivo descomprimido" },
+  { arquivo = "scripts/r3_prove_delivery.py", janela_dias = 0, verificada = true, nota = "--trace PATH; --lookback-days é relativo a --on-ts, sobre o arquivo passado" },
+]
+retencao_dias = 30
+expira = "arquivar"
+ts = { campo = "ts_ms", unidade = "epoch_ms" }
+rollup = { agrupar_por = ["hook", "route", "exit_reason", "stdin_state"], somar = ["elapsed_ms", "stdin_bytes"] }
+
+# ── oom_slice_gate: telemetria de um hook do projeto analise (escritor externo, ninguém no Touring lê) ──
+[[journal]]
+id = "oom_slice_gate"
+caminho = "oom_slice_gate.jsonl"
+tipo = "jsonl"
+escritores = ["~/projects/analise/.claude/hooks/oom_slice_gate.py"]
+leitores = []
+retencao_dias = 30
+expira = "apagar"
+ts = { campo = "ts", unidade = "iso" }
+
+# ── code mode ───────────────────────────────────────────────────────────────────────────────────
+[[journal]]
+id = "run_journal"
+caminho = "run_journal.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-server/src/tools/ctx_execute_tools.rs"]
+leitores = [
+  { arquivo = "crates/touring-code/src/journal.rs", janela_dias = "toda", verificada = true, nota = "read_journal percorre o arquivo inteiro" },
+  { arquivo = "crates/touring-cli/src/cli/kpi/code_mode.rs", janela_dias = "toda", verificada = true, nota = "code_mode_adherence via journal::read_journal" },
+  { arquivo = "crates/touring-code/src/sdk_signal_mirror.rs", janela_dias = "toda", verificada = true, nota = "journal::read_journal" },
+  { arquivo = "scripts/gen_sdk.py", janela_dias = "toda" },
+  { arquivo = "crates/touring-quality/src/builtins/best_practices.rs", janela_dias = "toda" },
+  { arquivo = "crates/touring-cli/src/cli/health.rs", janela_dias = "toda" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "epoch_s" }
+rollup = { agrupar_por = ["language", "failure_kind", "source"], somar = ["duration_ms", "bytes_elided", "code_hash_stdout_bytes"] }
+
+[[journal]]
+id = "run_subcalls"
+caminho = "run_subcalls.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-dispatch/src/daemon.rs"]
+leitores = [
+  { arquivo = "crates/touring-cli/src/cli/kpi.rs", janela_dias = "toda", verificada = true, nota = "code_mode_parallel_runs_from: read_to_string do arquivo" },
+  { arquivo = "scripts/prova_code_mode_ceg.py", janela_dias = "toda" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "epoch_s" }
+rollup = { agrupar_por = ["hook", "phase", "ok"], somar = ["duration_ms", "output_bytes", "payload_bytes"] }
+
+[[journal]]
+id = "sdk_signal_mirror"
+caminho = "sdk_signal_mirror.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-code/src/sdk_signal_mirror.rs"]
+leitores = [
+  { arquivo = "crates/touring-cli/src/cli/kpi/code_mode.rs", janela_dias = "toda", nota = "filtra por hook_dispatch_since_epoch (dinâmico); janela efetiva não verificada" },
+  { arquivo = "crates/touring-quality/src/builtins/best_practices.rs", janela_dias = "toda", verificada = true, nota = "read_to_string do mirror inteiro" },
+  { arquivo = "crates/touring-cli/src/cli/kpi.rs", janela_dias = "toda" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "epoch_s" }
+rollup = { agrupar_por = ["hook_name", "success"], somar = ["duration_ms"] }
+
+[[journal]]
+id = "hooks_complement"
+caminho = "hooks_complement.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-hooks-shared/src/hooks_complement_journal.rs"]
+leitores = []
+retencao_dias = 30
+expira = "apagar"
+ts = { campo = "ts", unidade = "epoch_s" }
+
+# ── roteamento de modelo e delegação ────────────────────────────────────────────────────────────
+[[journal]]
+id = "agent_model_gate"
+caminho = "agent_model_gate.jsonl"
+tipo = "jsonl"
+escritores = ["client/hooks/agent_model_gate.py"]
+leitores = [
+  { arquivo = "scripts/model_routing_adherence.py", janela_dias = 7, verificada = true, nota = "--since padrão = 7 dias; --since AAAA-MM-DD pode pedir mais (use o rollup/arquivo)" },
+]
+retencao_dias = 30
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = ["why", "allowed", "subagent_type"], somar = [] }
+
+[[journal]]
+id = "delegation_nudge"
+caminho = "delegation_nudge.jsonl"
+tipo = "jsonl"
+escritores = ["client/hooks/delegation_nudge.py"]
+leitores = [
+  { arquivo = "scripts/model_routing_adherence.py", janela_dias = 7, verificada = true, nota = "--since padrão = 7 dias" },
+]
+retencao_dias = 30
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = ["evento"], somar = ["n", "kb"] }
+
+# ── decisão e shadow (r3 / jev / intent) ────────────────────────────────────────────────────────
+[[journal]]
+id = "intent_journal"
+caminho = "logs/intent_journal.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-hook-runtime/src/prompt_enhance.rs"]
+leitores = [
+  { arquivo = "crates/touring-cli/src/cli/kpi/decision.rs", janela_dias = 7, verificada = true, nota = "WINDOW_MS = 7 d" },
+  { arquivo = "crates/touring-cli/src/cli/kpi/shadow.rs", janela_dias = 7, verificada = true, nota = "WINDOW_MS = 7 d" },
+  { arquivo = "scripts/w45_production_report.py", janela_dias = 7, verificada = true, nota = "DAYS = 7" },
+]
+retencao_dias = 30
+expira = "arquivar"
+ts = { campo = "ts_ms", unidade = "epoch_ms" }
+rollup = { agrupar_por = ["source", "intent", "skipped_automated"], somar = [] }
+
+[[journal]]
+id = "jev_journal"
+caminho = "logs/jev_journal.jsonl"
+tipo = "jsonl"
+escritores = ["scripts/jev_client.py"]
+leitores = [
+  { arquivo = "crates/touring-cli/src/cli/kpi/decision.rs", janela_dias = 7, verificada = true, nota = "WINDOW_MS = 7 d" },
+  { arquivo = "crates/touring-cli/src/cli/kpi/shadow.rs", janela_dias = 7, verificada = true, nota = "WINDOW_MS = 7 d" },
+  { arquivo = "scripts/w45_production_report.py", janela_dias = 7, verificada = true, nota = "DAYS = 7" },
+]
+retencao_dias = 30
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = ["model", "route_taken"], somar = [] }
+
+[[journal]]
+id = "r3_events"
+caminho = "logs/r3_events.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-hook-runtime/src/r3_shadow.rs"]
+leitores = [
+  { arquivo = "crates/touring-cli/src/cli/kpi/shadow.rs", janela_dias = 7, verificada = true, nota = "WINDOW_MS = 7 d" },
+  { arquivo = "scripts/r3_shadow_evaluator.py", janela_dias = "toda", nota = "tail do emissor; janela não verificada" },
+  { arquivo = "scripts/r3_s3_close.py", janela_dias = "toda" },
+  { arquivo = "scripts/r3_s4_ab.py", janela_dias = "toda" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts_ms", unidade = "epoch_ms" }
+rollup = { agrupar_por = ["hook", "kind"], somar = ["bytes"] }
+
+[[journal]]
+id = "vgp_sombra"
+caminho = "vgp/sombra.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-code/src/vgp/sombra.rs"]
+leitores = [
+  { arquivo = "docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_v4_sessoes.py", janela_dias = "toda", nota = "juiz da V4 sobre o sombra.jsonl; janela não verificada" },
+  { arquivo = "docs/plans/2026-10-08-vgp-motor-base/scripts/prova_vgp_motor.py", janela_dias = "toda" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = ["hook", "modo", "verdict", "balde"], somar = ["elapsed_ms"] }
+
+# ── sessões e ferramentas ───────────────────────────────────────────────────────────────────────
+[[journal]]
+id = "cognicao_journal"
+caminho = "cognicao_journal.jsonl"
+tipo = "jsonl"
+escritores = ["client/skills/loop-engineering/scripts/cognicao_formal.py"]
+leitores = [
+  { arquivo = "client/skills/loop-engineering/scripts/cognicao_formal.py", janela_dias = "toda", nota = "lê os últimos 5 registros (ratios[-5:]), não uma janela de dias; tratado como arquivo inteiro" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "epoch_s" }
+rollup = { agrupar_por = ["kind"], somar = ["n_itens"] }
+
+[[journal]]
+id = "compactions"
+caminho = "compactions.jsonl"
+tipo = "jsonl"
+escritores = ["client/skills/loop-engineering/scripts/hooks/compaction_ledger.py"]
+leitores = []
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = [], somar = [] }
+
+[[journal]]
+id = "context_check"
+caminho = "logs/context_check_journal.jsonl"
+tipo = "jsonl"
+escritores = ["client/hooks/check_context.sh"]
+leitores = []
+retencao_dias = 60
+expira = "apagar"
+ts = { campo = "ts", unidade = "iso" }
+
+[[journal]]
+id = "quality_runs"
+caminho = "logs/quality-runs.jsonl"
+tipo = "jsonl"
+escritores = ["scripts/touring-quality-score"]
+leitores = [
+  { arquivo = "scripts/crash_capture_accept.sh", janela_dias = "toda", nota = "janela não verificada" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = ["engine", "exit"], somar = ["secs"] }
+
+[[journal]]
+id = "hw_slot"
+caminho = "logs/hw-slot.jsonl"
+tipo = "jsonl"
+escritores = ["scripts/hw-slot"]
+leitores = []
+retencao_dias = 90
+expira = "arquivar"
+ts = { campo = "ts", unidade = "iso" }
+rollup = { agrupar_por = ["class", "label"], somar = [] }
+
+[[journal]]
+id = "cpu_health"
+caminho = "logs/cpu-health.jsonl"
+tipo = "jsonl"
+escritores = ["~/.claude/tools/cpu-health.py"]
+# cpu-cap.sh só CITA o cpu-health.py (o medidor); não lê o jsonl. Quem lê é gente.
+leitores = []
+retencao_dias = 180
+expira = "arquivar"
+ts = { campo = "at", unidade = "iso" }
+rollup = { agrupar_por = [], somar = ["machine_checks", "faults"] }
+
+[[journal]]
+id = "daemon_crash"
+caminho = "daemon-crash.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-hooks-core/src/panic_log.rs"]
+leitores = []
+retencao_dias = 365
+expira = "arquivar"
+ts = { campo = "timestamp_unix", unidade = "epoch_s" }
+rollup = { agrupar_por = ["signal"], somar = [] }
+
+[[journal]]
+id = "activity"
+caminho = "activity.jsonl"
+tipo = "jsonl"
+escritores = ["crates/touring-hooks-core/src/hooks/activity_hook.rs"]
+leitores = [
+  { arquivo = "crates/touring-server/src/cli/activity.rs", janela_dias = "toda", nota = "subcomandos `touring activity`; janela não verificada" },
+  { arquivo = "crates/touring-server/src/cli/synergy.rs", janela_dias = "toda" },
+]
+retencao_dias = 365
+expira = "arquivar"
+ts = { campo = "timestamp_ns", unidade = "epoch_ns" }
+rollup = { agrupar_por = ["action"], somar = [] }
+
+# ── logs de texto (linha começa com data) ───────────────────────────────────────────────────────
+[[journal]]
+id = "memwatch"
+caminho = "memwatch.log"
+tipo = "texto"
+escritores = ["~/.claude/tools/mem-watch.sh"]
+leitores = []
+retencao_dias = 30
+expira = "apagar"
+ts = { formato = "prefixo-data" }
+
+[[journal]]
+id = "scope_shield"
+caminho = "scope-shield.log"
+tipo = "texto"
+escritores = ["~/.claude/tools/scope-shield.sh"]
+leitores = []
+retencao_dias = 30
+expira = "apagar"
+ts = { formato = "prefixo-data" }
+
+[[journal]]
+id = "disk_watch"
+caminho = "disk_watch.log"
+tipo = "texto"
+escritores = ["scripts/disk-watch.sh"]
+leitores = []
+retencao_dias = 180
+expira = "arquivar"
+ts = { formato = "prefixo-data" }
+rollup = { agrupar_por = [], somar = [] }
+
+[[journal]]
+id = "disk_cleanup"
+caminho = "disk_cleanup.log"
+tipo = "texto"
+escritores = ["scripts/safe-clean.sh"]
+leitores = []
+retencao_dias = 180
+expira = "arquivar"
+ts = { formato = "prefixo-data" }
+rollup = { agrupar_por = [], somar = [] }
+
+[[journal]]
+id = "update_log"
+caminho = "update.log"
+tipo = "texto"
+escritores = ["scripts/update-touring"]
+leitores = [
+  { arquivo = "client/hooks/session_startup_intelligence.py", janela_dias = 0, verificada = true, nota = "só lê o mtime do arquivo (st_mtime), não o conteúdo" },
+]
+retencao_dias = 90
+expira = "arquivar"
+ts = { formato = "prefixo-data" }
+rollup = { agrupar_por = [], somar = [] }
+
+[[journal]]
+id = "daemon_stderr"
+caminho = "daemon.stderr.log"
+tipo = "texto"
+escritores = ["crates/touring-server/src/cli/daemon_ctl.rs", "crates/touring-hooks/src/main.rs"]
+# ATENÇÃO: scripts/update-touring rotaciona `daemon-stderr.log` (HÍFEN) com teto de 10 MiB, mas o
+# daemon grava `daemon.stderr.log` (PONTO). O arquivo que ele protege não existe; este cresce sem
+# rotação (6,4 MB em 18/10/2026). Não é leitor: o `grep` por "daemon.stderr" o casava por engano.
+leitores = []
+retencao_dias = 30
+expira = "apagar"
+ts = { formato = "nenhum" }
+
+# ── conjunto de arquivos avulsos (poda por mtime do arquivo, não por linha) ─────────────────────
+[[journal]]
+id = "logs_pontuais"
+caminho = "logs/*.log"
+tipo = "arquivos"
+escritores = ["ad-hoc: logs de ciclo/juiz/probe redirecionados à mão (cycle-*, juiz-*, hunt-flaky-*, ...)"]
+leitores = []
+retencao_dias = 30
+expira = "apagar"

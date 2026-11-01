@@ -1,0 +1,14 @@
+# Fragment `conflict-guard` — declared write-set through the CEG before writing.
+# Parallel workers serialize here instead of colliding on the filesystem.
+[fragment]
+description = "Check a declared write-set for conflicts with concurrent workers"
+inputs = ["write_set"]
+entry = "conflict_check"
+
+[node.conflict_check]
+type = "gate"
+command = ["bash", "-c", "touring conflict-check $1", "--", "{{inputs.write_set}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit_fail__"

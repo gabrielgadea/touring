@@ -1,0 +1,52 @@
+{
+ "generated_at": "2026-10-01T15:33:12-0300",
+ "window_days": 7,
+ "flag_state": "TOURING_LAYA_INTENT opt-in — o braço laya só existe quando a flag liga em produção",
+ "intent": {
+  "status": "measured",
+  "n": 192,
+  "routes": {
+   "keyword": 191,
+   "laya": 1
+  },
+  "keyword_fallback_rate": 0.9948,
+  "intent_distribution": {
+   "GENERAL": 58,
+   "REFACTOR": 1,
+   "ANALYSIS": 21,
+   "TEST": 7,
+   "PLAN": 6,
+   "DEBUG": 11,
+   "CODE": 3
+  },
+  "skipped_automated": 85,
+  "per_day": {
+   "2026-10-01": 192
+  },
+  "laya_confidence": {
+   "n": 1,
+   "mean": 0.6011,
+   "p50": 0.6011
+  }
+ },
+ "jev": {
+  "status": "measured",
+  "calls_api_window": 1183,
+  "calls_total": 1183,
+  "cache_hits": 224,
+  "p50_ms": 367.1,
+  "p99_ms": 555.3,
+  "confidence_mean": 0.6085
+ },
+ "recall": {
+  "status": "measured",
+  "sessions": 7,
+  "candidates": 242,
+  "injected": 0,
+  "curated_share": 0.0
+ },
+ "notes": [
+  "day-0: o braço laya entra em produção com o opt-in de Gabriel; até lá, source=keyword (baseline honesto)",
+  "o relatório de 7 dias é este mesmo comando — regenerar em 08/10/2026 para a janela completa"
+ ]
+}

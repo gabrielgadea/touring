@@ -23,7 +23,10 @@ impl HookGuard {
             // Just return a guard that will panic on drop to prevent actual re-entry
             return HookGuard { _private: () };
         }
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): deliberate process-global flag — the whole point is
+        // that child hook processes inherit TOURING_HOOK_ACTIVE for recursion
+        // detection. Hook handlers are single-threaded at guard entry (CLI main
+        // path), so the check-then-set window is not exercised concurrently.
         unsafe { env::set_var("TOURING_HOOK_ACTIVE", "1") };
         HookGuard { _private: () }
     }
@@ -39,7 +42,8 @@ impl Drop for HookGuard {
     fn drop(&mut self) {
         // Only unset if we are the active one (not re-entry case)
         if env::var("TOURING_HOOK_ACTIVE").is_ok() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
+            // AUDITED (2026-08-12): process-global by design; drop runs on the
+            // same single-threaded handler path as enter().
             unsafe { env::remove_var("TOURING_HOOK_ACTIVE") };
         }
     }
@@ -49,10 +53,14 @@ impl Drop for HookGuard {
 mod tests {
     use super::*;
 
+    // Serializes the env-mutating guard test (TOURING_HOOK_ACTIVE is
+    // process-global; edition-2024 marks set_var/remove_var unsafe).
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn hook_guard_sets_and_clears_env() {
+        let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         // Ensure clean state
-        // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { env::remove_var("TOURING_HOOK_ACTIVE") };
         {
             let _guard = HookGuard::enter();

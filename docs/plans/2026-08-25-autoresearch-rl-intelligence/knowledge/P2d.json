@@ -1,0 +1,11 @@
+{
+  "phase": "P2d",
+  "entities": [
+    {
+      "entity_id": "phase:P2d",
+      "type": "phase",
+      "description": "P2d fechado: a evidencia do braco ficou legivel PELA FONTE CERTA. Tres commitments novos em docs/kpi/commitments.yaml (touring.code_mode.arm_{native,both,code}) mais touring.code_mode.economy_ratio, todos resolvidos por leitura de <projeto>/.claude/touring/code_mode_arm.json \u2014 a MESMA fonte que arm_choice_from_counts consulta. Ler gate-metrics aqui exibiria um numero diferente do que decide (eles zeram no restart: t3_turn_first_passed caiu 2->0 em dois minutos), que e a classe verificador-usa-menos-que-o-extrator. O piso virou constante COMPARTILHADA (ARM_MIN_SAMPLE) em vez de dois numeros que divergiriam no primeiro ajuste. Abaixo do piso o KPI reporta STUB, nunca 0 falso \u2014 amostra insuficiente e desconhecido, nao adesao nula. Verificado: os 4 checks aparecem em touring kpi -j com status STUB."
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,4 @@
+f55ec4b5e027055a349bd5fa82a5f9d386ea97a8c8627177a9e8d7967f347117  /home/gabrielgadea/.claude/touring/vgp/binarios/f55ec4b5/touring
+e935aaf17d9a09d0cdb24010df500fb4e4dab20f4200fa30362258ef8731fd1d  /home/gabrielgadea/.claude/touring/vgp/binarios/e935aaf1/touring
+6c8a31b02075da1ea5e617669c40ad6b2effc4a255dbe6f3b40fc26ac6acf61f  /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py
+2d5615fd0f9e4be6bc2fb4ed091ac01f492f24f95e3c551231c96a36a2b60e7a  /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/montar_ctl_generico.py

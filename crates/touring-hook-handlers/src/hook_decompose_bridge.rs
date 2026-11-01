@@ -23,6 +23,7 @@ use crate::cli_handlers::{cli_decompose_create, cli_decompose_update};
 use crate::runtime::HookRuntime;
 use rusqlite::params;
 use serde_json::json;
+use touring_foundation::task_lifecycle::{MIRROR_SCAFFOLD_STAGES, scaffold_subtask_id};
 
 /// Typed error returned by decompose-bridge functions that query SQLite directly.
 ///
@@ -75,6 +76,26 @@ pub fn cc_mirror_task_id(cc_id: &str) -> String {
         cc_id.to_string()
     } else {
         format!("cc_task_{cc_id}")
+    }
+}
+
+/// Did a decompose reply report a failure? Reads the VALUE of the reply, never the presence of a key
+/// word in its raw text.
+///
+/// The bridge used to ask `reply.contains("\"error\"")`, which matches the KEY: a success that spells
+/// the field out (`"error":null`) read as a failure and logged three false "scaffold subtask add
+/// failed" per mirrored task (04/10/2026). Emitting the key only on failure kept that reading right
+/// by accident of the reply's shape, not by the idiom (touring-a4) — `create`'s reply is one added
+/// field away from the same trap. A failure is `persisted == false` or a non-null `error`. Text that
+/// is not JSON keeps the old conservative reading, so an unparseable reply is never read as clean.
+#[must_use]
+pub fn reply_failed(raw: &str) -> bool {
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(reply) => {
+            reply.get("persisted") == Some(&serde_json::Value::Bool(false))
+                || reply.get("error").is_some_and(|error| !error.is_null())
+        }
+        Err(_) => raw.contains("\"persisted\":false") || raw.contains("\"error\""),
     }
 }
 
@@ -131,7 +152,7 @@ pub fn bridge_task_created(
     });
 
     let result = cli_decompose_create(runtime, &payload);
-    if result.contains("\"persisted\":false") || result.contains("\"error\"") {
+    if reply_failed(&result) {
         tracing::debug!(
             task_id = %task_id,
             result = %result,
@@ -149,46 +170,114 @@ pub fn bridge_task_created(
     // scaffold lived only in the PostToolUse handler, so mirrors minted by the
     // event path had no subtasks. Reached only on first creation (the dedup
     // early-return above skips repeats), so the scaffold is naturally idempotent.
-    let scaffold = [
-        (
-            "scout",
-            "scout: research context, blast radius, and wiring before changes",
-            None,
-        ),
-        (
-            "implement",
-            "implement: apply changes with VGP verification and speculative validation",
-            Some("scout"),
-        ),
-        (
-            "validate",
-            "validate: cargo test + wiring orphans + memory store lesson",
-            Some("implement"),
-        ),
-    ];
-    for (stage, description, dep) in scaffold {
-        let deps: Vec<String> = dep
+    // The stage list is NOT written here: it lives in
+    // `touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES`, the single
+    // list `close_scaffold_stages` also reads. When the two were separate lists,
+    // the closer knew `implement` and `validate` and never `scout` — and 74 of
+    // the 78 open subtasks under mirrored tasks were that one orphaned slot
+    // (census of the live DAG, 19/09/2026).
+    for stage in MIRROR_SCAFFOLD_STAGES {
+        let deps: Vec<String> = stage
+            .depends_on
             .map(|d| vec![format!("{mirror_id}::{d}")])
             .unwrap_or_default();
         let add_result = crate::cli_handlers::cli_decompose_add(
             runtime,
             &json!({
                 "task_id": mirror_id,
-                "subtask_id": format!("{mirror_id}::{stage}"),
-                "description": description,
+                "subtask_id": scaffold_subtask_id(&mirror_id, &stage),
+                "description": stage.description,
                 "depends_on": deps,
             }),
         );
-        if add_result.contains("\"error\"") {
+        if reply_failed(&add_result) {
             tracing::warn!(
                 task_id = %mirror_id,
-                stage = stage,
+                stage = stage.name,
                 result = %add_result,
                 "bridge_task_created: scaffold subtask add failed"
             );
         }
     }
     Ok(result)
+}
+
+/// Mark every scaffold stage of `task_id` terminal, mirroring the task outcome.
+///
+/// Called when a mirrored task completes. It iterates
+/// [`MIRROR_SCAFFOLD_STAGES`] — the same list [`bridge_task_created`] scaffolds
+/// from — so a stage can never be created by one side and forgotten by the
+/// other. That asymmetry is exactly what happened: the closer named
+/// `::validate` and `::implement` as literals and left `::scout` open on every
+/// mirrored task ever completed (74 rows, measured 19/09/2026).
+///
+/// Returns how many stages were written, so a caller can report the archive it
+/// actually performed instead of assuming one.
+///
+/// O id é normalizado AQUI, não no chamador: o scaffolder grava sob
+/// `cc_mirror_task_id`, e um fechador que recebesse o id cru procuraria
+/// `42::scout` onde existe `cc_task_42::scout` — silenciosamente, porque
+/// nenhuma linha casada não é erro. Normalizar dentro torna todo chamador
+/// correto por construção, que é o que "fonte única" tem de significar
+/// (`cc_mirror_task_id` é idempotente: `task_…` e `cc_task_…` passam intactos).
+pub fn close_scaffold_stages(runtime: &mut HookRuntime, task_id: &str, success: bool) -> usize {
+    let terminal_status = if success { "completed" } else { "failed" };
+    close_scaffold_stages_as(runtime, task_id, terminal_status)
+}
+
+/// O fechador, com o estado terminal explícito.
+///
+/// Existe porque o cancelamento fecha os mesmos três estágios num estado que
+/// não é sucesso nem falha (`cancelled`), e escrevia a própria lista literal
+/// com o id cru — dois defeitos que esta função remove de uma vez. Todo
+/// fechador do espelho passa por aqui; a lista mora em um lugar só.
+pub fn close_scaffold_stages_as(
+    runtime: &mut HookRuntime,
+    task_id: &str,
+    terminal_status: &str,
+) -> usize {
+    let mirror_id = cc_mirror_task_id(task_id);
+    let mut closed = 0_usize;
+    for stage in MIRROR_SCAFFOLD_STAGES {
+        let subtask_id = scaffold_subtask_id(&mirror_id, &stage);
+        let result = cli_decompose_update(
+            runtime,
+            &json!({
+                "task_id": mirror_id,
+                "subtask_id": subtask_id,
+                "status": terminal_status,
+            }),
+        );
+        // O handler NÃO emite `error` para um subtask que não existe — emite
+        // `"subtask_updated": false`. Contar a ausência de `error` como escrita
+        // devolvia 3 sobre zero linhas, e o campo certo existe desde 25/08/2026,
+        // criado após um fechamento de fase declarar sucesso sobre um subtask
+        // inexistente. Ler a afirmação POSITIVA é o que fecha essa classe.
+        if stage_was_written(&result) {
+            closed += 1;
+        } else {
+            tracing::debug!(
+                task_id = %mirror_id,
+                stage = stage.name,
+                "close_scaffold_stages: stage not updated"
+            );
+        }
+    }
+    closed
+}
+
+/// `true` só quando o handler AFIRMA ter escrito a linha (`subtask_updated`).
+///
+/// Uma resposta não parseável conta como não escrita: silêncio nunca vira
+/// sucesso num contador que o chamador publica.
+fn stage_was_written(result: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(result)
+        .ok()
+        .and_then(|v| {
+            v.get("subtask_updated")
+                .and_then(serde_json::Value::as_bool)
+        })
+        .unwrap_or(false)
 }
 
 /// Bridge: `post_tool_rl` success path → mark decompose subtask complete.

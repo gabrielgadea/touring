@@ -1,0 +1,11 @@
+{
+  "phase": "p6_experiment_log",
+  "entities": [
+    {
+      "entity_id": "phase:p6_experiment_log",
+      "type": "phase",
+      "description": "R4: superf\u00edcie cli-experiment-{record,list} + LogRow.diagnostic potencializado + ponte no variant_archive.record (fail-open). Prova viva: 2 experimentos reais gravados e lidos de volta (a variante do detector python-inline, discard 0.0 + keep 0.9), best_reward 0.9. Provas vivas das demais: gotcha.resolution 0.0\u21921.0 (resolve do id=20 com why citando o fix do 34; idempotente; erro que ensina), inspect_burst_share STUB\u21920.5 via durable_gate_evidence.json nascido de rajada real, learning status 40KB\u2192618 bytes ({len:1600, l2_norm:3.33}), access_count 2\u21923 na key servida com curadas nas posi\u00e7\u00f5es 0/2 e tra\u00e7os em 15-19."
+    }
+  ],
+  "relations": []
+}

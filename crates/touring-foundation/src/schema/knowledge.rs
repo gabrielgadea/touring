@@ -175,6 +175,9 @@ CREATE INDEX IF NOT EXISTS idx_wiring_orphans
     ON wiring_map(consumer_file) WHERE consumer_file IS NULL;
 CREATE INDEX IF NOT EXISTS idx_wiring_module
     ON wiring_map(module_file);
+-- v11 (13/09/2026): equality on consumer_file (the partial index above cannot serve it).
+CREATE INDEX IF NOT EXISTS idx_wiring_consumer
+    ON wiring_map(consumer_file);
 
 -- S1 (2026-08-07): imports the resolver could NOT map to a producer file.
 -- A separate table, not a synthetic wiring_map row: an unresolved import is

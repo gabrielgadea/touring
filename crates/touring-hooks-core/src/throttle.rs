@@ -121,12 +121,14 @@ pub fn global() -> &'static ThrottleState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
+    #[serial]
     #[test]
     fn test_tier_for_default_thresholds() {
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_THROTTLE_TIER1_MAX") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_THROTTLE_TIER2_MAX") };
         assert_eq!(tier_for(1), ThrottleTier::Tier1);
         assert_eq!(tier_for(3), ThrottleTier::Tier1);

@@ -1,0 +1,3 @@
+<unknown>:13: SyntaxWarning: invalid escape sequence '\$'
+<unknown>:76: SyntaxWarning: invalid escape sequence '\d'
+{"entradas": 791, "motivos": {"positivo: sem delta": 91, "ok": 174, "o arquivo nasceu nesta edição (antes = vazio)": 126, "tmp: escrito e executado no mesmo comando (sem delta)": 100, "inline: o programa inteiro é novo (sem delta)": 300}, "overlays": 212}

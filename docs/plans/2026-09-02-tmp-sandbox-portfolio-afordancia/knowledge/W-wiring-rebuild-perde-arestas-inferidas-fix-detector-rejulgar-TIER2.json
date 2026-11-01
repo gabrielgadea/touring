@@ -1,0 +1,45 @@
+{
+  "phase": "W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2",
+  "entities": [
+    {
+      "entity_id": "phase:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2",
+      "type": "phase",
+      "description": "W fechado: 4 furos do detector de orfaos corrigidos sob TDD \u2014 (1) query tree-sitter sem chamada livre f() (rust_method_calls.scm +free_fn); (2) super::/self:: resolvidos a partir da raiz do crate em vez do modulo pai (resolve_scope_relative; scope_keyword 4519\u2192808); (3) universo legado ./crates/ nunca fundido (canonicalize strip ./ + migrate_canonicalize_paths funde wiring_map/wiring_unresolved; rows 205k\u219290k); (4) caminho do hook (update_wiring_after_edit) limpava arestas inferidas sem recria-las \u2014 record_inferred_consumers unico para rebuild e hook (C08). B3 junto: XSS on<event>= so dentro de tag aberta. Deploy 30.4.31 (update-touring --no-kill + --no-build), rebuild: orfaos no escopo 5535\u21921754; residual 111 vs baseline TIER-2 = 42 consumidores em outro arquivo (arquivos editados apos o rebuild, antes do fix 4 \u2014 cai no proximo rebuild), 23 pub so locais, 22 sem consumidor, 24 genericos. Rejulgamento TIER-2 pendente do proximo deploy+rebuild (fix 4) e da decisao sobre a divida real."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2|produces|memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done",
+      "source": "phase:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

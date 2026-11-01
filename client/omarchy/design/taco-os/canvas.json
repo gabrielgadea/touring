@@ -1,0 +1,21 @@
+{
+  "pages": [
+    { "id": "taco-os", "name": "TACO OS" },
+    { "id": "direcoes", "name": "Direções" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1720, "h": 1080, "title": "TACO OS — Unified Interface", "page": "taco-os" },
+    { "file": "BarWidget.dc.html", "x": 0, "y": 1220, "w": 1440, "h": 200, "title": "Widget na barra do Omarchy", "page": "taco-os" },
+    { "file": "GeoDeck.dc.html", "x": 1840, "y": 0, "w": 1280, "h": 800, "title": "GEO AI — Kazuba Geo Engine", "page": "taco-os" },
+    { "file": "MissionDeck.dc.html", "x": 1840, "y": 920, "w": 1280, "h": 800, "title": "Mission Control — DAGs", "page": "taco-os" },
+    { "file": "ForgeDeck.dc.html", "x": 1840, "y": 1840, "w": 1280, "h": 800, "title": "Document & Content Forge", "page": "taco-os" },
+    { "file": "DirectionLattice.dc.html", "x": 0, "y": 0, "w": 720, "h": 520, "page": "direcoes" },
+    { "file": "DirectionMonolith.dc.html", "x": 820, "y": 0, "w": 720, "h": 520, "page": "direcoes" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -190, "w": 600, "page": "taco-os", "text": "TACO OS — a interface unificada do notebook inteiro (tema Retro 82, referências HUD orbital de downloads).\nMAIN: núcleo Touring incandescente + projetos orbitando como satélites (clique = último DAG real de cada projeto) + dock de 9 módulos (cada ícone = um slash command real).\nDECKS à direita: GEO AI (kazuba-geo-engine), MISSION CONTROL (DAGs/frontier/claim), FORGE (documentos ANTT + LexHub + conteúdo).\nTudo mostrado é dado real do sistema — nada inventado." },
+    { "id": "modulos", "x": 1840, "y": -150, "w": 480, "page": "taco-os", "text": "Cada deck é uma tela do OS que abre a partir do dock do MAIN:\nGEO AI — HDM-4/IRI, Dijkstra, R-Tree, Earth Engine, KML/KMZ.\nMISSIONS — decompose por projeto, claim atômico, Wayfinder.\nFORGE — voto/nota técnica/análise (antt-*), LexHub KB (269 aditivos), story/research/vídeo." },
+    { "id": "alternativas", "x": 0, "y": -130, "w": 420, "page": "direcoes", "text": "Direções alternativas exploradas antes da líder (mantidas para referência):\nB LATTICE — a integração como grafo vivo.\nC MONOLITH — palette-first, a interface desaparece." }
+  ],
+  "launch": { "view": "canvas", "page": "taco-os" }
+}

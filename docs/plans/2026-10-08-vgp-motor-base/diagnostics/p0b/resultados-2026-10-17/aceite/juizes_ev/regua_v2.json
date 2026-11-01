@@ -1,0 +1,25 @@
+{
+ "resumo": {
+  "comparados": 738,
+  "so_base": 0,
+  "so_novo": 0,
+  "R1_divergencias": 1,
+  "R2_divergencias_findings_inteiros": 1,
+  "R2_sem_R1_so_em": {}
+ },
+ "ids_R1": [
+  "2a78ac89aad8"
+ ],
+ "ids_R2": [
+  "2a78ac89aad8"
+ ],
+ "detalhe": [
+  {
+   "id": "2a78ac89aad8",
+   "r1_difere": true,
+   "campos": [
+    "findings.len"
+   ]
+  }
+ ]
+}

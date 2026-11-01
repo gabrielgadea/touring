@@ -1,0 +1,14 @@
+hw-slot: aguardando — temp 92C > 88C
+   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.05s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
+
+running 5 tests
+test vgp::checks::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito ... ok
+test vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela ... ok
+test vgp::modules::tests::dataclass_init_segue_a_ordem_de_declaracao ... ok
+test vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao ... ok
+test vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 899 filtered out; finished in 0.06s
+

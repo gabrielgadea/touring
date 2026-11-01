@@ -1,0 +1,2521 @@
+{
+ "IPython": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "PIL": {
+  "n": 2,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "affine": {
+  "n": 21,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "aiofile": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiofiles": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiohappyeyeballs": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiohttp": {
+  "n": 110,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiosignal": {
+  "n": 9,
+  "negados": [
+   "TypeVarTuple",
+   "Unpack"
+  ],
+  "n_negados": 2
+ },
+ "aiosqlite": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "alembic": {
+  "n": 1,
+  "negados": [
+   "plugins"
+  ],
+  "n_negados": 1
+ },
+ "annotated_doc": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "annotated_types": {
+  "n": 56,
+  "negados": [
+   "Annotated",
+   "EllipsisType",
+   "KW_ONLY",
+   "Literal",
+   "Protocol",
+   "SLOTS",
+   "runtime_checkable"
+  ],
+  "n_negados": 7
+ },
+ "anthropic": {
+  "n": 74,
+  "negados": [],
+  "n_negados": 0
+ },
+ "antlr4": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "anyio": {
+  "n": 87,
+  "negados": [],
+  "n_negados": 0
+ },
+ "apiclient": {
+  "n": 11,
+  "negados": [
+   "module",
+   "module_name",
+   "sample_tools"
+  ],
+  "n_negados": 3
+ },
+ "apify_fingerprint_datapoints": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "apscheduler": {
+  "n": 3,
+  "negados": [
+   "release"
+  ],
+  "n_negados": 1
+ },
+ "ast_serialize": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "asttokens": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "async_generator": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "asyncer": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "asyncpg": {
+  "n": 294,
+  "negados": [],
+  "n_negados": 0
+ },
+ "attr": {
+  "n": 35,
+  "negados": [
+   "VersionInfo"
+  ],
+  "n_negados": 1
+ },
+ "attrs": {
+  "n": 23,
+  "negados": [],
+  "n_negados": 0
+ },
+ "authlib": {
+  "n": 3,
+  "negados": [
+   "author",
+   "homepage",
+   "version"
+  ],
+  "n_negados": 3
+ },
+ "backoff": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bcrypt": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "beartype": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bitarray": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bleach": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "branca": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bs4": {
+  "n": 47,
+  "negados": [
+   "CData",
+   "CSS",
+   "ElementFilter",
+   "Formatter",
+   "HTMLParserTreeBuilder",
+   "UnicodeDammit",
+   "builder_registry"
+  ],
+  "n_negados": 7
+ },
+ "cachetools": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "caio": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "catalogue": {
+  "n": 18,
+  "negados": [
+   "importlib_metadata"
+  ],
+  "n_negados": 1
+ },
+ "certifi": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cffi": {
+  "n": 6,
+  "negados": [
+   "PkgConfigError"
+  ],
+  "n_negados": 1
+ },
+ "charset_normalizer": {
+  "n": 12,
+  "negados": [
+   "annotations",
+   "md__mypyc"
+  ],
+  "n_negados": 2
+ },
+ "click": {
+  "n": 64,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cloudpathlib": {
+  "n": 20,
+  "negados": [
+   "importlib_metadata"
+  ],
+  "n_negados": 1
+ },
+ "cloudpickle": {
+  "n": 47,
+  "negados": [],
+  "n_negados": 0
+ },
+ "coloredlogs": {
+  "n": 54,
+  "negados": [],
+  "n_negados": 0
+ },
+ "colorlog": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "confection": {
+  "n": 14,
+  "negados": [
+   "ARGS_FIELD"
+  ],
+  "n_negados": 1
+ },
+ "contextily": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "contourpy": {
+  "n": 25,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "coverage": {
+  "n": 11,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "cpuinfo": {
+  "n": 21,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cryptography": {
+  "n": 1,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "cssselect": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cssselect2": {
+  "n": 6,
+  "negados": [
+   "ElementWrapper",
+   "SelectorError",
+   "compile_selector_list"
+  ],
+  "n_negados": 3
+ },
+ "curl_cffi": {
+  "n": 48,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cv2": {
+  "n": 2439,
+  "negados": [
+   "ACCESS_FAST",
+   "ACCESS_MASK",
+   "ACCESS_READ",
+   "ACCESS_RW",
+   "ACCESS_WRITE",
+   "ADAPTIVE_THRESH_GAUSSIAN_C",
+   "ADAPTIVE_THRESH_MEAN_C",
+   "AGAST_FEATURE_DETECTOR_AGAST_5_8",
+   "AGAST_FEATURE_DETECTOR_AGAST_7_12D",
+   "AGAST_FEATURE_DETECTOR_AGAST_7_12S",
+   "AGAST_FEATURE_DETECTOR_NONMAX_SUPPRESSION",
+   "AGAST_FEATURE_DETECTOR_OAST_9_16",
+   "AGAST_FEATURE_DETECTOR_THRESHOLD",
+   "AKAZE",
+   "AKAZE_DESCRIPTOR_KAZE",
+   "AKAZE_DESCRIPTOR_KAZE_UPRIGHT",
+   "AKAZE_DESCRIPTOR_MLDB",
+   "AKAZE_DESCRIPTOR_MLDB_UPRIGHT",
+   "AKAZE_create",
+   "ALGO_HINT_ACCURATE",
+   "ALGO_HINT_APPROX",
+   "ALGO_HINT_DEFAULT",
+   "AffineFeature",
+   "AffineFeature_create",
+   "AgastFeatureDetector",
+   "AgastFeatureDetector_AGAST_5_8",
+   "AgastFeatureDetector_AGAST_7_12d",
+   "AgastFeatureDetector_AGAST_7_12s",
+   "AgastFeatureDetector_NONMAX_SUPPRESSION",
+   "AgastFeatureDetector_OAST_9_16"
+  ],
+  "n_negados": 2435
+ },
+ "cycler": {
+  "n": 26,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "cyclopts": {
+  "n": 30,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cymem": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster": {
+  "n": 442,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_anthropic": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_docker": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_gemini": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_graphql": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_pipes": {
+  "n": 123,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_prometheus": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_qdrant": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_shared": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_webserver": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dateutil": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "defusedxml": {
+  "n": 9,
+  "negados": [
+   "absolute_import",
+   "print_function"
+  ],
+  "n_negados": 2
+ },
+ "dill": {
+  "n": 33,
+  "negados": [
+   "dump",
+   "dump_module"
+  ],
+  "n_negados": 2
+ },
+ "diskcache": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "distro": {
+  "n": 23,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dns": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docker": {
+  "n": 7,
+  "negados": [
+   "APIClient",
+   "Context",
+   "DockerClient",
+   "TLSConfig"
+  ],
+  "n_negados": 4
+ },
+ "docker_image": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling_core": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling_ibm_models": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling_parse": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docstring_parser": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docx": {
+  "n": 6,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "dotenv": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "ecdsa": {
+  "n": 38,
+  "negados": [
+   "ECDH",
+   "NIST192p",
+   "SigningKey",
+   "UnexpectedDER"
+  ],
+  "n_negados": 4
+ },
+ "ee": {
+  "n": 54,
+  "negados": [
+   "ApiFunction",
+   "Array",
+   "Blob",
+   "Classifier",
+   "Clusterer",
+   "Collection",
+   "ComputedObject",
+   "ConfusionMatrix",
+   "CustomFunction",
+   "Date",
+   "DateRange",
+   "Dictionary",
+   "EEException",
+   "Element",
+   "Encodable",
+   "ErrorMargin",
+   "Feature",
+   "FeatureCollection",
+   "Filter",
+   "Function",
+   "Geometry",
+   "Image",
+   "ImageCollection",
+   "Join",
+   "Kernel",
+   "List",
+   "Model",
+   "Number",
+   "PixelType",
+   "Projection"
+  ],
+  "n_negados": 38
+ },
+ "elementpath": {
+  "n": 40,
+  "negados": [],
+  "n_negados": 0
+ },
+ "email_validator": {
+  "n": 17,
+  "negados": [],
+  "n_negados": 0
+ },
+ "et_xmlfile": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "exceptiongroup": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "executing": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "faker": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fastapi": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fastmcp": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fastuuid": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "filelock": {
+  "n": 18,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "filetype": {
+  "n": 32,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fitz": {
+  "n": 995,
+  "negados": [],
+  "n_negados": 0
+ },
+ "flatbuffers": {
+  "n": 3,
+  "negados": [
+   "Builder",
+   "Table"
+  ],
+  "n_negados": 2
+ },
+ "folium": {
+  "n": 45,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fontTools": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "formulaic": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "frontmatter": {
+  "n": 24,
+  "negados": [
+   "JSONHandler",
+   "annotations",
+   "can_open"
+  ],
+  "n_negados": 3
+ },
+ "frozenlist": {
+  "n": 8,
+  "negados": [
+   "CFrozenList"
+  ],
+  "n_negados": 1
+ },
+ "fsspec": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "geographiclib": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "geopandas": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "geopy": {
+  "n": 36,
+  "negados": [],
+  "n_negados": 0
+ },
+ "gepa": {
+  "n": 14,
+  "negados": [
+   "CompositeStopper",
+   "EvaluationBatch",
+   "GEPAResult",
+   "aime",
+   "default_adapter",
+   "optimize"
+  ],
+  "n_negados": 6
+ },
+ "google_crc32c": {
+  "n": 6,
+  "negados": [
+   "impl"
+  ],
+  "n_negados": 1
+ },
+ "googleapiclient": {
+  "n": 2,
+  "negados": [
+   "NullHandler"
+  ],
+  "n_negados": 1
+ },
+ "gql": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "graphene": {
+  "n": 44,
+  "negados": [
+   "get_version"
+  ],
+  "n_negados": 1
+ },
+ "graphql": {
+  "n": 324,
+  "negados": [],
+  "n_negados": 0
+ },
+ "graphql_relay": {
+  "n": 38,
+  "negados": [],
+  "n_negados": 0
+ },
+ "greenlet": {
+  "n": 14,
+  "negados": [
+   "CLOCKS_PER_SEC",
+   "GREENLET_USE_CONTEXT_VARS",
+   "GREENLET_USE_GC",
+   "GREENLET_USE_TRACING",
+   "absolute_import",
+   "division",
+   "enable_optional_cleanup",
+   "get_clocks_used_doing_optional_cleanup",
+   "print_function"
+  ],
+  "n_negados": 9
+ },
+ "griffe": {
+  "n": 219,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "grpc": {
+  "n": 70,
+  "negados": [
+   "grpc_health"
+  ],
+  "n_negados": 1
+ },
+ "grpc_health": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "grpc_status": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "h11": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "h2": {
+  "n": 1,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "hf_xet": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "hpack": {
+  "n": 11,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "httpcore": {
+  "n": 49,
+  "negados": [
+   "AnyIOBackend",
+   "AsyncConnectionInterface",
+   "AsyncMockBackend",
+   "ConnectError",
+   "ConnectionInterface",
+   "SOCKET_OPTION",
+   "SyncBackend",
+   "TrioBackend",
+   "URL",
+   "default_ssl_context",
+   "request"
+  ],
+  "n_negados": 11
+ },
+ "httpcore2": {
+  "n": 50,
+  "negados": [
+   "AnyIOBackend",
+   "AsyncConnectionInterface",
+   "AsyncMockBackend",
+   "ConnectError",
+   "ConnectionInterface",
+   "SOCKET_OPTION",
+   "SyncBackend",
+   "TrioBackend",
+   "URL",
+   "default_ssl_context",
+   "request"
+  ],
+  "n_negados": 11
+ },
+ "httplib2": {
+  "n": 74,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httptools": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpx": {
+  "n": 66,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpx2": {
+  "n": 73,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpx_sse": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "huggingface_hub": {
+  "n": 424,
+  "negados": [],
+  "n_negados": 0
+ },
+ "humanfriendly": {
+  "n": 2,
+  "negados": [
+   "aliases",
+   "module"
+  ],
+  "n_negados": 2
+ },
+ "hyperframe": {
+  "n": 1,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "hypothesis": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "idna": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "imageio": {
+  "n": 26,
+  "negados": [
+   "FormatManager",
+   "imopen",
+   "mimread"
+  ],
+  "n_negados": 3
+ },
+ "importlib_metadata": {
+  "n": 58,
+  "negados": [
+   "FreezableDefaultDict",
+   "NullFinder",
+   "always_iterable",
+   "annotations",
+   "md_none",
+   "method_cache",
+   "py39"
+  ],
+  "n_negados": 7
+ },
+ "iniconfig": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "interface_meta": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jedi": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jeepney": {
+  "n": 29,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jinja2": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jiter": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "joblib": {
+  "n": 21,
+  "negados": [
+   "Logger",
+   "MemorizedResult",
+   "Parallel",
+   "ParallelBackendBase",
+   "StoreBackendBase",
+   "dump",
+   "hash",
+   "register_compressor",
+   "wrap_non_picklable_objects"
+  ],
+  "n_negados": 9
+ },
+ "jose": {
+  "n": 4,
+  "negados": [
+   "ExpiredSignatureError",
+   "JOSEError",
+   "JWSError",
+   "JWTError"
+  ],
+  "n_negados": 4
+ },
+ "joserfc": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "json_repair": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonlines": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonschema": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonschema_path": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonschema_specifications": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jwt": {
+  "n": 29,
+  "negados": [
+   "DecodeError",
+   "InsecureKeyLengthWarning",
+   "PyJWK",
+   "PyJWKClient",
+   "PyJWS",
+   "PyJWT"
+  ],
+  "n_negados": 6
+ },
+ "key_value": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "keyring": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "kiwisolver": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "langchain_core": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "langchain_protocol": {
+  "n": 136,
+  "negados": [],
+  "n_negados": 0
+ },
+ "langsmith": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "latex2mathml": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "lazy_loader": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "loguru": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "lxml": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "magic": {
+  "n": 110,
+  "negados": [
+   "APPLE",
+   "ARRAY",
+   "CDLL",
+   "CFUNCTYPE",
+   "CHECK",
+   "COMPRESS",
+   "CONTINUE",
+   "DEBUG",
+   "DEFAULT_MODE",
+   "DEVICES",
+   "ERROR",
+   "MAGIC_APPLE",
+   "MAGIC_NO_CHECK_BUILTIN",
+   "MAGIC_NO_CHECK_CDF",
+   "MAGIC_NO_CHECK_ENCODING",
+   "MAGIC_NO_CHECK_TEXT",
+   "MIME",
+   "MIME_ENCODING",
+   "MIME_TYPE",
+   "NONE",
+   "NO_CHECK_APPTYPE",
+   "NO_CHECK_BUILTIN",
+   "NO_CHECK_CDF",
+   "NO_CHECK_COMPRESS",
+   "NO_CHECK_ELF",
+   "NO_CHECK_ENCODING",
+   "NO_CHECK_SOFT",
+   "NO_CHECK_TAR",
+   "NO_CHECK_TEXT",
+   "NO_CHECK_TOKENS"
+  ],
+  "n_negados": 44
+ },
+ "magika": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mako": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mapclassify": {
+  "n": 28,
+  "negados": [
+   "CLASSIFIERS",
+   "Pooled",
+   "classify",
+   "shift_colormap"
+  ],
+  "n_negados": 4
+ },
+ "markdown": {
+  "n": 5,
+  "negados": [
+   "Extension",
+   "annotations"
+  ],
+  "n_negados": 2
+ },
+ "markdown_it": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markdownify": {
+  "n": 45,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markitdown": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "marko": {
+  "n": 14,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "markupsafe": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "matplotlib": {
+  "n": 49,
+  "negados": [],
+  "n_negados": 0
+ },
+ "matplotlib_inline": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mcp": {
+  "n": 65,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mdurl": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mercantile": {
+  "n": 43,
+  "negados": [
+   "Sequence",
+   "lru_cache"
+  ],
+  "n_negados": 2
+ },
+ "more_itertools": {
+  "n": 174,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mpire": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mpmath": {
+  "n": 374,
+  "negados": [
+   "FPContext",
+   "MPContext",
+   "MPIntervalContext",
+   "convert",
+   "monitor"
+  ],
+  "n_negados": 5
+ },
+ "msgpack": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "msgspec": {
+  "n": 15,
+  "negados": [
+   "NODEFAULT"
+  ],
+  "n_negados": 1
+ },
+ "multidict": {
+  "n": 14,
+  "negados": [
+   "ItemsView",
+   "KeysView",
+   "USE_EXTENSIONS",
+   "ValuesView"
+  ],
+  "n_negados": 4
+ },
+ "multipart": {
+  "n": 13,
+  "negados": [
+   "BaseParser",
+   "FormParser",
+   "MultipartParser",
+   "OctetStreamParser",
+   "QuerystringParser",
+   "create_form_parser",
+   "file_path",
+   "p",
+   "parse_form"
+  ],
+  "n_negados": 9
+ },
+ "multiprocess": {
+  "n": 42,
+  "negados": [
+   "Array",
+   "AuthenticationError",
+   "Barrier",
+   "BoundedSemaphore",
+   "BufferTooShort",
+   "Condition",
+   "Event",
+   "JoinableQueue",
+   "Lock",
+   "Manager",
+   "Pipe",
+   "Pool",
+   "Process",
+   "ProcessError",
+   "Queue",
+   "RLock",
+   "RawArray",
+   "RawValue",
+   "Semaphore",
+   "SimpleQueue",
+   "TimeoutError",
+   "Value",
+   "active_children",
+   "allow_connection_pickling",
+   "cpu_count",
+   "current_process",
+   "freeze_support",
+   "get_all_start_methods",
+   "get_context",
+   "get_logger"
+  ],
+  "n_negados": 37
+ },
+ "murmurhash": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mypy": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mypyc": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "narwhals": {
+  "n": 84,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "neo4j": {
+  "n": 52,
+  "negados": [],
+  "n_negados": 0
+ },
+ "networkx": {
+  "n": 932,
+  "negados": [],
+  "n_negados": 0
+ },
+ "numpy": {
+  "n": 481,
+  "negados": [
+   "False_",
+   "ScalarType",
+   "True_",
+   "abs",
+   "absolute",
+   "acos",
+   "acosh",
+   "add",
+   "all",
+   "allclose",
+   "amax",
+   "amin",
+   "angle",
+   "any",
+   "append",
+   "apply_along_axis",
+   "apply_over_axes",
+   "arange",
+   "arccos",
+   "arccosh",
+   "arcsin",
+   "arcsinh",
+   "arctan",
+   "arctan2",
+   "arctanh",
+   "argmax",
+   "argmin",
+   "argpartition",
+   "argsort",
+   "argwhere"
+  ],
+  "n_negados": 481
+ },
+ "omegaconf": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "openai": {
+  "n": 102,
+  "negados": [],
+  "n_negados": 0
+ },
+ "openapi_pydantic": {
+  "n": 35,
+  "negados": [],
+  "n_negados": 0
+ },
+ "openpyxl": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "orjson": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "outcome": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "packaging": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pandas": {
+  "n": 109,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "parso": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pathable": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pathlib_abc": {
+  "n": 16,
+  "negados": [
+   "text_encoding"
+  ],
+  "n_negados": 1
+ },
+ "pathspec": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "patsy": {
+  "n": 37,
+  "negados": [
+   "ContrastMatrix",
+   "DesignInfo",
+   "DesignMatrix",
+   "Diff",
+   "EvalEnvironment",
+   "EvalFactor",
+   "FactorInfo",
+   "Helmert",
+   "INTERCEPT",
+   "LinearConstraint",
+   "LookupFactor",
+   "ModelDesc",
+   "NAAction",
+   "Origin",
+   "Poly",
+   "SubtermInfo",
+   "Sum",
+   "Term",
+   "Treatment",
+   "balanced",
+   "bs",
+   "build_design_matrices",
+   "cc",
+   "center",
+   "cr",
+   "demo_data",
+   "design_matrix_builders",
+   "dmatrices",
+   "dmatrix",
+   "incr_dbuilder"
+  ],
+  "n_negados": 35
+ },
+ "pdfminer": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pexpect": {
+  "n": 14,
+  "negados": [
+   "Expecter"
+  ],
+  "n_negados": 1
+ },
+ "pikepdf": {
+  "n": 86,
+  "negados": [],
+  "n_negados": 0
+ },
+ "platformdirs": {
+  "n": 39,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "playwright_stealth": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "plotly": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pluggy": {
+  "n": 13,
+  "negados": [],
+  "n_negados": 0
+ },
+ "polars": {
+  "n": 207,
+  "negados": [
+   "jemalloc_conf",
+   "os",
+   "override",
+   "plr"
+  ],
+  "n_negados": 4
+ },
+ "polyfactory": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "portalocker": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pptx": {
+  "n": 7,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "preshed": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "prometheus_client": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "prompt_toolkit": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "propcache": {
+  "n": 3,
+  "negados": [
+   "cached_property",
+   "under_cached_property"
+  ],
+  "n_negados": 2
+ },
+ "protego": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "proto": {
+  "n": 25,
+  "negados": [
+   "Enum",
+   "Field",
+   "MapField",
+   "Marshal",
+   "Message",
+   "ProtoType",
+   "RepeatedField"
+  ],
+  "n_negados": 7
+ },
+ "psutil": {
+  "n": 111,
+  "negados": [
+   "AIX",
+   "AccessDenied",
+   "BSD",
+   "CONN_CLOSE",
+   "CONN_CLOSE_WAIT",
+   "CONN_CLOSING",
+   "CONN_ESTABLISHED",
+   "CONN_FIN_WAIT1",
+   "CONN_FIN_WAIT2",
+   "CONN_LAST_ACK",
+   "CONN_LISTEN",
+   "CONN_NONE",
+   "CONN_SYN_RECV",
+   "CONN_SYN_SENT",
+   "CONN_TIME_WAIT",
+   "Error",
+   "FREEBSD",
+   "IOPRIO_CLASS_BE",
+   "IOPRIO_CLASS_IDLE",
+   "IOPRIO_CLASS_NONE",
+   "IOPRIO_CLASS_RT",
+   "LINUX",
+   "MACOS",
+   "NETBSD",
+   "NIC_DUPLEX_FULL",
+   "NIC_DUPLEX_HALF",
+   "NIC_DUPLEX_UNKNOWN",
+   "NoSuchProcess",
+   "OPENBSD",
+   "OSX"
+  ],
+  "n_negados": 76
+ },
+ "ptyprocess": {
+  "n": 3,
+  "negados": [
+   "PtyProcess"
+  ],
+  "n_negados": 1
+ },
+ "pure_eval": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyarrow": {
+  "n": 297,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyasn1": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyasn1_modules": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyclipper": {
+  "n": 44,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pycparser": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pydantic": {
+  "n": 149,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pydantic_core": {
+  "n": 31,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "pydantic_settings": {
+  "n": 32,
+  "negados": [
+   "VERSION"
+  ],
+  "n_negados": 1
+ },
+ "pydyf": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyee": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pygments": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pylatexenc": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pymupdf": {
+  "n": 992,
+  "negados": [
+   "ByteString",
+   "PDF_ALERT_BUTTON_CANCEL",
+   "PDF_ALERT_BUTTON_GROUP_OK",
+   "PDF_ALERT_BUTTON_GROUP_OK_CANCEL",
+   "PDF_ALERT_BUTTON_GROUP_YES_NO",
+   "PDF_ALERT_BUTTON_GROUP_YES_NO_CANCEL",
+   "PDF_ALERT_BUTTON_NO",
+   "PDF_ALERT_BUTTON_NONE",
+   "PDF_ALERT_BUTTON_OK",
+   "PDF_ALERT_BUTTON_YES",
+   "PDF_ALERT_ICON_ERROR",
+   "PDF_ALERT_ICON_QUESTION",
+   "PDF_ALERT_ICON_STATUS",
+   "PDF_ALERT_ICON_WARNING",
+   "PDF_ANNOT_3D",
+   "PDF_ANNOT_CARET",
+   "PDF_ANNOT_CIRCLE",
+   "PDF_ANNOT_FILE_ATTACHMENT",
+   "PDF_ANNOT_FREE_TEXT",
+   "PDF_ANNOT_HIGHLIGHT",
+   "PDF_ANNOT_INK",
+   "PDF_ANNOT_IS_HIDDEN",
+   "PDF_ANNOT_IS_INVISIBLE",
+   "PDF_ANNOT_IS_LOCKED",
+   "PDF_ANNOT_IS_LOCKED_CONTENTS",
+   "PDF_ANNOT_IS_NO_ROTATE",
+   "PDF_ANNOT_IS_NO_VIEW",
+   "PDF_ANNOT_IS_NO_ZOOM",
+   "PDF_ANNOT_IS_PRINT",
+   "PDF_ANNOT_IS_READ_ONLY"
+  ],
+  "n_negados": 436
+ },
+ "pymupdf4llm": {
+  "n": 14,
+  "negados": [
+   "VERSION",
+   "convert_batch"
+  ],
+  "n_negados": 2
+ },
+ "pyogrio": {
+  "n": 19,
+  "negados": [
+   "shapely"
+  ],
+  "n_negados": 1
+ },
+ "pyparsing": {
+  "n": 233,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pypdf": {
+  "n": 15,
+  "negados": [
+   "PIL",
+   "crypt_provider",
+   "pil_version"
+  ],
+  "n_negados": 3
+ },
+ "pypdfium2": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pypdfium2_raw": {
+  "n": 1134,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyperclip": {
+  "n": 40,
+  "negados": [
+   "which"
+  ],
+  "n_negados": 1
+ },
+ "pyphen": {
+  "n": 18,
+  "negados": [
+   "name",
+   "path",
+   "short_name"
+  ],
+  "n_negados": 3
+ },
+ "pyproj": {
+  "n": 26,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pystac": {
+  "n": 42,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pystac_client": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytesseract": {
+  "n": 15,
+  "negados": [
+   "ALTONotSupported",
+   "Output",
+   "TSVNotSupported",
+   "TesseractError",
+   "TesseractNotFoundError",
+   "get_languages",
+   "get_tesseract_version",
+   "image_to_alto_xml",
+   "image_to_boxes",
+   "image_to_data",
+   "image_to_osd",
+   "image_to_pdf_or_hocr",
+   "image_to_string",
+   "run_and_get_multiple_output",
+   "run_and_get_output"
+  ],
+  "n_negados": 15
+ },
+ "pytest": {
+  "n": 87,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "pytest_asyncio": {
+  "n": 4,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "pytest_benchmark": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytest_cov": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "python_calamine": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "python_multipart": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytz": {
+  "n": 32,
+  "negados": [
+   "ascii",
+   "unicode"
+  ],
+  "n_negados": 2
+ },
+ "pyxlsb": {
+  "n": 6,
+  "negados": [
+   "BIFF12Reader",
+   "Handler",
+   "Workbook",
+   "Worksheet"
+  ],
+  "n_negados": 4
+ },
+ "qdrant_client": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rapidocr": {
+  "n": 9,
+  "negados": [
+   "EngineType",
+   "LoadImageError",
+   "RapidOCR",
+   "VisRes"
+  ],
+  "n_negados": 4
+ },
+ "rasterio": {
+  "n": 53,
+  "negados": [
+   "FilePath",
+   "have_vsi_plugin"
+  ],
+  "n_negados": 2
+ },
+ "redis": {
+  "n": 36,
+  "negados": [],
+  "n_negados": 0
+ },
+ "referencing": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "regex": {
+  "n": 58,
+  "negados": [],
+  "n_negados": 0
+ },
+ "requests": {
+  "n": 35,
+  "negados": [
+   "RequestsDependencyWarning",
+   "annotations",
+   "chardet_version",
+   "charset_normalizer_version",
+   "ssl"
+  ],
+  "n_negados": 5
+ },
+ "requests_toolbelt": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "respx": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rich": {
+  "n": 13,
+  "negados": [
+   "load_ipython_extension"
+  ],
+  "n_negados": 1
+ },
+ "rich_rst": {
+  "n": 63,
+  "negados": [
+   "reST"
+  ],
+  "n_negados": 1
+ },
+ "rpds": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rsa": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rtree": {
+  "n": 3,
+  "negados": [
+   "Index",
+   "annotations"
+  ],
+  "n_negados": 2
+ },
+ "scipy": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "scrapling": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "seaborn": {
+  "n": 67,
+  "negados": [],
+  "n_negados": 0
+ },
+ "secretstorage": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "selectolax": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "semchunk": {
+  "n": 3,
+  "negados": [
+   "chunk"
+  ],
+  "n_negados": 1
+ },
+ "shapely": {
+  "n": 157,
+  "negados": [],
+  "n_negados": 0
+ },
+ "shellingham": {
+  "n": 4,
+  "negados": [
+   "ShellDetectionFailure"
+  ],
+  "n_negados": 1
+ },
+ "skimage": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sklearn": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "smart_open": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sniffio": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sortedcontainers": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "soupsieve": {
+  "n": 20,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "spacy_legacy": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "spacy_loggers": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sqlalchemy": {
+  "n": 252,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "srsly": {
+  "n": 24,
+  "negados": [
+   "is_yaml_serializable",
+   "json_dumps",
+   "msgpack_encoders",
+   "pickle_dumps",
+   "read_gzip_jsonl",
+   "read_json",
+   "read_jsonl",
+   "read_msgpack",
+   "read_yaml"
+  ],
+  "n_negados": 9
+ },
+ "sse_starlette": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "stack_data": {
+  "n": 15,
+  "negados": [
+   "Formatter",
+   "Serializer",
+   "Source"
+  ],
+  "n_negados": 3
+ },
+ "starlette": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "statsmodels": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "stripe": {
+  "n": 30,
+  "negados": [],
+  "n_negados": 0
+ },
+ "structlog": {
+  "n": 22,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sympy": {
+  "n": 901,
+  "negados": [
+   "AppliedPredicate",
+   "IndexedBase",
+   "Order",
+   "Point",
+   "Poly",
+   "Quaternion",
+   "Set",
+   "ShapeError",
+   "euler_equations",
+   "factorial",
+   "fft",
+   "flatten",
+   "init_session",
+   "integrate",
+   "nextprime",
+   "pager_print",
+   "parse_expr",
+   "plot",
+   "product",
+   "solve",
+   "sympify",
+   "to_cnf"
+  ],
+  "n_negados": 22
+ },
+ "syrupy": {
+  "n": 34,
+  "negados": [
+   "DEFAULT_EXTENSION",
+   "DiffMode",
+   "FailedToLoadModuleMember",
+   "PyTestLocation",
+   "SnapshotSession",
+   "disable_color",
+   "import_module_member",
+   "patch_pycharm_diff"
+  ],
+  "n_negados": 8
+ },
+ "tabulate": {
+  "n": 27,
+  "negados": [
+   "wcwidth"
+  ],
+  "n_negados": 1
+ },
+ "tantivy": {
+  "n": 23,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tenacity": {
+  "n": 68,
+  "negados": [
+   "FutureGenericT",
+   "tornado"
+  ],
+  "n_negados": 2
+ },
+ "tifffile": {
+  "n": 71,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tiktoken": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tinycss2": {
+  "n": 12,
+  "negados": [
+   "parse_blocks_contents",
+   "parse_component_value_list",
+   "parse_stylesheet_bytes",
+   "serialize"
+  ],
+  "n_negados": 4
+ },
+ "tinyhtml5": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tld": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tomli": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tomlkit": {
+  "n": 27,
+  "negados": [],
+  "n_negados": 0
+ },
+ "toon": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "toon_format": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "toons": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tqdm": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "traitlets": {
+  "n": 67,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_c": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_javascript": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_python": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_typescript": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "trio": {
+  "n": 67,
+  "negados": [
+   "annotations"
+  ],
+  "n_negados": 1
+ },
+ "trio_typing": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "trio_websocket": {
+  "n": 17,
+  "negados": [],
+  "n_negados": 0
+ },
+ "truststore": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typeguard": {
+  "n": 26,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typer": {
+  "n": 32,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typesafe_sdk": {
+  "n": 37,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typing_inspection": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tzdata": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tzlocal": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uncalled_for": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "upath": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uritemplate": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "urllib3": {
+  "n": 22,
+  "negados": [
+   "annotations",
+   "ssl"
+  ],
+  "n_negados": 2
+ },
+ "uuid_utils": {
+  "n": 22,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uvicorn": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uvloop": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "w3lib": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wasabi": {
+  "n": 12,
+  "negados": [
+   "MESSAGES",
+   "MarkdownRenderer",
+   "Printer",
+   "TracebackPrinter",
+   "color",
+   "row"
+  ],
+  "n_negados": 6
+ },
+ "watchdog": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "watchfiles": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wcwidth": {
+  "n": 25,
+  "negados": [
+   "AMBIGUOUS_EASTASIAN",
+   "SequenceTextWrapper",
+   "VS16_NARROW_TO_WIDE",
+   "WIDE_EASTASIAN",
+   "ZERO_WIDTH"
+  ],
+  "n_negados": 5
+ },
+ "weasel": {
+  "n": 1,
+  "negados": [
+   "app"
+  ],
+  "n_negados": 1
+ },
+ "weasyprint": {
+  "n": 24,
+  "negados": [
+   "LOGGER",
+   "UA_COUNTER_STYLE",
+   "URLFetcher",
+   "preprocess_stylesheet"
+  ],
+  "n_negados": 4
+ },
+ "webdriver_manager": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "webencodings": {
+  "n": 16,
+  "negados": [
+   "LABELS",
+   "unicode_literals"
+  ],
+  "n_negados": 2
+ },
+ "websocket": {
+  "n": 44,
+  "negados": [],
+  "n_negados": 0
+ },
+ "websockets": {
+  "n": 76,
+  "negados": [
+   "AbortHandshake",
+   "BasicAuthWebSocketServerProtocol",
+   "ClientConnection",
+   "ClientProtocol",
+   "Close",
+   "CloseCode",
+   "ConcurrencyError",
+   "ConnectionClosed",
+   "ConnectionClosedError",
+   "ConnectionClosedOK",
+   "Data",
+   "DuplicateParameter",
+   "ExtensionName",
+   "ExtensionParameter",
+   "Frame",
+   "Headers",
+   "HeadersLike",
+   "InvalidHandshake",
+   "InvalidHeader",
+   "InvalidHeaderFormat",
+   "InvalidHeaderValue",
+   "InvalidMessage",
+   "InvalidOrigin",
+   "InvalidParameterName",
+   "InvalidParameterValue",
+   "InvalidProxy",
+   "InvalidProxyMessage",
+   "InvalidProxyStatus",
+   "InvalidState",
+   "InvalidStatus"
+  ],
+  "n_negados": 75
+ },
+ "wrapt": {
+  "n": 34,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wsproto": {
+  "n": 7,
+  "negados": [
+   "Connection",
+   "H11Handshake",
+   "annotations"
+  ],
+  "n_negados": 3
+ },
+ "xlrd": {
+  "n": 52,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xlsxwriter": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xmlschema": {
+  "n": 62,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xsdata": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xxhash": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xyzservices": {
+  "n": 5,
+  "negados": [
+   "Bunch"
+  ],
+  "n_negados": 1
+ },
+ "yaml": {
+  "n": 88,
+  "negados": [],
+  "n_negados": 0
+ },
+ "yarl": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "zipp": {
+  "n": 16,
+  "negados": [
+   "Translator",
+   "save_method_args",
+   "text_encoding"
+  ],
+  "n_negados": 3
+ },
+ "zopfli": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "zstandard": {
+  "n": 80,
+  "negados": [
+   "BLOCKSIZELOG_MAX",
+   "BLOCKSIZE_MAX",
+   "Buffer",
+   "BufferSegment",
+   "BufferSegments",
+   "BufferWithSegments",
+   "BufferWithSegmentsCollection",
+   "CHAINLOG_MAX",
+   "CHAINLOG_MIN",
+   "COMPRESSION_RECOMMENDED_INPUT_SIZE",
+   "COMPRESSION_RECOMMENDED_OUTPUT_SIZE",
+   "COMPRESSOBJ_FLUSH_BLOCK",
+   "COMPRESSOBJ_FLUSH_FINISH",
+   "CONTENTSIZE_ERROR",
+   "CONTENTSIZE_UNKNOWN",
+   "DECOMPRESSION_RECOMMENDED_INPUT_SIZE",
+   "DECOMPRESSION_RECOMMENDED_OUTPUT_SIZE",
+   "DICT_TYPE_AUTO",
+   "DICT_TYPE_FULLDICT",
+   "DICT_TYPE_RAWCONTENT",
+   "FLUSH_BLOCK",
+   "FLUSH_FRAME",
+   "FORMAT_ZSTD1",
+   "FORMAT_ZSTD1_MAGICLESS",
+   "FRAME_HEADER",
+   "FrameParameters",
+   "HASHLOG_MAX",
+   "HASHLOG_MIN",
+   "LDM_BUCKETSIZELOG_MAX",
+   "LDM_MINMATCH_MAX"
+  ],
+  "n_negados": 72
+ }
+}

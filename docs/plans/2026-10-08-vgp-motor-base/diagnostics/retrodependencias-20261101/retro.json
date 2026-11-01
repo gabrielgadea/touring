@@ -1,0 +1,29 @@
+{
+ "escopo": "diagnóstico de sensibilidade da reconstrução; não é novo veredito nem reclassificação de rótulos",
+ "corpus": "20261101",
+ "motor": "30.4.102",
+ "entradas": 1000,
+ "por_balde": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "dependencias_locais": 21684,
+ "dependencias_alteradas": 5146,
+ "entradas_com_dependencia_alterada": 119,
+ "inconclusivo_reconstrucao": 53,
+ "alteradas_reconstruiveis": 109,
+ "comparacoes_motor": 109,
+ "unknown_outro_atual": 5,
+ "unknown_outro_historico": 5,
+ "inconclusivo_timeout_atual": 0,
+ "inconclusivo_timeout_historico": 0,
+ "mudanca_veredito_efetivo": 1,
+ "deny_para_nao_deny": 1,
+ "nao_deny_para_deny": 0,
+ "sem_mudanca_conhecida": 103,
+ "limite": "pacotes de terceiros não são congelados; mudança de veredito mede sensibilidade, não verdade do rótulo",
+ "controle_positivo_10607309d143": {
+  "atual": "deny",
+  "historico": "nao_deny"
+ }
+}

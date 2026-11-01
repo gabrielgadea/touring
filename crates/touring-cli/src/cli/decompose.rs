@@ -3,10 +3,13 @@
 //! Task/subtask CRUD + DAG validation (cycle detection) + status/finalize/ready
 //! over the decompose tables. `cli_decompose_finalize`/`cli_decompose_ready`
 //! are thin wrappers delegating to `crate::cli_handlers_decompose::*` (fully
-//! qualified). The shared `ensure_decompose_tables` helper stays in
-//! cli_handlers.rs.
+//! qualified). The schema helper is the COMPLETE one from
+//! `cli_handlers_decompose` (base tables + `migrate_decompose_columns`) —
+//! the `cli::shared` twin stops at the base schema, so a fresh db without a
+//! claim path never gained `claimed_by`/`claim_expires_at` and any SELECT
+//! naming them failed closed (12 get-only e2e tests, 2026-09-23).
 
-use crate::cli_handlers::ensure_decompose_tables;
+use crate::cli_handlers_decompose::ensure_decompose_tables;
 use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 use rusqlite::params;
@@ -39,10 +42,12 @@ fn task_in_db(db: &crate::knowledge::FileKnowledgeDB, task_id: &str) -> bool {
         .is_ok()
 }
 
-/// The store a task-addressed operation must run against.
+/// The store a task-addressed operation must run against. The owned global
+/// store is boxed: the enum is built once per call, and an inline database
+/// handle made every `Local` borrow as large as the handle.
 enum TaskStore<'a> {
     Local(&'a crate::knowledge::FileKnowledgeDB),
-    Global(crate::knowledge::FileKnowledgeDB),
+    Global(Box<crate::knowledge::FileKnowledgeDB>),
 }
 
 impl TaskStore<'_> {
@@ -64,6 +69,14 @@ fn locate_task_store<'a>(
     if task_in_db(local, task_id) {
         return Some(TaskStore::Local(local));
     }
+    let global = open_global_store()?;
+    task_in_db(&global, task_id).then(|| TaskStore::Global(Box::new(global)))
+}
+
+/// The global decompose store (`$HOME/.claude/touring/knowledge.db`), or `None` when it does not
+/// exist. The ONE place that spells the path: `locate_task_store` routes a task to it and the
+/// automatic retention pass sweeps it, and two copies of a path is how a store gets forgotten.
+pub(crate) fn open_global_store() -> Option<crate::knowledge::FileKnowledgeDB> {
     let home = std::env::var("HOME").ok()?;
     let global_path = std::path::Path::new(&home)
         .join(".claude")
@@ -72,8 +85,7 @@ fn locate_task_store<'a>(
     if !global_path.exists() {
         return None;
     }
-    let global = crate::knowledge::FileKnowledgeDB::new(&global_path).ok()?;
-    task_in_db(&global, task_id).then_some(TaskStore::Global(global))
+    crate::knowledge::FileKnowledgeDB::new(&global_path).ok()
 }
 
 /// Creates a new decomposition task (DAG root) from a task type and description, returning its id as JSON.
@@ -96,11 +108,28 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
         .and_then(|v| v.as_i64())
         .unwrap_or(3)
         .clamp(0, 6);
-    let priority_token = payload
-        .get("priority")
-        .and_then(|v| v.as_str())
-        .unwrap_or("normal")
-        .to_string();
+    // The SAME ONE parser as add/update (24/09/2026, touring-36): the create
+    // used to ECHO the token unvalidated — the response asserted a priority
+    // nobody had checked. Garbage is now a loud refusal naming the accepted
+    // forms; buckets echo back unchanged (backward compat), numbers echo the
+    // parsed form (label + int, like `add`).
+    let (priority_token, priority_int) = match payload.get("priority") {
+        None => ("normal".to_string(), 128),
+        Some(v) => match crate::cli_handlers_decompose::parse_priority(v) {
+            Ok(p) => (
+                crate::cli_handlers_decompose::priority_label(p).to_string(),
+                p,
+            ),
+            Err(msg) => {
+                return serde_json::json!({
+                    "status": "refused",
+                    "persisted": false,
+                    "error": msg,
+                })
+                .to_string();
+            }
+        },
+    };
     // F0-pre (2026-07-20): honor an explicit `task_id` from the payload. Always
     // generating a fresh nanos id here was the double-create engine: the two
     // task-sync callers (PostToolUse + TaskCreated event) each minted their own
@@ -146,6 +175,11 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
     if let Err(e) = &result {
         tracing::debug!("decompose create INSERT failed: {}", e);
     }
+    // Starting a plan is a natural moment to retire the old ones: `task-completed`, the other caller
+    // of the retention pass, fires only a few times a day (hook-trace census, 04/10/2026), too seldom
+    // for a pass to count as automatic. Project store only — a create must not reach into the user's
+    // global store from every hook and test; that arm belongs to `task-completed`.
+    let _retired = crate::cli_handlers_decompose::auto_archive_pass(db);
     crate::cli_handlers_decompose::log_event(
         db,
         &task_id,
@@ -169,7 +203,7 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
         { "task_id" : task_id, "task_type" : task_type, "description" : description,
         "status" : "created", "created_at" : now, "origin" : origin, "mirrored_to_cc" :
         mirrored_to_cc == 1, "cila_level" : cila_level, "priority" : priority_token,
-        "persisted" : result.is_ok(), "bandit_split_factor" : bandit_split_factor,
+        "priority_int" : priority_int, "persisted" : result.is_ok(), "bandit_split_factor" : bandit_split_factor,
         "bandit_subtasks" : bandit_subtasks,
         "tasksfile_subtasks_added" : tasksfile_subtasks_added, }
     )
@@ -200,6 +234,96 @@ pub fn cli_decompose_mark_mirrored(rt: &mut HookRuntime, payload: &serde_json::V
     )
     .to_string()
 }
+/// What a caller can SAY about a step: the part of the row that `add` writes. Everything a row
+/// earns by living — status, attempts, quality score, retry policy, claim, birth time — is not in
+/// here on purpose.
+struct SubtaskDef<'a> {
+    scoped_id: &'a str,
+    task_id: &'a str,
+    description: &'a str,
+    depends_on_json: &'a str,
+    priority: i64,
+    deadline: Option<&'a str>,
+    deadline_behavior: &'a str,
+    parallel_group: Option<&'a str>,
+    review_required: i32,
+    now: &'a str,
+}
+
+/// Insert the step, or RESTATE one that already exists. Returns the status the row holds afterwards
+/// and whether it was already there.
+///
+/// This used to be `INSERT OR REPLACE`, which deletes the old row and writes a new one: a closed
+/// step went back to `pending`, and every column the INSERT did not name (attempts, quality_score,
+/// retry_policy, the claim lease, created_at) went back to its default. Re-adding is how a caller
+/// restates what a step IS — its description and edges — and it must not undo the work. The
+/// conflict arm therefore names only the definition columns; everything else is untouched.
+///
+/// An id that already belongs to ANOTHER task is refused: the upsert would update that row in place
+/// and report `persisted` for a step that never reached the plan the caller named.
+fn upsert_subtask(
+    db: &crate::knowledge::FileKnowledgeDB,
+    def: &SubtaskDef<'_>,
+) -> Result<(String, bool), String> {
+    let prior: Option<(String, String)> = db
+        .conn_ref()
+        .query_row(
+            "SELECT task_id, status FROM decomposition_subtasks WHERE subtask_id = ?1",
+            params![def.scoped_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .ok();
+    // The ownership check is the conflict arm's own WHERE, so the refusal and the write are ONE
+    // atomic statement: reading the owner first and writing afterwards left a window in which a
+    // concurrent `add` for another task slipped into the conflict arm, overwrote the row's definition
+    // and answered `persisted` for a row it does not own (touring-a4, 04/10/2026). A refused arm
+    // changes zero rows.
+    let written = db
+        .conn_ref()
+        .execute(
+            "INSERT INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, NULL, NULL, 0, NULL, ?10, ?10) \
+             ON CONFLICT(subtask_id) DO UPDATE SET description = excluded.description, \
+             depends_on = excluded.depends_on, priority = excluded.priority, \
+             deadline = excluded.deadline, deadline_behavior = excluded.deadline_behavior, \
+             parallel_group = excluded.parallel_group, review_required = excluded.review_required, \
+             updated_at = excluded.updated_at \
+             WHERE decomposition_subtasks.task_id = excluded.task_id",
+            params![
+                def.scoped_id,
+                def.task_id,
+                def.description,
+                def.depends_on_json,
+                def.priority,
+                def.deadline,
+                def.deadline_behavior,
+                def.parallel_group,
+                def.review_required,
+                def.now
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    if written == 0 {
+        let owner: String = db
+            .conn_ref()
+            .query_row(
+                "SELECT task_id FROM decomposition_subtasks WHERE subtask_id = ?1",
+                params![def.scoped_id],
+                |r| r.get(0),
+            )
+            .unwrap_or_else(|_| "another task".to_string());
+        return Err(format!(
+            "subtask id {} already belongs to task {owner}",
+            def.scoped_id
+        ));
+    }
+    let existed = prior.is_some();
+    let status = prior
+        .map(|(_, status)| status)
+        .unwrap_or_else(|| "pending".to_string());
+    Ok((status, existed))
+}
+
 /// Adds a subtask to an existing task's DAG, recording its dependencies on other subtasks.
 pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     ensure_decompose_tables(&rt.ctx.knowledge);
@@ -224,11 +348,23 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 .collect()
         })
         .unwrap_or_default();
-    let priority_token = payload
-        .get("priority")
-        .and_then(|v| v.as_str())
-        .unwrap_or("normal");
-    let priority_int = crate::cli_handlers_decompose::parse_priority_token(priority_token);
+    // The ONE priority parser (24/09/2026, analise-d4): bucket OR integer,
+    // anything else a loud refusal — `--priority 100` used to be silently
+    // stored as "normal"/128 by the bucket-only parse.
+    let priority_int = match payload.get("priority") {
+        None => 128,
+        Some(v) => match crate::cli_handlers_decompose::parse_priority(v) {
+            Ok(p) => p,
+            Err(msg) => {
+                return serde_json::json!({
+                    "task_id": task_id,
+                    "persisted": false,
+                    "error": msg,
+                })
+                .to_string();
+            }
+        },
+    };
     let now = chrono::Utc::now().to_rfc3339();
     let local = &rt.ctx.knowledge;
     // F1-ROUTING: subtasks attach to the task's home store; a task in NO
@@ -259,17 +395,45 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .and_then(|v| v.as_str())
         .unwrap_or("Fail");
     let parallel_group = payload.get("parallel_group").and_then(|v| v.as_str());
-    let result = db
-        .conn_ref()
-        .execute(
-            "INSERT OR REPLACE INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, 0, NULL, NULL, 0, NULL, ?9, ?10)",
-            params![
-                scoped_id, task_id, description, deps_json, priority_int, deadline,
-                deadline_behavior, parallel_group, now, now
-            ],
-        );
-    if let Err(e) = &result {
-        tracing::debug!("decompose add INSERT failed: {}", e);
+    // `review_required` is the flag `cli_decompose_finalize` gates on. It was
+    // written as a literal 0 here, so the ONLY way to arm the gate was the
+    // tasksfile importer — a subtask created through the ordinary route could
+    // never require review, and the gate guarded nothing anybody could reach.
+    // Absent means 0, exactly as before.
+    let review_required = i32::from(
+        payload
+            .get("review_required")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+    );
+    let result = upsert_subtask(
+        db,
+        &SubtaskDef {
+            scoped_id: &scoped_id,
+            task_id,
+            description,
+            depends_on_json: &deps_json,
+            priority: priority_int,
+            deadline,
+            deadline_behavior,
+            parallel_group,
+            review_required,
+            now: &now,
+        },
+    );
+    let (status, existed) = match &result {
+        Ok((status, existed)) => (status.clone(), *existed),
+        Err(e) => {
+            tracing::debug!("decompose add upsert failed: {}", e);
+            ("pending".to_string(), false)
+        }
+    };
+    // The parent's status is DERIVED from its children, and `add` is a verb that can invalidate it:
+    // a plan closed as done/completed that just received an OPEN subtask is open again (cross-audit
+    // 03/10/2026, finding H). `db` is the store the upsert went to. A row that stayed terminal
+    // changes nothing for the derivation, so it neither re-derives nor bumps the plan's clock.
+    if result.is_ok() && !touring_foundation::task_lifecycle::is_terminal_task_status(&status) {
+        crate::cli_handlers_decompose::reopen_parent_if_closed(db, task_id, &now);
     }
     crate::cli_handlers_decompose::log_event(
         db,
@@ -282,14 +446,21 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             "deadline_behavior" : deadline_behavior }
         ),
     );
-    serde_json::json!(
+    let mut reply = serde_json::json!(
         { "task_id" : task_id, "subtask_id" : subtask_id, "scoped_id" : scoped_id,
-        "description" : description, "depends_on" : depends_on, "status" : "pending",
+        "description" : description, "depends_on" : depends_on, "status" : status,
+        "existed" : existed,
         "priority" : crate ::cli_handlers_decompose::priority_label(priority_int),
         "priority_int" : priority_int, "created_at" : now, "persisted" : result.is_ok(),
         "parallel_group" : parallel_group }
-    )
-    .to_string()
+    );
+    // The key exists ONLY on failure: the scaffold bridge reads the quoted word `"error"` in the raw
+    // reply as "the add failed" (`hook_decompose_bridge.rs`), so a `"error":null` on success logged a
+    // false failure for every scaffold stage of every mirrored task (independent review, 04/10/2026).
+    if let Err(reason) = &result {
+        reply["error"] = serde_json::Value::String(reason.clone());
+    }
+    reply.to_string()
 }
 /// Retrieves a task and its full subtask DAG as JSON.
 pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
@@ -322,11 +493,12 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             },
         )
         .ok();
+    let now_epoch = chrono::Utc::now().timestamp();
     let subtasks: Vec<serde_json::Value> = {
         let mut stmt = match db
             .conn_ref()
             .prepare(
-                "SELECT subtask_id, description, depends_on, status, priority FROM decomposition_subtasks WHERE task_id = ?1",
+                "SELECT subtask_id, description, depends_on, status, priority, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
             )
         {
             Ok(s) => s,
@@ -345,11 +517,20 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                     .map(String::from)
                     .collect()
             });
+            let claimed_by: Option<String> = r.get::<_, Option<String>>(5)?;
+            let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(6)?;
             Ok(serde_json::json!(
                 { "subtask_id" : r.get::< _, String > (0) ?, "description" :
                 r.get::< _, String > (1) ?, "depends_on" : depends_on,
                 "status" : r.get::< _, String > (3) ?, "priority" : r.get::<
-                _, i32 > (4) ? }
+                _, i32 > (4) ?,
+                // Coordenação 2026-09-23: the views name the owner, the lease
+                // and its liveness — "claimed by a live session" vs "abandoned
+                // work" must be distinguishable without the claim journal.
+                "claimed_by" : claimed_by,
+                "claim_expires_at" : claim_expires_at,
+                "claim_live" : claimed_by.is_some()
+                    && claim_expires_at.is_some_and(|e| e > now_epoch) }
             ))
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -381,10 +562,24 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let status = payload.get("status").and_then(|v| v.as_str()).unwrap_or("");
-    let priority = payload
-        .get("priority")
-        .and_then(|v| v.as_i64())
-        .map(|p| p as i32);
+    // The SAME ONE parser as `add` (24/09/2026): update used to read the
+    // payload as i64 only — a bucket string was silently ignored. Now both
+    // speak bucket and integer, and garbage is a named refusal.
+    let priority = match payload.get("priority") {
+        None => None,
+        Some(v) => match crate::cli_handlers_decompose::parse_priority(v) {
+            Ok(p) => Some(p as i32),
+            Err(msg) => {
+                return serde_json::json!({
+                    "task_id": task_id,
+                    "updated": false,
+                    "subtask_updated": false,
+                    "error": msg,
+                })
+                .to_string();
+            }
+        },
+    };
     let quality_score = payload.get("quality_score").and_then(|v| v.as_f64());
     let depends_on: Option<Vec<String>> = payload.get("depends_on").and_then(|v| {
         v.as_array().map(|arr| {
@@ -484,6 +679,30 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     } else {
         0
     };
+    // What a transition leaves behind besides the status itself — restored from the dead copy of
+    // this verb (`handlers/decompose.rs`, reached only from a test): the execution record that
+    // `cli-workflow-stats`/`-status` average, and on failure the retry decision (S1.3). It runs
+    // BEFORE the derivation below, because a retry puts the step back to `pending` and the parent
+    // has to reflect that.
+    let retry_scheduled = if has_subtask_id && subtask_affected > 0 {
+        let raw = payload
+            .get("subtask_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(task_id);
+        let scoped = if raw.contains("::") {
+            raw.to_string()
+        } else {
+            format!("{task_id}::{raw}")
+        };
+        crate::cli_handlers_decompose::record_subtask_transition(db, &scoped, status, payload)
+    } else {
+        false
+    };
+    // `updated` speaks of the PARENT and `subtask_updated` of the subtask; side by side they read as
+    // a contradiction — `{"subtask_updated":false,"updated":true}` is the payload that made a phase
+    // close declare success over a subtask that did not exist (25/08/2026). `subtask_missing`
+    // answers the question the caller actually has: "did the id I passed match anything?"
+    let subtask_missing = has_subtask_id && subtask_affected == 0;
     // Derivação do pai. Fica ANTES do bloco de eventos porque aquele bloco
     // retorna cedo para qualquer status fora de {in_progress, completed, failed}
     // — e `done`, o status que `loop_phase_close.py` emite, é justamente um deles.
@@ -491,6 +710,27 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
         crate::cli_handlers_decompose::refresh_parent_status(db, task_id, &now)
     } else {
         task_affected
+    };
+
+    // T3.1: a resolved DECISION also travels up to the map. Computed HERE rather
+    // than inside the event block below, because that block returns early for any
+    // status outside {in_progress, completed, failed} — and `done`, which
+    // `loop_phase_close.py` emits, is one of those.
+    let resolution_logged = if has_subtask_id {
+        let raw = payload
+            .get("subtask_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(task_id);
+        let scoped = if raw.contains("::") {
+            raw.to_string()
+        } else {
+            format!("{}::{}", task_id, raw)
+        };
+        crate::cli_handlers_decompose::propagate_resolution_to_map(
+            db, task_id, &scoped, status, &now,
+        )
+    } else {
+        false
     };
     if subtask_affected > 0 {
         let raw_subtask_id = payload
@@ -510,7 +750,9 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
                 return serde_json::json!(
                     { "task_id" : task_id, "status" : status, "updated" : task_affected >
                     0, "subtask_updated" : subtask_affected > 0, "priority" : priority,
-                    "quality_score" : quality_score }
+                    "quality_score" : quality_score, "resolution_logged" :
+                    resolution_logged, "retry_scheduled" : retry_scheduled,
+                    "subtask_missing" : subtask_missing }
                 )
                 .to_string();
             }
@@ -529,7 +771,8 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     serde_json::json!(
         { "task_id" : task_id, "status" : status, "updated" : task_affected > 0,
         "subtask_updated" : subtask_affected > 0, "priority" : priority, "quality_score"
-        : quality_score }
+        : quality_score, "resolution_logged" : resolution_logged, "retry_scheduled" :
+        retry_scheduled, "subtask_missing" : subtask_missing }
     )
     .to_string()
 }
@@ -712,38 +955,22 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         { "task_id" : task_id, "only_ready" : only_ready }
     );
     let result = crate::cli_handlers_decompose::cli_decompose_ready(rt, &delegate_payload);
-    if by_priority && let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&result) {
-        if let Some(arr) = val.get_mut("ready_subtasks").and_then(|v| v.as_array_mut()) {
-            arr.sort_by(|a, b| {
-                let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                pa.cmp(&pb)
-            });
-        }
-        if let Some(arr) = val
-            .get_mut("parallel_groups")
-            .and_then(|v| v.as_array_mut())
-        {
-            for group in arr {
-                if let Some(members) = group.get_mut("members").and_then(|v| v.as_array_mut()) {
-                    members.sort_by(|a, b| {
-                        let pa = a.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                        let pb = b.get("priority").and_then(|v| v.as_i64()).unwrap_or(255);
-                        pa.cmp(&pb)
-                    });
-                }
-            }
-        }
-        val.as_object_mut()
-            .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(true)));
-        return val.to_string();
-    }
+    // `--by-priority` é VERDADEIRA POR CONSTRUÇÃO desde a 30.4.67: o delegate
+    // (wayfinder) já devolve `queue_order(priority, id)` — a ordem exata que o
+    // claim entregaria. Antes a flag reordenava só por prioridade sobre a ordem
+    // de INSERTION do delegate: duas fontes de ordem, divergentes nos empates
+    // (tudo a 128: A6 antes de A3a). Resta o marcador — que registra a FLAG,
+    // não a ordem (a ordem é sempre a da fila agora).
     let mut val = match serde_json::from_str::<serde_json::Value>(&result) {
         Ok(v) => v,
         Err(_) => return result,
     };
-    val.as_object_mut()
-        .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(false)));
+    val.as_object_mut().map(|m| {
+        m.insert(
+            "sorted_by_priority".to_string(),
+            serde_json::json!(by_priority),
+        )
+    });
     val.to_string()
 }
 /// Handle decompose-event subcommand from touring-hook binary.

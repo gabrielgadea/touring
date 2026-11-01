@@ -52,6 +52,10 @@ impl KnowledgeSource for IntegrationKnowledge {
         ]
     }
 
+    fn recent_bash_outcomes_for_session(&self, _s: &str, limit: usize) -> Vec<BashOutcomeRecord> {
+        self.recent_bash_outcomes(limit)
+    }
+
     fn recent_bash_outcomes(&self, _limit: usize) -> Vec<BashOutcomeRecord> {
         vec![BashOutcomeRecord {
             command_short: "cargo test".into(),

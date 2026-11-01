@@ -1,0 +1,11 @@
+{
+  "phase": "P5",
+  "entities": [
+    {
+      "entity_id": "phase:P5",
+      "type": "phase",
+      "description": "P5 SKILLS DECK fechado: gate validate_p5 7/7 RC=0 (plugin gabriel.skills-deck enabled, omarchy-skill-run, menu JSONC, keybind SUPER+SHIFT+CTRL+S, runs.log com artefatos 5/5, caminho herdr corrigido). S-5.4 (repo GitHub do plugin) permanece bloqueado em humano: gh auth login + git (REGRA 11) \u2014 runbook em S-5.4-repo-runbook.md"
+    }
+  ],
+  "relations": []
+}

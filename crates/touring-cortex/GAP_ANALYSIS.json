@@ -84,11 +84,11 @@
   "critical_decisions": [
     "Gap 3: usar needs_cache_invalidation flag em CortexContext (nao passar Pipeline para Handler) — evita circular dependency",
     "Gap 4: constants em touring-learning (nao touring-cortex) porque touring-learning e o consumidor dos IDs",
-    "Gap 6: CLARIFICAR no ARCHITECTURE.md que LRU capacity ja e suficiente — Gap 6 e误解 (misunderstanding)"
+    "Gap 6: CLARIFICAR no ARCHITECTURE.md que LRU capacity ja e suficiente — Gap 6 e mal-entendido (misunderstanding)"
   ],
   "risks": [
     "Gap 4: mudanca de IDs RL pode invalidar QTable existente — requer warn no CHANGELOG e possivel migracao",
-    "Gap 1: adicionar timeout a handlers pode causar race condition se同一个 handler for chamado simultaneamente de multiplas threads — mas pipeline e single-thread entao seguro"
+    "Gap 1: adicionar timeout a handlers pode causar race condition se o mesmo handler for chamado simultaneamente de multiplas threads — mas pipeline e single-thread entao seguro"
   ],
   "recommendations": [
     "Ordem de implementacao: Gap 6 (trivial, apenas clarificar) -> Gap 1 (P1, critica) -> Gap 3 (P1, cache) -> Gap 5 (P2, DSPy fallback) -> Gap 2 (P2, lazy) -> Gap 7 (P3, BM25) -> Gap 4 (P3, RLM schema)"

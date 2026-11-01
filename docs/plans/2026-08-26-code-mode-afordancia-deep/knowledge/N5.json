@@ -1,0 +1,11 @@
+{
+  "phase": "N5",
+  "entities": [
+    {
+      "entity_id": "phase:N5",
+      "type": "phase",
+      "description": "KPI injecao nativa medido nas 2 pontas. MINERADOR (scripts/n5_injection_kpi.py + 5 testes): baseline de 31 transcripts \u2014 overall 52.5% seguida (313f/283r), serie diaria 2.2%\u219244.7%\u219277.5%\u219233.3%, code_route explodindo (79\u2192395). Relatorio OKF no bundle (n5-injection-kpi.md). ESTRUTURAL: 3 contadores (native_injection_{followed,resisted,code_route}) em gate_metrics + snapshot, record_native_injection no hook ANTES dos gates (escolha, nao execucao); classificador puro native_injection_class espelha o python 1:1 (paridade guardada pelos mesmos casos nos 2 lados). Ressalva documentada: 'followed' inclui grep legitimo em pipe \u2014 e proxy de pressao. cli 444 + foundation 485 passed; clippy limpo."
+    }
+  ],
+  "relations": []
+}

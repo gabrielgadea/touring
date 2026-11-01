@@ -152,6 +152,11 @@ pub fn record_enrichment_emitted(bytes: usize) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+// Every test here measures before/after deltas of the ONE process-global
+// counter set, so any two of them interleaving corrupts each other's delta
+// (observe_increments_captured flaked exactly this way, 21/08/2026 — and the
+// `delta == 0` assertions cannot be rescued by an inequality). The named
+// serial group keeps them sequential among themselves only.
 mod tests {
     use super::*;
     use std::sync::atomic::Ordering;
@@ -160,6 +165,7 @@ mod tests {
     // ── P7.1 unit tests (9 total) ─────────────────────────────────────────────
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn ceg_captured_increments_global_counter() {
         let before = global().ceg_captured_count.load(Ordering::Relaxed);
         record_ceg_captured();
@@ -172,6 +178,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn ceg_blocked_increments_global_counter() {
         let before = global().ceg_blocked_count.load(Ordering::Relaxed);
         record_ceg_blocked();
@@ -180,6 +187,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn ceg_sandboxed_increments_global_counter() {
         let before = global().ceg_sandboxed_count.load(Ordering::Relaxed);
         record_ceg_sandboxed();
@@ -192,6 +200,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn ceg_fast_path_increments_global_counter() {
         let before = global().ceg_fast_path_count.load(Ordering::Relaxed);
         record_ceg_fast_path();
@@ -204,6 +213,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn workflow_antipattern_detected_increments_global_counter() {
         let before = global()
             .workflow_antipattern_detected_count
@@ -220,6 +230,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn workflow_advice_emitted_increments_global_counter() {
         let before = global()
             .workflow_advice_emitted_count
@@ -236,6 +247,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn antipattern_converted_increments_global_counter() {
         let before = global().antipattern_converted_count.load(Ordering::Relaxed);
         record_antipattern_converted();
@@ -248,6 +260,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn multiple_increments_are_additive() {
         let before = global().ceg_captured_count.load(Ordering::Relaxed);
         record_ceg_captured();
@@ -258,6 +271,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn snapshot_contains_ceg_fields_and_serializes() {
         // Exercise every counter once so the snapshot is non-trivially populated.
         record_ceg_captured();
@@ -325,6 +339,7 @@ mod tests {
     /// requiring a `HookRuntime`. Verifies the helper that backs the native
     /// `pre-bash` CEG observability wire.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn observe_increments_captured_and_returns_outcome() {
         use super::super::pre_exec::observe;
         let before = global().ceg_captured_count.load(Ordering::Relaxed);
@@ -340,6 +355,7 @@ mod tests {
     /// `observe()` must fail-open on a non-code-bearing tool — returns `None`
     /// and does NOT increment any counter.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn observe_returns_none_and_no_counter_for_non_code_bearing_tool() {
         use super::super::pre_exec::observe;
         let before = global().ceg_captured_count.load(Ordering::Relaxed);
@@ -356,6 +372,7 @@ mod tests {
     /// terminal verdict to exactly one counter. Verifies the dispatch table
     /// the CEG observability boundary fix depends on.
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn record_verdict_counters_dispatches_each_arm() {
         use super::super::decision::Verdict;
         // Allow → fast_path

@@ -24,6 +24,15 @@
 #   TOURING_HOOK_SHIM_FORCE_BIN=…  — bypass the walk-up entirely, use this path
 #   TOURING_HOME                   — override ~/.touring (default user-toolchain root)
 #   CLAUDE_PROJECT_DIR             — start walk-up here instead of $PWD
+#   TOURING_HOOK_INJECTION         — policy of CONTEXT injection (26/10/2026):
+#                                     full         (default) — unchanged behaviour
+#                                     no-advisory  — suppress the advisory families
+#                                                   (nudges, echoes, raw stdout)
+#                                     off          — suppress every injected context
+#                                   The hook's DECISION is never touched: the
+#                                   permissionDecision / decision / exit code and
+#                                   the reason text pass through intact, so a hook
+#                                   that blocks still blocks.
 #
 # Exit code: forwarded from the resolved binary, OR 0 if no binary found.
 
@@ -36,24 +45,112 @@ trace() {
     fi
 }
 
+# ── Context-injection policy (26/10/2026) ────────────────────────────────────
+# One switch for the whole class of "context the hook pushes into the model".
+# The corpus that motivated it: 1.028 sessions / 21 days, 440.867 hook
+# invocations, 61.499.972 B injetados = 27,8% da janela do modelo; 25,1% dos
+# bytes byte-idênticos (entropia condicional 0); 9,0% stdout de depuração cru.
+#
+# O que este interruptor NÃO faz: tocar a decisão do hook. O enforcement mora
+# em `permissionDecision` / `decision` / exit code; o contexto mora em
+# `hookSpecificOutput.additionalContext`. Só o segundo é filtrado.
+#
+# `full` (padrão) mantém o `exec` direto — caminho idêntico ao de sempre, sem
+# processo extra e sem mudança de latência.
+injection_policy="${TOURING_HOOK_INJECTION:-full}"
+case "$injection_policy" in
+    full|no-advisory|off) ;;
+    *) injection_policy="full" ;;
+esac
+
+shim_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || echo "")"
+injection_filter=""
+for cand in \
+    "${shim_dir:-/nonexistent}/injection_policy.py" \
+    "$HOME/.claude/hooks/injection_policy.py" \
+    "$HOME/projects/touring/client/hooks/injection_policy.py"; do
+    if [[ -f "$cand" ]]; then
+        injection_filter="$cand"
+        break
+    fi
+done
+if [[ "$injection_policy" != "full" && -z "$injection_filter" ]]; then
+    trace "policy=$injection_policy mas injection_policy.py nao encontrado — fail-open (sem filtragem)"
+    injection_policy="full"
+fi
+
+# run_touring_hook <bin> <args...> — executa o hook aplicando a política de contexto.
+# Se o filtro falhar, a SAÍDA ORIGINAL passa inteira (fail-open): perder um
+# deny é risco de segurança; deixar de suprimir contexto é custo, não risco.
+# (nome próprio para não colidir com o símbolo `dispatch` do índice Rust)
+run_touring_hook() {
+    local bin="$1"; shift
+    if [[ "$injection_policy" == "full" ]]; then
+        exec "$bin" "$@"
+    fi
+    local out rc filtered
+    out="$("$bin" "$@")"
+    rc=$?
+    if [[ -z "$out" ]]; then
+        exit "$rc"
+    fi
+    if filtered="$(printf '%s' "$out" | python3 "$injection_filter" --filter "$injection_policy" 2>/dev/null)"; then
+        printf '%s' "$filtered"
+    else
+        printf 'touring-hook-shim: filtro de injecao falhou — saida sem filtrar (fail-open: decisao > contexto)\n' >&2
+        printf '%s' "$out"
+    fi
+    exit "$rc"
+}
+
 # ── Layer 1: explicit override ───────────────────────────────────────────────
 if [[ -n "${TOURING_HOOK_SHIM_FORCE_BIN:-}" ]]; then
     if [[ -x "$TOURING_HOOK_SHIM_FORCE_BIN" ]]; then
         trace "force_bin: $TOURING_HOOK_SHIM_FORCE_BIN"
-        exec "$TOURING_HOOK_SHIM_FORCE_BIN" "$@"
+        run_touring_hook "$TOURING_HOOK_SHIM_FORCE_BIN" "$@"
     fi
     trace "force_bin not executable, falling through: $TOURING_HOOK_SHIM_FORCE_BIN"
 fi
 
 # ── Layer 2: per-project walk-up ─────────────────────────────────────────────
+# Trust boundary (17/10/2026, ECC analysis C2): this shim runs at USER level on every hook event, so exec'ing
+# whatever `.touring/bin/touring-hook` a repository carries ran repository code as the user, around Claude
+# Code's folder trust. A per-project binary is trusted only when it resolves INTO the user's installed
+# toolchains (what `touring update --project` links to), is owned by the user and is not group/other-writable.
+# Anything else is ignored, logged once, and the walk continues; a nearer untrusted file never shadows a
+# trusted pin further up. Guarded by scripts/test_touring_hook_shim.py.
+touring_home="${TOURING_HOME:-$HOME/.touring}"
 start_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
+project_bin_trusted() {
+    local real root owner perm
+    real=$(readlink -f -- "$1" 2>/dev/null) || return 1
+    root=$(readlink -f -- "$touring_home/toolchains" 2>/dev/null) || return 1
+    [[ -n "$real" && -n "$root" && "$real" == "$root"/* ]] || return 1
+    read -r owner perm < <(stat -c '%u %A' -- "$real" 2>/dev/null) || return 1
+    [[ "$owner" == "$EUID" ]] || return 1
+    # %A is e.g. -rwxr-xr-x: index 5 is the group write bit, index 8 the other write bit.
+    [[ "${perm:5:1}" != "w" && "${perm:8:1}" != "w" ]]
+}
+note_rejected() {
+    local log_dir="$HOME/.claude/touring/logs"
+    local log="$log_dir/hook-shim-rejected.log"
+    trace "untrusted project_bin ignored: $1"
+    mkdir -p "$log_dir" 2>/dev/null || return 0
+    grep -qsF -- "$1 " "$log" && return 0
+    printf '%s %s -> %s: not inside %s/toolchains, or not owned by uid %s, or group/other-writable\n' \
+        "$(date -Is)" "$1" "$(readlink -f -- "$1" 2>/dev/null)" "$touring_home" "$EUID" >>"$log" 2>/dev/null
+    printf 'touring-hook-shim: ignored untrusted %s (logged in %s)\n' "$1" "$log" >&2
+}
 walk_up_project_bin() {
     local dir="$1"
     while :; do
         local candidate="$dir/.touring/bin/touring-hook"
         if [[ -x "$candidate" ]]; then
-            printf '%s' "$candidate"
-            return 0
+            if project_bin_trusted "$candidate"; then
+                printf '%s' "$candidate"
+                return 0
+            fi
+            note_rejected "$candidate"
         fi
         # Stop at root (parent == self)
         local parent
@@ -66,12 +163,11 @@ walk_up_project_bin() {
 }
 if project_bin=$(walk_up_project_bin "$start_dir"); then
     trace "project_bin: $project_bin (from $start_dir)"
-    exec "$project_bin" "$@"
+    run_touring_hook "$project_bin" "$@"
 fi
 trace "no project_bin found from $start_dir"
 
 # ── Layer 3: user-default toolchain ──────────────────────────────────────────
-touring_home="${TOURING_HOME:-$HOME/.touring}"
 default_file="$touring_home/default"
 if [[ -f "$default_file" ]]; then
     default_version=$(head -n 1 "$default_file" | tr -d '[:space:]')
@@ -79,7 +175,7 @@ if [[ -f "$default_file" ]]; then
         user_bin="$touring_home/toolchains/$default_version/bin/touring-hook"
         if [[ -x "$user_bin" ]]; then
             trace "user_bin: $user_bin (version=$default_version)"
-            exec "$user_bin" "$@"
+            run_touring_hook "$user_bin" "$@"
         fi
         trace "user_bin not executable: $user_bin"
     else
@@ -99,7 +195,7 @@ for global_bin in \
     "$HOME/projects/touring/target/release/touring-hook"; do
     if [[ -x "$global_bin" ]]; then
         trace "global_bin: $global_bin"
-        exec "$global_bin" "$@"
+        run_touring_hook "$global_bin" "$@"
     fi
 done
 

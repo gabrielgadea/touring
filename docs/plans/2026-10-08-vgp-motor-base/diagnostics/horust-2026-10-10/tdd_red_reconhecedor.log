@@ -1,0 +1,272 @@
+FFFFFFFF.FFF.........F                                                   [100%]
+=================================== FAILURES ===================================
+_ test_reconhece_o_cargo_atras_dos_envoltorios[scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code] _
+
+cmd = 'scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code] _
+
+cmd = 'cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace] _
+
+cmd = 'hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace] _
+
+cmd = 'env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[env -u A -u B VAR=1 cargo build --release] _
+
+cmd = 'env -u A -u B VAR=1 cargo build --release'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: env -u A -u B VAR=1 cargo build --release
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('env -u A -u B VAR=1 cargo build --release')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release] _
+
+cmd = 'CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[nohup nice -n 19 cargo test -p x] _
+
+cmd = 'nohup nice -n 19 cargo test -p x'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: nohup nice -n 19 cargo test -p x
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('nohup nice -n 19 cargo test -p x')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+_ test_reconhece_o_cargo_atras_dos_envoltorios[timeout -k 5 600 cargo nextest run] _
+
+cmd = 'timeout -k 5 600 cargo nextest run'
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code",
+            "cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code",
+            "hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace",
+            "env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace",
+            "env -u A -u B VAR=1 cargo build --release",
+            "CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release",
+            "nohup nice -n 19 cargo test -p x",
+            "timeout -k 5 600 cargo nextest run",
+            "time cargo check",
+        ],
+    )
+    def test_reconhece_o_cargo_atras_dos_envoltorios(cmd):
+>       assert len(subs(cmd)) == 1, cmd
+E       AssertionError: timeout -k 5 600 cargo nextest run
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = subs('timeout -k 5 600 cargo nextest run')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:44: AssertionError
+__________ test_o_original_nao_reconhece_o_que_o_estendido_reconhece ___________
+
+    def test_o_original_nao_reconhece_o_que_o_estendido_reconhece():
+        cmd = "scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code"
+>       assert crn.analisar_cargo(cmd) == () and subs(cmd) == ["test"]
+E       AssertionError: assert (() == ()
+E         
+E         Use -v to get more diff and [] == ['test']
+E         
+E         Right contains one more item: 'test'
+E         Use -v to get more diff)
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:49: AssertionError
+__________ test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos ___________
+
+    def test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos():
+        inv = rec.analisar_cargo_estendido("cd ~/projects/touring && ./scripts/hw-slot --class rust -- bash -c 'cargo check -p touring-code 2>&1 | tail -3'")
+>       assert [(i.sub, i.pacotes, i.base) for i in inv] == [("check", ("touring-code",), "~/projects/touring")]
+E       AssertionError: assert [] == [('check', ('...cts/touring')]
+E         
+E         Right contains one more item: ('check', ('touring-code',), '~/projects/touring')
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:54: AssertionError
+_________________ test_bash_c_com_varios_cargos_e_separadores __________________
+
+    def test_bash_c_com_varios_cargos_e_separadores():
+>       assert subs("bash -c 'cargo check -p a && cargo test -p b'") == ["check", "test"]
+E       AssertionError: assert [] == ['check', 'test']
+E         
+E         Right contains 2 more items, first extra item: 'check'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:60: AssertionError
+______________________ test_instala_e_restaura_no_gerador ______________________
+
+    def test_instala_e_restaura_no_gerador():
+        original = crn.analisar_cargo
+        rec.instalar()
+        try:
+            assert crn.analisar_cargo is rec.analisar_cargo_estendido
+>           assert len(crn.analisar_cargo("hw-slot --class rust --wait 9 -- cargo check")) == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = len(())
+E            +    where () = <function analisar_cargo_estendido at 0x7ee9cea88b40>('hw-slot --class rust --wait 9 -- cargo check')
+E            +      where <function analisar_cargo_estendido at 0x7ee9cea88b40> = crn.analisar_cargo
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py:90: AssertionError
+=========================== short test summary info ============================
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[env -u A -u B VAR=1 cargo build --release]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[nohup nice -n 19 cargo test -p x]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_reconhece_o_cargo_atras_dos_envoltorios[timeout -k 5 600 cargo nextest run]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_o_original_nao_reconhece_o_que_o_estendido_reconhece
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_bash_c_com_varios_cargos_e_separadores
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_reconhecedor_cargo_estendido.py::test_instala_e_restaura_no_gerador
+12 failed, 10 passed in 0.06s

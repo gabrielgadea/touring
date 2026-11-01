@@ -108,13 +108,66 @@ fn is_curated(name: &str) -> bool {
     CURATED_TOOLS.contains(&name)
 }
 
-/// Apply the curated allowlist to a full tool list. Returns the list unchanged
-/// when `TOURING_MCP_ALL_TOOLS` is set (any value) — the runtime escape hatch;
-/// otherwise keeps only [`CURATED_TOOLS`] (input order preserved). A curated
-/// name absent from `all` is simply skipped, so the filter is rename-resilient.
-fn apply_curation(all: Vec<rmcp::model::Tool>) -> Vec<rmcp::model::Tool> {
+/// W7 T2 — the code-first MCP surface: the Cloudflare search+execute pair plus
+/// memory. Every other registered tool stays invocable by NAME via
+/// `tools/call`; only the handshake advertisement shrinks (progressive
+/// disclosure at its floor — 3 tools ≈ the −99.9% shape of the pattern).
+const CODE_MODE_TOOLS: &[&str] = &[
+    "touring_search",
+    "touring_ctx_execute",
+    "touring_memory_recall",
+];
+
+/// Whether the code-first façade applies, given the scope's declaration.
+///
+/// S1 TRANSPORT (2026-08-27) — the façade used to require
+/// `TOURING_MCP_CODE_MODE=1` on every session, so a project that had already
+/// declared `[code_mode] mode = "code"` still received the full ~22-tool
+/// handshake. That is the failure mode this workspace names *affordance that
+/// ships switched off breaks in silence*: the declaration existed, the executor
+/// ignored it. Now the scope's own declaration is what arms it, and the env var
+/// is only the per-session override.
+///
+/// Precedence, outermost first:
+///
+/// 1. `TOURING_MCP_ALL_TOOLS` (any value) — the escape hatch: list everything.
+/// 2. `TOURING_MCP_CODE_MODE=1` forces the façade; `=0` forces it OFF even in a
+///    `code` scope (the human kill switch, symmetric to `TOURING_CODE_MODE=native`
+///    on the hook side). Any other value is ignored rather than silently
+///    treated as one of the two.
+/// 3. `[code_mode] mode` in `<project>/.touring/touring.toml` — `code` arms the
+///    façade; `native` and `both` keep the curated surface.
+/// 4. Otherwise the curated default.
+///
+/// Only the ADVERTISEMENT narrows. Every hidden tool stays invocable by name
+/// via `tools/call`, exactly as under [`CURATED_TOOLS`] — the façade is
+/// progressive disclosure, never a capability cut.
+fn code_mode_facade_applies(project_root: &std::path::Path) -> bool {
+    match std::env::var("TOURING_MCP_CODE_MODE").as_deref() {
+        Ok("1") => return true,
+        Ok("0") => return false,
+        _ => {}
+    }
+    touring_foundation::code_mode::project_presentation(project_root)
+        == Some(touring_foundation::code_mode::CodeModePresentation::Code)
+}
+
+/// Apply the curated allowlist to a full tool list, honouring the scope's
+/// code-mode declaration (see [`code_mode_facade_applies`] for the precedence).
+/// Input order is preserved, and a listed name absent from `all` is simply
+/// skipped, so the filter is rename-resilient.
+fn apply_curation(
+    all: Vec<rmcp::model::Tool>,
+    project_root: &std::path::Path,
+) -> Vec<rmcp::model::Tool> {
     if std::env::var_os("TOURING_MCP_ALL_TOOLS").is_some() {
         return all;
+    }
+    if code_mode_facade_applies(project_root) {
+        return all
+            .into_iter()
+            .filter(|t| CODE_MODE_TOOLS.contains(&t.name.as_ref()))
+            .collect();
     }
     all.into_iter()
         .filter(|t| is_curated(t.name.as_ref()))
@@ -123,7 +176,21 @@ fn apply_curation(all: Vec<rmcp::model::Tool>) -> Vec<rmcp::model::Tool> {
 
 #[cfg(test)]
 mod curation_tests {
-    use super::{CURATED_TOOLS, is_curated};
+    use super::{CODE_MODE_TOOLS, CURATED_TOOLS, is_curated};
+
+    /// W7 T2 — the code-first surface is exactly the search+execute pair plus
+    /// memory, and every one of them is also in the default curated set (the
+    /// façade narrows, never invents).
+    #[test]
+    fn code_mode_curation_exposes_three_tools() {
+        assert_eq!(CODE_MODE_TOOLS.len(), 3);
+        for t in CODE_MODE_TOOLS {
+            assert!(is_curated(t), "{t} must also be in the curated default");
+        }
+        assert!(CODE_MODE_TOOLS.contains(&"touring_search"));
+        assert!(CODE_MODE_TOOLS.contains(&"touring_ctx_execute"));
+        assert!(CODE_MODE_TOOLS.contains(&"touring_memory_recall"));
+    }
 
     #[test]
     fn curated_surface_is_lean_with_entry_points() {
@@ -142,6 +209,96 @@ mod curation_tests {
         assert!(!is_curated("touring_ctx_smart"));
         assert!(!is_curated("touring_evolution_drift"));
         assert!(!is_curated("nonexistent_tool"));
+    }
+
+    /// S1 TRANSPORT — a scope that declares `mode = "code"` gets the façade
+    /// WITHOUT any env var. This is the whole point: the declaration in
+    /// `touring.toml` is what arms the collapse, not a flag each session must
+    /// remember to export.
+    #[test]
+    fn code_scope_arms_the_facade_without_env() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_scope(tmp.path(), "code");
+        assert!(facade_without_env(tmp.path()));
+    }
+
+    /// `native` and `both` keep the curated surface — the façade narrows only
+    /// where the scope asked for it. Failing to the status quo is the rule:
+    /// never collapse a surface nobody declared.
+    #[test]
+    fn other_scopes_keep_the_curated_surface() {
+        for modo in ["native", "both"] {
+            let tmp = tempfile::tempdir().expect("tempdir");
+            write_scope(tmp.path(), modo);
+            assert!(!facade_without_env(tmp.path()), "mode={modo}");
+        }
+    }
+
+    /// No `.touring/touring.toml` at all — curated, as before this change.
+    #[test]
+    fn undeclared_scope_keeps_the_curated_surface() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        assert!(!facade_without_env(tmp.path()));
+    }
+
+    /// An unrecognised value is NOT read as a collapse — it falls through to
+    /// the curated default.
+    #[test]
+    fn unknown_declared_value_does_not_collapse() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        write_scope(tmp.path(), "turbo");
+        assert!(!facade_without_env(tmp.path()));
+    }
+
+    /// The filter itself: under the façade exactly the three tools survive, and
+    /// each survivor is a real member of `CODE_MODE_TOOLS` — proving the
+    /// advertisement narrows rather than emptying.
+    #[test]
+    fn facade_filter_keeps_exactly_the_three_tools() {
+        let names = [
+            "touring_search",
+            "touring_ctx_execute",
+            "touring_memory_recall",
+            "touring_ast_meta",
+            "touring_wiring",
+        ];
+        let kept: Vec<&str> = names
+            .iter()
+            .copied()
+            .filter(|n| CODE_MODE_TOOLS.contains(n))
+            .collect();
+        assert_eq!(kept.len(), 3, "kept={kept:?}");
+        let curated = names.iter().copied().filter(|n| is_curated(n)).count();
+        assert!(
+            curated > kept.len(),
+            "the façade must be strictly narrower than the curated surface"
+        );
+    }
+
+    /// Write a scope declaration and read the façade decision back. The env var
+    /// is the per-session override and is NOT set here, so what these tests
+    /// observe is the scope path alone.
+    fn write_scope(root: &std::path::Path, modo: &str) {
+        let dir = root.join(".touring");
+        std::fs::create_dir_all(&dir).expect("mkdir .touring");
+        std::fs::write(
+            dir.join("touring.toml"),
+            format!("[code_mode]\nmode = \"{modo}\"\n"),
+        )
+        .expect("write touring.toml");
+    }
+
+    /// The scope half of the precedence, isolated from the process environment.
+    ///
+    /// `code_mode_facade_applies` reads `TOURING_MCP_CODE_MODE`, and env is
+    /// process-global: asserting on it here would make these tests order-
+    /// dependent against every other test in the binary (the flaky-by-global-
+    /// state disease already paid for in this workspace, 2026-08-25). So the
+    /// scope path is exercised directly, and the env override is documented on
+    /// `code_mode_facade_applies` where it is implemented.
+    fn facade_without_env(root: &std::path::Path) -> bool {
+        touring_foundation::code_mode::project_presentation(root)
+            == Some(touring_foundation::code_mode::CodeModePresentation::Code)
     }
 
     #[test]
@@ -205,6 +362,13 @@ fn init_memory_store(
         if embedder.is_some() { "active" } else { "none" }
     );
     Some(Arc::new(Mutex::new(store)))
+}
+
+/// The database of the persisted learning state (Wilson, drift, QTable, LinUCB)
+/// and of the hook events it learns from: the project's consolidated graph.db.
+/// One path for the loader and the learning loop.
+fn learning_db_path(project_root: &std::path::Path) -> std::path::PathBuf {
+    TouringConfig::graph_db_canonical(project_root)
 }
 
 /// Load persisted learning state (WilsonRanker, DriftDetector, QTable).
@@ -434,7 +598,7 @@ impl TouringServer {
         let session_manager = Arc::new(Mutex::new(SessionManager::new()));
 
         // Phase 6: Persisted learning state (consolidated graph.db)
-        let graph_db = TouringConfig::graph_db_canonical(&config.project_root);
+        let graph_db = learning_db_path(&config.project_root);
         let (ranker_inner, drift_inner) = init_learning_state(&graph_db, &mut qtable_inner);
         let qtable = Arc::new(Mutex::new(qtable_inner));
         let ranker = Arc::new(Mutex::new(ranker_inner));
@@ -542,10 +706,7 @@ impl TouringServer {
                 // W2 (task_1780763041476850005) — gated behind mcp-curated.
                 // Each W2 tool has its own #[tool_router] macro (one per
                 // impl block): router_tdg, router_hook_metrics,
-                // router_cortex_classify. W1.2 FamilyRouter is a skeleton
-                // only (StatusFamily enum + StatusInput struct); no
-                // #[tool_router] needed until W2.5 adds the actual
-                // touring_status tool.
+                // router_cortex_classify.
                 #[cfg(feature = "mcp-curated")]
                 {
                     tr.merge(Self::router_tdg());
@@ -582,14 +743,11 @@ mod tools_tantivy;
 // call across several detection engines. `touring_audit` = offensive CWE/OWASP
 // engine + 6 P0 BLOCK quality dims → one ranked failure/gap report.
 pub(crate) mod tools_workflow; // R3 — run_audit engine reused by the `touring audit` CLI adapter
-// W1.2 (task_1780763041476850005) — FamilyRouter consolidating 9 *_status
-// tools into 1 touring_status MCP tool with enum family. Opt-in via
-// --features mcp-curated during the 30-day migration window.
-// `pub` so the documented curated `touring_status` contract (StatusFamily +
-// StatusInput) is reachable public API until the W2.5 `#[tool]` router
-// consumes it internally — keeps the tested skeleton wired, not dead.
-#[cfg(feature = "mcp-curated")]
-pub mod tools_status;
+// W1.2 planned a `touring_status` FamilyRouter (StatusFamily + StatusInput) to
+// absorb 9 `*_status` tools; W2.5, the `#[tool]` that would consume it, never
+// landed, while `mcp-curated` became the default and W4 removed `mcp-legacy`.
+// The skeleton was removed on 18/09/2026 (orphans audit): a public contract no
+// router reads is a promise the MCP surface does not keep.
 // W2 (task_1780763041476850005) — 3 new MCP tools (tdg, hook_metrics,
 // cortex_classify) that fill gaps identified in FASE 1 SCOUT. Opt-in
 // via --features mcp-curated. Includes 5 unit tests.
@@ -673,7 +831,7 @@ impl ServerHandler for TouringServer {
     ) -> Result<rmcp::model::ListToolsResult, rmcp::ErrorData> {
         // C2 — curate the default surface to ~22 tools (TOURING_MCP_ALL_TOOLS
         // lists all). `call_tool` is unfiltered, so hidden tools stay callable.
-        let all = apply_curation(self.tool_router.list_all());
+        let all = apply_curation(self.tool_router.list_all(), &self.config.project_root);
 
         let page_size = std::env::var("TOURING_TOOLS_LIST_PAGE_SIZE")
             .ok()
@@ -992,6 +1150,13 @@ impl TouringServer {
             let online_rl_bg = Arc::clone(&self.online_rl);
             let interval_s = self.config.evolution_interval_s;
             let db_path = self.config.rlm_db_path.clone();
+            // Learning state and the hook events it learns from live in graph.db,
+            // where `init_learning_state` created and loaded them. This loop used
+            // the RLM memory path for them: the events query found no table and
+            // returned nothing, and every tick failed to save the QTable ("no such
+            // table: learning_qtable") — auto_learn never learned (cross-audit
+            // 14/09/2026, R2-10).
+            let learning_db = learning_db_path(&self.config.project_root);
 
             tokio::spawn(async move {
                 let mut ticker = tokio::time::interval(std::time::Duration::from_secs(interval_s));
@@ -1015,7 +1180,7 @@ impl TouringServer {
                     let mut ranker_tick = WilsonRanker::new();
                     let mut drift_tick = DriftDetector::new();
                     {
-                        let p = LearningPersistence::new(&db_path);
+                        let p = LearningPersistence::new(&learning_db);
                         let _ = p.load_wilson(&mut ranker_tick);
                         let _ = p.load_drift(&mut drift_tick);
                     }
@@ -1027,11 +1192,17 @@ impl TouringServer {
                     if !insights.is_empty() {
                         info!("Evolution engine: {} insights generated", insights.len());
 
-                        // Store insights as memory entries
+                        // Store insights as memory entries. The key is
+                        // content-addressed (REGRA #17) — the same finding
+                        // upserts instead of piling up a row per tick
+                        // (7,506 identical rows measured 2026-10-01).
                         let store_lock = store.lock().await;
                         for insight in &insights {
                             let entry = MemoryEntry::new(
-                                format!("insight:{}:{}", insight.category, insight.created_at),
+                                touring_intelligence::rl::evolution::insights::insight_key(
+                                    &insight.category,
+                                    &insight.message,
+                                ),
                                 "reference",
                                 &insight.message,
                             )
@@ -1044,7 +1215,7 @@ impl TouringServer {
                     }
 
                     // Auto-learn: feed recent hook events into QTable (Bellman updates)
-                    let persistence = LearningPersistence::new(&db_path);
+                    let persistence = LearningPersistence::new(&learning_db);
                     // P0-1: Use tracked last_processed_id instead of 0
                     let events = persistence.load_hook_events_since(last_processed_id, 200);
                     if !events.is_empty() {
@@ -1558,6 +1729,31 @@ mod risk_scoring_rl_tests {
             td_error >= 0.0,
             "TD error should be non-negative, got {}",
             td_error
+        );
+    }
+}
+
+#[cfg(test)]
+mod learning_db_tests {
+    /// Cross-audit 14/09/2026 (R2-10): the learning loop wrote the QTable to the
+    /// RLM memory database while the loader created and read it in graph.db, so
+    /// every save failed and no event was ever learned from. The loop and the
+    /// loader name the same path.
+    #[test]
+    fn the_learning_loop_persists_where_the_loader_reads() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let db = super::learning_db_path(tmp.path());
+        std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+        let mut qtable = super::QTable::new();
+        let _ = super::init_learning_state(&db, &mut qtable);
+        super::LearningPersistence::new(&db)
+            .save_qtable(&qtable)
+            .expect("the loop saves into the database the loader prepared");
+
+        let source = include_str!("mod.rs");
+        assert!(
+            !source.contains(concat!("LearningPersistence::new(", "&db_path)")),
+            "learning state never goes through the RLM memory path"
         );
     }
 }

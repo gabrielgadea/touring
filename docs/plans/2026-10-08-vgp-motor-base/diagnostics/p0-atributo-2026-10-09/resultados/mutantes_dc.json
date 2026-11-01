@@ -1,0 +1,303 @@
+{
+ "D1-SEM-ORDENACAO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes",
+   "vgp::checks::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito",
+   "vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela"
+  ],
+  "resumo": [
+   "test result: FAILED. 116 passed; 3 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.04s"
+  ],
+  "cauda": ""
+ },
+ "D2-CORTA-ANTES-DE-ORDENAR": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes",
+   "vgp::checks::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito",
+   "vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela"
+  ],
+  "resumo": [
+   "test result: FAILED. 116 passed; 3 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.06s"
+  ],
+  "cauda": ""
+ },
+ "D3-SUGESTAO-DESEMPATE-PELA-ENTRADA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "D4-SUGESTAO-NOME-ANTES-DA-DISTANCIA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.06s"
+  ],
+  "cauda": ""
+ },
+ "D5-SEM-PUBLICOS-PRIMEIRO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito",
+   "vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela"
+  ],
+  "resumo": [
+   "test result: FAILED. 117 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.07s"
+  ],
+  "cauda": ""
+ },
+ "D6-ORDEM-INVERTIDA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito",
+   "vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela"
+  ],
+  "resumo": [
+   "test result: FAILED. 117 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "D7-SEM-CORTE": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito",
+   "vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela"
+  ],
+  "resumo": [
+   "test result: FAILED. 117 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+  ],
+  "cauda": ""
+ },
+ "D10-REALS-DE-MODULO-SEM-ORDEM": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes",
+   "vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela"
+  ],
+  "resumo": [
+   "test result: FAILED. 117 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "N1-C3-VIRA-DFS": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N2-MRO-NAO-REVERSO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem",
+   "vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao",
+   "vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so",
+   "vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais"
+  ],
+  "resumo": [
+   "test result: FAILED. 115 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N3-REDECLARADO-VAI-PARA-O-FIM": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+  ],
+  "cauda": ""
+ },
+ "N4-CLASSVAR-VIRA-CAMPO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N5-INIT-FALSE-IGNORADO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N6-KW-ONLY-NAO-VAI-PARA-O-FIM": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+  ],
+  "cauda": ""
+ },
+ "N7-SENTINELA-KW-ONLY-IGNORADA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N8-KW-ONLY-DA-CLASSE-IGNORADO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.08s"
+  ],
+  "cauda": ""
+ },
+ "N9-FIELD-KW-ONLY-IGNORADO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+  ],
+  "cauda": ""
+ },
+ "N10-BASE-IRRESOLVIDA-NAO-ABSTEM": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N11-BASE-OPACA-NAO-ABSTEM": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N12-BASES-IGNORADAS": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde",
+   "vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem",
+   "vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao",
+   "vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so",
+   "vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais"
+  ],
+  "resumo": [
+   "test result: FAILED. 114 passed; 5 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "N13-INIT-EXPLICITO-SOBRESCRITO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.09s"
+  ],
+  "cauda": ""
+ },
+ "N14-INIT-FALSE-NAO-ABSTEM": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.07s"
+  ],
+  "cauda": ""
+ },
+ "N15-BASE-SUBSCRITA-VIRA-OPACA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.07s"
+  ],
+  "cauda": ""
+ },
+ "N16-IDENTIDADE-SO-PELO-NOME": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.11s"
+  ],
+  "cauda": ""
+ },
+ "N17-ARQUIVO-DO-MODULO-NAO-REGISTRADO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.10s"
+  ],
+  "cauda": ""
+ },
+ "N18-BASE-BUILTIN-NAO-E-INOFENSIVA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem"
+  ],
+  "resumo": [
+   "test result: FAILED. 118 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.10s"
+  ],
+  "cauda": ""
+ }
+}

@@ -1,0 +1,4 @@
+
+=== 8 tests, 0 failures ===
+  ALL PASS ✓
+  coverage validada: guard ⊊ scan (1 categoria vs 7), scan detecta 401 stale

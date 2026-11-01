@@ -1,0 +1,11 @@
+# Dependências do site MkDocs (F7, loop 2026-08-26-documentacao-touring).
+# Fixadas nas versões testadas: `mkdocs build --strict` exit 0 verificado
+# 26/08/2026. mkdocstrings NÃO entra aqui — não tem handler para Rust
+# (confirmado via Context7: só C/Crystal/Python/TypeScript/MATLAB/Shell/VBA).
+#
+# Uso:
+#   python3 -m venv .venv-docs && .venv-docs/bin/pip install -r requirements-docs.txt
+#   .venv-docs/bin/mkdocs build --strict
+#   .venv-docs/bin/mkdocs serve   # preview local em http://127.0.0.1:8000
+mkdocs==1.6.1
+mkdocs-material==9.7.7

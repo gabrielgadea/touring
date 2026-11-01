@@ -1,0 +1,1 @@
+touring vgp — VGP layer-1 motor (pure, daemonless): `vgp check --path <virtual> --content-file <f> --project-root <r> [--disk-file <d>] [--overlay <o>=<a>]... [--lang python] [-j]` — denies invented Python API before the edit

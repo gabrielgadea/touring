@@ -112,7 +112,7 @@ pub enum DimId {
     F2_2,
     /// F2.3 Authentication/Authorization
     F2_3,
-    /// F2.4 Cryptographic Issues
+    /// F2.4 Hardcoded Secrets
     F2_4,
     /// F2.5 Dependency CVEs
     F2_5,
@@ -369,7 +369,7 @@ const META_TABLE: [(&str, &str, &str); 50] = [
     ("F2.1", "owasp", "OWASP Top 10"),
     ("F2.2", "input-validation", "Input Validation"),
     ("F2.3", "authz", "Authentication/Authorization"),
-    ("F2.4", "secrets", "Cryptographic Issues"),
+    ("F2.4", "secrets", "Hardcoded Secrets"),
     ("F2.5", "dep-cves", "Dependency CVEs"),
     ("F2.6", "config", "Configuration Security"),
     ("F2.7", "db-perf", "Database Performance"),
@@ -483,7 +483,7 @@ pub struct DimScore {
     /// Whether this score covers only a **prefix** of its target.
     ///
     /// The scope-native dims concatenate the whole root and stop at
-    /// [`verifications::DIR_SCAN_BYTE_CAP`]; a score computed over the prefix is not a
+    /// `verifications::DIR_SCAN_BYTE_CAP`; a score computed over the prefix is not a
     /// score of the scope, and it is *insensitive to remediation performed past the
     /// cut* — removing duplication inside the window only admits more content at the
     /// edge. Until 2026-08-07 that fact reached the reader only as prose inside
@@ -1022,7 +1022,9 @@ mod tests {
 /// conditions under which this harness must caveat its own verdict.
 #[cfg(test)]
 mod methodology_bias_tests {
-    use super::{BIAS_MIN_DIMS, DimId, DimScore, DimStatus, QualityReport, detect_methodology_bias};
+    use super::{
+        BIAS_MIN_DIMS, DimId, DimScore, DimStatus, QualityReport, detect_methodology_bias,
+    };
     use std::collections::BTreeMap;
     use std::path::PathBuf;
 
@@ -1149,5 +1151,15 @@ mod methodology_bias_tests {
             "composite must be untouched by the caveat"
         );
         assert!(clean.blockers.is_empty(), "and it must not block");
+    }
+
+    /// 17/10/2026: `touring-quality list` called F2.4 "Cryptographic Issues" while the
+    /// rule file and CLAUDE.md call it "Secrets" -- and the detector measures hardcoded
+    /// credentials, not cryptography. The label follows the measurement.
+    #[test]
+    fn f2_4_is_labelled_by_what_it_measures() {
+        assert_eq!(DimId::F2_4.name(), "Hardcoded Secrets");
+        assert_eq!(DimId::F2_4.short_name(), "secrets");
+        assert!(!DimId::F2_4.name().contains("Cryptographic"));
     }
 }

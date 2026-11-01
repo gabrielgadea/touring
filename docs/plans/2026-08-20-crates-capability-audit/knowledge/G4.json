@@ -1,0 +1,11 @@
+{
+  "phase": "G4",
+  "entities": [
+    {
+      "entity_id": "phase:G4",
+      "type": "phase",
+      "description": "G4: a premissa estava PARCIALMENTE ERRADA e corrigi o doc da rodada 4. cache_load JA aplica CACHE_STALE_SECS (7 dias) e devolve Ok(None) para entrada vencida - minha afirmacao 'nenhum caminho verifica idade' era falsa. O que era verdade: ZERO testes cobriam a guarda, entao ela podia ser apagada com todas as suites verdes. Adicionado cache_load_treats_an_expired_entry_as_a_miss (grava, le fresco, envelhece o mtime 1s alem do TTL via File::set_modified, le de novo) - provado por mutacao: remover o bloco de idade faz o teste reprovar. Removido mutants.out/ da raiz (15/04): orfao real, o leitor usa target/mutants/<pkg>/mutants.out/ e nunca olha para a raiz - foi ele que me induziu ao erro. 19 testes passam."
+    }
+  ],
+  "relations": []
+}

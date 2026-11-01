@@ -1,0 +1,11 @@
+{
+  "phase": "D1",
+  "entities": [
+    {
+      "entity_id": "phase:D1",
+      "type": "phase",
+      "description": "D1: entregue metade, RECUSADA a outra metade por medicao. (a) RECUSADO trocar 'touring status -j' por 'touring health' no loop_diagnose.py: health NAO emite JSON - e semaforo com exit code, nao fonte de dados. A troca perderia os 11 campos estruturados (composite_health_score, index, wiring, learning, quality_signal, gate_metrics, health_delta, incremental, resource_monitor, sessions, daemon_health) que o diagnostico consome. Seria degradacao vestida de upgrade; medi antes de trocar. (b) ENTREGUE o guard, que estava em ZERO arquivos em todo o harness/library/instancias - o master construido exatamente para o momento antes de um edit, alcancado por nada. Criado fragments/gate-guard.toml (kit 16->17 pecas) e composto na UNICA aresta onde pertence: conflict_check->pre.pre_edit->implement em feature, diagnose->pre.pre_edit->fix em bugfix. Confirmado no grafo plano, nao so pelo lint (feature 9 nos, bugfix 7, tipo gate). Design: so NO_GO bloqueia; CAUTION passa com o raciocinio anexado, para o agente LER o risco em vez de ser parado por ele. O exit code nao e confiado - guard responde 0 em GO e o exit de NO_GO nao era verificavel na autoria, entao o veredito e lido da saida, que e o que o comando de fato promete. Espelho client/ ressincronizado (297 arquivos CLEAN), 19 testes de guarda passam."
+    }
+  ],
+  "relations": []
+}

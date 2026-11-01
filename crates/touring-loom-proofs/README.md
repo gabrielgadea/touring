@@ -8,7 +8,8 @@ invariants the `touring-daemon` actor pattern relies on.
 `RUSTFLAGS="--cfg loom"` is a **global** compiler flag — Cargo rebuilds
 every crate in the dependency graph with loom's shadow primitives.
 The main `touring-hooks` crate pulls `reqwest → hyper-util` transitively
-(via `touring-core`'s `gpu-embeddings` feature); `hyper-util` uses
+(via `touring-storage`'s `gpu-embeddings` feature — peeled from touring-core em 2026-06-15,
+conforme comentário no Cargo.toml de touring-foundation); `hyper-util` uses
 `tokio::net::UnixStream` which has **no loom shim** and fails to compile
 under the flag.
 

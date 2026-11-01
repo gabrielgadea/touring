@@ -1,0 +1,404 @@
+{
+ "version": 2,
+ "topic": "Rust error message didactics: patterns to teach next step instead of just reporting failure",
+ "scope": "/home/gabrielgadea/projects/touring",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 11,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 10,
+     "new": 10,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T00:47:38-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T00:47:43-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T00:47:49-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T00:47:54-0300"
+  },
+  {
+   "round": 5,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T00:48:00-0300"
+  },
+  {
+   "round": 6,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 10,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-24T00:48:05-0300"
+  }
+ ],
+ "findings": {
+  "f_2a0e35bd327d": {
+   "id": "f_2a0e35bd327d",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "create:crates/touring-hooks-shared/src/forbidden_patterns.rs",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"path\":\"crates/touring-hooks-shared/src/forbidden_patterns.rs\",\"intent\":\"Fronteira 2 follow-up: relocate forbidden_patterns to the leaf crate (result_ext clean; sandbox_language vocab extraction unbl",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_b07dd4a5133b": {
+   "id": "f_b07dd4a5133b",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "wing_taco-forge/diary/entries/2026-05-30T00:43:27.544562795+00:00",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"timestamp\":\"2026-05-30T00:43:27.544915989Z\",\"content\":\"perfect-create OK: crates/touring-hooks/src/gateway/outcome_learner.rs (kind=RustModule grade=? orphan_delta=0)\",\"markers\":{},\"is_aaak\":true}",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_b310f5f38a41": {
+   "id": "f_b310f5f38a41",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "create:crates/touring-hooks-shared/src/result_ext.rs",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"path\":\"crates/touring-hooks-shared/src/result_ext.rs\",\"intent\":\"Fronteira 2 follow-up: relocate result_ext to the leaf crate (result_ext clean; sandbox_language vocab extraction unblocks forbidden_p",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_4082aaf3242e": {
+   "id": "f_4082aaf3242e",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "lesson:pretooluse-learning-strategy:2026-05-15",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "Estrategia para hook PreToolUse [*] action-outcome learning injector (Gabriel commissioned). Doc: rust/docs/2026-05-15-pretooluse-action-outcome-learning-strategy.md. ACHADO CHAVE: a maioria ja existe",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_d6451ad9a930": {
+   "id": "f_d6451ad9a930",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "create:/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/insights.rs",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"path\":\"/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/insights.rs\",\"intent\":\"A5 prep: relocate ErrorPatternInsight + EditedFileInsight session-insight value types to foundation to bre",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_39d0e817bd95": {
+   "id": "f_39d0e817bd95",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "lesson:w12-4-layered-config-loader:2026-05-23",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"wave\":\"W12.4 Layered Config Loader\",\"date\":\"2026-05-23\",\"status\":\"DELIVERED\",\"file\":\"crates/touring-foundation/src/config.rs\",\"added\":[\"TouringConfig::detect_layered\",\"TouringConfig::detect_layered_",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_d4778b6e6290": {
+   "id": "f_d4778b6e6290",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "wing_taco-forge/diary/entries/2026-06-10T12:08:14.275276699+00:00",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"timestamp\":\"2026-06-10T12:08:14.275603676Z\",\"content\":\"perfect-create OK: crates/touring-hooks-shared/src/risk_patterns.rs (kind=RustModule grade=? orphan_delta=0)\",\"markers\":{},\"is_aaak\":true}",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_156a2e26b704": {
+   "id": "f_156a2e26b704",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "doc:lesson:hook-memory-rusqlite-constraint",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "hook_memory.rs rusqlite/query_map architectural constraint (2026-04-12): row_to_pattern() must return rusqlite::Result<HookPattern> (infallible mapping contract). Full TouringError::ParseError propaga",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_163a189e8b27": {
+   "id": "f_163a189e8b27",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "edit:/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/file_knowledge.rs:outcome",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"path\":\"/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/file_knowledge.rs\",\"intent\":\"W6a clap-derive migration: file_knowledge\",\"operation\":\"free-form\",\"grade_pre\":\"?\",\"grade_post\":\"?\",",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_a029be86ef70": {
+   "id": "f_a029be86ef70",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "create:crates/touring-analysis/src/rules/error.rs",
+   "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "{\"path\":\"crates/touring-analysis/src/rules/error.rs\",\"intent\":\"RulesError enum (thiserror) for the Sentrux TOML metric rules engine (Wave 2 P3)\",\"kind\":\"RustModule\",\"grade\":\"?\",\"vgp\":[],\"created_at\":1",
+   "depth": "D1",
+   "round": 1
+  },
+  "f_4634f9dc9df5": {
+   "id": "f_4634f9dc9df5",
+   "lens": "portfolio",
+   "kind": "gap",
+   "key": "nenhum artefato conhecido cobre \"Rust error message didactics: patterns to teach next step instead of just reporting fai",
+   "evidence": "touring portfolio Rust error message didactics: patterns to teach next step instead of just reporting failure",
+   "detail": "nenhum artefato conhecido cobre \"Rust error message didactics: patterns to teach next step instead of just reporting failure\" (0 registros varridos) — o portfólio não tem prior-art para este intento",
+   "depth": "D0",
+   "round": 1
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 6,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "quality": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "portfolio": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 0,
+   "max_depth": null,
+   "truncated_total": 0
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 6,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [
+    "external"
+   ],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "lens 'external' pending — mark visited/waived (--mark-lens)"
+  ],
+  "next_action": "lens 'external' pending — mark visited/waived (--mark-lens)",
+  "at": "2026-08-24T00:48:05-0300"
+ }
+}

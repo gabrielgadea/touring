@@ -6,6 +6,7 @@
 use crate::{DimId, DimScore, DimStatus};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
+use touring_foundation::gitignore::GitIgnoreRules;
 
 pub mod f1_10_data_model;
 pub mod f1_11_patterns;
@@ -37,6 +38,7 @@ pub mod f3_11_readme;
 pub mod f3_12_doc_accuracy;
 pub mod f3_13_changelog;
 pub mod f3_1_coverage;
+mod f3_1_py_imports;
 pub mod f3_2_test_quality;
 pub mod f3_3_test_pyramid;
 pub mod f3_4_edge_cases;
@@ -57,6 +59,9 @@ pub mod f4_6_build_config;
 pub mod f4_7_cicd;
 pub mod f4_8_deploy;
 pub mod f4_9_iac;
+/// S510: the Python backend of F2.5 (pip-audit/OSV) and F4.5 (`uv lock --check`).
+#[cfg(feature = "workspace-integration")]
+pub(crate) mod python_deps;
 
 /// Trait implemented by all 50 dim verifications.
 pub trait Verification: Send + Sync {
@@ -88,10 +93,28 @@ pub trait Verification: Send + Sync {
 /// Source-file extensions the content-based verifiers understand (polyglot).
 /// Covers the languages the touring workspace and downstream polyglot projects
 /// (Python / TypeScript / Go / … monorepos) actually ship.
+///
+/// Shell joined on 15/09/2026 (Canvas D): without `sh`/`bash`/`zsh` a directory
+/// score never read a script, so the P0 gates of the judge had never scanned
+/// the 186 scripts of the touring, konverter and analise repositories, and a
+/// directory holding only scripts scored Platinum. Extensionless shell scripts
+/// enter by their shebang ([`is_scored_source`]).
 const SOURCE_EXTS: &[&str] = &[
     "rs", "py", "pyi", "ts", "tsx", "js", "jsx", "mjs", "cjs", "go", "java", "kt", "kts", "swift",
-    "c", "cc", "cpp", "cxx", "h", "hpp", "rb", "php", "scala", "cs",
+    "c", "cc", "cpp", "cxx", "h", "hpp", "rb", "php", "scala", "cs", "sh", "bash", "zsh",
 ];
+
+/// Whether a file enters the scored corpus: a [`SOURCE_EXTS`] extension, or no
+/// extension and a shell shebang (`scripts/update-touring`, git hooks).
+fn is_scored_source(p: &Path) -> bool {
+    match p.extension().and_then(|e| e.to_str()) {
+        Some(ext) => SOURCE_EXTS.contains(&ext),
+        None => first_line(p)
+            .as_deref()
+            .and_then(shebang_interpreter)
+            .is_some_and(|i| matches!(i, "bash" | "sh" | "zsh" | "dash" | "ksh")),
+    }
+}
 
 /// Directory names skipped when reading a directory target (VCS / build / vendor
 /// / virtualenv / cache); dot-prefixed directories are skipped too.
@@ -108,7 +131,6 @@ const SKIP_DIRS: &[&str] = &[
     ".pytest_cache",
     "htmlcov",
     ".tox",
-    "vendor",
     ".idea",
     ".vs",
     "coverage",
@@ -120,6 +142,30 @@ const SKIP_DIRS: &[&str] = &[
     "mutants",
     "mutants.out",
 ];
+
+/// Whether a directory named `name` is skipped by every walk that decides what
+/// the score reads — file enumeration and crate discovery ask this same
+/// question, so a vendored tree cannot leave one while staying in the other.
+#[must_use]
+pub(crate) fn is_skipped_dir_name(name: &str) -> bool {
+    name.starts_with('.') || SKIP_DIRS.contains(&name) || VENDORED_DIRS.contains(&name)
+}
+
+/// Vendored upstream code: `vendor/` and `third_party/` (Chromium, Bazel, and
+/// touring's own patched tree-sitter grammars). Skipped by the STYLE corpus —
+/// complexity, duplication and the rest measure maintenance, and upstream code is
+/// not ours to maintain (the generated markdown parser has 68% clones) — but
+/// scanned by the SECURITY corpus: vendored code is compiled into the binary, and
+/// a secret or an injection sink there is ours to ship. Until 14/09/2026 one list
+/// fed both, so `third_party/` left F2.1 and F2.4 too (cross-audit D3).
+const VENDORED_DIRS: &[&str] = &["vendor", "third_party"];
+
+/// Whether the SECURITY corpus skips a directory named `name`: build output, VCS,
+/// dependency caches and dot-dirs, never vendored code.
+#[must_use]
+pub(crate) fn is_security_skipped_dir_name(name: &str) -> bool {
+    name.starts_with('.') || SKIP_DIRS.contains(&name)
+}
 
 /// Upper bound on concatenated directory source scanned per verifier (keeps large
 /// monorepos bounded; single-file scoring is always unbounded).
@@ -159,10 +205,10 @@ const SKIP_DIRS: &[&str] = &[
 ///
 /// Se ainda assim truncar, [`dir_scan_overflow`] deixa o fato visível na
 /// evidência — teto sem anúncio foi exatamente a falha de 02/08.
-const DIR_SCAN_BYTE_CAP: usize = 128 * 1024 * 1024;
+pub(crate) const DIR_SCAN_BYTE_CAP: usize = 128 * 1024 * 1024;
 
 /// Bytes totais do corpus de `target` quando ele ESTOURA
-/// [`DIR_SCAN_BYTE_CAP`] — `None` quando cabe (o caso normal).
+/// `DIR_SCAN_BYTE_CAP` — `None` quando cabe (o caso normal).
 ///
 /// Só consulta metadata (`len()`), nunca lê conteúdo, então serve para anotar a
 /// evidência sem duplicar o custo da varredura. Existe para que um score de
@@ -188,12 +234,23 @@ pub fn dir_scan_overflow(target: &Path) -> Option<u64> {
 ///   replaces the legacy "first `.rs` file" scan that silently ignored Python /
 ///   TypeScript / other polyglot projects (Rust-bias fix, 2026-06-20).
 pub fn read_target_source(target: &Path) -> Result<String> {
+    concatenate(target, enumerate_source_files)
+}
+
+/// [`read_target_source`] over the SECURITY corpus ([`enumerate_security_files`]):
+/// a directory target includes its vendored code. Used by F2.1 and F2.4.
+pub fn read_security_source(target: &Path) -> Result<String> {
+    concatenate(target, enumerate_security_files)
+}
+
+/// A file's contents, or the bounded concatenation of `enumerate(target)`.
+fn concatenate(target: &Path, enumerate: fn(&Path) -> Vec<std::path::PathBuf>) -> Result<String> {
     if !target.is_dir() {
         return std::fs::read_to_string(target)
             .map_err(|e| anyhow::anyhow!("failed to read {}: {}", target.display(), e));
     }
     let mut out = String::new();
-    for p in enumerate_source_files(target) {
+    for p in enumerate(target) {
         if let Ok(s) = std::fs::read_to_string(&p) {
             out.push_str(&s);
             out.push('\n');
@@ -258,6 +315,64 @@ pub fn read_target_source_excluding_generated(target: &Path) -> Result<(String, 
         }
     }
     Ok((out, excluded, false))
+}
+
+/// O corpus de [`read_target_source_excluding_generated`] **mais as fronteiras de
+/// arquivo**, cada uma com a linguagem daquele arquivo.
+///
+/// Devolve `(corpus, segmentos, excluídos, truncado)`, onde cada segmento é
+/// `(offset, len, lang)` sobre `corpus`.
+///
+/// # Por que a fronteira precisa viajar
+///
+/// A versão sem segmentos entrega uma `String` só, e o chamador então deriva UM
+/// `lang` da extensão do alvo — que num diretório não existe, caindo no default
+/// `"rust"` de `lang_of`. Duas consequências, medidas em 03/09/2026 sobre
+/// o repositório `analise` (sessão analise-c1):
+///
+/// * um corpus Python inteiro é lexado como Rust; e
+/// * o estado do lexer **atravessa a fronteira do arquivo** — um `/*` que vive
+///   dentro de uma string Python (CSS, JS, regex, exemplo em docstring) abre um
+///   comentário de bloco que só fecha no próximo `*/`, apagando da medição tudo
+///   o que houver no caminho.
+///
+/// Efeito medido: `scripts/memoria` (4 arquivos, sem CSS) media 101 % do corpus;
+/// `scripts/process_analysis` (922 arquivos) media 10 %; `scripts` (3.854) media
+/// 0,98 %. E a contagem era **não-monotônica** — 128 arquivos reais mediam 35.173
+/// linhas e 512 mediam 15.615 — porque o resultado dependia de onde caíam os
+/// delimitadores na ordem de concatenação.
+///
+/// O corpus segue concatenado de propósito: é assim que um bloco copiado ENTRE
+/// arquivos aparece como clone. Só o lexer deixa de vazar.
+#[cfg(feature = "workspace-integration")]
+pub fn read_target_segments_excluding_generated(target: &Path) -> Result<SegmentedCorpus> {
+    if !target.is_dir() {
+        let src = read_target_source(target)?;
+        let seg = vec![(0usize, src.len(), lang_of(target))];
+        return Ok((src, seg, 0, false));
+    }
+    let mut out = String::new();
+    let mut segments: Vec<(usize, usize, &'static str)> = Vec::new();
+    let mut excluded = 0usize;
+    for p in enumerate_source_files(target) {
+        if is_under_generated_tree(&p, target) {
+            excluded += 1;
+            continue;
+        }
+        if let Ok(s) = std::fs::read_to_string(&p) {
+            let offset = out.len();
+            out.push_str(&s);
+            out.push('\n');
+            // O `\n` de junção entra no segmento: ele fecha a última linha do
+            // arquivo, e deixá-lo de fora faria a última linha e a primeira do
+            // arquivo seguinte se lexarem como uma só.
+            segments.push((offset, out.len() - offset, lang_of(&p)));
+            if out.len() >= DIR_SCAN_BYTE_CAP {
+                return Ok((out, segments, excluded, true));
+            }
+        }
+    }
+    Ok((out, segments, excluded, false))
 }
 
 /// Strip Rust line comments (`//…`) and block comments (`/* … */`) from `src`
@@ -503,6 +618,43 @@ pub(crate) fn evidence_marks_not_applicable(evidence: &str) -> bool {
     evidence.starts_with("[N/A]")
 }
 
+/// Sentinela de TRUNCAGEM: produtor e consumidor derivam do MESMO literal.
+///
+/// [`DimScore::truncated`] existe desde 07/08/2026 e `loop_converged.py`
+/// (`clause_not_truncated`) já o lê — mas [`finish`] o preenchia com `false`
+/// constante, de modo que a cláusula que existe para impedir convergência sobre
+/// medição parcial passava **vacuamente**: o fato viajava só na prosa da
+/// `evidence` e o juiz procurava um campo. Medido em 03/09/2026 no repositório
+/// `analise` (sessão analise-c1).
+///
+/// A correção espelha [`evidence_marks_not_applicable`]: um sentinela que o
+/// produtor emite e [`finish`] consome. Ambos nomeiam esta constante, nunca uma
+/// cópia do texto — texto e predicado com uma fonte só é o remédio ao anti-padrão
+/// D8 (*enforcement mora no executor, não no anúncio*), e é o que impede o
+/// próximo editor de reescrever a mensagem e desligar o campo sem perceber.
+pub(crate) const TRUNCATION_SENTINEL: &str = "⚠ TRUNCADO";
+
+/// Um arquivo dentro de um corpus concatenado: `(offset, len, linguagem)`.
+///
+/// A linguagem viaja com o segmento — e não com o alvo — porque um diretório
+/// polyglot não tem uma linguagem só, e derivá-la da extensão do ALVO devolvia o
+/// default para todo diretório (que não tem extensão).
+pub type SourceSegment = (usize, usize, &'static str);
+
+/// O que [`read_target_segments_excluding_generated`] devolve:
+/// `(corpus, segmentos, arquivos gerados excluídos, truncado)`.
+pub type SegmentedCorpus = (String, Vec<SourceSegment>, usize, bool);
+
+/// Whether `evidence` declares that the score covers only a PREFIX of its corpus.
+///
+/// Asserção POSITIVA por construção: quem trunca **diz** que truncou. Um alvo que
+/// não emite o sentinela não é "presumido íntegro" por ausência de sinal — é
+/// simplesmente um alvo cujo produtor não sabe anunciar truncagem, e essa
+/// distinção pertence ao produtor, não a este predicado.
+pub(crate) fn evidence_marks_truncated(evidence: &str) -> bool {
+    evidence.contains(TRUNCATION_SENTINEL)
+}
+
 /// Resolve the on-disk files of a given [`ArtifactClass`] under `target`.
 ///
 /// * **File target** → `[target]` verbatim (an explicit file the caller pointed
@@ -515,6 +667,7 @@ pub fn resolve_artifacts(target: &Path, class: ArtifactClass) -> Vec<PathBuf> {
         return vec![target.to_path_buf()];
     }
     let mut files = Vec::new();
+    let git = GitIgnoreRules::for_path(target);
     let mut stack = vec![target.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -526,11 +679,13 @@ pub fn resolve_artifacts(target: &Path, class: ArtifactClass) -> Vec<PathBuf> {
                 let dname = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
                 // Artifact resolution needs a few dot-dirs the source walk skips.
                 let allowed_dot = matches!(dname, ".github" | ".circleci");
-                let skip = (dname.starts_with('.') && !allowed_dot) || SKIP_DIRS.contains(&dname);
+                let skip = (dname.starts_with('.') && !allowed_dot)
+                    || SKIP_DIRS.contains(&dname)
+                    || git.ignored_abs(&p, true).is_some();
                 if !skip {
                     stack.push(p);
                 }
-            } else if class.matches(&p) {
+            } else if class.matches(&p) && git.ignored_abs(&p, false).is_none() {
                 files.push(p);
             }
         }
@@ -574,8 +729,24 @@ pub fn read_artifact_source(target: &Path, class: ArtifactClass) -> (String, boo
             Err(_) => (String::new(), false),
         }
     };
-    if present || !class.inherits_from_repo_root() {
+    if present {
         return (out, present);
+    }
+    inherited_artifact_source(target, class).unwrap_or((out, present))
+}
+
+/// The artifact a scope WITHOUT its own inherits, if any (split out of
+/// [`read_artifact_source`] on 25/09/2026 when S59 pushed its complexity to 16).
+fn inherited_artifact_source(target: &Path, class: ArtifactClass) -> Option<(String, bool)> {
+    // S59 (25/09/2026): a README does not inherit at crate/dir scope (each crate
+    // carries its own), but a SOURCE FILE scored alone is documented by the README
+    // nearest to it — its package's, else the repository root's. Measured: a module
+    // under analise/scripts/utils scored F3.11 0.3 "no README*" with a 65 KB root README.
+    if class == ArtifactClass::Readme && is_source_file(target) {
+        return nearest_readme_upward(target).map(|p| concat_artifacts(&[p]));
+    }
+    if !class.inherits_from_repo_root() {
+        return None;
     }
     // Walk-up inheritance (see [`ArtifactClass::inherits_from_repo_root`]): a
     // member crate/module/path lacking its own workspace-level artifact inherits
@@ -584,10 +755,53 @@ pub fn read_artifact_source(target: &Path, class: ArtifactClass) -> (String, boo
     // SHALLOWLY there (depth ≤ 2 — `R/CHANGELOG.md`, `R/.github/workflows/**`,
     // `R/docs/**/adr`) so it never deep-walks every member subtree (the F2.6
     // walk-up over-scan lesson — an existence read, never a huge-file content scan).
-    match find_repo_root(target) {
-        Some(root) => concat_artifacts(&resolve_artifacts_shallow(&root, class, 2)),
-        None => (out, present),
+    find_repo_root(target).map(|root| concat_artifacts(&resolve_artifacts_shallow(&root, class, 2)))
+}
+
+/// The README nearest to a source file, walking up to its repository root (S59): a
+/// package README shadows the root one; outside a repository there is none.
+fn nearest_readme_upward(target: &Path) -> Option<PathBuf> {
+    let root = find_repo_root(target)?;
+    let mut dir = std::fs::canonicalize(target).ok()?.parent()?.to_path_buf();
+    loop {
+        if let Some(readme) = readme_in(&dir) {
+            return Some(readme);
+        }
+        if dir == root {
+            return None;
+        }
+        dir = dir.parent()?.to_path_buf();
     }
+}
+
+/// The README directly inside `dir` (first by name, for determinism).
+fn readme_in(dir: &Path) -> Option<PathBuf> {
+    let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| p.is_file() && ArtifactClass::Readme.matches(p))
+        .collect();
+    found.sort();
+    found.into_iter().next()
+}
+
+/// [`absent_artifact_score`] for a concrete `target` (S59, 25/09/2026): a SOURCE
+/// FILE outside any repository has no repository to carry a README, CHANGELOG,
+/// architecture doc or CI pipeline, so those universal artifact dims are N/A there —
+/// never four absent-artifact Fails for one loose file. In a repository whose root
+/// lacks the artifact, the cap stays: that absence is the repository's defect.
+pub fn absent_artifact_score_at(target: &Path, dim: &str, class: ArtifactClass) -> (f32, String) {
+    if class.absent_is_defect() && is_source_file(target) && find_repo_root(target).is_none() {
+        return (
+            1.0,
+            format!(
+                "[N/A] {dim}: source file outside any repository — no repository artifact \
+                 ({class:?}) can apply (excluded from composite)"
+            ),
+        );
+    }
+    absent_artifact_score(dim, class)
 }
 
 /// Concatenate the source of resolved artifact files, bounded by
@@ -624,7 +838,7 @@ fn find_repo_root(start: &Path) -> Option<PathBuf> {
         start.parent().map(Path::to_path_buf)
     };
     while let Some(dir) = cur {
-        if dir.join(".git").exists() {
+        if crate::scope::has_git_marker(&dir) {
             return Some(dir);
         }
         if std::fs::read_to_string(dir.join("Cargo.toml"))
@@ -649,6 +863,7 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
         return vec![root.to_path_buf()];
     }
     let mut files = Vec::new();
+    let git = GitIgnoreRules::for_path(root);
     let mut stack = vec![(root.to_path_buf(), 0usize)];
     while let Some((dir, depth)) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -662,11 +877,13 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
                 }
                 let dname = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
                 let allowed_dot = matches!(dname, ".github" | ".circleci");
-                let skip = (dname.starts_with('.') && !allowed_dot) || SKIP_DIRS.contains(&dname);
+                let skip = (dname.starts_with('.') && !allowed_dot)
+                    || SKIP_DIRS.contains(&dname)
+                    || git.ignored_abs(&p, true).is_some();
                 if !skip {
                     stack.push((p, depth + 1));
                 }
-            } else if class.matches(&p) {
+            } else if class.matches(&p) && git.ignored_abs(&p, false).is_none() {
                 files.push(p);
             }
         }
@@ -688,30 +905,52 @@ fn resolve_artifacts_shallow(root: &Path, class: ArtifactClass, max_depth: usize
 /// dropped by a byte cap, closing the fail-open hole where a secret/CVE past the
 /// 2 MiB mark would silently pass a BLOCK dimension.
 pub fn enumerate_source_files(root: &Path) -> Vec<std::path::PathBuf> {
+    enumerate_source_and_vendored_files(root).0
+}
+
+/// The SECURITY corpus of `root`: every source file [`enumerate_source_files`]
+/// returns plus the files under vendored directories (see [`VENDORED_DIRS`]),
+/// sorted. F2.1 (OWASP), F2.4 (secrets) and F2.6 (config) read this one.
+pub fn enumerate_security_files(root: &Path) -> Vec<std::path::PathBuf> {
+    let (mut files, vendored) = enumerate_source_and_vendored_files(root);
+    files.extend(vendored);
+    files.sort();
+    files
+}
+
+/// One walk, two corpora: `(source files, files under vendored directories)`,
+/// each sorted. A vendored directory is walked like any other — only its files
+/// land in the second list — so both corpora share every other rule (skipped
+/// build/VCS dirs, `SOURCE_EXTS`, minified bundles) by construction.
+pub(crate) fn enumerate_source_and_vendored_files(
+    root: &Path,
+) -> (Vec<std::path::PathBuf>, Vec<std::path::PathBuf>) {
     if !root.is_dir() {
-        return vec![root.to_path_buf()];
+        return (vec![root.to_path_buf()], Vec::new());
     }
     let mut files = Vec::new();
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(dir) = stack.pop() {
+    let mut vendored = Vec::new();
+    // What git ignores is not the project's source: the MkDocs build under
+    // `site/` carried a stale copy of a fixed file into the F2.1 score
+    // (cross-audit 14/09/2026, R2-2). Same rules as the symbol index.
+    let git = GitIgnoreRules::for_path(root);
+    let mut stack = vec![(root.to_path_buf(), false)];
+    while let Some((dir, under_vendored)) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
             continue;
         };
         for entry in rd.flatten() {
             let p = entry.path();
             if p.is_dir() {
-                let skip = p
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| n.starts_with('.') || SKIP_DIRS.contains(&n));
-                if !skip {
-                    stack.push(p);
+                let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if !is_security_skipped_dir_name(name) && git.ignored_abs(&p, true).is_none() {
+                    stack.push((p.clone(), under_vendored || VENDORED_DIRS.contains(&name)));
                 }
-            } else if p
-                .extension()
-                .and_then(|e| e.to_str())
-                .is_some_and(|e| SOURCE_EXTS.contains(&e))
-            {
+            } else if p.is_file() && is_scored_source(&p) && git.ignored_abs(&p, false).is_none() {
+                // `is_file` follows a symlink and refuses a dangling one. A tracked
+                // symlink whose target was deleted (`start_rag_api.sh` in analise)
+                // failed to read, scored 0.0 fail-closed, and put three BLOCK dims
+                // of a whole repository at Fail (Canvas D, 15/09/2026).
                 // Vendored/minified bundles (`lunr.pt.min.js`, `app.min.css`…)
                 // are machine-written single-line blobs, not project source —
                 // jscpd and SonarQube exclude `**/*.min.*` for the same reason.
@@ -726,13 +965,18 @@ pub fn enumerate_source_files(root: &Path) -> Vec<std::path::PathBuf> {
                 // also blind the secrets/CVE scans. Generated-but-committed SDKs
                 // therefore stay in scope; their duplication is visible debt.
                 if !minified {
-                    files.push(p);
+                    if under_vendored {
+                        vendored.push(p);
+                    } else {
+                        files.push(p);
+                    }
                 }
             }
         }
     }
     files.sort(); // global deterministic order → reproducible scope scores
-    files
+    vendored.sort();
+    (files, vendored)
 }
 
 /// Durable wildcard: auto-categorise any DimId (including future F5+) by its
@@ -910,14 +1154,14 @@ pub(crate) fn auto_remediation(dim: DimId, target: &Path, status: DimStatus) -> 
         // Pass — already good; suggest preventive tightening to keep score stable.
         // Pattern placeholders are <hardening> / <maintain> (defensive, optional).
         DimStatus::Pass => format!(
-            "Edit tool --path {} --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {}) [preventive — score is Pass; tighten pattern to harden against regression]",
+            "touring-quality score --format json {} (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {} for hardening patterns)",
             target.display(),
             pattern
         ),
         // Warn / Fail — actual gap; suggest fix.
         // Pattern placeholders are <gap> / <fix> (concrete, required).
         _ => format!(
-            "Edit tool --path {} --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {})",
+            "Edit tool --path {} --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {})",
             target.display(),
             pattern
         ),
@@ -926,7 +1170,7 @@ pub(crate) fn auto_remediation(dim: DimId, target: &Path, status: DimStatus) -> 
 
 /// Fold the shared `check()` tail every verifier ends with: derive the status
 /// (`NotApplicable` when `evidence` carries the conditional-artifact `[N/A]`
-/// sentinel — see [`evidence_marks_not_applicable`] — otherwise Pass/Warn/Fail
+/// sentinel — see `evidence_marks_not_applicable` — otherwise Pass/Warn/Fail
 /// from the score), attach the canonical remediation suggestion, and stamp a
 /// zero latency. Single definition that replaced the ~7-line tail duplicated
 /// across all 50 verifiers (dedup, F1.3). Behaviour-preserving: the 44 plain
@@ -942,10 +1186,10 @@ pub fn finish(id: DimId, value: f32, evidence: String, target: &Path) -> DimScor
     DimScore {
         value,
         status,
+        truncated: evidence_marks_truncated(&evidence),
         evidence,
         suggestions,
         latency_ms: 0,
-        truncated: false,
     }
 }
 
@@ -979,7 +1223,7 @@ pub(crate) fn is_detector_own_source(target: &Path) -> bool {
 /// Callers: `crate::verifications::top_finding(&r.findings)`.
 ///
 /// Consolida 35 cópias byte-a-byte espalhadas por `verifications/f*.rs` (F1.3
-/// dedup, 2026-08-07), no mesmo espírito de [`lang_from_ext`] logo abaixo. As
+/// dedup, 2026-08-07), no mesmo espírito de [`lang_of`] logo abaixo. As
 /// cópias vinham em DUAS grafias do mesmo `format!` — 27 com captura inline
 /// (`{m}`/`{c}`) e 8 posicionais (`{}`, m, c) —, e era justamente por isso que o
 /// detector Type-1 do F1.3 enxergava 27 e não 35: idênticas em significado,
@@ -995,32 +1239,121 @@ pub(crate) fn top_finding(findings: &[(String, usize)]) -> String {
         .unwrap_or_default()
 }
 
-/// Map a file extension to the language string the content-based verifiers understand
-/// (polyglot, 7-language superset: Python / TypeScript / JavaScript / Go / Java / C / C++).
+/// Language of a file target, as the content-based verifiers name it.
 ///
-/// Callers: `crate::verifications::lang_from_ext(target)`.
+/// Callers: `crate::verifications::lang_of(target)`.
 ///
-/// This consolidates 42 byte-similar per-file copies that existed across every
-/// verifier in `verifications/f*.rs` (F1.3 dedup, 2026-07-02). The 7-language body
-/// is the canonical superset — 23 files previously had a 4-lang variant (py/ts/js/go
-/// only); unifying to 7-lang is behaviour-IMPROVING for `.java`/`.c`/`.cpp` targets
-/// and behaviour-PRESERVING for `.rs` (primary workspace language).
+/// The extension decides ([`lang_from_extension`]); a file with none is read by
+/// its shebang (`#!/usr/bin/env bash` → `shell`). Anything else — directories
+/// included — defaults to `rust`, the primary workspace language.
 ///
-/// Gated to `workspace-integration` — identical gate to the 42 callers.
+/// Canvas D (15/09/2026): this was `lang_from_ext`, extension only, so `.sh`
+/// files and extensionless scripts were scored with Rust rules by 40
+/// dimensions. It consolidated 42 per-file copies (F1.3 dedup, 2026-07-02).
+///
+/// Gated to `workspace-integration` — identical gate to the callers.
 #[cfg(feature = "workspace-integration")]
-pub(crate) fn lang_from_ext(target: &Path) -> &'static str {
+pub(crate) fn lang_of(target: &Path) -> &'static str {
     match target.extension().and_then(|e| e.to_str()) {
-        Some("py") => "python",
-        Some("ts") | Some("tsx") => "typescript",
-        Some("js") | Some("jsx") | Some("mjs") | Some("cjs") => "javascript",
-        Some("go") => "go",
-        Some("java") => "java",
-        Some("c") | Some("h") => "c",
-        Some("cpp") | Some("cc") | Some("cxx") | Some("hpp") | Some("hh") => "cpp",
-        Some("html") | Some("htm") => "html",
-        // Default to rust (the primary workspace language).
+        Some(ext) => lang_from_extension(ext),
+        None => first_line(target)
+            .as_deref()
+            .and_then(lang_from_shebang)
+            .unwrap_or("rust"),
+    }
+}
+
+/// Language of a file whose source is already in hand: [`lang_of`] without
+/// reading the file again for its shebang.
+#[cfg(feature = "workspace-integration")]
+pub(crate) fn lang_for_source(target: &Path, raw: &str) -> &'static str {
+    match target.extension().and_then(|e| e.to_str()) {
+        Some(ext) => lang_from_extension(ext),
+        None => lang_from_shebang(raw).unwrap_or("rust"),
+    }
+}
+
+/// The one extension table (polyglot superset plus shell); unknown → `rust`.
+#[cfg(feature = "workspace-integration")]
+fn lang_from_extension(ext: &str) -> &'static str {
+    match ext {
+        "py" => "python",
+        "ts" | "tsx" => "typescript",
+        "js" | "jsx" | "mjs" | "cjs" => "javascript",
+        "go" => "go",
+        "java" => "java",
+        "c" | "h" => "c",
+        "cpp" | "cc" | "cxx" | "hpp" | "hh" => "cpp",
+        "html" | "htm" => "html",
+        "sh" | "bash" | "zsh" => "shell",
         _ => "rust",
     }
+}
+
+/// The language a `#!` line names, when it names one the verifiers read.
+#[cfg(feature = "workspace-integration")]
+fn lang_from_shebang(raw: &str) -> Option<&'static str> {
+    match shebang_interpreter(raw)? {
+        i if i.starts_with("python") => Some("python"),
+        "bash" | "sh" | "zsh" | "dash" | "ksh" => Some("shell"),
+        i if i.starts_with("node") => Some("javascript"),
+        _ => None,
+    }
+}
+
+/// The first line of a file, read from at most its first 256 bytes.
+fn first_line(target: &Path) -> Option<String> {
+    use std::io::Read;
+    let mut head = [0u8; 256];
+    let n = std::fs::File::open(target).ok()?.read(&mut head).ok()?;
+    let text = String::from_utf8_lossy(&head[..n]);
+    Some(text.lines().next()?.to_string())
+}
+
+/// The interpreter a `#!` line names: `#!/bin/bash` → `bash`,
+/// `#!/usr/bin/env -S python3 -u` → `python3`.
+fn shebang_interpreter(raw: &str) -> Option<&str> {
+    let line = raw.lines().next()?.strip_prefix("#!")?;
+    line.split_whitespace()
+        .map(|word| word.rsplit('/').next().unwrap_or(word))
+        .find(|word| *word != "env" && !word.starts_with('-'))
+}
+
+/// Dimensions that read a shell script with shell semantics.
+///
+/// F1.1/F1.2 measure its complexity through the tree-sitter Bash grammar, F1.3
+/// and F1.5 are language-agnostic (clones, debt markers in `#` comments), F4.1
+/// asks ShellCheck, and the security dims scan it. Every other dimension models constructs a shell
+/// script does not have — `Result`, `pub`, test functions, a README — and used
+/// to score it with Rust rules or read it as a repository artifact
+/// (Canvas D, 15/09/2026).
+#[cfg(feature = "workspace-integration")]
+pub(crate) const SHELL_DIMS: &[DimId] = &[
+    DimId::F1_1,
+    DimId::F1_2,
+    DimId::F1_3,
+    DimId::F1_5,
+    DimId::F2_1,
+    DimId::F2_4,
+    DimId::F2_6,
+    DimId::F4_1,
+];
+
+/// `Some(N/A)` when `target` is a shell script and `dim` has no shell reading.
+///
+/// One gate in the dispatcher instead of a check in each verifier: a new
+/// dimension inherits it, and no verifier can forget it.
+#[cfg(feature = "workspace-integration")]
+fn not_applicable_to_shell(dim: DimId, target: &Path) -> Option<DimScore> {
+    if SHELL_DIMS.contains(&dim) || !target.is_file() || lang_of(target) != "shell" {
+        return None;
+    }
+    Some(finish(
+        dim,
+        1.0,
+        format!("[N/A] {dim}: no shell reading — a shell script is excluded from composite"),
+        target,
+    ))
 }
 
 /// Locate a byte span in `src`, returning `(line_number, excerpt)`.
@@ -1142,13 +1475,60 @@ pub fn run_verification(dim: DimId, target: &Path) -> Result<DimScore> {
     let v = table
         .get(&dim)
         .ok_or_else(|| anyhow::anyhow!("no verifier for dim {}", dim))?;
+    #[cfg(feature = "workspace-integration")]
+    if let Some(not_applicable) = not_applicable_to_shell(dim, target) {
+        return Ok(not_applicable);
+    }
     v.check(target)
+}
+
+/// Non-production harness (tests and benchmarks): a payload literal or an insecure
+/// setup there is a detector INPUT, not a deployed sink. Recognised by directory
+/// (`tests/`, `test/`, `benches/`, `bench/`) and — 26/09/2026 — by the file's own test
+/// convention, as Semgrep's default ignore does with `*_test.go`: pytest's
+/// `conftest.py`, `test_*.py` and `*_test.py`. One predicate for F2.1 and F2.6, which
+/// each kept a copy of the directory list and neither saw a `conftest.py`.
+///
+/// 01/11/2026: the JS/TS conventions (`__tests__/`, `*.test.<ext>`, `*.spec.<ext>` for
+/// ts/tsx/js/jsx/mjs/cjs) joined — the analise sei-simulator XSS fix could not commit
+/// its RED test, because a `href="javascript:…"` fixture in `DocumentViewer.test.tsx`
+/// was blocked by F2.1 as if it were a deployed sink.
+pub(crate) fn is_non_production_harness(path: &str) -> bool {
+    const NON_PRODUCTION_DIRS: [&str; 5] =
+        ["/tests/", "/test/", "/benches/", "/bench/", "/__tests__/"];
+    if NON_PRODUCTION_DIRS.iter().any(|s| path.contains(s)) {
+        return true;
+    }
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name == "conftest.py"
+        || (name.starts_with("test_") && name.ends_with(".py"))
+        || name.ends_with("_test.py")
+        || name.ends_with("_test.go")
+        || is_js_test_file_name(name)
+}
+
+/// `foo.test.tsx`, `foo.spec.ts`, … — the JS/TS test-runner conventions (Jest,
+/// Vitest, Mocha, Playwright). The marker must sit right before a JS/TS extension:
+/// `contest.ts` or `latest.js` are production files.
+fn is_js_test_file_name(name: &str) -> bool {
+    const JS_EXTS: [&str; 6] = ["ts", "tsx", "js", "jsx", "mjs", "cjs"];
+    let Some((stem, ext)) = name.rsplit_once('.') else {
+        return false;
+    };
+    JS_EXTS.contains(&ext) && (stem.ends_with(".test") || stem.ends_with(".spec"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    /// A repository root as `git init` leaves it: `.git/HEAD` present — the marker
+    /// [`find_repo_root`] accepts (an empty or stray `.git` directory is not a repo).
+    fn mark_git_repo(root: &Path) {
+        std::fs::create_dir_all(root.join(".git")).expect(".git");
+        std::fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").expect("HEAD");
+    }
 
     /// Mutation-testing trees are near-identical clones of the source by
     /// construction — enumerating them made F1.3 report 51% duplication on a
@@ -1165,6 +1545,21 @@ mod tests {
         }
         let files = enumerate_source_files(root);
         assert_eq!(files, vec![root.join("real.py")]);
+    }
+
+    /// A vendored upstream crate under `third_party/` is not project source: the
+    /// generated tree-sitter-md parser (140k lines, 68% Type-1 clones) made F1.3
+    /// block the touring workspace at Silver (14/09/2026).
+    #[test]
+    fn test_enumerate_skips_vendored_third_party_trees() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("real.rs"), "fn a() {}\n").expect("write");
+        let vendored = root.join("third_party").join("tree-sitter-md").join("src");
+        std::fs::create_dir_all(&vendored).expect("mkdir");
+        std::fs::write(vendored.join("parser.c"), "int x;\n").expect("write");
+        let files = enumerate_source_files(root);
+        assert_eq!(files, vec![root.join("real.rs")]);
     }
 
     /// Vendored minified bundles are machine-written blobs, not project source
@@ -1191,6 +1586,29 @@ mod tests {
         assert!(ArtifactClass::Manifest.matches(Path::new("/x/Cargo.toml")));
         assert!(ArtifactClass::Manifest.matches(Path::new("/x/pyproject.toml")));
         assert!(!ArtifactClass::Manifest.matches(Path::new("/x/config.toml")));
+    }
+
+    #[test]
+    fn nearest_readme_upward_prefers_the_package_readme_over_the_root_one() {
+        // S59: a package README shadows the root's; outside a repository there is none.
+        let repo = tempfile::tempdir().expect("tempdir");
+        mark_git_repo(repo.path());
+        std::fs::write(repo.path().join("README.md"), "# root\n").expect("root readme");
+        let pkg = repo.path().join("packages").join("pkg");
+        std::fs::create_dir_all(pkg.join("src")).expect("dirs");
+        std::fs::write(pkg.join("README.md"), "# pkg\n").expect("pkg readme");
+        std::fs::write(pkg.join("src").join("m.py"), "x = 1\n").expect("module");
+        std::fs::write(repo.path().join("top.py"), "x = 1\n").expect("top module");
+        let from_pkg = nearest_readme_upward(&pkg.join("src").join("m.py")).expect("pkg readme");
+        assert!(from_pkg.ends_with("packages/pkg/README.md"), "{from_pkg:?}");
+        let from_top = nearest_readme_upward(&repo.path().join("top.py")).expect("root readme");
+        assert_eq!(
+            from_top,
+            std::fs::canonicalize(repo.path().join("README.md")).expect("canon")
+        );
+        let loose = tempfile::tempdir().expect("tempdir");
+        std::fs::write(loose.path().join("l.py"), "x = 1\n").expect("loose");
+        assert!(nearest_readme_upward(&loose.path().join("l.py")).is_none());
     }
 
     #[test]
@@ -1361,7 +1779,7 @@ mod tests {
     #[test]
     fn find_repo_root_stops_at_git_marker() {
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         let nested = root.path().join("crates/a/src");
         std::fs::create_dir_all(&nested).unwrap();
         let found = find_repo_root(&nested).expect("repo root found via .git");
@@ -1376,7 +1794,7 @@ mod tests {
         // Fixture: a repo root (marked by `.git`) shipping a CHANGELOG, holding a
         // member crate that has NEITHER a CHANGELOG nor a README of its own.
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         std::fs::write(
             root.path().join("CHANGELOG.md"),
             "# Changelog\n## 1.0\n- init\n",
@@ -1404,11 +1822,51 @@ mod tests {
         // A repo root that genuinely lacks the artifact → member still absent
         // (walk-up inherits truthfully; it never fabricates presence).
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         let crate_dir = root.path().join("crates/member");
         std::fs::create_dir_all(&crate_dir).unwrap();
         let (_, present) = read_artifact_source(&crate_dir, ArtifactClass::CiWorkflow);
         assert!(!present, "no CI anywhere → honestly absent, not fabricated");
+    }
+
+    /// 26/09/2026: `analise/.claude/.git` is a 4 KB directory holding only a GitKraken
+    /// `gk/` folder — not a repository (`git -C .claude rev-parse` resolves to the
+    /// outer one). Taken as a root marker, it cut the walk-up short and `.claude/hooks`
+    /// scored F4.7 «repository lacks it» beside the root's `.github/workflows/ci.yml`,
+    /// the very job that runs those hooks' tests. A marker is what git accepts: a
+    /// `.git` FILE (worktree/submodule) or a `.git` directory holding `HEAD`.
+    #[test]
+    fn a_stray_git_directory_without_head_is_not_a_repo_root() {
+        let root = tempfile::tempdir().expect("tempdir");
+        mark_git_repo(root.path());
+        std::fs::create_dir_all(root.path().join(".github/workflows")).unwrap();
+        std::fs::write(
+            root.path().join(".github/workflows/ci.yml"),
+            "on: push\njobs: {}\n",
+        )
+        .unwrap();
+        let tool_dir = root.path().join(".claude");
+        std::fs::create_dir_all(tool_dir.join(".git/gk")).unwrap();
+        let member = tool_dir.join("hooks");
+        std::fs::create_dir_all(&member).unwrap();
+        std::fs::write(member.join("h.py"), "x = 1\n").unwrap();
+
+        let (_, present) = read_artifact_source(&member, ArtifactClass::CiWorkflow);
+        assert!(
+            present,
+            "the stray `.git/gk` must not hide the repository root's CI"
+        );
+        assert_eq!(
+            find_repo_root(&member),
+            Some(std::fs::canonicalize(root.path()).unwrap())
+        );
+
+        // control: a real nested repository (HEAD present) still stops the walk-up
+        std::fs::write(tool_dir.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        assert_eq!(
+            find_repo_root(&member),
+            Some(std::fs::canonicalize(&tool_dir).unwrap())
+        );
     }
 
     #[test]
@@ -1416,7 +1874,7 @@ mod tests {
         // A `.rs` source file scored for an artifact dim it does NOT match must
         // never be read AS that artifact (the file-scope fidelity fix).
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         std::fs::write(root.path().join("CHANGELOG.md"), "# Changelog\n## 1.0\n").unwrap();
         let src = root.path().join("crates/m/src");
         std::fs::create_dir_all(&src).unwrap();
@@ -1449,5 +1907,304 @@ mod tests {
             p3 && s3.contains("Changelog"),
             "explicit CHANGELOG.md reads verbatim"
         );
+    }
+
+    /// A evidência que ANUNCIA truncagem produz `DimScore::truncated == true`.
+    ///
+    /// Asserção **positiva**: o que se afirma é que o sinal VIAJA, não que ele
+    /// esteja ausente. Um teste por ausência (`assert!(!score.truncated)` num
+    /// alvo qualquer) passaria igualmente com o campo apagado — foi assim que um
+    /// campo sumiu em silêncio no `write_marker` e o consumidor leu o default
+    /// como se fosse valor medido.
+    #[test]
+    fn evidence_announcing_truncation_reaches_the_dimscore_field() {
+        let alvo = Path::new("/tmp");
+        let evidencia = format!(
+            "F1.3: duplication ratio=5.0%; {} no teto de varredura (128 MiB)",
+            TRUNCATION_SENTINEL
+        );
+        let score = finish(DimId::F1_3, 0.5, evidencia, alvo);
+        assert!(
+            score.truncated,
+            "a truncagem anunciada na evidence TEM de chegar ao campo que \
+             loop_converged.py::clause_not_truncated lê"
+        );
+    }
+
+    /// O par negativo: sem anúncio, o campo não se acende sozinho.
+    #[test]
+    fn evidence_without_the_sentinel_leaves_truncated_unset() {
+        let score = finish(
+            DimId::F1_3,
+            0.9,
+            "F1.3: duplication ratio=1.0% (medido inteiro)".to_string(),
+            Path::new("/tmp"),
+        );
+        assert!(
+            !score.truncated,
+            "sem sentinela não há truncagem a declarar — o campo é afirmação, não default"
+        );
+    }
+
+    /// Guard D8 cruzado: o texto que o PRODUTOR emite contém o literal que o
+    /// CONSUMIDOR procura.
+    ///
+    /// O anti-padrão que este teste existe para barrar é a divergência silenciosa:
+    /// alguém reescreve a mensagem de truncagem do F1.3 para algo mais bonito, o
+    /// predicado deixa de casar, e o gate volta a passar vacuamente sem que uma
+    /// única linha de `finish` tenha mudado. Aqui os dois lados são lidos da
+    /// MESMA constante, e a reescrita quebra o teste em vez de quebrar o gate.
+    #[test]
+    fn producer_message_and_consumer_predicate_share_one_source() {
+        let mensagem_do_produtor = format!(
+            "; {sentinel} no teto de varredura ({cap} MiB) — este score cobre um PREFIXO do escopo",
+            sentinel = TRUNCATION_SENTINEL,
+            cap = DIR_SCAN_BYTE_CAP / (1024 * 1024),
+        );
+        assert!(
+            evidence_marks_truncated(&mensagem_do_produtor),
+            "a mensagem emitida pelo f1_3 tem de ser reconhecida pelo predicado de finish"
+        );
+        assert!(
+            mensagem_do_produtor.contains("128 MiB"),
+            "o teto anunciado deriva de DIR_SCAN_BYTE_CAP — a mensagem dizia 16 MiB \
+             enquanto a constante valia 128 MiB (drift corrigido em 03/09/2026)"
+        );
+    }
+
+    /// Cross-audit 14/09/2026 (R2-2): the MkDocs build under `site/` is ignored by
+    /// git and still reached every corpus, so a stale copy failed the workspace's
+    /// F2.1 gate. Source, security and artifact walks read git's rules; an
+    /// explicit file target is scored as given.
+    #[test]
+    fn what_git_ignores_is_in_no_corpus() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        for (rel, body) in [
+            (".git/HEAD", "ref: refs/heads/main\n"),
+            (".gitignore", "/site/\n*.gen.py\n"),
+            ("src/app.py", "x = 1\n"),
+            ("src/table.gen.py", "x = 1\n"),
+            ("site/docs/app.py", "x = 1\n"),
+            ("CHANGELOG.md", "# Changelog\n"),
+            ("site/CHANGELOG.md", "# stale\n"),
+        ] {
+            let path = root.join(rel);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+            std::fs::write(path, body).expect("write");
+        }
+        let under_site = |files: &[PathBuf]| {
+            files
+                .iter()
+                .filter(|f| f.starts_with(root.join("site")))
+                .count()
+        };
+
+        let source = enumerate_source_files(root);
+        assert_eq!(under_site(&source), 0, "{source:?}");
+        assert!(
+            source.iter().any(|f| f.ends_with("src/app.py")),
+            "{source:?}"
+        );
+        assert!(
+            !source.iter().any(|f| f.ends_with("src/table.gen.py")),
+            "a file rule refuses a file inside a walked directory: {source:?}"
+        );
+        assert_eq!(under_site(&enumerate_security_files(root)), 0);
+        let changelogs = resolve_artifacts(root, ArtifactClass::Changelog);
+        assert_eq!(under_site(&changelogs), 0, "{changelogs:?}");
+        assert_eq!(changelogs.len(), 1, "{changelogs:?}");
+
+        // A subdirectory scope reads the rules of the working tree above it.
+        assert!(enumerate_source_files(&root.join("site")).is_empty());
+        // An explicit file is what the caller asked for.
+        let explicit = root.join("site/docs/app.py");
+        assert_eq!(enumerate_source_files(&explicit), vec![explicit]);
+    }
+
+    /// Canvas D (15/09/2026): the language came from the extension alone, so a
+    /// `.sh` file or an extensionless script was scored with Rust rules.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn lang_of_reads_the_extension_then_the_shebang() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let write = |name: &str, body: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, body).expect("write");
+            path
+        };
+        assert_eq!(lang_of(&write("install.sh", "echo\n")), "shell");
+        assert_eq!(lang_of(&write("run.bash", "echo\n")), "shell");
+        assert_eq!(lang_of(&write("prompt.zsh", "echo\n")), "shell");
+        assert_eq!(
+            lang_of(&write("deploy", "#!/usr/bin/env bash\necho\n")),
+            "shell"
+        );
+        assert_eq!(lang_of(&write("hook", "#!/bin/sh -e\necho\n")), "shell");
+        assert_eq!(
+            lang_of(&write("tool", "#!/usr/bin/env -S python3 -u\nprint()\n")),
+            "python"
+        );
+        assert_eq!(lang_of(&write("notes", "plain text\n")), "rust");
+        assert_eq!(
+            lang_of(&write("a.py", "#!/bin/bash\n")),
+            "python",
+            "the extension wins"
+        );
+        assert_eq!(lang_of(dir.path()), "rust", "a directory keeps the default");
+        assert_eq!(lang_of(&dir.path().join("missing")), "rust");
+    }
+
+    /// Canvas D (15/09/2026): 39 dimensions scored a shell script with Rust rules
+    /// or read it as a README/CI/runbook; a 2-line script scored 0.864.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn a_shell_script_is_not_applicable_exactly_where_no_dimension_reads_shell() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let script = dir.path().join("deploy");
+        std::fs::write(
+            &script,
+            "#!/bin/bash\nset -e\nif [ -n \"$1\" ]; then echo \"$1\"; fi\n",
+        )
+        .expect("write");
+        let rust = dir.path().join("lib.rs");
+        std::fs::write(&rust, "pub fn a() -> i32 { 1 }\n").expect("write");
+        for dim in DimId::ALL.iter().copied() {
+            let gated = not_applicable_to_shell(dim, &script);
+            assert_eq!(gated.is_some(), !SHELL_DIMS.contains(&dim), "{dim}");
+            if let Some(s) = gated {
+                assert_eq!(s.status, DimStatus::NotApplicable, "{dim}: {}", s.evidence);
+            }
+            assert!(
+                not_applicable_to_shell(dim, &rust).is_none(),
+                "{dim}: a Rust file never takes the shell gate"
+            );
+        }
+        let f11 = run_verification(DimId::F1_1, &script).expect("F1.1");
+        assert_ne!(f11.status, DimStatus::NotApplicable, "{}", f11.evidence);
+        assert!(f11.evidence.contains("(shell)"), "{}", f11.evidence);
+        let readme = run_verification(DimId::F3_11, &script).expect("F3.11");
+        assert_eq!(
+            readme.status,
+            DimStatus::NotApplicable,
+            "{}",
+            readme.evidence
+        );
+    }
+
+    /// Canvas D (15/09/2026): `SOURCE_EXTS` had no shell, so no directory score
+    /// had ever read a script.
+    #[test]
+    fn the_corpus_collects_shell_scripts_by_extension_and_by_shebang() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        for (name, body) in [
+            ("lib.rs", "pub fn a() {}\n"),
+            ("install.sh", "echo install\n"),
+            ("update-touring", "#!/usr/bin/env bash\necho update\n"),
+            ("pre-commit", "#!/bin/sh -e\nexit 0\n"),
+            ("notes", "plain text, no shebang\n"),
+            ("LICENSE", "MIT\n"),
+            ("tool", "#!/usr/bin/env python3\nprint()\n"),
+        ] {
+            std::fs::write(root.join(name), body).expect("write");
+        }
+        let names: Vec<String> = enumerate_source_files(root)
+            .iter()
+            .map(|p| {
+                p.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        assert_eq!(
+            names,
+            ["install.sh", "lib.rs", "pre-commit", "update-touring"],
+            "{names:?}"
+        );
+        // A script is source, so an explicit `.sh` target is never read as a
+        // repository artifact.
+        assert!(is_source_file(&root.join("install.sh")));
+    }
+
+    /// Canvas D (15/09/2026): two tracked symlinks whose targets were deleted
+    /// entered the corpus, failed to read and scored 0.0 on every dimension that
+    /// read them — three BLOCK dims of the analise repository went to Fail.
+    #[cfg(unix)]
+    #[test]
+    fn a_dangling_symlink_never_enters_the_corpus_but_a_live_one_does() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("real.sh"), "echo real\n").expect("write");
+        std::os::unix::fs::symlink("real.sh", root.join("live.sh")).expect("live link");
+        std::os::unix::fs::symlink("gone/start.sh", root.join("dangling.sh"))
+            .expect("dangling link");
+        std::os::unix::fs::symlink("gone/lib.rs", root.join("dangling.rs")).expect("dangling link");
+        let names: Vec<String> = enumerate_security_files(root)
+            .iter()
+            .map(|p| {
+                p.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        assert_eq!(names, ["live.sh", "real.sh"], "{names:?}");
+    }
+
+    /// 2026-09-26, analise `.claude/hooks`: F2.1 and F2.6 exempt `tests/`/`benches/`
+    /// directories as non-production harness, but a pytest `conftest.py` (or a
+    /// `test_*.py` beside the code) was scored as a deployed sink — its path-traversal
+    /// fixture and `chmod 0o777` setup held the hooks tree below Gold. The harness is
+    /// recognised by the file's own test convention too, not only by its directory.
+    #[test]
+    fn python_test_harness_files_are_non_production_for_f2_1_and_f2_6() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let fixture = "import os\nPAYLOADS = [\n    \"../../../etc/passwd\",\n]\nos.chmod(\"/tmp/x\", 0o777)\n";
+        for harness in ["conftest.py", "test_paths.py", "paths_test.py"] {
+            let p = dir.path().join(harness);
+            std::fs::write(&p, fixture).expect("write");
+            let owasp = f2_1_owasp::F2_1_Owasp.check(&p).expect("f2.1").value;
+            let config = f2_6_config::F2_6_Config.check(&p).expect("f2.6").value;
+            assert_eq!((owasp, config), (1.0, 1.0), "{harness}");
+        }
+        // Control: the same bytes in production code keep failing both dimensions.
+        let prod = dir.path().join("paths.py");
+        std::fs::write(&prod, fixture).expect("write");
+        assert!(f2_1_owasp::F2_1_Owasp.check(&prod).expect("f2.1").value < 1.0);
+        assert!(f2_6_config::F2_6_Config.check(&prod).expect("f2.6").value < 1.0);
+    }
+
+    /// 01/11/2026: a JS/TS test file carrying an XSS payload literal is a test
+    /// fixture (the analise sei-simulator RED test was blocked by exactly this),
+    /// while the same bytes in production code — or in a file whose name only
+    /// LOOKS like a test (`latest.ts`, `contest.ts`) — keep failing F2.1.
+    #[test]
+    fn js_test_files_are_non_production_for_f2_1() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let fixture =
+            "export const LINK = \"<a href=\\\"javascript:alert(document.cookie)\\\">x</a>\";\n";
+        std::fs::create_dir_all(dir.path().join("__tests__")).expect("mkdir");
+        for harness in [
+            "DocumentViewer.test.tsx",
+            "viewer.spec.ts",
+            "render.test.js",
+            "__tests__/viewer.ts",
+        ] {
+            let p = dir.path().join(harness);
+            std::fs::write(&p, fixture).expect("write");
+            let owasp = f2_1_owasp::F2_1_Owasp.check(&p).expect("f2.1").value;
+            assert_eq!(owasp, 1.0, "{harness}");
+        }
+        for prod in ["DocumentViewer.tsx", "latest.ts", "contest.ts", "test.ts"] {
+            let p = dir.path().join(prod);
+            std::fs::write(&p, fixture).expect("write");
+            let owasp = f2_1_owasp::F2_1_Owasp.check(&p).expect("f2.1").value;
+            assert!(
+                owasp < 1.0,
+                "{prod} is production code and must still fail: {owasp}"
+            );
+        }
     }
 }

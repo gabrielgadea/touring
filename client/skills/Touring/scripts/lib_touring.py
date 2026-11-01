@@ -53,7 +53,11 @@ def touring_run(args: Sequence[str], *, timeout: float = DEFAULT_TIMEOUT,
     """
     cmd = ["touring", *args]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        # errors="replace" pelo mesmo motivo do grep_fallback: a saída pode carregar
+        # trechos de arquivos do repositório, e decodificação estrita transforma um byte
+        # inválido em exceção não tratada num helper cujo contrato é fail-soft.
+        proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace",
+                              timeout=timeout)
     except FileNotFoundError:
         return TouringResult(list(args), 127, "", "touring: command not found",
                               daemon_degraded=True)
@@ -250,7 +254,15 @@ def grep_fallback(symbol: str, root: Path | str, *, max_hits: int = 20) -> list[
     for tool in (["rg", "-n", "--no-heading", pat, str(root)],
                  ["grep", "-rnE", pat, str(root)]):
         try:
-            proc = subprocess.run(tool, capture_output=True, text=True, timeout=15.0)
+            # errors="replace": rg/grep varrem a raiz INTEIRA, e um repositório real contém
+            # binários (PDFs de um acervo, imagens, .db). Em modo texto sem política de erro
+            # a decodificação é estrita e um único byte inválido derruba o diagnóstico com
+            # UnicodeDecodeError — foi o que aconteceu em 07/08/2026, quando o acervo do caso
+            # passou de 45 MB e `touring explore --until-dry` deixou de rodar por completo.
+            # Um fallback de busca existe para nunca falhar; substituir o byte é o comportamento
+            # correto (as linhas de código continuam legíveis).
+            proc = subprocess.run(tool, capture_output=True, text=True, errors="replace",
+                                  timeout=15.0)
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             continue
         if proc.returncode in (0, 1):  # 0 = hits, 1 = no hits — both are valid results
@@ -265,7 +277,8 @@ def quality_score(path: Path | str, *, timeout: float = DEFAULT_TIMEOUT) -> dict
     unavailable, so the caller can fall back to Chain 7 rather than trust a wrong 0."""
     cmd = ["touring-quality", "score", str(path), "--format", "json"]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace",
+                              timeout=timeout)
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
         return mark_degraded({}, True, f"touring-quality unavailable: {exc}")
     if proc.returncode != 0 or not proc.stdout.strip():

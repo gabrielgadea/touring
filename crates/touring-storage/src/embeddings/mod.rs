@@ -19,7 +19,9 @@ pub use serde::{Deserialize, Serialize};
 
 // Re-export providers for consumers who need concrete implementations
 #[cfg(feature = "fastembed")]
-pub use providers::fastembed::{FastEmbedModel, FastEmbedProvider};
+pub use providers::fastembed::{
+    EMBED_DEVICE_ENV, EmbedDevice, EmbedDevicePolicy, FastEmbedModel, FastEmbedProvider,
+};
 
 #[cfg(feature = "candle-bge")]
 pub use providers::candle_bge::{BgeModelVariant, CandleBgeProvider};

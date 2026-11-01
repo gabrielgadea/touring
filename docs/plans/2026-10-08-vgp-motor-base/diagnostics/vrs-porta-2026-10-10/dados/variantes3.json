@@ -1,0 +1,12 @@
+{
+ "sha_rust_rs": "0093db289fe1bd45",
+ "variantes": [
+  {
+   "variante": "V13",
+   "desfeitas": [],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V13/touring",
+   "sha256": "cc8ce5481c825254c9a460806cfd19398899098a21b0b277bb3279f856b610d2",
+   "segundos": 24.8
+  }
+ ]
+}

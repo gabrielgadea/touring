@@ -56,16 +56,11 @@ pub fn migrate_embeddings_to_u4(
             )?;
 
             // Decode raw le_bytes (standard format written by store_chunk).
-            // chunks_exact(4) guarantees each slice is exactly 4 bytes; the
-            // try_into cannot fail here, so the expect message is a safety net.
             let f32_vals: Vec<f32> = blob
-                .chunks_exact(4)
-                .map(|b| {
-                    let arr: [u8; 4] = b
-                        .try_into()
-                        .expect("chunks_exact(4) guarantees 4-byte slices");
-                    f32::from_le_bytes(arr)
-                })
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|&arr| f32::from_le_bytes(arr))
                 .collect();
 
             let q = EmbeddingU4::from_f32(&f32_vals);

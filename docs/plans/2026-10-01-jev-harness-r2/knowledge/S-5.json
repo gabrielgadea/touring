@@ -1,0 +1,45 @@
+{
+  "phase": "S-5",
+  "entities": [
+    {
+      "entity_id": "phase:S-5",
+      "type": "phase",
+      "description": "w46_teacher_cascade: dry-run REAL com 8 prompts de producao \u2014 provenance 6 jev / 1 jev+professor_agree / 1 professor (a cascata de custo disparou como desenhado). LGPD guard por construcao (analise nunca lido) + teste. Default-arg-bind pego (suite chamou o professor REAL \u2014 resolucao em call time). 7 testes vendados em 0.08s. Arquivos r2 escritos; split congelado intacto; o full-400 fica para a wave C (input do retreino)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790895761205640116:S-5:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790895761205640116",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790895761205640116",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-5|produces|memory:loop:task_1790895761205640116:S-5:done",
+      "source": "phase:S-5",
+      "type": "produces",
+      "target": "memory:loop:task_1790895761205640116:S-5:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-5:done|generated-by|loop:loop:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-5:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790895761205640116"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-5:done|generated-by|dag:decomp:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-5:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790895761205640116"
+    }
+  ]
+}

@@ -161,10 +161,6 @@ mod inner {
 
 // ── Stub for non-feature builds (keeps module compilable) ────────────────────
 
-#[cfg(not(feature = "burn-transformer"))]
-/// Placeholder — compile this module with `--features burn-transformer` to enable.
-pub struct ContextTransformerStub;
-
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(all(test, feature = "burn-transformer"))]

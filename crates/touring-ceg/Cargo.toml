@@ -33,12 +33,14 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-regex = { workspace = true } # T-09: token-format secret redaction in redact_secrets
+regex = { workspace = true } # gateway::summarize (the secret redactor moved to touring-foundation::text_sanitize)
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 moka = { workspace = true }
 blake3 = { workspace = true }
 rustix = { version = "1", features = ["process"] }
 landlock = "0.4"
+libc = { workspace = true }          # SEG-1: constantes do filtro seccomp (socket/SOCK_DGRAM)
+seccompiler = "0.5"                  # SEG-1: deny de UDP no kernel (pre_exec, funil único)
 tempfile = { workspace = true } # production dep: sandbox_executor tee dirs (not just tests)
 
 [dev-dependencies]

@@ -1,5 +1,6 @@
 use super::*;
 use crate::daemon_client::daemon_query;
+use touring_foundation::text_sanitize::sanitize_memory_text;
 
 /// Resolve the canonical on-disk path for the entity-registry SQLite DB.
 ///
@@ -374,6 +375,12 @@ impl TouringServer {
             .value
             .or(p.content)
             .ok_or_else(|| McpError::invalid_params("'value' (or 'content') is required", None))?;
+        // C6 (2026-10-17): clean BEFORE the embedding is computed (a vector of
+        // the raw text would encode the secret) and report what changed.
+        // `MemoryStore::store_with_embedding` guards every sink again.
+        let cleaned = sanitize_memory_text(&value);
+        let sanitized = cleaned.to_json();
+        let value = cleaned.text;
 
         let mut entry = MemoryEntry::new(&key, &tier, &value);
         if let Some(ref et) = p.entry_type {
@@ -401,6 +408,7 @@ impl TouringServer {
             "value_length": value.len(),
             "entry_type": p.entry_type,
             "embedded": embedded,
+            "sanitized": sanitized,
         });
         self.graph_svc.inject(&mut output, &gctx);
 

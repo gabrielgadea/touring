@@ -116,16 +116,51 @@ impl RenderShape {
     #[inline]
     #[must_use]
     pub fn would_overflow(&self, content: &str) -> bool {
-        content.lines().any(|line| {
-            let line_len = u16::try_from(line.len()).unwrap_or(u16::MAX);
-            self.offset.saturating_add(line_len) > self.max_width
-        })
+        // One definition of "fits": `fits` is the per-line predicate, and this is
+        // its fold over the lines — `offset + line_len > max_width` is exactly
+        // `!(remaining >= line_len)`. Two independent copies of the arithmetic
+        // were the reason the index read `fits` as an orphan (13/09/2026).
+        content.lines().any(|line| !self.fits(line.len()))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `would_overflow` is `fits` folded over the lines — the two can never
+    /// disagree, including at the saturation edges (offset past the width,
+    /// a line longer than `u16`).
+    #[test]
+    fn would_overflow_is_fits_folded_over_lines() {
+        let shapes = [
+            RenderShape::new(20, 0, 0),
+            RenderShape::new(20, 0, 15),
+            RenderShape::new(20, 0, 20),
+            RenderShape::new(20, 0, 25),
+        ];
+        let long = "x".repeat(70_000);
+        let contents = [
+            "",
+            "short",
+            "exactly twenty chars",
+            "one\nlonger than twenty chars\ntwo",
+            long.as_str(),
+        ];
+        for s in &shapes {
+            for c in &contents {
+                let by_fits = c.lines().any(|line| !s.fits(line.len()));
+                assert_eq!(
+                    s.would_overflow(c),
+                    by_fits,
+                    "offset={} content_len={}",
+                    s.offset,
+                    c.len()
+                );
+            }
+            assert!(!s.would_overflow(""), "empty content never overflows");
+        }
+    }
 
     #[test]
     fn default_shape_is_100_width() {

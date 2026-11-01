@@ -14,33 +14,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 mod common;
-
-/// Locate the touring binary (preferring release over debug).
-fn locate_binary(name: &str) -> Option<PathBuf> {
-    let workspace_target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.join("target"))?;
-
-    // `cargo llvm-cov` redirects the build to `target/llvm-cov-target/`, so a
-    // binary from a plain `cargo build` is invisible inside a coverage run —
-    // exactly how the CI coverage job failed on 2026-08-02. An explicit
-    // CARGO_TARGET_DIR wins for the same reason.
-    let roots = [
-        std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from),
-        Some(workspace_target.join("llvm-cov-target")),
-        Some(workspace_target),
-    ];
-    for root in roots.into_iter().flatten() {
-        for profile in ["release", "debug"] {
-            let candidate = root.join(profile).join(name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-    }
-    None
-}
+use common::private_daemon::locate_binary;
 
 /// Resolve the binary or SKIP the test — never panic with a "skipping" message.
 ///
@@ -56,8 +30,8 @@ fn touring_bin_or_skip() -> Option<PathBuf> {
             let test = std::thread::current().name().unwrap_or("test").to_string();
             eprintln!(
                 "SKIP {test}: touring binary not built. Build it first: \
-                 `cargo build -p touring-server` (looked in $CARGO_TARGET_DIR, \
-                 target/llvm-cov-target/{{release,debug}} and target/{{release,debug}})."
+                 `cargo build -p touring-server` (looked in $CARGO_TARGET_DIR, this test's own build root, \
+                 target/ and target/llvm-cov-target/)."
             );
             None
         }
@@ -274,15 +248,30 @@ fn deep_match(x: i32) -> i32 {
 fn b310_path_wired_when_predictive_blast_injects_symbols() {
     let payload = r#"{"tool_name":"TaskCreate","tool_input":{"subject":"Refactor HookRuntime to use actor pattern with mpsc channels across pre_read pre_write pre_edit post_read post_write post_edit hooks","description":"Large refactor affecting multiple hook modules"}}"#;
 
-    // Daemon exclusivo deste teste: sem ele o probe disputava o daemon global
-    // com as outras suítes e devolvia stdout vazio sob carga.
-    let Some(daemon) = common::private_daemon::PrivateDaemon::start("rfc100-b310") else {
+    // Daemon exclusivo deste PROCESSO de teste (22/08/2026): era um daemon novo
+    // só para este teste, e um daemon frio paga a montagem do índice DENTRO da
+    // primeira chamada — `cli-pre-task-scout` (blast preditivo sobre o workspace
+    // real) estourava o budget de 15s do cliente e o teste morria em
+    // "EOF while parsing a value". O daemon compartilhado já foi aquecido pelos
+    // outros testes deste binário e tem a raiz do projeto pinada.
+    // `shared_warm`, não `shared` (04/09/2026): este teste é o único do binário
+    // que faz uma consulta PESADA (blast preditivo sobre o workspace real), e
+    // era ele que pagava a montagem do índice dentro do próprio orçamento —
+    // verde isolado, vermelho na suíte completa. O aquecimento é explícito aqui
+    // porque é aqui que ele é preciso; escondê-lo em `shared()` cobrava-o de
+    // quem chegasse primeiro, e uma vez isso foi um teste de latência (P99 de
+    // 10.952ms contra teto de 2.000ms).
+    let Some(daemon) = common::private_daemon::shared_warm() else {
         eprintln!("SKIP b310: touring-daemon não compilado");
         return;
     };
+    // `--timeout 60`: este teste mede se o B-310 é EMITIDO, não se cabe em 15s.
+    // O default do cliente é uma escolha de UX para a sessão interativa; um probe
+    // que afirma "o caminho não está ligado" porque o cliente desistiu antes é um
+    // falso negativo — a assimetria que a REGRA #21 manda não deixar passar.
     let Some((stdout, stderr, exit)) = run_with_stdin(
         "touring",
-        &["pre-task-scout"],
+        &["--timeout", "60", "pre-task-scout"],
         payload,
         Some(daemon.socket()),
     ) else {

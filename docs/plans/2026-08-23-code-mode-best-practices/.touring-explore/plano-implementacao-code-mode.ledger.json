@@ -1,0 +1,304 @@
+{
+ "version": 2,
+ "topic": "plano implementacao code mode",
+ "scope": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-23-code-mode-best-practices",
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 1,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-23T22:54:37-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-23T22:54:37-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-23T22:54:37-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-23T22:54:37-0300"
+  },
+  {
+   "round": 5,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-23T22:54:37-0300"
+  },
+  {
+   "round": 6,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-08-23T22:54:37-0300"
+  }
+ ],
+ "findings": {
+  "f_3a21607c833b": {
+   "id": "f_3a21607c833b",
+   "lens": "portfolio",
+   "kind": "gap",
+   "key": "nenhum artefato conhecido cobre \"plano implementacao code mode\" (0 registros varridos) — o portfólio não tem prior-art p",
+   "evidence": "touring portfolio plano implementacao code mode",
+   "detail": "nenhum artefato conhecido cobre \"plano implementacao code mode\" (0 registros varridos) — o portfólio não tem prior-art para este intento",
+   "depth": "D0",
+   "round": 1
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "quality": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "portfolio": {
+   "visits": 6,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 0,
+   "max_depth": null,
+   "truncated_total": 0
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": false,
+  "statement": "exploration incomplete",
+  "clauses": {
+   "rounds_run": 6,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [
+    "external"
+   ],
+   "open_questions": 0,
+   "degraded_rounds": 0
+  },
+  "unmet": [
+   "lens 'external' pending — mark visited/waived (--mark-lens)"
+  ],
+  "next_action": "lens 'external' pending — mark visited/waived (--mark-lens)",
+  "at": "2026-08-23T22:54:37-0300"
+ }
+}

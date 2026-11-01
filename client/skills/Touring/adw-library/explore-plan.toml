@@ -9,6 +9,43 @@ name = "explore-plan"
 description = "Exploration loop (F1 CCE) into plan refinement (F2) with an act-vs-wait human gate"
 entry = "explore_loop"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). criterio 28/08: explore+plan_refine genericos.
+curation = "generic"
+intent = "Explore a foggy topic until the round comes back dry, refine a plan to plateau, then let a human decide act or wait"
+class = "create"
+when_to_use = [
+  "the goal is too uncertain to plan directly",
+  "you need a CCE ledger on disk proving every lens was consulted",
+]
+when_not_to_use = [
+  "the work is already specified — planning a decided thing burns rounds for nothing",
+  "unattended runs: it pauses at a human gate by design",
+]
+inputs = [
+  "topic",
+  "plan",
+]
+produces = [
+  "a CCE exploration ledger",
+  "a refined plan",
+  "an act-or-wait decision",
+]
+tags = [
+  "#kind:flow",
+  "#domain:planning",
+  "#process:outer",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Explorar até a rodada voltar seca e refinar plano até o platô é o par
+# explore↔plan do OUTER; nenhum fluxo anterior fazia convergência de exploração.
+prior_art_verdict = "create_new"
+
 
 # `touring explore` already loops-until-dry internally (CCE v2); the outer loop
 # node re-drives it so late findings (living memory) still count — the runner,
@@ -24,13 +61,30 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
-command = ["bash", "-c", "touring explore \"$1\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}"]
+sandbox = true
+# `touring explore` contract: exit 0 converged / 1 continue / 3 degraded.
+# Reading any non-zero as failure made this loop STRUCTURALLY unable to
+# iterate — every round that is not already dry exits 1, and the loop node
+# returns `on_fail` on a non-zero body (adw.py). Observed twice (2026-08-25).
+# `[ $rc -le 1 ]` lets a continuing round continue while a DEGRADED run (3)
+# still fails, which a bare `| tail` would have swallowed along with it.
+# The marker the runner reads is printed at the TOP; `tail -c` keeps the
+# BOTTOM. Measured 1457 B today (it fits) — but the size grows with the
+# ledger, and adw.py already carries the scar of a spec whose `tail -c`
+# ate the signal. Re-emitting the line makes survival independent of size.
+command = ["bash", "-c", "out=$(touring explore \"$1\" 2>&1); rc=$?; echo \"$out\" | tail -c 1800; echo \"$out\" | grep -E '^NEW_FINDINGS=' | tail -1; [ \"$rc\" -le 1 ]", "--", "{{vars.topic}}"]
 timeout_ms = 900000
 idempotent = true
 
 [node.refine_plan]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/plan_refine.py --topic \"$1\" 2>&1 | tail -c 1800 || true", "--", "{{vars.topic}}"]
+sandbox = true
+# N3 (2026-09-23): this node passed `--topic` alone for months — an argument
+# plan_refine.py never accepted, so argparse killed it and `|| true` hid the
+# corpse (the only wired producer never produced; KPI stuck at 1.0). Now the
+# script derives the ledger from --topic/--scope itself, and the node scores
+# the plan doc when one exists (`--var plan=<path>`), skipping loudly when not.
+command = ["bash", "-c", "if [ -f \"$2\" ]; then python3 ~/.claude/skills/Touring/scripts/plan_refine.py \"$2\" --topic \"$1\" --json 2>&1 | tail -c 1800; else echo \"skip: no plan doc — pass --var plan=<path> to score a refinement iteration\"; fi; true", "--", "{{vars.topic}}", "{{vars.plan}}"]
 timeout_ms = 900000
 idempotent = true
 on_pass = "act_or_wait"

@@ -394,10 +394,11 @@ fn block_on_async<F: std::future::Future>(future: F) -> F::Output {
 /// Clap parses `args[1..]` so "generate" acts as the program name and `args[2]`
 /// becomes the subcommand. When no subcommand is given, defaults to `list-kinds`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match GenerateCli::try_parse_from(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<GenerateCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(GenerateCmd::ListKinds { json: false }) {
         // ── Original subcommands ──────────────────────────────────────────
@@ -624,8 +625,12 @@ fn run_verify(symbol: &str, is_json: bool) -> anyhow::Result<()> {
 
 /// Read a plan file and deserialize it as `GeneratorPlan`.
 fn read_plan_file(path: &str) -> anyhow::Result<(touring_generator::GeneratorPlan, String)> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| anyhow::anyhow!("cannot read '{}': {e}", path))?;
+    let content = std::fs::read_to_string(path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions",
+            path
+        )
+    })?;
     let plan: touring_generator::GeneratorPlan = serde_json::from_str(&content)
         .map_err(|e| anyhow::anyhow!("invalid plan JSON in '{}': {e}", path))?;
     Ok((plan, content))
@@ -847,10 +852,18 @@ fn toml_from_plan(plan: &touring_generator::GeneratorPlan) -> String {
 
 /// `touring generate plan-diff --plan-file <path> --other <path> [--json]`
 fn run_plan_diff(path_a: &str, path_b: &str, is_json: bool) -> anyhow::Result<()> {
-    let content_a = std::fs::read_to_string(path_a)
-        .map_err(|e| anyhow::anyhow!("cannot read '{}': {e}", path_a))?;
-    let content_b = std::fs::read_to_string(path_b)
-        .map_err(|e| anyhow::anyhow!("cannot read '{}': {e}", path_b))?;
+    let content_a = std::fs::read_to_string(path_a).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions",
+            path_a
+        )
+    })?;
+    let content_b = std::fs::read_to_string(path_b).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read '{}': {e} — run `ls -la` on that path to check existence and permissions",
+            path_b
+        )
+    })?;
     let result = crate::tools::generator_tools_introspect::diff_plans(&content_a, &content_b);
     print_result(&result, is_json, || {
         if result
@@ -1238,7 +1251,7 @@ fn run_autonomous(intent: &str, is_json: bool) -> anyhow::Result<()> {
     let mut plan_value = suggestion
         .get("suggestion")
         .cloned()
-        .ok_or_else(|| anyhow::anyhow!("suggest_plan returned no suggestion"))?;
+        .ok_or_else(|| anyhow::anyhow!("suggest_plan returned no suggestion — run `touring generate suggest --intent '<your intent>'` to diagnose"))?;
 
     if let (Some(contracts), Some(plan_obj)) = (
         suggestion.get("suggested_contracts"),
@@ -1277,7 +1290,7 @@ fn run_autonomous(intent: &str, is_json: bool) -> anyhow::Result<()> {
             .get("error")
             .and_then(|v| v.as_str())
             .unwrap_or("pipeline failed");
-        anyhow::bail!("autonomous generation failed: {msg}");
+        anyhow::bail!("autonomous generation failed: {msg} — check `touring status -j` and retry");
     }
 
     print_result(&result, is_json, || {
@@ -1406,11 +1419,16 @@ fn parse_vars(vars_json: Option<&str>) -> anyhow::Result<HashMap<String, serde_j
     match vars_json {
         None => Ok(HashMap::new()),
         Some(raw) => {
-            let v: serde_json::Value = serde_json::from_str(raw)
-                .map_err(|e| anyhow::anyhow!("--vars is not valid JSON: {e}."))?;
+            let v: serde_json::Value = serde_json::from_str(raw).map_err(|e| {
+                anyhow::anyhow!(
+                    "--vars is not valid JSON: {e} — run `touring generate --help` for flag usage"
+                )
+            })?;
             match v {
                 serde_json::Value::Object(map) => Ok(map.into_iter().collect()),
-                _ => anyhow::bail!("--vars must be a JSON object"),
+                _ => anyhow::bail!(
+                    "--vars must be a JSON object (e.g., --vars '{{\"key\": \"value\"}}')"
+                ),
             }
         }
     }

@@ -1,0 +1,421 @@
+{
+  "lote": "H5-docker-examples-docs-adaptadores",
+  "lidos": [
+    "docker/context-profiles/README.md",
+    "docker/context-profiles/complex-eval/DESIGN.md (secoes 1-60, 92-175, 176-293 por cabecalho e trechos)",
+    "docker/context-profiles/ai-eval.js (linha 17, texto de uso)",
+    "docker/context-profiles/ai-eval-lib.js (linhas 1-25)",
+    "docker/context-profiles/complex-eval/calibrate-stats.js (linhas 1-30)",
+    "examples/eval-harness/README.md",
+    "examples/evaluator-rag-prototype/ci-failure-diagnosis/scenario.json (inicio)",
+    "examples/evaluator-rag-prototype/ci-failure-diagnosis/report.json",
+    "examples/evaluator-rag-prototype/ci-failure-diagnosis/verifier-result.json",
+    "examples/unified-memory/README.md (linhas 1-25)",
+    "examples/gan-harness/README.md (linhas 1-12)",
+    "examples/coordination-inventory/README.md (linhas 1-12)",
+    "docs/architecture/evaluator-rag-prototype.md (grep de secoes e linhas 50-139)",
+    "tests/docs/evaluator-rag-prototype.test.js (grep de asserts, linhas 39-87)",
+    "docs/MCP-CONNECTOR-POLICY.md",
+    "docs/hook-bug-workarounds.md",
+    "docs/token-optimization.md (linhas 9-30 e 121-134)",
+    "docs/TROUBLESHOOTING.md (linhas 29-36, grep)",
+    "docs/PLAN-PRD-PATTERN.md (cabecalhos e linhas 1-25)",
+    "docs/SKILL-PLACEMENT-POLICY.md (cabecalhos)",
+    "docs/stale-pr-salvage-ledger.md (linhas 1-20 e cabecalhos)",
+    "docs/ECC-PRO-SECURITY-ROADMAP.md (linhas 1-20 e cabecalhos)",
+    "docs/ECC-2.0-GA-ROADMAP.md (cabecalhos)",
+    "docs/ROADMAP.md (cabecalhos)",
+    "docs/SELECTIVE-INSTALL-ARCHITECTURE.md (cabecalhos)",
+    "docs/releases/2.2.3/release-notes.md (linhas 1-20)",
+    "the-security-guide.md (linhas 1-12; arquivo fica na raiz, nao em docs/)",
+    "docs/architecture/cross-harness.md (linhas 12-32, tabela Portability Model)",
+    "scripts/sync-ecc-to-codex.sh (linhas 1-30)",
+    ".kiro/steering/security.md (cabecalho, frontmatter e corpo comparado a rules/common/security.md)",
+    ".kiro/agents/code-reviewer.md (diff com agents/code-reviewer.md)",
+    ".kiro/skills/python-patterns/SKILL.md (diff com skills/python-patterns/SKILL.md)",
+    ".cursor/hooks.json (diff com hooks/hooks.json, inicio)",
+    ".cursor/hooks/session-start.js (inicio)",
+    ".cursor/skills/content-engine/SKILL.md (diff com skills/content-engine/SKILL.md)",
+    ".opencode/commands/plan.md (diff com commands/plan.md)",
+    ".opencode/commands/checkpoint.md (diff com commands/checkpoint.md, inicio)",
+    ".opencode/package.json (campo name)",
+    ".agents/skills/exa-search/SKILL.md (diff com skills/exa-search/SKILL.md)",
+    ".agents/skills/tdd-workflow/SKILL.md (diff de corpo com skills/tdd-workflow/SKILL.md)",
+    ".agents/skills/eval-harness/SKILL.md (diff com skills/eval-harness/SKILL.md)",
+    "tests/docs/kiro-steering-inclusion.test.js (grep de tests)",
+    "tests/ci/codex-skill-surface.test.js (grep de tests)"
+  ],
+  "classificados": [
+    {"caminho": "docker/context-profiles/ (204 arquivos, restante)", "motivo": "Lidos so o README e os scripts de entrada. Os 186 arquivos de complex-eval/cases*, reference*, naive* sao fixtures de tarefa (codigo de exemplo e casos de teste do ECC) e nao foram abertos um a um; a contagem por diretorio foi feita com find."},
+    {"caminho": "docker/context-profiles/ai-corpus.json, complex-corpus-v2/v3/v4.json, legacy-source.json", "motivo": "Corpus e pin de commit. Lido apenas o esquema (chaves de topo); o conteudo das tarefas nao foi aberto."},
+    {"caminho": "docker/context-profiles/native-probe.js, native-switch-probe.js, packed-smoke.js, run-podman.js, run-sandbox.js, sandbox-smoke.js, Dockerfile", "motivo": "Probes de descoberta nativa e runners de container. Comportamento lido pelo README (secao sobre probes e Podman), nao pelo corpo do codigo."},
+    {"caminho": "docs/ja-JP, zh-CN, zh-TW, ko-KR, tr, es, pt-BR, ar, bn, de-DE, pl, ru, th, uk-UA, ur, vi-VN", "motivo": "Traducoes, excluidas pelo brief."},
+    {"caminho": "docs/ANTIGRAVITY-GUIDE.md, ATLAS-CLOUD-GUIDE.md, ASTRA-REVIEW-GUIDE.md, CODEX-NAVIGATION-GUIDE.md, COMMAND-AGENT-MAP.md, DEEPSEEK-HARNESS-GUIDE.md, HERMES-*.md, ITO-DESK.md, JOYCODE-GUIDE.md, QWEN-GUIDE.md, LANE-RULES.md, legacy-artifact-inventory.md, STATUSLINE.md, capability-surface-selection.md, skill-adaptation-policy.md, SKILL-DEVELOPMENT-GUIDE.md, ECC-2.0-REFERENCE-ARCHITECTURE.md, continuous-learning-v2-spec.md, MIGRATION-1X-TO-2.0.md, MANUAL-ADAPTATION-GUIDE.md, ROADMAP.md, ECC-PRO-SECURITY-ROADMAP.md (restante)", "motivo": "Guias por harness ja cobertos por G3 (multi-harness) ou roadmaps de produto. Nao lidos alem de cabecalhos. SKILL-DEVELOPMENT-GUIDE (920 linhas) e ECC-2.0-REFERENCE-ARCHITECTURE nao abertos: ficam como pendencia se a rodada precisar."},
+    {"caminho": "docs/releases/1.8.0 ... 2.2.2, product-capability-template.md, project-guidelines-template.md", "motivo": "Notas de versao historicas e templates. Apenas 2.2.3 foi lido."},
+    {"caminho": "examples/*-CLAUDE.md (rails, django, go, harmonyos, laravel, rust-api, saas-nextjs, user) e examples/CLAUDE.md", "motivo": "Templates de projeto. Tamanho medido com wc -l; o corpo nao foi lido. Ja cobertos por G3:15, aprofundados na linha de templates."},
+    {"caminho": "examples/hud-status-contract.json, statusline.json, gan-harness (restante), coordination-inventory (manifest/fixtures/goals/benchmark.js), eval-harness (run-example.js, gate.config.json, taskset.json, variants/*/run.js)", "motivo": "Fixtures e scripts de exemplo. README lido; corpo dos scripts nao lido. O variants/reward-hack/run.js foi descrito apenas pelo README."},
+    {"caminho": "examples/unified-memory/conformance.cjs, evidence.cjs, evidence.test.cjs", "motivo": "Lido somente o README. O corpo do conformance (246 linhas) fica como pendencia se a conformancia CLI x MCP do Touring for tratada."},
+    {"caminho": "examples/evaluator-rag-prototype/ (demais cenarios, trace.json, candidate-playbook.md)", "motivo": "Mesmo padrao do cenario ci-failure-diagnosis; lido o cenario de referencia. Os outros cenarios seguem o mesmo esquema e nao foram comparados um a um."},
+    {"caminho": "docs/releases/2.2.3", "motivo": "Lido apenas o trecho de workflow de publicacao npm; o mecanismo nao se aplica a distribuicao por toolchain do Touring."},
+    {"caminho": ".kiro/steering/* (demais), .kiro/hooks, .kiro/agents (restante), .kiro/skills (restante), .kiro/install.sh, .kiro/README.md", "motivo": "Amostra de 12 pares divergentes lida no brief. O restante foi classificado pelo indice de similaridade por linha, sem leitura do corpo. Pareamento por nome-base (ver nota de metodo na linha de espelhos)."},
+    {"caminho": ".cursor/hooks/*.js (demais shims), .cursor/rules/*, .opencode/commands/* (demais), .opencode/tools/*, .opencode/plugins/*, .agents/skills/* (demais), .agents/plugins/marketplace.json", "motivo": "Mesma familia dos 12 pares amostrados. Os shims .cursor/hooks/*.js sao adaptadores por desenho (chamam adapter.js e scripts/hooks), nao copias."},
+    {"caminho": ".opencode/package.json (dependencias), package-lock.json (3101 linhas)", "motivo": "Manifesto e lock do pacote OpenCode. Nome igual ao pacote raiz (ecc-universal); o resto nao foi lido."},
+    {"caminho": ".codex/AGENTS.md, .codebuddy/*, .trae/*", "motivo": "Fora da amostra pedida (G3 cobre multi-harness)."}
+  ],
+  "linhas": [
+    {
+      "dominio": "multi-harness",
+      "funcionalidade": "Espelhos de skills e agentes para .kiro, .cursor, .opencode e .agents, gravados em bloco e sem gerador no repositorio",
+      "ecc": {
+        "como": "Os quatro diretorios foram criados num unico commit (2e5f30f6, 18/05/2026): 2.821 arquivos e 567.190 insercoes. Depois disso, cada harness recebeu edicoes manuais em commits separados (git log: .kiro 18 commits, .cursor 23, .opencode 42, .agents 71). Nenhum script gera .kiro ou .agents; o unico gerador de harness e scripts/build-opencode.js, que escreve .opencode/dist. Pareamento de 12 pares: 6 em deriva (.kiro/agents/code-reviewer.md, .kiro/skills/python-patterns, .cursor/skills/content-engine, .opencode/commands/plan.md, .agents/skills/tdd-workflow, .agents/skills/eval-harness), 2 reescritas sem relacao de copia (.opencode/commands/checkpoint.md, .agents/skills/exa-search), 3 transformacoes de formato (.kiro/steering/security.md: corpo identico a rules/common/security.md, so o frontmatter muda; .cursor/hooks.json: schema do Cursor; eval-harness sem a secao de scripts locais), 1 adaptador por desenho (.cursor/hooks/session-start.js) e 1 par falso (.opencode/package.json tem o mesmo nome ecc-universal do pacote raiz).",
+        "evidencia": "git show --stat 2e5f30f6; git log -- .kiro .cursor .opencode .agents; grep -rl kiro scripts (so scripts/ci/scan-supply-chain-iocs.js); scripts/build-opencode.js:1-12; diff por corpo com python difflib sobre linhas (ver brief H5)."
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "O espelho client/ tem um --check que compara o conteudo de cada arquivo com o live e um manifesto de hash com 377 entradas. O teste cobre o proprio manifesto, a ausencia de artefato gerado e de estado de runtime, e o --check com drift. O CI roda esses testes e o propagate-release.sh exige o --check antes de publicar.",
+        "evidencia": "python3 -I scripts/sync-client-skills.py --check -> 'CLEAN 377 arquivos espelhados, nenhum divergente' (executado); client/MANIFEST.sha256 (377 linhas); scripts/test_sync_client_skills.py (15 testes, def test_ ... linhas 50-264); .github/workflows/ci.yml:232; scripts/propagate-release.sh:350-351."
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G3:6",
+      "nota": "Revisao do G3:6. A amplitude de harnesses do ECC e maior, mas medida por conteudo ela esta em deriva em metade da amostra, e nenhuma copia tem teste de conteudo; so ha teste de frontmatter (tests/docs/kiro-steering-inclusion.test.js:68-103; tests/ci/codex-skill-surface.test.js:76-95). O Touring ja tem a guarda que o ECC nao tem, para o unico harness que espelha. Nao vale adotar multi-harness sem um gerador e um --check de conteudo. Metodo: a amostra foi pareada por nome-base; isso gerou pares falsos (46 dos 108 .agents tem openai.yaml apontando para skills/terminal-opener/agents/openai.yaml). O campo com_par_na_fonte do inventario (122/19/31/45) nao reproduz a minha contagem (86/17/34/108 pares por nome-base) e deve ser revisto."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Declaracao de suporte por harness (Supported, hook-backed, instruction-backed) sem teste de paridade de conteudo",
+      "ecc": {
+        "como": "A matriz de portabilidade declara o que cada harness recebe: skills copiadas, hooks reais no Claude/OpenCode/Cursor e so por instrucao no Codex. Nenhum teste compara corpo, evento ou comportamento entre o fonte e as copias; os testes de harness verificam estrutura (frontmatter, existencia de openai.yaml, mapeamento de dispatchers).",
+        "evidencia": "docs/architecture/cross-harness.md:12-32 e :53-56; tests/docs/kiro-steering-inclusion.test.js:68-103; tests/ci/codex-skill-surface.test.js:76-95; tests/hooks/cursor-hook-dispatchers.test.js:217 (le .cursor/hooks.json e valida o mapeamento)."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O shim de hook tem fonte unica no repositorio. update-touring copia a fonte para ~/.claude/hooks/touring-hook e o teste roda contra a fonte. A copia viva e identica a fonte nesta data.",
+        "evidencia": "scripts/hooks/touring-hook-shim.sh; scripts/update-touring:306 (shim_src); diff scripts/hooks/touring-hook-shim.sh ~/.claude/hooks/touring-hook -> IDENTICAL (executado); scripts/test_touring_hook_shim.py -> 8 passed (executado)."
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": "G3:7",
+      "nota": "Revisao do G3:7. A declaracao de paridade do ECC e honesta no texto, mas nao e verificada: a propria deriva acima mostra que 'Supported' sem teste de conteudo nao garante nada. Adaptar: publicar a matriz hook-backed x instruction-backed so com teste que compare evento e corpo, no padrao do test_touring_hook_shim.py."
+    },
+    {
+      "dominio": "instalacao",
+      "funcionalidade": "Teste de instalacao limpa: pacote gerado, instalado num consumidor isolado com rede desligada e verificado pela CLI publica",
+      "ecc": {
+        "como": "docker/context-profiles/run-podman.js roda npm pack, cria consumidor isolado a partir do arquivo, instala dependencias e Codex 0.154.0 na imagem, e executa o container como usuario sem privilegio, sem rede, sem capabilities e sem montagem do host. Verifica as 10 combinacoes de target/perfil pela CLI empacotada, com oraculo estrutural independente.",
+        "evidencia": "docker/context-profiles/README.md:19-48 (secao Podman); docker/context-profiles/run-podman.js:1-50 (nao lido o corpo, descricao pelo README)."
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O teste de update-touring isola HOME, XDG e bin em diretorio temporario para o start-daemon, mas nao reinstala a toolchain a partir de um HOME vazio nem roda o pacote como consumidor isolado. propagate-release.sh tem gates 1/6 e 5.5 sobre o workspace.",
+        "evidencia": "scripts/test_update_touring.py:266-286 (run_start_daemon com home, bin_dir e xdg em tmp_path); CLAUDE.md do workspace, regra 2.1 (gates 1/6 e 5.5)."
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G3:12",
+      "nota": "Confirma G3:12. Adaptar: a propagacao de toolchain nova deveria rodar update-touring num HOME vazio, com rede desligada, e depois o doctor. O isolamento de HOME ja existe no teste de daemon e basta reaproveitar."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Medicao A/B de perfis de contexto: cinco bracos, corpus pre-registrado e digests pinados",
+      "ecc": {
+        "como": "Cinco bracos (full, manual-lean, auto-lean, ecc-legacy, baseline) com o mesmo avaliador. Corpus de 30 tarefas de reparo mais o benchmark de tres tarefas complexas, com graders deterministicos e referencias. O design foi pre-registrado antes da primeira chamada ao provedor e fixa modelo e executavel por digest. Resultados aparecem apenas em prosa: 'run de 2026-09-25', 'reference 1.000', 'naive 0.20 / 0.00 / 0.20' e 'first @4 run' com um braco. Nenhum journal bruto de run esta no repositorio.",
+        "evidencia": "docker/context-profiles/complex-eval/DESIGN.md:9-32 (bracos), :92-93 (pre-voo), :117-160 (reprodutibilidade); docker/context-profiles/ai-eval-lib.js:14-16 (ARMS); docker/context-profiles/README.md:45-52; ausencia de arquivo de resultado (find docker/context-profiles -name '*result*' -o -name '*.ndjson' -> nenhum)."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "Pre-registro e kpi com compromissos falsificaveis. code_mode_adherence le o run_journal.jsonl e tem piso de 0,8 declarado.",
+        "evidencia": "touring index find code_mode_adherence -> definicao em crates/touring-cli/src/cli/kpi/code_mode.rs:253 (found); CLAUDE.md do workspace, regra 11 (M1) e regra 16 (pre-registro)."
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "O metodo do ECC e bom: braco baseline para descontar overhead, juiz provado antes de cobrar sessoes, digests pinados. A falha e publicar so a prosa. Adaptar: cada run do Touring grava o journal bruto ao lado do relatorio, de modo que o numero possa ser refeito. O pre-voo do juiz do ECC ja aparece na matriz (linha 204) e nao e repetido aqui."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Limites declarados da medicao: o que a evidencia nao certifica",
+      "ecc": {
+        "como": "O README diz que as checagens nao certificam descoberta implicita, qualidade de workflow nem economia real de tokens. O DESIGN lista limites: tres tarefas sao uma sonda, nao um censo; as tarefas sao Node/stdlib; o relogio pode causar flake em teste de backoff.",
+        "evidencia": "docker/context-profiles/README.md:55-69 (texto 'These checks certify ... do not certify'); docker/context-profiles/complex-eval/DESIGN.md:160-175 (Known limits)."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O CLAUDE.md declara o limite por componente: o e2e tem baseline por componente, e o componente learning nao deve ser usado como gate porque varia.",
+        "evidencia": "CLAUDE.md do workspace, regra 3 (baseline 0,857 e 'Leia POR COMPONENTE, nao pelo overall')."
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Os dois lados fazem o mesmo. Nada a copiar."
+    },
+    {
+      "dominio": "contexto-custo",
+      "funcionalidade": "Recomendacao de effort e de subagente barato (CLAUDE_CODE_SUBAGENT_MODEL=haiku) sem medicao de efeito",
+      "ecc": {
+        "como": "Documenta CLAUDE_CODE_EFFORT_LEVEL=medium e CLAUDE_CODE_SUBAGENT_MODEL=haiku como configuracao recomendada e lista mitigacoes para 529 sobrecarregado (ENABLE_TOOL_SEARCH, MAX_THINKING_TOKENS). Nao ha medicao de economia nem de proporcao de uso por modelo.",
+        "evidencia": "docs/token-optimization.md:9-30; docs/hook-bug-workarounds.md:59-68."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "A regra de roteamento por modelo esta na constituicao (haiku para busca, sonnet para implementacao, opus para decisao) e o hook agent_model_gate exige o parametro model. Uma memoria de 17/10 mede a adesao: haiku em 0,1% dos tokens, com a contagem deduplicada por message.id.",
+        "evidencia": "~/.claude/CLAUDE.md, secao de economia (regra 17); client/hooks/agent_model_gate.py:1-59; memoria roteamento-de-modelo-so-exige-presenca (medido 17/10/2026)."
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Os dois recomendam sem medir efeito, e o Touring mede a adesao e reporta a lacuna. Adaptar: transformar a proporcao de tokens por modelo em KPI do gate, em vez de contar so chamadas com model. Ver achado sobre a versao do gate em achados_touring."
+    },
+    {
+      "dominio": "contexto-custo",
+      "funcionalidade": "Politica de conector MCP padrao: so entra se for universal e com estado; seis conectores removidos com motivo",
+      "ecc": {
+        "como": "Um conector padrao precisa ser universal e precisar de estado que o MCP oferece (sessao, streaming, handshake). Chrome DevTools e o unico padrao. Github, context7, exa, memory, playwright e sequential-thinking saem por ter virado CLI, skill ou nativo. O custo de schema por sessao e o argumento central.",
+        "evidencia": "docs/MCP-CONNECTOR-POLICY.md:5-30."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "Regra de code mode: CLI sem MCP, uma chamada no lugar de N round-trips. O servidor MCP expoe 22 ferramentas curadas e o custo de schema e medido por touring mcp-overhead.",
+        "evidencia": "rules/touring-4-pillars.md (Code Mode, primeira linha da tabela); touring serve (MCP stdio) e touring mcp-overhead em touring --help (G3:8)."
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "O criterio 'universal E com estado' e mais preciso que o que o Touring escreve. Adaptar como criterio de admissao de ferramenta MCP em rules/touring-4-pillars.md, em uma linha."
+    },
+    {
+      "dominio": "contexto-custo",
+      "funcionalidade": "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: afirmacao de que um valor menor antecipa a compactacao",
+      "ecc": {
+        "como": "Tres documentos dizem que, em algumas builds, baixar o valor antecipa a compactacao, e recomendam remover a variavel. A fonte e relato de comunidade, sem medicao.",
+        "evidencia": "docs/token-optimization.md:43-47 ('community reports'); docs/TROUBLESHOOTING.md:29-36; docs/hook-bug-workarounds.md:36-42."
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O valor 65 esta definido em settings.json e a constituicao afirma que a autocompactacao dispara aos 65%. Os 129 casos medidos no CLAUDE.md medem a qualidade do resumo, nao o instante do disparo.",
+        "evidencia": "~/.claude/settings.json:20 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: 65); ~/.claude/CLAUDE.md, secao Context Management e Compact Instructions."
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Nao ha conflito provado: o ECC so relata, e o Touring so afirma. Verificar o instante real de compactacao nos transcritos (eventos de compact versus tokens acumulados) e confirmar o valor 65. Se a compactacao antecipar, a recomendacao do ECC vale e o default precisa mudar."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Ledger de PRs salvos: fechar a fila de PRs antigos sem descartar trabalho util",
+      "ecc": {
+        "como": "Cada PR antigo recebe um estado: Salvaged (portado para main com credito ao PR de origem), Already present or superseded, Skipped ou Manual-review backlog. A regra e fechar a fila sem jogar fora o trabalho.",
+        "evidencia": "docs/stale-pr-salvage-ledger.md:1-20 e cabecalhos (estados em :8-16)."
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "Nao procurei equivalente no Touring nesta rodada.",
+        "evidencia": "nenhum comando executado."
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Util como politica para o backlog de worktrees e de branches safety/ do Touring, com o mesmo principio: fechar sem descartar."
+    },
+    {
+      "dominio": "planejamento",
+      "funcionalidade": "Plano em dois estagios: PRD em markdown e depois plano com milestones",
+      "ecc": {
+        "como": "Um arquivo prd.md define o escopo, e um comando gera o plan.md com padroes a espelhar, arquivos a mudar e validacoes. Separa a decisao de escopo da execucao.",
+        "evidencia": "docs/PLAN-PRD-PATTERN.md:7-25, :59-75 (cabecalhos e fluxo)."
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Decompose cria DAG com claim atomico (um vencedor), tickets de decisao e implementacao, e nevoa clear/hazy/unknown. A decisao aberta bloqueia a fronteira de implementacao.",
+        "evidencia": "CLAUDE.md do workspace, regra 9; skill taco-planning (lista de skills)."
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O PRD do ECC e template de conteudo; o Touring tem o mecanismo de bloqueio que ele so descreve."
+    },
+    {
+      "dominio": "documentacao",
+      "funcionalidade": "Proveniencia e colocacao de skills com validadores",
+      "ecc": {
+        "como": "Cada skill carrega metadado de proveniencia (origin) e validadores checam colocacao e campos. Na pratica o campo migra na fonte e as copias ficam para tras: db7f2a6f (11/06/2026) moveu origin para metadata.origin na fonte, e .cursor/skills/content-engine ainda usa origin plano (ultimo commit 18/05).",
+        "evidencia": "docs/SKILL-PLACEMENT-POLICY.md:5-16, :52-66 (cabecalhos); skills/content-engine/SKILL.md (metadata.origin) versus .cursor/skills/content-engine/SKILL.md (origin plano)."
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "A regra de higiene de skills existe no CLAUDE.md, mas o arquivo referenciado esta marcado como em redacao, e o validador nao esta ligado.",
+        "evidencia": "~/.claude/CLAUDE.md, regra 13 ('skill-hygiene.md em redacao')."
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Adaptar: validar origin e tamanho de SKILL.md e rodar o validador sobre client/skills. Sem isso o campo muda na fonte e nunca chega ao espelho, que e o que aconteceu com o ECC."
+    },
+    {
+      "dominio": "hooks",
+      "funcionalidade": "Shim de hook: binario de projeto so e executado se estiver dentro das toolchains do usuario, dono correto e sem escrita de grupo ou de outros",
+      "ecc": {
+        "como": "O guia de seguranca descreve CVE-2025-59536 (CVSS 8.7): codigo contido no projeto executava antes do dialogo de confianca. O ECC descreve o risco; nao ha mecanismo proprio.",
+        "evidencia": "the-security-guide.md (inicio, paragrafo 'One issue, CVE-2025-59536'). O arquivo fica na raiz do repositorio."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "project_bin_trusted aceita apenas binario que resolve dentro de $TOURING_HOME/toolchains, do usuario, sem escrita de grupo ou de outros. Caso contrario registra em log e continua a subida na arvore, sem deixar o arquivo mais proximo sombrear um pin confiavel. O teste roda em HOME privado e nunca alcanca binario real.",
+        "evidencia": "scripts/hooks/touring-hook-shim.sh:57-66 (project_bin_trusted), :67-76 (note_rejected) e :77-93 (walk_up_project_bin); scripts/test_touring_hook_shim.py:1-10 e 8 passed (executado)."
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O C2 ja esta fechado (17/10/2026). O ECC so descreve o risco, e o Touring o corrigiu com teste."
+    },
+    {
+      "dominio": "hooks",
+      "funcionalidade": "Contrato de hook: exit 0 permite, 2 bloqueia, stdin consumido, saida silenciosa em hook simples",
+      "ecc": {
+        "como": "Recomenda consumir stdin no inicio, mandar diagnostico para stderr e sair com 2 para bloquear. Os demais codigos sao erro de hook.",
+        "evidencia": "docs/hook-bug-workarounds.md:19-35."
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O binario touring-hooks usa o mesmo contrato, com saida 2 para bloqueio.",
+        "evidencia": "crates/touring-hooks/src/main.rs:91 (process::exit(2))."
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Mesmo contrato. Nada a copiar."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Templates de CLAUDE.md por stack, com tamanho que o usuario herda ao copiar",
+      "ecc": {
+        "como": "Sete templates de stack e um do usuario. Tamanhos medidos com wc -l: rails 387, laravel 311, django 308, rust-api 285, go 267, saas-nextjs 166, user 109, harmonyos 88. Os tres primeiros passam do soft limit de 300 linhas que o Touring usa no proprio CLAUDE.md.",
+        "evidencia": "examples/rails-app-CLAUDE.md, examples/laravel-api-CLAUDE.md, examples/django-api-CLAUDE.md, examples/rust-api-CLAUDE.md, examples/go-microservice-CLAUDE.md, examples/saas-nextjs-CLAUDE.md, examples/user-CLAUDE.md, examples/harmonyos-app-CLAUDE.md (wc -l)."
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Teto de 400 linhas e soft de 300 para o CLAUDE.md do Touring. Nao ha template de projeto de terceiro.",
+        "evidencia": "CLAUDE.md do workspace (regra 16 e tabela de limites, ver docs do CLAUDE.md hygiene em ~/.claude/CLAUDE.md, secao CLAUDE.MD HYGIENE)."
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": "G3:15",
+      "nota": "Aprofunda G3:15 com os tamanhos. Um template Touring deveria caber em ~150 linhas e apontar para skills. Os templates do ECC, copiados como estao, criam CLAUDE.md acima do soft do Touring."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Harness de avaliacao que se recusa a executar candidato sem isolamento",
+      "ecc": {
+        "como": "O exemplo declara 'Supported candidate execution backends: none'. gate run recusa com gate.isolation_required; nenhum score ou veredito de promocao e emitido. O exemplo e uma inspecao estatica e a verificacao de recibo.",
+        "evidencia": "examples/eval-harness/README.md:1-25 e :27-33."
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "O Touring executa candidato dentro de sandbox com Landlock, tmp privado por execucao e rlimit, e mede o resultado.",
+        "evidencia": "CLAUDE.md do workspace, regra 14 (tmp privado, Landlock); crates/touring-ceg/src/gateway/sandbox_executor.rs:780 (comentario com medicao de 25/09)."
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O ECC declara honestamente que nao executa. Nada a copiar."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Fixture de reward hacking com avisos sintaticos de inspecao estatica",
+      "ecc": {
+        "como": "Uma variante de codigo com avisos visiveis (reward-hack) serve de caso de teste para a inspecao estatica. A inspecao lista digests, caminhos de variante validados e avisos sintaticos. Nao ha medicao de precisao ou de falso positivo.",
+        "evidencia": "examples/eval-harness/README.md:24-33 (lista de variants); docs/architecture/eval-harness-frameworks.md citado pelo README (nao aberto)."
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Nao encontrei detector de atalho de teste (special-casing de teste ou grader gravavel) em crates/touring-quality. A busca semantica por reward hacking retornou so memorias e skills.",
+        "evidencia": "touring tantivy search 'reward hacking grader teste especial trapaca juiz' 4 (sem resultado de codigo); grep -rn 'reward.hack' crates/touring-quality/src (vazio)."
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Veredito limitado: o ECC tem a ideia e o caso de teste, mas sem medicao. Adaptar como gate do juiz do Touring so depois de medir falso positivo num corpus. A licao de juiz gravavel pelo julgado ja esta na memoria do Touring."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Scores de verificador gravados em JSON estatico no exemplo de RAG de avaliador",
+      "ecc": {
+        "como": "Cada cenario traz verifier-result.json com scores literais (ex.: 0,93 e 0,17), decisoes accepted e rejected, e um report com result prototype_passed. O run_id e de 12/05/2026. O teste da suite confere schema_version e read_only, nao o valor dos scores.",
+        "evidencia": "examples/evaluator-rag-prototype/ci-failure-diagnosis/verifier-result.json (score 0.93 e 0.17, run_id 2026-05-12-ci-failure-diagnosis-prototype); report.json (result prototype_passed); tests/docs/evaluator-rag-prototype.test.js:59-72."
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Converge-by-Code: so exit 0 de loop_converged.py conta como pronto. O veredito vem de codigo, e nao de autoavaliacao.",
+        "evidencia": "~/.claude/CLAUDE.md, Reflexo 11 (Converge-by-Code) e Lei L2 (loop_converged.py, 8 clausulas)."
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Score escrito a mao com forma de medida e narrativa. O teste valida o formato, nao o numero. Licao: nunca aceitar score de artefato sem o verificador que o produz."
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Conformidade entre superficies de memoria: a mesma consulta pela CLI e pelo MCP devolve a mesma ordem, escores e proveniencia",
+      "ecc": {
+        "como": "Um conformance roda a CLI e um servidor MCP stdio por identidade (codex, claude, hermes) sobre um cofre sintetico e confere ordem, escore, trecho e proveniencia. Sem rede e sem credenciais.",
+        "evidencia": "examples/unified-memory/README.md:1-25 (corpo de conformance.cjs nao lido)."
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "O Touring expoe o mesmo recall pela CLI (touring memory recall) e pelo MCP (touring_memory_recall). Nao procurei teste que compare as duas superficies.",
+        "evidencia": "touring memory recall --help e a ferramenta MCP mcp__touring__touring_memory_recall listada na sessao; teste de conformidade nao verificado."
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Um teste com a mesma consulta nas duas superficies pegaria divergencia de ranking, que e um defeito provavel quando ha dois caminhos de codigo."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Inventario de coordenacao somente-leitura que rotula a cobertura de cada campo",
+      "ecc": {
+        "como": "Junta tarefas declaradas, batimento, processos, leases e avisos de caminho num relatorio local. Cada campo recebe um rotulo de cobertura: tasks declared-or-status-files-only, leases declared-only, processes declared-pids-only. Nao inicia servidor nem envia mensagem.",
+        "evidencia": "examples/coordination-inventory/README.md:1-12; scripts/lib/coordination-inventory.js:189 (coverage)."
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "A reivindicacao de tarefa tem lease (--lease-secs), e touring session existe. Nao verifiquei se o status rotula a origem de cada campo.",
+        "evidencia": "CLAUDE.md do workspace, regra 9 (decompose claim --lease-secs)."
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Rotular a origem de cada campo do status (declarado, observado ou inferido) evita ler lease declarado como lease vivo."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Notas de release com correcao de workflow de publicacao npm (espera pelo registro)",
+      "ecc": {
+        "como": "Apos npm publish, o workflow consulta o registro por ate cinco minutos antes de verificar o artefato. A versao 2.2.2 desistia em cerca de 30 segundos.",
+        "evidencia": "docs/releases/2.2.3/release-notes.md (linhas 1-20)."
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "O Touring nao publica em registro: distribui por toolchain local (scripts/propagate-release.sh). O mecanismo nao se aplica.",
+        "evidencia": "scripts/propagate-release.sh (gates locais); CLAUDE.md do workspace, regras 1 e 2.1."
+      },
+      "veredito": "so_ecc",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Especifico de npm. Nada a adotar."
+    }
+  ],
+  "achados_touring": [
+    {
+      "defeito": "Estados contraditorios sobre o gate de modelo: a memoria de 17/10 diz que client/hooks/agent_model_gate.py aceita qualquer model e so confere presenca. O docstring do proprio gate descreve julgamento de ajuste por classe (_fit_decision) e o log judged/origin. Antes de corrigir, verificar qual versao esta viva.",
+      "evidencia": "client/hooks/agent_model_gate.py:45-59 (docstring com julgamento de ajuste); memoria roteamento-de-modelo-so-exige-presenca (linhas 1-14, 'aceita QUALQUER model'). Nao reproduzido nesta rodada."
+    },
+    {
+      "defeito": "Regra 13 de higiene de skills citada como vigente, com arquivo de apoio marcado como em redacao. A regra existe no CLAUDE.md global mas nao tem corpo nem validador ligado.",
+      "evidencia": "~/.claude/CLAUDE.md, regra 13 ('skill-hygiene.md em redacao')."
+    },
+    {
+      "defeito": "Campo com_par_na_fonte do inventario ECC (inventario-ecc.json, chave adaptadores) usa pareamento por nome-base e aceita o primeiro candidato. Gera pares falsos, como .agents/skills/*/agents/openai.yaml apontando para skills/terminal-opener/agents/openai.yaml (46 dos 108 pares de .agents). O numero de pares do inventario nao reproduz a contagem por nome-base (86/17/34/108).",
+      "evidencia": "docs/plans/2026-10-17-analise-ecc/inventario/inventario-ecc.json, chave adaptadores; contagem find .agents -name openai.yaml = 46 (executado)."
+    }
+  ]
+}

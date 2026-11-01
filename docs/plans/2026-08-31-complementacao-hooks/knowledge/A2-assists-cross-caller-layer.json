@@ -1,0 +1,45 @@
+{
+  "phase": "A2-assists-cross-caller-layer",
+  "entities": [
+    {
+      "entity_id": "phase:A2-assists-cross-caller-layer",
+      "type": "phase",
+      "description": "A2 CrossCallerLayer (pre_edit) entregue: quando o Edit MUDA uma chamada (conjunto de expressoes name(...) sem whitespace difere entre old/new; definicoes fn/def/function e macros name!( nao sao chamadas; keywords e nomes <4 chars excluidos), o SymbolStore (find_references) responde os OUTROS call sites -> '[C08] total changes here and has N other call sites in M files: f:l \u2026' (cap 5 callees, 4 sites nomeados). O pipeline do pre_edit passa a rodar tambem quando so este sinal existe (antes exigia contexto assembled nao-vazio). Motor deterministico; a rota ANN de sitios analogos fica como v2 com o mesmo gatilho."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:A2-assists-cross-caller-layer|produces|memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done",
+      "source": "phase:A2-assists-cross-caller-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:A2-assists-cross-caller-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

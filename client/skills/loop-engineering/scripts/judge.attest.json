@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "attested_at": "2026-10-18T10:59:33-03:00",
+  "attested_by": "gabrielgadea",
+  "why": "loop_converged: cross_audit distingue --bundle pedido e ausente (canvas 1 de 05/10); juiz atestado e atual d\u00e3o o mesmo veredito (247ec02e7b)",
+  "files": {
+    "loop_converged.py": "8c1334ef354b5f6f11129b7e5aa243e0c228bd2b73ac431818cc56bf48365559",
+    "hooks/loop_outer_gate.py": "25670d570e001735b60e888d3ae593f7cf64f63805216993f9dd6b3c1e4f0534",
+    "hooks/flow_manifests.json": "541e2e879098b22f5cfb9263dd3ee29ba131b441b5392637f4ce006b89442675"
+  },
+  "clauses": [
+    "judge_intact",
+    "dag_done",
+    "quality_gold",
+    "no_p0_fail",
+    "measured_whole_scope",
+    "orphans_base",
+    "cargo_green",
+    "cross_audit"
+  ],
+  "_note": "The judge of record. Rewriting this is a deliberate, dated act: it declares that the graders changed on purpose. See judge_attest.py."
+}

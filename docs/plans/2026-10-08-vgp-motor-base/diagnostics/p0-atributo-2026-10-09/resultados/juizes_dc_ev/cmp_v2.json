@@ -1,0 +1,712 @@
+{
+ "resumo": {
+  "comparados": 738,
+  "so_base": 0,
+  "so_novo": 0,
+  "divergencias": 10,
+  "por_categoria": {
+   "warn_ou_veredito": 10
+  },
+  "juiz": {
+   "perdidos_base": [
+    "0eca52ee0e0b",
+    "1ba03f63a4be",
+    "4053b83f0fc2",
+    "b4ce1d5390bf",
+    "cbd725d878ee",
+    "d2df466d5128",
+    "eae0c2b76058",
+    "f501013d71d9"
+   ],
+   "perdidos_novo": [
+    "0eca52ee0e0b",
+    "1ba03f63a4be",
+    "4053b83f0fc2",
+    "b4ce1d5390bf",
+    "cbd725d878ee",
+    "d2df466d5128",
+    "eae0c2b76058",
+    "f501013d71d9"
+   ],
+   "perdidos_novos_no_novo": [],
+   "recuperados_no_novo": [],
+   "falsos_base": [],
+   "falsos_novo": [],
+   "avisos_em_negativos": [
+    58,
+    49
+   ],
+   "recall": [
+    {
+     "arquivo": 0.8461538461538461,
+     "inline": 0.7777777777777778
+    },
+    {
+     "arquivo": 0.8461538461538461,
+     "inline": 0.7777777777777778
+    }
+   ],
+   "positivos": [
+    {
+     "arquivo": [
+      11,
+      13
+     ],
+     "inline": [
+      21,
+      27
+     ]
+    },
+    {
+     "arquivo": [
+      11,
+      13
+     ],
+     "inline": [
+      21,
+      27
+     ]
+    }
+   ],
+   "p95_ms": [
+    131.255777,
+    143.99777699999999
+   ],
+   "pronto": [
+    true,
+    true
+   ]
+  }
+ },
+ "divergencias": [
+  {
+   "id": "33d41aad32f7",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "append",
+      124,
+      "warn"
+     ],
+     [
+      "atributo",
+      "argsort",
+      130,
+      "warn"
+     ],
+     [
+      "atributo",
+      "array",
+      155,
+      "warn"
+     ],
+     [
+      "atributo",
+      "floating",
+      87,
+      "warn"
+     ],
+     [
+      "atributo",
+      "mean",
+      137,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      101,
+      "warn"
+     ],
+     [
+      "atributo",
+      "percentile",
+      135,
+      "warn"
+     ],
+     [
+      "atributo",
+      "take_along_axis",
+      133,
+      "warn"
+     ],
+     [
+      "atributo",
+      "vstack",
+      108,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "4685c72daa42",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "BANDA_DA_HISTERESE_PT",
+      254,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "52d1f7eb5d4f",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "array",
+      413,
+      "warn"
+     ],
+     [
+      "atributo",
+      "asarray",
+      506,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ascontiguousarray",
+      503,
+      "warn"
+     ],
+     [
+      "atributo",
+      "clip",
+      470,
+      "warn"
+     ],
+     [
+      "atributo",
+      "cumsum",
+      427,
+      "warn"
+     ],
+     [
+      "atributo",
+      "empty",
+      472,
+      "warn"
+     ],
+     [
+      "atributo",
+      "empty_like",
+      493,
+      "warn"
+     ],
+     [
+      "atributo",
+      "float32",
+      280,
+      "warn"
+     ],
+     [
+      "atributo",
+      "float64",
+      413,
+      "warn"
+     ],
+     [
+      "atributo",
+      "gradient",
+      479,
+      "warn"
+     ],
+     [
+      "atributo",
+      "hypot",
+      480,
+      "warn"
+     ],
+     [
+      "atributo",
+      "interp",
+      475,
+      "warn"
+     ],
+     [
+      "atributo",
+      "load",
+      316,
+      "warn"
+     ],
+     [
+      "atributo",
+      "mean",
+      1056,
+      "warn"
+     ],
+     [
+      "atributo",
+      "nan_to_num",
+      450,
+      "warn"
+     ],
+     [
+      "atributo",
+      "nanmax",
+      292,
+      "warn"
+     ],
+     [
+      "atributo",
+      "nanmin",
+      292,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      419,
+      "warn"
+     ],
+     [
+      "atributo",
+      "pad",
+      426,
+      "warn"
+     ],
+     [
+      "atributo",
+      "percentile",
+      469,
+      "warn"
+     ],
+     [
+      "atributo",
+      "roll",
+      491,
+      "warn"
+     ],
+     [
+      "atributo",
+      "savez_compressed",
+      280,
+      "warn"
+     ],
+     [
+      "atributo",
+      "sqrt",
+      480,
+      "warn"
+     ],
+     [
+      "atributo",
+      "uint8",
+      500,
+      "warn"
+     ],
+     [
+      "import",
+      "PALETA",
+      62,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "56073a6f95a4",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "append",
+      196,
+      "warn"
+     ],
+     [
+      "atributo",
+      "array",
+      244,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      240,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "append",
+      196,
+      "warn"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "760f5fb8f8e6",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "array",
+      142,
+      "warn"
+     ],
+     [
+      "atributo",
+      "errstate",
+      102,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      96,
+      "warn"
+     ],
+     [
+      "atributo",
+      "percentile",
+      129,
+      "warn"
+     ],
+     [
+      "atributo",
+      "sqrt",
+      103,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "7e0e7955eef2",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "abs",
+      98,
+      "warn"
+     ],
+     [
+      "atributo",
+      "arange",
+      163,
+      "warn"
+     ],
+     [
+      "atributo",
+      "argsort",
+      161,
+      "warn"
+     ],
+     [
+      "atributo",
+      "array",
+      58,
+      "warn"
+     ],
+     [
+      "atributo",
+      "delete",
+      172,
+      "warn"
+     ],
+     [
+      "atributo",
+      "divide",
+      86,
+      "warn"
+     ],
+     [
+      "atributo",
+      "empty",
+      165,
+      "warn"
+     ],
+     [
+      "atributo",
+      "eye",
+      96,
+      "warn"
+     ],
+     [
+      "atributo",
+      "minimum",
+      164,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      77,
+      "warn"
+     ],
+     [
+      "atributo",
+      "sqrt",
+      66,
+      "warn"
+     ],
+     [
+      "atributo",
+      "where",
+      65,
+      "warn"
+     ],
+     [
+      "atributo",
+      "zeros",
+      80,
+      "warn"
+     ],
+     [
+      "atributo",
+      "zeros_like",
+      86,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "afd11166eabb",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "array",
+      78,
+      "warn"
+     ],
+     [
+      "atributo",
+      "where",
+      78,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "bb31ba4bc39d",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "array",
+      298,
+      "warn"
+     ],
+     [
+      "atributo",
+      "exp",
+      316,
+      "warn"
+     ],
+     [
+      "atributo",
+      "mean",
+      500,
+      "warn"
+     ],
+     [
+      "atributo",
+      "median",
+      501,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ones_like",
+      306,
+      "warn"
+     ],
+     [
+      "atributo",
+      "percentile",
+      502,
+      "warn"
+     ],
+     [
+      "atributo",
+      "sum",
+      503,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "c2a0ac168ec5",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "arange",
+      121,
+      "warn"
+     ],
+     [
+      "atributo",
+      "argsort",
+      119,
+      "warn"
+     ],
+     [
+      "atributo",
+      "array",
+      55,
+      "warn"
+     ],
+     [
+      "atributo",
+      "delete",
+      130,
+      "warn"
+     ],
+     [
+      "atributo",
+      "divide",
+      83,
+      "warn"
+     ],
+     [
+      "atributo",
+      "empty",
+      123,
+      "warn"
+     ],
+     [
+      "atributo",
+      "minimum",
+      122,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      74,
+      "warn"
+     ],
+     [
+      "atributo",
+      "sqrt",
+      63,
+      "warn"
+     ],
+     [
+      "atributo",
+      "where",
+      62,
+      "warn"
+     ],
+     [
+      "atributo",
+      "zeros",
+      77,
+      "warn"
+     ],
+     [
+      "atributo",
+      "zeros_like",
+      83,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  },
+  {
+   "id": "ea9f7a7083cd",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "atributo",
+      "array",
+      140,
+      "warn"
+     ],
+     [
+      "atributo",
+      "ndarray",
+      96,
+      "warn"
+     ],
+     [
+      "atributo",
+      "percentile",
+      127,
+      "warn"
+     ],
+     [
+      "atributo",
+      "sqrt",
+      101,
+      "warn"
+     ]
+    ]
+   },
+   "novo": {
+    "verdict": "allow",
+    "achados": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,103 @@
+{
+  "generated_at_unix": 0,
+  "source_journal_path": "/home/gabrielgadea/.claude/touring/run_journal.jsonl",
+  "total_runs": 5679,
+  "hooks": {
+    "ast_blast": {
+      "call_count": 0,
+      "failure_count": 0,
+      "duration_ms_p50": 0,
+      "duration_ms_p99": 0
+    },
+    "ast_meta": {
+      "call_count": 5,
+      "failure_count": 0,
+      "duration_ms_p50": 8,
+      "duration_ms_p99": 8
+    },
+    "index_find": {
+      "call_count": 0,
+      "failure_count": 0,
+      "duration_ms_p50": 0,
+      "duration_ms_p99": 0
+    },
+    "memory_recall": {
+      "call_count": 3,
+      "failure_count": 0,
+      "duration_ms_p50": 42,
+      "duration_ms_p99": 42
+    },
+    "parallel": {
+      "call_count": 1,
+      "failure_count": 1,
+      "duration_ms_p50": 100,
+      "duration_ms_p99": 100
+    },
+    "pre_edit": {
+      "call_count": 0,
+      "failure_count": 0,
+      "duration_ms_p50": 0,
+      "duration_ms_p99": 0
+    },
+    "tantivy_search": {
+      "call_count": 0,
+      "failure_count": 0,
+      "duration_ms_p50": 0,
+      "duration_ms_p99": 0
+    },
+    "wiring_orphans": {
+      "call_count": 0,
+      "failure_count": 0,
+      "duration_ms_p50": 0,
+      "duration_ms_p99": 0
+    }
+  },
+  "by_language": {
+    "bash": {
+      "count": 2865,
+      "failure_count": 186
+    },
+    "go": {
+      "count": 1,
+      "failure_count": 1
+    },
+    "js": {
+      "count": 44,
+      "failure_count": 0
+    },
+    "perl": {
+      "count": 4,
+      "failure_count": 0
+    },
+    "php": {
+      "count": 1,
+      "failure_count": 1
+    },
+    "python": {
+      "count": 2703,
+      "failure_count": 252
+    },
+    "ruby": {
+      "count": 4,
+      "failure_count": 0
+    },
+    "rust": {
+      "count": 4,
+      "failure_count": 0
+    },
+    "shell": {
+      "count": 46,
+      "failure_count": 20
+    },
+    "ts": {
+      "count": 7,
+      "failure_count": 5
+    }
+  },
+  "failure_taxonomy": {
+    "exception": 360,
+    "output-limit": 2,
+    "proc-exit": 3,
+    "timeout": 100
+  }
+}

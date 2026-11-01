@@ -1,0 +1,28 @@
+{
+ "binary": "/home/gabrielgadea/.touring/toolchains/30.4.102/bin/touring",
+ "sha256": "404106ccdb32edb4329036291cb8cb55660adbbc9c7a8fc835237a9f148e3ef7",
+ "version": "touring 30.4.102\n  git:      9ab1723f72160e75fc08ab9a34244b80b5b04362\n  rustc:    rustc 1.98.0 (88d9e12ae 2026-08-18)\n  built:    2026-11-01T00:50:45Z\n  binary:   2026-11-01T01:01:14Z (mtime)\n  features: analysis-gate,async-memory,build-info,cognitive-nexus,console,default,ebpf-telemetry,file-logs,generator-wasm-sandbox,generator-zero-copy,heap-profile,jemalloc,l7b-alpha,mcp-curated,mcts-synthesis,memory-integration,nlp-reranking,observability,otlp,rkyv-ipc,rl-integration,scip-emit,simd-fuzzy,syn-quote,tantivy-fts,wasm-plugins\n",
+ "caso_2106f0ebf279": {
+  "verdict": "allow",
+  "layer": 2,
+  "lang": "python",
+  "elapsed_ms": 584.389962,
+  "findings": []
+ },
+ "sinteticos": {
+  "sintetico-exit": {
+   "verdict": "allow",
+   "layer": 2,
+   "lang": "python",
+   "elapsed_ms": 556.104058,
+   "findings": []
+  },
+  "sintetico-quit": {
+   "verdict": "allow",
+   "layer": 2,
+   "lang": "python",
+   "elapsed_ms": 557.131563,
+   "findings": []
+  }
+ }
+}

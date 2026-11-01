@@ -1,0 +1,12 @@
+build binarios rc=0
+total 24
+drwxr-xr-x 1 gabrielgadea gabrielgadea  22316 Oct 17 13:38 build
+drwxr-xr-x 1 gabrielgadea gabrielgadea 219006 Oct 17 14:35 deps
+drwxr-xr-x 1 gabrielgadea gabrielgadea    290 Oct 17 13:39 examples
+drwxr-xr-x 1 gabrielgadea gabrielgadea   4840 Oct 17 13:40 incremental
+lrwxrwxrwx 1 gabrielgadea gabrielgadea    154 Oct 17 13:39 libonnxruntime_providers_cuda.so -> /home/gabrielgadea/.cache/dfbin/x86_64-unknown-linux-gnu/b08edf7fa78f50b034f9744a3e9ef6541b15deb62dc8cba97ed1635549a8c64b/libonnxruntime_providers_cuda.so
+lrwxrwxrwx 1 gabrielgadea gabrielgadea    165 Oct 17 13:39 libonnxruntime_providers_nv_tensorrt_rtx.so -> /home/gabrielgadea/.cache/dfbin/x86_64-unknown-linux-gnu/b08edf7fa78f50b034f9744a3e9ef6541b15deb62dc8cba97ed1635549a8c64b/libonnxruntime_providers_nv_tensorrt_rtx.so
+lrwxrwxrwx 1 gabrielgadea gabrielgadea    156 Oct 17 13:39 libonnxruntime_providers_shared.so -> /home/gabrielgadea/.cache/dfbin/x86_64-unknown-linux-gnu/b08edf7fa78f50b034f9744a3e9ef6541b15deb62dc8cba97ed1635549a8c64b/libonnxruntime_providers_shared.so
+lrwxrwxrwx 1 gabrielgadea gabrielgadea    158 Oct 17 13:39 libonnxruntime_providers_tensorrt.so -> /home/gabrielgadea/.cache/dfbin/x86_64-unknown-linux-gnu/b08edf7fa78f50b034f9744a3e9ef6541b15deb62dc8cba97ed1635549a8c64b/libonnxruntime_providers_tensorrt.so
+lrwxrwxrwx 1 gabrielgadea gabrielgadea     64 Oct 17 14:35 touring -> /home/gabrielgadea/projects/touring/target/wt-p0bd/debug/touring
+lrwxrwxrwx 1 gabrielgadea gabrielgadea     71 Oct 17 14:35 touring-daemon -> /home/gabrielgadea/projects/touring/target/wt-p0bd/debug/touring-daemon

@@ -1,0 +1,145 @@
+{
+  "origem": "touring run --allow-repeat → run_journal.jsonl code_simhash + code_simhash_v2",
+  "binario": "touring 30.4.100",
+  "gerado_em": "2026-10-29",
+  "vetores": [
+    {
+      "nome": "python_simples",
+      "codigo": ": <<'ZZZ'\ndef total(xs):\n    return sum(x for x in xs if x > 0)\nprint(total([1, -2, 3]))\nZZZ\n",
+      "simhash_rust": "a30037136532fc7f",
+      "simhash_rust_v2": "a30037136532fc7f"
+    },
+    {
+      "nome": "comentarios_e_vazias",
+      "codigo": ": <<'ZZZ'\n# cabecalho\n\nimport json\n\n// estilo c\nx = json.loads('{}')\n   # recuado\n\nZZZ\n",
+      "simhash_rust": "a72b1119b696a424",
+      "simhash_rust_v2": "a72b1119b696a424"
+    },
+    {
+      "nome": "crlf",
+      "codigo": ": <<'ZZZ'\na = 1\r\nb = a + 2\r\nprint(b)\r\n\nZZZ\n",
+      "simhash_rust": "64ec451806b05625",
+      "simhash_rust_v2": "64ec451806b05625"
+    },
+    {
+      "nome": "pontuacao_colada",
+      "codigo": ": <<'ZZZ'\nobj.metodo(arg)[0]->campo::x != y && z <= 10\nZZZ\n",
+      "simhash_rust": "817e41194a10fe7f",
+      "simhash_rust_v2": "817e41194a10fe7f"
+    },
+    {
+      "nome": "underscore_e_digitos",
+      "codigo": ": <<'ZZZ'\nvalor_total_2026 = calc_x2(base_10) * 3_000\nZZZ\n",
+      "simhash_rust": "403b124c12520e47",
+      "simhash_rust_v2": "403b124c12520e47"
+    },
+    {
+      "nome": "acentos_nfc",
+      "codigo": ": <<'ZZZ'\nsituação = 'ação concluída'; função(variável)\nZZZ\n",
+      "simhash_rust": "a13b76384088c566",
+      "simhash_rust_v2": "a13b76384088c566"
+    },
+    {
+      "nome": "acentos_nfd",
+      "codigo": ": <<'ZZZ'\nsituação = 'ação'\nZZZ\n",
+      "simhash_rust": "a06162390028e34e",
+      "simhash_rust_v2": "a06162390028e34e"
+    },
+    {
+      "nome": "sobrescrito_e_numerais",
+      "codigo": ": <<'ZZZ'\narea = lado² + Ⅷ + ½\nZZZ\n",
+      "simhash_rust": "35ff0f3a9b145877",
+      "simhash_rust_v2": "35ff0f3a9b145877"
+    },
+    {
+      "nome": "nbsp_meio_da_linha",
+      "codigo": ": <<'ZZZ'\nalfa beta gama delta\nZZZ\n",
+      "simhash_rust": "78b317080210c101",
+      "simhash_rust_v2": "78b317080210c101"
+    },
+    {
+      "nome": "form_feed_e_vt",
+      "codigo": ": <<'ZZZ'\num\fdois\u000btres quatro\nZZZ\n",
+      "simhash_rust": "c04ab53a0218c9df",
+      "simhash_rust_v2": "c04ab53a0218c9df"
+    },
+    {
+      "nome": "separador_de_linha_unicode",
+      "codigo": ": <<'ZZZ'\nlinha um linha dois tres\nZZZ\n",
+      "simhash_rust": "14e3470b28d09de4",
+      "simhash_rust_v2": "14e3470b28d09de4"
+    },
+    {
+      "nome": "tabs",
+      "codigo": ": <<'ZZZ'\n\tif x:\n\t\ty = x\t+ 1\nZZZ\n",
+      "simhash_rust": "64ed41182a0ae76b",
+      "simhash_rust_v2": "64ed41182a0ae76b"
+    },
+    {
+      "nome": "dois_tokens",
+      "codigo": ": <<'ZZZ'\nok\nZZZ\n",
+      "simhash_rust": "e4ff541827985e7f",
+      "simhash_rust_v2": "e4ff541827985e7f"
+    },
+    {
+      "nome": "um_token_so",
+      "codigo": ": <<'ZZZ'\nx\nZZZ\n",
+      "simhash_rust": "32f73618261eda47",
+      "simhash_rust_v2": "32f73618261eda47"
+    },
+    {
+      "nome": "so_comentarios",
+      "codigo": ": <<'ZZZ'\n# nada\n// nada\nZZZ\n",
+      "simhash_rust": "00ee161826108d4d",
+      "simhash_rust_v2": "00ee161826108d4d"
+    },
+    {
+      "nome": "bash_loop",
+      "codigo": ": <<'ZZZ'\nfor f in *.py; do\n  wc -l \"$f\"\ndone | sort -n | tail -3\nZZZ\n",
+      "simhash_rust": "13fb25186086089b",
+      "simhash_rust_v2": "13fb25186086089b"
+    },
+    {
+      "nome": "sql_like",
+      "codigo": ": <<'ZZZ'\nSELECT a, b FROM t WHERE c = 'x' AND d IN (1, 2, 3);\nZZZ\n",
+      "simhash_rust": "90b74229ad94792a",
+      "simhash_rust_v2": "90b74229ad94792a"
+    },
+    {
+      "nome": "json_like",
+      "codigo": ": <<'ZZZ'\n{\"chave\": [1, 2, {\"sub\": null}], \"outra\": true}\nZZZ\n",
+      "simhash_rust": "a727bb4c5708a64a",
+      "simhash_rust_v2": "a727bb4c5708a64a"
+    },
+    {
+      "nome": "escrita_cjk",
+      "codigo": ": <<'ZZZ'\nnome = '\u7b80\u4f53' + '\u4e2d\u6587'\nZZZ\n",
+      "simhash_rust": "70ee10185040cf25",
+      "simhash_rust_v2": "70ee10185040cf25"
+    },
+    {
+      "nome": "emoji",
+      "codigo": ": <<'ZZZ'\nstatus = 'ok ✅' if feito else 'falha ❌'\nZZZ\n",
+      "simhash_rust": "20dd2d582644f267",
+      "simhash_rust_v2": "20dd2d582644f267"
+    },
+    {
+      "nome": "longo_realista",
+      "codigo": ": <<'ZZZ'\nimport argparse\nimport json\nfrom pathlib import Path\n\ndef carregar(p: Path) -> list[dict]:\n    return [json.loads(l) for l in p.read_text().splitlines() if l]\n\ndef main() -> int:\n    ap = argparse.ArgumentParser()\n    ap.add_argument('arquivo', type=Path)\n    args = ap.parse_args()\n    linhas = carregar(args.arquivo)\n    print(json.dumps({'n': len(linhas)}))\n    return 0\n\nZZZ\n",
+      "simhash_rust": "106fb579e71fdb56",
+      "simhash_rust_v2": "106fb579e71fdb56"
+    },
+    {
+      "nome": "reguas_repetidas",
+      "codigo": ": <<'ZZZ'\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nimport csv\nimport sys\n\nwith open(sys.argv[1]) as f:\n    linhas = list(csv.reader(f))\nprint(len(linhas))\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\nprint(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\n\nZZZ\n",
+      "simhash_rust": "56250d159e69bc4f",
+      "simhash_rust_v2": "762615100c48914b"
+    },
+    {
+      "nome": "longo_realista_renomeado",
+      "codigo": ": <<'ZZZ'\nimport argparse\nimport json\nfrom pathlib import Path\n\ndef ler(p: Path) -> list[dict]:\n    return [json.loads(l) for l in p.read_text().splitlines() if l]\n\ndef main() -> int:\n    ap = argparse.ArgumentParser()\n    ap.add_argument('arquivo', type=Path)\n    args = ap.parse_args()\n    registros = ler(args.arquivo)\n    print(json.dumps({'n': len(registros)}))\n    return 0\n\nZZZ\n",
+      "simhash_rust": "1027f5dba71edb06",
+      "simhash_rust_v2": "1027f5dba71edb06"
+    }
+  ]
+}

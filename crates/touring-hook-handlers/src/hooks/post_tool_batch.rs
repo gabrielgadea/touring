@@ -6,14 +6,17 @@
 //! - Parses `tool_calls` array from the PostToolBatch payload.
 //! - Computes per-call success flags; maps success → 1.0 and failure → −0.3.
 //! - Injects ONE aggregated RL reward (average score, labelled "batch").
-//! - For batches that include Edit/Write calls, emits a REGRA #0 wiring hint
-//!   via `additionalContext` when new orphan symbols may have been introduced.
+//! - For batches that edited a file which CAN host a public symbol, emits a
+//!   REGRA #0 wiring hint via `additionalContext`, naming those files. An edit
+//!   to a `.md`/`.json`/`.toml` cannot create an orphan and says nothing.
 //! - Truncates `tool_response` content per call to 0 bytes for memory safety.
 //!
 //! # Return value
 //!
-//! Always `HookResponse::Allow` (exit 0) unless new orphans were detected, in which case
-//! `HookResponse::Context` carries a wiring potencialização hint. Never blocks, denies, or halts.
+//! Always `HookResponse::Allow` (exit 0) unless a symbol-bearing file was edited,
+//! in which case `HookResponse::Context` carries the wiring hint. It does NOT
+//! detect orphans — it says which files to check, which is what it can honestly
+//! claim. Never blocks, denies, or halts.
 
 use crate::HookResponse;
 use crate::runtime::HookRuntime;
@@ -23,6 +26,14 @@ use serde_json::Value;
 struct BatchCall {
     tool_name: String,
     success: bool,
+    /// The file the call touched, when the payload carries one.
+    ///
+    /// Discarded until 04/09/2026, which is why the REGRA #0 hint below fired on
+    /// EVERY batch containing an Edit — 422 emissions measured over 10
+    /// transcripts — while being structurally blind to whether the edited file
+    /// could carry a public symbol at all. A hint about orphans that cannot see
+    /// the file is a claim about a domain it has no data on.
+    file_path: Option<String>,
 }
 
 /// Infer success from a tool call entry when no explicit `success` bool is present.
@@ -59,7 +70,17 @@ fn parse_single_call(entry: &Value) -> Option<BatchCall> {
         .and_then(|v| v.as_bool())
         .unwrap_or_else(|| infer_success_from_entry(entry));
 
-    Some(BatchCall { tool_name, success })
+    let file_path = entry
+        .pointer("/tool_input/file_path")
+        .or_else(|| entry.get("file_path"))
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+
+    Some(BatchCall {
+        tool_name,
+        success,
+        file_path,
+    })
 }
 
 /// Parse the `tool_calls` array from the PostToolBatch input.
@@ -92,13 +113,39 @@ fn average_reward(calls: &[BatchCall]) -> f64 {
     sum / calls.len() as f64
 }
 
-/// Returns true if the batch contains any Edit or Write tool calls.
+/// Extensions that cannot carry a public symbol, so an edit to one cannot create
+/// an orphan and the REGRA #0 hint has nothing to warn about.
+const NON_SYMBOL_EXTENSIONS: &[&str] = &[
+    "md", "markdown", "json", "toml", "yaml", "yml", "txt", "lock", "csv", "log", "cfg", "ini",
+];
+
+/// True when this path can host a public symbol.
 ///
-/// These are the only tools that can introduce new public symbols / orphans.
-fn batch_has_edit_or_write(calls: &[BatchCall]) -> bool {
+/// A path we cannot see reads as "unknown", and unknown resolves to TRUE here on
+/// purpose: REGRA #0 is constitutional, and suppressing a real orphan warning
+/// costs more than one extra line. The asymmetry is deliberate and stated rather
+/// than left to the reader.
+fn can_carry_a_symbol(path: Option<&str>) -> bool {
+    let Some(p) = path else {
+        return true;
+    };
+    let ext = std::path::Path::new(p)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    !NON_SYMBOL_EXTENSIONS.contains(&ext.as_str())
+}
+
+/// The files in this batch that an Edit/Write touched AND that can host a public
+/// symbol — the evidence the REGRA #0 hint needs before it says anything.
+fn symbol_bearing_edits(calls: &[BatchCall]) -> Vec<&str> {
     calls
         .iter()
-        .any(|c| matches!(c.tool_name.as_str(), "Edit" | "Write" | "MultiEdit"))
+        .filter(|c| matches!(c.tool_name.as_str(), "Edit" | "Write" | "MultiEdit"))
+        .filter(|c| can_carry_a_symbol(c.file_path.as_deref()))
+        .map(|c| c.file_path.as_deref().unwrap_or("<sem caminho no payload>"))
+        .collect()
 }
 
 /// Run the post-tool-batch hook.
@@ -139,24 +186,20 @@ pub fn run_post_tool_batch(rt: &mut HookRuntime, input: &Value) -> HookResponse 
         );
     }
 
-    // REGRA #0 — potencializar: if Edit/Write calls were in the batch, emit a
-    // wiring hint so the agent knows to check for new orphan symbols.
-    if batch_has_edit_or_write(&calls) {
-        // Build a comma-separated list of the edit/write tool names for context.
-        let edit_names: Vec<&str> = calls
-            .iter()
-            .filter(|c| matches!(c.tool_name.as_str(), "Edit" | "Write" | "MultiEdit"))
-            .map(|c| c.tool_name.as_str())
-            .collect();
-        let tools_str = edit_names.join(", ");
-
+    // REGRA #0 — potencializar. The hint speaks only when a file that CAN host a
+    // public symbol was edited, and it names those files: a banner that fires on
+    // every batch and names none of them costs the window without telling the
+    // reader where to look (the injection-density invariant demands the derived
+    // value, never a placeholder).
+    let touched = symbol_bearing_edits(&calls);
+    if !touched.is_empty() {
+        let files = touched.join(", ");
         let hint = format!(
-            "post-tool-batch: batch of {n} tools ({tools_str}) may have introduced new symbols. \
-            Run `touring wiring orphans -j` to verify REGRA #0 compliance. \
-            Wire any new pub symbols to consumers before closing the task."
+            "post-tool-batch: {} arquivo(s) que podem carregar símbolo público editados: {files}\n\
+             MUST touring wiring orphans -j   // REGRA #0 — ligue todo pub novo a um consumidor",
+            touched.len()
         );
-
-        tracing::debug!(tools = %tools_str, "post-tool-batch: emitting REGRA #0 wiring hint");
+        tracing::debug!(files = %files, "post-tool-batch: emitting REGRA #0 wiring hint");
         return HookResponse::Context {
             context: hint,
             event_name: Some("PostToolBatch".to_string()),
@@ -212,10 +255,12 @@ mod tests {
             BatchCall {
                 tool_name: "Read".into(),
                 success: true,
+                file_path: None,
             },
             BatchCall {
                 tool_name: "Read".into(),
                 success: true,
+                file_path: None,
             },
         ];
         let avg = average_reward(&calls);
@@ -228,10 +273,12 @@ mod tests {
             BatchCall {
                 tool_name: "Read".into(),
                 success: true,
+                file_path: None,
             }, // +1.0
             BatchCall {
                 tool_name: "Bash".into(),
                 success: false,
+                file_path: None,
             }, // -0.3
         ];
         let avg = average_reward(&calls);
@@ -251,13 +298,19 @@ mod tests {
             BatchCall {
                 tool_name: "Read".into(),
                 success: true,
+                file_path: None,
             },
             BatchCall {
                 tool_name: "Edit".into(),
                 success: true,
+                file_path: None,
             },
         ];
-        assert!(batch_has_edit_or_write(&calls));
+        // O que este teste sempre assegurou — "a batch com um Edit produz o
+        // hint" — continua valendo, agora pelo predicado que também sabe QUAL
+        // arquivo. Sem caminho no payload, o desconhecido reporta (assimetria
+        // deliberada de `can_carry_a_symbol`).
+        assert_eq!(symbol_bearing_edits(&calls).len(), 1);
     }
 
     #[test]
@@ -266,18 +319,74 @@ mod tests {
             BatchCall {
                 tool_name: "Read".into(),
                 success: true,
+                file_path: None,
             },
             BatchCall {
                 tool_name: "Bash".into(),
                 success: false,
+                file_path: None,
             },
         ];
-        assert!(!batch_has_edit_or_write(&calls));
+        assert!(symbol_bearing_edits(&calls).is_empty());
     }
 
     #[test]
     fn test_call_reward_values() {
         assert!((call_reward(true) - 1.0).abs() < 1e-9);
         assert!((call_reward(false) - (-0.3)).abs() < 1e-9);
+    }
+    // ── P2/S-2.1 (2026-09-04): o hint fala por EVIDÊNCIA ─────────────────────
+
+    fn call(tool: &str, path: Option<&str>) -> Value {
+        json!({"tool_name": tool, "success": true,
+               "tool_input": {"file_path": path.unwrap_or_default()}})
+    }
+
+    #[test]
+    fn a_doc_only_batch_says_nothing_because_a_markdown_edit_cannot_orphan_a_symbol() {
+        // O caso medido: 422 emissões em 10 transcripts, a maioria sobre .md/.py
+        // de skills. Um Edit em markdown não pode criar um pub órfão, então o
+        // aviso sobre órfãos não tem sobre o que avisar.
+        for ext in ["md", "json", "toml", "yaml", "txt", "lock"] {
+            let calls = parse_tool_calls(&json!({"tool_calls": [
+                call("Edit", Some(&format!("docs/nota.{ext}")))
+            ]}));
+            assert!(
+                symbol_bearing_edits(&calls).is_empty(),
+                ".{ext} nao pode carregar simbolo publico"
+            );
+        }
+    }
+
+    #[test]
+    fn a_source_edit_is_reported_and_the_file_is_named() {
+        let calls = parse_tool_calls(&json!({"tool_calls": [
+            call("Edit", Some("docs/nota.md")),
+            call("Edit", Some("crates/touring-cli/src/cli/kpi.rs")),
+            call("Bash", None),
+        ]}));
+        assert_eq!(
+            symbol_bearing_edits(&calls),
+            vec!["crates/touring-cli/src/cli/kpi.rs"],
+            "so' o arquivo que pode carregar simbolo entra, e ele e' NOMEADO"
+        );
+    }
+
+    #[test]
+    fn an_unknown_path_is_reported_because_unknown_is_not_proof_of_harmlessness() {
+        // Assimetria deliberada: REGRA #0 e' constitucional, e calar um aviso
+        // real custa mais que uma linha a mais.
+        let calls = parse_tool_calls(&json!({"tool_calls": [
+            json!({"tool_name": "Write", "success": true})
+        ]}));
+        assert_eq!(symbol_bearing_edits(&calls).len(), 1);
+    }
+
+    #[test]
+    fn a_batch_with_no_edit_at_all_stays_silent() {
+        let calls = parse_tool_calls(&json!({"tool_calls": [
+            call("Bash", None), call("Read", Some("src/lib.rs"))
+        ]}));
+        assert!(symbol_bearing_edits(&calls).is_empty());
     }
 }

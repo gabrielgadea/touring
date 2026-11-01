@@ -37,9 +37,30 @@ use touring_hooks::runtime::HookRuntime;
 fn make_runtime() -> (TempDir, HookRuntime) {
     let tmp = TempDir::new().expect("tempdir");
     std::fs::create_dir_all(tmp.path().join(".claude/data")).expect("mkdir");
+    let _build = RUNTIME_BUILD.lock().unwrap_or_else(|e| e.into_inner());
     let rt = HookRuntime::new(tmp.path()).expect("hook runtime init");
     (tmp, rt)
 }
+
+/// Serializa a CONSTRUÇÃO do runtime — e só ela.
+///
+/// Capturado sob gdb em 24/08/2026: com as 13 threads de teste construindo
+/// runtimes ao mesmo tempo, todas paravam em `pthread_mutex_lock` dentro de
+/// `findReusableFd` → `unixOpen`, o mutex global do VFS unix do SQLite, na
+/// abertura de `RlmMemory::new` (`rl/memory/rlm.rs:204`) sob
+/// `build_evolution_analyzer`. Cada `HookRuntime::new` abre vários bancos; treze
+/// aberturas simultâneas empilhavam nesse mutex e o processo não saía mais.
+///
+/// Serializar aqui NÃO mascara defeito de produção: fora de teste,
+/// `HookRuntime::new` é chamado uma vez por processo (o único sítio produtivo é
+/// um comando CLI single-shot), então "N runtimes ao mesmo tempo" é uma forma
+/// que só o harness produz. O que estes testes exercitam é `cli_suggester::run`,
+/// e o lock é solto antes dele — a concorrência que importa continua valendo.
+///
+/// Distinto do outro travamento desta suíte, esse sim de produção: o `Drop` de
+/// conexão de escrita pedindo lock exclusivo em `sqlite3WalClose`, corrigido no
+/// lado do produto por `open_lessons_db_readonly`.
+static RUNTIME_BUILD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Parse the raw JSON string returned by `cli_suggester::run`, returning the
 /// `additionalContext` text when present (None for the `"{}"` empty case).
@@ -66,8 +87,17 @@ fn classifier_grep_pascalcase_emits_symbol_lookup() {
     let out = cli_suggester::run(&rt, &payload);
     let ctx = additional_context(&out).expect("non-empty");
     assert!(ctx.contains("symbol-lookup"), "cluster missing: {ctx}");
-    assert!(ctx.contains("touring index find DomainCircuitBreaker"));
-    assert!(ctx.contains("touring wiring impact"));
+    // Uma asserção sem diagnóstico só diz que algo mudou, nunca o quê — e foi
+    // exatamente isso que atrasou o diagnóstico do flaky de 24/08/2026: a falha
+    // apontava para a linha e escondia o contexto que a explicava.
+    assert!(
+        ctx.contains("touring index find DomainCircuitBreaker"),
+        "MUST sem `index find` do símbolo: {ctx}"
+    );
+    assert!(
+        ctx.contains("touring wiring impact"),
+        "MUST sem `wiring impact`: {ctx}"
+    );
 }
 
 #[test]
@@ -83,36 +113,94 @@ fn classifier_grep_free_text_routes_to_tantivy() {
     assert!(ctx.contains("tantivy search"));
 }
 
+/// `sed -i` é NEGADO pelo G9, não sugerido.
+///
+/// Este teste afirmava que a escrita cega inline virava um NUDGE com o cluster
+/// `anti-pattern-bash-edit`. O G9 (N3a, 26/08/2026) promoveu a mesma situação a
+/// DENY — que é a decisão certa: `sed -i` atravessa os 17 gates do Edit, e um
+/// conselho que se pode ignorar não impede isso. O teste ficou afirmando o
+/// contrato anterior e passou a falhar; corrigido em 27/08 para exigir o deny,
+/// porque é o comportamento que se quer proteger de regressão.
 #[test]
-fn classifier_bash_sed_inplace_promotes_taco_forge_perfect_edit() {
+fn classifier_bash_sed_inplace_is_denied_by_g9() {
     let (_tmp, rt) = make_runtime();
+    // session_id próprio: os caches de gate (G3/G5 streak) são por sessão e
+    // globais ao processo — sem ele, um Edit de OUTRO teste faz o G5 falar
+    // aqui em vez do classificador (flaky que troca de vítima).
     let payload = json!({
         "tool_name": "Bash",
+        "session_id": "e2e-sed",
         "tool_input": { "command": "sed -i 's/old/new/g' foo.rs" }
     });
     let out = cli_suggester::run(&rt, &payload);
-    let ctx = additional_context(&out).expect("non-empty");
-    assert!(
-        ctx.contains("anti-pattern-bash-edit"),
-        "cluster wrong: {ctx}"
+    let v: Value = serde_json::from_str(&out).expect("JSON");
+    let h = v.get("hookSpecificOutput").expect("hookSpecificOutput");
+    assert_eq!(
+        h.get("permissionDecision").and_then(|x| x.as_str()),
+        Some("deny"),
+        "escrita cega inline tem de ser NEGADA: {out}"
     );
-    assert!(ctx.contains("Edit tool"));
+    let razao = h
+        .get("permissionDecisionReason")
+        .and_then(|x| x.as_str())
+        .expect("o deny carrega a razão");
+    assert!(razao.contains("G9"), "o deny se identifica: {razao}");
+    // e a rota alternativa vem escrita — um deny sem saída é só um obstáculo
+    assert!(
+        razao.contains("Edit tool"),
+        "a rota canônica viaja no deny: {razao}"
+    );
 }
 
+/// REGRA #11 v2: git de leitura é PERMITIDO, nada é exigido, e o hook cala.
+///
+/// Este teste nasceu afirmando o oposto — que um arm `regra-11-git-safe`
+/// seria emitido. Ele falhou no gate de convergência de 26/08 e revelou que
+/// aquele arm tinha confiança 0.55, abaixo do gate conformal
+/// (`LEGACY_THRESHOLD = 0.7`): era código que nunca executou. O arm foi
+/// removido; o contrato REAL é o silêncio, e é o que se afirma aqui.
+///
+/// O par unitário (`classify_bash_...`) não podia pegar isso: ele chama
+/// `classify_bash` DIRETO, antes do gate. Só o caminho E2E atravessa
+/// `select_classifier`, que é onde a supressão acontece.
 #[test]
-fn classifier_bash_git_routes_to_regra11_prohibition() {
+fn classifier_bash_git_readonly_stays_silent() {
     let (_tmp, rt) = make_runtime();
     let payload = json!({
         "tool_name": "Bash",
+        "session_id": "e2e-git",
         "tool_input": { "command": "git log --oneline" }
+    });
+    let out = cli_suggester::run(&rt, &payload);
+    let ctx = additional_context(&out).unwrap_or_default();
+    assert!(
+        !ctx.contains("prohibited"),
+        "REGRA #11 v2 revogou a proibição; o nudge não pode reivindicá-la: {ctx}"
+    );
+    assert!(
+        ctx.is_empty(),
+        "git de leitura não exige ação — o hook deve calar, não emitir: {ctx}"
+    );
+}
+
+#[test]
+fn classifier_bash_git_destructive_reaches_the_ritual_arm() {
+    let (_tmp, rt) = make_runtime();
+    let payload = json!({
+        "tool_name": "Bash",
+        "session_id": "e2e-git-destructive",
+        "tool_input": { "command": "git reset --hard HEAD~1" }
     });
     let out = cli_suggester::run(&rt, &payload);
     let ctx = additional_context(&out).expect("non-empty");
     assert!(
-        ctx.contains("regra-11-git-prohibited"),
+        ctx.contains("regra-11-git-destructive"),
         "cluster wrong: {ctx}"
     );
-    assert!(ctx.contains("touring memory recall"));
+    assert!(
+        ctx.contains("GIT_DESTRUCTIVE_OK=1"),
+        "the ritual token must travel: {ctx}"
+    );
 }
 
 #[test]
@@ -120,6 +208,7 @@ fn classifier_bash_cargo_routes_to_doctor() {
     let (_tmp, rt) = make_runtime();
     let payload = json!({
         "tool_name": "Bash",
+        "session_id": "e2e-cargo",
         "tool_input": { "command": "cargo build -p touring-core --release" }
     });
     let out = cli_suggester::run(&rt, &payload);
@@ -160,16 +249,74 @@ fn classifier_write_tsx_routes_to_perfect_create_tsx() {
 
 #[test]
 fn classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate() {
-    let (_tmp, rt) = make_runtime();
+    let (tmp, rt) = make_runtime();
+    // O pipeline tem os gates ANTES do classificador: um Edit sem Read recente
+    // leva o advisory G3 e o classificador nunca fala. O Read satisfaz o gate;
+    // o objeto deste teste é o classificador de Edit.
+    let read = json!({
+        "tool_name": "Read",
+        "session_id": "e2e-edit-rust",
+        "tool_input": { "file_path": "crates/foo/src/lib.rs" }
+    });
+    let _ = cli_suggester::run(&rt, &read);
+    // Há um segundo filtro depois do classificador: o orçamento do TURNO (P3/S-3.3,
+    // teto de 2 000 B desde o S8). O Read acima gasta parte dele e, no mesmo turno,
+    // o Edit estoura e cai para só as diretivas — sem o cabeçalho do cluster, que
+    // é justamente o que este teste afirma. Cada turno novo do humano zera o
+    // orçamento (`prompt-enhance` chama `reset_turn`); reproduzi-lo aqui dá ao
+    // classificador o espaço de um turno real. O contrato do turno esgotado é
+    // fixado no teste seguinte.
+    touring_hook_runtime::turn_budget::reset_turn(tmp.path(), "e2e-edit-rust");
     let payload = json!({
         "tool_name": "Edit",
+        "session_id": "e2e-edit-rust",
         "tool_input": { "file_path": "crates/foo/src/lib.rs" }
     });
     let out = cli_suggester::run(&rt, &payload);
     let ctx = additional_context(&out).expect("non-empty");
-    assert!(ctx.contains("pre-edit-triage-rust"));
-    assert!(ctx.contains("touring ast tdg"));
-    assert!(ctx.contains("STOP at grade D/F") || ctx.contains("STOP at TDG D/F"));
+    assert!(ctx.contains("pre-edit-triage-rust"), "cluster wrong: {ctx}");
+    assert!(ctx.contains("touring ast tdg"), "tdg hint missing: {ctx}");
+    assert!(
+        ctx.contains("STOP at grade D/F") || ctx.contains("STOP at TDG D/F"),
+        "STOP gate missing: {ctx}"
+    );
+}
+
+/// O avesso do teste anterior: com o orçamento do turno já gasto, o Edit perde a
+/// racionalização (cabeçalho do cluster, `Reason:`) e mantém as diretivas MUST/SHOULD
+/// — a ordem declarada em `turn_budget`. A elisão é declarada no próprio texto.
+#[test]
+fn classifier_edit_rust_in_an_exhausted_turn_keeps_only_the_directives() {
+    use touring_hook_runtime::turn_budget::{charge_turn, turn_budget};
+
+    let (tmp, rt) = make_runtime();
+    let read = json!({
+        "tool_name": "Read",
+        "session_id": "e2e-edit-rust-exhausted",
+        "tool_input": { "file_path": "crates/foo/src/lib.rs" }
+    });
+    let _ = cli_suggester::run(&rt, &read);
+    // Esgota o turno de forma determinística, sem depender do tamanho do Read.
+    charge_turn(tmp.path(), "e2e-edit-rust-exhausted", turn_budget());
+    let payload = json!({
+        "tool_name": "Edit",
+        "session_id": "e2e-edit-rust-exhausted",
+        "tool_input": { "file_path": "crates/foo/src/lib.rs" }
+    });
+    let out = cli_suggester::run(&rt, &payload);
+    let ctx = additional_context(&out).expect("non-empty");
+    assert!(
+        ctx.contains("touring ast tdg"),
+        "a diretiva MUST de TDG sobrevive ao corte: {ctx}"
+    );
+    assert!(
+        ctx.contains("orçamento do turno esgotado"),
+        "a elisão é declarada: {ctx}"
+    );
+    assert!(
+        !ctx.contains("pre-edit-triage-rust"),
+        "o cabeçalho do cluster é racionalização e cai primeiro: {ctx}"
+    );
 }
 
 #[test]
@@ -243,11 +390,31 @@ fn every_non_empty_output_is_a_valid_json_object_with_additional_context() {
                 h.get("hookEventName").and_then(|x| x.as_str()),
                 Some("PreToolUse")
             );
-            assert!(
-                h.get("additionalContext")
-                    .and_then(|x| x.as_str())
-                    .is_some()
-            );
+            // Uma resposta não-vazia é um NUDGE (`additionalContext`) ou uma
+            // DECISÃO (`permissionDecision` + a razão). O invariante afirmava
+            // só a primeira forma, de quando o hook ainda não negava nada; o
+            // G9 (26/08) e o gate de rajada do modo `code` (S3, 27/08) trouxeram
+            // a segunda. Exigir `additionalContext` de um deny é exigir que ele
+            // seja um conselho — exatamente o que ele deixou de ser.
+            let nudge = h.get("additionalContext").and_then(|x| x.as_str());
+            let decisao = h.get("permissionDecision").and_then(|x| x.as_str());
+            match (nudge, decisao) {
+                (Some(_), None) => {}
+                (None, Some(d)) => {
+                    assert!(
+                        matches!(d, "deny" | "allow" | "ask"),
+                        "decisão desconhecida `{d}`: {out}"
+                    );
+                    assert!(
+                        h.get("permissionDecisionReason")
+                            .and_then(|x| x.as_str())
+                            .is_some_and(|r| !r.is_empty()),
+                        "toda decisão carrega a razão — um deny mudo não ensina nada: {out}"
+                    );
+                }
+                (Some(_), Some(_)) => panic!("nudge E decisão na mesma resposta: {out}"),
+                (None, None) => panic!("resposta não-vazia sem nudge nem decisão: {out}"),
+            }
         }
     }
 }
@@ -282,25 +449,54 @@ fn hook_registry_dispatch_table_routes_session_handlers() {
 
 // ── (5) Disable-via-env contract ─────────────────────────────────────────────
 
+/// A env de desligamento é exercitada num SUBPROCESSO, nunca neste.
+///
+/// MEDIDO em 24/08/2026: esta suíte era flaky (6 falhas em 15 execuções), e a
+/// vítima trocava a cada rodada — ora `classifier_bash_cargo_routes_to_doctor`,
+/// ora `classifier_grep_pascalcase_emits_symbol_lookup`, sempre com a saída
+/// vazia. A causa era esta função: ela fazia `set_var` e, **variável de ambiente
+/// é global ao processo, não à thread**, todo teste que rodasse dentro dessa
+/// janela via o suggester desligado e recebia `"{}"`.
+///
+/// O `ENV_LOCK` que existia aqui não podia cobrir isso: ele serializava apenas
+/// os testes que MUTAVAM a env, e os 16 que apenas a LEEM nunca o pegavam. O
+/// comentário de segurança anterior declarava a premissa "requires
+/// single-threaded execution" — que `cargo test` não garante e a suíte não
+/// pedia; o texto afirmava um isolamento que o ambiente não dava. Rodar com
+/// `--test-threads=1` passava 20/20 e era exatamente essa a pista.
+///
+/// Reexecutar o próprio binário preserva o e2e real (a env é lida pelo código
+/// de produção, não simulada) e devolve a mutação para um processo onde ela é a
+/// única coisa acontecendo.
 #[test]
 fn classifier_respects_disable_env_var() {
-    let (_tmp, rt) = make_runtime();
+    let exe = std::env::current_exe().expect("caminho do binário de teste");
+    let status = std::process::Command::new(exe)
+        .args(["--exact", "disable_env_var_worker", "--test-threads=1"])
+        .env("TOURING_SUGGESTER_DISABLED", "1")
+        .status()
+        .expect("spawn do worker");
+    assert!(
+        status.success(),
+        "com TOURING_SUGGESTER_DISABLED=1 o worker deveria observar o classificador silenciado"
+    );
+}
 
-    // Set the env var, then call — output must be "{}" even on a clean
-    // symbol-lookup input that would otherwise emit C03.
-    // SAFETY: test serial via env var requires single-threaded execution
-    // (cargo test runs each test fn on its own task — set_var here is OK
-    // because we unset before returning).
-    unsafe {
-        std::env::set_var("TOURING_SUGGESTER_DISABLED", "1");
+/// Metade executora de [`classifier_respects_disable_env_var`].
+///
+/// Só tem o que provar quando o pai o invoca com a env armada; na varredura
+/// normal da suíte ele não encontra a env e retorna sem asserção — de propósito,
+/// já que armá-la aqui reintroduziria exatamente a corrida descrita acima.
+#[test]
+fn disable_env_var_worker() {
+    if std::env::var("TOURING_SUGGESTER_DISABLED").as_deref() != Ok("1") {
+        return;
     }
+    let (_tmp, rt) = make_runtime();
     let out = cli_suggester::run(
         &rt,
         &json!({"tool_name": "Grep", "tool_input": {"pattern": "DomainCircuitBreaker"}}),
     );
-    unsafe {
-        std::env::remove_var("TOURING_SUGGESTER_DISABLED");
-    }
     assert_eq!(out, "{}", "DISABLED env var must silence the classifier");
 }
 

@@ -19,6 +19,7 @@ use touring_storage::knowledge::FileKnowledgeDB;
 /// before the first wiring call.
 #[test]
 fn python_populates_wiring_graph_under_flag() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // SAFETY: set before any wiring call in this dedicated single-test binary;
     // the value is read exactly once into a OnceLock. No other thread reads the
     // environment concurrently here.
@@ -54,12 +55,26 @@ fn python_populates_wiring_graph_under_flag() {
     )
     .expect("gate venv .py");
 
-    // 1. Python rows landed — non_rust_rows > 0 (the whole point of P-A).
+    // 1. Python rows landed AS READABLE WIRING — the whole point of P-A.
+    //
+    // This used to assert `non_rust_rows >= 2`, which proved a proxy ("rows
+    // exist that are not Rust") rather than the claim ("Python rows are
+    // first-class wiring the queries can see"). Under the three-counter
+    // semantics the claim is directly assertable: the rows are in the census,
+    // nothing judged them, and nothing filtered them out.
     let diag = db.wiring_db_diagnostic().expect("diagnostic");
     assert!(
-        diag.non_rust_rows >= 2,
-        "expected Python producer/consumer rows; got non_rust_rows={}",
-        diag.non_rust_rows
+        diag.total_rows >= 2,
+        "expected Python producer/consumer rows in the census; got total_rows={}",
+        diag.total_rows
+    );
+    assert_eq!(
+        diag.non_wireable_rows, 0,
+        "the write gate rejected docs/*.py and the venv, so nothing inadmissible can be stored"
+    );
+    assert_eq!(
+        diag.unread_rows, 0,
+        "polyglot is on for this DB — no supported-language source may be unreadable"
     );
 
     // 2. Order (Python, unwired) is an orphan; User (Python, wired) is not.
@@ -107,6 +122,7 @@ fn python_populates_wiring_graph_under_flag() {
 /// (`ts_js_resolver_tests`); together they cover TS wiring end-to-end.
 #[test]
 fn typescript_populates_wiring_graph_under_flag() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // SAFETY: set before any wiring call; read once into a OnceLock.
     unsafe {
         std::env::set_var("TOURING_POLYGLOT_WIRING", "1");
@@ -160,6 +176,7 @@ fn typescript_populates_wiring_graph_under_flag() {
 /// `touring-hooks-core` (`java_import_maps_dotted_name_to_source_path`).
 #[test]
 fn java_wires_and_go_is_deferred_under_flag() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // SAFETY: set before any wiring call; read once into a OnceLock.
     unsafe {
         std::env::set_var("TOURING_POLYGLOT_WIRING", "1");
@@ -211,6 +228,7 @@ fn java_wires_and_go_is_deferred_under_flag() {
 /// `.go` stays rejected; vendored packages stay excluded.
 #[test]
 fn go_package_key_wires_and_file_keyed_go_stays_rejected() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // SAFETY: set before any wiring call; read once into a OnceLock.
     unsafe {
         std::env::set_var("TOURING_POLYGLOT_WIRING", "1");
@@ -237,12 +255,17 @@ fn go_package_key_wires_and_file_keyed_go_stays_rejected() {
     db.register_pub_symbol("go:mymod/vendor/dep", "Vendor", "function", "public")
         .expect("gate vendored");
 
-    // 1. Go package rows landed (non_rust > 0).
+    // 1. Go package rows landed as readable wiring (see the Python case above
+    //    for why the census, not a "not Rust" count, is the honest assertion).
     let diag = db.wiring_db_diagnostic().expect("diagnostic");
     assert!(
-        diag.non_rust_rows >= 2,
-        "expected Go package producer/consumer rows; got non_rust_rows={}",
-        diag.non_rust_rows
+        diag.total_rows >= 2,
+        "expected Go package producer/consumer rows in the census; got total_rows={}",
+        diag.total_rows
+    );
+    assert_eq!(
+        diag.non_wireable_rows, 0,
+        "the vendored package was rejected at the gate, so nothing inadmissible is stored"
     );
 
     // 2. Config (unused export) is a genuine orphan; Handler (wired) is not.
@@ -277,3 +300,6 @@ fn go_package_key_wires_and_file_keyed_go_stays_rejected() {
         "expected 0.5 integration score for go:mymod/pkg; got {score}"
     );
 }
+
+// Serializes env-var-mutating tests in this integration binary (edition-2024: set_var/remove_var are unsafe under concurrency).
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

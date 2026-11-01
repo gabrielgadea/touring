@@ -1,0 +1,2026 @@
+[
+ {
+  "arquivo": "crates/touring-code/benches/flamegraph_profile.rs",
+  "linha": 23,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::analyze_quality`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/flamegraph_profile.rs",
+  "linha": 57,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/flamegraph_profile.rs",
+  "linha": 57,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/flamegraph_profile.rs",
+  "linha": 77,
+  "classe": "nome",
+  "nome": "analyze_quality",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/flamegraph_profile.rs",
+  "linha": 87,
+  "classe": "nome",
+  "nome": "RustSemanticReport",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/incremental_parser.rs",
+  "linha": 4,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/incremental_parser.rs",
+  "linha": 38,
+  "classe": "nome",
+  "nome": "IncrementalParser",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/incremental_parser.rs",
+  "linha": 39,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/lazy_loading.rs",
+  "linha": 7,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::file_heat::HeatMap`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/lazy_loading.rs",
+  "linha": 31,
+  "classe": "nome",
+  "nome": "IncrementalPipeline",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/lazy_loading.rs",
+  "linha": 51,
+  "classe": "nome",
+  "nome": "HeatMap",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/polyglot_baseline.rs",
+  "linha": 22,
+  "classe": "import",
+  "nome": "polyglot",
+  "severidade": "warn",
+  "sugestao": "`polyglot` não encontrado ao resolver `touring_code::polyglot::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/polyglot_baseline.rs",
+  "linha": 48,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/polyglot_baseline.rs",
+  "linha": 62,
+  "classe": "nome",
+  "nome": "search",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/polyglot_baseline.rs",
+  "linha": 86,
+  "classe": "nome",
+  "nome": "rewrite",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/prioritized_pipeline.rs",
+  "linha": 9,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::incremental_pipeline::PrioritizedPipeline`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/prioritized_pipeline.rs",
+  "linha": 16,
+  "classe": "nome",
+  "nome": "PrioritizedPipeline",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/rope_document.rs",
+  "linha": 4,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::document::RopeDocument`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/rope_document.rs",
+  "linha": 26,
+  "classe": "nome",
+  "nome": "RopeDocument",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/symbol_store.rs",
+  "linha": 5,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::graph::DependencyEdge`"
+ },
+ {
+  "arquivo": "crates/touring-code/benches/symbol_store.rs",
+  "linha": 32,
+  "classe": "nome",
+  "nome": "SymbolStore",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/extract_symbols_file.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/extract_symbols_file.rs",
+  "linha": 30,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/extract_symbols_file.rs",
+  "linha": 35,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 18,
+  "classe": "import",
+  "nome": "sdk",
+  "severidade": "warn",
+  "sugestao": "`sdk` não encontrado ao resolver `touring_code::sdk::HookName`"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 19,
+  "classe": "import",
+  "nome": "sdk_signal_mirror",
+  "severidade": "warn",
+  "sugestao": "`sdk_signal_mirror` não encontrado ao resolver `touring_code::sdk_signal_mirror::MirrorOrigin`"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 37,
+  "classe": "nome",
+  "nome": "default_mirror_path",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 59,
+  "classe": "nome",
+  "nome": "record",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 59,
+  "classe": "nome",
+  "nome": "HookName",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 59,
+  "classe": "nome",
+  "nome": "MirrorOrigin",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 67,
+  "classe": "nome",
+  "nome": "read",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+  "linha": 74,
+  "classe": "nome",
+  "nome": "signal_report_from_journal_and_mirror",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_smoke.rs",
+  "linha": 15,
+  "classe": "import",
+  "nome": "sdk",
+  "severidade": "warn",
+  "sugestao": "`sdk` não encontrado ao resolver `touring_code::sdk::signal_report_from_journal`"
+ },
+ {
+  "arquivo": "crates/touring-code/examples/sdk_smoke.rs",
+  "linha": 26,
+  "classe": "nome",
+  "nome": "signal_report_from_journal",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/complexity.rs",
+  "linha": 161,
+  "classe": "import",
+  "nome": "ParserPool",
+  "severidade": "warn",
+  "sugestao": "`ParserPool` não encontrado ao resolver `crate::ast::parser::ParserPool::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/file_heat.rs",
+  "linha": 96,
+  "classe": "nome",
+  "nome": "DEFAULT_HALF_LIFE_SECS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/file_heat.rs",
+  "linha": 404,
+  "classe": "nome",
+  "nome": "PROP_NOW",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/cycles.rs",
+  "linha": 18,
+  "classe": "nome",
+  "nome": "WHITE",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/cycles.rs",
+  "linha": 43,
+  "classe": "nome",
+  "nome": "BLACK",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "linha": 26,
+  "classe": "nome",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "linha": 125,
+  "classe": "atributo",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `ALL`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "linha": 202,
+  "classe": "atributo",
+  "nome": "severity_weight",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `severity_weight`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "linha": 239,
+  "classe": "atributo",
+  "nome": "signal_prefix",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `signal_prefix`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+  "linha": 559,
+  "classe": "nome",
+  "nome": "QUERY",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+  "linha": 559,
+  "classe": "nome",
+  "nome": "tree_sitter",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+  "linha": 645,
+  "classe": "nome",
+  "nome": "is_lower_ident",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+  "linha": 726,
+  "classe": "nome",
+  "nome": "TYPE_REF_QUERY",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/import_resolver.rs",
+  "linha": 159,
+  "classe": "nome",
+  "nome": "DECLARING_KEYWORDS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/incremental_pipeline.rs",
+  "linha": 291,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/incremental_pipeline.rs",
+  "linha": 1458,
+  "classe": "nome",
+  "nome": "assert_send_sync",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/languages.rs",
+  "linha": 271,
+  "classe": "atributo",
+  "nome": "iter",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `iter`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "linha": 70,
+  "classe": "import",
+  "nome": "tree_sitter",
+  "severidade": "warn",
+  "sugestao": "`tree_sitter` não encontrado ao resolver `tree_sitter`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "linha": 31,
+  "classe": "nome",
+  "nome": "BASE_MS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "linha": 32,
+  "classe": "nome",
+  "nome": "PER_MIB_MS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "linha": 177,
+  "classe": "nome",
+  "nome": "THREAD_PARSERS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "linha": 240,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser_diff.rs",
+  "linha": 168,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/quality.rs",
+  "linha": 44,
+  "classe": "nome",
+  "nome": "Z",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/revision.rs",
+  "linha": 201,
+  "classe": "atributo",
+  "nome": "for_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `for_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/ssr/mod.rs",
+  "linha": 224,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "linha": 890,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "linha": 1826,
+  "classe": "nome",
+  "nome": "symbol_name",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "linha": 1826,
+  "classe": "nome",
+  "nome": "file_path",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/surgery.rs",
+  "linha": 95,
+  "classe": "nome",
+  "nome": "find_deepest_node_at_range",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/surgery.rs",
+  "linha": 400,
+  "classe": "nome",
+  "nome": "collect_recursive",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/surgery.rs",
+  "linha": 464,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols.rs",
+  "linha": 1339,
+  "classe": "import",
+  "nome": "tests",
+  "severidade": "warn",
+  "sugestao": "módulo `tests` declarado sem arquivo (`tests.rs` | `tests/mod.rs`)"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols.rs",
+  "linha": 168,
+  "classe": "atributo",
+  "nome": "from",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols.rs",
+  "linha": 1275,
+  "classe": "import",
+  "nome": "ParserPool",
+  "severidade": "warn",
+  "sugestao": "`ParserPool` não encontrado ao resolver `crate::ast::parser::ParserPool::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols.rs",
+  "linha": 1282,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 14,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 14,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 79,
+  "classe": "nome",
+  "nome": "extract_symbols_with_pool",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 258,
+  "classe": "nome",
+  "nome": "SymbolKind",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 386,
+  "classe": "nome",
+  "nome": "Symbol",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 416,
+  "classe": "nome",
+  "nome": "Visibility",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 543,
+  "classe": "nome",
+  "nome": "extract_symbols_batch",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 607,
+  "classe": "nome",
+  "nome": "filter_by_kind",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 650,
+  "classe": "nome",
+  "nome": "filter_by_complexity",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "linha": 678,
+  "classe": "nome",
+  "nome": "find_by_name",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/polyglot/lang.rs",
+  "linha": 166,
+  "classe": "atributo",
+  "nome": "from_str",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_str`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/polyglot/scan.rs",
+  "linha": 237,
+  "classe": "nome",
+  "nome": "is_skipped_dir",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/sdk.rs",
+  "linha": 66,
+  "classe": "nome",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/sdk.rs",
+  "linha": 206,
+  "classe": "atributo",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `ALL`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/sdk_signal_mirror.rs",
+  "linha": 270,
+  "classe": "atributo",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `ALL`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/checks.rs",
+  "linha": 737,
+  "classe": "nome",
+  "nome": "go",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/modules.rs",
+  "linha": 428,
+  "classe": "nome",
+  "nome": "walk",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/modules.rs",
+  "linha": 607,
+  "classe": "nome",
+  "nome": "go",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/sombra.rs",
+  "linha": 59,
+  "classe": "nome",
+  "nome": "VERDICT",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/bash_scanner_ctype.rs",
+  "linha": 32,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/bash_scanner_ctype.rs",
+  "linha": 39,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/bash_scanner_ctype.rs",
+  "linha": 39,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::graph::build_index_from_files`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 23,
+  "classe": "nome",
+  "nome": "AstError",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 80,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 80,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 147,
+  "classe": "nome",
+  "nome": "extract_imports",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 257,
+  "classe": "nome",
+  "nome": "IncrementalParser",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 319,
+  "classe": "nome",
+  "nome": "assert_send_sync",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 327,
+  "classe": "nome",
+  "nome": "ParserPool",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 383,
+  "classe": "nome",
+  "nome": "build_index_from_files",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 425,
+  "classe": "nome",
+  "nome": "SymbolIndex",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 497,
+  "classe": "nome",
+  "nome": "validate_syntax",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 527,
+  "classe": "nome",
+  "nome": "extract_symbols_from_file",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "linha": 591,
+  "classe": "nome",
+  "nome": "Symbol",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "linha": 42,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "linha": 62,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "linha": 91,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "linha": 92,
+  "classe": "nome",
+  "nome": "analyze_quality",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/integration_test.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "Item",
+  "severidade": "warn",
+  "sugestao": "`Item` não encontrado ao resolver `touring_code::Item`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/integration_test.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "Result",
+  "severidade": "warn",
+  "sugestao": "`Result` não encontrado ao resolver `touring_code::Result`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/integration_test.rs",
+  "linha": 10,
+  "classe": "nome",
+  "nome": "Item",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/latency_p99_guard.rs",
+  "linha": 17,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::analyze_quality`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/latency_p99_guard.rs",
+  "linha": 85,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/latency_p99_guard.rs",
+  "linha": 85,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/latency_p99_guard.rs",
+  "linha": 137,
+  "classe": "nome",
+  "nome": "analyze_quality",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/markdown_scanner_overflow.rs",
+  "linha": 23,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/markdown_scanner_overflow.rs",
+  "linha": 47,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/markdown_scanner_overflow.rs",
+  "linha": 47,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "linha": 28,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::graph::SymbolLocation`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "linha": 42,
+  "classe": "nome",
+  "nome": "SymbolStore",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "linha": 79,
+  "classe": "nome",
+  "nome": "MockObserver",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/parametric_multilang.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::analyze_quality`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/parametric_multilang.rs",
+  "linha": 121,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/parametric_multilang.rs",
+  "linha": 139,
+  "classe": "nome",
+  "nome": "analyze_quality",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/property_tests.rs",
+  "linha": 9,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/property_tests.rs",
+  "linha": 82,
+  "classe": "nome",
+  "nome": "prop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/proptest_parser_fuzz.rs",
+  "linha": 22,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::call_graph::build_call_graph`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/rusty_fork_isolation.rs",
+  "linha": 26,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::graph::SymbolLocation`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 3,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 4,
+  "classe": "import",
+  "nome": "semantics",
+  "severidade": "warn",
+  "sugestao": "`semantics` não encontrado ao resolver `touring_code::semantics::Definition`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 15,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 16,
+  "classe": "nome",
+  "nome": "Semantics",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 92,
+  "classe": "nome",
+  "nome": "DefinitionId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 104,
+  "classe": "nome",
+  "nome": "lang_to_definition",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "linha": 155,
+  "classe": "nome",
+  "nome": "Definition",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_call_graph.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::call_graph::CallGraph`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_call_graph.rs",
+  "linha": 45,
+  "classe": "nome",
+  "nome": "build_call_graph",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_call_graph.rs",
+  "linha": 45,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_call_graph_scc.rs",
+  "linha": 12,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::call_graph::CallGraph`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_call_graph_scc.rs",
+  "linha": 45,
+  "classe": "nome",
+  "nome": "build_call_graph",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_call_graph_scc.rs",
+  "linha": 45,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_complexity.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::complexity::compute_complexity_for_source`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_complexity.rs",
+  "linha": 44,
+  "classe": "nome",
+  "nome": "compute_complexity_for_source",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_complexity.rs",
+  "linha": 44,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_complexity_async.rs",
+  "linha": 12,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::complexity::compute_complexity_for_source`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_complexity_async.rs",
+  "linha": 49,
+  "classe": "nome",
+  "nome": "compute_complexity_for_source",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_complexity_async.rs",
+  "linha": 49,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_imports.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::import_resolver::ResolvedImport`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_imports.rs",
+  "linha": 33,
+  "classe": "nome",
+  "nome": "extract_imports_resolved",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_imports.rs",
+  "linha": 33,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_module_tree.rs",
+  "linha": 9,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_module_tree.rs",
+  "linha": 38,
+  "classe": "nome",
+  "nome": "ModuleTree",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_module_tree.rs",
+  "linha": 38,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_module_tree_deep.rs",
+  "linha": 12,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::languages::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_module_tree_deep.rs",
+  "linha": 57,
+  "classe": "nome",
+  "nome": "ModuleTree",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_module_tree_deep.rs",
+  "linha": 57,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 8,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::graph::SymbolIndex`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 18,
+  "classe": "nome",
+  "nome": "SymbolPheromoneMap",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 78,
+  "classe": "nome",
+  "nome": "PheromoneGraph",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 135,
+  "classe": "nome",
+  "nome": "SymbolIndex",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 139,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 160,
+  "classe": "nome",
+  "nome": "compute_enriched_blast_radius",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+  "linha": 220,
+  "classe": "nome",
+  "nome": "HeatMap",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 7,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::GenerationEvent`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 42,
+  "classe": "nome",
+  "nome": "extract_symbol_details",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 236,
+  "classe": "nome",
+  "nome": "ModuleTree",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 339,
+  "classe": "nome",
+  "nome": "extract_imports_resolved",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 339,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 467,
+  "classe": "nome",
+  "nome": "build_scope_map",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 612,
+  "classe": "nome",
+  "nome": "speculate_v2",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 692,
+  "classe": "nome",
+  "nome": "ValidationLayer",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 809,
+  "classe": "nome",
+  "nome": "build_call_graph",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+  "linha": 950,
+  "classe": "nome",
+  "nome": "LearningLoop",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/ts_parse_budget.rs",
+  "linha": 13,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::Lang`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/ts_parse_budget.rs",
+  "linha": 27,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/ts_parse_budget.rs",
+  "linha": 27,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/wave5_code_gen_workflow_e2e.rs",
+  "linha": 36,
+  "classe": "import",
+  "nome": "ast",
+  "severidade": "warn",
+  "sugestao": "`ast` não encontrado ao resolver `touring_code::ast::rust_semantic::RustSemanticReport`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/wave5_code_gen_workflow_e2e.rs",
+  "linha": 98,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/wave5_code_gen_workflow_e2e.rs",
+  "linha": 104,
+  "classe": "nome",
+  "nome": "RustSemanticReport",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/wave5_code_gen_workflow_e2e.rs",
+  "linha": 168,
+  "classe": "nome",
+  "nome": "format_rust_code",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/wave5_code_gen_workflow_e2e.rs",
+  "linha": 197,
+  "classe": "nome",
+  "nome": "WorkspaceInfo",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/src/registry.rs",
+  "linha": 525,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 11,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 11,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 11,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 11,
+  "classe": "import",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "`IdentityRegistry` não encontrado ao resolver `touring_identity::IdentityRegistry`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 16,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 17,
+  "classe": "nome",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 25,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 26,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 28,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 62,
+  "classe": "import",
+  "nome": "MatchKind",
+  "severidade": "warn",
+  "sugestao": "`MatchKind` não encontrado ao resolver `touring_identity::MatchKind::Exact`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "linha": 134,
+  "classe": "import",
+  "nome": "RelationKind",
+  "severidade": "warn",
+  "sugestao": "`RelationKind` não encontrado ao resolver `touring_identity::RelationKind::Refines`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "`IdentityRegistry` não encontrado ao resolver `touring_identity::IdentityRegistry`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 15,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 16,
+  "classe": "nome",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 54,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 55,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "linha": 57,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 6,
+  "classe": "import",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "`IdentityRegistry` não encontrado ao resolver `touring_identity::IdentityRegistry`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 11,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 12,
+  "classe": "nome",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 19,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 20,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 22,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "linha": 69,
+  "classe": "import",
+  "nome": "RelationKind",
+  "severidade": "warn",
+  "sugestao": "`RelationKind` não encontrado ao resolver `touring_identity::RelationKind::Refines`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 17,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 17,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 17,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 17,
+  "classe": "import",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "`IdentityRegistry` não encontrado ao resolver `touring_identity::IdentityRegistry`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 252,
+  "classe": "import",
+  "nome": "MatchKind",
+  "severidade": "warn",
+  "sugestao": "`MatchKind` não encontrado ao resolver `touring_identity::MatchKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 31,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 32,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 35,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "linha": 255,
+  "classe": "nome",
+  "nome": "IdentityRegistry",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/client.rs",
+  "linha": 829,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pool.rs",
+  "linha": 150,
+  "classe": "nome",
+  "nome": "drop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pool.rs",
+  "linha": 389,
+  "classe": "nome",
+  "nome": "POOL",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pool.rs",
+  "linha": 484,
+  "classe": "nome",
+  "nome": "N",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1265,
+  "classe": "import",
+  "nome": "Balde",
+  "severidade": "warn",
+  "sugestao": "crate `Balde` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1266,
+  "classe": "import",
+  "nome": "Escopo",
+  "severidade": "warn",
+  "sugestao": "crate `Escopo` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1267,
+  "classe": "import",
+  "nome": "Severidade",
+  "severidade": "warn",
+  "sugestao": "crate `Severidade` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 757,
+  "classe": "atributo",
+  "nome": "from_path",
+  "severidade": "warn",
+  "sugestao": "o enum não tem variante `from_path`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 909,
+  "classe": "nome",
+  "nome": "N",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Inline",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Proprio",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Deny",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1272,
+  "classe": "nome",
+  "nome": "Projeto",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1273,
+  "classe": "nome",
+  "nome": "Externo",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Forma",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Warn",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1275,
+  "classe": "nome",
+  "nome": "Dinamico",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1276,
+  "classe": "nome",
+  "nome": "Tmp",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "linha": 1281,
+  "classe": "nome",
+  "nome": "Arquivo",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_guard.rs",
+  "linha": 13,
+  "classe": "import",
+  "nome": "pool",
+  "severidade": "warn",
+  "sugestao": "`pool` não encontrado ao resolver `touring_pyright::pool`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_guard.rs",
+  "linha": 14,
+  "classe": "import",
+  "nome": "pyright",
+  "severidade": "warn",
+  "sugestao": "`pyright` não encontrado ao resolver `touring_pyright::pyright::Verdict`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_guard.rs",
+  "linha": 53,
+  "classe": "nome",
+  "nome": "pool",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_real.rs",
+  "linha": 12,
+  "classe": "import",
+  "nome": "pool",
+  "severidade": "warn",
+  "sugestao": "`pool` não encontrado ao resolver `touring_pyright::pool`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_real.rs",
+  "linha": 13,
+  "classe": "import",
+  "nome": "pyright",
+  "severidade": "warn",
+  "sugestao": "`pyright` não encontrado ao resolver `touring_pyright::pyright::Verdict`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_real.rs",
+  "linha": 52,
+  "classe": "nome",
+  "nome": "pool",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pool_real.rs",
+  "linha": 73,
+  "classe": "nome",
+  "nome": "Verdict",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pyright_real.rs",
+  "linha": 10,
+  "classe": "import",
+  "nome": "pyright",
+  "severidade": "warn",
+  "sugestao": "`pyright` não encontrado ao resolver `touring_pyright::pyright::Escopo`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pyright_real.rs",
+  "linha": 28,
+  "classe": "nome",
+  "nome": "PyrightSession",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pyright_real.rs",
+  "linha": 65,
+  "classe": "nome",
+  "nome": "Verdict",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pyright_real.rs",
+  "linha": 103,
+  "classe": "nome",
+  "nome": "Escopo",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/tests/pyright_real.rs",
+  "linha": 104,
+  "classe": "nome",
+  "nome": "Severidade",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ }
+]

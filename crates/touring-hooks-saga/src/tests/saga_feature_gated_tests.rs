@@ -10,7 +10,7 @@
 #[cfg(feature = "saga")]
 #[tokio::test]
 async fn test_saga_agent_available_with_feature() {
-    use crate::distributed::{DistributedSagaCoordinator, StepResult};
+    use crate::distributed::DistributedSagaCoordinator;
 
     let coord = DistributedSagaCoordinator::new();
     coord.register_agent(crate::distributed::TestAgent::new("agent-test-1", true));

@@ -1,54 +1,10 @@
-//! CILA (Cognitive Intent-Level Architecture) budget helpers.
-//!
-//! Centralises the three duplicated `cila_budget_*` functions from
-//! `pre_read`, `pre_edit`, and `pre_write` into a single generic helper.
+//! CILA enrichment gate. The token BUDGETS moved to `touring-foundation::cila`
+//! on 04/09/2026 — one source, because a second copy had drifted at 3 of 5
+//! levels. These re-exports keep every existing call site working unchanged.
 
-/// Resolve a CILA token budget given an env-var key prefix and default values.
-///
-/// Checks `<env_prefix>_L0`, `<env_prefix>_L2`, `<env_prefix>_L4` for overrides.
-/// Falls back to the provided defaults when no env var is set.
-#[inline]
-pub fn cila_budget(cila_level: u8, env_prefix: &str, low: usize, mid: usize, high: usize) -> usize {
-    let env_key = match cila_level {
-        0 | 1 => format!("{env_prefix}_L0"),
-        2 | 3 => format!("{env_prefix}_L2"),
-        _ => format!("{env_prefix}_L4"),
-    };
-    if let Ok(val) = std::env::var(&env_key)
-        && let Ok(n) = val.parse::<usize>()
-    {
-        return n;
-    }
-    match cila_level {
-        0 | 1 => low,
-        2 | 3 => mid,
-        _ => high,
-    }
-}
-
-/// Budget for `pre_read` hooks (conservative — read context is smaller).
-///
-/// L0-L1: 800 | L2-L3: 2000 | L4+: 4000
-#[inline]
-pub fn cila_budget_read(cila_level: u8) -> usize {
-    cila_budget(cila_level, "TOURING_CILA_BUDGET", 800, 2000, 4000)
-}
-
-/// Budget for `pre_edit` hooks (50% larger than read — edit context needs more).
-///
-/// L0-L1: 1200 | L2-L3: 3000 | L4+: 6000
-#[inline]
-pub fn cila_budget_edit(cila_level: u8) -> usize {
-    cila_budget(cila_level, "TOURING_CILA_BUDGET_EDIT", 1200, 3000, 6000)
-}
-
-/// Budget for `pre_write` hooks (same as edit).
-///
-/// L0-L1: 1200 | L2-L3: 3000 | L4+: 6000
-#[inline]
-pub fn cila_budget_write(cila_level: u8) -> usize {
-    cila_budget(cila_level, "TOURING_CILA_BUDGET_WRITE", 1200, 3000, 6000)
-}
+pub use touring_foundation::cila::{
+    cila_budget, cila_budget_edit, cila_budget_read, cila_budget_write,
+};
 
 // ── L7-B Alpha: Enrichment Gate ──────────────────────────────────────────
 
@@ -172,12 +128,12 @@ mod tests {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Valid numeric env-var override must be respected for L0/L1.
         // Remove first to ensure test isolation.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L0") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L0", "9999") };
         let budget_l0 = cila_budget(0, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L0") };
         assert_eq!(budget_l0, 9999);
     }
@@ -189,12 +145,12 @@ mod tests {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Valid numeric env-var override must be respected for L2/L3.
         // Remove first to ensure test isolation.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L2") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L2", "5555") };
         let budget_l2 = cila_budget(2, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L2") };
         assert_eq!(budget_l2, 5555);
     }
@@ -205,10 +161,10 @@ mod tests {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Valid numeric env-var override must be respected for L4+.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L4", "7777") };
         let budget_l4 = cila_budget(4, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L4") };
         assert_eq!(budget_l4, 7777);
     }
@@ -219,10 +175,10 @@ mod tests {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         // Non-numeric env value must fall back to the hardcoded default.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEST_CILA_L0", "not_a_number") };
         let budget_fallback = cila_budget(0, "TOURING_TEST_CILA", 800, 2000, 4000);
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEST_CILA_L0") };
         assert_eq!(
             budget_fallback, 800,

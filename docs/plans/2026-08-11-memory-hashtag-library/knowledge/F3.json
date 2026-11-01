@@ -1,0 +1,11 @@
+{
+  "phase": "F3",
+  "entities": [
+    {
+      "entity_id": "phase:F3",
+      "type": "phase",
+      "description": "Link graph tipado + recall hibrido DEPLOYADOS: (1) helpers em tags.rs (upsert_link/fetch_links/delete_link, LinkEdge, ids deterministicos {src}|{rel}|{dst} \u2014 ON CONFLICT DO NOTHING = dedupe pelo schema); (2) RPC cli-memory-link/links + clap memory link/links; (3) recall hibrido: split_query_tags no inicio do cli_memory_recall, filtro conjuntivo exato por memory_tags aplicado aos 3 canais (SQL/ANN/TF-IDF) ANTES do RRF, filter-then-relax com tag_filter.relaxed:true quando 0 keys (nunca retorna vazio fingindo), caminho tags-only (sem texto livre) servido pelo corpus tagueado, attach_one_hop_links anexa links 1-hop por entry no payload. E2E live 8/8 incl. dedupe por re-link, direcao in/out, recall tags-only, relax, reject de rel invalida. Bonus: recall 'diorama #artifact:map' recuperou a memoria REAL do diorama Malha Sul (projeto analise) \u2014 o caso de uso original do pedido. Gates: 166 rl::memory, clippy -D limpo 6 crates, update-touring exit 0."
+    }
+  ],
+  "relations": []
+}

@@ -22,6 +22,7 @@
 use pyo3::prelude::*;
 
 mod aco_bindings;
+mod aco_models_bindings;
 mod ast_bindings;
 mod ast_rl_bridge;
 mod cognitive_bindings;
@@ -30,14 +31,20 @@ mod financial_bindings;
 mod nlp_bindings;
 mod rl_bindings;
 mod rust_semantic_bindings;
+mod search_index_bindings;
 mod simd_bindings;
 
-/// Python module: claude_learning_kernel
+/// The FULL registration of `claude_learning_kernel`, called by the
+/// `#[pymodule]` invocation in `touring-python` — the cdylib crate where the
+/// macro must live to emit `PyInit_claude_learning_kernel` into the dynamic
+/// table (24/09/2026: the invocation lived HERE, in this rlib, and the shim
+/// referenced nothing, so the linker dropped the whole rlib and the .so
+/// shipped with ZERO PyInit symbols — every import died with "dynamic module
+/// does not define module export function").
 ///
 /// High-performance Rust acceleration for the Learning System.
 /// Preserves full backward compatibility with rust_bridge.py.
-#[pymodule]
-fn claude_learning_kernel(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register_all(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", "4.0.0")?;
 
     // ACO bindings — backward-compatible symbols + ESAA QueryCache/EventBuffer
@@ -67,6 +74,15 @@ fn claude_learning_kernel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Wave 5 (2026-04-18) — Deep Rust semantic analysis via syn +
     // prettyplease + cargo_metadata + public-API extraction.
     rust_semantic_bindings::register(m)?;
+
+    // ACO model types + RlmMemory + JaccardComputer (Gabriel's order,
+    // 24/09/2026: «exporte todos os tipos CLK») — after `simd_bindings`, whose
+    // submodule receives JaccardComputer.
+    aco_models_bindings::register(m)?;
+
+    // The `search_index` submodule (SearchPreprocessor — the analise's
+    // indexing test contract, same order).
+    search_index_bindings::register(m)?;
 
     // Custom exceptions
     m.add(

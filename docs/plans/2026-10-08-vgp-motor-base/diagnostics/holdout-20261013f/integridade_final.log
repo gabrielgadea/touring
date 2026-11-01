@@ -1,0 +1,56 @@
+{
+ "selo_20261013f": {
+  "violacoes": [],
+  "sha_tree": "2f9282aa59a0566f"
+ },
+ "selo_20261013_superado": {
+  "violacoes": []
+ },
+ "selo_20261011": {
+  "violacoes": []
+ },
+ "congelados_json_sha256_igual_ao_do_selo": true,
+ "adjudicador_com_o_mesmo_sha_do_20261013": true,
+ "arvores_intocadas_durante_o_build": {
+  "vivo_e_temporal": true,
+  "corpus_excluidos": {
+   "antes": {
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto": "c448c37dfd7ef053",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011": "c495bcab66718230",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-20261009-pre": "0abd55d01a7fe41b",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d_staging_evidencia": "60ebf06bd598fd95",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-2026-10-09": "b06b89113c869097"
+   },
+   "depois": {
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto": "c448c37dfd7ef053",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011": "c495bcab66718230",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-20261009-pre": "0abd55d01a7fe41b",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d_staging_evidencia": "60ebf06bd598fd95",
+    "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-2026-10-09": "b06b89113c869097"
+   }
+  }
+ },
+ "sha_tree_agora": {
+  "corpus_v0d": "60ebf06bd598fd95",
+  "corpus_holdout": "6f5fc46410884fd2",
+  "corpus_holdout_disjunto": "c448c37dfd7ef053",
+  "corpus_holdout_disjunto_20261011": "c495bcab66718230",
+  "corpus_holdout_disjunto_20261013": "8ce465ddeb03f500",
+  "corpus_holdout_disjunto_20261013f": "2f9282aa59a0566f",
+  "corpus_v0d.bak-20261009-pre": "0abd55d01a7fe41b",
+  "corpus_v0d_staging_evidencia": "60ebf06bd598fd95",
+  "corpus_v0d.bak-2026-10-09": "b06b89113c869097"
+ },
+ "dependencias_sha256_agora": {
+  "corpus_v0d.py": "98fb0941e8fb14e90f7dc681762fb27d03368316d11c94f4fe33daa61d0a08a9",
+  "corpus_v5_inline_neg.py": "f676b1f439ebd87c1be9d98ae044679bc51b006e5bc855bac164612b05a1a313"
+ },
+ "dependencias_sha256_no_congelamento": {
+  "corpus_v0d.py": "98fb0941e8fb14e90f7dc681762fb27d03368316d11c94f4fe33daa61d0a08a9",
+  "corpus_v5_inline_neg.py": "f676b1f439ebd87c1be9d98ae044679bc51b006e5bc855bac164612b05a1a313",
+  "juiz_motor_vgp.py (de outra sessao em edicao; o juiz nao roda neste held-out)": "6c8a31b02075da1ea5e617669c40ad6b2effc4a255dbe6f3b40fc26ac6acf61f"
+ },
+ "tudo_intacto": true
+}
+congelados_f: {'adjudica_rotulo.py': True, 'estado_no_instante_v0d.py': True, 'test_estado_no_instante_v0d.py': True, 'construir_disjunto.py': True, 'exclusoes_disjunto.py': True, 'verificar_sobreposicao.py': True, 'mutantes_adjudica_rotulo.py': True, 'mutantes_estado_no_instante.py': True, 'test_construir_disjunto_ho13.py': True, 'confere_selo.py': True}
+copias_do_20261013: {'adjudica_rotulo.py': True, 'estado_no_instante_v0d.py': True, 'test_estado_no_instante_v0d.py': True, 'construir_disjunto.py': True, 'exclusoes_disjunto.py': True, 'verificar_sobreposicao.py': True, 'mutantes_adjudica_rotulo.py': True, 'mutantes_estado_no_instante.py': True, 'test_construir_disjunto_ho13.py': True, 'confere_selo.py': True}

@@ -1,0 +1,8 @@
+  ok   reconstrucao
+  ok   Edit negado fora do snapshot
+  ok   Edit que nao casa marca quebrado
+  ok   dobra de projeto ignora o disco
+  ok   id determinista
+  ok   programa inline de heredoc
+  ok   programa inline de -c
+  ok   sem programa ⇒ None

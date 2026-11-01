@@ -1,0 +1,219 @@
+{
+ "n": 26,
+ "celulas(no_instante,hoje)": {
+  "nao/nao": 10,
+  "nao/sim": 6,
+  "sim/sim": 10
+ },
+ "no_instante_sob_cfg": 6,
+ "itens": [
+  {
+   "id": "08851e92f613",
+   "classe": "kwarg",
+   "nome": "evaluate",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "16398209bb21",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "no_instante": false,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "378ac0f7a5cf",
+   "classe": "atributo",
+   "nome": "with",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "3bc784a386dc",
+   "classe": "import",
+   "nome": "burst_gate",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": true
+  },
+  {
+   "id": "455b05e16490",
+   "classe": "import",
+   "nome": "gates_limpo",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": true
+  },
+  {
+   "id": "500cda2f6836",
+   "classe": "import",
+   "nome": "Capability",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "53a9e211e5b8",
+   "classe": "nome",
+   "nome": "compose_details",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "54839a2c04bb",
+   "classe": "nome",
+   "nome": "cli_decompose_finalize",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "55f542b1a809",
+   "classe": "atributo",
+   "nome": "UnresolvedDependencies",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "6072f2975dca",
+   "classe": "import",
+   "nome": "Self",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "63107c51d5ed",
+   "classe": "import",
+   "nome": "gates_limpo",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": true
+  },
+  {
+   "id": "670ac2ee6654",
+   "classe": "import",
+   "nome": "serial_test",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "6c6a484e7a77",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "no_instante": false,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "6e79fd7a1a9c",
+   "classe": "nome",
+   "nome": "cli_decompose_ready",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "72d01144b53e",
+   "classe": "nome",
+   "nome": "refresh_parent_status",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "738dac5e0f53",
+   "classe": "atributo",
+   "nome": "UnresolvedDependencies",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "75709ed1e368",
+   "classe": "import",
+   "nome": "retirement",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "7cf682f91c8f",
+   "classe": "nome",
+   "nome": "source_declares",
+   "no_instante": false,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "89cf17e67da6",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "no_instante": false,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "a26c5f06ffef",
+   "classe": "import",
+   "nome": "retirement",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  },
+  {
+   "id": "a3a8e6e2370c",
+   "classe": "import",
+   "nome": "gates_limpo",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": true
+  },
+  {
+   "id": "aa0fff97b669",
+   "classe": "nome",
+   "nome": "star_target_names",
+   "no_instante": false,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "c1cf0f44877a",
+   "classe": "import",
+   "nome": "pending_for",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": true
+  },
+  {
+   "id": "cf87e1831c66",
+   "classe": "import",
+   "nome": "gates_limpo",
+   "no_instante": true,
+   "hoje": true,
+   "cfg": true
+  },
+  {
+   "id": "d64661f05b97",
+   "classe": "nome",
+   "nome": "cli_index_ingest",
+   "no_instante": false,
+   "hoje": true,
+   "cfg": false
+  },
+  {
+   "id": "e89397b12181",
+   "classe": "nome",
+   "nome": "compose_details",
+   "no_instante": false,
+   "hoje": false,
+   "cfg": false
+  }
+ ]
+}

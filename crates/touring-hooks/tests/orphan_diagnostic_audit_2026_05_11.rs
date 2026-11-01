@@ -24,23 +24,29 @@
 use std::path::Path;
 use touring_hooks::knowledge::FileKnowledgeDB;
 
-/// The workspace root the canonicalizer strips — resolved from the SAME source
-/// as `knowledge_wiring::workspace_root_marker` (`TOURING_WORKSPACE_ROOT`, else
-/// the canonical path).
+/// A database at the canonical `<root>/.claude/touring/knowledge.db` layout,
+/// returned together with the TempDir that owns it and the root itself.
 ///
-/// These F2 tests used to hardcode `/home/gabrielgadea/.claude/rust/`, the root
-/// FROZEN by the 2026-07-24 relocation. Production was updated to the new root
-/// and the tests were not, so `canonicalize_module_path` correctly left the
-/// legacy prefix untouched and the assertions failed against correct code.
-/// Deriving the root tests the *behaviour* (absolute → workspace-relative)
-/// instead of one historical literal, and cannot rot on the next move.
-fn abs_in_workspace(relative: &str) -> String {
-    let mut root = std::env::var("TOURING_WORKSPACE_ROOT")
-        .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring".to_string());
-    if !root.ends_with('/') {
-        root.push('/');
-    }
-    format!("{root}{relative}")
+/// The F2 tests need a database whose root can be DERIVED, because that is
+/// where the canonicalizer now reads it from (2026-08-19). Their history is the
+/// argument for it: they first hardcoded `/home/gabrielgadea/.claude/rust/`,
+/// which the 2026-07-24 relocation froze; then they read
+/// `TOURING_WORKSPACE_ROOT` — the same variable production read, so both sides
+/// agreed while both were wrong, and the test could not have caught a daemon
+/// canonicalizing one project's paths against another's root. Owning the root
+/// makes the assertion hermetic: it depends on nothing outside the test.
+fn rooted_db() -> (tempfile::TempDir, FileKnowledgeDB, String) {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let db_dir = tmp.path().join(".claude").join("touring");
+    std::fs::create_dir_all(&db_dir).expect("mkdir .claude/touring");
+    let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("DB opens");
+    let root = format!("{}/", tmp.path().to_string_lossy());
+    assert_eq!(
+        db.workspace_root(),
+        Some(root.as_str()),
+        "the root must be derived from the DB's own location"
+    );
+    (tmp, db, root)
 }
 
 fn fresh_db() -> FileKnowledgeDB {
@@ -136,9 +142,9 @@ fn f1_legacy_md_row_filtered_out_by_select() {
 
 #[test]
 fn f2_absolute_path_at_register_becomes_relative_in_query() {
-    let db = fresh_db();
+    let (_tmp, db, root) = rooted_db();
     db.register_pub_symbol(
-        &abs_in_workspace("crates/foo/src/lib.rs"),
+        &format!("{root}crates/foo/src/lib.rs"),
         "Foo",
         "struct",
         "public",
@@ -151,10 +157,10 @@ fn f2_absolute_path_at_register_becomes_relative_in_query() {
 
 #[test]
 fn f2_producer_absolute_consumer_relative_match() {
-    let db = fresh_db();
+    let (_tmp, db, root) = rooted_db();
     // Producer registered with absolute path
     db.register_pub_symbol(
-        &abs_in_workspace("crates/foo/src/lib.rs"),
+        &format!("{root}crates/foo/src/lib.rs"),
         "do_thing",
         "function",
         "public",
@@ -235,7 +241,7 @@ fn f5_diagnostic_reports_clean_db_as_ok() {
     assert_eq!(diag.pub_producers, 1);
     assert_eq!(diag.distinct_pub_symbols, 1);
     assert_eq!(diag.kind_unknown_count, 0);
-    assert_eq!(diag.non_rust_rows, 0);
+    assert_eq!(diag.non_wireable_rows, 0);
 }
 
 #[test]
@@ -260,7 +266,7 @@ fn f5_diagnostic_flags_kind_unknown_after_orphan_consumer() {
 }
 
 #[test]
-fn f5_diagnostic_flags_non_rust_legacy_rows() {
+fn f5_diagnostic_flags_non_wireable_legacy_rows() {
     let db = fresh_db();
     // Inject a legacy non-Rust row bypassing the gate.
     db.conn_ref()
@@ -272,10 +278,111 @@ fn f5_diagnostic_flags_non_rust_legacy_rows() {
         .expect("raw insert");
     let diag = db.wiring_db_diagnostic().expect("diagnostic");
     assert!(
-        diag.non_rust_rows >= 1,
-        "non_rust_rows must flag pollution: {}",
-        diag.non_rust_rows
+        diag.non_wireable_rows >= 1,
+        "non_wireable_rows must flag pollution: {}",
+        diag.non_wireable_rows
     );
+}
+
+// ── 2026-08-19: "is it Rust?" was the wrong question ─────────────────────────
+//
+// The predicate that decided `warning` asked whether `module_file` ends in
+// `.rs`. Measured across four projects, that errs in BOTH directions at once,
+// and each direction gets a test below. The replacement asks the writer's own
+// question — "would any read admit this file?" — via `is_wireable_source`.
+
+/// Direction 1 — FALSE NEGATIVE, the one that hid in the flagship project.
+///
+/// `benches/src/*.rs` ends in `.rs`, so the old predicate called `touring`
+/// itself clean (102 such rows on 2026-08-19). But the write gate REJECTS
+/// `benches/`, and the read filter is extension-only, so those rows do reach
+/// the orphan queries and inflate the count — exactly the unreliability the
+/// warning exists to signal, invisible to the warning.
+#[test]
+fn a_rust_file_the_gate_rejects_is_still_pollution() {
+    let db = fresh_db();
+    db.conn_ref()
+        .execute(
+            "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+             VALUES ('benches/src/throughput.rs', 'bench_main', 'function', 'public', 'legacy')",
+            [],
+        )
+        .expect("raw insert");
+    let diag = db.wiring_db_diagnostic().expect("diagnostic");
+    assert_eq!(
+        diag.non_wireable_rows, 1,
+        "a bench file is not wiring under ANY mode — ending in .rs must not absolve it"
+    );
+    assert_eq!(
+        diag.total_rows, 0,
+        "and it must stay out of the census, because no query reads it"
+    );
+}
+
+/// Direction 2 — FALSE POSITIVE, the one that punished polyglot projects.
+///
+/// A first-party Python source in a project with the opt-in ON is readable
+/// wiring. It must land in the census and judge nothing. With the opt-in OFF
+/// the same row is `unread` — a mode setting, still not a defect.
+#[test]
+fn a_first_party_python_source_is_wiring_not_pollution() {
+    let db = fresh_db();
+    db.conn_ref()
+        .execute(
+            "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+             VALUES ('packages/core/models.py', 'User', 'class', 'public', 'legacy')",
+            [],
+        )
+        .expect("raw insert");
+    let diag = db.wiring_db_diagnostic().expect("diagnostic");
+    assert_eq!(
+        diag.non_wireable_rows, 0,
+        "a .py source file is admissible under the maximum vocabulary — it may never judge"
+    );
+    // `fresh_db` carries no polyglot opt-in, so the row is filtered from every
+    // query. That is the honest report: unread, not polluted.
+    assert_eq!(
+        diag.unread_rows, 1,
+        "with the opt-in off the row is unread — the answer to 'why is my wiring thin?'"
+    );
+    assert_eq!(
+        diag.total_rows, 0,
+        "and it is correctly absent from the census"
+    );
+}
+
+/// The two counters partition the rows: every stored row is either judged,
+/// filtered, or counted — never two of those, never none.
+#[test]
+fn every_row_is_counted_exactly_once() {
+    let db = fresh_db();
+    for (module, symbol) in [
+        ("crates/foo/src/lib.rs", "Kept"),                  // census
+        ("benches/src/b.rs", "Bench"),                      // non_wireable
+        ("apps/x/venv/lib/site-packages/d/m.py", "Vendor"), // non_wireable
+        ("scripts/run.sh", "main"),                         // non_wireable
+        ("packages/core/models.py", "User"),                // unread (opt-in off)
+    ] {
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+                 VALUES (?1, ?2, 'function', 'public', 'legacy')",
+                rusqlite::params![module, symbol],
+            )
+            .expect("raw insert");
+    }
+    let diag = db.wiring_db_diagnostic().expect("diagnostic");
+    assert_eq!(
+        diag.total_rows + diag.non_wireable_rows + diag.unread_rows,
+        5,
+        "census + judged + filtered must account for every stored row exactly once"
+    );
+    assert_eq!(diag.total_rows, 1, "only the Rust source is readable here");
+    assert_eq!(
+        diag.non_wireable_rows, 3,
+        "bench, vendored venv and shell script"
+    );
+    assert_eq!(diag.unread_rows, 1, "the .py source, filtered by the mode");
 }
 
 // ── F9: method-dispatch consumer recording via AST walk ──────────────────────
@@ -295,7 +402,7 @@ fn f9_find_producer_modules_for_methods_matches_callable_kinds() {
 
     let names = vec!["validate".to_string(), "nonexistent".to_string()];
     let matches = db
-        .find_producer_modules_for_methods(&names, 10)
+        .find_producer_modules_for_methods(&names, 10, None)
         .expect("query");
     let mut files: Vec<String> = matches.iter().map(|(m, _)| m.clone()).collect();
     files.sort();
@@ -320,7 +427,7 @@ fn f9_cap_per_name_bounds_fanout() {
     }
     let names = vec!["clone".to_string()];
     let capped = db
-        .find_producer_modules_for_methods(&names, 3)
+        .find_producer_modules_for_methods(&names, 3, None)
         .expect("query");
     assert_eq!(
         capped.len(),
@@ -342,7 +449,7 @@ fn f9_method_call_consumer_resolves_orphan_end_to_end() {
     // then records each as consumer. We simulate that lookup+record below.
     let names = vec!["do_thing".to_string()];
     let producers = db
-        .find_producer_modules_for_methods(&names, 4)
+        .find_producer_modules_for_methods(&names, 4, None)
         .expect("query");
     for (module_file, symbol_name) in &producers {
         db.record_consumer(module_file, symbol_name, "crates/b/src/main.rs", None)
@@ -360,7 +467,9 @@ fn f9_empty_names_returns_empty() {
     let db = fresh_db();
     db.register_pub_symbol("crates/a/src/lib.rs", "foo", "method", "public")
         .expect("Ok");
-    let matches = db.find_producer_modules_for_methods(&[], 4).expect("query");
+    let matches = db
+        .find_producer_modules_for_methods(&[], 4, None)
+        .expect("query");
     assert!(matches.is_empty(), "empty input must return empty output");
 }
 
@@ -474,14 +583,14 @@ fn f8_partial_match_does_not_overfilter() {
 
 #[test]
 fn f2_migrate_canonicalize_paths_rewrites_legacy_absolute_rows() {
-    let db = fresh_db();
+    let (_tmp, db, root) = rooted_db();
     // Insert legacy row with absolute path — simulating a wiring_map populated
     // by an old daemon build that did not canonicalize.
     db.conn_ref()
         .execute(
             "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
              VALUES (?1, 'Bar', 'struct', 'public', 'legacy')",
-            [abs_in_workspace("crates/foo/src/lib.rs")],
+            [format!("{root}crates/foo/src/lib.rs")],
         )
         .expect("raw insert");
     let updated = db.migrate_canonicalize_paths().expect("migration");
@@ -498,4 +607,95 @@ fn f2_migrate_canonicalize_paths_rewrites_legacy_absolute_rows() {
         "post-migration row must be queryable under canonical path: {:?}",
         orphans
     );
+}
+
+// ── 2026-08-19: rows that belong to ANOTHER project ───────────────────────────
+
+#[test]
+fn migration_evicts_foreign_rows_and_keeps_local_ones() {
+    let (_tmp, db, root) = rooted_db();
+    // A local producer, recorded the way the indexer records it.
+    db.register_pub_symbol("crates/foo/src/lib.rs", "Local", "struct", "public")
+        .expect("local producer");
+    // A row describing a file in a DIFFERENT project. This is not hypothetical:
+    // `konverter`'s database held 7.893 of them, all pointing into `analise`,
+    // written while one global daemon indexed every project into one graph.
+    // They inflate the orphan count and fabricate cycles between modules that
+    // never met.
+    db.conn_ref()
+        .execute(
+            "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+             VALUES ('/home/someone/projects/other/src/lib.rs', 'Foreign', 'struct', 'public', 'legacy')",
+            [],
+        )
+        .expect("foreign insert");
+    // And one whose PRODUCER is local but whose consumer lives abroad.
+    db.conn_ref()
+        .execute(
+            "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file)
+             VALUES ('crates/foo/src/lib.rs', 'Local', 'struct', 'public', '/home/someone/projects/other/src/main.rs')",
+            [],
+        )
+        .expect("foreign consumer insert");
+
+    let touched = db.migrate_canonicalize_paths().expect("migration");
+    assert!(
+        touched >= 2,
+        "both foreign rows must be evicted, got {touched}"
+    );
+
+    let foreign: i64 = db
+        .conn_ref()
+        .query_row(
+            "SELECT COUNT(*) FROM wiring_map WHERE module_file LIKE '/%' OR consumer_file LIKE '/%'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert_eq!(
+        foreign, 0,
+        "no absolute path may survive under a derived root"
+    );
+
+    let local: i64 = db
+        .conn_ref()
+        .query_row(
+            "SELECT COUNT(*) FROM wiring_map WHERE module_file = 'crates/foo/src/lib.rs'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert_eq!(local, 1, "the local producer must survive the eviction");
+
+    // Idempotent — a second pass has nothing left to do.
+    assert_eq!(db.migrate_canonicalize_paths().expect("again"), 0);
+    let _ = root;
+}
+
+#[test]
+fn a_db_without_a_derivable_root_never_deletes() {
+    // `:memory:` has no location, so no root, so nothing can be judged foreign.
+    // The migration must do NOTHING rather than fall back to a guess — the
+    // guess used to be an environment variable pointing at another project,
+    // which is what aimed a DELETE at the wrong data for two months.
+    let db = fresh_db();
+    db.conn_ref()
+        .execute(
+            "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+             VALUES ('/home/someone/projects/other/src/lib.rs', 'Untouched', 'struct', 'public', 'legacy')",
+            [],
+        )
+        .expect("insert");
+    let before: i64 = db
+        .conn_ref()
+        .query_row("SELECT COUNT(*) FROM wiring_map", [], |r| r.get(0))
+        .expect("count");
+    if db.workspace_root().is_none() {
+        assert_eq!(db.migrate_canonicalize_paths().expect("migration"), 0);
+        let after: i64 = db
+            .conn_ref()
+            .query_row("SELECT COUNT(*) FROM wiring_map", [], |r| r.get(0))
+            .expect("count");
+        assert_eq!(before, after, "no row may be removed without a root");
+    }
 }

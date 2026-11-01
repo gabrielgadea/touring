@@ -87,6 +87,87 @@ def test_round_dedupes_against_full_ledger(scope):
     assert r2["new_findings"] == 0          # identical sweep → fully deduped
 
 
+# === self-echo suppression (2026-08-29) ====================================
+
+def test_stored_epoch_parses_both_column_shapes():
+    """The live DB stores TEXT UTC; consolidated ones store INTEGER epoch."""
+    assert ex.stored_epoch("2026-08-29 14:57:27") == pytest.approx(1788015447.0)
+    assert ex.stored_epoch(1788016909) == 1788016909.0
+    assert ex.stored_epoch("not a date") is None
+    assert ex.stored_epoch(None) is None
+
+
+def test_echo_memory_stored_after_campaign_never_wets_the_dry_tail(scope):
+    """A memory written AFTER the campaign began (its own output echoing back)
+    is recorded VISIBLE (echo: true) but never counts as a new finding — the
+    [1,0,0,1,…] livelock measured live on 2026-08-29."""
+    ledger = fresh_ledger(scope)
+    responses = base_responses()
+    run = make_runner(responses)
+    r1 = ex.run_round(ledger, scope, run, 5.0)
+    assert r1["new_findings"] > 0
+    # the campaign now "stores a lesson about itself": recall grows one entry
+    # younger than the ledger
+    responses["memory recall"] = {"entries": [
+        *RECALL["entries"],
+        {"key": "lesson:self", "score": 0.9, "value": "the campaign's own lesson",
+         "stored_at": int(ledger["created_at"]) + 3600},
+    ]}
+    r2 = ex.run_round(ledger, scope, run, 5.0)
+    assert r2["new_findings"] == 0, "echo must not wet the dry tail"
+    echoes = [f for f in ledger["findings"].values() if f.get("echo")]
+    assert len(echoes) == 1 and echoes[0]["key"] == "lesson:self"
+    verdict = ex.convergence(ledger, dry_rounds=2)
+    assert verdict["clauses"]["echoes_suppressed"] == 1
+
+
+def test_pre_campaign_memory_and_missing_timestamp_count_normally(scope):
+    """Suppression needs POSITIVE proof: an older memory counts (it is the
+    world, not an echo), and one with no stored_at counts too (an unknown age
+    never suppresses — Lei L2)."""
+    ledger = fresh_ledger(scope)
+    responses = base_responses()
+    run = make_runner(responses)
+    ex.run_round(ledger, scope, run, 5.0)
+    responses["memory recall"] = {"entries": [
+        *RECALL["entries"],
+        {"key": "lesson:old", "score": 0.9, "value": "pre-campaign lesson",
+         "stored_at": int(ledger["created_at"]) - 3600},
+        {"key": "lesson:undated", "score": 0.9, "value": "no timestamp"},
+    ]}
+    r2 = ex.run_round(ledger, scope, run, 5.0)
+    assert r2["new_findings"] == 2
+    assert not any(f.get("echo") for f in ledger["findings"].values())
+
+
+def test_legacy_ledger_derives_birth_from_round_one(scope):
+    """A pre-field ledger derives its birth from round 1's timestamp; with no
+    rounds either, nothing is ever suppressed (no proof, no echo)."""
+    import time as _t
+    ledger = fresh_ledger(scope)
+    del ledger["created_at"]
+    responses = base_responses()
+    responses["memory recall"] = {"entries": [
+        {"key": "lesson:young", "score": 0.9, "value": "young lesson",
+         "stored_at": int(_t.time()) + 3600},
+    ]}
+    run = make_runner(responses)
+    r1 = ex.run_round(ledger, scope, run, 5.0)
+    # no created_at and no prior rounds → no proof → the young memory counts
+    assert any(f["key"] == "lesson:young" and not f.get("echo")
+               for f in ledger["findings"].values())
+    assert r1["new_findings"] > 0
+    # once round 1 exists, birth derives from its timestamp — a later young
+    # memory IS suppressible
+    responses["memory recall"]["entries"].append(
+        {"key": "lesson:younger", "score": 0.9, "value": "younger lesson",
+         "stored_at": int(_t.time()) + 7200})
+    r2 = ex.run_round(ledger, scope, run, 5.0)
+    assert r2["new_findings"] == 0
+    assert any(f["key"] == "lesson:younger" and f.get("echo")
+               for f in ledger["findings"].values())
+
+
 # === convergence contract ==================================================
 
 def test_dry_rounds_plus_waived_external_converges(scope):
@@ -205,6 +286,63 @@ def test_until_dry_stops_at_max_rounds(scope):
     data = json.loads(ledger_file.read_text(encoding="utf-8"))
     assert len(data["rounds"]) <= 4
     assert rc == 1                          # external still pending
+
+
+# === ADW loop-node dryness protocol (Law L2) ===============================
+
+def test_dry_signal_is_emitted_on_stderr(scope, capsys):
+    """The producer states the round's yield so the RUNNER can end the loop.
+
+    Regression for 2026-08-02: `touring explore` emitted no `NEW_FINDINGS=`
+    marker at all, and adw.py read that silence as zero — so strategy-loop and
+    explore-plan declared "dry" after exactly `dry_rounds` iterations while
+    every round was still productive (30 then 4 new findings, both counted dry).
+    stderr keeps `--json` stdout strictly parseable for programmatic callers.
+    """
+    run = make_runner(base_responses())
+    ledger_file = scope / "sig.json"
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--rounds", "2", "--json"], run=run)
+    out = capsys.readouterr()
+    data = json.loads(ledger_file.read_text(encoding="utf-8"))
+    expected = sum(r["new_findings"] for r in data["rounds"])
+    assert f"NEW_FINDINGS={expected}" in out.err
+    assert "NEW_FINDINGS" not in out.out     # stdout stays strict JSON
+    json.loads(out.out)
+
+
+def test_dry_signal_absent_when_no_round_ran(scope, capsys):
+    """`--status` runs nothing, so it must stay SILENT rather than claim zero.
+
+    Emitting `NEW_FINDINGS=0` here would let a read-only status call masquerade
+    as a dry round and terminate an outer loop on no evidence at all.
+    """
+    run = make_runner(base_responses())
+    ledger_file = scope / "sig2.json"
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--rounds", "1", "--json"], run=run)
+    capsys.readouterr()
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--status", "--json"], run=run)
+    assert "NEW_FINDINGS" not in capsys.readouterr().err
+
+
+def test_payload_carries_lens_yield(scope, capsys):
+    """N2 (2026-09-23): per-lens yield must travel with every payload — the
+    dry-lens-cut hypothesis died on data nobody could see (174 real ledgers),
+    so the yield stops being private to the ledger file."""
+    run = make_runner(base_responses())
+    ledger_file = scope / "yield.json"
+    ex.main(["Alpha", "--scope", str(scope), "--ledger", str(ledger_file),
+             "--rounds", "1", "--json"], run=run)
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
+    assert "lens_yield" in payload, "payload carries per-lens yield"
+    ly = payload["lens_yield"]
+    assert sum(ly["findings"].values()) == payload["findings"], \
+        "per-lens findings add up to the payload's own total"
+    assert sum(ly["new_this_run"].values()) == payload["rounds"][-1]["new_findings"], \
+        "per-lens new adds up to the fresh round's own count"
 
 
 if __name__ == "__main__":

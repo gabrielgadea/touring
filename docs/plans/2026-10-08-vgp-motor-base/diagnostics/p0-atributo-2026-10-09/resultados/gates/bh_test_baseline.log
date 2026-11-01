@@ -1,0 +1,113 @@
+   Compiling ring v0.17.14
+   Compiling rustls v0.23.41
+   Compiling rustls-webpki v0.103.13
+   Compiling ureq v3.3.0
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.12.28
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-foundation)
+   Compiling hf-hub v0.5.0
+   Compiling ort-sys v2.0.0-rc.12
+   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-offensive)
+   Compiling touring-resilience v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-resilience)
+   Compiling ort v2.0.0-rc.12
+   Compiling fastembed v5.17.2
+   Compiling touring-storage v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-storage)
+   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-intelligence)
+   Compiling touring-quality v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
+   Compiling touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
+   Compiling touring-hooks-rl v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
+   Compiling touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 58.95s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/cli_suggester_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_suggester_e2e-ad608bc13c0e4678)
+
+running 19 tests
+test classifier_bash_cargo_routes_to_doctor ... ok
+test classifier_bash_git_destructive_reaches_the_ritual_arm ... ok
+test classifier_bash_git_readonly_stays_silent ... ok
+test classifier_bash_sed_inplace_is_denied_by_g9 ... ok
+test classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate ... FAILED
+test classifier_glob_rust_pattern_suggests_workspace_info ... ok
+
+running 1 test
+test disable_env_var_worker ... test classifier_grep_free_text_routes_to_tantivy ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.09s
+
+test classifier_respects_disable_env_var ... ok
+test classifier_grep_pascalcase_emits_symbol_lookup ... ok
+test classifier_read_rust_emits_rust_semantic_and_tdg ... ok
+test classifier_silent_for_missing_tool_name ... ok
+test classifier_silent_for_non_code_read ... ok
+test disable_env_var_worker ... ok
+test classifier_silent_for_unknown_tool ... ok
+test hook_registry_contains_session_handlers ... ok
+test hook_registry_dispatch_table_routes_session_handlers ... ok
+test classifier_ttl_cache_suppresses_duplicate_input_in_same_process ... ok
+test classifier_write_tsx_routes_to_perfect_create_tsx ... ok
+test every_non_empty_output_is_a_valid_json_object_with_additional_context ... ok
+
+failures:
+
+---- classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate stdout ----
+
+thread 'classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate' (200333) panicked at crates/touring-hooks/tests/cli_suggester_e2e.rs:269:5:
+assertion failed: ctx.contains("pre-edit-triage-rust")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate
+
+test result: FAILED. 18 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
+
+error: test failed, to rerun pass `-p touring-hooks --test cli_suggester_e2e`
+     Running tests/wave25_task_enrichment_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/wave25_task_enrichment_e2e-ec5651d4a56ff2c6)
+
+running 6 tests
+test non_task_non_file_tool_returns_empty_context ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test enter_plan_mode_prompt_is_treated_as_subject ... FAILED
+test task_list_without_subject_returns_empty_context ... ok
+test task_create_payload_returns_enriched_context ... FAILED
+test read_only_task_tools_suppress_wiring_hint ... ok
+
+failures:
+
+---- enter_plan_mode_prompt_is_treated_as_subject stdout ----
+
+thread 'enter_plan_mode_prompt_is_treated_as_subject' (200490) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:128:5:
+EnterPlanMode with `prompt` must surface a hint (memory/ready/orphans)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- task_create_payload_returns_enriched_context stdout ----
+
+thread 'task_create_payload_returns_enriched_context' (200802) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:111:5:
+TaskCreate with rich subject must surface at least one hint; got empty context
+
+
+failures:
+    enter_plan_mode_prompt_is_treated_as_subject
+    task_create_payload_returns_enriched_context
+
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.29s
+
+error: test failed, to rerun pass `-p touring-hooks --test wave25_task_enrichment_e2e`
+error: 2 targets failed:
+    `-p touring-hooks --test cli_suggester_e2e`
+    `-p touring-hooks --test wave25_task_enrichment_e2e`

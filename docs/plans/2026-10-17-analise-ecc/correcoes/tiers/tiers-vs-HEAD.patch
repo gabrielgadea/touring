@@ -1,0 +1,696 @@
+diff --git a/crates/touring-cortex/src/handlers/learning.rs b/crates/touring-cortex/src/handlers/learning.rs
+index a87dc163..de6f7a38 100644
+--- a/crates/touring-cortex/src/handlers/learning.rs
++++ b/crates/touring-cortex/src/handlers/learning.rs
+@@ -1,7 +1,7 @@
+ //! RL Learning Handlers — Reward emission + TD learning loop.
+ //!
+ //! - `RlRewardEmitterHandler`: PostToolUse (async) — compute and record RL reward
+-//! - `TdLearningLoopHandler`: Stop (async) — TD(0) QTable update + tier promotion
++//! - `TdLearningLoopHandler`: Stop (async) — TD(0) QTable update
+ 
+ use std::collections::HashMap;
+ 
+@@ -135,17 +135,20 @@ impl Handler for RlRewardEmitterHandler {
+ 
+ // ── H33: TdLearningLoop ──────────────────────────────────────────────
+ 
+-/// TD(0) QTable update + tier promotion on session end.
++/// TD(0) QTable update on session end.
+ ///
+ /// 1. Query hook_events for session (last 2h)
+ /// 2. Aggregate rewards per (state, action) pair
+ /// 3. TD(0) update: Q(s,a) += α(r - Q(s,a))
+-/// 4. Tier promotion: access_count thresholds (3→working, 10→ref, 50→core)
++///
++/// It deliberately does NOT touch `RlmMemory` tiers: a tier is part of an
++/// entry's address (`RlmMemory::get` filters on key AND tier, and the key is the
++/// primary key, so re-storing under another tier moves the row and the old
++/// address goes empty). How often an entry is used is a separate signal
++/// (`access_count`, `accessed_at`, credit) — see `MemoryTier`.
+ pub struct TdLearningLoopHandler;
+ 
+ const ALPHA: f64 = 0.1;
+-const TIER_WORKING: i64 = 3;
+-const TIER_REFERENCE: i64 = 10;
+ 
+ // ── RL mapping — single source of truth in rl_mapping.rs ──
+ use crate::rl_mapping::{event_to_state, tool_to_action};
+@@ -217,30 +220,6 @@ impl Handler for TdLearningLoopHandler {
+             updates += 1;
+         }
+ 
+-        // 4. Tier promotion (via RlmMemory if available)
+-        if let Some(ref rlm) = ctx.rlm {
+-            use touring_intelligence::rl::memory::rlm::MemoryTier;
+-
+-            // Search ephemeral entries with high access
+-            let entries = rlm
+-                .search("", Some(MemoryTier::Ephemeral), 100)
+-                .unwrap_or_default();
+-            for entry in &entries {
+-                if entry.access_count >= TIER_WORKING {
+-                    let _ = rlm.store(&entry.key, MemoryTier::Working, &entry.value, None, None);
+-                }
+-            }
+-
+-            let entries = rlm
+-                .search("", Some(MemoryTier::Working), 100)
+-                .unwrap_or_default();
+-            for entry in &entries {
+-                if entry.access_count >= TIER_REFERENCE {
+-                    let _ = rlm.store(&entry.key, MemoryTier::Reference, &entry.value, None, None);
+-                }
+-            }
+-        }
+-
+         // Log the learning event
+         let summary = format!("td_updates={updates} events={}", events.len());
+         let _ = persistence.log_hook_event("Stop", "TdLearningLoop", &summary, 0.3);
+@@ -328,4 +307,95 @@ mod tests {
+         assert_eq!(h.events(), &[HookEvent::Stop]);
+         assert!(h.is_async());
+     }
++
++    // ── H33: a tier is an address, not a heat ladder ──────────────────
++
++    /// How many times each probe entry is read before the Stop pass runs —
++    /// above every access threshold the retired tier-promotion step used (3 and 10).
++    const HOT_READS: usize = 12;
++
++    /// `memory_entries.key` is the primary key and the store upserts on it, while
++    /// `RlmMemory::get` filters on `key AND tier`: re-storing a key under another
++    /// tier MOVES the row and the lookup at the old address comes back empty, with
++    /// no error. So the Stop-time learning pass must leave every entry in the tier
++    /// it was stored in, however often it was read.
++    #[test]
++    #[allow(clippy::arc_with_non_send_sync)]
++    fn td_learning_loop_never_moves_an_entry_between_tiers() {
++        use std::sync::Arc;
++
++        use tempfile::TempDir;
++        use touring_hooks::knowledge::FileKnowledgeDB;
++        use touring_intelligence::rl::evolution::LearningPersistence;
++        use touring_intelligence::rl::memory::rlm::{MemoryTier, RlmMemory};
++
++        let tmp = TempDir::new().unwrap();
++        let root = tmp.path().to_path_buf();
++
++        // The handler opens graph.db itself (`graph_db_canonical`); a missing
++        // parent directory would make it skip before the end of the pass.
++        let graph_db = touring_foundation::TouringConfig::graph_db_canonical(&root);
++        std::fs::create_dir_all(graph_db.parent().unwrap()).unwrap();
++        let persistence = LearningPersistence::new(&graph_db);
++        persistence.ensure_tables().unwrap();
++        persistence
++            .log_hook_event("PostToolUse", "Edit", "ok", 0.5)
++            .unwrap();
++
++        let rlm = Arc::new(RlmMemory::new(&tmp.path().join("rlm.db")).unwrap());
++        let probes = [
++            ("tier-probe:ephemeral", MemoryTier::Ephemeral),
++            ("tier-probe:working", MemoryTier::Working),
++        ];
++        for (key, tier) in probes {
++            rlm.store(key, tier, "tier probe value", None, None)
++                .unwrap();
++            for _ in 0..HOT_READS {
++                rlm.get(key, tier).unwrap();
++            }
++        }
++
++        let knowledge = Arc::new(FileKnowledgeDB::new(&tmp.path().join("k.db")).unwrap());
++        let mut ctx = CortexContext::from_input_full(
++            HookEvent::Stop,
++            serde_json::json!({}),
++            knowledge,
++            Some(Arc::clone(&rlm)),
++            None,
++            Some(Arc::new(persistence)),
++            root,
++        );
++        TdLearningLoopHandler.execute(&mut ctx);
++
++        // The pass really ran to its end (it wrote the Q-table row) — without
++        // this the assertions below would also hold for an early skip.
++        let q_rows: i64 = rusqlite::Connection::open(&graph_db)
++            .unwrap()
++            .query_row("SELECT COUNT(*) FROM learning_qtable", [], |r| r.get(0))
++            .unwrap();
++        assert!(
++            q_rows > 0,
++            "the TD(0) pass must have written its Q-table row"
++        );
++
++        for (key, tier) in probes {
++            assert_eq!(
++                rlm.get(key, tier).unwrap().as_deref(),
++                Some("tier probe value"),
++                "{key} must still be found at its original address ({})",
++                tier.as_str(),
++            );
++        }
++        for (key, other) in [
++            ("tier-probe:ephemeral", MemoryTier::Working),
++            ("tier-probe:working", MemoryTier::Reference),
++        ] {
++            assert_eq!(
++                rlm.get(key, other).unwrap(),
++                None,
++                "{key} must not have been relocated to {}",
++                other.as_str(),
++            );
++        }
++    }
+ }
+diff --git a/crates/touring-hooks/tests/e2e_r1_to_r20.rs b/crates/touring-hooks/tests/e2e_r1_to_r20.rs
+index 5e971304..c52d52b2 100644
+--- a/crates/touring-hooks/tests/e2e_r1_to_r20.rs
++++ b/crates/touring-hooks/tests/e2e_r1_to_r20.rs
+@@ -237,97 +237,6 @@ fn r13_c1_replay_buffer_capacity_zero_no_panic() {
+     assert!(batch.is_empty());
+ }
+ 
+-// ── R7: RlmMemory tier maintenance ────────────────────────────────────────
+-
+-#[test]
+-fn r7_rlm_maintain_tiers() {
+-    use tempfile::TempDir;
+-    use touring_intelligence::rl::memory::rlm::{MemoryTier, RlmMemory, TierPolicy};
+-
+-    let tmp = TempDir::new().unwrap();
+-    let db_path = tmp.path().join("test_rlm.db");
+-    let memory = RlmMemory::new(&db_path).unwrap();
+-
+-    // Insert entries in different tiers
+-    memory
+-        .store(
+-            "ephemeral_key",
+-            MemoryTier::Ephemeral,
+-            "temp data",
+-            Some("test"),
+-            None,
+-        )
+-        .unwrap();
+-    memory
+-        .store(
+-            "working_key",
+-            MemoryTier::Working,
+-            "session data",
+-            Some("test"),
+-            None,
+-        )
+-        .unwrap();
+-    memory
+-        .store(
+-            "core_key",
+-            MemoryTier::Core,
+-            "permanent data",
+-            Some("test"),
+-            None,
+-        )
+-        .unwrap();
+-
+-    // Access ephemeral entry multiple times to trigger promotion
+-    for _ in 0..5 {
+-        memory.get("ephemeral_key", MemoryTier::Ephemeral).unwrap();
+-    }
+-
+-    // Run maintenance with aggressive policy
+-    let policy = TierPolicy {
+-        ephemeral_promote_accesses: 3,
+-        ephemeral_promote_window_secs: 999999,
+-        working_promote_accesses: 100, // high threshold to avoid promote
+-        working_promote_window_secs: 86400,
+-        core_demote_secs: 999999, // high -- don't demote core
+-        reference_demote_secs: 999999,
+-        ephemeral_ttl_secs: 999999,
+-    };
+-
+-    let report = memory.maintain_tiers(&policy).unwrap();
+-
+-    // The ephemeral entry should have been promoted to working
+-    assert!(
+-        report.promoted_ephemeral_to_working > 0,
+-        "Expected ephemeral->working promotion"
+-    );
+-
+-    // Core should NOT be directly deleted (R7 invariant)
+-    let core_value = memory.get("core_key", MemoryTier::Core).unwrap();
+-    assert!(
+-        core_value.is_some(),
+-        "Core entries should never be directly deleted"
+-    );
+-}
+-
+-// ── R7: maintain_tiers with empty DB ──────────────────────────────────────
+-
+-#[test]
+-fn r7_maintain_tiers_empty_db() {
+-    use tempfile::TempDir;
+-    use touring_intelligence::rl::memory::rlm::{RlmMemory, TierPolicy};
+-
+-    let tmp = TempDir::new().unwrap();
+-    let db_path = tmp.path().join("empty_rlm.db");
+-    let memory = RlmMemory::new(&db_path).unwrap();
+-
+-    let report = memory.maintain_tiers(&TierPolicy::default()).unwrap();
+-
+-    assert_eq!(report.promoted_ephemeral_to_working, 0);
+-    assert_eq!(report.promoted_working_to_reference, 0);
+-    assert_eq!(report.demoted_core_to_reference, 0);
+-    assert_eq!(report.gc_ephemeral, 0);
+-}
+-
+ // ── R8: SymbolPath scope resolution ───────────────────────────────────────
+ 
+ #[test]
+diff --git a/crates/touring-intelligence/src/rl/memory/README.md b/crates/touring-intelligence/src/rl/memory/README.md
+index ac19a4f8..c1939304 100644
+--- a/crates/touring-intelligence/src/rl/memory/README.md
++++ b/crates/touring-intelligence/src/rl/memory/README.md
+@@ -9,13 +9,12 @@ memória carrega facetas `#facet:value` consultáveis.
+ 
+ | Módulo | Papel |
+ |---|---|
+-| `rlm` | Store SQLite canônico (`memory_entries`), tiers, schema + migrações idempotentes |
++| `rlm` | Store SQLite canônico (`memory_entries`), tiers, schema + migrações idempotentes. O tier é **namespace** e faz parte do endereço (`get` filtra `key` E `tier`; a chave é a PK, então regravar em outro tier MOVE a linha): nada move entrada entre tiers por conta própria. Uso/calor é sinal à parte (`access_count`, `accessed_at`, crédito) |
+ | `tags` | **Hashtag library**: 7 facetas (kind/purpose/lang/domain/process/artifact/status), parser+linter, DDL single-source (`TAG_TABLES_DDL`), helpers SQL compartilhados, link graph tipado (REGRA #17) |
+ | `codetag` | Scanner de `#tags:` em código → snippet memories (value = o bloco ancorado); tombstones quando a âncora some |
+ | `moc` | Comunidades emergentes (label propagation determinístico) + Maps of Content em OKF markdown |
+ | `recall` | SemanticRecall + fusão RRF |
+ | `palace` | Memory palace paths (wing/room/closet/drawer) |
+-| `tier_manager` | Política de tiers e manutenção |
+ | `working` | Working memory LRU |
+ | `pattern_cluster` | HNSW lazy clustering de padrões |
+ | `crdt_graph` | Grafo semântico CRDT (delta sync, rkyv) |
+diff --git a/crates/touring-intelligence/src/rl/memory/rlm.rs b/crates/touring-intelligence/src/rl/memory/rlm.rs
+index 4828c90c..0259e7cd 100644
+--- a/crates/touring-intelligence/src/rl/memory/rlm.rs
++++ b/crates/touring-intelligence/src/rl/memory/rlm.rs
+@@ -10,6 +10,7 @@ use thiserror::Error;
+ 
+ use super::palace::PalaceHierarchy;
+ use super::tags;
++use touring_foundation::text_sanitize::sanitize_memory_text;
+ 
+ /// Errors that can occur in RLM memory operations.
+ #[derive(Error, Debug)]
+@@ -28,16 +29,29 @@ pub enum RlmError {
+ /// Result type for RLM operations.
+ pub type Result<T> = std::result::Result<T, RlmError>;
+ 
+-/// Memory tier classification.
++/// Memory tier: a NAMESPACE that is part of an entry's address, not a heat ladder.
++///
++/// `memory_entries.key` is the primary key and the store upserts on it
++/// (`ON CONFLICT(key)`), while [`RlmMemory::get`] filters on `key AND tier`.
++/// Storing the same key under another tier therefore MOVES the row, and a lookup
++/// at the old address then comes back empty, with no error. Nothing in the crate
++/// moves an entry between tiers on its own — a caller that re-stores under a
++/// different tier (or the explicit `consolidate_memory` tool) is choosing a new
++/// address, knowingly.
++///
++/// How hot or how useful an entry is, is a separate signal (`access_count`,
++/// `accessed_at` and the credit/outcome columns). Using it to rank or retire
++/// entries is a future decision to be evaluated before it is wired — never done
++/// as a relocation between tiers.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+ pub enum MemoryTier {
+-    /// Short-lived memory, garbage-collected aggressively.
++    /// Namespace for short-lived notes; nothing expires it automatically.
+     Ephemeral,
+-    /// Session-scoped working memory.
++    /// Namespace for session-scoped working memory.
+     Working,
+-    /// Project-scoped reference memory.
++    /// Namespace for project-scoped reference memory.
+     Reference,
+-    /// Most persistent, highest-priority memory.
++    /// Namespace for the memory callers treat as permanent.
+     Core,
+ }
+ 
+@@ -48,17 +62,6 @@ impl std::fmt::Display for MemoryTier {
+ }
+ 
+ impl MemoryTier {
+-    /// Returns the retention priority (higher = more persistent).
+-    #[must_use]
+-    pub fn priority(&self) -> u8 {
+-        match self {
+-            Self::Ephemeral => 0,
+-            Self::Working => 1,
+-            Self::Reference => 2,
+-            Self::Core => 3,
+-        }
+-    }
+-
+     /// Returns the canonical lowercase string name of the tier.
+     pub fn as_str(&self) -> &'static str {
+         match self {
+@@ -102,6 +105,14 @@ pub struct MemoryMatch {
+     pub accessed_at: i64,
+ }
+ 
++impl MemoryMatch {
++    /// The match with its `value` cleaned for replay as model context.
++    fn sanitized(mut self) -> Self {
++        self.value = sanitize_memory_text(&self.value).text;
++        self
++    }
++}
++
+ /// RLM Memory storage backed by SQLite.
+ #[derive(Debug)]
+ pub struct RlmMemory {
+@@ -196,6 +207,22 @@ impl<'a> RichMemoryEntry<'a> {
+             ..Self::default()
+         }
+     }
++
++    /// The free-text fields (`value`, `outcome_context`) as they may be written.
++    ///
++    /// C6 (2026-10-17): a stored value is replayed to the model as recall
++    /// context, so secrets are redacted and bidi/zero-width/control characters
++    /// stripped at the ONE place every writer funnels through
++    /// ([`RlmMemory::store_rich`]), not at each caller. Idempotent: a caller
++    /// that sanitized first (to report counts) pays one cheap re-scan and
++    /// writes the same text.
++    fn sanitized_texts(&self) -> (String, Option<String>) {
++        (
++            sanitize_memory_text(self.value).text,
++            self.outcome_context
++                .map(|ctx| sanitize_memory_text(ctx).text),
++        )
++    }
+ }
+ 
+ impl RlmMemory {
+@@ -658,6 +685,9 @@ impl RlmMemory {
+         let embedding_bytes: Option<Vec<u8>> = entry
+             .embedding
+             .map(|emb| emb.iter().flat_map(|f| f.to_le_bytes()).collect());
++        // C6 (2026-10-17): the single choke point of every memory write (see
++        // `RichMemoryEntry::sanitized_texts`).
++        let (value, outcome_context) = entry.sanitized_texts();
+ 
+         self.conn.execute(
+             "INSERT INTO memory_entries
+@@ -684,7 +714,7 @@ impl RlmMemory {
+             params![
+                 entry.key,
+                 entry.tier,
+-                entry.value,
++                value,
+                 entry_type,
+                 now,
+                 embedding_bytes,
+@@ -692,7 +722,7 @@ impl RlmMemory {
+                 entry.graph_blast_radius,
+                 entry.palace_path,
+                 entry.outcome_reward,
+-                entry.outcome_context,
++                outcome_context,
+                 entry.importance,
+                 i64::from(entry.pinned),
+             ],
+@@ -1078,7 +1108,13 @@ impl RlmMemory {
+             })?
+             .collect::<std::result::Result<Vec<_>, _>>()?;
+ 
+-        Ok(rows)
++        // C6 (2026-10-17): `search` is the recall that the cortex handlers replay
++        // into hook context (`[rlm] …`). Rows written before the write-side guard
++        // may still hold secrets or bidi/zero-width characters — clean every
++        // delivered value on the way OUT. Key-addressed reads (`get*`,
++        // `scan_prefix`) stay raw on purpose: callers read-modify-write state
++        // through them.
++        Ok(rows.into_iter().map(MemoryMatch::sanitized).collect())
+     }
+ 
+     /// Normalize a loosely-typed `created_at`/`accessed_at` cell to epoch
+@@ -1235,116 +1271,6 @@ pub struct MemoryStats {
+     pub tier_access_counts: std::collections::HashMap<String, i64>,
+ }
+ 
+-/// Tier promotion/demotion policy configuration.
+-#[derive(Debug, Clone)]
+-pub struct TierPolicy {
+-    /// Promote Ephemeral -> Working after N accesses within window.
+-    pub ephemeral_promote_accesses: i64,
+-    /// Time window, in seconds, for counting Ephemeral promotion accesses.
+-    pub ephemeral_promote_window_secs: i64,
+-    /// Promote Working -> Reference after N accesses within window.
+-    pub working_promote_accesses: i64,
+-    /// Time window, in seconds, for counting Working promotion accesses.
+-    pub working_promote_window_secs: i64,
+-    /// Demote Core -> Reference after N seconds without access.
+-    pub core_demote_secs: i64,
+-    /// Demote Reference -> Working after N seconds without access.
+-    pub reference_demote_secs: i64,
+-    /// Delete Ephemeral entries older than N seconds.
+-    pub ephemeral_ttl_secs: i64,
+-}
+-
+-impl Default for TierPolicy {
+-    fn default() -> Self {
+-        Self {
+-            ephemeral_promote_accesses: 3,
+-            ephemeral_promote_window_secs: 86400, // 24h
+-            working_promote_accesses: 10,
+-            working_promote_window_secs: 604800, // 7 days
+-            core_demote_secs: 2592000,           // 30 days
+-            reference_demote_secs: 1209600,      // 14 days
+-            ephemeral_ttl_secs: 172800,          // 48h
+-        }
+-    }
+-}
+-
+-/// Report of tier maintenance operations.
+-#[derive(Debug, Default)]
+-pub struct TierMaintenanceReport {
+-    /// Number of entries promoted from Ephemeral to Working.
+-    pub promoted_ephemeral_to_working: usize,
+-    /// Number of entries promoted from Working to Reference.
+-    pub promoted_working_to_reference: usize,
+-    /// Number of entries demoted from Core to Reference.
+-    pub demoted_core_to_reference: usize,
+-    /// Number of entries demoted from Reference to Working.
+-    pub demoted_reference_to_working: usize,
+-    /// Number of expired Ephemeral entries garbage-collected.
+-    pub gc_ephemeral: usize,
+-}
+-
+-impl RlmMemory {
+-    /// Run tier maintenance: promote, demote, and garbage-collect.
+-    /// Call once per session-start.
+-    #[allow(clippy::field_reassign_with_default)] // fields assigned from SQL results, struct literal not practical
+-    pub fn maintain_tiers(&self, policy: &TierPolicy) -> Result<TierMaintenanceReport> {
+-        let now = Utc::now().timestamp();
+-        let mut report = TierMaintenanceReport::default();
+-
+-        // 1. Promote Ephemeral -> Working (accessed enough within window)
+-        report.promoted_ephemeral_to_working = self.conn.execute(
+-            "UPDATE memory_entries SET tier = 'working'
+-             WHERE tier = 'ephemeral'
+-             AND access_count >= ?1
+-             AND (?2 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) <= ?3",
+-            params![
+-                policy.ephemeral_promote_accesses,
+-                now,
+-                policy.ephemeral_promote_window_secs
+-            ],
+-        )?;
+-
+-        // 2. Promote Working -> Reference (accessed enough within window)
+-        report.promoted_working_to_reference = self.conn.execute(
+-            "UPDATE memory_entries SET tier = 'reference'
+-             WHERE tier = 'working'
+-             AND access_count >= ?1
+-             AND (?2 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) <= ?3",
+-            params![
+-                policy.working_promote_accesses,
+-                now,
+-                policy.working_promote_window_secs
+-            ],
+-        )?;
+-
+-        // 3. Demote Core -> Reference (stale)
+-        report.demoted_core_to_reference = self.conn.execute(
+-            "UPDATE memory_entries SET tier = 'reference'
+-             WHERE tier = 'core'
+-             AND (?1 - accessed_at) > ?2",
+-            params![now, policy.core_demote_secs],
+-        )?;
+-
+-        // 4. Demote Reference -> Working (stale)
+-        report.demoted_reference_to_working = self.conn.execute(
+-            "UPDATE memory_entries SET tier = 'working'
+-             WHERE tier = 'reference'
+-             AND (?1 - accessed_at) > ?2",
+-            params![now, policy.reference_demote_secs],
+-        )?;
+-
+-        // 5. GC expired Ephemeral entries
+-        report.gc_ephemeral = self.conn.execute(
+-            "DELETE FROM memory_entries
+-             WHERE tier = 'ephemeral'
+-             AND (?1 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) > ?2",
+-            params![now, policy.ephemeral_ttl_secs],
+-        )?;
+-
+-        Ok(report)
+-    }
+-}
+-
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+@@ -1927,14 +1853,31 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn maintain_tiers_succeeds_on_default_policy() {
++    fn tier_is_part_of_the_address_and_a_restore_under_another_tier_moves_the_row() {
+         let (_d, mem) = fresh();
+-        mem.store("m", MemoryTier::Ephemeral, "v", None, None)
++        mem.store("addr", MemoryTier::Working, "v1", None, None)
+             .unwrap();
+-        // A just-created entry with 0 accesses triggers no promotion under the
+-        // default policy; the call must still succeed and report a zeroed move.
+-        let report = mem.maintain_tiers(&TierPolicy::default()).unwrap();
+-        assert_eq!(report.promoted_ephemeral_to_working, 0);
++        // The tier is part of the address: the same key at another tier is not found.
++        assert_eq!(
++            mem.get("addr", MemoryTier::Working).unwrap().as_deref(),
++            Some("v1")
++        );
++        assert_eq!(mem.get("addr", MemoryTier::Reference).unwrap(), None);
++
++        // The key is the primary key, so re-storing it under another tier RELOCATES
++        // the row and the old address goes empty: only a caller that means it may.
++        mem.store("addr", MemoryTier::Reference, "v2", None, None)
++            .unwrap();
++        assert_eq!(
++            mem.get("addr", MemoryTier::Reference).unwrap().as_deref(),
++            Some("v2")
++        );
++        assert_eq!(mem.get("addr", MemoryTier::Working).unwrap(), None);
++        assert_eq!(
++            mem.stats().unwrap().total_entries,
++            1,
++            "one row for the key, not a copy per tier"
++        );
+     }
+ 
+     #[test]
+@@ -2419,3 +2362,108 @@ mod tests {
+         );
+     }
+ }
++
++/// C6 (2026-10-17): the write path redacts secrets and strips bidi/zero-width
++/// characters at the ONE place every writer funnels through.
++#[cfg(test)]
++mod sanitize_tests {
++    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
++    // never a real credential.
++    use super::*;
++    use tempfile::TempDir;
++
++    fn fake_key() -> String {
++        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
++    }
++
++    fn row_texts(mem: &RlmMemory, key: &str) -> (String, Option<String>) {
++        mem.conn
++            .query_row(
++                "SELECT value, outcome_context FROM memory_entries WHERE key = ?1",
++                params![key],
++                |r| Ok((r.get(0)?, r.get(1)?)),
++            )
++            .expect("row")
++    }
++
++    #[test]
++    fn store_rich_redacts_secrets_and_strips_bidi_before_the_row_lands() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let key = fake_key();
++        let dirty = format!("deploy with {key} now\u{202E}x\u{200B}y");
++        let mut entry = RichMemoryEntry::new("c6-rlm", "semantic", &dirty);
++        entry.outcome_context = Some(dirty.as_str());
++        mem.store_rich(&entry).unwrap();
++
++        let (value, ctx) = row_texts(&mem, "c6-rlm");
++        let ctx = ctx.expect("outcome_context stored");
++        for text in [&value, &ctx] {
++            assert!(!text.contains(&key), "secret reached the row: {text}");
++            assert!(!text.contains('\u{202E}') && !text.contains('\u{200B}'));
++        }
++        assert_eq!(value, "deploy with [REDACTED] nowxy");
++        assert_eq!(ctx, value, "outcome_context is cleaned by the same rules");
++    }
++
++    #[test]
++    fn store_rich_keeps_ordinary_text_byte_identical() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let plain = "Lesson: run `cargo test -p x`.\n\tNext: a\u{e7}\u{e3}o \u{1F642} done";
++        mem.store_rich(&RichMemoryEntry::new("c6-plain", "semantic", plain))
++            .unwrap();
++        assert_eq!(row_texts(&mem, "c6-plain").0, plain);
++    }
++
++    #[test]
++    fn re_storing_already_clean_text_is_a_fixed_point() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let dirty = format!(
++            "GH_TOKEN={}\nplain line",
++            ["gh", "p_", "0123456789abcdefghijklmnop"].concat()
++        );
++        mem.store_rich(&RichMemoryEntry::new("c6-fix", "semantic", &dirty))
++            .unwrap();
++        let once = row_texts(&mem, "c6-fix").0;
++        mem.store_rich(&RichMemoryEntry::new("c6-fix", "semantic", &once))
++            .unwrap();
++        assert_eq!(row_texts(&mem, "c6-fix").0, once);
++        assert!(once.contains("GH_TOKEN= [REDACTED]") && once.contains("plain line"));
++    }
++
++    #[test]
++    fn search_cleans_a_legacy_row_on_the_way_out_without_rewriting_it() {
++        let dir = TempDir::new().unwrap();
++        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
++        let key = fake_key();
++        // A row planted the way pre-guard writers did (raw SQL, no sanitization).
++        let raw = format!("c6searchprobe token {key} \u{202E}tail");
++        mem.conn
++            .execute(
++                "INSERT INTO memory_entries (key, tier, value, entry_type) \
++                 VALUES ('c6-old', 'working', ?1, 'lesson')",
++                params![raw],
++            )
++            .unwrap();
++        let hits = mem.search("c6searchprobe", None, 5).unwrap();
++        assert_eq!(hits.len(), 1);
++        assert!(
++            !hits[0].value.contains(&key),
++            "secret leaked: {}",
++            hits[0].value
++        );
++        assert!(
++            !hits[0].value.contains('\u{202E}'),
++            "bidi leaked: {:?}",
++            hits[0].value
++        );
++        assert!(hits[0].value.contains("[REDACTED]"));
++        assert_eq!(
++            row_texts(&mem, "c6-old").0,
++            raw,
++            "read must not rewrite the row"
++        );
++    }
++}

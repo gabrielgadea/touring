@@ -92,7 +92,7 @@ pub struct ExtendedKnowledge {
     /// Cyclomatic complexity score for the file.
     pub complexity_score: f64,
     /// Cognitive complexity score for the file.
-    pub cognitive_score: f64,
+    pub quality_score: f64,
     /// Number of outgoing dependencies (symbols this file uses).
     pub fan_out: u32,
     /// Number of incoming dependencies (files that use this file).

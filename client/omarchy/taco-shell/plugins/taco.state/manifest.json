@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "taco.state",
+  "name": "TACO State",
+  "version": "0.1.0",
+  "author": "Gabriel Gadea",
+  "description": "Suite service: background cache of Touring CLI metrics (L7 latency law — heavy composites never polled by widgets) with freshness stamps, backoff, and last-valid retention.",
+  "kinds": ["service"],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

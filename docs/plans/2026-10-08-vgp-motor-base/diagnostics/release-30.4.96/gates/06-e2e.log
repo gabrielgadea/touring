@@ -1,0 +1,5 @@
+# gate=06-e2e
+# cmd=touring e2e -j > e2e.json
+# inicio_utc=2026-10-09T23:22:15Z
+# rc=0
+# fim_utc=2026-10-09T23:22:16Z

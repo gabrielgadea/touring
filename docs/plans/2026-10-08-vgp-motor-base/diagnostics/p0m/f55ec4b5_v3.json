@@ -1,0 +1,289 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) limite superior 95% 1.52% > 1% (4/600, taxa 0.667%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "p95 1013.8 ms > 1000.0 ms"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 4,
+   "n": 600,
+   "taxa": 0.006666666666666667,
+   "limite_superior_95": 0.01519043951414311,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 5,
+   "n": 600,
+   "taxa": 0.008333333333333333,
+   "limite_superior_95": 0.01744132539844622,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.9230769230769231,
+  "inline": 0.8518518518518519
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   6,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   1,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "b9d26a878f4c",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/ffc7-ancorados.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "srv",
+     "linha": 90,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "eb2d7b7ba5b9",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mover_leitura_pura.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "lineno",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"lineno\" for class \"AST\"\n  Attribute \"lineno\" is unknown",
+     "reais": []
+    },
+    {
+     "classe": "membro",
+     "nome": "end_lineno",
+     "linha": 20,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"end_lineno\" for class \"AST\"\n  Attribute \"end_lineno\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "b4aeefe5820e",
+   "balde": "arquivo",
+   "path": "/home/gabrielgadea/projects/analise/docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/t006_diag_tls.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_ssl",
+     "linha": 100,
+     "severidade": "deny",
+     "sugestao": "\"_ssl\" is not a known attribute of module \"ssl\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "9a8eed8a7502",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_g3.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 23,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "eb898e2aa211",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "cr",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "\"cr\" is not defined",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6a25b00f2584",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_publicar",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral.publicar_mapa` não tem atributo `_publicar`",
+     "reais": [
+      "ALCANCE_DO_PROTOCOLO",
+      "ARTEFATO",
+      "ATRIBUTOS_DO_COFRE",
+      "AUTODECLARACAO_INTERNA",
+      "AUTORIZACOES_DO_GABRIEL",
+      "Autorizacao",
+      "CABECALHOS_EXIGIDOS",
+      "CAMINHO_INEXISTENTE"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "f01b4181af57",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__version__",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "\"__version__\" is not a known attribute of module \"jsonschema\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "636f9a7adec1",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "módulo `folium` não tem atributo `__file__`",
+     "reais": [
+      "Choropleth",
+      "Circle",
+      "CircleMarker",
+      "ClickForLatLng",
+      "ClickForMarker",
+      "ColorLine",
+      "ColorMap",
+      "Control"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "d85ca025881a",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "args",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"args\" for class \"expr\"\n  Attribute \"args\" is unknown",
+     "reais": []
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 600
+ },
+ "avisos_em_negativos": 76,
+ "defeito_de_corpus": [],
+ "p95_ms": 1013.807323,
+ "chamadas": 1264,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "O3",
+  "entities": [
+    {
+      "entity_id": "phase:O3",
+      "type": "phase",
+      "description": "3 fragments ligados a skills: plan-pack (taco-planning), audit-pack (TACO-cross-audit, ortogonal ao critic-panel - um da o oficio, o outro a cegueira), skilling-pack (TACO-skilling, gated por no code should_skill: recorrencia>=2, porque criar skill para one-off e como o corpus enche de skill que ninguem ativa). 13->16 fragments. Cada um declara costura __exit__/__exit_fail__ - o teste do kit exigia e minha primeira versao nao tinha."
+    }
+  ],
+  "relations": []
+}

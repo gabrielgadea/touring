@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "taco.settings",
+  "name": "TACO Settings",
+  "version": "0.1.0",
+  "author": "Gabriel Gadea",
+  "description": "Suite settings panel: polling intervals (L7), backoff, color profile, motion and ambience flags — persisted via FileView+JsonAdapter to ~/.config/omarchy/taco/settings.json.",
+  "kinds": ["panel"],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}

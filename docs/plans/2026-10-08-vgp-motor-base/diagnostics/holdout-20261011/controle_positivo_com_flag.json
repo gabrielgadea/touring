@@ -1,0 +1,308 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "p95 159.9 ms > 150.0 ms"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 5,
+   "n": 600,
+   "taxa": 0.008333333333333333,
+   "limite_superior_95": 0.01744132539844622,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 2,
+   "n": 600,
+   "taxa": 0.0033333333333333335,
+   "limite_superior_95": 0.010455489384196302,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.8461538461538461,
+  "inline": 0.7407407407407407
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   11,
+   13
+  ],
+  "inline": [
+   20,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   5,
+   13
+  ],
+  "inline": [
+   20,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   11
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "7a4ad8f765aa",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/baixar_2010_2012.py",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "TSEClient",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "`from scripts.external_apis.tse import TSEClient` — `TSEClient` não é ligação de topo nem submódulo de `scripts.external_apis.tse`",
+     "reais": [
+      "Any",
+      "CKANClient",
+      "FEATURE",
+      "FEATURE_META",
+      "FeatureMeta",
+      "Final",
+      "Iterator",
+      "Path"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ddbb2cfb4afc",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_pctx.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "ComputeProcessContext",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "74f04a24de12",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/retrieval_bench.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "WS",
+     "linha": 131,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c35d78e3eb25",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s24_route_patch.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "WIRING",
+     "linha": 244,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "bd4cfc7dd1e1",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_prova_caminho.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "RUST_AVAILABLE",
+     "linha": 42,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.aco.rust_bridge` não tem atributo `RUST_AVAILABLE`",
+     "reais": [
+      "Any",
+      "Callable",
+      "GRAPH_PROBE_CASES",
+      "flatten_generator_node",
+      "get_build_report",
+      "get_compute_composite",
+      "get_determine_status",
+      "get_dim_result_class"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "922195736c58",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "array",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `numpy` não tem atributo `array`",
+     "reais": [
+      "os",
+      "sys",
+      "warnings"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "where",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "módulo `numpy` não tem atributo `where`",
+     "reais": [
+      "os",
+      "sys",
+      "warnings"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "e33a1e2e4030",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "LANCZOS",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL.Image` não tem atributo `LANCZOS`",
+     "reais": [
+      "Any",
+      "Callable",
+      "DECODERS",
+      "DecompressionBombError",
+      "DecompressionBombWarning",
+      "Dither",
+      "ENCODERS",
+      "EXTENSION"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 600
+ },
+ "avisos_em_negativos": 86,
+ "defeito_de_corpus": [
+  "6dce9f68d2da",
+  "c72427be59bd",
+  "9c269d2c1bf5"
+ ],
+ "p95_ms": 159.928944,
+ "chamadas": 1262,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "allow"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "091584efee91",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__version__",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+ "resumo": {
+  "comparados": 762,
+  "so_base": 0,
+  "so_novo": 0,
+  "divergencias": 1,
+  "por_categoria": {
+   "warn_ou_veredito": 1
+  }
+ },
+ "divergencias": [
+  {
+   "id": "158cbb7178bb",
+   "causa": "warn_ou_veredito",
+   "base": {
+    "verdict": "allow",
+    "achados": []
+   },
+   "novo": {
+    "verdict": "warn",
+    "achados": [
+     [
+      "membro",
+      "get",
+      43,
+      "warn"
+     ]
+    ]
+   }
+  }
+ ]
+}

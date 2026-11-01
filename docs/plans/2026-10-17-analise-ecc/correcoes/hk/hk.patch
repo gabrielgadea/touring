@@ -1,0 +1,1765 @@
+diff --git i/crates/touring-cli/src/cli/context_budget.rs w/crates/touring-cli/src/cli/context_budget.rs
+index d1cbf2cd..f85415bf 100644
+--- i/crates/touring-cli/src/cli/context_budget.rs
++++ w/crates/touring-cli/src/cli/context_budget.rs
+@@ -41,9 +41,10 @@ const MAX_TRANSCRIPTS: usize = 3;
+ /// Total bytes to read across transcripts before stopping and saying so.
+ const MAX_BYTES: u64 = 48 * 1024 * 1024;
+ 
+-/// Per-family accounting. The family taxonomy lives in [`injection_family`] —
+-/// ONE source, so the payload and the dedup accounting cannot disagree about
+-/// which emitter a block belongs to.
++/// Per-family accounting. The family taxonomy lives in [`attributed_family`] —
++/// ONE source (the text needles of [`injection_family`] plus the emitter's own
++/// mark), so the payload and the dedup accounting cannot disagree about which
++/// emitter a block belongs to.
+ #[derive(Debug, Default, Clone, PartialEq, Eq)]
+ pub struct FamilyStats {
+     /// Bytes this emitter put into the window.
+@@ -126,7 +127,7 @@ pub struct ContextBudgetAggregate {
+     pub must_followed: u64,
+     /// Tool calls the assistant made — the declared proxy denominator for TpCD.
+     pub tool_calls: u64,
+-    /// The same accounting, split by emitter (see [`injection_family`]).
++    /// The same accounting, split by emitter (see [`attributed_family`]).
+     pub by_family: BTreeMap<String, FamilyStats>,
+     /// Tool results split by the tool that produced them, with how much of each
+     /// is observably reused (see [`ToolStats`]).
+@@ -242,6 +243,69 @@ pub fn injection_family(text: &str) -> &'static str {
+     "other"
+ }
+ 
++/// How an emitter's mark claims the output it produced (C10, 2026-10-17).
++#[derive(Clone, Copy, PartialEq, Eq, Debug)]
++enum Claim {
++    /// A single-purpose hook: whatever it injects belongs to ITS family, whatever the text says.
++    Owns,
++    /// A multi-purpose emitter: used only when the text names no family.
++    Fallback,
++}
++
++/// Emitter mark → family. The mark is the label Claude Code records on every `hook_success`
++/// attachment (`command`): the hook's `statusMessage` when it has one, else its command line.
++/// It is the emitter's OWN identity, so attributing by it infers nothing from the text and
++/// stamps no byte into the injection.
++///
++/// Measured 17/10/2026 over the 3 newest transcripts (13,741 `hook_success`, 23 distinct marks):
++/// text needles alone left 82.8 % of the injected bytes in `other`. The first match wins, and
++/// every needle is checked against the versioned hook registry
++/// (`the_emitter_table_has_no_stale_needle`).
++const EMITTERS: &[(&str, &str, Claim)] = &[
++    ("analyzing blast radius", "pre-edit", Claim::Owns),
++    ("speculative validation", "pre-write", Claim::Owns),
++    ("analyzing file context", "pre-read", Claim::Owns),
++    ("checking command history", "pre-bash", Claim::Owns),
++    ("syntax pre-check", "pre-edit-prevention", Claim::Owns),
++    ("verifying edit quality", "post-edit", Claim::Owns),
++    ("registering new file", "post-write", Claim::Owns),
++    ("evidence_guard.py", "evidence-guard", Claim::Owns),
++    // Hooks that ship with a plugin carry an unexpanded `${CLAUDE_PLUGIN_ROOT}` in the label.
++    ("CLAUDE_PLUGIN_ROOT", "plugin-hook", Claim::Owns),
++    ("prose_integrity_gate.py", "prose-integrity", Claim::Owns),
++    ("check_context.sh", "context-monitor", Claim::Owns),
++    ("delegation-nudge", "delegation-nudge", Claim::Owns),
++    // Multi-purpose emitters: the text decides first (a `cli-suggest` block can be a code-mode
++    // deny, a suggestion or a past lesson); the mark only rescues what the text leaves in `other`.
++    ("touring cli-suggest", "touring-suggest", Claim::Fallback),
++    ("loop_resume.py", "loop-outer", Claim::Fallback),
++    ("touring-hook post-bash", "post-tool-echo", Claim::Fallback),
++];
++
++/// The family an emitter mark claims, and how.
++fn emitter_claim(emitter: &str) -> Option<(&'static str, Claim)> {
++    EMITTERS
++        .iter()
++        .find(|(needle, _, _)| emitter.contains(needle))
++        .map(|(_, family, claim)| (*family, *claim))
++}
++
++/// [`injection_family`] with the emitter's own mark applied — the taxonomy every accounting
++/// path uses (C10). Order: a dedicated emitter owns its output; else the text needles; else the
++/// emitter's fallback; else `other`. A transcript without the mark (older Claude Code) falls
++/// straight to the text, exactly as before.
++#[must_use]
++pub fn attributed_family(text: &str, emitter: Option<&str>) -> &'static str {
++    let claimed = emitter.and_then(emitter_claim);
++    if let Some((family, Claim::Owns)) = claimed {
++        return family;
++    }
++    match injection_family(text) {
++        "other" => claimed.map_or("other", |(family, _)| family),
++        family => family,
++    }
++}
++
+ /// Actionable propositions carried by a block: lines in the MUST / SHOULD / MAY
+ /// shape the injection-density invariant mandates
+ /// (`~/.claude/rules/touring-4-pillars.md`).
+@@ -272,15 +336,26 @@ pub fn transcript_dir_for(home: &Path, project_root: &Path) -> PathBuf {
+     home.join(".claude/projects").join(slug)
+ }
+ 
++/// One text a hook injected, with the emitter mark Claude Code recorded for the hook that
++/// produced it (`None` in a transcript that does not record one).
++struct Injection {
++    emitter: Option<String>,
++    text: String,
++}
++
+ /// Every text a hook injected in one transcript record, or an empty vec.
+-fn hook_contexts(rec: &Value) -> Vec<String> {
++fn hook_injections(rec: &Value) -> Vec<Injection> {
+     let Some(att) = rec.get("attachment") else {
+         return Vec::new();
+     };
+     if att.get("type").and_then(Value::as_str) != Some("hook_success") {
+         return Vec::new();
+     }
+-    let mut out = Vec::new();
++    let emitter = att
++        .get("command")
++        .and_then(Value::as_str)
++        .map(str::to_string);
++    let mut texts: Vec<String> = Vec::new();
+     for key in ["stdout", "content"] {
+         let Some(raw) = att.get(key).and_then(Value::as_str) else {
+             continue;
+@@ -293,19 +368,25 @@ fn hook_contexts(rec: &Value) -> Vec<String> {
+                 if let Some(hs) = parsed.get("hookSpecificOutput") {
+                     for k in ["additionalContext", "systemMessage"] {
+                         if let Some(s) = hs.get(k).and_then(Value::as_str) {
+-                            out.push(s.to_string());
++                            texts.push(s.to_string());
+                         }
+                     }
+                 }
+                 if let Some(s) = parsed.get("systemMessage").and_then(Value::as_str) {
+-                    out.push(s.to_string());
++                    texts.push(s.to_string());
+                 }
+             }
+             // Not JSON — the hook printed plain text, which still costs the window.
+-            Err(_) => out.push(raw.to_string()),
++            Err(_) => texts.push(raw.to_string()),
+         }
+     }
+-    out
++    texts
++        .into_iter()
++        .map(|text| Injection {
++            emitter: emitter.clone(),
++            text,
++        })
++        .collect()
+ }
+ 
+ fn hash_of(s: &str) -> u64 {
+@@ -575,6 +656,7 @@ pub fn aggregate_lines<'a>(
+ /// repeat — in the session (`seen`) or only across sessions (`project_seen`).
+ fn record_injection(
+     text: &str,
++    emitter: Option<&str>,
+     agg: &mut ContextBudgetAggregate,
+     seen: &mut BTreeMap<u64, u64>,
+     project_seen: Option<&mut BTreeMap<u64, u64>>,
+@@ -585,7 +667,7 @@ fn record_injection(
+     agg.injected_blocks += 1;
+     let entry = agg
+         .by_family
+-        .entry(injection_family(text).to_string())
++        .entry(attributed_family(text, emitter).to_string())
+         .or_default();
+     entry.bytes += len;
+     entry.blocks += 1;
+@@ -637,8 +719,14 @@ pub fn aggregate_session_lines<'a>(
+         };
+         let kind = rec.get("type").and_then(Value::as_str).unwrap_or_default();
+ 
+-        for text in hook_contexts(&rec) {
+-            record_injection(&text, agg, seen, project_seen.as_deref_mut());
++        for Injection { emitter, text } in hook_injections(&rec) {
++            record_injection(
++                &text,
++                emitter.as_deref(),
++                agg,
++                seen,
++                project_seen.as_deref_mut(),
++            );
+             if let Some(target) = must_target(&text) {
+                 agg.must_emitted += 1;
+                 pending_must = Some(target);
+@@ -1352,6 +1440,184 @@ mod tests {
+         }
+     }
+ 
++    // ── C10 (2026-10-17): attribute by the emitter's own mark ──────────────────────
++
++    /// One real `hook_success` per emitter mark seen in the newest transcripts (45 records,
++    /// 23 marks, paths anonymized). Before C10 the text needles left 54.4 % of these bytes in
++    /// `other` (82.8 % over the whole 3-transcript sample); the mark attributes all of them.
++    const EMITTER_FIXTURE: &str =
++        include_str!("../../tests/fixtures/context_budget_emitters.jsonl");
++
++    fn emitter_fixture_lines() -> Vec<String> {
++        EMITTER_FIXTURE.lines().map(str::to_string).collect()
++    }
++
++    /// The share of the injected bytes sitting in `other` — the ceiling under test.
++    fn other_share(agg: &ContextBudgetAggregate) -> f64 {
++        let other = agg.by_family.get("other").map_or(0, |f| f.bytes);
++        other as f64 / agg.injected_bytes.max(1) as f64
++    }
++
++    #[test]
++    fn the_real_emitters_leave_other_below_the_ceiling() {
++        let agg = run(&emitter_fixture_lines());
++        assert_eq!(
++            agg.injected_blocks, 45,
++            "every fixture record carries a block"
++        );
++        let share = other_share(&agg);
++        assert!(
++            share < 0.20,
++            "other holds {:.1} % of the bytes; by_family={:?}",
++            100.0 * share,
++            agg.by_family
++                .iter()
++                .map(|(k, v)| (k.as_str(), v.bytes))
++                .collect::<Vec<_>>()
++        );
++        // And the defect is real on this very fixture: text alone leaves the majority in `other`.
++        let text_only_other: usize = emitter_fixture_lines()
++            .iter()
++            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
++            .flat_map(|rec| hook_injections(&rec))
++            .filter(|i| injection_family(&i.text) == "other")
++            .map(|i| i.text.len())
++            .sum();
++        assert!(
++            text_only_other as f64 / agg.injected_bytes as f64 > 0.50,
++            "the fixture must reproduce the defect (text-only other = {text_only_other} B)"
++        );
++    }
++
++    /// Each mark pinned to the family the real record lands in — the table, not a count.
++    #[test]
++    fn every_real_mark_lands_in_its_family() {
++        for (mark, want) in [
++            ("check_context.sh", "context-monitor"),
++            ("touring-hook post-bash", "post-tool-echo"),
++            ("Code Mode: contrato do SDK", "code-mode-deny"),
++            ("Scout Perpétuo", "loop-outer"),
++            ("TACO: batch RL", "post-tool-echo"),
++            ("analyzing blast radius", "pre-edit"),
++            ("analyzing file context", "pre-read"),
++            ("checking command history", "pre-bash"),
++            ("collecting session intelligence", "session-start"),
++            ("initializing cognitive engine", "session-start"),
++            ("registering new file", "post-write"),
++            ("speculative validation", "pre-write"),
++            ("syntax pre-check", "pre-edit-prevention"),
++            ("verifying edit quality", "post-edit"),
++            ("CLAUDE_PLUGIN_ROOT", "plugin-hook"),
++            ("delegation-nudge", "delegation-nudge"),
++            ("evidence_guard.py", "evidence-guard"),
++            ("prose_integrity_gate.py", "prose-integrity"),
++            ("loop_resume.py", "loop-outer"),
++            ("painel_ema", "session-start"),
++            ("touring cli-suggest", "touring-suggest"),
++        ] {
++            let mut seen = 0;
++            for rec in emitter_fixture_lines()
++                .iter()
++                .filter_map(|l| serde_json::from_str::<Value>(l).ok())
++            {
++                for inj in hook_injections(&rec) {
++                    if inj.emitter.as_deref().is_some_and(|e| e.contains(mark)) {
++                        seen += 1;
++                        assert_eq!(
++                            attributed_family(&inj.text, inj.emitter.as_deref()),
++                            want,
++                            "mark {mark:?}"
++                        );
++                    }
++                }
++            }
++            assert!(seen > 0, "the fixture carries no record for mark {mark:?}");
++        }
++    }
++
++    /// A single-purpose hook OWNS its output. The 105 KB of `pre-edit` blocks that the old
++    /// needles filed under `post-tool-echo` (their text quotes `last fail:`) are `pre-edit`.
++    #[test]
++    fn a_dedicated_emitter_owns_its_output_even_when_the_text_quotes_another_family() {
++        let text = "pensieve: last fail: Edit on a similar path\nMUST touring ast blast x.rs";
++        assert_eq!(
++            injection_family(text),
++            "post-tool-echo",
++            "the old, text-only answer"
++        );
++        assert_eq!(
++            attributed_family(text, Some("Touring: analyzing blast radius...")),
++            "pre-edit"
++        );
++    }
++
++    /// A multi-purpose emitter does NOT own its output: the text decides, and the mark only
++    /// rescues what the text leaves in `other`.
++    #[test]
++    fn a_fallback_emitter_defers_to_the_text() {
++        let cli_suggest = Some("touring cli-suggest: classifying operation (Rust, in-daemon)...");
++        assert_eq!(
++            attributed_family("[CODE MODE · rajada] 2a inspecao", cli_suggest),
++            "code-mode-deny",
++            "a deny emitted by cli-suggest stays a deny"
++        );
++        assert_eq!(
++            attributed_family("MUST    touring ast meta x.rs", cli_suggest),
++            "touring-suggest",
++            "a block with no family text is the suggester's"
++        );
++    }
++
++    #[test]
++    fn an_unknown_mark_or_a_missing_one_never_invents_a_family() {
++        assert_eq!(
++            attributed_family("[gabrielgadea]", Some("some-new-hook.sh")),
++            "other"
++        );
++        assert_eq!(attributed_family("[gabrielgadea]", None), "other");
++        // No mark (an older Claude Code) behaves exactly like the text-only taxonomy.
++        assert_eq!(
++            attributed_family("[TOURING SUGGEST · x]", None),
++            "touring-suggest"
++        );
++    }
++
++    /// Every mark of the table must still exist in the hook registry the repo versions, or the
++    /// family silently decays back into `other` the day a `statusMessage` is reworded.
++    /// Plugin hooks live in the plugin, not in the user's settings, so they are not in the mirror.
++    #[test]
++    fn the_emitter_table_has_no_stale_needle() {
++        const MIRROR: &str = include_str!("../../../../client/claude/hooks.settings.json");
++        const PLUGIN_ONLY: &[&str] = &["CLAUDE_PLUGIN_ROOT"];
++        let registry: Value = serde_json::from_str(MIRROR).expect("the hook mirror is JSON");
++        let mut labels: Vec<String> = Vec::new();
++        for groups in registry.as_object().expect("events").values() {
++            for group in groups.as_array().into_iter().flatten() {
++                for hook in group["hooks"].as_array().into_iter().flatten() {
++                    for key in ["statusMessage", "command"] {
++                        if let Some(l) = hook.get(key).and_then(Value::as_str) {
++                            labels.push(l.to_string());
++                        }
++                    }
++                }
++            }
++        }
++        assert!(
++            labels.len() > 50,
++            "the mirror read as empty: {} labels",
++            labels.len()
++        );
++        for (needle, family, _) in EMITTERS {
++            if PLUGIN_ONLY.contains(needle) {
++                continue;
++            }
++            assert!(
++                labels.iter().any(|l| l.contains(needle)),
++                "needle {needle:?} (family {family}) matches no hook in client/claude/hooks.settings.json"
++            );
++        }
++    }
++
+     #[test]
+     fn the_transcript_directory_matches_the_one_claude_code_actually_uses() {
+         let d = transcript_dir_for(
+diff --git i/crates/touring-cli/tests/fixtures/context_budget_emitters.jsonl w/crates/touring-cli/tests/fixtures/context_budget_emitters.jsonl
+new file mode 100644
+index 00000000..61806d79
+--- /dev/null
++++ w/crates/touring-cli/tests/fixtures/context_budget_emitters.jsonl
+@@ -0,0 +1,45 @@
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Bash", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Contexto em 63% — a autocompactação dispara aos 65%. Grave agora o estado em disco (RETOMADA do bundle, `touring decompose`, nó no grafo) para que a retomada não dependa do resumo. Se a próxima tarefa for distinta desta, prefira /clear e reconstrução pelo disco a /compact.\"}}", "stderr": "", "exitCode": 0, "command": "$HOME/.claude/hooks/check_context.sh", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Write", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"Contexto em 55% — a autocompactação dispara aos 65%. Grave agora o estado em disco (RETOMADA do bundle, `touring decompose`, nó no grafo) para que a retomada não dependa do resumo. Se a próxima tarefa for distinta desta, prefira /clear e reconstrução pelo disco a /compact.\"}}", "stderr": "", "exitCode": 0, "command": "$HOME/.claude/hooks/check_context.sh", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Bash", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"`cat` exited 0, but its output shows errors after a pipe without `set -o pipefail` — the real exit code may be masked (suspected; not recorded as a failure).\"}}", "stderr": "", "exitCode": 0, "command": "$HOME/.claude/hooks/touring-hook post-bash", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Bash", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"`cat` exited 0, but its output shows errors after a pipe without `set -o pipefail` — the real exit code may be masked (suspected; not recorded as a failure).\"}}", "stderr": "", "exitCode": 0, "command": "$HOME/.claude/hooks/touring-hook post-bash", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:resume", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[CODE MODE — contrato desta sessão · apresentação `code` (/home/user/projects/touring/.touring/touring.toml (projeto))]\\nEfeito: inspeção ISOLADA PASSA — de qualquer classe. O que colapsa é a RAJADA: a 2ª chamada de `grep`/`cat`/`find`/`ls`/`wc`/`sed-n` dentro de 300s volta NEGADA com as duas fundidas em 1 programa (a 1ª já executou intacta). Calibrado por medição em 115 transcripts: 77,5% do volume de inspeção está em rajadas ≥2, e os 22,5% isolados não pagam mais pedágio. Um `touring run` na janela zera a contagem.\\nTransporte: `touring run --lang <python|bash> --code '<programa>'`. Uma chamada executa o programa inteiro no sandbox e devolve só o que ele imprime — N round-trips viram 1 (Anthropic CodeAct / programmatic tool calling; Cloudflare Code Mode). Orçamento de parede próprio: `--timeout-ms` (default 30000 ms — programa longo DEVE declará-lo; um teto de engine corta acima).\\nQuando: a pergunta toca ≥3 arquivos/fatos, ou a mesma classe de inspeção se repete. Para 1 arquivo já conhecido, a chamada atômica é melhor — forçar programa no caso simples taxa o caso comum.\\n`--orchestrate` liga o SDK: o programa consulta o daemon de dentro do sandbox pelo objeto `touring` — `ast_blast` · `ast_meta` · `ast_overview` · `ast_tdg` · `doctor` · `find_references` · `gotcha_match` · `index_find` · `memory_recall` · `parallel` · `query` · `search` · `tantivy_search` · `wiring_impact` · `wiring_orphans` · `wiring_status`. Contrato tipado inteiro, sob demanda: `touring run --lang python --sdk-stub`. `--brief` devolve o digest e DECLARA o que elidiu (`elided_lines`). `--harvest <slug>` persiste o programa como snippet.\\n\"}}", "stderr": "", "exitCode": 0, "command": "Code Mode: contrato do SDK (1x por sessão)...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:compact", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[CODE MODE — contrato desta sessão · apresentação `code` (/home/user/projects/touring/.touring/touring.toml (projeto))]\\nEfeito: inspeção ISOLADA PASSA — de qualquer classe. O que colapsa é a RAJADA: a 2ª chamada de `grep`/`cat`/`find`/`ls`/`wc`/`sed-n` dentro de 300s volta NEGADA com as duas fundidas em 1 programa (a 1ª já executou intacta). Calibrado por medição em 115 transcripts: 77,5% do volume de inspeção está em rajadas ≥2, e os 22,5% isolados não pagam mais pedágio. Um `touring run` na janela zera a contagem.\\nTransporte: `touring run --lang <python|bash> --code '<programa>'`. Uma chamada executa o programa inteiro no sandbox e devolve só o que ele imprime — N round-trips viram 1 (Anthropic CodeAct / programmatic tool calling; Cloudflare Code Mode). Orçamento de parede próprio: `--timeout-ms` (default 30000 ms — programa longo DEVE declará-lo; um teto de engine corta acima).\\nQuando: a pergunta toca ≥3 arquivos/fatos, ou a mesma classe de inspeção se repete. Para 1 arquivo já conhecido, a chamada atômica é melhor — forçar programa no caso simples taxa o caso comum.\\n`--orchestrate` liga o SDK: o programa consulta o daemon de dentro do sandbox pelo objeto `touring` — `ast_blast` · `ast_meta` · `ast_overview` · `ast_tdg` · `doctor` · `find_references` · `gotcha_match` · `index_find` · `memory_recall` · `parallel` · `query` · `search` · `tantivy_search` · `wiring_impact` · `wiring_orphans` · `wiring_status`. Contrato tipado inteiro, sob demanda: `touring run --lang python --sdk-stub`. `--brief` devolve o digest e DECLARA o que elidiu (`elided_lines`). `--harvest <slug>` persiste o programa como snippet.\\n\"}}", "stderr": "", "exitCode": 0, "command": "Code Mode: contrato do SDK (1x por sessão)...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[SCOUT PERPÉTUO · gerador de demanda da software factory]\\nPor quê: exploração é processo permanente, não fase (F1.7/CCE) — cada ciclo vira tickets que o factory roteia para ADWs e cujos outcomes ensinam o RL do router; sem ciclos o funil ADW/factory fica sem demanda. Disparar 1 ciclo antes de trabalho novo custa 1 comando e rende findings baratos.\\nEstado em /home/user/projects/touring:\\n  · 'idle-infra-exercise': VENCIDO (há 241.7h, intervalo 6h) — yield [2, 0, 0, 1, 4, 4] · 4 ticket(s)\\n    MUST (antes de trabalho novo) → python3 /home/user/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic \\\"idle-infra-exercise\\\" --root /home/user/projects/touring\\n    fila: task_1788296582280254749 → adw=audit → touring factory start \\\"scout-ticket: 'idle-infra-exercise' yielded 1 new finding(s); sample: decomp:task_1787922622533751850 — review for plan-delta\\\"\\n    fila: task_1790816625267861342 → adw=audit → touring factory start \\\"scout-ticket: 'idle-infra-exercise' yielded 4 new finding(s); sample: /home/user/projects/touring/crates/touring-hooks-prediction/src/tfidf_retriever.rs:532, /home/user/projects/touring/docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md:26, /home/user/projects/touring/docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md:31, /home/user/projects/touring/crates/touring-hooks-prediction/src/tfidf_retriever.rs — review for plan-delta\\\"\\n    fila: task_1791289267243494248 → adw=audit → touring factory start \\\"scout-ticket: 'idle-infra-exercise' yielded 4 new finding(s); sample: docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md, docs-site/docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md, docs/plans/2026-08-28-adw-specs-expansao/strategy-2026-08-28-adw-specs-expansao.md, docs/plans/2026-08-28-skills-adw-potencializacao/strategy-2026-08-28-skills-adw-potencializacao.md — review for plan-delta\\\"\"}}", "stderr": "", "exitCode": 0, "command": "Scout Perpétuo: checking demand-generator cadence...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:resume", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[SCOUT PERPÉTUO · gerador de demanda da software factory]\\nPor quê: exploração é processo permanente, não fase (F1.7/CCE) — cada ciclo vira tickets que o factory roteia para ADWs e cujos outcomes ensinam o RL do router; sem ciclos o funil ADW/factory fica sem demanda. Disparar 1 ciclo antes de trabalho novo custa 1 comando e rende findings baratos.\\nEstado em /home/user/projects/touring:\\n  · 'idle-infra-exercise': VENCIDO (há 264.1h, intervalo 6h) — yield [2, 0, 0, 1, 4, 4] · 4 ticket(s)\\n    MUST (antes de trabalho novo) → python3 /home/user/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic \\\"idle-infra-exercise\\\" --root /home/user/projects/touring\\n    fila: task_1788296582280254749 → adw=audit → touring factory start \\\"scout-ticket: 'idle-infra-exercise' yielded 1 new finding(s); sample: decomp:task_1787922622533751850 — review for plan-delta\\\"\\n    fila: task_1790816625267861342 → adw=audit → touring factory start \\\"scout-ticket: 'idle-infra-exercise' yielded 4 new finding(s); sample: /home/user/projects/touring/crates/touring-hooks-prediction/src/tfidf_retriever.rs:532, /home/user/projects/touring/docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md:26, /home/user/projects/touring/docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md:31, /home/user/projects/touring/crates/touring-hooks-prediction/src/tfidf_retriever.rs — review for plan-delta\\\"\\n    fila: task_1791289267243494248 → adw=audit → touring factory start \\\"scout-ticket: 'idle-infra-exercise' yielded 4 new finding(s); sample: docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md, docs-site/docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md, docs/plans/2026-08-28-adw-specs-expansao/strategy-2026-08-28-adw-specs-expansao.md, docs/plans/2026-08-28-skills-adw-potencializacao/strategy-2026-08-28-skills-adw-potencializacao.md — review for plan-delta\\\"\"}}", "stderr": "", "exitCode": 0, "command": "Scout Perpétuo: checking demand-generator cadence...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolBatch", "hookEvent": "PostToolBatch", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolBatch\", \"additionalContext\": \"post-tool-batch: 1 arquivo(s) que podem carregar símbolo público editados: /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/corpus_semeado.py\\nMUST touring wiring orphans -j   // REGRA #0 — ligue todo pub novo a um consumidor\"}}", "stderr": "", "exitCode": 0, "command": "TACO: batch RL consolidation + wiring delta...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolBatch", "hookEvent": "PostToolBatch", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolBatch\", \"additionalContext\": \"post-tool-batch: 1 arquivo(s) que podem carregar símbolo público editados: /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/corpus_semeado.py\\nMUST touring wiring orphans -j   // REGRA #0 — ligue todo pub novo a um consumidor\"}}", "stderr": "", "exitCode": 0, "command": "TACO: batch RL consolidation + wiring delta...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Edit", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"HOTSPOT: `str` has 13 callers | callers: [__init__, abrir, delta, pares_do_repo, exige_clone_limpo (+8 more)] | note: High complexity: pares_do_repo(CC=13), main(CC=21) | Quality score: 0.62; quality: CC_max=16, CC_avg | 5x edited recently | quality_evolution: CC>10: [pares_do_repo(CC=13), exige_clone_limpo(CC=11), delta_do_tsc(CC=11)] — consider decomposing | 📋 overview: (36fn, 1types, 1321L) [const OSS:L29-29, const SAIDA:L30-30, const ORACULO_LS:L33-33, const TSC:L34-34, const RETEST_A_CADA:L35-35, const SEMENTE:L36-36, const RE_TSC_CURTO:L40-40, const RE_TSC_BONITO:L41-41, const CODIGOS_DEP_AUSENTE:L48-48, const SINTAXE_INVALIDA:L54-57, const EXT_LANG:L58-64, const EXCLUIR_PATH:L65-77, const EXCLUIR_NOME:L78-78, const GERADO:L79-79, const ORDEM:L80-88, const TSCONFIG_JS:L95-111, fn pipe_de:L114-127, cls LS:L130-208, method __init__:L133-153, method cmd:L155-175] +34 more | ⚙ code-workflow [python]: symbols=54 exports=54 complexity=0.32 (moderate) max_cc=16 antipatterns=2 | co-edits: 5 file(s) frequently edited together [__subagent_stop__, 2026-10-08-vgp-motor-base, touring, __teammate_idle__, RETOMADA-onda2-4f.md] | 📚 related docs: [docs/plans/2026-10-08-vgp-motor-base/scripts/oraculo_ls.js@oraculo_ls.js, docs/plans/2026-10-08-vgp-motor-base/scripts/corpus_semeado.py@corpus_semeado.py, docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py@juiz_motor_vgp.py] | 📋 kind context: [9 file] | blast cached(0 deps) | project: healthy | Analysis: health=0.81 (healthy) | trend=Stable | orphans=1288 | quality: CC>10: [pares_do_repo(CC=13), exige_clone_limpo(CC=11), delta_do_tsc(CC=11)] | [python] pub API 40 (+3/-0)\"}}", "stderr": "", "exitCode": 0, "command": "Touring: analyzing blast radius...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Edit", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"HOTSPOT: `get` has 16 callers | callers: [dir_sombra, _ancora_de, _colhe, folha_resolvivel, _confere_por_delta (+11 more)] | note: High complexity: gera_codigo(CC=15), gera_html(CC=11) | 5x edited recently | quality_evolution: CC>10: [gera_codigo(CC=15), gera_html(CC=11)] — consider decomposing | 📋 overview: (95fn, 2types, 1844L) [const SEMENTE:L41-41, const SAIDA_PADRAO:L42-42, const LINGUAGENS:L43-43, const EXT:L44-44, const SUFIXO:L45-45, const ANALISE:L47-47, const FRONTEND:L48-48, const PORTAL:L49-49, const TSC:L50-50, const IGNORAR:L52-95, const ALVO_POR_LANG:L96-96, const NEGATIVOS_POR_LANG:L97-97, const TAMANHO_MAX_KB:L98-98, const TIMEOUT_REDE_S:L99-99, const DESLIGADOS:L101-101, const LINGUAGENS_DELTA:L106-106, const MUTACOES_POR_ARQUIVO:L112-112, fn sha12:L116-117, fn nome_marcado:L120-121, fn amostra:L124-128] +112 more | ⚙ code-workflow [python]: symbols=132 exports=126 complexity=0.25 (moderate) max_cc=15 antipatterns=2 | co-edits: 5 file(s) frequently edited together [__subagent_stop__, 2026-10-08-vgp-motor-base, __teammate_idle__, touring, RELATORIO-V1V2V5-2026-10-09.md] | 📚 related docs: [2.4 O que mudei no gerador (`scripts/corpus_semeado.py`)@RELATORIO-corpus-semeado-touring-4f.md, docs/plans/2026-10-08-vgp-motor-base/scripts/oraculo_ls.js@oraculo_ls.js] | 📋 kind context: [4 definition, 5 file] | blast cached(0 deps) | chain:pre_read(ctx_len=1363) | ⚡ last fail: echo — Exit code 2 | project: healthy | Analysis: health=0.81 (healthy) | trend=Stable | orphans=1288 | ⚠ pensieve: similar path had recorded failures (46% match) | quality: CC>10: [gera_codigo(CC=15), gera_html(CC=11)] | [python] pub API 91\"}}", "stderr": "", "exitCode": 0, "command": "Touring: analyzing blast radius...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Read", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"📌 defs[22]: WT(16)·SAIDA(17)·ARGS(18)·CHECAR(19)·SO(20)·CR(21)·ENV(22)·PY(24)·+14 | ⚠️ quality: CC_max=8, CC_avg=4.6, symbols=22, complex=0 | 💡 `touring ast overview mut_p0b.py` mapeia sem ler completo (~50% tokens) | 🔮 Next: Bash (52%) | knowledge: 9717/9717 files indexed (score 1.00) | health: healthy 0.81 [wiring:0.81] | 🔮 L7: python.rs (385%), s15.py (300%), test_snapshot_safety.py (300%) | ⚠ scope shadowing: txt@121 shadows @106, originais@131 shadows @118 | 🐜 PFC: python.rs, s15.py, test_snapshot_safety.py | ANN related: docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/scripts/mut_p0b.py (100%), docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/scripts/mut_p0b.sh (95%), docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/scripts/release_p0b.sh (93%) | 📚 related docs: [docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/scripts/gates_p0b.sh@gates_p0b.sh, docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/scripts/juizes_p0b.sh@juizes_p0b.sh, docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/scripts/release_p0b.sh@release_p0b.sh] | 📋 kind context: [9 file] | quality: high 1.00 [hooks:{}] | ⚠️ distribution drift detected: KS=0.500 JS=0.000\"}}", "stderr": "", "exitCode": 0, "command": "Touring: analyzing file context...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Read", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"💡 ~690 linhas: `touring ast overview corpus_semeado.py` mapeia sem ler completo (~85% tokens) | 💡 `touring ast overview corpus_semeado.py` mapeia sem ler completo (~80% tokens) | 🔮 Next: Bash (81%) | knowledge: 9546/9546 files indexed (score 1.00) | health: healthy 0.81 [wiring:0.81] | 🔮 L7: RETOMAR-AQUI-2026-10-09.md (200%), diag_inventario.py (100%), 2026-10-09-touring-4f-corpus-semeado.md (100%) | ⚠ scope shadowing: nome@195 shadows @189, prop@205 shadows @200 | 🐜 PFC: RETOMAR-AQUI-2026-10-09.md, diag_inventario.py, 2026-10-09-touring-4f-corpus-semeado.md | ANN related: docs/plans/2026-10-08-vgp-motor-base/RETOMAR-AQUI-2026-10-09.md (75%), docs/plans/2026-10-08-vgp-motor-base/RETOMAR-AQUI-2026-10-09.md (75%), docs/plans/2026-10-08-vgp-motor-base/briefs/2026-10-09-touring-35-vl0.md (63%) | 📚 related docs: [Plan Doc@project_cronflow_2026_04_24.md, docs/plans/2026-10-08-vgp-motor-base/RETOMAR-AQUI-2026-10-09.md@RETOMAR-AQUI-2026-10-09.md, docs/plans/2026-10-08-vgp-motor-base/briefs/2026-10-09-touring-35-vl0.md@2026-10-09-touring-35-vl0.md] | 📋 kind context: [3 file, 7 definition] | quality: high 1.00 [hooks:{}] | ⚠️ distribution drift detected: KS=0.565 JS=0.000\"}}", "stderr": "", "exitCode": 0, "command": "Touring: analyzing file context...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Bash", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"Similar command failed recently (similarity=57%)\"}}", "stderr": "", "exitCode": 0, "command": "Touring: checking command history...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Bash", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"Similar command failed recently (similarity=45%)\"}}", "stderr": "", "exitCode": 0, "command": "Touring: checking command history...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"# 🧠 TOURING (slim)\\n\\n## Saúde: composite indisponível (timeout 3s) · Doctor indisponível (timeout 1.5s)\\n\\n_telemetria on-demand: `touring status -j` · `gate-metrics -j` · `learning status` · `evolution insights -j`_\\n\\n---\\n\\n# 📁 `/home/user/projects/touring` · `rust`\\n\\n- Orphan pub symbols: **763** (REGRA #0)\\n\\n## Próximas Ações Recomendadas\\n- `touring ast meta <file> --depth summary -j` antes de edits (file-metadata-first)\\n- `cargo check --workspace` + `touring e2e -j` para validar baseline\\n\\n---\\n_Session intelligence | session_id=efe418c2 | path-aware | hook=session_startup_intelligence.py_\"}}", "stderr": "", "exitCode": 0, "command": "Touring: collecting session intelligence dashboard...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"# 🧠 TOURING (slim)\\n\\n## Saúde: composite **0.69** · Doctor **9/9 OK**\\n\\n## Atenção\\n- composite 0.69 < 0.7 → `touring e2e -j` + investigar degradados\\n\\n_telemetria on-demand: `touring status -j` · `gate-metrics -j` · `learning status` · `evolution insights -j`_\\n\\n---\\n\\n# 📁 `/home/user/projects/touring` · `rust`\\n\\n- Orphan pub symbols: **760** (REGRA #0)\\n\\n## Próximas Ações Recomendadas\\n- `touring ast meta <file> --depth summary -j` antes de edits (file-metadata-first)\\n- `cargo check --workspace` + `touring e2e -j` para validar baseline\\n\\n---\\n_Session intelligence | session_id=2e4db816 | path-aware | hook=session_startup_intelligence.py_\"}}", "stderr": "", "exitCode": 0, "command": "Touring: collecting session intelligence dashboard...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:resume", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Touring Knowledge: 9704 files known, 52723 relations, 13973 cmd outcomes, 4340 edits tracked, Prior session: 4340 edits, 13973 cmds, 95% success | gotchas: .unwrap(), async fn, def , trend=stable, predictor=ready(997 seq), complementacao=[h7_code_mode=code;h12_entity_id=entity:796fe20262d217ec;h15_evolution={\\\"converging\\\":false,\\\"total_updates\\\":2,\\\"avg_reward\\\":1.42}], quality_tracking=active, cognitive=active | session=efe418c2\"}}", "stderr": "", "exitCode": 0, "command": "Touring: initializing cognitive engine...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"Touring Knowledge: 9537 files known, 36322 relations, 11497 cmd outcomes, 3616 edits tracked, Prior session: 3616 edits, 11497 cmds, 92% success | gotchas: .unwrap(), async fn, def , trend=stable, predictor=ready(997 seq), complementacao=[h7_code_mode=code;h12_entity_id=entity:796fe20262d217ec;h15_evolution={\\\"converging\\\":false,\\\"total_updates\\\":0,\\\"avg_reward\\\":0.00}], quality_tracking=active, cognitive=active | session=2e4db816\"}}", "stderr": "", "exitCode": 0, "command": "Touring: initializing cognitive engine...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Write", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"post-write: 1 issue(s) | complexity: CC_max=15 in [le(CC=15)] — consider refactoring | ℹ ⚙ health-delta: first-observation new=0.75 | ⚡ last fail: o.raiz) — Exit code 143\"}}", "stderr": "", "exitCode": 0, "command": "Touring: registering new file...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Write", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"post-write: 1 issue(s) | [javascript] `== null` — use strict equality `=== null` (1x) | ℹ ⚙ health-delta: first-observation new=1.00 | ⚡ last fail: o.raiz) — Exit code 143\"}}", "stderr": "", "exitCode": 0, "command": "Touring: registering new file...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Write", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"⚙ code-workflow [python]: symbols=3 exports=3 complexity=0.00 (simple) max_cc=1 antipatterns=1 | callers: [<module>] | 📋 kind context: [10 definition] | 📚 related docs: [Diagnostic — `/home/user/projects/touring`@touring-20260831T153042.md, Diagnostic — `/home/user/projects/touring`@touring-20260902T041748.md, Diagnostic — `/home/user/projects/touring`@touring-20260902T041748.md] | ANN related: /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s10.py (95%), /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s5.py (94%), /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s4.py (94%) | 🔀 related files: [manifest.rs, lib.rs, event_seq_gap_detector.py] | deep_module: `/tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s11.py` is 6 levels deep — likely internal implementation, lower coupling risk | [python] pub API 0\"}}", "stderr": "", "exitCode": 0, "command": "Touring: speculative validation...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Write", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"❌ speculate(Complexity): `main` has CC=22 (threshold=15, excess=7) | quality_depth: max_CC=22 (>15 threshold) — refactor before writing | ⚙ code-workflow [python]: symbols=8 exports=8 complexity=0.75 (very_complex) max_cc=22 antipatterns=1 | wiring_predict: 2 new pub symbol(s) — ensure consumers exist or reduce visibility | callers: [<module>, main] | quality: CC>10: [main(CC=22)], avg_CC=13.5 | 📋 kind context: [10 definition] | 📚 related docs: [Diagnostic — `/home/user/projects/touring`@touring-20260831T153042.md, Diagnostic — `/home/user/projects/touring`@touring-20260902T062959.md, Diagnostic — `/home/user/projects/touring`@touring-20260831T133748.md] | ANN related: /home/user/.cache/vgp-semeado/diag_fonte_js.py (87%), /home/user/.cache/vgp-semeado/diag_varre_js.py (86%), /home/user/.cache/vgp-semeado/diag_teto_js.py (83%) | deep_module: `/home/user/.cache/vgp-semeado/mede_base_js.py` is 5 levels deep — likely internal implementation, lower coupling risk | [python] pub API 2\"}}", "stderr": "", "exitCode": 0, "command": "Touring: speculative validation...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Edit", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"Pre-edit prevention for docs/plans/2026-10-08-vgp-motor-base/scripts/rotular_oss.py (2 signals):\\nANTIPATTERN: [python] `print()` — debug output left in production code (1x)\"}}", "stderr": "", "exitCode": 0, "command": "Touring: syntax pre-check...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Edit", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"📚 related docs: [docs/plans/2026-10-08-vgp-motor-base/scripts/corpus_semeado.py@corpus_semeado.py, 2.4 O que mudei no gerador (`scripts/corpus_semeado.py`)@RELATORIO-corpus-semeado-touring-4f.md]\"}}", "stderr": "", "exitCode": 0, "command": "Touring: syntax pre-check...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Edit", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"post-edit verification: 1 issue(s) | API surface changed: +pub: CODIGOS_DE_IMPORT_SEM_EXTENSAO | ℹ ⚙ code-workflow [python]: symbols=18 exports=18 complexity=0.00 (simple) max_cc=8 antipatterns=1 | HEALTH HEALTHY 0.81 [wiring:0.81] 0ms — 1288 orphan pub symbol(s) | ⚙ health-delta: old=1.00 new=1.00 Δ=+0.00\"}}", "stderr": "", "exitCode": 0, "command": "Touring: verifying edit quality...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Edit", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"post-edit verification: 1 issue(s) | API surface changed: +pub: receita_variada, variante | ℹ ⚙ code-workflow [python]: symbols=125 exports=119 complexity=0.20 (moderate) max_cc=14 antipatterns=2 | HEALTH HEALTHY 0.81 [wiring:0.81] 0ms — 1288 orphan pub symbol(s) | ⚙ health-delta: first-observation new=0.80\"}}", "stderr": "", "exitCode": 0, "command": "Touring: verifying edit quality...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Write", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"[from security-guidance@claude-code-plugins plugin]\\n\\n⚠️ Security Warning: os.system() runs a shell and is a command-injection sink. Use subprocess.run([...]) with a list of arguments instead. If this is safe or is explicitly needed, briefly document that in a comment before continuing.\"}}", "stderr": "", "exitCode": 0, "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Edit", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"[from security-guidance@claude-code-plugins plugin]\\n\\n⚠️ Security Warning: You are editing a GitHub Actions workflow file. Be aware of these security risks:\\n\\n1. **Command Injection**: Never use untrusted input (like issue titles, PR descriptions, commit messages) directly in run: commands without proper escaping\\n2. **Use environment variables**: Instead of ${{ github.event.issue.title }}, use env: with proper quoting\\n3. **Review the guide**: https://github.blog/security/vulnerability-research/how-to-catch-github-actions-workflow-injections-before-attackers-do/\\n\\nExample of UNSAFE pattern to avoid:\\nrun: echo \\\"${{ github.event.issue.title }}\\\"\\n\\nExample of SAFE pattern:\\nenv:\\n  TITLE: ${{ github.event.issue.title }}\\nrun: echo \\\"$TITLE\\\"\\n\\nOther risky inputs to be careful with:\\n- github.event.issue.body\\n- github.event.pull_request.title\\n- github.event.pull_request.body\\n- github.event.comment.body\\n- github.event.review.body\\n- github.event.review_comment.body\\n- github.event.pages.*.page_name\\n- github.event.commits.*.message\\n- github.event.head_commit.message\\n- github.event.head_commit.author.email\\n- github.event.head_commit.author.name\\n- github.event.commits.*.author.email\\n- github.event.commits.*.author.name\\n- github.event.pull_request.head.ref\\n- github.event.pull_request.head.label\\n- github.event.pull_request.head.repo.default_branch\\n- github.event.client_payload.* (repository_dispatch events — attacker can set any field)\\n\\n4. **Ref injection**: Never use untrusted input in `ref:` parameters of `actions/checkout`. For `client_payload.pr_number`, validate it matches `^[0-9]+$` before using in `ref: refs/pull/${{ ... }}/head`\\n- github.head_ref\"}}", "stderr": "", "exitCode": 0, "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sg-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/security_reminder_hook.py\"", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:compact", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"=== REMEMBER ===\\nHistory in .remember/: now.md (buffer), today-*.md (daily), recent.md (7d), archive.md (old), archive-YYYY-MM-DD*.md and recent-YYYY-MM-DD*.md (rotated slices, older still; a second rotation the same day gets a -2 suffix), core-memories.md (key moments). Search on user request — the rotated slices are NOT injected below, grep them when a question reaches past what is.\\n\\n=== MEMORY ===\\n--- not re-injected at compact (delivered at session start); read or grep on request ---\\n/home/user/projects/touring/.remember/today-2026-10-09.md (26588 bytes)\\n/home/user/projects/touring/.remember/now.md (806 bytes)\\n/home/user/projects/touring/.remember/recent.md (2751 bytes)\\n/home/user/projects/touring/.remember/archive.md (1994 bytes)\\n\\n\\n\"}}", "stderr": "", "exitCode": 0, "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start-hook.sh\"", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:compact", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"=== REMEMBER ===\\nHistory in .remember/: now.md (buffer), today-*.md (daily), recent.md (7d), archive.md (old), archive-YYYY-MM-DD*.md and recent-YYYY-MM-DD*.md (rotated slices, older still; a second rotation the same day gets a -2 suffix), core-memories.md (key moments). Search on user request — the rotated slices are NOT injected below, grep them when a question reaches past what is.\\n\\n=== MEMORY ===\\n--- not re-injected at compact (delivered at session start); read or grep on request ---\\n/home/user/projects/touring/.remember/today-2026-10-09.md (40010 bytes)\\n/home/user/projects/touring/.remember/now.md (1229 bytes)\\n/home/user/projects/touring/.remember/recent.md (2751 bytes)\\n/home/user/projects/touring/.remember/archive.md (1994 bytes)\\n\\n\\n\"}}", "stderr": "", "exitCode": 0, "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start-hook.sh\"", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "UserPromptSubmit", "hookEvent": "UserPromptSubmit", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"[user]\\n\"}}", "stderr": "", "exitCode": 0, "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/user-prompt-hook.sh\"", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "UserPromptSubmit", "hookEvent": "UserPromptSubmit", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"[user]\\n\"}}", "stderr": "", "exitCode": 0, "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/user-prompt-hook.sh\"", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Read", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"[delegation-nudge] 6 leituras (Read/Grep/Glob) em 6 min, ~11 KB direto no contexto desta sessão — cada KB é reenviado em todo turno seguinte. Mais recentes: docs/guide/getting-started.md · ~/.claude/skills/Touring/references/touring-per-project.md · .github/workflows/release.yml.\\nDelegue: Agent(subagent_type=\\\"Explore\\\", model=\\\"haiku\\\", prompt=\\\"<a pergunta sobre docs/guide/getting-started.md, ~/.claude/skills/Touring/references/touring-per-project.md, .github/workflows/release.yml>\\\") e fique só com a síntese; varredura determinística de ≥3 arquivos: touring run --lang python --file <script> (só o agregado entra no contexto).\\nMatriz: docs/economia-de-creditos-e-contexto.md §1 (busca/extração → haiku).\"}}", "stderr": "", "exitCode": 0, "command": "delegation-nudge: rajada de leitura?", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Bash", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"⚠ EVIDENCE GUARD · DEGRADED\\n  · [verde-de-cache-nao-prova-medicao] 'forbidden_calls'\\n    → leia o stderr e o exit code, não só o stdout\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/hooks/evidence_guard.py --stdin", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PostToolUse:Bash", "hookEvent": "PostToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PostToolUse\", \"additionalContext\": \"⚠ EVIDENCE GUARD · DEGRADED\\n  · [verde-de-cache-nao-prova-medicao] 'forbidden_calls'\\n    → leia o stderr e o exit code, não só o stdout\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/hooks/evidence_guard.py --stdin", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:SendMessage", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"[prose-integrity] SendMessage: 2 caractere(s) de alfabeto estranho ao português — '普' U+666E (cjk) na posição 1090, '查' U+67E5 (cjk) na posição 1091. Se não foi proposital, é corrupção de token: reescreva o trecho. Se é citação proposital (o próprio defeito, um dado), ponha o trecho entre crases.\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:SendMessage", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"[prose-integrity] SendMessage: 2 caractere(s) de alfabeto estranho ao português — '另' U+53E6 (cjk) na posição 1847, '一' U+4E00 (cjk) na posição 1848. Se não foi proposital, é corrupção de token: reescreva o trecho. Se é citação proposital (o próprio defeito, um dado), ponha o trecho entre crases.\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:compact", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[COMPACTAÇÃO · lacunas do resumo, medidas no transcript] O resumo não cita o que segue; confira no disco antes de agir sobre isto.\\n- arquivos alterados: /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s21.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s22.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s23.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s24.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s25.py, /home/user/projects/touring-wt-roteamento/client/hooks/tests/test_hook_fail_open_contract.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s26_patch.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s27_check_false.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s28_mutants.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s29_deploy_lint.py, /home/user/.claude/projects/-home-user-projects-touring/memory/ruff-sem-config-julga-pelo-default-da-versao.md, /home/user/projects/touring/.github/workflows/ci.yml (+27)\\n- DAG: task_1787501528611029513, task_1792258981432513400\\n- testes rodados: `cd /home/user/projects/touring-wt-roteamento && /home/user/projects/touring/scripts/hw-slot --label hooks-baseline -- python3 -m pytest client/hooks/tests -q -p no:cacheprovider > /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/pytest_baseline.txt 2>&1; echo \\\"rc=$?\\\" >> /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/pytest_baseline.txt`, `S=/tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad; tail -4 $S/pytest_baseline.txt; cd /home/user/projects/touring-wt-roteamento && timeout 300 python3 -m pytest client/hooks/tests/test_hook_fail_open_contract.py -q -p no:cacheprovider 2>&1 | grep -E \\\"passed|failed|FAILED|Error\\\" | head -20`, `cd /home/user/projects/touring-wt-roteamento && ruff check client/hooks --fix --unsafe-fixes --select PLW1510 2>&1 | tail -1 && python3 - <<'EOF'\\nfrom pathlib import Path\\np = Path(\\\"client/hooks/tests/conftest.py\\\")\\nt = p.read_text(encoding=\\\"utf-8\\\")\\nold = \\\"from helpers import *  # noqa: F403  re-export for pytest collection\\\\n\\\"\\nassert t.count(old) == 1, t\\np.write_text(t.replace(old, \\\"from \"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:compact", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"[COMPACTAÇÃO · lacunas do resumo, medidas no transcript] O resumo não cita o que segue; confira no disco antes de agir sobre isto.\\n- arquivos alterados: /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_snapshot_safety.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s11.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s12.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s13.py, /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97/scripts/gates_int97.sh, /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97/scripts/release_int97.sh, /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97/scripts/pipeline_int97.sh, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s14.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s15.py, /tmp/claude-1000/-home-user-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/s16.py, /home/user/projects/touring-wt-p0b/crates/touring-code/src/vgp/lang/python.rs, /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int-adapt/scripts/patches_adapt.sh (+18)\\n- DAG: task_1787501528611029513, task_1788296582280254749, task_1787922622533751850, task_1790816625267861342, task_1791289267243494248\\n- testes rodados: `git for-each-ref --format='%(refname:short) %(objectname:short) %(committerdate:short)' refs/heads/safety/ | tail -30; echo ---; ps -eo pid,etime,comm,args --sort=start_time | awk '/claude|cargo|rustc|hw-slot|pytest/ && !/awk/ {print substr($0,1,200)}' | tail -25; echo ---; scripts/hw-slot --status`, `cd /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts && python3 -m pytest test_snapshot_safety.py -q -p no:cacheprovider 2>&1 | tail -5; ruff check snapshot_safety.py test_snapshot_safety.py 2>&1 | tail -3`, `ruff check snapshot_safety.py test_snapshot_safety.py --output-format concise 2>&1 | head -6`, `cd /home/user/projects/touring && S=docs/plans/2026-10-08-vgp-motor-base/scripts && chmod +x $S/snapshot_safety.py && python3 -m pytest $S/test_snapshot_safety.py -q -p no:cacheprovider 2>&1 | tail -1 && ruff check $S/snapshot_safety.py $S/test_snapshot_safety.py && W=/home/user/projects && python3 $S/snapshot_safety.py --dry-run --prefix safety/2026-10-17 f21=$W/touring-wt-f21 p0b=$W/touring-wt-p0b vhtml=$W/touring-wt-vhtml vrs2=\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"🌅 ATZILUTH — Painel de Emanação (o estado do mundo, classificado)\\nItens vivos, por GUT (gravidade×urgência×tendência):\\n  1. [ 60·G4U5T3] RETOMAR: RETOMAR AQUI — 2026-08-25 (rodada 2 + P0/P1 entregues) — 40d parado | docs/plans/2026-08-25-autoresearch-rl-intelligence/RETOMAR-AQUI.md\\n  2. [ 60·G4U5T3] RETOMAR: Retomar aqui — 45d parado | docs/plans/2026-08-25-code-mode-afordancia/RETOMAR-AQUI.md\\n  3. [ 60·G4U5T3] RETOMAR: Retomar aqui — 26/08/2026 ~14:45 BRT — 44d parado | docs/plans/2026-08-26-code-mode-afordancia-deep/RETOMAR-AQUI.md\\n  4. [ 60·G4U5T3] RETOMAR: Retomar aqui — documentação sistema/repo/infra — 39d parado | docs/plans/2026-08-26-documentacao-touring/RETOMAR-AQUI.md\\n  5. [ 60·G4U5T3] RETOMAR: Retomar aqui — sinais dos hooks (01/09/2026) — 37d parado | docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md\\n  6. [ 60·G4U5T3] RETOMAR: Retomar aqui — 02/09/2026 — 37d parado | docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/RETOMAR-AQUI.md\\n  7. [ 60·G4U5T3] RETOMAR: Retomar aqui — Touring próxima geração — 37d parado | docs/plans/2026-09-02-touring-proxima-geracao/RETOMAR-AQUI.md\\n  8. [ 24·G4U2T3] RETOMAR: Retomar aqui — 06/10/2026 — 3d parado | docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md\\n  (+7 itens de menor GUT não listados)\\n🪞 Espelho (F4): n=5 medições · antecipação média 0.429 · últimas 5: 0.429 · mais ausentes: emanacao, imagem, fronteira\\n🔁 Isomorfismo? harness (faltou: cadeia, custo-invisivel, emanacao, fronteira, pronto) × codigo (faltou: cadeia, custo-invisivel, emanacao, fronteira, imagem) — mesma forma? O apontamento é do turno de abertura.\\n→ Diga \\\"retomar N\\\" para um item, descreva uma nova criação (o rito Briah será ofertado no tamanho certo), ou vá direto ao trabalho.\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "SessionStart:startup", "hookEvent": "SessionStart", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\", \"additionalContext\": \"🌅 ATZILUTH — Painel de Emanação (o estado do mundo, classificado)\\nItens vivos, por GUT (gravidade×urgência×tendência):\\n  1. [ 60·G4U5T3] RETOMAR: RETOMAR AQUI — 2026-08-25 (rodada 2 + P0/P1 entregues) — 47d parado | docs/plans/2026-08-25-autoresearch-rl-intelligence/RETOMAR-AQUI.md\\n  2. [ 60·G4U5T3] RETOMAR: Retomar aqui — 51d parado | docs/plans/2026-08-25-code-mode-afordancia/RETOMAR-AQUI.md\\n  3. [ 60·G4U5T3] RETOMAR: Retomar aqui — 26/08/2026 ~14:45 BRT — 50d parado | docs/plans/2026-08-26-code-mode-afordancia-deep/RETOMAR-AQUI.md\\n  4. [ 60·G4U5T3] RETOMAR: Retomar aqui — documentação sistema/repo/infra — 45d parado | docs/plans/2026-08-26-documentacao-touring/RETOMAR-AQUI.md\\n  5. [ 60·G4U5T3] RETOMAR: Retomar aqui — sinais dos hooks (01/09/2026) — 44d parado | docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md\\n  6. [ 60·G4U5T3] RETOMAR: Retomar aqui — 02/09/2026 — 44d parado | docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/RETOMAR-AQUI.md\\n  7. [ 60·G4U5T3] RETOMAR: Retomar aqui — Touring próxima geração — 43d parado | docs/plans/2026-09-02-touring-proxima-geracao/RETOMAR-AQUI.md\\n  8. [ 36·G4U3T3] RETOMAR: Retomar aqui — 06/10/2026 — 10d parado | docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md\\n  (+10 itens de menor GUT não listados)\\n🪞 Espelho (F4): n=5 medições · antecipação média 0.429 · últimas 5: 0.429 · mais ausentes: emanacao, imagem, fronteira\\n🔁 Isomorfismo? harness (faltou: cadeia, custo-invisivel, emanacao, fronteira, pronto) × codigo (faltou: cadeia, custo-invisivel, emanacao, fronteira, imagem) — mesma forma? O apontamento é do turno de abertura.\\n→ Diga \\\"retomar N\\\" para um item, descreva uma nova criação (o rito Briah será ofertado no tamanho certo), ou vá direto ao trabalho.\"}}", "stderr": "", "exitCode": 0, "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Bash", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"  MUST    touring run --lang bash --code 'set -u; P=/home/user/projects; I=$P/touring-wt-int97; D=$P/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0bd; PATCH=$D/p0bd.patch\"}}", "stderr": "", "exitCode": 0, "command": "touring cli-suggest: classifying operation (Rust, in-daemon)...", "durationMs": 1}}
++{"type": "attachment", "attachment": {"type": "hook_success", "hookName": "PreToolUse:Write", "hookEvent": "PreToolUse", "content": "", "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"  MUST    Write tool --path /home/user/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/parse_tsconfig.js --intent \\\"<intent>\\\"\\n  SHOULD  touring portfolio \\\"parse tsconfig\\\"\"}}", "stderr": "", "exitCode": 0, "command": "touring cli-suggest: classifying operation (Rust, in-daemon)...", "durationMs": 1}}
+diff --git i/crates/touring-dispatch/src/hook_registry.rs w/crates/touring-dispatch/src/hook_registry.rs
+index c6d25ba3..3d6eacf0 100644
+--- i/crates/touring-dispatch/src/hook_registry.rs
++++ w/crates/touring-dispatch/src/hook_registry.rs
+@@ -704,6 +704,30 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
+     "cli-definitions-semantic-search",
+ ];
+ 
++/// Hooks that can DENY a tool call — the GUARDS (C4, 2026-10-17).
++///
++/// A guard that cannot read its input must fail CLOSED (the thin client denies with the
++/// cause named — see `HookRuntime::build_stdin_unreadable_deny`); every other hook is an
++/// ADVISORY and keeps failing open on a degraded stdin. The set is the one whose handlers
++/// emit `permissionDecision: "deny"`, directly (`HookResponse::Deny`) or through the schema
++/// check (`validation_deny`) — `guard_set_matches_the_handlers_that_can_deny` re-derives it
++/// from the handler sources, so a new denying handler cannot silently stay advisory.
++/// `pre-exec` is conditional on `CEG_ENFORCE=1` and handled in [`is_guard_hook`].
++pub const GUARD_HOOK_NAMES: &[&str] = &[
++    "pre-bash",
++    "pre-edit",
++    "pre-edit-prevention",
++    "pre-read",
++    "pre-tool-use",
++    "pre-write",
++];
++
++/// `true` when `name` is a guard: it can deny, so an unreadable stdin must deny too.
++pub fn is_guard_hook(name: &str) -> bool {
++    GUARD_HOOK_NAMES.contains(&name)
++        || (name == "pre-exec" && crate::ceg_adapter::enforcement_enabled())
++}
++
+ /// Build the O(1) dispatch table for daemon hook handlers.
+ ///
+ /// Called once via `OnceLock::get_or_init` in `daemon.rs`.
+diff --git i/crates/touring-dispatch/src/hook_registry_tests.rs w/crates/touring-dispatch/src/hook_registry_tests.rs
+index 8596b079..d29637d2 100644
+--- i/crates/touring-dispatch/src/hook_registry_tests.rs
++++ w/crates/touring-dispatch/src/hook_registry_tests.rs
+@@ -365,3 +365,81 @@ fn sprint_4_6_no_dispatch_entry_may_call_an_emitting_run() {
+         );
+     }
+ }
++
++// ── C4 (2026-10-17): guards vs advisories ─────────────────────────────────────────
++
++/// Handler sources whose deny is a helper of another hook, not a hook of its own.
++const DENY_HELPER_FILES: &[&str] = &["vgp-execucao"];
++
++/// Production part of a source file: everything before its first `#[cfg(test)]`.
++fn production_part(src: &str) -> &str {
++    src.split("#[cfg(test)]").next().unwrap_or(src)
++}
++
++/// The set of hooks whose handler source can deny is DERIVED from the code, so the
++/// declared [`GUARD_HOOK_NAMES`] cannot drift: a new denying handler that is not declared a
++/// guard would stay fail-open on a degraded stdin — exactly the defect C4 closes.
++#[test]
++fn guard_set_matches_the_handlers_that_can_deny() {
++    let dir =
++        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../touring-hook-handlers/src/hooks");
++    let mut derived: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
++    for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read {}: {e}", dir.display())) {
++        let path = entry.expect("dir entry").path();
++        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
++            continue;
++        }
++        let src = std::fs::read_to_string(&path).expect("read handler source");
++        let prod = production_part(&src);
++        let can_deny = prod.contains("HookResponse::Deny")
++            || prod.contains("build_deny(")
++            || prod.contains("build_deny_with_context(")
++            || prod.contains("validation_deny(");
++        if !can_deny {
++            continue;
++        }
++        let name = path
++            .file_stem()
++            .and_then(|s| s.to_str())
++            .expect("utf8 stem")
++            .replace('_', "-");
++        if DENY_HELPER_FILES.contains(&name.as_str()) {
++            continue;
++        }
++        derived.insert(name);
++    }
++    let declared: std::collections::BTreeSet<String> =
++        GUARD_HOOK_NAMES.iter().map(|s| (*s).to_string()).collect();
++    assert_eq!(
++        derived, declared,
++        "GUARD_HOOK_NAMES must be exactly the hooks whose handler source can deny"
++    );
++}
++
++/// Every guard is a registered hook (a typo would make the guard branch dead code), and the
++/// advisories — the rest of the registry — are not guards.
++#[test]
++fn guards_are_registered_hooks_and_advisories_are_not_guards() {
++    let names = all_daemon_hook_names();
++    for g in GUARD_HOOK_NAMES {
++        assert!(names.contains(g), "guard '{g}' is not a registered hook");
++        assert!(is_guard_hook(g));
++    }
++    for advisory in [
++        "pre-grep",
++        "pre-glob",
++        "cli-suggest",
++        "ceg-observe",
++        "post-bash",
++        "post-edit",
++        "post-write",
++        "post-read",
++        "session-start",
++        "prompt-enhance",
++    ] {
++        assert!(
++            !is_guard_hook(advisory),
++            "'{advisory}' must stay an advisory"
++        );
++    }
++}
+diff --git i/crates/touring-dispatch/tests/updated_input_writers.rs w/crates/touring-dispatch/tests/updated_input_writers.rs
+index 272cd8cd..78d1d953 100644
+--- i/crates/touring-dispatch/tests/updated_input_writers.rs
++++ w/crates/touring-dispatch/tests/updated_input_writers.rs
+@@ -25,6 +25,9 @@ const PRODUCERS: &[&str] = &[
+ const FRAMEWORK: &[&str] = &[
+     "touring-hook-runtime/src/hook_runtime.rs",
+     "touring-hook-runtime/src/hook_runtime_ext.rs",
++    // The verdict merge re-wraps a `ContextWithUpdatedInput` it RECEIVES, carrying the same
++    // `updated_input` through (`a_reescrita_mantem_o_updated_input`) — it never originates one.
++    "touring-hook-runtime/src/verdict.rs",
+     "touring-hooks-core/src/hook_response.rs",
+ ];
+ 
+diff --git i/crates/touring-hook-runtime/src/ceg_adapter.rs w/crates/touring-hook-runtime/src/ceg_adapter.rs
+index 2c36aabf..14147785 100644
+--- i/crates/touring-hook-runtime/src/ceg_adapter.rs
++++ w/crates/touring-hook-runtime/src/ceg_adapter.rs
+@@ -71,7 +71,7 @@ fn extract_call(input: &serde_json::Value) -> Result<(String, String), GatewayEr
+ /// deny. Default (unset, or any other value) is advisory **observe mode**: the
+ /// hook reports but never blocks. Observe-before-enforce is the safe rollout
+ /// while the gateway is still being hardened (P4).
+-fn enforcement_enabled() -> bool {
++pub fn enforcement_enabled() -> bool {
+     std::env::var("CEG_ENFORCE")
+         .map(|v| v == "1")
+         .unwrap_or(false)
+diff --git i/crates/touring-hook-runtime/src/hook_runtime_ext.rs w/crates/touring-hook-runtime/src/hook_runtime_ext.rs
+index 16e89f4d..26e977d9 100644
+--- i/crates/touring-hook-runtime/src/hook_runtime_ext.rs
++++ w/crates/touring-hook-runtime/src/hook_runtime_ext.rs
+@@ -430,50 +430,99 @@ impl HookRuntime {
+             updated_input,
+         }
+     }
+-    /// Read and parse JSON from stdin with a 2-second timeout.
++    /// Read and parse JSON from stdin (2 s deadline, [`MAX_STDIN_BYTES`] cap).
+     ///
+-    /// Returns `{}` if stdin is a terminal or no data arrives within timeout —
+-    /// **loudly** (F0.3b, 2026-09-01): the outcome is recorded for the hook
+-    /// trace ([`last_stdin_read`]) and warned, never swallowed. The reader
+-    /// tolerates a non-blocking stdin (Claude Code hands hooks a libuv
+-    /// socketpair) by waiting out `EAGAIN` until EOF or the deadline instead
+-    /// of surfacing `WouldBlock` as "no input".
++    /// Compatibility wrapper over [`HookRuntime::read_stdin_detailed`] for ADVISORY
++    /// callers: every unreadable outcome (timeout, I/O error, over the cap) still yields
++    /// `{}` — **loudly** (F0.3b, 2026-09-01: recorded for the hook trace
++    /// ([`last_stdin_read`]) and warned, never swallowed) — and only a non-JSON payload is
++    /// an `Err`. A GUARD must not use this: it cannot tell "nothing to inspect" from
++    /// "could not inspect". The guard path (`touring-hook`) calls `read_stdin_detailed`
++    /// and denies on [`StdinReadState::is_unreadable`].
+     pub fn read_stdin() -> Result<Value, StdinError> {
++        let read = Self::read_stdin_detailed();
++        match read.error {
++            Some(e) => Err(StdinError(e)),
++            None => Ok(read.value),
++        }
++    }
++    /// Read the hook payload from stdin and say HOW the read ended (C4, 2026-10-17).
++    ///
++    /// The reader tolerates a non-blocking stdin (Claude Code hands hooks a libuv
++    /// socketpair) by waiting out `EAGAIN` until EOF or the deadline instead of surfacing
++    /// `WouldBlock` as "no input". The outcome is recorded for the hook trace
++    /// ([`last_stdin_read`]) and warned.
++    pub fn read_stdin_detailed() -> StdinRead {
+         use std::io::IsTerminal;
+         if std::io::stdin().is_terminal() {
+             set_last_stdin_read(StdinReadState::Terminal, 0);
+-            return Ok(serde_json::json!({}));
++            return StdinRead::with_value(serde_json::json!({}), StdinReadState::Terminal, 0);
+         }
+-        let (input, state) =
+-            read_all_with_timeout(std::io::stdin(), std::time::Duration::from_secs(2));
+-        let bytes = input.len() as u64;
+-        match state {
+-            StdinReadState::Ok if !input.trim().is_empty() => match serde_json::from_str(&input) {
+-                Ok(v) => {
+-                    set_last_stdin_read(StdinReadState::Ok, bytes);
+-                    Ok(v)
+-                }
+-                Err(e) => {
+-                    set_last_stdin_read(StdinReadState::ParseError, bytes);
+-                    tracing::warn!(bytes, error = %e, "hook stdin: JSON parse error");
+-                    Err(StdinError(format!("JSON parse error: {e}")))
+-                }
+-            },
+-            StdinReadState::Ok | StdinReadState::Empty => {
+-                set_last_stdin_read(StdinReadState::Empty, bytes);
++        let read = read_payload(std::io::stdin(), STDIN_TIMEOUT, MAX_STDIN_BYTES);
++        set_last_stdin_read(read.state, read.bytes);
++        match read.state {
++            StdinReadState::Ok | StdinReadState::Terminal | StdinReadState::Unread => {}
++            StdinReadState::Empty => {
+                 tracing::warn!("hook stdin: empty payload — handler runs on `{{}}`");
+-                Ok(serde_json::json!({}))
++            }
++            StdinReadState::OkRecovered => {
++                tracing::warn!(
++                    bytes = read.bytes,
++                    "hook stdin: no clean EOF, but the bytes received are one complete JSON \
++                     document — using it"
++                );
+             }
+             degraded => {
+-                set_last_stdin_read(degraded, bytes);
+                 tracing::warn!(
+                     state = degraded.as_str(),
+-                    bytes,
+-                    "hook stdin degraded — handler runs on `{{}}`"
++                    bytes = read.bytes,
++                    error = read.error.as_deref().unwrap_or(""),
++                    "hook stdin unreadable — an advisory runs on `{{}}`, a guard denies"
+                 );
+-                Ok(serde_json::json!({}))
+             }
+         }
++        read
++    }
++    /// The deny a GUARD answers when it could not read its input (C4, 2026-10-17).
++    ///
++    /// Fail-closed with the reason NAMED and the way out spelled: a guard that runs on a
++    /// `{}` it substituted for the real payload sees an empty command and allows — it
++    /// "inspected" nothing and said yes. The reason teaches the retry, and the human
++    /// switch for a persistently broken pipe.
++    pub fn build_stdin_unreadable_deny(hook: &str, read: &StdinRead) -> HookResponse {
++        let cause = match read.state {
++            StdinReadState::Timeout => format!(
++                "sem EOF em {}s e os {} bytes recebidos não formam um JSON completo",
++                STDIN_TIMEOUT.as_secs(),
++                read.bytes
++            ),
++            StdinReadState::ReadError => {
++                format!("erro de E/S ao ler o stdin após {} bytes", read.bytes)
++            }
++            StdinReadState::TooLarge => format!(
++                "payload acima do teto de {} MiB",
++                MAX_STDIN_BYTES / (1024 * 1024)
++            ),
++            StdinReadState::ParseError => format!(
++                "{} bytes chegaram mas não são JSON ({})",
++                read.bytes,
++                read.error.as_deref().unwrap_or("parse error")
++            ),
++            other => other.as_str().to_string(),
++        };
++        let reason = format!(
++            "[entrada-ilegível] {hook}: a entrada do hook ficou ilegível ({cause}); nada foi \
++             inspecionado, então a guarda recusa em vez de liberar. Saída: repita a mesma \
++             chamada (falha transitória do pipe); se o motivo for o teto, divida a operação em \
++             partes menores. Se persistir, é o harness que quebrou o pipe: avise o Gabriel \
++             (kill switch humano: {STDIN_GUARD_DISABLED_ENV}=1; diagnóstico: \
++             `touring doctor -j` e o stdin_state em TOURING_HOOK_TRACE_FILE)."
++        );
++        HookResponse::Deny {
++            reason,
++            context: None,
++            event_name: Some("PreToolUse".to_string()),
++        }
+     }
+     /// Emit hookSpecificOutput with additionalContext and explicit hookEventName.
+     ///
+@@ -631,6 +680,11 @@ pub enum StdinReadState {
+     ReadError,
+     /// Bytes arrived but were not JSON.
+     ParseError,
++    /// No clean EOF (timeout or I/O error) but the bytes received already form ONE
++    /// complete JSON object — used as the payload, counted apart from `Ok` (C4).
++    OkRecovered,
++    /// More than [`MAX_STDIN_BYTES`] arrived; the read stopped at the cap (C4).
++    TooLarge,
+ }
+ 
+ impl StdinReadState {
+@@ -644,9 +698,25 @@ impl StdinReadState {
+             StdinReadState::Timeout => "timeout",
+             StdinReadState::ReadError => "read-error",
+             StdinReadState::ParseError => "parse-error",
++            StdinReadState::OkRecovered => "ok-recovered",
++            StdinReadState::TooLarge => "too-large",
+         }
+     }
+ 
++    /// `true` when the hook could NOT inspect its input: no usable payload reached it
++    /// (C4). A GUARD denies on this; an ADVISORY keeps failing open on `{}`. `Empty`
++    /// (zero bytes, clean EOF), `Terminal` and `OkRecovered` are not unreadable — the first
++    /// two are "nothing was sent" (allowed, counted), the last carries a whole payload.
++    pub fn is_unreadable(self) -> bool {
++        matches!(
++            self,
++            StdinReadState::Timeout
++                | StdinReadState::ReadError
++                | StdinReadState::ParseError
++                | StdinReadState::TooLarge
++        )
++    }
++
+     fn from_u8(v: u8) -> Self {
+         match v {
+             1 => StdinReadState::Terminal,
+@@ -655,6 +725,8 @@ impl StdinReadState {
+             4 => StdinReadState::Timeout,
+             5 => StdinReadState::ReadError,
+             6 => StdinReadState::ParseError,
++            7 => StdinReadState::OkRecovered,
++            8 => StdinReadState::TooLarge,
+             _ => StdinReadState::Unread,
+         }
+     }
+@@ -677,26 +749,123 @@ pub fn last_stdin_read() -> (StdinReadState, u64) {
+     )
+ }
+ 
+-/// Read `reader` to EOF on a helper thread, bounded by `timeout`.
++/// Deadline for the hook payload to reach EOF.
++pub const STDIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
++
++/// Hard cap on the hook payload (C4, 2026-10-17): 16 MiB.
++///
++/// Measured over 833,048 live invocations (`hook_trace.jsonl`, 17/10/2026): the largest
++/// payload ever sent to ANY hook was 6.1 MB (`post-tool-batch`, an advisory) and the
++/// largest to a guard was 126 KB (`pre-write`). 16 MiB leaves 2.6× headroom over the
++/// former — so no advisory regresses — and 130× over the latter, while still bounding
++/// memory: the reader stops at the cap instead of buffering a runaway stream.
++pub const MAX_STDIN_BYTES: usize = 16 * 1024 * 1024;
++
++/// Human-only switch that restores the old fail-open for guards on an unreadable stdin.
++pub const STDIN_GUARD_DISABLED_ENV: &str = "TOURING_HOOK_STDIN_GUARD_DISABLED";
++
++/// `true` when [`STDIN_GUARD_DISABLED_ENV`]`=1` — a guard then fails open as before C4.
++pub fn stdin_guard_disabled() -> bool {
++    std::env::var(STDIN_GUARD_DISABLED_ENV).is_ok_and(|v| v == "1")
++}
++
++/// What one stdin read produced, and how it ended (C4).
++#[derive(Debug, Clone)]
++pub struct StdinRead {
++    /// The parsed payload; `{}` whenever `state` is not `Ok`/`OkRecovered`.
++    pub value: Value,
++    /// How the read ended.
++    pub state: StdinReadState,
++    /// Bytes received (before parsing).
++    pub bytes: u64,
++    /// Set only for `ParseError`: the parser message.
++    pub error: Option<String>,
++}
++
++impl StdinRead {
++    fn with_value(value: Value, state: StdinReadState, bytes: u64) -> Self {
++        Self {
++            value,
++            state,
++            bytes,
++            error: None,
++        }
++    }
++}
++
++/// Read `reader` and classify the outcome, free of process-global state (C4).
++///
++/// The classification is the whole point: the F0.3b libuv socketpair can leave a
++/// COMPLETE payload without an EOF (timeout with the JSON already in hand) — that is
++/// `OkRecovered`, never `{}`; a timeout/error with no complete JSON object, a non-JSON
++/// payload and an over-cap stream are unreadable, never `{}`-and-allow for a guard.
++pub fn read_payload<R: std::io::Read + Send + 'static>(
++    reader: R,
++    timeout: std::time::Duration,
++    max_bytes: usize,
++) -> StdinRead {
++    let (text, state) = read_bounded(reader, timeout, max_bytes);
++    let bytes = text.len() as u64;
++    let empty = || serde_json::json!({});
++    match state {
++        StdinReadState::Ok if !text.trim().is_empty() => match serde_json::from_str(&text) {
++            Ok(v) => StdinRead::with_value(v, StdinReadState::Ok, bytes),
++            Err(e) => StdinRead {
++                value: empty(),
++                state: StdinReadState::ParseError,
++                bytes,
++                error: Some(format!("JSON parse error: {e}")),
++            },
++        },
++        // EOF with nothing (or only whitespace) in it: nothing was sent.
++        StdinReadState::Ok | StdinReadState::Empty => {
++            StdinRead::with_value(empty(), StdinReadState::Empty, bytes)
++        }
++        StdinReadState::Timeout | StdinReadState::ReadError => {
++            match serde_json::from_str::<Value>(&text) {
++                Ok(v) if v.is_object() => {
++                    StdinRead::with_value(v, StdinReadState::OkRecovered, bytes)
++                }
++                _ => StdinRead::with_value(empty(), state, bytes),
++            }
++        }
++        other => StdinRead::with_value(empty(), other, bytes),
++    }
++}
++
++/// Read `reader` to EOF on a helper thread, bounded by `timeout` and `max_bytes`.
+ ///
+ /// Tolerates a **non-blocking** descriptor: `WouldBlock` (EAGAIN) is waited
+ /// out, never surfaced as "no more input" — Claude Code hands hooks a libuv
+ /// socketpair and the write side may be shut down after the child's first
+ /// read, which is exactly where `read_to_string` used to drop the payload.
+-/// On timeout the helper thread is abandoned (the process exits shortly
+-/// after in every caller).
+-pub fn read_all_with_timeout<R: std::io::Read + Send + 'static>(
++/// The helper accumulates into a shared buffer so that a timeout can still hand back
++/// the bytes already received (C4: they may be a whole payload that never got its EOF).
++/// On timeout the helper thread is abandoned (the process exits shortly after in every
++/// caller). The returned text is what was received, `TooLarge` included (cut at the cap).
++pub fn read_bounded<R: std::io::Read + Send + 'static>(
+     mut reader: R,
+     timeout: std::time::Duration,
++    max_bytes: usize,
+ ) -> (String, StdinReadState) {
++    use std::sync::{Arc, Mutex};
++    let shared: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
++    let sink = Arc::clone(&shared);
+     let (tx, rx) = std::sync::mpsc::channel();
+     std::thread::spawn(move || {
+-        let mut buf: Vec<u8> = Vec::new();
+         let mut chunk = [0u8; 8192];
+         let outcome = loop {
+             match reader.read(&mut chunk) {
+-                Ok(0) => break Ok(()),
+-                Ok(n) => buf.extend_from_slice(&chunk[..n]),
++                Ok(0) => break Ok(StdinReadState::Ok),
++                Ok(n) => {
++                    let mut buf = sink.lock().unwrap_or_else(|p| p.into_inner());
++                    let room = max_bytes.saturating_sub(buf.len());
++                    if n > room {
++                        buf.extend_from_slice(&chunk[..room]);
++                        break Ok(StdinReadState::TooLarge);
++                    }
++                    buf.extend_from_slice(&chunk[..n]);
++                }
+                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                     std::thread::sleep(std::time::Duration::from_millis(1));
+@@ -704,15 +873,21 @@ pub fn read_all_with_timeout<R: std::io::Read + Send + 'static>(
+                 Err(e) => break Err(e),
+             }
+         };
+-        let text = String::from_utf8_lossy(&buf).into_owned();
+-        let _ = tx.send((text, outcome));
++        let _ = tx.send(outcome);
+     });
+-    match rx.recv_timeout(timeout) {
+-        Ok((text, Ok(()))) if text.is_empty() => (text, StdinReadState::Empty),
+-        Ok((text, Ok(()))) => (text, StdinReadState::Ok),
+-        Ok((text, Err(_))) => (text, StdinReadState::ReadError),
+-        Err(_) => (String::new(), StdinReadState::Timeout),
+-    }
++    let state = match rx.recv_timeout(timeout) {
++        Ok(Ok(StdinReadState::Ok)) => StdinReadState::Ok,
++        Ok(Ok(other)) => other,
++        Ok(Err(_)) => StdinReadState::ReadError,
++        Err(_) => StdinReadState::Timeout,
++    };
++    let buf = shared.lock().unwrap_or_else(|p| p.into_inner());
++    let text = String::from_utf8_lossy(&buf).into_owned();
++    let state = match state {
++        StdinReadState::Ok if text.is_empty() => StdinReadState::Empty,
++        s => s,
++    };
++    (text, state)
+ }
+ 
+ /// F0.3b (2026-09-01) — `read_stdin` must survive the transport Claude Code
+@@ -720,8 +895,12 @@ pub fn read_all_with_timeout<R: std::io::Read + Send + 'static>(
+ /// the child's first read) and must never degrade to `{}` in silence.
+ #[cfg(test)]
+ mod stdin_read_tests {
+-    use super::{StdinReadState, read_all_with_timeout};
+-    use std::io::Write;
++    use super::{
++        HookRuntime, MAX_STDIN_BYTES, STDIN_GUARD_DISABLED_ENV, StdinRead, StdinReadState,
++        read_bounded, read_payload,
++    };
++    use crate::hook_runtime::HookResponse;
++    use std::io::{Read, Write};
+     use std::os::unix::net::UnixStream;
+     use std::time::Duration;
+ 
+@@ -729,6 +908,25 @@ mod stdin_read_tests {
+         format!("{{\"tool_input\":{{\"command\":\"{}\"}}}}", "x".repeat(n))
+     }
+ 
++    const WAIT: Duration = Duration::from_secs(2);
++
++    /// A reader that yields `data` and then fails with a non-retryable I/O error.
++    struct FailsAfter {
++        data: Vec<u8>,
++        sent: bool,
++    }
++    impl Read for FailsAfter {
++        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
++            if self.sent {
++                return Err(std::io::Error::other("pipe broke"));
++            }
++            self.sent = true;
++            let n = self.data.len().min(buf.len());
++            buf[..n].copy_from_slice(&self.data[..n]);
++            Ok(n)
++        }
++    }
++
+     /// The live failure shape: non-blocking fd, data arrives AFTER the first
+     /// read (EAGAIN with empty buffer), EOF arrives AFTER the data is consumed
+     /// (EAGAIN again). A `read_to_string` that surfaces `WouldBlock` loses the
+@@ -747,7 +945,7 @@ mod stdin_read_tests {
+                 .shutdown(std::net::Shutdown::Write)
+                 .expect("shutdown write side");
+         });
+-        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
++        let (input, state) = read_bounded(reader, WAIT, MAX_STDIN_BYTES);
+         producer.join().expect("producer");
+         assert_eq!(state, StdinReadState::Ok, "input={input:?}");
+         assert_eq!(input, expected);
+@@ -761,7 +959,7 @@ mod stdin_read_tests {
+         writer
+             .shutdown(std::net::Shutdown::Write)
+             .expect("shutdown write side");
+-        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
++        let (input, state) = read_bounded(reader, WAIT, MAX_STDIN_BYTES);
+         assert_eq!(state, StdinReadState::Ok);
+         assert_eq!(input, expected);
+     }
+@@ -772,7 +970,7 @@ mod stdin_read_tests {
+         writer
+             .shutdown(std::net::Shutdown::Write)
+             .expect("shutdown write side");
+-        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
++        let (input, state) = read_bounded(reader, WAIT, MAX_STDIN_BYTES);
+         assert_eq!(state, StdinReadState::Empty);
+         assert!(input.is_empty());
+     }
+@@ -782,9 +980,11 @@ mod stdin_read_tests {
+         let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+         writer.write_all(b"{\"partial\":").expect("write");
+         let started = std::time::Instant::now();
+-        let (_input, state) = read_all_with_timeout(reader, Duration::from_millis(150));
++        let (input, state) = read_bounded(reader, Duration::from_millis(150), MAX_STDIN_BYTES);
+         assert_eq!(state, StdinReadState::Timeout);
+         assert!(started.elapsed() >= Duration::from_millis(150));
++        // C4: the bytes already received survive the timeout (they used to be dropped).
++        assert_eq!(input, "{\"partial\":");
+         drop(writer);
+     }
+ 
+@@ -796,6 +996,207 @@ mod stdin_read_tests {
+         assert_eq!(StdinReadState::Terminal.as_str(), "terminal");
+         assert_eq!(StdinReadState::ReadError.as_str(), "read-error");
+         assert_eq!(StdinReadState::ParseError.as_str(), "parse-error");
++        assert_eq!(StdinReadState::OkRecovered.as_str(), "ok-recovered");
++        assert_eq!(StdinReadState::TooLarge.as_str(), "too-large");
++    }
++
++    // ── C4 (2026-10-17): the four states a guard has to tell apart ─────────────────
++
++    /// (a) The F0.3b shape: the whole payload arrived, the EOF never did. The JSON in hand
++    /// is used — never `{}` — and the state is its own counted value.
++    #[test]
++    fn c4_timeout_with_a_complete_json_is_recovered_not_dropped() {
++        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
++        let body = payload(200);
++        writer.write_all(body.as_bytes()).expect("write");
++        let r = read_payload(reader, Duration::from_millis(150), MAX_STDIN_BYTES);
++        assert_eq!(r.state, StdinReadState::OkRecovered);
++        assert_eq!(r.value["tool_input"]["command"], "x".repeat(200));
++        assert_eq!(r.bytes, body.len() as u64);
++        assert!(!r.state.is_unreadable());
++        drop(writer);
++    }
++
++    /// (b) Timeout with a PARTIAL document: nothing usable — unreadable, value `{}`.
++    #[test]
++    fn c4_timeout_with_a_truncated_json_is_unreadable() {
++        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
++        writer
++            .write_all(br#"{"tool_input":{"command":"rm -rf /"#)
++            .expect("write");
++        let r = read_payload(reader, Duration::from_millis(150), MAX_STDIN_BYTES);
++        assert_eq!(r.state, StdinReadState::Timeout);
++        assert!(r.state.is_unreadable());
++        assert_eq!(r.value, serde_json::json!({}));
++        assert!(r.bytes > 0, "the received bytes are counted, not zeroed");
++        drop(writer);
++    }
++
++    /// (b) Timeout with ZERO bytes (open, silent pipe) is unreadable too — it is not "empty".
++    #[test]
++    fn c4_silent_open_pipe_is_a_timeout_not_empty() {
++        let (writer, reader) = UnixStream::pair().expect("socketpair");
++        let r = read_payload(reader, Duration::from_millis(150), MAX_STDIN_BYTES);
++        assert_eq!(r.state, StdinReadState::Timeout);
++        assert!(r.state.is_unreadable());
++        assert_eq!(r.bytes, 0);
++        drop(writer);
++    }
++
++    /// (b) A non-retryable I/O error: with no complete JSON it is unreadable; with a complete
++    /// JSON already received it is recovered like the timeout case.
++    #[test]
++    fn c4_read_error_is_unreadable_unless_the_json_is_already_whole() {
++        let broken = |data: &str| {
++            read_payload(
++                FailsAfter {
++                    data: data.as_bytes().to_vec(),
++                    sent: false,
++                },
++                WAIT,
++                MAX_STDIN_BYTES,
++            )
++        };
++        let partial = broken(r#"{"tool_input":{"comm"#);
++        assert_eq!(partial.state, StdinReadState::ReadError);
++        assert!(partial.state.is_unreadable());
++        assert_eq!(partial.value, serde_json::json!({}));
++        let whole = broken(r#"{"tool_input":{"command":"ls"}}"#);
++        assert_eq!(whole.state, StdinReadState::OkRecovered);
++        assert_eq!(whole.value["tool_input"]["command"], "ls");
++    }
++
++    /// (b) Over the byte cap: the read STOPS at the cap (bounded memory) and is unreadable.
++    #[test]
++    fn c4_payload_over_the_cap_is_too_large_and_the_read_stops_at_the_cap() {
++        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
++        let producer = std::thread::spawn(move || {
++            // More than the cap, then EOF; a broken pipe after the reader stopped is fine.
++            let _ = writer.write_all(&vec![b'a'; 3000]);
++        });
++        let r = read_payload(reader, WAIT, 1000);
++        producer.join().expect("producer");
++        assert_eq!(r.state, StdinReadState::TooLarge);
++        assert!(r.state.is_unreadable());
++        assert_eq!(r.bytes, 1000, "exactly the cap was buffered, no more");
++        assert_eq!(r.value, serde_json::json!({}));
++    }
++
++    /// Exactly AT the cap is still readable; one byte over is not.
++    #[test]
++    fn c4_the_cap_boundary_is_inclusive() {
++        let body = payload(100);
++        let at = |max: usize| {
++            let (mut w, r) = UnixStream::pair().expect("socketpair");
++            w.write_all(body.as_bytes()).expect("write");
++            w.shutdown(std::net::Shutdown::Write).expect("shutdown");
++            read_payload(r, WAIT, max)
++        };
++        assert_eq!(at(body.len()).state, StdinReadState::Ok);
++        assert_eq!(at(body.len() - 1).state, StdinReadState::TooLarge);
++    }
++
++    /// (c) EOF with zero bytes: allowed, but its own counted state — and not unreadable.
++    #[test]
++    fn c4_empty_is_counted_and_allowed() {
++        let (w, r) = UnixStream::pair().expect("socketpair");
++        w.shutdown(std::net::Shutdown::Write).expect("shutdown");
++        let read = read_payload(r, WAIT, MAX_STDIN_BYTES);
++        assert_eq!(read.state, StdinReadState::Empty);
++        assert!(!read.state.is_unreadable());
++        assert_eq!(read.value, serde_json::json!({}));
++    }
++
++    /// Bytes + clean EOF that are not JSON: unreadable, with the parser message kept.
++    #[test]
++    fn c4_non_json_after_a_clean_eof_is_a_parse_error() {
++        let (mut w, r) = UnixStream::pair().expect("socketpair");
++        w.write_all(b"this is not json").expect("write");
++        w.shutdown(std::net::Shutdown::Write).expect("shutdown");
++        let read = read_payload(r, WAIT, MAX_STDIN_BYTES);
++        assert_eq!(read.state, StdinReadState::ParseError);
++        assert!(read.state.is_unreadable());
++        assert!(
++            read.error
++                .as_deref()
++                .is_some_and(|e| e.contains("JSON parse error"))
++        );
++    }
++
++    #[test]
++    fn c4_a_normal_payload_is_ok_and_parsed() {
++        let (mut w, r) = UnixStream::pair().expect("socketpair");
++        w.write_all(payload(10).as_bytes()).expect("write");
++        w.shutdown(std::net::Shutdown::Write).expect("shutdown");
++        let read = read_payload(r, WAIT, MAX_STDIN_BYTES);
++        assert_eq!(read.state, StdinReadState::Ok);
++        assert!(!read.state.is_unreadable());
++        assert_eq!(read.value["tool_input"]["command"], "x".repeat(10));
++        assert!(read.error.is_none());
++    }
++
++    /// `is_unreadable` is a total, explicit table — a new variant must be classified here.
++    #[test]
++    fn c4_unreadable_classification_is_exactly_the_four_failure_states() {
++        use StdinReadState::*;
++        let all = [
++            (Unread, false),
++            (Terminal, false),
++            (Ok, false),
++            (Empty, false),
++            (Timeout, true),
++            (ReadError, true),
++            (ParseError, true),
++            (OkRecovered, false),
++            (TooLarge, true),
++        ];
++        for (state, expected) in all {
++            assert_eq!(state.is_unreadable(), expected, "{}", state.as_str());
++            assert_eq!(
++                StdinReadState::from_u8(state as u8),
++                state,
++                "the trace round-trip must keep {}",
++                state.as_str()
++            );
++        }
++    }
++
++    /// The deny teaches: it names the hook, the cause and the way out, and speaks as the
++    /// PreToolUse event.
++    #[test]
++    fn c4_the_guard_deny_names_the_cause_and_the_way_out() {
++        let read = StdinRead {
++            value: serde_json::json!({}),
++            state: StdinReadState::Timeout,
++            bytes: 37,
++            error: None,
++        };
++        let HookResponse::Deny {
++            reason, event_name, ..
++        } = HookRuntime::build_stdin_unreadable_deny("pre-bash", &read)
++        else {
++            panic!("a guard that cannot read its input must DENY");
++        };
++        assert_eq!(event_name.as_deref(), Some("PreToolUse"));
++        assert!(reason.contains("[entrada-ilegível] pre-bash"), "{reason}");
++        assert!(reason.contains("37 bytes"), "names the cause: {reason}");
++        assert!(reason.contains("nada foi inspecionado"), "{reason}");
++        assert!(reason.contains("repita"), "teaches the retry: {reason}");
++        assert!(
++            reason.contains(STDIN_GUARD_DISABLED_ENV),
++            "the human way out: {reason}"
++        );
++        let too_big = StdinRead {
++            state: StdinReadState::TooLarge,
++            bytes: MAX_STDIN_BYTES as u64,
++            ..read
++        };
++        let HookResponse::Deny { reason, .. } =
++            HookRuntime::build_stdin_unreadable_deny("pre-write", &too_big)
++        else {
++            panic!("deny expected");
++        };
++        assert!(reason.contains("teto de 16 MiB"), "{reason}");
+     }
+ }
+ 
+diff --git i/crates/touring-hook-runtime/src/hook_trace.rs w/crates/touring-hook-runtime/src/hook_trace.rs
+index 5b344b9f..33a0c6da 100644
+--- i/crates/touring-hook-runtime/src/hook_trace.rs
++++ w/crates/touring-hook-runtime/src/hook_trace.rs
+@@ -43,7 +43,10 @@ pub struct HookTraceLine {
+     /// Fine-grained outcome (`daemon-json`, `daemon-empty`, `standalone-ok`,
+     /// `standalone-unknown`, `runtime-init-err`, `handler-diverged`, …).
+     pub exit_reason: String,
+-    /// `ok` | `empty` | `timeout` | `terminal` | `read-error` | `parse-error` | `unread`.
++    /// `ok` | `empty` | `timeout` | `terminal` | `read-error` | `parse-error` | `unread` |
++    /// `ok-recovered` | `too-large` (C4). Every value but `ok` is a degraded read; the
++    /// unreadable ones (`timeout`, `read-error`, `parse-error`, `too-large`) deny a guard
++    /// (`exit_reason = stdin-unreadable-deny`) and leave an advisory running on `{}`.
+     pub stdin_state: String,
+     /// Bytes read from stdin (0 when unread/empty/timeout).
+     pub stdin_bytes: u64,
+diff --git i/crates/touring-hooks/src/main.rs w/crates/touring-hooks/src/main.rs
+index 9761784c..09cc653d 100644
+--- i/crates/touring-hooks/src/main.rs
++++ w/crates/touring-hooks/src/main.rs
+@@ -105,13 +105,21 @@ fn main() {
+         process::exit(0);
+     }
+ 
+-    // Read stdin JSON (shared across all subcommands)
+-    let input: serde_json::Value = match HookRuntime::read_stdin() {
+-        Ok(v) => v,
+-        Err(e) => {
++    // Read stdin JSON (shared across all subcommands).
++    //
++    // C4 (2026-10-17): a GUARD (a hook that can deny) that could not read its input
++    // fails CLOSED — it denies with the cause named and the way out, because a `{}` standing
++    // in for the payload makes it "inspect" an empty command and allow. An ADVISORY keeps
++    // failing open (below). Every state other than `ok` stays visible in the hook trace
++    // (`stdin_state`, plus `exit_reason = stdin-unreadable-deny` for the deny).
++    let read = HookRuntime::read_stdin_detailed();
++    deny_if_guard_cannot_read(subcommand, &read);
++    let input: serde_json::Value = match read.error {
++        None => read.value,
++        Some(e) => {
+             touring_hook_runtime::hook_trace::set_reason("stdin-error");
+             eprintln!("[touring-hook] stdin error: {e}");
+-            // Fail open — don't block Claude Code
++            // Advisory: fail open — don't block Claude Code
+             process::exit(0);
+         }
+     };
+@@ -714,6 +722,33 @@ fn daemon_exit_reason(output: &str, success: bool) -> &'static str {
+     }
+ }
+ 
++/// C4 (2026-10-17): a GUARD whose stdin was unreadable denies and exits; anything else
++/// returns and the caller proceeds (an advisory runs on the `{}` it got — fail-open).
++///
++/// Diverges (`emit` exits 0 after printing the deny) only when the hook is a guard
++/// ([`touring_hooks::hook_registry::is_guard_hook`]), the read is unreadable
++/// ([`touring_hook_runtime::hook_runtime_ext::StdinReadState::is_unreadable`]) and the human
++/// switch `TOURING_HOOK_STDIN_GUARD_DISABLED=1` is not set.
++fn deny_if_guard_cannot_read(
++    subcommand: &str,
++    read: &touring_hook_runtime::hook_runtime_ext::StdinRead,
++) {
++    if read.state.is_unreadable()
++        && touring_hooks::hook_registry::is_guard_hook(subcommand)
++        && !touring_hook_runtime::hook_runtime_ext::stdin_guard_disabled()
++    {
++        // Not `.emit()`: it stamps the exit reason `emit-json`, which would erase the label
++        // the fraction is measured by. Print the same wire bytes, then name the reason.
++        println!(
++            "{}",
++            HookRuntime::build_stdin_unreadable_deny(subcommand, read).to_json()
++        );
++        touring_hook_runtime::hook_trace::set_route("stateless");
++        touring_hook_runtime::hook_trace::set_reason("stdin-unreadable-deny");
++        process::exit(0);
++    }
++}
++
+ /// O `cwd` que o Claude Code põe em todo payload de hook: a pasta da sessão que está perguntando.
+ fn payload_cwd(input: &serde_json::Value) -> Option<std::path::PathBuf> {
+     input
+diff --git i/crates/touring-hooks/tests/stdin_guard_fail_closed_e2e.rs w/crates/touring-hooks/tests/stdin_guard_fail_closed_e2e.rs
+new file mode 100644
+index 00000000..ece8da73
+--- /dev/null
++++ w/crates/touring-hooks/tests/stdin_guard_fail_closed_e2e.rs
+@@ -0,0 +1,256 @@
++//! C4 (2026-10-17) — a GUARD that cannot read its stdin fails CLOSED.
++//!
++//! Until C4 `read_stdin` answered `{}` for an empty, timed-out or broken stdin, and a hook that
++//! can deny ran on it: `pre-bash`, `pre-edit-prevention` and `pre-tool-use` saw an empty
++//! command and ALLOWED (measured 17/10/2026: rc=0, empty stdout). These tests drive the REAL
++//! `touring-hook` binary, daemon skipped, with a payload the hook cannot read, and require:
++//!
++//! - every guard denies, naming the cause and the way out;
++//! - an advisory fed the SAME bytes keeps failing open (the control);
++//! - a payload that was whole but never got its EOF is USED, not denied (F0.3b);
++//! - zero bytes is allowed, counted;
++//! - every state lands in the hook trace, where the fraction is measured.
++
++use std::io::Write;
++use std::path::Path;
++use std::process::{Command, Stdio};
++use touring_hook_runtime::hook_runtime_ext::MAX_STDIN_BYTES;
++use touring_hooks::hook_registry::GUARD_HOOK_NAMES;
++
++/// What the hook did: raw stdout, exit code and the single trace line it left behind.
++struct Ran {
++    stdout: String,
++    code: Option<i32>,
++    trace: serde_json::Value,
++}
++
++/// How the test ends the child's stdin.
++#[derive(Clone, Copy)]
++enum Stdin {
++    /// Write the bytes, then close (clean EOF).
++    Closed,
++    /// Write the bytes and keep the pipe open until the child has exited (no EOF ever).
++    Open,
++}
++
++fn run_hook_env(
++    subcommand: &str,
++    bytes: Vec<u8>,
++    stdin: Stdin,
++    home: &Path,
++    extra_env: &[(&str, &str)],
++) -> Ran {
++    let trace_path = home.join("trace.jsonl");
++    let mut cmd = Command::new(env!("CARGO_BIN_EXE_touring-hook"));
++    cmd.arg(subcommand)
++        .current_dir(home)
++        .env_clear()
++        .env("PATH", std::env::var("PATH").unwrap_or_default())
++        .env("HOME", home)
++        .env("CLAUDE_PROJECT_DIR", home)
++        .env("TOURING_NO_DAEMON", "1")
++        .env("TOURING_HOOK_TRACE_FILE", &trace_path)
++        .stdin(Stdio::piped())
++        .stdout(Stdio::piped())
++        .stderr(Stdio::piped());
++    for (k, v) in extra_env {
++        cmd.env(k, v);
++    }
++    let mut child = cmd.spawn().expect("spawn touring-hook");
++    let mut pipe = child.stdin.take().expect("stdin");
++    // A writer thread: an over-cap payload outlives the reader (it stops at the cap), so the
++    // write may end in EPIPE — that is the point, not an error.
++    let writer = std::thread::spawn(move || {
++        let _ = pipe.write_all(&bytes);
++        let _ = pipe.flush();
++        match stdin {
++            Stdin::Closed => drop(pipe),
++            Stdin::Open => return Some(pipe),
++        }
++        None
++    });
++    let out = child.wait_with_output().expect("wait touring-hook");
++    // Only now may an `Open` pipe close.
++    drop(writer.join().expect("writer thread"));
++    let trace = std::fs::read_to_string(&trace_path)
++        .ok()
++        .and_then(|b| b.lines().last().map(str::to_owned))
++        .and_then(|l| serde_json::from_str(&l).ok())
++        .unwrap_or(serde_json::Value::Null);
++    Ran {
++        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
++        code: out.status.code(),
++        trace,
++    }
++}
++
++fn run_hook(subcommand: &str, bytes: &[u8], stdin: Stdin, home: &Path) -> Ran {
++    run_hook_env(subcommand, bytes.to_vec(), stdin, home, &[])
++}
++
++/// The permission decision the hook printed, if it spoke at all.
++fn decision(ran: &Ran) -> Option<(String, String)> {
++    let v: serde_json::Value = serde_json::from_str(ran.stdout.trim()).ok()?;
++    let hso = v.get("hookSpecificOutput")?;
++    Some((
++        hso.get("permissionDecision")?.as_str()?.to_string(),
++        hso.get("permissionDecisionReason")
++            .and_then(|r| r.as_str())
++            .unwrap_or_default()
++            .to_string(),
++    ))
++}
++
++fn assert_c4_deny(ran: &Ran, hook: &str, state: &str) {
++    assert_eq!(ran.code, Some(0), "a deny is exit 0: {}", ran.stdout);
++    let (verdict, reason) = decision(ran)
++        .unwrap_or_else(|| panic!("{hook}: the guard stayed silent: {:?}", ran.stdout));
++    assert_eq!(verdict, "deny", "{hook}: {reason}");
++    assert!(
++        reason.contains(&format!("[entrada-ilegível] {hook}")),
++        "{hook}: the reason must name the cause and the hook: {reason}"
++    );
++    assert!(reason.contains("nada foi inspecionado"), "{reason}");
++    assert!(reason.contains("repita"), "the way out: {reason}");
++    let v: serde_json::Value = serde_json::from_str(ran.stdout.trim()).expect("json");
++    assert_eq!(
++        v["hookSpecificOutput"]["hookEventName"], "PreToolUse",
++        "the deny speaks as the invoking event"
++    );
++    assert_eq!(ran.trace["stdin_state"], state, "trace: {}", ran.trace);
++    assert_eq!(ran.trace["exit_reason"], "stdin-unreadable-deny");
++}
++
++fn is_c4_deny(ran: &Ran) -> bool {
++    decision(ran).is_some_and(|(_, reason)| reason.contains("[entrada-ilegível]"))
++}
++
++const WHOLE: &str = r#"{"session_id":"c4","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"echo c4"}}"#;
++
++/// The truncated payload of the defect: a destructive command cut mid-string, no EOF.
++const TRUNCATED: &str = r#"{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"rm -rf /home/gabri"#;
++
++#[test]
++fn guard_denies_a_truncated_payload_that_never_gets_its_eof() {
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let ran = run_hook("pre-bash", TRUNCATED.as_bytes(), Stdin::Open, tmp.path());
++    assert_c4_deny(&ran, "pre-bash", "timeout");
++    assert_eq!(ran.trace["stdin_bytes"], TRUNCATED.len() as u64);
++}
++
++#[test]
++fn every_guard_denies_stdin_that_is_not_json() {
++    assert!(GUARD_HOOK_NAMES.len() >= 6, "the guard set is not empty");
++    for hook in GUARD_HOOK_NAMES {
++        let tmp = tempfile::tempdir().expect("tempdir");
++        let ran = run_hook(hook, b"this is not json", Stdin::Closed, tmp.path());
++        assert_c4_deny(&ran, hook, "parse-error");
++    }
++}
++
++#[test]
++fn every_guard_denies_a_truncated_document_that_does_end() {
++    for hook in GUARD_HOOK_NAMES {
++        let tmp = tempfile::tempdir().expect("tempdir");
++        let ran = run_hook(hook, TRUNCATED.as_bytes(), Stdin::Closed, tmp.path());
++        assert_c4_deny(&ran, hook, "parse-error");
++    }
++}
++
++#[test]
++fn guard_denies_a_payload_over_the_byte_cap() {
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let mut huge = vec![b'a'; MAX_STDIN_BYTES + 4096];
++    huge[0] = b'{';
++    let ran = run_hook_env("pre-write", huge, Stdin::Closed, tmp.path(), &[]);
++    assert_c4_deny(&ran, "pre-write", "too-large");
++    assert_eq!(ran.trace["stdin_bytes"], MAX_STDIN_BYTES as u64);
++    let (_, reason) = decision(&ran).expect("deny");
++    assert!(reason.contains("teto de 16 MiB"), "{reason}");
++}
++
++/// The F0.3b shape, now for a guard: the payload is whole but the EOF never comes. It is
++/// USED (state `ok-recovered`), not denied — the guard still inspects the real command.
++#[test]
++fn guard_uses_a_whole_payload_even_without_eof() {
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let ran = run_hook("pre-bash", WHOLE.as_bytes(), Stdin::Open, tmp.path());
++    assert!(
++        !is_c4_deny(&ran),
++        "a whole payload must be inspected: {}",
++        ran.stdout
++    );
++    assert_eq!(ran.code, Some(0));
++    assert_eq!(
++        ran.trace["stdin_state"], "ok-recovered",
++        "trace: {}",
++        ran.trace
++    );
++    assert_ne!(ran.trace["exit_reason"], "stdin-unreadable-deny");
++}
++
++/// (c) Zero bytes with a clean EOF is allowed — and counted as its own state.
++#[test]
++fn guard_allows_empty_stdin_but_counts_it() {
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let ran = run_hook("pre-bash", b"", Stdin::Closed, tmp.path());
++    assert!(!is_c4_deny(&ran), "{}", ran.stdout);
++    assert_eq!(ran.code, Some(0));
++    assert_eq!(ran.trace["stdin_state"], "empty", "trace: {}", ran.trace);
++}
++
++/// A healthy read is untouched: state `ok`, no C4 deny.
++#[test]
++fn guard_with_a_normal_payload_is_unaffected() {
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let ran = run_hook("pre-bash", WHOLE.as_bytes(), Stdin::Closed, tmp.path());
++    assert!(!is_c4_deny(&ran), "{}", ran.stdout);
++    assert_eq!(ran.trace["stdin_state"], "ok");
++}
++
++/// CONTROL: an advisory fed the very bytes that make a guard deny keeps failing open.
++#[test]
++fn advisory_with_the_same_unreadable_stdin_still_fails_open() {
++    for hook in ["pre-grep", "pre-glob", "cli-suggest", "post-bash"] {
++        let tmp = tempfile::tempdir().expect("tempdir");
++        let ran = run_hook(hook, TRUNCATED.as_bytes(), Stdin::Closed, tmp.path());
++        assert!(!is_c4_deny(&ran), "{hook} is an advisory: {}", ran.stdout);
++        assert_eq!(ran.code, Some(0), "{hook} fails open with exit 0");
++        assert_eq!(
++            ran.trace["stdin_state"], "parse-error",
++            "{hook}: {}",
++            ran.trace
++        );
++        assert_ne!(ran.trace["exit_reason"], "stdin-unreadable-deny");
++    }
++    // and the timeout flavour of the same bytes
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let ran = run_hook("pre-grep", TRUNCATED.as_bytes(), Stdin::Open, tmp.path());
++    assert!(!is_c4_deny(&ran), "{}", ran.stdout);
++    assert_eq!(ran.trace["stdin_state"], "timeout");
++}
++
++/// The human switch restores the old fail-open for guards (a persistently broken pipe must not
++/// brick the session) — and only for exactly `1`.
++#[test]
++fn the_human_switch_restores_fail_open_for_guards() {
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let on = run_hook_env(
++        "pre-bash",
++        b"this is not json".to_vec(),
++        Stdin::Closed,
++        tmp.path(),
++        &[("TOURING_HOOK_STDIN_GUARD_DISABLED", "1")],
++    );
++    assert!(!is_c4_deny(&on), "{}", on.stdout);
++    assert_eq!(on.trace["stdin_state"], "parse-error", "still counted");
++    let tmp = tempfile::tempdir().expect("tempdir");
++    let junk = run_hook_env(
++        "pre-bash",
++        b"this is not json".to_vec(),
++        Stdin::Closed,
++        tmp.path(),
++        &[("TOURING_HOOK_STDIN_GUARD_DISABLED", "yes")],
++    );
++    assert_c4_deny(&junk, "pre-bash", "parse-error");
++}
+diff --git i/crates/touring-hooks/tests/wave24_hook_integration_e2e.rs w/crates/touring-hooks/tests/wave24_hook_integration_e2e.rs
+index a8c663f0..62610291 100644
+--- i/crates/touring-hooks/tests/wave24_hook_integration_e2e.rs
++++ w/crates/touring-hooks/tests/wave24_hook_integration_e2e.rs
+@@ -104,16 +104,31 @@ fn answered(stdout: &str, stderr: &str) -> bool {
+ impl PrivateDaemon {
+     /// The receipt of a task-* event as S224 delivers it: stdout carries only the
+     /// contract (`{}` for these top-level-only events), the receipt is on stderr.
++    ///
++    /// The measured call can still meet a daemon that is slow under load (a cold start past
++    /// the client's 3000 ms read timeout): the hook then falls back silently — empty stdout AND
++    /// empty stderr — which is "no answer", not a breach of the contract (S216 above; seen again
++    /// in the full `touring-hooks` suite on 17/10/2026, green 3/3 in isolation). So the call is
++    /// repeated, bounded, until one ANSWERS; an answered call must still keep stdout to the event
++    /// contract, and a daemon that never answers returns its empty stderr so the caller's
++    /// "produced no receipt" assertion fails loudly — the test cannot pass vacuously.
+     fn task_receipt(&self, hook: &str, payload: &str) -> Option<String> {
+-        let (stdout, stderr, exit) =
+-            run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))?;
+-        assert_eq!(exit, 0, "{hook} must exit 0, got {exit}");
+-        assert_eq!(
+-            stdout.trim(),
+-            "{}",
+-            "{hook}: stdout must hold only the event contract"
+-        );
+-        Some(stderr)
++        let mut last = None;
++        for _ in 0..3 {
++            let (stdout, stderr, exit) =
++                run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))?;
++            assert_eq!(exit, 0, "{hook} must exit 0, got {exit}");
++            if answered(&stdout, &stderr) {
++                assert_eq!(
++                    stdout.trim(),
++                    "{}",
++                    "{hook}: stdout must hold only the event contract"
++                );
++                return Some(stderr);
++            }
++            last = Some(stderr);
++        }
++        last
+     }
+ }
+ 
+diff --git i/scripts/r3_a1_kpi.py w/scripts/r3_a1_kpi.py
+index 91952d7f..2257a507 100644
+--- i/scripts/r3_a1_kpi.py
++++ w/scripts/r3_a1_kpi.py
+@@ -77,6 +77,47 @@ def injection_family(text: str) -> str:
+     return OTHER
+ 
+ 
++# `EMITTERS` — context_budget.rs (C10, 17/10/2026): a marca do EMISSOR que o Claude Code grava em
++# cada `hook_success` (`command`: o `statusMessage` do hook, ou a linha de comando). `True` = o hook
++# é DONO da saída (vence o texto); `False` = só resgata o que o texto deixa em `other`. A primeira
++# agulha que casa vence. `injection_family` (só texto) segue intacta: é ELA que o r3 usa para
++# definir o dataset congelado (`is_touring_family`); só a paridade do KPI passa pela atribuição.
++EMITTERS: tuple[tuple[str, str, bool], ...] = (
++    ("analyzing blast radius", "pre-edit", True),
++    ("speculative validation", "pre-write", True),
++    ("analyzing file context", "pre-read", True),
++    ("checking command history", "pre-bash", True),
++    ("syntax pre-check", "pre-edit-prevention", True),
++    ("verifying edit quality", "post-edit", True),
++    ("registering new file", "post-write", True),
++    ("evidence_guard.py", "evidence-guard", True),
++    ("CLAUDE_PLUGIN_ROOT", "plugin-hook", True),
++    ("prose_integrity_gate.py", "prose-integrity", True),
++    ("check_context.sh", "context-monitor", True),
++    ("delegation-nudge", "delegation-nudge", True),
++    ("touring cli-suggest", "touring-suggest", False),
++    ("loop_resume.py", "loop-outer", False),
++    ("touring-hook post-bash", "post-tool-echo", False),
++)
++
++
++def attributed_family(text: str, emitter: str | None) -> str:
++    """`attributed_family` — context_budget.rs (C10). Dono do emissor > agulhas do texto >
++    reserva do emissor > `other`. Sem marca (Claude Code antigo) é só o texto."""
++    claimed = None
++    if emitter:
++        for needle, family, owns in EMITTERS:
++            if needle in emitter:
++                claimed = (family, owns)
++                break
++    if claimed and claimed[1]:
++        return claimed[0]
++    family = injection_family(text)
++    if family == OTHER and claimed:
++        return claimed[0]
++    return family
++
++
+ def count_propositions(text: str) -> int:
+     """`count_propositions` — context_budget.rs:196-203.
+ 
+@@ -92,7 +133,13 @@ def count_propositions(text: str) -> int:
+ 
+ 
+ def hook_contexts(rec: dict) -> list[str]:
+-    """`hook_contexts` — context_budget.rs:218-251.
++    """Só os textos de `hook_injections` — a forma de antes da atribuição por emissor."""
++    return [text for _, text in hook_injections(rec)]
++
++
++def hook_injections(rec: dict) -> list[tuple[str | None, str]]:
++    """`hook_injections` — context_budget.rs (C10; era `hook_contexts`, :218-251): pares
++    (marca do emissor, texto). A marca é `attachment.command`.
+ 
+     Só `attachment.type == "hook_success"` (:222). Para cada chave de
+     `["stdout", "content"]` (:226): tenta parsear como JSON; se casar, puxa
+@@ -105,7 +152,9 @@ def hook_contexts(rec: dict) -> list[str]:
+         return []
+     if att.get("type") != HOOK_ATTACHMENT_TYPE:
+         return []
+-    out: list[str] = []
++    command = att.get("command")
++    emitter = command if isinstance(command, str) else None
++    out: list[tuple[str | None, str]] = []
+     for key in RAW_KEYS:
+         raw = att.get(key)
+         if not isinstance(raw, str) or not raw.strip():
+@@ -114,7 +163,7 @@ def hook_contexts(rec: dict) -> list[str]:
+             parsed = json.loads(raw)
+         except ValueError:
+             # :246-247 — não é JSON: o texto puro ainda custa a janela
+-            out.append(raw)
++            out.append((emitter, raw))
+             continue
+         if isinstance(parsed, dict):
+             hso = parsed.get("hookSpecificOutput")
+@@ -122,10 +171,10 @@ def hook_contexts(rec: dict) -> list[str]:
+                 for k in HSO_KEYS:
+                     s = hso.get(k)
+                     if isinstance(s, str):
+-                        out.append(s)
++                        out.append((emitter, s))
+             s = parsed.get("systemMessage")
+             if isinstance(s, str):
+-                out.append(s)
++                out.append((emitter, s))
+     return out
+ 
+ 
+@@ -173,8 +222,8 @@ def agregar(paths: list[Path]) -> dict:
+                 rec = json.loads(line)
+             except ValueError:
+                 continue
+-            for text in hook_contexts(rec):
+-                familia = injection_family(text)
++            for emitter, text in hook_injections(rec):
++                familia = attributed_family(text, emitter)
+                 ln = len(text.encode("utf-8"))
+                 props = count_propositions(text)
+                 total_bytes += ln
+diff --git i/scripts/test_r3_a1_kpi.py w/scripts/test_r3_a1_kpi.py
+index e6715b90..2d8a81b6 100644
+--- i/scripts/test_r3_a1_kpi.py
++++ w/scripts/test_r3_a1_kpi.py
+@@ -44,6 +44,56 @@ def test_family_table_is_the_rust_one() -> None:
+     )
+ 
+ 
++def test_emitter_table_is_the_rust_one() -> None:
++    """C10 (17/10/2026): `EMITTERS` do porte == `EMITTERS` de `context_budget.rs`, lida do FONTE.
++
++    A tabela existe duas vezes (o KPI Rust e este porte, que a paridade de 1% do S-3 compara com
++    o `touring kpi -j`). Uma agulha editada num lado só reprova a paridade só depois do deploy; aqui
++    reprova no CI. Linha, família e a ordem (a primeira que casa vence) têm de bater.
++    """
++    import re
++
++    rust = (Path(__file__).parent.parent / "crates/touring-cli/src/cli/context_budget.rs").read_text()
++    corpo = rust.split("const EMITTERS:", 1)[1].split("];", 1)[0]
++    do_rust = [
++        (n, f, c == "Owns")
++        for n, f, c in re.findall(r'\("([^"]+)",\s*"([^"]+)",\s*Claim::(Owns|Fallback)\)', corpo)
++    ]
++    assert do_rust, "a tabela Rust não foi lida"
++    assert list(kpi.EMITTERS) == do_rust
++
++
++def test_attributed_family_emitter_owns_or_defers_to_the_text() -> None:
++    """Dono do emissor > texto > reserva do emissor > `other` — a regra do Rust (C10)."""
++    # dono: a citação `last fail:` no texto não tira o bloco do pre-edit
++    assert kpi.attributed_family("last fail: x", "Touring: analyzing blast radius...") == "pre-edit"
++    # reserva: o texto decide primeiro (um deny emitido pelo cli-suggest continua deny)
++    cli = "touring cli-suggest: classifying operation (Rust, in-daemon)..."
++    assert kpi.attributed_family("[CODE MODE · rajada] x", cli) == "code-mode-deny"
++    assert kpi.attributed_family("MUST    touring ast meta x", cli) == "touring-suggest"
++    # sem marca, ou marca desconhecida: só o texto, nunca inventa família
++    assert kpi.attributed_family("[gabrielgadea]", None) == kpi.OTHER
++    assert kpi.attributed_family("[gabrielgadea]", "some-new-hook.sh") == kpi.OTHER
++    assert kpi.attributed_family("[TOURING SUGGEST] x", None) == "touring-suggest"
++
++
++def test_the_real_emitter_fixture_leaves_no_other_in_the_port() -> None:
++    """A MESMA fixture real do teste Rust (45 `hook_success`, 23 marcas, caminhos anonimizados):
++    o porte, com a atribuição por emissor, não deixa nada em `other` — e o texto sozinho deixa
++    mais da metade (o defeito de C10, medido nas duas linguagens sobre os mesmos registros)."""
++    fixture = Path(__file__).parent.parent / "crates/touring-cli/tests/fixtures/context_budget_emitters.jsonl"
++    agg = kpi.agregar([fixture])
++    assert agg["injected_blocks"] == 45
++    assert kpi.OTHER not in agg["by_family"], agg["by_family"].keys()
++    so_texto = sum(
++        len(texto.encode("utf-8"))
++        for linha in fixture.read_text(encoding="utf-8").splitlines()
++        for _, texto in kpi.hook_injections(json.loads(linha))
++        if kpi.injection_family(texto) == kpi.OTHER
++    )
++    assert so_texto / agg["injected_bytes"] > 0.5, "a fixture tem de reproduzir o defeito"
++
++
+ def test_count_propositions_counts_must_should_may_lines() -> None:
+     """`count_propositions` — context_budget.rs:196-203: linhas cujo trim_start
+     começa por MUST/SHOULD/MAY."""

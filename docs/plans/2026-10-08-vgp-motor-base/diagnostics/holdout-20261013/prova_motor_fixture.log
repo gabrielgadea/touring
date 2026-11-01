@@ -1,0 +1,14 @@
+== binario e935aaf1
+-- (a) sem overlay: o motor le o publicar_mapa.py de HOJE
+deny [('atributo', '_publicar', 'deny')]
+-- (b) manifesto ANTIGO: so o __init__ do pacote (conteudo qualquer)
+deny [('atributo', '_publicar', 'deny')]
+-- (c) manifesto COMPLETO: __init__ + submodulo no INSTANTE
+allow []
+== binario f55ec4b5
+-- (a) sem overlay: o motor le o publicar_mapa.py de HOJE
+deny [('atributo', '_publicar', 'deny')]
+-- (b) manifesto ANTIGO: so o __init__ do pacote (conteudo qualquer)
+deny [('atributo', '_publicar', 'deny')]
+-- (c) manifesto COMPLETO: __init__ + submodulo no INSTANTE
+allow []

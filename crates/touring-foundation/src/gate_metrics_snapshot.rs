@@ -9,6 +9,36 @@ use std::sync::atomic::Ordering;
 
 /// Immutable snapshot of all gate counters at a point in time.
 ///
+/// S5b/c — uma linha do KPI de fadiga: um deny que gera bypass HABITUAL é
+/// candidato a correção de FP (a revisão S5c consome `fp_candidate`).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GateFatigueEntry {
+    /// Label estável do gate (`g2_pipe_exit`…).
+    pub gate: String,
+    /// Denies disparados.
+    pub denied: u64,
+    /// Bypasses por-comando (`TOURING_GATE_OK=1`).
+    pub bypassed: u64,
+    /// bypassed / (denied + bypassed) — `None` sem volume (ausência de sinal
+    /// não é zero: sem dados, sem taxa — Lei L2).
+    pub bypass_ratio: Option<f64>,
+    /// ratio > 0.20 com volume ≥ 10: o deny virou hábito de bypass.
+    pub fp_candidate: bool,
+}
+
+/// S5b/c — o KPI de gate-fatigue, computado do gate_events no capture().
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GateFatigue {
+    /// Soma dos denies de todos os gates.
+    pub denied_total: u64,
+    /// Soma dos bypasses de todos os gates.
+    pub bypassed_total: u64,
+    /// Taxa global de bypass (`None` sem volume).
+    pub bypass_ratio: Option<f64>,
+    /// Uma linha por gate, na ordem estável de `GateId::all()`.
+    pub per_gate: Vec<GateFatigueEntry>,
+}
+
 /// Computes the fast-path ratio for each hook and returns them alongside
 /// the raw counts for CLI/JSON consumers.
 ///
@@ -151,6 +181,25 @@ pub struct GateMetricsSnapshot {
     /// SQL retrieval and RRF merge overhead. Expected P50 < 500μs for a
     /// 64-dim U4-quantized index at typical daemon workload sizes.
     pub ann_search_latency: LatencySnapshot,
+
+    /// GPU embeddings (15/09/2026): latency of one embedding run, either device.
+    #[serde(default)]
+    pub embedding_latency: LatencySnapshot,
+    /// Texts embedded on the CUDA execution provider.
+    #[serde(default)]
+    pub embedding_texts_cuda_count: u64,
+    /// Texts embedded on the CPU execution provider.
+    #[serde(default)]
+    pub embedding_texts_cpu_count: u64,
+    /// Times the embedder left CUDA for CPU.
+    #[serde(default)]
+    pub embedding_cuda_fallback_count: u64,
+    /// Reason of the latest CUDA→CPU fallback, verbatim; empty when none.
+    #[serde(default)]
+    pub embedding_cuda_fallback_reason: String,
+    /// Device of the most recent embedding run: `none` | `cpu` | `cuda`.
+    #[serde(default)]
+    pub embedding_device: String,
 
     /// Process memory footprint at snapshot time (2026-04-20).
     ///
@@ -358,6 +407,55 @@ pub struct GateMetricsSnapshot {
     /// NEW-2 — Sandbox failures persisted via tee mode (exit_code != 0).
     #[serde(default)]
     pub sandbox_tee_persisted_count: u64,
+    /// W4 d4 — `ctx_execute`/`touring run` executions journaled. Snapshot
+    /// wiring landed in C2-W0 (2026-08-24): until then these four counters
+    /// were exported only by the MCP tool sites, and the `touring
+    /// gate-metrics -j` the docs pointed to never carried them.
+    #[serde(default)]
+    pub code_mode_runs_count: u64,
+    /// W0 S-0.1 — every `Bash` PreToolUse observed (code-mode adoption
+    /// denominator; `touring.code_mode.adoption_ratio = runs / bash_calls`).
+    #[serde(default)]
+    pub bash_calls_total_count: u64,
+    /// W1 S-1.4 — per-gate telemetry `{gate: {emitted, followed, denied,
+    /// bypassed}}` for the code-mode gates (g1_burst/g2_pipe_exit/
+    /// g3_edit_sem_read/g6_redundant/g7_reinspect). KPI pointer shape:
+    /// `/gate_events/g2_pipe_exit/denied`.
+    #[serde(default)]
+    pub gate_events: std::collections::BTreeMap<String, std::collections::BTreeMap<String, u64>>,
+    /// S5b/c (26/08) — gate-fatigue: taxa de bypass por gate e global.
+    #[serde(default)]
+    pub gate_fatigue: GateFatigue,
+    /// W2 S-2.3 — G1 continuation check: next call after a deny was the same
+    /// inspection class (deny was right).
+    #[serde(default)]
+    pub g1_post_deny_same_class_count: u64,
+    /// W2 S-2.3 — next call was a different class (possible false positive).
+    #[serde(default)]
+    pub g1_post_deny_other_count: u64,
+    /// W3 S-3.3 — G4 observed (telemetry only, never a deny).
+    #[serde(default)]
+    pub g4_observed_count: u64,
+    /// W3 S-3.3 — G5 observed at edit-burst end (telemetry only).
+    #[serde(default)]
+    pub g5_observed_count: u64,
+    /// M3 — delegation advisory emitted (10th distinct file read in window).
+    #[serde(default)]
+    pub m3_delegation_advised_count: u64,
+    /// W6 S-6.3 — counterfactual comment lines observed (advisory only).
+    #[serde(default)]
+    pub e3_counterfactual_observed_count: u64,
+    /// W4 d4 — measured context savings of the spill (full − inline bytes).
+    #[serde(default)]
+    pub code_mode_bytes_elided_total: u64,
+    /// C2-W0 d4/S-5.2 — orchestrate sub-calls seen by the daemon (requests
+    /// stamped `origin: <run_id>:code:<n>`).
+    #[serde(default)]
+    pub code_mode_subcalls_count: u64,
+    /// C2-W0 d4 — counterfactual bytes of those sub-calls (payload + output):
+    /// the tool-parts tool calling would have injected into the context.
+    #[serde(default)]
+    pub code_mode_subcall_bytes_total: u64,
     /// NEW-1 — Per-command compression profile applications (any profile).
     #[serde(default)]
     pub compression_profile_applied_count: u64,
@@ -523,6 +621,55 @@ pub struct GateMetricsSnapshot {
     /// Snapshot of CEG X0 CAPTURE events (code-bearing actions entering the pipeline).
     #[serde(default)]
     pub ceg_captured_count: u64,
+    /// S3 — inspeção isolada que passou intacta (denominador da recalibração).
+    #[serde(default)]
+    pub g1_inspect_first_passed_count: u64,
+    /// S3 — rajada de inspeção AVISADA com a rota fundida (D, 09/10/2026: antes negada).
+    #[serde(default)]
+    pub g1_inspect_burst_advised_count: u64,
+    /// S5 — par write→run negado (cat > script + execuções do mesmo script).
+    #[serde(default)]
+    pub g10_write_run_pair_denied_count: u64,
+    /// S5 — heredoc inline visto fora da rajada (calibração, não enforcement).
+    #[serde(default)]
+    pub exec_heredoc_inline_seen_count: u64,
+    /// N5 — injeção nativa seguida (Bash onde tool dedicada existia).
+    #[serde(default)]
+    pub native_injection_followed_count: u64,
+    /// N5 — injeção resistida (Grep/Glob/Read na oportunidade).
+    #[serde(default)]
+    pub native_injection_resisted_count: u64,
+    /// N5 — terceira via (touring run/exec).
+    #[serde(default)]
+    pub native_injection_code_route_count: u64,
+    /// I-2 — family cuts the injection policy made in this process since boot.
+    #[serde(default)]
+    pub injection_suppressed_blocks_count: u64,
+    /// I-2 — bytes behind `injection_suppressed_blocks_count`.
+    #[serde(default)]
+    pub injection_suppressed_bytes_count: u64,
+    /// I-2 — the injection level this process resolves for a request with no
+    /// override (`TOURING_HOOK_INJECTION`, default `full`).
+    #[serde(default)]
+    pub injection_level: String,
+    /// P2 — denominador do braço `native`: rotas oferecidas sob essa apresentação.
+    #[serde(default)]
+    pub code_mode_arm_offered_native_count: u64,
+    /// P2 — numerador do braço `native`: rotas tomadas.
+    #[serde(default)]
+    pub code_mode_arm_followed_native_count: u64,
+    /// P2 — denominador do braço `both`: rotas oferecidas sob essa apresentação.
+    #[serde(default)]
+    pub code_mode_arm_offered_both_count: u64,
+    /// P2 — numerador do braço `both`: rotas tomadas.
+    #[serde(default)]
+    pub code_mode_arm_followed_both_count: u64,
+    /// P2 — denominador do braço `code`: rotas oferecidas sob essa apresentação.
+    #[serde(default)]
+    pub code_mode_arm_offered_code_count: u64,
+    /// P2 — numerador do braço `code`: rotas tomadas.
+    #[serde(default)]
+    pub code_mode_arm_followed_code_count: u64,
     /// Snapshot of CEG X7 DECISION denials (actions blocked).
     #[serde(default)]
     pub ceg_blocked_count: u64,
@@ -720,6 +867,19 @@ impl GateMetricsSnapshot {
                 .mcts_shadow_deadlock_detected_count
                 .load(Ordering::Relaxed),
             ann_search_latency: m.ann_search_latency.snapshot(),
+            embedding_latency: m.embedding_latency.snapshot(),
+            embedding_texts_cuda_count: m.embedding_texts_cuda_count.load(Ordering::Relaxed),
+            embedding_texts_cpu_count: m.embedding_texts_cpu_count.load(Ordering::Relaxed),
+            embedding_cuda_fallback_count: m.embedding_cuda_fallback_count.load(Ordering::Relaxed),
+            embedding_cuda_fallback_reason: m
+                .embedding_cuda_fallback_reason
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone(),
+            embedding_device: crate::gate_metrics::embedding_device_label(
+                m.embedding_device.load(Ordering::Relaxed),
+            )
+            .to_string(),
             // memory_stats_probe hits `/proc/self/statm` (Linux) or the
             // equivalent syscall; <5μs in steady state, acceptable to run
             // on every snapshot() call.
@@ -797,6 +957,67 @@ impl GateMetricsSnapshot {
                 .tool_outputs_cleanup_deleted_count
                 .load(Ordering::Relaxed),
             sandbox_tee_persisted_count: m.sandbox_tee_persisted_count.load(Ordering::Relaxed),
+            code_mode_runs_count: m.code_mode_runs_count.load(Ordering::Relaxed),
+            bash_calls_total_count: m.bash_calls_total_count.load(Ordering::Relaxed),
+            g1_post_deny_same_class_count: m.g1_post_deny_same_class_count.load(Ordering::Relaxed),
+            g1_post_deny_other_count: m.g1_post_deny_other_count.load(Ordering::Relaxed),
+            g4_observed_count: m.g4_observed_count.load(Ordering::Relaxed),
+            g5_observed_count: m.g5_observed_count.load(Ordering::Relaxed),
+            m3_delegation_advised_count: m.m3_delegation_advised_count.load(Ordering::Relaxed),
+            e3_counterfactual_observed_count: m
+                .e3_counterfactual_observed_count
+                .load(Ordering::Relaxed),
+            gate_events: crate::gate_metrics::GateId::all()
+                .iter()
+                .map(|g| {
+                    (
+                        g.label().to_string(),
+                        crate::gate_metrics::GateEvent::all()
+                            .iter()
+                            .map(|e| {
+                                (
+                                    e.label().to_string(),
+                                    m.gate_events[*g as usize][*e as usize].load(Ordering::Relaxed),
+                                )
+                            })
+                            .collect(),
+                    )
+                })
+                .collect(),
+            gate_fatigue: {
+                let mut denied_total = 0u64;
+                let mut bypassed_total = 0u64;
+                let mut per_gate = Vec::new();
+                for g in crate::gate_metrics::GateId::all() {
+                    let denied = m.gate_events[*g as usize]
+                        [crate::gate_metrics::GateEvent::Denied as usize]
+                        .load(Ordering::Relaxed);
+                    let bypassed = m.gate_events[*g as usize]
+                        [crate::gate_metrics::GateEvent::Bypassed as usize]
+                        .load(Ordering::Relaxed);
+                    denied_total += denied;
+                    bypassed_total += bypassed;
+                    let volume = denied + bypassed;
+                    let bypass_ratio = (volume > 0).then(|| bypassed as f64 / volume as f64);
+                    per_gate.push(GateFatigueEntry {
+                        gate: g.label().to_string(),
+                        denied,
+                        bypassed,
+                        bypass_ratio,
+                        fp_candidate: bypass_ratio.is_some_and(|r| r > 0.20) && volume >= 10,
+                    });
+                }
+                GateFatigue {
+                    denied_total,
+                    bypassed_total,
+                    bypass_ratio: (denied_total + bypassed_total > 0)
+                        .then(|| bypassed_total as f64 / (denied_total + bypassed_total) as f64),
+                    per_gate,
+                }
+            },
+            code_mode_bytes_elided_total: m.code_mode_bytes_elided_total.load(Ordering::Relaxed),
+            code_mode_subcalls_count: m.code_mode_subcalls_count.load(Ordering::Relaxed),
+            code_mode_subcall_bytes_total: m.code_mode_subcall_bytes_total.load(Ordering::Relaxed),
             compression_profile_applied_count: m
                 .compression_profile_applied_count
                 .load(Ordering::Relaxed),
@@ -867,6 +1088,52 @@ impl GateMetricsSnapshot {
             wave3_t310_count: m.wave3_t310_count.load(Ordering::Relaxed),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: m.ceg_captured_count.load(Ordering::Relaxed),
+            g1_inspect_first_passed_count: m.g1_inspect_first_passed_count.load(Ordering::Relaxed),
+            g1_inspect_burst_advised_count: m
+                .g1_inspect_burst_advised_count
+                .load(Ordering::Relaxed),
+            g10_write_run_pair_denied_count: m
+                .g10_write_run_pair_denied_count
+                .load(Ordering::Relaxed),
+            exec_heredoc_inline_seen_count: m
+                .exec_heredoc_inline_seen_count
+                .load(Ordering::Relaxed),
+            native_injection_followed_count: m
+                .native_injection_followed_count
+                .load(Ordering::Relaxed),
+            native_injection_resisted_count: m
+                .native_injection_resisted_count
+                .load(Ordering::Relaxed),
+            native_injection_code_route_count: m
+                .native_injection_code_route_count
+                .load(Ordering::Relaxed),
+            injection_suppressed_blocks_count: m
+                .injection_suppressed_blocks_count
+                .load(Ordering::Relaxed),
+            injection_suppressed_bytes_count: m
+                .injection_suppressed_bytes_count
+                .load(Ordering::Relaxed),
+            injection_level: crate::injection_policy::level_from_env()
+                .as_str()
+                .to_string(),
+            code_mode_arm_offered_native_count: m
+                .code_mode_arm_offered_native_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_followed_native_count: m
+                .code_mode_arm_followed_native_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_offered_both_count: m
+                .code_mode_arm_offered_both_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_followed_both_count: m
+                .code_mode_arm_followed_both_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_offered_code_count: m
+                .code_mode_arm_offered_code_count
+                .load(Ordering::Relaxed),
+            code_mode_arm_followed_code_count: m
+                .code_mode_arm_followed_code_count
+                .load(Ordering::Relaxed),
             ceg_blocked_count: m.ceg_blocked_count.load(Ordering::Relaxed),
             ceg_sandboxed_count: m.ceg_sandboxed_count.load(Ordering::Relaxed),
             ceg_fast_path_count: m.ceg_fast_path_count.load(Ordering::Relaxed),
@@ -1015,6 +1282,123 @@ pub fn record_wave3_t310() {
 #[inline]
 pub fn record_ceg_captured() {
     global().ceg_captured_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// N5 — injeção nativa seguida (Bash onde tool dedicada existia).
+#[inline]
+pub fn record_native_injection_followed() {
+    global()
+        .native_injection_followed_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// N5 — injeção resistida (Grep/Glob/Read na oportunidade).
+#[inline]
+pub fn record_native_injection_resisted() {
+    global()
+        .native_injection_resisted_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// N5 — terceira via (touring run/exec escolhido).
+#[inline]
+pub fn record_native_injection_code_route() {
+    global()
+        .native_injection_code_route_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// S3 — inspeção isolada passou intacta (a 1ª da classe na janela).
+#[inline]
+pub fn record_g1_inspect_first_passed() {
+    global()
+        .g1_inspect_first_passed_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// S3 — rajada de inspeção avisada com a rota fundida (a 2ª; D, 09/10/2026: antes negada).
+#[inline]
+pub fn record_g1_inspect_burst_advised() {
+    global()
+        .g1_inspect_burst_advised_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// S5 — par write→run negado: N execuções de um script escrito na mesma janela.
+#[inline]
+pub fn record_g10_write_run_pair_denied() {
+    global()
+        .g10_write_run_pair_denied_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// S5 — heredoc inline (`python3 -`/`-c`) visto fora da rajada (calibração).
+#[inline]
+pub fn record_exec_heredoc_inline_seen() {
+    global()
+        .exec_heredoc_inline_seen_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// P2 — a apresentação entregou uma rota escrita sob o braço `mode`.
+///
+/// Contadores, e não o bandit, porque a decisão de apresentação acontece num
+/// caminho que não tem o runtime de aprendizado em mãos — o mesmo motivo pelo
+/// qual `actuator_signals` lê um snapshot. Um nome de braço desconhecido é
+/// ignorado: contar num balde errado é pior que não contar.
+pub fn record_code_mode_arm_offered(mode: &str) {
+    match mode {
+        "native" => global()
+            .code_mode_arm_offered_native_count
+            .fetch_add(1, Ordering::Relaxed),
+        "both" => global()
+            .code_mode_arm_offered_both_count
+            .fetch_add(1, Ordering::Relaxed),
+        "code" => global()
+            .code_mode_arm_offered_code_count
+            .fetch_add(1, Ordering::Relaxed),
+        _ => return,
+    };
+}
+
+/// P2 — a rota oferecida sob `mode` foi de fato tomada.
+pub fn record_code_mode_arm_followed(mode: &str) {
+    match mode {
+        "native" => global()
+            .code_mode_arm_followed_native_count
+            .fetch_add(1, Ordering::Relaxed),
+        "both" => global()
+            .code_mode_arm_followed_both_count
+            .fetch_add(1, Ordering::Relaxed),
+        "code" => global()
+            .code_mode_arm_followed_code_count
+            .fetch_add(1, Ordering::Relaxed),
+        _ => return,
+    };
+}
+
+/// P2 — `[(oferecidas, tomadas); 3]` na ordem `native, both, code`.
+///
+/// Leitura direta dos seis átomos em vez de `GateMetricsSnapshot::capture()`:
+/// a política é consultada no caminho quente de cada PreToolUse, e capturar o
+/// snapshot inteiro para ler seis números seria pagar o mapa para achar a rua.
+pub fn code_mode_arm_counts() -> [(u64, u64); 3] {
+    let m = global();
+    [
+        (
+            m.code_mode_arm_offered_native_count.load(Ordering::Relaxed),
+            m.code_mode_arm_followed_native_count
+                .load(Ordering::Relaxed),
+        ),
+        (
+            m.code_mode_arm_offered_both_count.load(Ordering::Relaxed),
+            m.code_mode_arm_followed_both_count.load(Ordering::Relaxed),
+        ),
+        (
+            m.code_mode_arm_offered_code_count.load(Ordering::Relaxed),
+            m.code_mode_arm_followed_code_count.load(Ordering::Relaxed),
+        ),
+    ]
 }
 
 /// X7 DECISION — increment the CEG blocked (Deny verdict) counter.

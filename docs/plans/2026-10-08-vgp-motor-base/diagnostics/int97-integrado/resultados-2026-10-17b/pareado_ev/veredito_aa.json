@@ -1,0 +1,1 @@
+{"IC95": {"R_p95": [0.7142, 1.0807], "R_tipico": [0.9915, 1.0049]}, "R_p95": 0.9196, "R_tipico": 0.9992, "faltando": 0, "faltando_ids": [], "fator_maquina_mediana_A_ms": 4.33, "ids": 738, "modo": "aa", "p95_A_ms": 101.4, "p95_B_ms": 93.2, "sha_A": "8fd0efb0e62e64a8", "sha_B": "8fd0efb0e62e64a8", "veredito": "PROTOCOLO_INADEQUADO"}

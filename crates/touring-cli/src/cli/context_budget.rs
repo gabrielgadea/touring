@@ -1,0 +1,2617 @@
+//! P0/S-0.1 (2026-09-04) — the ruler for what the context window actually costs.
+//!
+//! Everything else in `touring kpi` measures whether the right ROUTE was taken
+//! (`code_mode_adherence`, `code_mode_reuse`, `hooks_complement`). Nothing
+//! measured the WINDOW, so the most expensive resource in the system was the one
+//! resource with no instrument — and every attempt to tune it was faith.
+//!
+//! Baseline measured 04/09/2026 over 10 transcripts / 406 user turns of this
+//! project, which is the number the ceilings below are set against:
+//!
+//! | origin | share of the window |
+//! |---|---:|
+//! | tool results | 51,3 % |
+//! | **hook injection** | **26,6 %** (6 650 B/turn, ~1 662 tokens) |
+//! | user text | 14,5 % |
+//! | assistant text | 7,6 % |
+//!
+//! and, inside the injection: **35,1 % is a block byte-IDENTICAL to one already
+//! in the window** — a second copy of the same bytes carries no proposition the
+//! first did not, so its information density is zero by construction.
+//!
+//! Source: the Claude Code transcript itself (`~/.claude/projects/<slug>/*.jsonl`).
+//! No new instrumentation, and it works retroactively — the same choice the
+//! `touring.memory.*` family made for the same reason. Hook injections live in
+//! `attachment` records of type `hook_success`, with the text under
+//! `stdout.hookSpecificOutput.additionalContext`.
+//!
+//! Absence is DISPLAYED, never silent (E4): no transcript directory, no readable
+//! file, or a scan that hit the byte cap all say so in the payload.
+
+use serde_json::{Value, json};
+use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, BTreeSet};
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
+
+/// How many transcripts to scan, most recent first. A transcript is tens of MB;
+/// the cap keeps a `touring kpi` call cheap and is REPORTED, so a partial scan
+/// can never be read as a complete one.
+const MAX_TRANSCRIPTS: usize = 3;
+/// Total bytes to read across transcripts before stopping and saying so.
+const MAX_BYTES: u64 = 48 * 1024 * 1024;
+
+/// Per-family accounting. The family taxonomy lives in [`attributed_family`] —
+/// ONE source (the text needles of [`injection_family`] plus the emitter's own
+/// mark), so the payload and the dedup accounting cannot disagree about which
+/// emitter a block belongs to.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct FamilyStats {
+    /// Bytes this emitter put into the window.
+    pub bytes: u64,
+    /// How many separate blocks those bytes arrived in.
+    pub blocks: u64,
+    /// Of `bytes`, how many were a byte-identical repeat of an earlier block.
+    pub duplicate_bytes: u64,
+    /// Of `blocks`, how many were such a repeat.
+    pub duplicate_blocks: u64,
+    /// MUST / SHOULD / MAY directive lines carried — the unit of instruction.
+    pub propositions: u64,
+    /// Blocks carrying no directive at all: cost with nothing to act on.
+    pub zero_proposition_blocks: u64,
+    /// In a SESSION aggregate: bytes new to this session that another session already received.
+    /// They are not a repeat in the session's own unit, and they are one in the project's.
+    pub cross_session_duplicate_bytes: u64,
+    /// The blocks behind `cross_session_duplicate_bytes`.
+    pub cross_session_duplicate_blocks: u64,
+    /// Bytes of blocks that fail the payload half of the "So what?" invariant
+    /// ([`touring_foundation::so_what::violation`]: empty, or no named target) — I-4.
+    pub so_what_violation_bytes: u64,
+    /// The blocks behind `so_what_violation_bytes`.
+    pub so_what_violation_blocks: u64,
+}
+
+/// Per-tool accounting for the largest single share of the window (tool results,
+/// 51,3% measured 04/09/2026).
+///
+/// `reused_*` answers the only question that decides a digest. "Did the model
+/// read this?" is not measurable; "how many bytes would a digest have to carry
+/// to preserve every fact the model demonstrably USED?" is — the lines and
+/// identifiers of the result that reappear in what the assistant wrote, or in
+/// the arguments of its next calls, before the next human turn.
+///
+/// It is a FLOOR on use (content can inform without being quoted) and therefore
+/// a CEILING on what a digest may safely discard, which is the conservative
+/// direction for this decision.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct ToolStats {
+    /// Results this tool returned.
+    pub results: u64,
+    /// Bytes it returned.
+    pub bytes: u64,
+    /// Of those bytes, the ones in lines that reappear downstream.
+    pub reused_bytes: u64,
+    /// Informative lines it returned (see `REUSE_MIN_LINE`).
+    pub lines: u64,
+    /// Of those lines, the ones that reappear downstream.
+    pub reused_lines: u64,
+    /// Results with no observable reuse at all — neither a line nor a token.
+    pub zero_reuse_results: u64,
+}
+
+/// The pure aggregate behind the payload — everything the ruler counts, with no
+/// filesystem in sight, so the arithmetic is testable on synthetic lines.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct ContextBudgetAggregate {
+    /// Transcript files actually read.
+    pub transcripts: u64,
+    /// Bytes of transcript read — the denominator of how much was inspected.
+    pub bytes_scanned: u64,
+    /// The scan stopped at `MAX_BYTES`: this is a PARTIAL measurement.
+    pub capped: bool,
+    /// User messages carrying real text — the unit the per-turn ceiling divides by.
+    pub user_turns: u64,
+    /// Bytes injected by hooks.
+    pub injected_bytes: u64,
+    /// Blocks those bytes arrived in.
+    pub injected_blocks: u64,
+    /// Injected bytes that repeated a block already in the window (density zero).
+    pub duplicate_bytes: u64,
+    /// Injected blocks that were such a repeat.
+    pub duplicate_blocks: u64,
+    /// Bytes returned by tools — the largest single share of the window.
+    pub tool_result_bytes: u64,
+    /// Bytes the assistant wrote as prose.
+    pub assistant_bytes: u64,
+    /// Bytes the user wrote.
+    pub user_bytes: u64,
+    /// Injected blocks that asked for something with a `MUST` line.
+    pub must_emitted: u64,
+    /// Of those, how many the next Bash call actually ran — an UPPER bound on
+    /// the nudge's effect, since the model may have run it regardless.
+    pub must_followed: u64,
+    /// Of `must_emitted`, the MUST blocks a gate emitted while DENYING the call
+    /// (family `code-mode-deny`). That is the coercion channel: the outcome of a
+    /// deny is the deny itself, so these never enter the persuasion ratio's
+    /// denominator (I-1 defect (b), `ANALISE-CONSOLIDADA.md` §7).
+    pub must_denied: u64,
+    /// Tool calls the assistant made — the declared proxy denominator for TpCD.
+    pub tool_calls: u64,
+    /// The same accounting, split by emitter (see [`attributed_family`]).
+    pub by_family: BTreeMap<String, FamilyStats>,
+    /// Tool results split by the tool that produced them, with how much of each
+    /// is observably reused (see [`ToolStats`]).
+    pub by_tool: BTreeMap<String, ToolStats>,
+    /// Injected bytes that repeated a block another SESSION had already received.
+    /// In a session aggregate they are counted here and NOT in `duplicate_bytes`;
+    /// [`ContextBudgetAggregate::absorb_session`] folds them into the project's.
+    pub cross_session_duplicate_bytes: u64,
+    /// The blocks behind `cross_session_duplicate_bytes`.
+    pub cross_session_duplicate_blocks: u64,
+}
+
+impl ContextBudgetAggregate {
+    /// Add one session's aggregate to this PROJECT aggregate.
+    ///
+    /// Every count adds up, except the repeats: a block one session received
+    /// first and another received again is a repeat for the project and not for
+    /// either session, so the project's `duplicate_*` is the sessions' own repeats
+    /// PLUS their cross-session ones. This keeps the project number byte-identical
+    /// to the single-`seen` scan it replaces (Gabriel, canvas 2 option c, 05/10/2026).
+    pub fn absorb_session(&mut self, s: &Self) {
+        self.transcripts += s.transcripts;
+        self.bytes_scanned += s.bytes_scanned;
+        self.user_turns += s.user_turns;
+        self.injected_bytes += s.injected_bytes;
+        self.injected_blocks += s.injected_blocks;
+        self.duplicate_bytes += s.duplicate_bytes + s.cross_session_duplicate_bytes;
+        self.duplicate_blocks += s.duplicate_blocks + s.cross_session_duplicate_blocks;
+        self.cross_session_duplicate_bytes += s.cross_session_duplicate_bytes;
+        self.cross_session_duplicate_blocks += s.cross_session_duplicate_blocks;
+        self.tool_result_bytes += s.tool_result_bytes;
+        self.assistant_bytes += s.assistant_bytes;
+        self.user_bytes += s.user_bytes;
+        self.must_emitted += s.must_emitted;
+        self.must_followed += s.must_followed;
+        self.must_denied += s.must_denied;
+        self.tool_calls += s.tool_calls;
+        for (name, f) in &s.by_family {
+            let e = self.by_family.entry(name.clone()).or_default();
+            e.bytes += f.bytes;
+            e.blocks += f.blocks;
+            e.duplicate_bytes += f.duplicate_bytes + f.cross_session_duplicate_bytes;
+            e.duplicate_blocks += f.duplicate_blocks + f.cross_session_duplicate_blocks;
+            e.cross_session_duplicate_bytes += f.cross_session_duplicate_bytes;
+            e.cross_session_duplicate_blocks += f.cross_session_duplicate_blocks;
+            e.propositions += f.propositions;
+            e.zero_proposition_blocks += f.zero_proposition_blocks;
+            e.so_what_violation_bytes += f.so_what_violation_bytes;
+            e.so_what_violation_blocks += f.so_what_violation_blocks;
+        }
+        for (name, t) in &s.by_tool {
+            let e = self.by_tool.entry(name.clone()).or_default();
+            e.results += t.results;
+            e.bytes += t.bytes;
+            e.reused_bytes += t.reused_bytes;
+            e.lines += t.lines;
+            e.reused_lines += t.reused_lines;
+            e.zero_reuse_results += t.zero_reuse_results;
+        }
+    }
+}
+
+/// Shortest line that can carry a fact worth keeping in a digest. Below this a
+/// match is noise — `}` and `---` appear in every file and would inflate reuse.
+const REUSE_MIN_LINE: usize = 8;
+
+/// Which emitter a block of injected context came from.
+///
+/// A taxonomia de famílias (a REGUA canônica) migrou para
+/// [`touring_foundation::injection_family`] na S-4 (26/10/2026): esta régua (que
+/// publica `context_budget.by_family` no KPI) e a política nativa
+/// (`touring_foundation::injection_policy`) leem a MESMA tabela — o predicado
+/// escrito duas vezes nunca se encontra, e já custou nove famílias de
+/// divergência contra o espelho Python. Este módulo re-exporta os dois pontos
+/// de entrada para manter os call sites intactos; a tabela, os padrões
+/// compilados e a tabela de emissores vivem lá.
+pub use touring_foundation::injection_family::{attributed_family, injection_family};
+
+/// Actionable propositions carried by a block: lines in the MUST / SHOULD / MAY
+/// shape the injection-density invariant mandates
+/// (`~/.claude/rules/touring-4-pillars.md`).
+///
+/// A block with ZERO of them is not "small", it is empty of instruction — the
+/// measured population that motivates P2: `[gabrielgadea]` 384×, `[generic]`
+/// 188×, `post-tool-batch: batch of 1 tools …` 422×. Counting them is what turns
+/// that rule from a declaration into something an executor can check (D8).
+#[must_use]
+pub fn count_propositions(text: &str) -> u64 {
+    text.lines()
+        .filter(|l| {
+            let t = l.trim_start();
+            t.starts_with("MUST") || t.starts_with("SHOULD") || t.starts_with("MAY")
+        })
+        .count() as u64
+}
+
+/// The transcript directory Claude Code uses for a project root: every byte that
+/// is not alphanumeric becomes `-` (so `/home/x/p` → `-home-x-p`).
+#[must_use]
+pub fn transcript_dir_for(home: &Path, project_root: &Path) -> PathBuf {
+    let slug: String = project_root
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    home.join(".claude/projects").join(slug)
+}
+
+/// One text a hook injected, with the emitter mark Claude Code recorded for the hook that
+/// produced it (`None` in a transcript that does not record one).
+struct Injection {
+    emitter: Option<String>,
+    text: String,
+}
+
+/// Every text a hook injected in one transcript record, or an empty vec.
+fn hook_injections(rec: &Value) -> Vec<Injection> {
+    let Some(att) = rec.get("attachment") else {
+        return Vec::new();
+    };
+    if att.get("type").and_then(Value::as_str) != Some("hook_success") {
+        return Vec::new();
+    }
+    let emitter = att
+        .get("command")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let mut texts: Vec<String> = Vec::new();
+    for key in ["stdout", "content"] {
+        let Some(raw) = att.get(key).and_then(Value::as_str) else {
+            continue;
+        };
+        if raw.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<Value>(raw) {
+            Ok(parsed) => {
+                if let Some(hs) = parsed.get("hookSpecificOutput") {
+                    for k in ["additionalContext", "systemMessage"] {
+                        if let Some(s) = hs.get(k).and_then(Value::as_str) {
+                            texts.push(s.to_string());
+                        }
+                    }
+                }
+                if let Some(s) = parsed.get("systemMessage").and_then(Value::as_str) {
+                    texts.push(s.to_string());
+                }
+            }
+            // Not JSON — the hook printed plain text, which still costs the window.
+            Err(_) => texts.push(raw.to_string()),
+        }
+    }
+    texts
+        .into_iter()
+        .map(|text| Injection {
+            emitter: emitter.clone(),
+            text,
+        })
+        .collect()
+}
+
+fn hash_of(s: &str) -> u64 {
+    let mut h = DefaultHasher::new();
+    s.hash(&mut h);
+    h.finish()
+}
+
+/// The first `MUST <target>` a suggestion block asks for, used to see whether the
+/// next Bash call actually did it.
+fn must_target(text: &str) -> Option<String> {
+    text.lines().find_map(|l| {
+        let t = l.trim_start();
+        let rest = t.strip_prefix("MUST")?;
+        let mut words = rest.split_whitespace();
+        let first = words.next()?;
+        Some(match words.next() {
+            Some(second) => format!("{first} {second}"),
+            None => first.to_string(),
+        })
+    })
+}
+
+/// Shortest token that identifies something rather than being a common word.
+const TOKEN_MIN: usize = 6;
+
+/// Marks a `user` record that the HARNESS wrote, not the person.
+///
+/// Claude Code files several machine-authored things as user records: the output
+/// of a slash command, its caveat banner, and the summary injected when a
+/// context is compacted. They carry no `tool_result`, so the obvious predicate
+/// ("a user record without tool results is a human turn") counts them — and
+/// `user_turns` is the DENOMINATOR of the ruler's headline metric.
+///
+/// Measured 04/09/2026 over 5 real transcripts: **35 of 172** counted turns
+/// (20,3%) were one of these — 13 caveats, 13 command outputs, 9 compaction
+/// summaries. The denominator was inflated 25,5%, so `injected_bytes_per_turn`
+/// read ~25% LOWER than the truth: the ruler understated the very cost it
+/// exists to expose.
+///
+/// This is the complement of the defect the bundle already records for this
+/// file (a user message whose `content` is a bare STRING was not counted at
+/// all, and the rate read 12x high). One correction stopped dropping real
+/// turns; this one stops adding fake ones. A denominator has two ways to be
+/// wrong and both were live.
+///
+/// A genuine turn may carry an appended `<system-reminder>`, so that is
+/// deliberately NOT a marker — the predicate stays narrow, and a doubtful
+/// record counts as human (erring toward a larger denominator understates the
+/// problem, which is the conservative direction for a cost metric).
+// Private since 2026-09-13: every reader lives in this file (five references, none
+// outside), so `pub` only made it an orphan in the wiring audit (REGRA #0).
+const NON_HUMAN_TURN_MARKERS: [&str; 4] = [
+    "This session is being continued from a previous conversation",
+    "<local-command-stdout>",
+    "<local-command-caveat>",
+    "Caveat: The messages below were generated by the user while running local commands",
+];
+
+/// Did a person write this, or the harness? See `NON_HUMAN_TURN_MARKERS`.
+#[must_use]
+pub fn is_human_turn_text(text: &str) -> bool {
+    !NON_HUMAN_TURN_MARKERS.iter().any(|m| text.contains(m))
+}
+
+/// One result line, in the form reuse is matched on.
+///
+/// `Read` returns `cat -n` output, so every line arrives prefixed with `<n>\t`
+/// and NEVER matches a quotation of it. The first run of this measurement
+/// reported 0,0% reuse for every tool because of exactly that; probed against a
+/// known case, the same result gave 0 raw hits and 17 after stripping the
+/// prefix. The normalization is not cosmetic — without it the metric reads zero
+/// and the zero looks like a finding.
+fn normalize_result_line(line: &str) -> String {
+    let body = match line.find('\t') {
+        Some(at) if line[..at].trim().chars().all(|c| c.is_ascii_digit()) && at > 0 => {
+            &line[at + 1..]
+        }
+        _ => line,
+    };
+    body.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Identifier-ish tokens — the unit a fact travels in when the model uses a
+/// result without quoting the whole line (a symbol name lifted out of a 3 KB
+/// file). Collected into `out` so one window is scanned once.
+fn distinctive_tokens(text: &str, out: &mut BTreeSet<String>) {
+    let bytes = text.as_bytes();
+    let mut start: Option<usize> = None;
+    for (i, &c) in bytes.iter().enumerate() {
+        let head = c.is_ascii_alphabetic() || c == b'_';
+        let body = head || c.is_ascii_digit() || matches!(c, b'.' | b'/' | b':' | b'-' | b'_');
+        match start {
+            None if head => start = Some(i),
+            Some(s) if !body => {
+                if i - s >= TOKEN_MIN {
+                    out.insert(text[s..i].to_string());
+                }
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(s) = start
+        && bytes.len() - s >= TOKEN_MIN
+    {
+        out.insert(text[s..].to_string());
+    }
+}
+
+/// One tool result waiting for the window that will say how much of it was used.
+struct PendingResult {
+    tool: String,
+    bytes: u64,
+    lines: BTreeSet<String>,
+    tokens: BTreeSet<String>,
+    /// How much assistant output already existed when this result arrived.
+    ///
+    /// Without it the window was everything the assistant produced in the WHOLE
+    /// turn, so a result arriving late was measured against text written before
+    /// it existed — co-occurrence, not use. Proven 04/09/2026 by
+    /// `sonda_texto_anterior_ao_resultado_nao_pode_contar_como_uso`, which read
+    /// `1` where the contract demands `0`. The metric called itself a FLOOR on
+    /// use while over-counting; a bound that is wrong in the direction it
+    /// claims to be safe is worse than no bound.
+    after: usize,
+}
+
+/// Measures how much of each tool result reappears downstream.
+///
+/// The window is everything the assistant produced — prose and the arguments of
+/// its next calls — until the next HUMAN turn. A fact used three calls later
+/// still counts; one quoted after the human speaks again does not, because by
+/// then it belongs to a different task.
+///
+/// A line counts as reused when the window carries it verbatim, or when every
+/// distinctive token it holds reached the window — the second arm is what
+/// catches a line quoted inside a sentence, which exact matching alone misses.
+#[derive(Default)]
+struct ReuseTracker {
+    tool_of: BTreeMap<String, String>,
+    pending: Vec<PendingResult>,
+    /// The assistant's output for this turn, IN ORDER — prose and call
+    /// arguments, one entry per block. Order is the whole point: a result is
+    /// measured only against the entries that come after it.
+    window: Vec<String>,
+}
+
+impl ReuseTracker {
+    fn observe_call(&mut self, id: &str, name: &str) {
+        self.tool_of.insert(id.to_string(), name.to_string());
+    }
+
+    fn extend_window(&mut self, text: &str) {
+        self.window.push(text.to_string());
+    }
+
+    fn observe_result(&mut self, id: Option<&str>, text: &str) {
+        let tool = id
+            .and_then(|i| self.tool_of.get(i))
+            .cloned()
+            .unwrap_or_else(|| "unattributed".to_string());
+        let mut lines = BTreeSet::new();
+        for line in text.lines() {
+            let n = normalize_result_line(line);
+            if n.len() >= REUSE_MIN_LINE {
+                lines.insert(n);
+            }
+        }
+        let mut tokens = BTreeSet::new();
+        distinctive_tokens(text, &mut tokens);
+        let after = self.window.len();
+        self.pending.push(PendingResult {
+            tool,
+            bytes: text.len() as u64,
+            lines,
+            tokens,
+            after,
+        });
+    }
+
+    /// Close every pending result against the output that came AFTER it.
+    ///
+    /// Walks the pending list backwards, growing the suffix sets as it goes: the
+    /// last result sees only the tail, the one before it sees that tail plus its
+    /// own, and so on. One pass over the window in total — the naive form (a
+    /// fresh set per result) is quadratic on a turn with many calls, and this
+    /// ruler runs inside `touring kpi`.
+    fn flush(&mut self, agg: &mut ContextBudgetAggregate) {
+        let window = std::mem::take(&mut self.window);
+        let mut pending = std::mem::take(&mut self.pending);
+        let mut suffix_lines: BTreeSet<String> = BTreeSet::new();
+        let mut suffix_tokens: BTreeSet<String> = BTreeSet::new();
+        let mut boundary = window.len();
+        while let Some(p) = pending.pop() {
+            let start = p.after.min(window.len());
+            for chunk in &window[start..boundary] {
+                for line in chunk.lines() {
+                    let n = normalize_result_line(line);
+                    if n.len() >= REUSE_MIN_LINE {
+                        suffix_lines.insert(n);
+                    }
+                }
+                distinctive_tokens(chunk, &mut suffix_tokens);
+            }
+            boundary = start;
+
+            let mut reused_bytes = 0u64;
+            let mut reused_lines = 0u64;
+            for line in &p.lines {
+                if line_reached(line, &suffix_lines, &suffix_tokens) {
+                    reused_bytes += line.len() as u64;
+                    reused_lines += 1;
+                }
+            }
+            let reused_tokens = p
+                .tokens
+                .iter()
+                .filter(|t| suffix_tokens.contains(*t))
+                .count();
+            let e = agg.by_tool.entry(p.tool).or_default();
+            e.results += 1;
+            e.bytes += p.bytes;
+            e.lines += p.lines.len() as u64;
+            e.reused_bytes += reused_bytes;
+            e.reused_lines += reused_lines;
+            if reused_lines == 0 && reused_tokens == 0 {
+                e.zero_reuse_results += 1;
+            }
+        }
+    }
+}
+
+/// Is this line's content in the window — verbatim, or by all of its tokens?
+///
+/// The second arm is what catches a line quoted inside a sentence, which exact
+/// matching alone misses; two distinctive tokens is the floor at which the match
+/// stops being a coincidence.
+fn line_reached(line: &str, lines: &BTreeSet<String>, tokens: &BTreeSet<String>) -> bool {
+    if lines.contains(line) {
+        return true;
+    }
+    let mut toks = BTreeSet::new();
+    distinctive_tokens(line, &mut toks);
+    toks.len() >= 2 && toks.iter().all(|t| tokens.contains(t))
+}
+
+/// Aggregate one transcript's lines. Pure: the caller supplies the lines.
+///
+/// `seen` decides what counts as a repeat, so its scope IS the unit: threaded
+/// across transcripts it measures the project ("the same bytes reached the model
+/// again", across files); one per transcript, it measures a session.
+// O lifetime `<'a>` é NECESSÁRIO nesta posição: `impl Trait` não admite lifetime
+// anônimo em assoc-type binding (`Item = &str` / `&'_ str`) — E0658, medido ao
+// tentar removê-lo em 08/10 (a revisão adversarial sugeria remover; a linguagem
+// estável não permite). Se o clippy apontar, o allow é pontual e aqui.
+#[cfg_attr(not(test), allow(clippy::extra_unused_lifetimes))]
+pub fn aggregate_lines<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    agg: &mut ContextBudgetAggregate,
+    seen: &mut BTreeMap<u64, u64>,
+) {
+    aggregate_session_lines(lines, agg, seen, None);
+}
+
+/// The family a gate's DENY reason is attributed to (`injection_family`'s
+/// `[G<n> …]` pattern). Its `MUST` lines are the coercion channel.
+const DENY_FAMILY: &str = "code-mode-deny";
+
+/// Count a block's `MUST` and arm the follow check — unless the block is a
+/// deny's remedy. A deny is coercion, not persuasion: the call it carries was
+/// blocked, so "did the next Bash run it?" says nothing about the nudge (I-1
+/// defect (b)). Counted in `must_denied`, never armed.
+fn note_must(
+    text: &str,
+    family: &str,
+    agg: &mut ContextBudgetAggregate,
+    pending_must: &mut Option<String>,
+) {
+    let Some(target) = must_target(text) else {
+        return;
+    };
+    agg.must_emitted += 1;
+    if family == DENY_FAMILY {
+        agg.must_denied += 1;
+    } else {
+        *pending_must = Some(target);
+    }
+}
+
+/// Account one injected block: its family, its propositions, and whether it is a
+/// repeat — in the session (`seen`) or only across sessions (`project_seen`).
+fn record_injection(
+    text: &str,
+    emitter: Option<&str>,
+    agg: &mut ContextBudgetAggregate,
+    seen: &mut BTreeMap<u64, u64>,
+    project_seen: Option<&mut BTreeMap<u64, u64>>,
+    pending_must: &mut Option<String>,
+) {
+    let len = text.len() as u64;
+    let props = count_propositions(text);
+    let family = attributed_family(text, emitter);
+    agg.injected_bytes += len;
+    agg.injected_blocks += 1;
+    note_must(text, family, agg, pending_must);
+    let entry = agg.by_family.entry(family.to_string()).or_default();
+    entry.bytes += len;
+    entry.blocks += 1;
+    entry.propositions += props;
+    if props == 0 {
+        entry.zero_proposition_blocks += 1;
+    }
+    if touring_foundation::so_what::violation(text).is_some() {
+        entry.so_what_violation_bytes += len;
+        entry.so_what_violation_blocks += 1;
+    }
+    let hash = hash_of(text);
+    let count = seen.entry(hash).or_insert(0);
+    *count += 1;
+    let repeat_here = *count > 1;
+    if repeat_here {
+        agg.duplicate_bytes += len;
+        agg.duplicate_blocks += 1;
+        entry.duplicate_bytes += len;
+        entry.duplicate_blocks += 1;
+    }
+    let Some(project) = project_seen else {
+        return;
+    };
+    let pc = project.entry(hash).or_insert(0);
+    *pc += 1;
+    if *pc > 1 && !repeat_here {
+        agg.cross_session_duplicate_bytes += len;
+        agg.cross_session_duplicate_blocks += 1;
+        entry.cross_session_duplicate_bytes += len;
+        entry.cross_session_duplicate_blocks += 1;
+    }
+}
+
+/// [`aggregate_lines`] for ONE session, with the project's `seen` alongside.
+///
+/// `seen` is the session's own; `project_seen`, when given, is threaded across
+/// sessions. A block new to the session that another session already received
+/// is counted in `cross_session_duplicate_*` — not in `duplicate_*`, which keeps
+/// the session's own unit. One pass serves both units, so a transcript is parsed
+/// once.
+pub fn aggregate_session_lines<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    agg: &mut ContextBudgetAggregate,
+    seen: &mut BTreeMap<u64, u64>,
+    mut project_seen: Option<&mut BTreeMap<u64, u64>>,
+) {
+    let mut pending_must: Option<String> = None;
+    let mut reuse = ReuseTracker::default();
+    for line in lines {
+        let Ok(rec) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        let kind = rec.get("type").and_then(Value::as_str).unwrap_or_default();
+
+        for Injection { emitter, text } in hook_injections(&rec) {
+            record_injection(
+                &text,
+                emitter.as_deref(),
+                agg,
+                seen,
+                project_seen.as_deref_mut(),
+                &mut pending_must,
+            );
+            continue;
+        }
+
+        let Some(content) = rec.pointer("/message/content") else {
+            continue;
+        };
+        // `content` is EITHER an array of blocks OR a bare string — and a bare
+        // string is the common shape of a real user prompt. Requiring an array
+        // dropped those turns entirely: the live probe read 22 turns where the
+        // same corpus holds ~120, and `injected_bytes_per_turn` came out 12x too
+        // high because the denominator was missing most of its rows. A ruler
+        // whose denominator silently drops the common case reports a number that
+        // is confidently wrong, which is worse than reporting none.
+        if let Some(text) = content.as_str() {
+            if kind == "assistant" {
+                agg.assistant_bytes += text.len() as u64;
+                reuse.extend_window(text);
+            } else if kind == "user" {
+                // Os bytes contam sempre — eles ocuparam a janela. O TURNO só
+                // conta se uma pessoa o escreveu (ver `NON_HUMAN_TURN_MARKERS`).
+                agg.user_bytes += text.len() as u64;
+                if is_human_turn_text(text) {
+                    agg.user_turns += 1;
+                    reuse.flush(agg);
+                }
+            }
+            continue;
+        }
+        let Some(blocks) = content.as_array() else {
+            continue;
+        };
+        let mut counted_turn = false;
+        let mut carried_result = false;
+        for b in blocks {
+            match b.get("type").and_then(Value::as_str) {
+                Some("tool_result") => {
+                    carried_result = true;
+                    if let Some(c) = b.get("content") {
+                        let text = match c.as_str() {
+                            Some(s) => s.to_string(),
+                            None => c.to_string(),
+                        };
+                        agg.tool_result_bytes += text.len() as u64;
+                        reuse.observe_result(b.get("tool_use_id").and_then(Value::as_str), &text);
+                    }
+                }
+                Some("text") => {
+                    let text = b.get("text").and_then(Value::as_str).unwrap_or("");
+                    let len = text.len() as u64;
+                    if kind == "assistant" {
+                        agg.assistant_bytes += len;
+                        reuse.extend_window(text);
+                    } else if kind == "user" {
+                        agg.user_bytes += len;
+                        counted_turn = counted_turn || is_human_turn_text(text);
+                    }
+                }
+                Some("tool_use") if kind == "assistant" => {
+                    agg.tool_calls += 1;
+                    if let Some(id) = b.get("id").and_then(Value::as_str) {
+                        reuse
+                            .observe_call(id, b.get("name").and_then(Value::as_str).unwrap_or("?"));
+                    }
+                    if let Some(input) = b.get("input") {
+                        reuse.extend_window(&input.to_string());
+                    }
+                    if b.get("name").and_then(Value::as_str) == Some("Bash")
+                        && let Some(target) = pending_must.take()
+                    {
+                        let cmd = b
+                            .pointer("/input/command")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        // Match the whole two-word target, else its head — the
+                        // same rule the 04/09 measurement used, kept verbatim so
+                        // the baseline and the KPI are the same number.
+                        let head = target.split_whitespace().next().unwrap_or(&target);
+                        if cmd.contains(&target) || cmd.contains(head) {
+                            agg.must_followed += 1;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if counted_turn {
+            agg.user_turns += 1;
+        }
+        // A human turn closes the reuse window: a fact quoted after the person
+        // speaks again belongs to the next task, not to this result. A record
+        // that carries results is never a human turn, however much text rides
+        // along with them.
+        if counted_turn && !carried_result {
+            reuse.flush(agg);
+        }
+    }
+    // The transcript ends: whatever is still pending is measured against the
+    // window it did get, never dropped — a result with no window is a result
+    // with zero observed reuse, which is a measurement, not a gap.
+    reuse.flush(agg);
+}
+
+fn round3(v: f64) -> f64 {
+    (v * 1000.0).round() / 1000.0
+}
+
+/// The persuasion channel's adherence, judged only over a sample that can carry
+/// a verdict (I-1, 31/10/2026).
+///
+/// Two defects of the old `followed / emitted`: (a) it failed `n = 6` at 0,5
+/// where the 6.000-MUST corpus measured 0,094 — a verdict over a handful is
+/// noise dressed as a ruler; (b) its denominator mixed in the MUSTs a gate
+/// carried while DENYING, whose outcome is the deny, so a working gate lowered
+/// the "persuasion" number (`ANALISE-CONSOLIDADA.md` §7).
+struct FollowVerdict {
+    /// MUSTs of the persuasion channel: emitted minus the deny remedies.
+    sample: u64,
+    /// `followed / sample`, `None` with no sample (absence, never 0.0).
+    ratio: Option<f64>,
+}
+
+impl FollowVerdict {
+    fn of(agg: &ContextBudgetAggregate) -> Self {
+        let sample = agg.must_emitted.saturating_sub(agg.must_denied);
+        let ratio = (sample > 0).then(|| round3(agg.must_followed as f64 / sample as f64));
+        Self { sample, ratio }
+    }
+
+    /// The sample is large enough for the floor to judge.
+    fn measured(&self) -> bool {
+        self.ratio.is_some() && self.sample >= touring_foundation::cila::ADHERENCE_MIN_SAMPLE
+    }
+
+    /// The ruler names it published without judging: a number over too small a sample.
+    fn not_measured(&self) -> Vec<&'static str> {
+        if self.ratio.is_some() && !self.measured() {
+            vec!["injection_follow_ratio"]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Measured AND below the floor — the only way this ruler fails.
+    fn fails(&self) -> bool {
+        self.measured()
+            && self
+                .ratio
+                .is_some_and(|r| r < touring_foundation::cila::INJECTION_FOLLOW_RATIO_FLOOR)
+    }
+}
+
+/// Gates whose `Followed` is written in the same breath as `Emitted` because the
+/// hook REWROTE the command (`cli_suggester`: G2 pipe-exit and G8 loop rewrite;
+/// `hook_rewrite_applied_count`: "emitted == followed by construction"). Their
+/// adherence is the rewrite, not the model, so they stay out of the nudge ratio.
+const REWRITE_GATES: &[&str] = &["g2_pipe_exit", "g8_loop_rewrite"];
+
+/// `nudge_follow_ratio` (I-1, Wave 2 of the ruler): adherence of the PERMISSION
+/// channel measured over its whole population — every time a code-mode gate
+/// spoke — instead of over the handful of MUST lines a few transcripts carry.
+///
+/// A gate speaks two ways: an advisory (`emitted`) or a deny (`denied`); after
+/// either, `followed` counts the next call adopting the canonical route. The
+/// denominator is therefore `emitted + denied` — the old `followed / emitted`
+/// left the denies out and read 450 % on `g3_edit_sem_read` (emitted 2, denied
+/// 9). Rewrite gates are excluded ([`REWRITE_GATES`]). Below
+/// `ADHERENCE_MIN_SAMPLE` spoken events the number is shown, not judged.
+/// The population is the daemon's counters since its boot, and says so.
+#[must_use]
+pub fn nudge_follow(gate_events: &BTreeMap<String, BTreeMap<String, u64>>) -> Value {
+    let get = |e: &BTreeMap<String, u64>, k: &str| e.get(k).copied().unwrap_or(0);
+    let mut followed = 0u64;
+    let mut spoken = 0u64;
+    let mut per_gate = serde_json::Map::new();
+    for (gate, e) in gate_events {
+        if REWRITE_GATES.contains(&gate.as_str()) {
+            continue;
+        }
+        let (f, s) = (get(e, "followed"), get(e, "emitted") + get(e, "denied"));
+        followed += f;
+        spoken += s;
+        per_gate.insert(
+            gate.clone(),
+            json!({"followed": f, "spoken": s,
+                   "ratio": (s > 0).then(|| round3(f as f64 / s as f64))}),
+        );
+    }
+    let ratio = (spoken > 0).then(|| round3(followed as f64 / spoken as f64));
+    let measured = ratio.is_some() && spoken >= touring_foundation::cila::ADHERENCE_MIN_SAMPLE;
+    json!({
+        "nudge_follow_ratio": ratio,
+        "verdict": if measured { "measured" } else { "not_measured" },
+        "followed": followed,
+        "spoken": spoken,
+        "min_sample": touring_foundation::cila::ADHERENCE_MIN_SAMPLE,
+        "excluded_rewrite_gates": REWRITE_GATES,
+        "population": "code-mode gate events of this daemon since its boot",
+        "per_gate": per_gate,
+    })
+}
+
+/// A family whose content is FACT about the code — the list the injection
+/// policy keeps under `no-advisory` ([`touring_foundation::injection_policy::FACT_FAMILIES`]),
+/// so the ruler and the switch can never disagree on what a fact is.
+fn is_fact_family(name: &str) -> bool {
+    touring_foundation::injection_policy::FACT_FAMILIES.contains(&name)
+}
+
+/// Bytes of a family that were NOT a repeat of a block already in the window.
+fn unique_bytes(f: &FamilyStats) -> u64 {
+    f.bytes.saturating_sub(f.duplicate_bytes)
+}
+
+fn kb(bytes: u64) -> f64 {
+    round3(bytes as f64 / 1024.0)
+}
+
+/// I-4 — how much of the injected window fails the payload half of the "So
+/// what?" invariant, measured by the ONE predicate
+/// ([`touring_foundation::so_what::violation`]). A measurement in shadow: nothing
+/// is cut for it. `null` share with nothing injected (absence, never 0.0).
+fn so_what_summary(agg: &ContextBudgetAggregate) -> Value {
+    let bytes: u64 = agg
+        .by_family
+        .values()
+        .map(|f| f.so_what_violation_bytes)
+        .sum();
+    let blocks: u64 = agg
+        .by_family
+        .values()
+        .map(|f| f.so_what_violation_blocks)
+        .sum();
+    json!({
+        "violation_bytes": bytes,
+        "violation_blocks": blocks,
+        "violation_share": (agg.injected_bytes > 0).then(|| round3(bytes as f64 / agg.injected_bytes as f64)),
+        "predicate": "touring_foundation::so_what::violation (empty | no named target)",
+        "enforced": false,
+    })
+}
+
+/// `fact_kb` (I-1 defect (c)): the fact channel had no unit — the ruler counted
+/// propositions, and the families that carry facts about the code read as 0.
+/// KB of non-repeated bytes over the fact families: an UPPER bound on knowledge
+/// delivered (unique is not yet useful — that is the "So what?" invariant, I-4).
+fn fact_kb_total(agg: &ContextBudgetAggregate) -> f64 {
+    kb(agg
+        .by_family
+        .iter()
+        .filter(|(name, _)| is_fact_family(name))
+        .map(|(_, f)| unique_bytes(f))
+        .sum())
+}
+
+/// The payload, from the pure aggregate. Testable without a filesystem.
+#[must_use]
+pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
+    let window_total =
+        agg.injected_bytes + agg.tool_result_bytes + agg.assistant_bytes + agg.user_bytes;
+    let available = agg.user_turns > 0 && agg.injected_blocks > 0;
+
+    let per_turn = if agg.user_turns == 0 {
+        0.0
+    } else {
+        agg.injected_bytes as f64 / agg.user_turns as f64
+    };
+    let dup_ratio = if agg.injected_bytes == 0 {
+        0.0
+    } else {
+        agg.duplicate_bytes as f64 / agg.injected_bytes as f64
+    };
+    // A floor over zero emissions would read as a failure of adherence when it
+    // is an absence of data — `null`, never 0.0 (the `ratio_absent_reads_as_null`
+    // rule this file's neighbours already follow).
+    let follow = FollowVerdict::of(agg);
+
+    let families: BTreeMap<String, Value> = agg
+        .by_family
+        .iter()
+        .map(|(name, f)| {
+            (
+                name.clone(),
+                json!({
+                    "bytes": f.bytes,
+                    "blocks": f.blocks,
+                    "mean_bytes": f.bytes.checked_div(f.blocks).unwrap_or(0),
+                    "duplicate_bytes": f.duplicate_bytes,
+                    "duplicate_ratio": if f.bytes == 0 { 0.0 } else { round3(f.duplicate_bytes as f64 / f.bytes as f64) },
+                    "propositions": f.propositions,
+                    "zero_proposition_blocks": f.zero_proposition_blocks,
+                    // The density the injection invariant asks for, in the unit a
+                    // reader can act on: propositions per kilobyte of window.
+                    "propositions_per_kb": if f.bytes == 0 { 0.0 } else { round3(f.propositions as f64 * 1024.0 / f.bytes as f64) },
+                    // `null` for an advisory family: the fact unit does not apply.
+                    "fact_kb": if is_fact_family(name) { json!(kb(unique_bytes(f))) } else { Value::Null },
+                    "so_what_violation_bytes": f.so_what_violation_bytes,
+                    "so_what_violation_blocks": f.so_what_violation_blocks,
+                }),
+            )
+        })
+        .collect();
+
+    // Tool results, attributed. Ordered by bytes so the dominant emitter is the
+    // first row a reader meets, which is the whole point of the attribution.
+    let mut tools: Vec<(&String, &ToolStats)> = agg.by_tool.iter().collect();
+    tools.sort_by(|a, b| b.1.bytes.cmp(&a.1.bytes).then(a.0.cmp(b.0)));
+    let tool_bytes: u64 = agg.by_tool.values().map(|t| t.bytes).sum();
+    let tool_reused: u64 = agg.by_tool.values().map(|t| t.reused_bytes).sum();
+    let by_tool: Vec<Value> = tools
+        .iter()
+        .map(|(name, t)| {
+            json!({
+                "tool": name,
+                "results": t.results,
+                "bytes": t.bytes,
+                "share": if tool_bytes == 0 { 0.0 } else { round3(t.bytes as f64 / tool_bytes as f64) },
+                "mean_bytes": t.bytes.checked_div(t.results).unwrap_or(0),
+                "reused_bytes": t.reused_bytes,
+                "reused_line_ratio": if t.lines == 0 { Value::Null } else { json!(round3(t.reused_lines as f64 / t.lines as f64)) },
+                // A result nothing downstream touched — the only population a
+                // digest could drop outright. Measured at 3–6%: almost every
+                // result contributes something, so truncation is the wrong tool.
+                "zero_reuse_results": t.zero_reuse_results,
+            })
+        })
+        .collect();
+
+    let mut failing: Vec<&str> = Vec::new();
+    if per_turn > touring_foundation::cila::INJECTION_CEIL_BYTES_PER_TURN as f64 {
+        failing.push("injected_bytes_per_turn");
+    }
+    if dup_ratio > touring_foundation::cila::INJECTION_DUPLICATE_RATIO_CEIL {
+        failing.push("duplicate_injection_ratio");
+    }
+    if follow.fails() {
+        failing.push("injection_follow_ratio");
+    }
+    let not_measured = follow.not_measured();
+
+    json!({
+        "available": available,
+        "reason": if available { Value::Null } else { json!("no transcript with user turns and hook injection yet") },
+        "transcripts_scanned": agg.transcripts,
+        "bytes_scanned": agg.bytes_scanned,
+        // A capped scan is a PARTIAL measurement and says so, so a number from a
+        // truncated read is never mistaken for a number from a whole one.
+        "capped": agg.capped,
+        "user_turns": agg.user_turns,
+        "window_bytes": {
+            "injection": agg.injected_bytes,
+            "tool_results": agg.tool_result_bytes,
+            "assistant": agg.assistant_bytes,
+            "user": agg.user_bytes,
+            "injection_share": if window_total == 0 { 0.0 } else { round3(agg.injected_bytes as f64 / window_total as f64) },
+            "tool_result_share": if window_total == 0 { 0.0 } else { round3(agg.tool_result_bytes as f64 / window_total as f64) },
+        },
+        "injected_bytes_per_turn": round3(per_turn),
+        "injected_bytes_per_turn_ceil": touring_foundation::cila::INJECTION_CEIL_BYTES_PER_TURN as f64,
+        "duplicate_injection_ratio": round3(dup_ratio),
+        "duplicate_injection_ratio_ceil": touring_foundation::cila::INJECTION_DUPLICATE_RATIO_CEIL,
+        "duplicate_blocks": agg.duplicate_blocks,
+        "injection_follow_ratio": follow.ratio,
+        "injection_follow_ratio_floor": touring_foundation::cila::INJECTION_FOLLOW_RATIO_FLOOR,
+        // The denominator the ratio is over (MUSTs minus the deny remedies) and
+        // the sample floor below which it is published but never judged.
+        "injection_follow_ratio_sample": follow.sample,
+        "injection_follow_ratio_min_sample": touring_foundation::cila::ADHERENCE_MIN_SAMPLE,
+        "must_emitted": agg.must_emitted,
+        "must_followed": agg.must_followed,
+        "must_denied": agg.must_denied,
+        "fact_kb": fact_kb_total(agg),
+        "so_what": so_what_summary(agg),
+        // TpCD (Eixo 4) with a DECLARED proxy for "consolidated action": one tool
+        // call. It is a proxy and is named as one — a real correct-decision count
+        // needs an outcome the transcript does not carry.
+        "tpcd_proxy_bytes_per_tool_call": if agg.tool_calls == 0 { Value::Null } else { json!(round3(window_total as f64 / agg.tool_calls as f64)) },
+        "tool_calls": agg.tool_calls,
+        // The 51,3% of the window nobody was measuring. `reuse_ratio` is the
+        // number that decides a digest: the share of returned bytes that
+        // demonstrably reached the model's next words or arguments. A FLOOR on
+        // use, therefore a CEILING on what a digest may discard.
+        "tool_output": {
+            "bytes": tool_bytes,
+            "reused_bytes": tool_reused,
+            "reuse_ratio": if tool_bytes == 0 { Value::Null } else { json!(round3(tool_reused as f64 / tool_bytes as f64)) },
+            "by_tool": by_tool,
+        },
+        "by_family": families,
+        "status": if !available { "STUB" } else if failing.is_empty() { "PASS" } else { "FAIL" },
+        "failing": failing,
+        // Rulers with a number but too small a sample to judge — neither PASS
+        // nor FAIL. A PASS with entries here passed only the rulers it measured.
+        "not_measured": not_measured,
+    })
+}
+
+/// The IO shell: locate this project's transcripts and aggregate the most recent
+/// ones, newest first, stopping at the byte cap and reporting that it did.
+#[must_use]
+pub fn context_budget(project_root: &Path) -> Value {
+    let Some(home) = std::env::var_os("HOME") else {
+        return json!({"available": false, "reason": "HOME unset"});
+    };
+    context_budget_in(Path::new(&home), project_root)
+}
+
+/// [`context_budget`] against an explicit `home` (the directory that holds
+/// `.claude/`) — the testable body of the IO shell.
+#[must_use]
+pub(crate) fn context_budget_in(home: &Path, project_root: &Path) -> Value {
+    let dir = transcript_dir_for(home, project_root);
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return json!({
+            "available": false,
+            "reason": format!("no transcript directory at {}", dir.display()),
+        });
+    };
+    let mut files: Vec<(std::time::SystemTime, PathBuf)> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x == "jsonl"))
+        .filter_map(|p| {
+            let mtime = std::fs::metadata(&p).ok()?.modified().ok()?;
+            Some((mtime, p))
+        })
+        .collect();
+    // Mais recente primeiro: a janela que interessa e a de agora.
+    files.sort_by_key(|a| std::cmp::Reverse(a.0));
+
+    // Two units, one pass (Gabriel, canvas 2 option c, 05/10/2026). A transcript
+    // file is one Claude Code session — its name is the session id — and with two
+    // sessions alive every project counter mixed them: one session's parity check
+    // read 36.459 + 14.633 = 51.092 bytes, its own plus the other's. The project
+    // aggregate keeps its number (the repeats across sessions fold back in); each
+    // session gets its own, with its own `seen`.
+    let mut agg = ContextBudgetAggregate::default();
+    let mut project_seen: BTreeMap<u64, u64> = BTreeMap::new();
+    let mut sessions: Vec<(String, ContextBudgetAggregate)> = Vec::new();
+    for (_, path) in files.into_iter().take(MAX_TRANSCRIPTS) {
+        if agg.bytes_scanned >= MAX_BYTES {
+            agg.capped = true;
+            break;
+        }
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let mut session = ContextBudgetAggregate {
+            transcripts: 1,
+            bytes_scanned: content.len() as u64,
+            ..ContextBudgetAggregate::default()
+        };
+        let mut seen: BTreeMap<u64, u64> = BTreeMap::new();
+        aggregate_session_lines(
+            content.lines(),
+            &mut session,
+            &mut seen,
+            Some(&mut project_seen),
+        );
+        agg.absorb_session(&session);
+        let id = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        sessions.push((id, session));
+    }
+    let mut out = budget_from_aggregate(&agg);
+    out["unit"] = json!("project");
+    out["cross_session_duplicate_bytes"] = json!(agg.cross_session_duplicate_bytes);
+    out["cross_session_duplicate_blocks"] = json!(agg.cross_session_duplicate_blocks);
+    out["by_session"] = Value::Array(
+        sessions
+            .iter()
+            .map(|(id, s)| session_summary(id, s))
+            .collect(),
+    );
+    let scope: BTreeSet<String> = sessions.iter().map(|(id, _)| id.clone()).collect();
+    attach_injection_suppressed(&mut out, home, &scope);
+    out
+}
+
+/// What the injection policy kept OUT of the window, per family — S-3
+/// (27/10/2026). The transcript only carries what REACHED the model, so a cut
+/// never shows in `by_family`; the hook processes that make the cut journal it
+/// ([`touring_foundation::injection_journal`]) and this is the read side.
+///
+/// `journal` is the journal's text, or `None` when there is no journal: that is
+/// "not measured", reported as `available: false` and a `null`
+/// `injection_suppressed_by_family` — never as zero cuts. `scope` is the set of
+/// session ids of this project's transcripts: cuts of other projects' sessions
+/// are counted apart, and cuts with no session (the daemon's own) are shown as
+/// `unattributed` instead of being folded into the totals.
+fn injection_suppressed(
+    journal: Option<&str>,
+    scope: &BTreeSet<String>,
+) -> (Value, Value, touring_foundation::injection_journal::Summary) {
+    use touring_foundation::injection_journal::{Summary, summarize};
+    let default_level = touring_foundation::injection_policy::DEFAULT_LEVEL.as_str();
+    let Some(text) = journal else {
+        return (
+            json!({
+                "available": false,
+                "reason": "no injection journal yet (nothing was ever cut, or the policy never ran above `full`)",
+                "default_level": default_level,
+            }),
+            Value::Null,
+            Summary::default(),
+        );
+    };
+    let s = summarize(text, Some(scope));
+    let by_family: serde_json::Map<String, Value> = s
+        .by_family
+        .iter()
+        .map(|(family, t)| (family.clone(), json!({"count": t.count, "bytes": t.bytes})))
+        .collect();
+    let detail = json!({
+        "available": true,
+        "reason": Value::Null,
+        "scope": format!("sessions of this project's {} scanned transcript(s)", scope.len()),
+        // The level is NOT inferred from the absence of lines: `full` writes
+        // none. A level appears here only because a cut was made under it.
+        "default_level": default_level,
+        "levels_seen": s.by_level,
+        "lines": s.lines,
+        "cuts": s.count,
+        "bytes": s.bytes,
+        "by_site_bytes": s.by_site,
+        "unattributed": {"lines": s.unattributed_lines, "bytes": s.unattributed_bytes},
+        "out_of_scope_lines": s.out_of_scope_lines,
+        "malformed_lines": s.malformed_lines,
+    });
+    (detail, Value::Object(by_family), s)
+}
+
+/// Read the journal under `home` and put the S-3 keys into the payload:
+/// `injection_suppressed_by_family` and `injection_suppressed` at the top, and
+/// `injection_suppressed_bytes` on every `by_session` row (`null` while there
+/// is no journal to read).
+fn attach_injection_suppressed(out: &mut Value, home: &Path, scope: &BTreeSet<String>) {
+    let journal = touring_foundation::injection_journal::read_tail(
+        &touring_foundation::injection_journal::journal_path_in(home),
+    );
+    let (detail, by_family, summary) = injection_suppressed(journal.as_deref(), scope);
+    let measured = detail["available"] == json!(true);
+    out["injection_suppressed_by_family"] = by_family;
+    out["injection_suppressed"] = detail;
+    if let Some(rows) = out["by_session"].as_array_mut() {
+        for row in rows {
+            let bytes = row["session_id"]
+                .as_str()
+                .map(|id| summary.by_session.get(id).copied().unwrap_or(0));
+            row["injection_suppressed_bytes"] = match (measured, bytes) {
+                (true, Some(b)) => json!(b),
+                _ => Value::Null,
+            };
+        }
+    }
+}
+
+/// The per-session row of the payload: the same formulas as the project
+/// (`budget_from_aggregate` is the one source), cut to the fields a session
+/// arm of an experiment reads.
+#[must_use]
+pub fn session_summary(session_id: &str, s: &ContextBudgetAggregate) -> Value {
+    let full = budget_from_aggregate(s);
+    let mut row = json!({"session_id": session_id, "unit": "session",
+                         "cross_session_duplicate_bytes": s.cross_session_duplicate_bytes});
+    for key in [
+        "user_turns",
+        "injected_bytes_per_turn",
+        "duplicate_injection_ratio",
+        "duplicate_blocks",
+        "must_emitted",
+        "must_followed",
+        "must_denied",
+        "injection_follow_ratio",
+        "injection_follow_ratio_sample",
+        "fact_kb",
+        "tool_calls",
+        "status",
+        "failing",
+        "not_measured",
+    ] {
+        row[key] = full[key].clone();
+    }
+    row["injected_bytes"] = json!(s.injected_bytes);
+    row
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    // A tabela canônica mora em `touring_foundation::injection_family` (S-4); os
+    // testes abaixo são os JUÍZES da paridade com o espelho Python e leem a
+    // tabela de lá — se a tabela mudar, é aqui que a divergência apita.
+    use touring_foundation::injection_family::{EMITTERS, FAMILY_MARKERS, FAMILY_PATTERNS};
+
+    /// A minimal transcript: one hook injection repeated, one user turn, one
+    /// assistant tool call. Every number below is arithmetic a reader can redo
+    /// by hand — which is the point of keeping the aggregation pure.
+    fn synthetic() -> Vec<String> {
+        let inj = |text: &str| {
+            let inner = json!({"hookSpecificOutput": {"additionalContext": text}}).to_string();
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string()
+        };
+        vec![
+            inj("[TOURING SUGGEST]\n  MUST touring doctor -j\n"),
+            json!({"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": "touring doctor -j"}}
+            ]}})
+            .to_string(),
+            // byte-identical repeat — the whole point of the duplicate ruler
+            inj("[TOURING SUGGEST]\n  MUST touring doctor -j\n"),
+            json!({"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}
+            ]}})
+            .to_string(),
+            inj("[generic]"),
+            json!({"type": "user", "message": {"content": [
+                {"type": "text", "text": "faca isso"}
+            ]}})
+            .to_string(),
+            json!({"type": "user", "message": {"content": [
+                {"type": "tool_result", "content": "saida grande"}
+            ]}})
+            .to_string(),
+        ]
+    }
+
+    /// A call and the result that answers it, as Claude Code writes them.
+    fn call(id: &str, tool: &str, input: Value) -> String {
+        json!({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": id, "name": tool, "input": input}
+        ]}})
+        .to_string()
+    }
+    fn result(id: &str, text: &str) -> String {
+        json!({"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": id, "content": text}
+        ]}})
+        .to_string()
+    }
+    fn says(text: &str) -> String {
+        json!({"type": "assistant", "message": {"content": [{"type": "text", "text": text}]}})
+            .to_string()
+    }
+    fn human(text: &str) -> String {
+        json!({"type": "user", "message": {"content": [{"type": "text", "text": text}]}})
+            .to_string()
+    }
+
+    /// O denominador da métrica-manchete tem DUAS formas de errar, e as duas
+    /// estiveram vivas neste arquivo: deixar de contar turno real (a mensagem
+    /// cujo `content` é string crua — a taxa lia 12× alto) e contar o que não é
+    /// turno (saída de slash command, banner de caveat, resumo de compactação —
+    /// 35 de 172 medidos, 20,3%). Este teste fixa os dois lados de uma vez.
+    #[test]
+    fn so_a_fala_humana_conta_como_turno() {
+        // O que a MÁQUINA escreveu, arquivado como record de usuário.
+        for marker in NON_HUMAN_TURN_MARKERS {
+            assert!(
+                !is_human_turn_text(&format!("prefixo {marker} sufixo")),
+                "{marker} e' texto do harness, nao turno humano"
+            );
+        }
+        // Um turno legítimo, inclusive carregando um system-reminder anexado —
+        // o predicado fica ESTREITO de propósito: a dúvida conta como humana,
+        // que é a direção que subestima o problema em vez de inflá-lo.
+        assert!(is_human_turn_text("faca a auditoria"));
+        assert!(is_human_turn_text(
+            "faca a auditoria\n<system-reminder>contexto</system-reminder>"
+        ));
+
+        let agg = run(&[
+            human("tarefa de verdade"),
+            human("<local-command-stdout>[2mCompacted[22m</local-command-stdout>"),
+            human("This session is being continued from a previous conversation. O resumo segue."),
+        ]);
+        assert_eq!(
+            agg.user_turns, 1,
+            "so o primeiro e' fala humana; os outros dois sao do harness"
+        );
+        assert!(
+            agg.user_bytes > 0,
+            "os BYTES contam sempre — eles ocuparam a janela; so o TURNO nao"
+        );
+    }
+
+    /// SONDA DE AUDITORIA (04/09): o contrato diz que uma linha conta como
+    /// reusada quando ela REAPARECE DEPOIS. A janela, porém, acumula desde o
+    /// início do turno — então um resultado que chega TARDE é medido contra
+    /// texto escrito ANTES de ele existir. Se este teste vir reuso, o número
+    /// não é o piso que a doc promete: é co-ocorrência no turno.
+    #[test]
+    fn sonda_texto_anterior_ao_resultado_nao_pode_contar_como_uso() {
+        let agg = run(&[
+            human("faca"),
+            says("vou olhar alvo_especifico_xyz no arquivo caminho/do/modulo.rs"),
+            call("c1", "Bash", json!({"command": "ls"})),
+            result("c1", "alvo_especifico_xyz caminho/do/modulo.rs"),
+            human("outra tarefa"),
+        ]);
+        assert_eq!(
+            agg.by_tool["Bash"].reused_lines, 0,
+            "texto que PRECEDE o resultado nao pode contar como uso dele"
+        );
+    }
+
+    /// `distinctive_tokens` slices by BYTE index, so a boundary landing inside a
+    /// multi-byte char would panic — on a codebase whose comments and doc
+    /// strings are in Portuguese, that is the common case, not the exotic one.
+    /// The reasoning says it is safe (a token only starts at an ASCII letter and
+    /// only ends at a non-ASCII-body byte, and a UTF-8 lead byte is neither), but
+    /// reasoning is not a test.
+    #[test]
+    fn acentuacao_nao_quebra_a_fatia_por_byte() {
+        let mut out = BTreeSet::new();
+        distinctive_tokens("função contexto_orçamento é medição — ré", &mut out);
+        assert!(
+            out.contains("contexto_or"),
+            "parou no acento, sem cortá-lo: {out:?}"
+        );
+        let mut out2 = BTreeSet::new();
+        distinctive_tokens("日本語 identifier_longo 中文", &mut out2);
+        assert!(out2.contains("identifier_longo"));
+        // O caminho inteiro, com um resultado acentuado de ponta a ponta.
+        let agg = run(&[
+            call("c1", "Bash", json!({"command": "grep função"})),
+            result("c1", "  1\tfn medição_do_orçamento() {\n  2\t    ação();"),
+            says("a função e\nfn medição_do_orçamento() {"),
+        ]);
+        assert_eq!(agg.by_tool["Bash"].reused_lines, 1);
+    }
+
+    /// The plan's P5 contract: the 51,3% of the window that tool results occupy
+    /// is attributed to the tool that produced it, or the dominant emitter
+    /// cannot be named — and an unnamed dominant emitter cannot be acted on.
+    #[test]
+    fn tool_output_volume_is_attributed_per_tool() {
+        let big = "a".repeat(300);
+        let agg = run(&[
+            call("c1", "Bash", json!({"command": "ls"})),
+            result("c1", &big),
+            call("c2", "Read", json!({"file_path": "/x.rs"})),
+            result("c2", "curto"),
+        ]);
+        assert_eq!(agg.by_tool["Bash"].bytes, 300, "Bash carrega os 300 B");
+        assert_eq!(agg.by_tool["Bash"].results, 1);
+        assert_eq!(agg.by_tool["Read"].bytes, 5, "Read carrega os seus 5 B");
+        assert_eq!(
+            agg.tool_result_bytes, 305,
+            "a soma por ferramenta e o total: uma fonte, nao duas"
+        );
+    }
+
+    /// The defect the live probe caught, kept as a test because it made the
+    /// whole metric read 0,0% and the zero looked like a finding: `Read` returns
+    /// `cat -n`, so every line carries a `<n>\t` prefix and never matches the
+    /// quotation of it. Reverting `normalize_result_line` to the identity turns
+    /// this assertion red.
+    #[test]
+    fn o_prefixo_de_numeracao_do_read_nao_zera_o_reuso() {
+        assert_eq!(
+            normalize_result_line("  12\tfn alvo_da_medicao() {"),
+            "fn alvo_da_medicao() {",
+            "o prefixo do cat -n sai; sem isso nada casa"
+        );
+        assert_eq!(
+            normalize_result_line("abc\tdef"),
+            "abc def",
+            "so numero antes da tabulacao e prefixo — texto e conteudo"
+        );
+        let agg = run(&[
+            call("c1", "Read", json!({"file_path": "/x.rs"})),
+            result(
+                "c1",
+                "  12\tfn alvo_da_medicao() {\n  13\t    outra_coisa();",
+            ),
+            says("a funcao e\nfn alvo_da_medicao() {\ne resolve"),
+        ]);
+        let read = &agg.by_tool["Read"];
+        assert_eq!(read.lines, 2, "duas linhas informativas voltaram");
+        assert_eq!(read.reused_lines, 1, "a citada conta, a outra nao");
+        assert_eq!(read.zero_reuse_results, 0);
+    }
+
+    /// The window closes at the human turn: a fact quoted after the person
+    /// speaks again belongs to the next task, and counting it would inflate
+    /// reuse with work this result never informed.
+    #[test]
+    fn um_fato_citado_depois_do_turno_humano_nao_conta() {
+        let agg = run(&[
+            call("c1", "Read", json!({"file_path": "/x.rs"})),
+            result("c1", "  12\tfn alvo_da_medicao() {"),
+            human("outra tarefa"),
+            says("fn alvo_da_medicao() {"),
+        ]);
+        assert_eq!(
+            agg.by_tool["Read"].reused_lines, 0,
+            "a janela fechou antes da citacao"
+        );
+        assert_eq!(agg.by_tool["Read"].zero_reuse_results, 1);
+    }
+
+    /// The only population a digest could drop outright, counted separately —
+    /// measured at 3–6% live, which is why truncation is the wrong instrument
+    /// and spill-with-retrieval is the right one.
+    #[test]
+    fn resultado_que_ninguem_tocou_conta_como_zero_reuso() {
+        let agg = run(&[
+            call("c1", "Bash", json!({"command": "ls"})),
+            result("c1", "zzqqx_inexistente_um\nzzqqx_inexistente_dois"),
+            says("segui por outro caminho"),
+        ]);
+        let bash = &agg.by_tool["Bash"];
+        assert_eq!(bash.reused_lines, 0);
+        assert_eq!(bash.reused_bytes, 0);
+        assert_eq!(bash.zero_reuse_results, 1);
+        let payload = budget_from_aggregate(&agg);
+        assert_eq!(payload["tool_output"]["reuse_ratio"], json!(0.0));
+        assert_eq!(payload["tool_output"]["by_tool"][0]["tool"], "Bash");
+    }
+
+    fn run(lines: &[String]) -> ContextBudgetAggregate {
+        let mut agg = ContextBudgetAggregate::default();
+        let mut seen = BTreeMap::new();
+        aggregate_lines(lines.iter().map(String::as_str), &mut agg, &mut seen);
+        agg
+    }
+
+    #[test]
+    fn the_aggregate_counts_injection_turns_and_the_byte_identical_repeat() {
+        let agg = run(&synthetic());
+        assert_eq!(agg.injected_blocks, 3, "3 hook blocks");
+        assert_eq!(
+            agg.duplicate_blocks, 1,
+            "the 2nd identical block is the repeat"
+        );
+        assert_eq!(
+            agg.user_turns, 1,
+            "only the text-carrying user message is a turn"
+        );
+        assert_eq!(agg.tool_calls, 2);
+        assert_eq!(agg.must_emitted, 2);
+        assert_eq!(agg.must_followed, 1, "1st MUST matched, 2nd did not");
+        assert_eq!(agg.tool_result_bytes, "saida grande".len() as u64);
+        assert!(agg.by_family.contains_key("touring-suggest"));
+        assert!(
+            agg.by_family.contains_key("generic-noise"),
+            "[generic] tem família própria desde S-3: o catch-all é para o \
+             genuinamente desconhecido, não para o que faltava nomear"
+        );
+    }
+
+    #[test]
+    fn a_block_with_no_directive_line_is_counted_as_zero_proposition() {
+        let agg = run(&synthetic());
+        let noise = &agg.by_family["generic-noise"];
+        assert_eq!(noise.propositions, 0);
+        assert_eq!(
+            noise.zero_proposition_blocks, 1,
+            "[generic] carries no instruction"
+        );
+        let sug = &agg.by_family["touring-suggest"];
+        assert_eq!(sug.propositions, 2, "one MUST line per block");
+        assert_eq!(sug.zero_proposition_blocks, 0);
+    }
+
+    /// Each ceiling is asserted by an aggregate that violates THAT ONE, so a
+    /// failure names which ruler moved. The synthetic transcript is small on
+    /// purpose — 95 injected bytes over one turn is nowhere near the per-turn
+    /// ceiling, and a test that claimed otherwise would be asserting arithmetic
+    /// it had not done.
+    #[test]
+    fn each_ceiling_fails_on_its_own_violation_and_none_on_a_clean_aggregate() {
+        // 20 MUSTs: exactly the sample floor, so the follow ruler JUDGES here.
+        let base = ContextBudgetAggregate {
+            user_turns: 10,
+            injected_bytes: 1000,
+            injected_blocks: 5,
+            must_emitted: 20,
+            must_followed: 20,
+            ..Default::default()
+        };
+        let clean = budget_from_aggregate(&base);
+        assert_eq!(clean["status"], "PASS", "{clean}");
+        assert_eq!(clean["injected_bytes_per_turn"], 100.0);
+        assert_eq!(clean["injection_follow_ratio"], 1.0);
+
+        let fat = budget_from_aggregate(&ContextBudgetAggregate {
+            injected_bytes: 40_000, // 4 000 B/turn > 3 000
+            ..base.clone()
+        });
+        assert_eq!(fat["failing"], json!(["injected_bytes_per_turn"]), "{fat}");
+
+        let repetitive = budget_from_aggregate(&ContextBudgetAggregate {
+            duplicate_bytes: 500, // metade da injecao > teto 0,05
+            ..base.clone()
+        });
+        assert_eq!(
+            repetitive["failing"],
+            json!(["duplicate_injection_ratio"]),
+            "{repetitive}"
+        );
+
+        let ignored = budget_from_aggregate(&ContextBudgetAggregate {
+            must_followed: 5, // 0,25 < piso 0,60
+            ..base.clone()
+        });
+        assert_eq!(
+            ignored["failing"],
+            json!(["injection_follow_ratio"]),
+            "{ignored}"
+        );
+        assert_eq!(ignored["not_measured"], json!([]), "{ignored}");
+    }
+
+    /// I-1 defect (a): the ruler failed n=6 at 0,5 where 6.000 MUSTs read 0,094.
+    /// Below the floor the ratio is SHOWN and named in `not_measured`, never a FAIL
+    /// — and never a PASS of that ruler either.
+    #[test]
+    fn a_follow_ratio_below_the_sample_floor_is_shown_but_not_judged() {
+        let small = budget_from_aggregate(&ContextBudgetAggregate {
+            user_turns: 10,
+            injected_bytes: 1000,
+            injected_blocks: 6,
+            must_emitted: 6,
+            must_followed: 3,
+            ..Default::default()
+        });
+        assert_eq!(small["injection_follow_ratio"], 0.5, "{small}");
+        assert_eq!(small["injection_follow_ratio_sample"], 6);
+        assert_eq!(small["failing"], json!([]), "{small}");
+        assert_eq!(small["not_measured"], json!(["injection_follow_ratio"]));
+        // One MUST short of the floor still does not judge; at the floor it does.
+        let edge = |emitted: u64| {
+            budget_from_aggregate(&ContextBudgetAggregate {
+                user_turns: 10,
+                injected_bytes: 1000,
+                injected_blocks: 6,
+                must_emitted: emitted,
+                ..Default::default()
+            })
+        };
+        let floor = touring_foundation::cila::ADHERENCE_MIN_SAMPLE;
+        assert_eq!(edge(floor - 1)["failing"], json!([]));
+        assert_eq!(edge(floor)["failing"], json!(["injection_follow_ratio"]));
+    }
+
+    /// I-1 defect (b): a deny's MUST is coercion — its outcome is the deny — so it
+    /// leaves the persuasion denominator. 20 followed of 25 emitted with 5 denies
+    /// is 20/20, not the 0,8 the old formula reported.
+    #[test]
+    fn deny_remedies_leave_the_persuasion_denominator() {
+        let v = budget_from_aggregate(&ContextBudgetAggregate {
+            user_turns: 10,
+            injected_bytes: 1000,
+            injected_blocks: 25,
+            must_emitted: 25,
+            must_denied: 5,
+            must_followed: 20,
+            ..Default::default()
+        });
+        assert_eq!(v["injection_follow_ratio"], 1.0, "{v}");
+        assert_eq!(v["injection_follow_ratio_sample"], 20);
+        assert_eq!(v["must_denied"], 5);
+        assert_eq!(v["failing"], json!([]), "{v}");
+    }
+
+    /// Through the real transcript path: a `[G<n> …]` deny carrying a MUST is
+    /// counted in `must_denied` and never armed, so the Bash after it — which
+    /// runs exactly the remedy — is NOT credited as persuasion.
+    #[test]
+    fn a_deny_block_in_the_transcript_is_counted_apart_and_never_followed() {
+        let inj = |text: &str| {
+            let inner = json!({"hookSpecificOutput": {"additionalContext": text}}).to_string();
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string()
+        };
+        let bash = |cmd: &str| {
+            json!({"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": cmd}}
+            ]}})
+            .to_string()
+        };
+        let agg = run(&[
+            inj("[G7 re-inspeção] negado\n  MUST touring run --file x.py\n"),
+            bash("touring run --file x.py"),
+            inj("[TOURING SUGGEST]\n  MUST touring doctor -j\n"),
+            bash("touring doctor -j"),
+        ]);
+        assert_eq!(agg.must_emitted, 2);
+        assert_eq!(agg.must_denied, 1, "the deny's MUST is coercion");
+        assert_eq!(agg.must_followed, 1, "only the advisory is persuasion");
+        assert_eq!(budget_from_aggregate(&agg)["injection_follow_ratio"], 1.0);
+    }
+
+    /// I-1 defect (c): `fact_kb` is KB of NON-repeated bytes over the policy's
+    /// FACT families; an advisory family carries `null`, not 0.
+    #[test]
+    fn fact_kb_counts_unique_bytes_of_fact_families_only() {
+        let mut agg = ContextBudgetAggregate {
+            user_turns: 1,
+            injected_bytes: 6144,
+            injected_blocks: 3,
+            ..Default::default()
+        };
+        agg.by_family.insert(
+            "pre-edit".into(),
+            FamilyStats {
+                bytes: 3072,
+                blocks: 2,
+                duplicate_bytes: 1024,
+                ..Default::default()
+            },
+        );
+        agg.by_family.insert(
+            "touring-suggest".into(),
+            FamilyStats {
+                bytes: 3072,
+                blocks: 1,
+                ..Default::default()
+            },
+        );
+        assert!(touring_foundation::injection_policy::FACT_FAMILIES.contains(&"pre-edit"));
+        assert!(!touring_foundation::injection_policy::FACT_FAMILIES.contains(&"touring-suggest"));
+        let v = budget_from_aggregate(&agg);
+        assert_eq!(v["fact_kb"], 2.0, "(3072 - 1024) / 1024 — {v}");
+        assert_eq!(v["by_family"]["pre-edit"]["fact_kb"], 2.0);
+        assert!(v["by_family"]["touring-suggest"]["fact_kb"].is_null());
+    }
+
+    /// I-4 through the real transcript path: `[generic]` (empty) and a number
+    /// about nothing nameable (no target) count as So-what violations; a block
+    /// naming a file does not. Shadow: nothing is cut.
+    #[test]
+    fn so_what_violations_are_measured_per_family_and_in_total() {
+        let inj = |text: &str| {
+            let inner = json!({"hookSpecificOutput": {"additionalContext": text}}).to_string();
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string()
+        };
+        let empty = "[generic]";
+        let no_target = "Similar command failed recently (similarity=68%)";
+        let named = "HOTSPOT: crates/touring-cli/src/cli/kpi.rs blast 12";
+        let agg = run(&[inj(empty), inj(no_target), inj(named)]);
+        let v = budget_from_aggregate(&agg);
+        let expect = (empty.len() + no_target.len()) as u64;
+        assert_eq!(v["so_what"]["violation_bytes"], expect, "{v}");
+        assert_eq!(v["so_what"]["violation_blocks"], 2);
+        assert_eq!(v["so_what"]["enforced"], false);
+        let total = (empty.len() + no_target.len() + named.len()) as f64;
+        assert_eq!(
+            v["so_what"]["violation_share"],
+            round3(expect as f64 / total)
+        );
+        let fam_sum: u64 = v["by_family"]
+            .as_object()
+            .expect("families")
+            .values()
+            .map(|f| f["so_what_violation_bytes"].as_u64().unwrap_or(0))
+            .sum();
+        assert_eq!(fam_sum, expect, "families add up to the total");
+        assert!(
+            budget_from_aggregate(&ContextBudgetAggregate::default())["so_what"]["violation_share"]
+                .is_null()
+        );
+    }
+
+    /// `nudge_follow`: denominator = emitted + denied, rewrite gates excluded, and
+    /// a population under the floor is `not_measured`.
+    #[test]
+    fn nudge_follow_counts_denies_in_the_denominator_and_drops_rewrite_gates() {
+        let ev = |e: u64, f: u64, d: u64| -> BTreeMap<String, u64> {
+            [
+                ("emitted", e),
+                ("followed", f),
+                ("denied", d),
+                ("bypassed", 0),
+            ]
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect()
+        };
+        let mut g: BTreeMap<String, BTreeMap<String, u64>> = BTreeMap::new();
+        g.insert("g3_edit_sem_read".into(), ev(2, 4, 9)); // the 450 % of §7
+        g.insert("g7_reinspect".into(), ev(6, 0, 4));
+        g.insert("g2_pipe_exit".into(), ev(4, 4, 0)); // rewrite: excluded
+        g.insert("g8_loop_rewrite".into(), ev(2, 2, 0)); // rewrite: excluded
+        let v = nudge_follow(&g);
+        assert_eq!(v["spoken"], 21, "{v}"); // 2+9 + 6+4
+        assert_eq!(v["followed"], 4);
+        assert_eq!(v["nudge_follow_ratio"], round3(4.0 / 21.0));
+        assert_eq!(
+            v["per_gate"]["g3_edit_sem_read"]["ratio"],
+            round3(4.0 / 11.0)
+        );
+        assert!(v["per_gate"]["g2_pipe_exit"].is_null());
+        assert_eq!(v["verdict"], "measured");
+        g.remove("g7_reinspect");
+        assert_eq!(nudge_follow(&g)["verdict"], "not_measured"); // 11 < 20
+        assert!(nudge_follow(&BTreeMap::new())["nudge_follow_ratio"].is_null());
+        // Every excluded label is a real gate label: a rename would silently
+        // re-admit the rewrite into the ratio.
+        let labels: Vec<&str> = touring_foundation::gate_metrics::GateId::all()
+            .iter()
+            .map(|g| g.label())
+            .collect();
+        for r in REWRITE_GATES {
+            assert!(labels.contains(r), "{r} is not a GateId label");
+        }
+    }
+
+    /// The deny family the ruler keys on must be a family the taxonomy produces.
+    #[test]
+    fn the_deny_family_is_the_one_the_taxonomy_attributes_to_a_gate_deny() {
+        assert_eq!(
+            attributed_family("[G7 re-inspeção] negado", None),
+            DENY_FAMILY
+        );
+    }
+
+    /// The synthetic transcript end-to-end: a 1-in-3 byte-identical repeat is over
+    /// its ruler, the per-turn ceiling is correctly NOT, and the MUST followed once
+    /// out of twice is shown but NOT judged — n=2 is below the sample floor.
+    #[test]
+    fn the_synthetic_transcript_fails_exactly_the_rulers_it_violates() {
+        let v = budget_from_aggregate(&run(&synthetic()));
+        assert_eq!(v["available"], true);
+        assert_eq!(v["failing"], json!(["duplicate_injection_ratio"]), "{v}");
+        assert_eq!(v["not_measured"], json!(["injection_follow_ratio"]), "{v}");
+        assert_eq!(v["injection_follow_ratio"], 0.5);
+        assert_eq!(v["must_emitted"], 2);
+    }
+
+    #[test]
+    fn an_empty_scan_is_a_stub_not_a_zero() {
+        let v = budget_from_aggregate(&ContextBudgetAggregate::default());
+        assert_eq!(v["status"], "STUB");
+        assert_eq!(v["available"], false);
+        assert!(
+            !v["reason"].is_null(),
+            "absence must be displayed, not silent"
+        );
+        // Never a fabricated 0.0 for a ratio nobody measured.
+        assert!(v["injection_follow_ratio"].is_null());
+        assert!(v["tpcd_proxy_bytes_per_tool_call"].is_null());
+    }
+
+    #[test]
+    fn the_family_taxonomy_has_one_source_and_covers_the_measured_population() {
+        // The families the 04/09 census actually found, each pinned to the text
+        // that identifies it. A block that matches nothing is "other" — never
+        // silently attributed to a neighbour.
+        for (text, want) in [
+            ("[TOURING SUGGEST · code-mode-loop]", "touring-suggest"),
+            ("[CODE MODE · rajada] 2a inspecao", "code-mode-deny"),
+            ("[G7 re-inspeção] 2a leitura", "code-mode-deny"),
+            ("[LOOP RESUME] flow 'work-outer'", "loop-outer"),
+            ("Touring Knowledge: 5156 files known", "session-start"),
+            ("[PROMPT ENHANCEMENT -- DEBUG MODE]", "prompt-enhance"),
+            ("⚠ lições de erros passados para esta ação:", "past-lessons"),
+            ("temporal: reliability 96% (7d)", "post-tool-echo"),
+            // The families the canonical taxonomy added, each pinned to the
+            // shape that identifies it (S-3, 26/10/2026).
+            (
+                "[CODE MODE — contrato desta sessão · apresentação `code`]",
+                "code-mode-contract",
+            ),
+            ("MUST    touring doctor -j", "session-contract"),
+            (
+                "`cat` exited 0, but its output shows errors after a pipe",
+                "pipefail-evidence",
+            ),
+            ("[generic]", "generic-noise"),
+            (
+                "Contexto em 63% — a autocompactação dispara aos 65%.",
+                "context-monitor",
+            ),
+            (
+                "[COMPACTAÇÃO · lacunas do resumo, medidas no transcript]",
+                "compaction-gaps",
+            ),
+            (
+                "[delegation-nudge] 6 leituras (Read/Grep/Glob) em 6 min",
+                "delegation-nudge",
+            ),
+            (
+                "⚡ last fail: python3 — sqlite3.OperationalError",
+                "post-tool-echo",
+            ),
+            ("failed (exit 1): o comando quebrou", "failure-echo"),
+            ("[E2 contrato] o gate exige", "quality-gate"),
+            (
+                "Similar command failed recently (similarity=57%)",
+                "past-lessons",
+            ),
+            // Genuinely unknown: the catch-all keeps it, and only it.
+            ("[gabrielgadea]", "other"),
+        ] {
+            assert_eq!(injection_family(text), want, "for {text:?}");
+        }
+    }
+
+    /// O DEFEITO que a S-3 conserta (D1): o caminho de **orçamento de turno
+    /// esgotado** emite o payload SEM o cabeçalho que o nomeava. Medido no
+    /// corpus: 3.048 blocos com esse sufixo, e 5.630 blocos de sermão sem
+    /// cabeçalho caíam no catch-all `other` — 19 % do contexto do Touring
+    /// invisível, e era justamente o sermão.
+    ///
+    /// O sufixo é a assinatura do caminho (`turn_budget.rs::directives_only`):
+    /// sobram só as linhas de diretiva, e o cabeçalho vai junto.
+    #[test]
+    fn o_payload_sem_cabecalho_cai_em_touring_suggest_e_nao_no_catch_all() {
+        let elided = "  MUST    touring run --lang bash --code 'ls -la'\n  \
+                      (orçamento do turno esgotado — só as diretivas; \
+                      `TOURING_TURN_BUDGET=<bytes>` ajusta o teto)";
+        assert_eq!(
+            injection_family(elided),
+            "touring-suggest",
+            "o payload sem cabeçalho tem família nomeada — e não `other`"
+        );
+        assert_ne!(injection_family(elided), "other");
+        // A mesma forma sem o sufixo (o bloco completo do suggester) continua
+        // sendo do suggester: a elisão não muda o dono do bloco.
+        assert_eq!(
+            injection_family("  MUST    touring run --lang bash --code 'ls -la'"),
+            "touring-suggest"
+        );
+    }
+
+    /// O melhor bloco do corpus é a razão de deny do gate: frase, verbo, causa,
+    /// mecanismo e kill switch. Ela não tem marcador próprio — a forma é
+    /// `[G<n> …]`, e é isso que a casa.
+    #[test]
+    fn a_razao_de_deny_do_gate_tem_familia_nomeada() {
+        for reason in [
+            "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe leria o status \
+             do último estágio; `set -o pipefail; ` prefixado.",
+            "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; uma varredura \
+             no sandbox devolve só o agregado. Kill switch humano: \
+             TOURING_G8_REWRITE_DISABLED=1.",
+            "[G3 edit-sem-read] Edit de /tmp/x.rs",
+        ] {
+            let family = injection_family(reason);
+            assert_eq!(family, "code-mode-deny", "for {reason:?}");
+            assert_ne!(family, "other");
+        }
+    }
+
+    /// O catch-all `other` é para o que é genuinamente desconhecido — não para o
+    /// que a régua ainda não sabia nomear. Cada família nova é umapopulation
+    /// real do corpus; nenhuma delas pode voltar para `other`.
+    #[test]
+    fn nenhum_payload_conhecido_cai_no_catch_all() {
+        for (text, want) in [
+            (
+                "  MUST    touring run --lang bash --code 'ls -la'",
+                "touring-suggest",
+            ),
+            ("[generic]", "generic-noise"),
+            (
+                "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe",
+                "code-mode-deny",
+            ),
+            ("[COMPACTAÇÃO · lacunas do resumo]", "compaction-gaps"),
+            (
+                "Contexto em 55% — a autocompactação dispara aos 65%.",
+                "context-monitor",
+            ),
+            (
+                "`cat` exited 0, but its output shows errors after a pipe",
+                "pipefail-evidence",
+            ),
+            (
+                "[CODE MODE — contrato desta sessão · apresentação `code`]",
+                "code-mode-contract",
+            ),
+            ("  MUST    touring doctor -j", "session-contract"),
+            (
+                "⚡ last fail: python3 — sqlite3.OperationalError",
+                "post-tool-echo",
+            ),
+            ("failed (exit 1): o comando quebrou", "failure-echo"),
+            ("[E2 contrato] o gate exige", "quality-gate"),
+            ("[delegation-nudge] 6 leituras em 6 min", "delegation-nudge"),
+            (
+                "Similar command failed recently (similarity=57%)",
+                "past-lessons",
+            ),
+        ] {
+            assert_eq!(injection_family(text), want, "for {text:?}");
+            assert_ne!(injection_family(text), "other", "for {text:?}");
+        }
+    }
+
+    /// A política Python é o ESPELHO desta taxonomia — o mesmo predicado escrito
+    /// duas vezes já custou uma divergência de nove famílias. Este teste reprova
+    /// quando os dois lados divergem: é o juiz do "predicado escrito duas vezes".
+    ///
+    /// O predicado escrito duas vezes nunca se encontra — agora tem um judge.
+    #[test]
+    fn the_python_policy_mirrors_this_taxonomy() {
+        const POLICY: &str = include_str!("../../../../client/hooks/injection_policy.py");
+        // O código Python quebra as linhas onde a linha ficou longa; a
+        // comparação é sobre o TEXTO normalizado, para casar a MESMA linha
+        // sem depender da quebra.
+        let flat = POLICY.split_whitespace().collect::<Vec<_>>().join(" ");
+        // 1. As MESMAS linhas de família, na MESMA ordem, com os MESMOS
+        //    marcadores e padrões.
+        for (family, needles) in FAMILY_MARKERS {
+            let row = format!("(\"{family}\", (");
+            assert!(
+                flat.contains(&row),
+                "a política Python não tem a família {family} — a taxonomia divergiu"
+            );
+            for needle in needles.iter() {
+                assert!(
+                    flat.contains(needle),
+                    "a política Python não tem o marcador {needle:?} de {family}"
+                );
+            }
+        }
+        for (family, patterns) in FAMILY_PATTERNS {
+            assert!(
+                flat.contains(&format!("(\"{family}\", re.compile(")),
+                "a política Python não tem o padrão de {family} — a taxonomia divergiu"
+            );
+            for pattern in patterns.iter() {
+                assert!(
+                    flat.contains(pattern),
+                    "a política Python não tem o padrão {pattern:?} de {family}"
+                );
+            }
+        }
+        // 2. Nenhum nome na política que a régua não conheça — um nome órfão
+        //    cai em "permitir" (fail-open) e nada acusa.
+        // 2. Os nomes CANÔNICOS existem na política…
+        for family in [
+            "code-mode-contract",
+            "session-contract",
+            "compaction-gaps",
+            "pipefail-evidence",
+            "generic-noise",
+            "failure-echo",
+            "quality-gate",
+            "past-lessons",
+            "context-monitor",
+            "session-start",
+        ] {
+            assert!(
+                flat.contains(&format!("\"{family}\"")),
+                "a política Python não conhece {family}"
+            );
+        }
+        // …e os nomes OBSOLETOS sumiram dela. Um nome que a régua não conhece
+        // mas a política ainda tem é um nome órfão: `allows()` devolve False
+        // (fail-closed) e o hook para de injetar sem nada dizer por quê.
+        for obsolete in ["similar-fail", "session-start-contract", "compact-warning"] {
+            assert!(
+                !flat.contains(&format!("\"{obsolete}\"")),
+                "a política Python ainda tem o nome obsoleto {obsolete}"
+            );
+        }
+    }
+
+    // ── C10 (2026-10-17): attribute by the emitter's own mark ──────────────────────
+
+    /// One real `hook_success` per emitter mark seen in the newest transcripts (45 records,
+    /// 23 marks, paths anonymized). Before C10 the text needles left 54.4 % of these bytes in
+    /// `other` (82.8 % over the whole 3-transcript sample); the mark attributes all of them.
+    const EMITTER_FIXTURE: &str =
+        include_str!("../../tests/fixtures/context_budget_emitters.jsonl");
+
+    fn emitter_fixture_lines() -> Vec<String> {
+        EMITTER_FIXTURE.lines().map(str::to_string).collect()
+    }
+
+    /// The share of the injected bytes sitting in `other` — the ceiling under test.
+    fn other_share(agg: &ContextBudgetAggregate) -> f64 {
+        let other = agg.by_family.get("other").map_or(0, |f| f.bytes);
+        other as f64 / agg.injected_bytes.max(1) as f64
+    }
+
+    #[test]
+    fn the_real_emitters_leave_other_below_the_ceiling() {
+        let agg = run(&emitter_fixture_lines());
+        assert_eq!(
+            agg.injected_blocks, 45,
+            "every fixture record carries a block"
+        );
+        let share = other_share(&agg);
+        assert!(
+            share < 0.20,
+            "other holds {:.1} % of the bytes; by_family={:?}",
+            100.0 * share,
+            agg.by_family
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.bytes))
+                .collect::<Vec<_>>()
+        );
+        // O defeito que a S-3 conserta, medido no MESMO fixture: só o texto
+        // deixava a maioria no catch-all. Agora o texto sozinho nomeia o
+        // suficiente, e o que sobra é o genuinamente desconhecido.
+        let text_only_other: usize = emitter_fixture_lines()
+            .iter()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .flat_map(|rec| hook_injections(&rec))
+            .filter(|i| injection_family(&i.text) == "other")
+            .map(|i| i.text.len())
+            .sum();
+        assert!(
+            text_only_other as f64 / (agg.injected_bytes as f64) < 0.20,
+            "o texto sozinho não pode mais deixar a maioria no catch-all \
+             (text-only other = {text_only_other} B de {})",
+            agg.injected_bytes
+        );
+    }
+
+    /// Each mark pinned to the family the real record lands in — the table, not a count.
+    ///
+    /// Three of these answers changed in S-3, and each is a CORRECTION, not a
+    /// loss: the payload NAMES its family, and the name is more precise than the
+    /// coarse bucket it used to fall into.
+    /// - the code-mode CONTRACT is not a deny (`code-mode-deny` → `code-mode-contract`);
+    /// - the pipefail evidence is not a post-tool echo (`post-tool-echo` →
+    ///   `pipefail-evidence`);
+    /// - the compaction report is not the outer loop (`loop-outer` → `compaction-gaps`).
+    #[test]
+    fn every_real_mark_lands_in_its_family() {
+        for (mark, want) in [
+            ("check_context.sh", "context-monitor"),
+            ("touring-hook post-bash", "pipefail-evidence"),
+            ("Code Mode: contrato do SDK", "code-mode-contract"),
+            ("Scout Perpétuo", "loop-outer"),
+            ("TACO: batch RL", "post-tool-echo"),
+            ("analyzing blast radius", "pre-edit"),
+            ("analyzing file context", "pre-read"),
+            ("checking command history", "pre-bash"),
+            ("collecting session intelligence", "session-start"),
+            ("initializing cognitive engine", "session-start"),
+            ("registering new file", "post-write"),
+            ("speculative validation", "pre-write"),
+            ("syntax pre-check", "pre-edit-prevention"),
+            ("verifying edit quality", "post-edit"),
+            ("CLAUDE_PLUGIN_ROOT", "plugin-hook"),
+            ("delegation-nudge", "delegation-nudge"),
+            ("evidence_guard.py", "evidence-guard"),
+            ("prose_integrity_gate.py", "prose-integrity"),
+            ("loop_resume.py", "compaction-gaps"),
+            ("painel_ema", "session-start"),
+            ("touring cli-suggest", "touring-suggest"),
+        ] {
+            let mut seen = 0;
+            for rec in emitter_fixture_lines()
+                .iter()
+                .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            {
+                for inj in hook_injections(&rec) {
+                    if inj.emitter.as_deref().is_some_and(|e| e.contains(mark)) {
+                        seen += 1;
+                        assert_eq!(
+                            attributed_family(&inj.text, inj.emitter.as_deref()),
+                            want,
+                            "mark {mark:?}"
+                        );
+                    }
+                }
+            }
+            assert!(seen > 0, "the fixture carries no record for mark {mark:?}");
+        }
+    }
+
+    /// A single-purpose hook OWNS its output. The 105 KB of `pre-edit` blocks that the old
+    /// needles filed under `post-tool-echo` (their text quotes `last fail:`) are `pre-edit`.
+    #[test]
+    fn a_dedicated_emitter_owns_its_output_even_when_the_text_quotes_another_family() {
+        let text = "pensieve: last fail: Edit on a similar path\nMUST touring ast blast x.rs";
+        assert_eq!(
+            injection_family(text),
+            "post-tool-echo",
+            "the old, text-only answer"
+        );
+        assert_eq!(
+            attributed_family(text, Some("Touring: analyzing blast radius...")),
+            "pre-edit"
+        );
+    }
+
+    /// A multi-purpose emitter does NOT own its output: the text decides, and the mark only
+    /// rescues what the text leaves in `other`.
+    #[test]
+    fn a_fallback_emitter_defers_to_the_text() {
+        let cli_suggest = Some("touring cli-suggest: classifying operation (Rust, in-daemon)...");
+        assert_eq!(
+            attributed_family("[CODE MODE · rajada] 2a inspecao", cli_suggest),
+            "code-mode-deny",
+            "a deny emitted by cli-suggest stays a deny"
+        );
+        assert_eq!(
+            attributed_family("MUST    touring ast meta x.rs", cli_suggest),
+            "touring-suggest",
+            "a block with no family text is the suggester's"
+        );
+    }
+
+    #[test]
+    fn an_unknown_mark_or_a_missing_one_never_invents_a_family() {
+        assert_eq!(
+            attributed_family("[gabrielgadea]", Some("some-new-hook.sh")),
+            "other"
+        );
+        assert_eq!(attributed_family("[gabrielgadea]", None), "other");
+        // No mark (an older Claude Code) behaves exactly like the text-only taxonomy.
+        assert_eq!(
+            attributed_family("[TOURING SUGGEST · x]", None),
+            "touring-suggest"
+        );
+    }
+
+    /// Every mark of the table must still exist in the hook registry the repo versions, or the
+    /// family silently decays back into `other` the day a `statusMessage` is reworded.
+    /// Plugin hooks live in the plugin, not in the user's settings, so they are not in the mirror.
+    #[test]
+    fn the_emitter_table_has_no_stale_needle() {
+        const MIRROR: &str = include_str!("../../../../client/claude/hooks.settings.json");
+        const PLUGIN_ONLY: &[&str] = &["CLAUDE_PLUGIN_ROOT"];
+        let registry: Value = serde_json::from_str(MIRROR).expect("the hook mirror is JSON");
+        let mut labels: Vec<String> = Vec::new();
+        for groups in registry.as_object().expect("events").values() {
+            for group in groups.as_array().into_iter().flatten() {
+                for hook in group["hooks"].as_array().into_iter().flatten() {
+                    for key in ["statusMessage", "command"] {
+                        if let Some(l) = hook.get(key).and_then(Value::as_str) {
+                            labels.push(l.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            labels.len() > 50,
+            "the mirror read as empty: {} labels",
+            labels.len()
+        );
+        for (needle, family, _) in EMITTERS {
+            if PLUGIN_ONLY.contains(needle) {
+                continue;
+            }
+            assert!(
+                labels.iter().any(|l| l.contains(needle)),
+                "needle {needle:?} (family {family}) matches no hook in client/claude/hooks.settings.json"
+            );
+        }
+    }
+
+    #[test]
+    fn the_transcript_directory_matches_the_one_claude_code_actually_uses() {
+        let d = transcript_dir_for(
+            Path::new("/home/gabrielgadea"),
+            Path::new("/home/gabrielgadea/projects/touring"),
+        );
+        assert!(
+            d.ends_with("-home-gabrielgadea-projects-touring"),
+            "slug drifted: {}",
+            d.display()
+        );
+        assert!(d.starts_with("/home/gabrielgadea/.claude/projects"));
+    }
+
+    #[test]
+    fn a_plain_text_hook_still_costs_the_window_and_is_counted() {
+        // A hook that printed prose instead of JSON consumed the window all the
+        // same; counting only well-formed JSON would under-report the cost.
+        let line = json!({"type": "attachment", "attachment":
+            {"type": "hook_success", "stdout": "aviso solto sem json"}})
+        .to_string();
+        let agg = run(&[line]);
+        assert_eq!(agg.injected_blocks, 1);
+        assert_eq!(agg.injected_bytes, "aviso solto sem json".len() as u64);
+    }
+    /// Sonda VIVA da régua contra os transcripts reais deste projeto.
+    ///
+    /// `#[ignore]` porque depende do HOME de quem roda — mas é o único controle
+    /// que prova que a régua enxerga dados de verdade, e não só as linhas
+    /// sintéticas acima. Sem ela, "a régua compila e passa nos testes" seria
+    /// exatamente a asserção negativa satisfeita por cegueira que esta sessão
+    /// inteira tem perseguido.
+    ///
+    /// Rodar: `cargo test -p touring-cli --lib live_probe -- --ignored --nocapture`
+    #[test]
+    #[ignore = "depende dos transcripts reais do HOME"]
+    fn live_probe_the_ruler_reads_real_transcripts() {
+        let root = std::path::Path::new("/home/gabrielgadea/projects/touring");
+        if !root.is_dir() {
+            eprintln!("skip: projeto ausente");
+            return;
+        }
+        let v = context_budget(root);
+        eprintln!("{}", serde_json::to_string_pretty(&v).unwrap_or_default());
+        // Um ambiente SEM corpus (CI limpo, container) não é um instrumento
+        // quebrado — é um ambiente sem dado, e a resposta honesta é pular
+        // dizendo isso. Sem esta saída a sonda não podia entrar em CI, e por
+        // isso não entrava: `--ignored` não aparecia em nenhum workflow nem
+        // script, então o único instrumento que já pegou um erro de 12x nunca
+        // rodava sozinho. Guard que existe e não roda é certificado, não guard.
+        if v["available"] != true {
+            eprintln!(
+                "SKIP live_probe: sem corpus de transcript neste ambiente ({})",
+                v["reason"]
+            );
+            return;
+        }
+        assert_eq!(v["available"], true, "a regua nao achou transcript: {v}");
+        assert!(
+            v["transcripts_scanned"].as_u64().unwrap_or(0) > 0,
+            "zero transcripts lidos — instrumento mudo"
+        );
+        assert!(
+            v["user_turns"].as_u64().unwrap_or(0) > 0,
+            "zero turnos — o denominador do teto por turno nao existiria"
+        );
+        assert!(
+            v["window_bytes"]["injection"].as_u64().unwrap_or(0) > 0,
+            "zero injecao medida — o predicado de bloco de hook nao casou nada"
+        );
+        // P5: the tool-result attribution, against real data. Nine synthetic
+        // tests were green while the ruler still reported 12x the true rate;
+        // only the live probe caught it. The same discipline applies here — a
+        // reuse ratio of exactly zero over real transcripts is the signature of
+        // a broken matcher, not of a model that ignores what it asks for.
+        let tools = v["tool_output"]["by_tool"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            !tools.is_empty(),
+            "zero ferramentas atribuidas — a atribuicao nao casou nada: {}",
+            v["tool_output"]
+        );
+        assert!(
+            v["tool_output"]["reuse_ratio"].as_f64().unwrap_or(0.0) > 0.0,
+            "reuso exatamente zero sobre dados reais e assinatura de matcher \
+             quebrado (foi o que o prefixo do cat -n causou): {}",
+            v["tool_output"]
+        );
+        assert!(
+            tools
+                .iter()
+                .any(|t| t["zero_reuse_results"].as_u64().unwrap_or(u64::MAX)
+                    < t["results"].as_u64().unwrap_or(0)),
+            "toda ferramenta com 100% de zero-reuso: o instrumento, nao o sistema"
+        );
+    }
+    /// O defeito que a sonda viva pegou: `content` como STRING crua e' a forma
+    /// comum de um prompt de usuario real, e exigir um array descartava esses
+    /// turnos. O denominador do teto por turno perdia a maioria das linhas e o
+    /// numero saia 12x alto — confiantemente errado, que e' pior que ausente.
+    #[test]
+    fn a_user_message_whose_content_is_a_bare_string_still_counts_as_a_turn() {
+        let lines = vec![
+            json!({"type": "user", "message": {"content": "faca a coisa"}}).to_string(),
+            json!({"type": "user", "message": {"content": [
+                {"type": "text", "text": "e depois esta"}
+            ]}})
+            .to_string(),
+            json!({"type": "assistant", "message": {"content": "prosa do modelo"}}).to_string(),
+        ];
+        let agg = run(&lines);
+        assert_eq!(agg.user_turns, 2, "as DUAS formas de conteudo sao turnos");
+        assert_eq!(
+            agg.user_bytes,
+            "faca a coisa".len() as u64 + "e depois esta".len() as u64
+        );
+        assert_eq!(agg.assistant_bytes, "prosa do modelo".len() as u64);
+    }
+
+    // ── canvas 2 option (c): the session unit and the project unit ──────────────
+
+    /// Session B: receives once the MUST block that session A (`synthetic`) repeated.
+    fn second_session() -> Vec<String> {
+        let inner = json!({"hookSpecificOutput": {"additionalContext":
+            "[TOURING SUGGEST]\n  MUST touring doctor -j\n"}})
+        .to_string();
+        vec![
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string(),
+            human("outra sessao"),
+        ]
+    }
+
+    fn sessions(
+        transcripts: &[Vec<String>],
+    ) -> (ContextBudgetAggregate, Vec<ContextBudgetAggregate>) {
+        let mut project = ContextBudgetAggregate::default();
+        let mut project_seen = BTreeMap::new();
+        let mut each = Vec::new();
+        for t in transcripts {
+            let mut s = ContextBudgetAggregate::default();
+            let mut seen = BTreeMap::new();
+            aggregate_session_lines(
+                t.iter().map(String::as_str),
+                &mut s,
+                &mut seen,
+                Some(&mut project_seen),
+            );
+            project.absorb_session(&s);
+            each.push(s);
+        }
+        (project, each)
+    }
+
+    #[test]
+    fn a_block_another_session_received_is_not_a_repeat_in_this_session() {
+        let (_, each) = sessions(&[synthetic(), second_session()]);
+        assert_eq!(
+            (
+                each[0].duplicate_blocks,
+                each[0].cross_session_duplicate_blocks
+            ),
+            (1, 0)
+        );
+        assert_eq!(
+            (
+                each[1].duplicate_blocks,
+                each[1].cross_session_duplicate_blocks
+            ),
+            (0, 1)
+        );
+        assert_eq!(
+            each[1].duplicate_bytes, 0,
+            "the session's own unit sees no repeat"
+        );
+    }
+
+    #[test]
+    fn the_project_number_through_sessions_is_the_single_seen_scan() {
+        // The decisive property: splitting into sessions must not move the project
+        // number the KPI already publishes. A forma da soma é afirmada, não zerada
+        // (revisão adversarial 08/10): dropar o cross-term em `absorb_session` faz
+        // duplicate_blocks 1≠2 e falha; dobrá-lo faz cross_session 2≠1 e falha.
+        let (a, b) = (synthetic(), second_session());
+        let mut old = ContextBudgetAggregate::default();
+        let mut seen = BTreeMap::new();
+        aggregate_lines(a.iter().map(String::as_str), &mut old, &mut seen);
+        aggregate_lines(b.iter().map(String::as_str), &mut old, &mut seen);
+        let (project, each) = sessions(&[a, b]);
+        assert_eq!(
+            old.duplicate_blocks, 2,
+            "the fixture must exercise both kinds of repeat"
+        );
+        assert_eq!(
+            project.duplicate_blocks, 2,
+            "o projeto dobra o cross-session para DENTRO do total — como o single-seen scan"
+        );
+        assert_eq!(
+            project.cross_session_duplicate_blocks, 1,
+            "e separadamente: quanto desse total veio de outra sessão"
+        );
+        assert_eq!(
+            project.cross_session_duplicate_bytes, each[1].cross_session_duplicate_bytes,
+            "os bytes cross do projeto são os da sessão onde a repetição aconteceu"
+        );
+        assert_eq!(
+            project.duplicate_bytes, old.duplicate_bytes,
+            "bytes seguem a mesma identidade dos blocos"
+        );
+        // A mesma forma no nível da família (a soma por família é a L170-173):
+        let fam = "touring-suggest";
+        assert_eq!(project.by_family[fam].duplicate_blocks, 2);
+        assert_eq!(project.by_family[fam].cross_session_duplicate_blocks, 1);
+        // Os campos fora da forma da soma são soma direta — o antigo assert_eq cego
+        // vivia só deles:
+        assert_eq!(project.injected_bytes, old.injected_bytes);
+        assert_eq!(project.injected_blocks, old.injected_blocks);
+        assert_eq!(project.user_turns, old.user_turns);
+    }
+
+    #[test]
+    fn the_session_row_carries_its_own_unit_and_the_project_formulas() {
+        let (_, each) = sessions(&[synthetic(), second_session()]);
+        let row = session_summary("sess-b", &each[1]);
+        assert_eq!(row["unit"], "session");
+        assert_eq!(row["session_id"], "sess-b");
+        assert_eq!(row["duplicate_injection_ratio"], 0.0);
+        assert_eq!(
+            row["cross_session_duplicate_bytes"],
+            each[1].cross_session_duplicate_bytes
+        );
+        assert_eq!(
+            row["user_turns"],
+            budget_from_aggregate(&each[1])["user_turns"]
+        );
+    }
+
+    // ── S-3 (27/10/2026): o que a política de injeção cortou ─────────────────
+
+    /// Um HOME de teste com o diretório de transcripts do projeto e uma sessão
+    /// (arquivo) por id — a régua só precisa que existam.
+    fn home_with_sessions(root: &Path, ids: &[&str]) -> tempfile::TempDir {
+        let home = tempfile::tempdir().expect("tempdir");
+        let dir = transcript_dir_for(home.path(), root);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        for id in ids {
+            std::fs::write(dir.join(format!("{id}.jsonl")), "").expect("write");
+        }
+        home
+    }
+
+    fn write_journal(home: &Path, lines: &[String]) {
+        let path = touring_foundation::injection_journal::journal_path_in(home);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+        std::fs::write(path, lines.concat()).expect("write journal");
+    }
+
+    fn cut(family: &'static str, bytes: usize) -> touring_foundation::injection_journal::Cut {
+        touring_foundation::injection_journal::Cut { family, bytes }
+    }
+
+    /// O KPI lê o diário e publica, sob `context_budget`, o contador por
+    /// família (contagem + bytes) — só das sessões DESTE projeto; a sessão de
+    /// outro projeto e o corte sem sessão ficam de fora dos totais, mas
+    /// aparecem, separados.
+    #[test]
+    fn test_kpi_reports_injection_suppressed_by_family() {
+        use touring_foundation::injection_journal::line_for;
+        let root = Path::new("/home/x/proj");
+        let home = home_with_sessions(root, &["sess-a", "sess-b"]);
+        write_journal(
+            home.path(),
+            &[
+                line_for(
+                    "no-advisory",
+                    "daemon-forward",
+                    Some("sess-a"),
+                    &[cut("touring-suggest", 400), cut("prompt-enhance", 90)],
+                    1,
+                ),
+                line_for(
+                    "no-advisory",
+                    "emit-runtime",
+                    Some("sess-a"),
+                    &[cut("touring-suggest", 120)],
+                    2,
+                ),
+                line_for(
+                    "no-advisory",
+                    "verdict",
+                    Some("sess-b"),
+                    &[cut("pre-bash", 33)],
+                    3,
+                ),
+                line_for(
+                    "off",
+                    "emit-core",
+                    Some("sess-de-outro-projeto"),
+                    &[cut("touring-suggest", 9_999)],
+                    4,
+                ),
+                line_for("no-advisory", "verdict", None, &[cut("pre-bash", 700)], 5),
+            ],
+        );
+
+        let out = context_budget_in(home.path(), root);
+
+        let by_family = &out["injection_suppressed_by_family"];
+        assert_eq!(
+            by_family["touring-suggest"],
+            json!({"count": 2, "bytes": 520})
+        );
+        assert_eq!(
+            by_family["prompt-enhance"],
+            json!({"count": 1, "bytes": 90})
+        );
+        assert_eq!(by_family["pre-bash"], json!({"count": 1, "bytes": 33}));
+
+        let detail = &out["injection_suppressed"];
+        assert_eq!(detail["available"], true);
+        assert_eq!(detail["bytes"], 520 + 90 + 33);
+        assert_eq!(detail["cuts"], 4);
+        assert_eq!(detail["levels_seen"], json!({"no-advisory": 3}));
+        assert_eq!(detail["default_level"], "full");
+        assert_eq!(
+            detail["out_of_scope_lines"], 1,
+            "a sessão de outro projeto não é nossa"
+        );
+        assert_eq!(
+            detail["unattributed"],
+            json!({"lines": 1, "bytes": 700}),
+            "o corte sem sessão aparece, e não entra nos totais"
+        );
+        assert_eq!(detail["by_site_bytes"]["verdict"], 33);
+
+        // A linha de cada sessão carrega os bytes que ELA deixou de receber.
+        let rows = out["by_session"].as_array().expect("by_session");
+        let bytes_of = |id: &str| {
+            rows.iter()
+                .find(|r| r["session_id"] == id)
+                .map(|r| r["injection_suppressed_bytes"].clone())
+        };
+        assert_eq!(bytes_of("sess-a"), Some(json!(610)));
+        assert_eq!(bytes_of("sess-b"), Some(json!(33)));
+    }
+
+    /// Sem diário, o KPI diz «não medido» — `available: false`, o contador por
+    /// família `null` e os bytes por sessão `null` —, nunca «0 cortes».
+    #[test]
+    fn test_kpi_without_a_journal_says_not_measured_not_zero() {
+        let root = Path::new("/home/x/proj");
+        let home = home_with_sessions(root, &["sess-a"]);
+        let out = context_budget_in(home.path(), root);
+        assert_eq!(out["injection_suppressed"]["available"], false);
+        assert!(out["injection_suppressed_by_family"].is_null());
+        assert!(out["by_session"][0]["injection_suppressed_bytes"].is_null());
+    }
+
+    /// Ponta a ponta com a política REAL: o corte feito por `apply_at` vai ao
+    /// diário pelo escritor de produção, e a leitura do KPI o reencontra — aqui
+    /// sem sessão (o processo de teste não é um hook), logo como `unattributed`.
+    #[test]
+    fn test_policy_cut_reaches_the_kpi_through_the_real_writer() {
+        use touring_foundation::injection_policy::{InjectionLevel, SITE_EMIT_RUNTIME, apply_at};
+        let root = Path::new("/home/x/proj");
+        let home = home_with_sessions(root, &["sess-a"]);
+        let sink = touring_foundation::injection_journal::journal_path_in(home.path());
+        let sermon = "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run";
+        let envelope = json!({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse", "additionalContext": sermon}})
+        .to_string();
+        let _ = apply_at(
+            InjectionLevel::NoAdvisory,
+            SITE_EMIT_RUNTIME,
+            &envelope,
+            Some(&sink),
+        );
+
+        let out = context_budget_in(home.path(), root);
+        assert_eq!(out["injection_suppressed"]["available"], true);
+        assert_eq!(
+            out["injection_suppressed"]["unattributed"],
+            json!({"lines": 1, "bytes": sermon.len()})
+        );
+        assert_eq!(
+            out["injection_suppressed"]["cuts"], 0,
+            "nenhum corte atribuído a este projeto"
+        );
+    }
+}

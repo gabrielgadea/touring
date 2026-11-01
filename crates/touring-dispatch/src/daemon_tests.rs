@@ -1,5 +1,4 @@
 use super::*;
-use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -45,8 +44,9 @@ fn e2e_scan_due_after_window() {
 
 #[test]
 fn test_flock_acquire_and_hold() {
-    let lock_path = Path::new("/tmp/test-touring-daemon-flock.lock");
-    let socket_path = Path::new("/tmp/test-touring-daemon-flock.sock");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let lock_path = &dir.path().join("daemon-flock.lock");
+    let socket_path = &dir.path().join("daemon-flock.sock");
     let _ = std::fs::remove_file(lock_path);
     let _ = std::fs::remove_file(socket_path);
 
@@ -108,8 +108,9 @@ fn test_already_alive_via_socket_probe() {
     // to AlreadyAlive before even touching the lock file. Simulate this by
     // creating a fake socket that accepts connections. We use a temporary
     // path so we don't race with the real daemon.
-    let socket_path = Path::new("/tmp/test-touring-already-alive-probe.sock");
-    let lock_path = Path::new("/tmp/test-touring-already-alive-probe.lock");
+    let dir = tempfile::tempdir().expect("tempdir");
+    let socket_path = &dir.path().join("already-alive-probe.sock");
+    let lock_path = &dir.path().join("already-alive-probe.lock");
     let _ = std::fs::remove_file(socket_path);
     let _ = std::fs::remove_file(lock_path);
 
@@ -128,16 +129,59 @@ fn test_already_alive_via_socket_probe() {
     let _ = std::fs::remove_file(lock_path);
 }
 
+/// Cross-audit 14/09/2026 (A2): dropping the handle the daemon keeps per project
+/// is what evicts it, so nothing the actor owns may hold a strong sender to its
+/// own channel. Before the fix the runtime stored one, the channel never closed,
+/// and every actor the LRU "evicted" kept running with its databases open.
 #[test]
-#[ignore]
-// Ignored as it requires manual verification (spawns real process)
+fn dropping_a_project_runtime_closes_its_actor_channel() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let runtime = HookRuntime::new(tmp.path()).expect("runtime");
+    let project = ProjectRuntime::new(runtime);
+    let weak = project.cmd_sender().downgrade();
+    assert!(
+        weak.upgrade().is_some(),
+        "the channel is open while the handle lives"
+    );
+    drop(project);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while weak.upgrade().is_some() {
+        assert!(
+            Instant::now() < deadline,
+            "a strong sender outlived the ProjectRuntime: the actor can never exit"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// The handler-facing accessor follows the channel: absent before the actor
+/// spawns, present while a dispatch-side sender lives, absent after.
+#[test]
+fn the_runtime_sender_never_outlives_the_dispatch_side() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let runtime = HookRuntime::new(tmp.path()).expect("runtime");
+    assert!(runtime.ctx.cmd_tx().is_none(), "no actor yet");
+    let (tx, _rx) = mpsc::channel::<ProjectCommand>(1);
+    runtime.ctx.set_cmd_tx(&tx);
+    assert!(
+        runtime.ctx.cmd_tx().is_some(),
+        "the actor's channel is reachable"
+    );
+    drop(tx);
+    assert!(runtime.ctx.cmd_tx().is_none(), "the dispatch side is gone");
+}
+
+#[test]
 // `collect` into a Vec is required to force eager spawn — without materialising
 // the handles, the thread-spawning iterator would be consumed lazily and the
 // concurrent-startup scenario under test would never actually race.
 #[allow(clippy::needless_collect)]
 fn test_concurrent_daemon_startup() {
-    let lock_path = Path::new("/tmp/test-touring-concurrent.lock");
-    let socket_path = Path::new("/tmp/test-touring-concurrent.sock");
+    // A private dir per run: fixed /tmp names collided across concurrent test
+    // runs, which is why this test used to be #[ignore]d (cross-audit 14/09, O3).
+    let dir = tempfile::tempdir().expect("tempdir");
+    let lock_path = &dir.path().join("concurrent.lock");
+    let socket_path = &dir.path().join("concurrent.sock");
     let _ = std::fs::remove_file(lock_path);
     let _ = std::fs::remove_file(socket_path);
 
@@ -233,6 +277,136 @@ fn a_protocol_failure_never_echoes_an_unbounded_payload() {
     assert!(err.ends_with('…'), "truncation must be visible, not silent");
 }
 
+// ── client/server budget symmetry (19/08/2026) ───────────────────────────
+//
+// The client had learned that a full rebuild outlives the default read timeout
+// and raised its floor to 1800 s. The server kept its own `300`. So the client
+// waited 30 minutes under a server that quit after 5, and the operator was told
+// the rebuild FAILED while the actor was still writing to `symbols.db`.
+//
+// Both sides now read `HEAVY_OP_BUDGET_SECS`. These tests hold the invariant
+// that made the constant necessary — a shared constant that one side quietly
+// stops using is back to two numbers.
+
+/// The client must still be listening when the server's typed budget reply goes
+/// out. Cross-audit 14/09/2026 (A3): the old version of this test compared the
+/// constant with itself; the floor equalled the budget and started earlier, so
+/// the socket read gave up first and the reply that says "still running" was lost.
+#[test]
+fn the_client_outwaits_the_heavy_budget_and_every_wait_before_it() {
+    let server_budget = touring_foundation::HEAVY_OP_BUDGET_SECS;
+    let client_floor = touring_foundation::HEAVY_OP_CLIENT_FLOOR_SECS;
+    // Global slot, project slot and channel send each wait up to REQUEST_TIMEOUT
+    // before `handler_budget` starts counting.
+    let pre_budget_waits = 3 * REQUEST_TIMEOUT.as_secs();
+    assert!(
+        client_floor > server_budget + pre_budget_waits,
+        "client floor {client_floor}s must exceed the server budget {server_budget}s plus \
+         {pre_budget_waits}s of queueing, or the typed budget reply never reaches the client"
+    );
+    assert!(
+        server_budget >= 300,
+        "the budget must not regress below the old hard-coded 300s, which `analise` \
+         already exceeded on a healthy rebuild"
+    );
+}
+
+/// The one call site that decides the server's heavy budget must read the
+/// shared constant. A literal here is how the two numbers drifted apart the
+/// first time — and a grep is the only thing that notices a re-introduced one.
+#[test]
+fn the_server_budget_reads_the_shared_constant_not_a_literal() {
+    let source = include_str!("daemon.rs");
+    assert!(
+        source.contains("Duration::from_secs(touring_foundation::HEAVY_OP_BUDGET_SECS)"),
+        "the heavy-op budget must come from the shared constant"
+    );
+    assert!(
+        !source.contains("Duration::from_secs(300)"),
+        "a bare 300s budget is the literal that disagreed with the client's 1800s floor"
+    );
+}
+
+/// A cargo-mutants run over one crate is ~19 min measured (134 mutants,
+/// touring-identity). Outside the heavy class the light 15s budget kills every
+/// real run in transport, so the KPI's cache could never be populated through
+/// the canonical route (rodada 4, 2026-08-20 — fixed 2026-08-28).
+#[test]
+fn mutation_test_is_classified_heavy() {
+    assert!(
+        is_heavy_hook("cli-mutation-test"),
+        "cli-mutation-test must be in the is_heavy_hook class — under the light \
+         budget a real mutation run dies in transport and the kill_rate KPI \
+         can only ever see a cache_miss"
+    );
+}
+
+/// `metadata-backfill` and `file-knowledge populate` walk the whole workspace and write one
+/// `file_knowledge` row per file. On 04/10/2026 the touring workspace had 1.449 files with symbols
+/// and no row, the backfill ran past the light 15 s budget twice, and the client reported
+/// `budget_exceeded` while the actor kept writing (5.662 → 7.009 rows in a minute) — the cross-audit
+/// found the gap because a calibration test had been skipping on it in silence.
+#[test]
+fn workspace_backfills_are_classified_heavy() {
+    for hook in ["cli-metadata-backfill", "cli-file-knowledge-populate"] {
+        assert!(
+            is_heavy_hook(hook),
+            "{hook} walks the whole workspace: under the light budget the client gives up while the actor keeps working"
+        );
+    }
+}
+
+/// The three tests above prove the HELPER carries a reason. None of them proved
+/// that the failure BRANCHES call it — and on 09/08/2026 only the saturation
+/// branch was converted, while four others kept returning the empty payload.
+///
+/// That gap cost two diagnostic rounds on 19/08/2026: a dead project actor in
+/// the `analise` daemon answered `index rebuild` AND a trivial `gate-metrics`
+/// with the same "empty response payload", so the reindex looked guilty for
+/// four minutes of wall-clock and two restarts. `gate-metrics` cannot take five
+/// minutes; had the message named the actor, the first response would have
+/// pointed at the daemon.
+///
+/// So the invariant is enforced over the WHOLE file, not one branch: a quality
+/// rule tested on a single instance recurs in the next uncovered one.
+#[test]
+fn no_dispatch_branch_answers_with_the_empty_payload() {
+    let source = include_str!("daemon.rs");
+    let mut offenders = Vec::new();
+    // `DaemonResponse { output: String::new(), success: false }` in any spelling
+    // the formatter may produce — the pair is what makes it undiagnosable.
+    let normalized: String = source.split_whitespace().collect::<Vec<_>>().join(" ");
+    let needle = "DaemonResponse { output: String::new(), success: false }";
+    if normalized.contains(needle) {
+        for (lineno, line) in source.lines().enumerate() {
+            if line.contains("output: String::new()") {
+                offenders.push(format!("{}: {}", lineno + 1, line.trim()));
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "{} dispatch branch(es) still answer with an empty payload, which reaches the operator \
+         as \"Daemon returned success=false (empty response payload)\" — indistinguishable from \
+         a failure in the work they asked for. Use `protocol_failure(<what happened and what to \
+         do>)`:\n{}",
+        offenders.len(),
+        offenders.join("\n")
+    );
+}
+
+/// A guard that stopped matching would report a clean file forever. Prove the
+/// detector still sees the shape it forbids.
+#[test]
+fn the_empty_payload_detector_still_recognizes_the_shape() {
+    let offending = "return DaemonResponse { output: String::new(), success: false };";
+    let normalized: String = offending.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        normalized.contains("DaemonResponse { output: String::new(), success: false }"),
+        "the detector must still match the exact shape the guard forbids"
+    );
+}
+
 #[test]
 fn a_protocol_failure_is_never_the_empty_payload_it_replaced() {
     for reason in ["", "   "] {
@@ -244,4 +418,439 @@ fn a_protocol_failure_is_never_the_empty_payload_it_replaced() {
              back to the (empty response payload) dead end"
         );
     }
+}
+
+// ── peer_label (21/08/2026 — the heavy-op line now names its sender) ──────
+
+#[test]
+fn peer_label_names_own_pid_and_comm_from_proc() {
+    let me = std::process::id() as i32;
+    let label = super::peer_label(Some(me));
+    let comm = std::fs::read_to_string("/proc/self/comm")
+        .map(|s| s.trim().to_string())
+        .expect("/proc/self/comm readable on Linux");
+    assert_eq!(label, format!("pid={me} comm={comm}"));
+    assert!(!comm.is_empty(), "comm must be non-empty: {label}");
+}
+
+#[test]
+fn peer_label_without_credentials_says_unknown_not_a_fake_pid() {
+    assert_eq!(super::peer_label(None), "unknown");
+}
+
+#[test]
+fn peer_label_for_a_dead_pid_keeps_the_pid_and_marks_comm_unknown() {
+    // pid 2^22+1 is above the default pid_max; no such process exists.
+    let label = super::peer_label(Some(4_194_305));
+    assert_eq!(label, "pid=4194305 comm=?");
+}
+
+// ── A3: o nível de injeção atravessa o daemon por requisição ────────────────
+
+const INJECTION_DENY_HOOK: &str = "test-injection-deny";
+const INJECTION_PANIC_HOOK: &str = "test-injection-panic";
+const INJECTION_SERMON: &str =
+    "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+
+fn injection_deny_handler(_: &mut HookRuntime, _: &serde_json::Value) -> String {
+    // O nível vem da rota real (`current`), mas o diário fica de fora: teste
+    // não pode escrever telemetria de supressão no HOME do usuário.
+    let (level, _) = injection_policy::current();
+    touring_hook_runtime::hook_runtime::HookResponse::Deny {
+        reason: "bloqueado de teste".into(),
+        context: None,
+        event_name: Some("PreToolUse".into()),
+    }
+    .with_advisories_at(level, None, vec![INJECTION_SERMON.into()])
+    .to_json()
+}
+
+fn injection_panic_handler(_: &mut HookRuntime, _: &serde_json::Value) -> String {
+    let (level, _) = injection_policy::current();
+    let _ = touring_hook_runtime::hook_runtime::HookResponse::Deny {
+        reason: "bloqueado antes do pânico".into(),
+        context: None,
+        event_name: Some("PreToolUse".into()),
+    }
+    .with_advisories_at(level, None, vec![INJECTION_SERMON.into()]);
+    panic!("pânico intencional para provar a restauração do override");
+}
+
+fn injection_dispatch_map(
+    root: &std::path::Path,
+    daemon_level: InjectionLevel,
+) -> (RuntimeMap, thread::JoinHandle<()>) {
+    let mut table: HashMap<&'static str, HookHandler> = HashMap::new();
+    table.insert(INJECTION_DENY_HOOK, injection_deny_handler);
+    table.insert(INJECTION_PANIC_HOOK, injection_panic_handler);
+    let table: &'static HashMap<&'static str, HookHandler> = Box::leak(Box::new(table));
+
+    let (cmd_tx, cmd_rx) = mpsc::channel(8);
+    let actor_runtime = HookRuntime::new(root).expect("runtime do actor de teste");
+    let actor = thread::spawn(move || {
+        // Um nível-base no actor simula o ambiente de boot do daemon sem
+        // mutar o ambiente global do processo de testes.
+        injection_policy::with_daemon_level_override(daemon_level, || {
+            run_project_actor_with(actor_runtime, cmd_rx, table);
+        });
+    });
+    let project = ProjectRuntime {
+        cmd_tx,
+        last_accessed: Instant::now(),
+        connection_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS_PER_PROJECT)),
+    };
+    let normalized = touring_foundation::TouringConfig::normalize_project_root(&root.to_path_buf());
+    let map: RuntimeMap = tokio::sync::RwLock::new(HashMap::new());
+    map.blocking_write().insert(normalized, project);
+    (map, actor)
+}
+
+fn injection_request(
+    root: &std::path::Path,
+    hook: &str,
+    injection_level: Option<&str>,
+) -> DaemonRequest {
+    DaemonRequest {
+        peer_pid: None,
+        hook: hook.to_string(),
+        payload: serde_json::json!({}),
+        project_root: root.display().to_string(),
+        session_id: None,
+        priority: 0,
+        origin: None,
+        injection_level: injection_level.map(str::to_string),
+    }
+}
+
+fn injection_deny_reason(response: &DaemonResponse) -> String {
+    assert!(response.success, "{}", response.output);
+    let value: serde_json::Value = serde_json::from_str(&response.output).expect("deny JSON");
+    let output = value["hookSpecificOutput"].clone();
+    assert_eq!(output["permissionDecision"], "deny", "{value}");
+    output["permissionDecisionReason"]
+        .as_str()
+        .expect("razão do deny")
+        .to_string()
+}
+
+fn injection_tokio() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("tokio de teste")
+}
+
+fn injection_tempdir() -> tempfile::TempDir {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(tmp.path().join(".git")).expect("marcador de projeto");
+    tmp
+}
+
+#[test]
+fn request_level_suppresses_advisory_and_restores_full_on_the_same_actor() {
+    let tmp = injection_tempdir();
+    let (map, actor) = injection_dispatch_map(tmp.path(), InjectionLevel::Full);
+    let tokio_rt = injection_tokio();
+
+    let no_advisory = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("no-advisory")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&no_advisory);
+    assert!(reason.starts_with("bloqueado de teste"), "{reason}");
+    assert!(!reason.contains("TOURING SUGGEST"), "{reason}");
+    assert!(
+        !reason.contains(touring_hook_runtime::verdict::ALSO_NON_BLOCKING),
+        "{reason}"
+    );
+
+    let full = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("full")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&full);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    let legacy = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, None),
+        &map,
+    ));
+    let reason = injection_deny_reason(&legacy);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    drop(tokio_rt);
+    drop(map);
+    actor.join().expect("actor termina");
+}
+
+#[test]
+fn request_level_is_restored_after_a_handler_panics() {
+    let tmp = injection_tempdir();
+    let (map, actor) = injection_dispatch_map(tmp.path(), InjectionLevel::Full);
+    let tokio_rt = injection_tokio();
+
+    let panicked = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_PANIC_HOOK, Some("no-advisory")),
+        &map,
+    ));
+    assert!(panicked.success, "{}", panicked.output);
+    assert!(panicked.output.is_empty(), "{}", panicked.output);
+
+    // Mesmo actor, requisição legada: o NoAdvisory da que panicou não vaza.
+    let after = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, None),
+        &map,
+    ));
+    let reason = injection_deny_reason(&after);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    drop(tokio_rt);
+    drop(map);
+    actor.join().expect("actor termina após pânico");
+}
+
+#[test]
+fn full_request_overrides_no_advisory_daemon_and_legacy_keeps_daemon_level() {
+    let tmp = injection_tempdir();
+    let (map, actor) = injection_dispatch_map(tmp.path(), InjectionLevel::NoAdvisory);
+    let tokio_rt = injection_tokio();
+
+    let full = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("full")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&full);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    let legacy = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, None),
+        &map,
+    ));
+    let reason = injection_deny_reason(&legacy);
+    assert!(!reason.contains("TOURING SUGGEST"), "{reason}");
+
+    // Valor inválido também é legado: não pode falhar aberto para Full.
+    let invalid = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("invalid")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&invalid);
+    assert!(!reason.contains("TOURING SUGGEST"), "{reason}");
+
+    drop(tokio_rt);
+    drop(map);
+    actor.join().expect("actor termina");
+}
+
+/// Decision 3-A (14/09/2026): `index status` is answered before the runtime map
+/// is touched. A project whose databases exist gets its status with NO project
+/// actor created — the property that lets it answer while that actor seals a
+/// rebuild (a status call timed out at 15 s in the analise at 09:08:32).
+#[test]
+fn index_status_is_served_without_the_project_actor() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let root = tmp.path().to_path_buf();
+    // A project marker, so the dispatch's root normalization stays on the tmpdir.
+    std::fs::create_dir(root.join(".git")).expect(".git");
+    drop(crate::HookRuntime::new(&root).expect("create the project databases"));
+
+    let map: RuntimeMap = tokio::sync::RwLock::new(HashMap::new());
+    let tokio_rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("tokio");
+    let req = DaemonRequest {
+        peer_pid: None,
+        hook: "cli-index-status".to_string(),
+        payload: serde_json::json!({}),
+        project_root: root.display().to_string(),
+        session_id: None,
+        priority: 0,
+        origin: None,
+        injection_level: None,
+    };
+    let dispatched = || {
+        touring_foundation::gate_metrics::hook_dispatch_by_name()
+            .get("cli-index-status")
+            .copied()
+            .unwrap_or(0)
+    };
+    let before = dispatched();
+    let resp = tokio_rt.block_on(dispatch_request_async(req, &map));
+
+    assert!(resp.success, "{}", resp.output);
+    assert!(
+        dispatched() > before,
+        "the off-actor route counts in the per-hook dispatch counter too (A8)"
+    );
+    let status: serde_json::Value = serde_json::from_str(&resp.output).expect("status json");
+    assert_eq!(status["initialized"], true, "{status}");
+    assert_eq!(
+        status["symbol_count"], 0,
+        "the tmp project's own empty store answered: {status}"
+    );
+    assert_eq!(status["index_generation"]["state"], "none", "{status}");
+    assert!(
+        tokio_rt.block_on(map.read()).is_empty(),
+        "no project runtime was created to answer the status"
+    );
+}
+
+/// Cross-audit 14/09/2026 (C12): the spawner is read before the boot waits on
+/// anything (lock, bind), so a launcher that exits meanwhile is still the one
+/// named — not the subreaper that adopted the daemon.
+#[test]
+fn the_spawner_is_read_before_the_lock_and_the_bind() {
+    let source = include_str!("daemon.rs");
+    let body = source
+        .split("pub async fn run_daemon_async()")
+        .nth(1)
+        .expect("run_daemon_async");
+    let read = body.find("parent_id()").expect("the spawner is read");
+    let lock = body.find("acquire_lock(&lock_path").expect("the lock");
+    assert!(
+        read < lock,
+        "the parent pid must be read before acquiring the lock"
+    );
+}
+
+// ── touring-36 ticket (25/09/2026): the per-project admission pin derives
+// from the daemon's OWN socket — never from the inherited env ───────────
+
+#[test]
+fn pin_for_socket_pins_only_dot_touring_sockets() {
+    use std::path::Path;
+    assert_eq!(
+        pin_for_socket(Path::new("/tmp/phantom-analise/.touring/daemon.sock")),
+        Some(PathBuf::from("/tmp/phantom-analise")),
+        "o socket per-project (<root>/.touring/daemon.sock) pina o root"
+    );
+    assert_eq!(
+        pin_for_socket(Path::new("/tmp/touring-daemon-1000.sock")),
+        None,
+        "o socket GLOBAL em /tmp nunca pina — o daemon segue multi-projeto"
+    );
+    assert_eq!(
+        pin_for_socket(Path::new("/tmp/x/.touring")),
+        None,
+        ".touring como FOLHA (sem arquivo de socket abaixo) não pina"
+    );
+    assert_eq!(
+        pin_for_socket(Path::new("/home/u/proj/.touring-cache/daemon.sock")),
+        None,
+        "só o diretório `.touring` exato pina — `.touring-cache` não"
+    );
+}
+
+/// The boot sets the pin BEFORE the accept loop binds the listener: the
+/// derivation is read from this daemon's own socket path, the same source
+/// the spawn sites use to pin `TOURING_PROJECT_ROOT`.
+#[test]
+fn the_pin_is_set_from_the_socket_before_the_listener_binds() {
+    let source = include_str!("daemon.rs");
+    let body = source
+        .split("pub async fn run_daemon_async()")
+        .nth(1)
+        .expect("run_daemon_async");
+    let decided = body.find("daemon_socket_path()").expect("socket decided");
+    let pin_set = body
+        .find("DAEMON_PROJECT_PIN.set(pin_for_socket(&socket_path))")
+        .expect("the pin is set");
+    let bind = body
+        .find("UnixListener::bind(&socket_path)")
+        .expect("the listener binds");
+    assert!(
+        decided < pin_set && pin_set < bind,
+        "socket decidido → pin setado → bind: nenhum request chega sem pin"
+    );
+}
+
+// ── touring-36 review (25/09/2026): admission is INSIDE-TREE, not equality ─
+// `normalize_project_root` stops at the FIRST marker, so a client under a
+// NESTED marker normalizes to a SUBPATH of the pin — equality refused it (a
+// regression on 30.4.68, measured live: `packages/Cargo.toml [workspace]` in
+// the analise, `.claude/.git`, worktree `.git` files, nested `.touring/`).
+
+/// A pinned tree with the four nested marker kinds, and for each a cwd below
+/// it: the admission chain (`normalize_project_root` → `pin_admits`) must
+/// ADMIT every one, exactly as 30.4.68 served them.
+#[test]
+fn pin_admits_clients_under_nested_markers_of_every_kind() {
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let root = tmp.path().join("proj");
+    std::fs::create_dir_all(root.join(".touring")).expect("pin marker");
+
+    let nested: [(&str, bool); 4] = [
+        ("git-dir", true),
+        ("git-file", true),
+        ("cargo-workspace", true),
+        ("dot-touring", true),
+    ];
+    for (name, _) in nested {
+        let base = root.join(name);
+        match name {
+            "git-dir" => {
+                std::fs::create_dir_all(base.join(".git")).expect(".git dir");
+            }
+            "git-file" => {
+                // A worktree's `.git` is a FILE ("gitdir: …"), not a dir.
+                std::fs::create_dir_all(&base).expect("base");
+                std::fs::write(base.join(".git"), "gitdir: /elsewhere\n").expect(".git file");
+            }
+            "cargo-workspace" => {
+                std::fs::create_dir_all(&base).expect("base");
+                std::fs::write(base.join("Cargo.toml"), "[workspace]\n").expect("Cargo.toml");
+            }
+            "dot-touring" => {
+                std::fs::create_dir_all(base.join(".touring")).expect("nested .touring");
+            }
+            _ => unreachable!(),
+        }
+        let cwd = base.join("src").join("deep");
+        std::fs::create_dir_all(&cwd).expect("cwd");
+        let client_root = touring_foundation::TouringConfig::normalize_project_root(&cwd);
+        assert!(
+            pin_admits(&root, &client_root),
+            "{name}: cwd {:?} normaliza para {:?} — dentro da árvore pinada, DEVE ser admitido",
+            cwd,
+            client_root
+        );
+    }
+
+    // The pin itself (equality) is admitted.
+    assert!(pin_admits(&root, &root));
+
+    // The incident stays REFUSED: an unrelated tree is outside.
+    let other = tmp.path().join("other");
+    std::fs::create_dir_all(other.join(".touring")).expect("other");
+    assert!(
+        !pin_admits(&root, &other),
+        "o cenário do incidente (outra árvore) segue recusado"
+    );
+
+    // The NAME-PREFIX sibling is refused: `Path::starts_with` compares per
+    // component, so `analise-old` is never inside `analise` — the test pins
+    // that down (touring-36's ask).
+    let x = tmp.path().join("x");
+    let analise = x.join("analise");
+    let analise_old = x.join("analise-old");
+    std::fs::create_dir_all(&analise).expect("analise");
+    std::fs::create_dir_all(&analise_old).expect("analise-old");
+    assert!(
+        !pin_admits(&analise, &analise_old),
+        "irmão com prefixo de nome é FORA"
+    );
+
+    // A symlink or `..` must never read as a false outside (both sides are
+    // canonicalized).
+    let real_sub = root.join("real").join("sub");
+    std::fs::create_dir_all(&real_sub).expect("real sub");
+    let link = tmp.path().join("link");
+    std::os::unix::fs::symlink(tmp.path().join("proj"), &link).expect("symlink");
+    assert!(
+        pin_admits(&root, &link.join("real").join("sub")),
+        "o caminho VIA symlink resolve para dentro"
+    );
+    let dotdot = root.join("real").join("..").join("real").join("sub");
+    assert!(pin_admits(&root, &dotdot), "o `..` resolve para dentro");
 }

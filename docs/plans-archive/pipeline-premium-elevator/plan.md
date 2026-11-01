@@ -319,7 +319,7 @@ shared event loop without creating/destroying a loop per call:
         blocking_code()          # interleaved
         runner.run(async_operation_two())
 
-**优于 asyncio.run()**: avoids ~1-3ms loop creation per call; loop persists across
+**Melhor que asyncio.run()**: avoids ~1-3ms loop creation per call; loop persists across
 multiple invocations within the same runner context.
 
 

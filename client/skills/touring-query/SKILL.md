@@ -33,3 +33,12 @@ touring query "lang = rust AND loc > 100"
 touring query "todos > 5 AND cognitive_score < 0.5"
 touring query "lang = python AND fan_in > 3.0"
 ```
+
+## O que este DSL NÃO responde
+
+O `query` filtra **arquivos por predicado**. Uma pergunta em forma de workspace
+("como este projeto está organizado, onde está o risco") não é um filtro: é
+`touring map`, que devolve o retrato inteiro numa chamada. E agregar o resultado
+de um filtro sobre ≥3 arquivos (contar, somar, cruzar) roda no sandbox —
+`touring run --lang python --code '…'` — em vez de N leituras no contexto: a saída
+volta como o dígito que decide, não como os arquivos. Ref: `Touring/references/skill-operating-principles.md` (P1).

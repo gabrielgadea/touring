@@ -107,7 +107,9 @@ runs in parallel with the `touring-premium-refactor-2026` master plan (W0-W15).
 
 Touring is open source with a 4-tier commercial model. The license is
 **additive**: `tier-enterprise` ⊇ `tier-premium` ⊇ `tier-standard` ⊇ `tier-free`.
-See [`touring-license`](../touring-license.md) for the full schema.
+See [`crates/touring-license/src/lib.rs`](https://github.com/gabrielgadea/touring/blob/main/crates/touring-license/src/lib.rs)
+for the full schema (verified 2026-08-26 — the crate has no README; the source is the
+only canonical reference; a `docs/touring-license.md` this line pointed to never existed).
 
 ---
 

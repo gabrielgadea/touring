@@ -1,0 +1,31 @@
+=== red_code
+test vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho ... FAILED
+test vgp::lang::python::tests::p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime ... FAILED
+test vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny ... FAILED
+test vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta ... FAILED
+test result: FAILED. 175 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s
+=== red_pyright
+test pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro ... FAILED
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 177 filtered out; finished in 0.00s
+=== red_hooks
+test vgp_l2::tests::p0bd_mapear_carrega_a_classe_receptora_so_de_diagnostico_de_membro ... FAILED
+test vgp_l2::tests::p0bd_as_duas_camadas_pelo_encaixe_real_negam_o_membro_de_tipo_fechado ... FAILED
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 778 filtered out; finished in 0.00s
+
+=== linhas-chave do panic (touring-code)
+thread 'vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho' (2866448) panicked at crates/touring-code/src/vgp/lang/python/tests.rs:1968:13:
+assertion `left == right` failed: /tmp/vgp-t/a.py "import pathlib\nst = pathlib.Path('x').stat()\nprint(st.st_m_size)\n"
+thread 'vgp::lang::python::tests::p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime' (2866449) panicked at crates/touring-code/src/vgp/lang/python/tests.rs:2043:5:
+os.stat_result is the closed type layer 1 already types (Path.stat())
+thread 'vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny' (2866493) panicked at crates/touring-code/src/vgp/sombra.rs:824:9:
+assertion `left == right` failed: [Finding { classe: "atributo", nome: "st_m_size", linha: 3, severidade: "warn", sugestao: "`stat_result` não tem atributo `st_m_size`. Você quis dizer `st_size`?", reais: ["st_atime", "st_atime_ns", "st_blksize", "st_blocks", "st_ctime", "st_ctime_ns", "st_dev", "st_gid", "st_ino", "st_mode", "st_mtime", "st_mtime_ns", "st_nlink", "st_rdev", "st_size", "st_uid"], alvo: Incerto, receptor: None }]
+thread 'vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta' (2866495) panicked at crates/touring-code/src/vgp/sombra.rs:843:13:
+assertion `left == right` failed: os.stat_result
+=== hooks
+thread 'vgp_l2::tests::p0bd_mapear_carrega_a_classe_receptora_so_de_diagnostico_de_membro' (2876894) panicked at crates/touring-hook-handlers/src/hooks/vgp_l2.rs:318:9:
+assertion `left == right` failed
+thread 'vgp_l2::tests::p0bd_as_duas_camadas_pelo_encaixe_real_negam_o_membro_de_tipo_fechado' (2876893) panicked at crates/touring-hook-handlers/src/hooks/vgp_l2.rs:283:13:
+assertion `left == right` failed: stat_result: [Finding { classe: "atributo", nome: "st_m_size", linha: 3, severidade: "warn", sugestao: "`stat_result` não tem atributo `st_m_size`. Você quis dizer `st_size`?", reais: ["st_atime", "st_atime_ns", "st_blksize", "st_blocks", "st_ctime", "st_ctime_ns", "st_dev", "st_gid", "st_ino", "st_mode", "st_mtime", "st_mtime_ns", "st_nlink", "st_rdev", "st_size", "st_uid"], alvo: Incerto, receptor: None }]
+=== pyright
+thread 'pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro' (2867020) panicked at crates/touring-pyright/src/pyright.rs:1700:9:
+assertion `left == right` failed

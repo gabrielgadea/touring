@@ -1,0 +1,44 @@
+{
+ "entradas.jsonl": {
+  "total": 600,
+  "sem_ts": 53,
+  "por_origem": {
+   "atribuido": 53
+  },
+  "por_extrator": {
+   "null": 53
+  },
+  "primeiros_ids": [
+   "ce80fdd90113",
+   "3e55e5ec96bd",
+   "9afe9fa70725",
+   "b4f050258a84",
+   "7b42165b24d1"
+  ]
+ },
+ "entradas_inline_neg.jsonl": {
+  "total": 534,
+  "sem_ts": 264,
+  "por_origem": {
+   "inline": 260,
+   "tmp": 4
+  },
+  "por_extrator": {
+   "touring_run": 130,
+   "heredoc": 67,
+   "c": 63,
+   "tmp_escrito_e_executado": 4
+  },
+  "primeiros_ids": [
+   "6035fa7e3c43",
+   "6035fa7e3c43",
+   "d6971a22f1db",
+   "6035fa7e3c43",
+   "25373e6c6ac6"
+  ]
+ },
+ "total": {
+  "entradas": 1134,
+  "sem_ts": 317
+ }
+}

@@ -1,0 +1,45 @@
+{
+  "phase": "S9",
+  "entities": [
+    {
+      "entity_id": "phase:S9",
+      "type": "phase",
+      "description": "S9 badge de API POLIGLOTA (Gabriel: 'o preview so pode ser rust?'): shared/api_preview.rs \u2014 ApiPreview::{for_write,for_edit} constroi a superficie publica via extract_symbols (tree-sitter: signature = cabecalho sem corpo, is_public por linguagem; entradas 'fn name(params) @Parent' / 'type Name'), diff em nivel de ASSINATURA (public_api_surface era so nome e so Rust); syn RustSemanticReport apenas para o numero semantico. Badge '[rust] semantic 0.31 \u00b7 pub API 7 (+1/-0) \u00b7 unsafe 2' / '[python] pub API 3 (+1/-0)'. ApiBadgeLayer em pre_write e pre_edit; current_source lido uma vez e compartilhado com S6. Defeito flagrado e corrigido em touring-code (TDD): detect_visibility TS/JS lia so o texto da declaracao \u2014 export mora no export_statement pai \u2014 toda funcao exportada era privada; teste de regressao em symbols_tests.rs. Mutacao S9 (delta suprimido) flagrada por 2 testes. Testes: api_preview 6, badge 3 runtime, symbols 67; clippy code+handlers prod limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1788318067626657742:S9:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788318067626657742",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788318067626657742",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S9|produces|memory:loop:task_1788318067626657742:S9:done",
+      "source": "phase:S9",
+      "type": "produces",
+      "target": "memory:loop:task_1788318067626657742:S9:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S9:done|generated-by|loop:loop:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S9:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788318067626657742"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S9:done|generated-by|dag:decomp:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S9:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788318067626657742"
+    }
+  ]
+}

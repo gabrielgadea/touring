@@ -182,6 +182,8 @@ impl FileKnowledgeDB {
                 ON {wm}(consumer_file) WHERE consumer_file IS NULL;
             CREATE INDEX IF NOT EXISTS idx_wiring_module
                 ON {wm}(module_file);
+            CREATE INDEX IF NOT EXISTS idx_wiring_consumer
+                ON {wm}(consumer_file);
 
             CREATE TABLE IF NOT EXISTS {wu} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -322,7 +324,7 @@ impl FileKnowledgeDB {
 
             CREATE TABLE IF NOT EXISTS {cog} (
                 file_path TEXT PRIMARY KEY,
-                cognitive_score REAL NOT NULL DEFAULT 0.0,
+                quality_score REAL NOT NULL DEFAULT 0.0,
                 complexity_signal REAL NOT NULL DEFAULT 0.0,
                 fan_in_signal REAL NOT NULL DEFAULT 0.0,
                 fan_out_signal REAL NOT NULL DEFAULT 0.0,
@@ -348,6 +350,33 @@ impl FileKnowledgeDB {
     ///
     /// Each migration is idempotent — safe to run multiple times.
     pub(super) fn migrate_schema(&self) -> Result<(), rusqlite::Error> {
+        // 04/09/2026 — `cognitive_enrichment.cognitive_score` → `quality_score`.
+        //
+        // The column holds `analyze_quality().overall_score`, which the producer
+        // declares as "[0.0, 1.0] where higher is better". Under the old name every
+        // reader called it a complexity score and `ActionSignature` flagged the
+        // CLEANEST files as `HiComplexity`. The name now carries the direction, so a
+        // future reader running `SELECT quality_score FROM cognitive_enrichment`
+        // cannot inherit the misunderstanding.
+        //
+        // Detected by probing for the NEW column, not the old one: a positive test
+        // ("is the target state present?") is idempotent and stays correct on a fresh
+        // database, where neither ALTER is needed and the old column never existed.
+        let cog = schema_guard::TABLE_COGNITIVE_ENRICHMENT;
+        let table_exists: bool = self
+            .conn
+            .prepare(&format!("SELECT file_path FROM {cog} LIMIT 0"))
+            .is_ok();
+        let has_quality: bool = self
+            .conn
+            .prepare(&format!("SELECT quality_score FROM {cog} LIMIT 0"))
+            .is_ok();
+        if table_exists && !has_quality {
+            self.conn.execute_batch(&format!(
+                "ALTER TABLE {cog} RENAME COLUMN cognitive_score TO quality_score;"
+            ))?;
+        }
+
         let has_error_pattern: bool = self
             .conn
             .prepare(&format!(
@@ -411,6 +440,39 @@ impl FileKnowledgeDB {
         self.conn.execute_batch(&format!(
             "CREATE INDEX IF NOT EXISTS idx_bash_outcomes_hash
                 ON {}(command_hash);",
+            schema_guard::TABLE_BASH_OUTCOMES
+        ))?;
+        // S22 (plan 2026-09-25): provenance of each outcome — the session that ran it and
+        // the hook event that recorded it. Rows that predate the columns are labelled
+        // `legacy_unverified` ONCE: they were written while a PostToolUse text could be
+        // recorded as a failure (the S21 defect), so no reader treats them as verified.
+        let has_origin: bool = self
+            .conn
+            .prepare(&format!(
+                "SELECT origin_event FROM {} LIMIT 0",
+                schema_guard::TABLE_BASH_OUTCOMES
+            ))
+            .is_ok();
+        if !has_origin {
+            // One ALTER per column, each tolerant: a hook process and the daemon can open
+            // the same DB at once, and the loser of that race must not fail the open.
+            let bo = schema_guard::TABLE_BASH_OUTCOMES;
+            let added = self
+                .conn
+                .execute_batch(&format!("ALTER TABLE {bo} ADD COLUMN origin_event TEXT;"))
+                .is_ok();
+            let _ = self
+                .conn
+                .execute_batch(&format!("ALTER TABLE {bo} ADD COLUMN session_id TEXT;"));
+            if added {
+                self.conn.execute_batch(&format!(
+                    "UPDATE {bo} SET origin_event = 'legacy_unverified' WHERE origin_event IS NULL;"
+                ))?;
+            }
+        }
+        self.conn.execute_batch(&format!(
+            "CREATE INDEX IF NOT EXISTS idx_bash_outcomes_session
+                ON {}(session_id, id);",
             schema_guard::TABLE_BASH_OUTCOMES
         ))?;
         let has_gotcha_language: bool = self
@@ -570,6 +632,14 @@ impl FileKnowledgeDB {
             ),
             [],
         );
+        // v10 → v11 (13/09/2026): `consumer_file` equality needs its own index.
+        // The only one on the column was partial (`WHERE consumer_file IS NULL`),
+        // so every `DELETE … WHERE consumer_file = ?` scanned the table: a rebuild
+        // purging ~18k files scanned 99.310 rows per file on the analise project.
+        self.conn.execute_batch(&format!(
+            "CREATE INDEX IF NOT EXISTS idx_wiring_consumer ON {wm}(consumer_file);",
+            wm = schema_guard::TABLE_WIRING_MAP
+        ))?;
         Ok(())
     }
 }

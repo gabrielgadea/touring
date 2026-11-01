@@ -1,0 +1,11 @@
+{
+  "phase": "P1",
+  "entities": [
+    {
+      "entity_id": "phase:P1",
+      "type": "phase",
+      "description": "P1 WIPE + INSTALACAO concluido no metal (fechamento retroativo: a sessao do Pop morreu no reboot antes de registrar). Evidencia medida na maquina instalada: omarchy-version 4.0.0-1, hostname storm, btrfs subvol @, snapper config root, herdr 0.8.0, claude 2.1.240 via mise; disco alvo nvme1n1 = serial KP102L1HDJDW (o que wipe_target.sh limpou) montado como / com LUKS; Pop intacto em nvme0n1 = KP102L1H5AWP, LUKS ativo e PARTUUID 10f3c3bf-ab65-4b78-b56a-3d504a05129e presente. Isolamento fisico dos dois NVMe preservado conforme o principio 6 da estrategia."
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,1111 @@
+{
+ "cortes": {
+  "A": "2026-10-09T20:40:00.000Z",
+  "B": "2026-10-10T00:00:00.000Z",
+  "C (extra)": "2026-10-10T13:31:02.000Z"
+ },
+ "sessoes_vgp": 28,
+ "controle_dos_37": {
+  "ids_do_gerador_hoje": 37,
+  "ids_positivos_do_corpus": 37,
+  "iguais": true,
+  "so_no_gerador": [],
+  "so_no_corpus": []
+ },
+ "gerador": {
+  "A_todas_as_sessoes (universo atual, = DEV)": {
+   "ocorrencias": 151,
+   "positivos": 37,
+   "descartados_por_motivo": {
+    "mesma (chamada, código, caminho, linha)": 32,
+    "resultado sem localização (--> ausente: saída filtrada)": 25,
+    "nome ausente na linha": 18,
+    "linha não bate (o trecho impresso pelo rustc difere do reconstruído)": 13,
+    "repetição: mesmo erro sobre o mesmo arquivo (nova rodada do cargo)": 8,
+    "nome não extraível da mensagem (E0061)": 7,
+    "arquivo não reconstruído": 6,
+    "snapshot não é Rust válido (rustfmt): a reconstrução não é o arquivo real": 3,
+    "linha não bate (a linha está fora do arquivo reconstruído)": 2
+   },
+   "ocorrencias_brutas": 151,
+   "apos_dedupe_da_chamada": 119
+  },
+  "A_sem_sessoes_VGP": {
+   "ocorrencias": 112,
+   "positivos": 25,
+   "descartados_por_motivo": {
+    "resultado sem localização (--> ausente: saída filtrada)": 23,
+    "mesma (chamada, código, caminho, linha)": 21,
+    "nome ausente na linha": 12,
+    "linha não bate (o trecho impresso pelo rustc difere do reconstruído)": 12,
+    "nome não extraível da mensagem (E0061)": 7,
+    "arquivo não reconstruído": 6,
+    "repetição: mesmo erro sobre o mesmo arquivo (nova rodada do cargo)": 3,
+    "snapshot não é Rust válido (rustfmt): a reconstrução não é o arquivo real": 3
+   },
+   "ocorrencias_brutas": 112,
+   "apos_dedupe_da_chamada": 91
+  },
+  "B_todas_as_sessoes (ampliado)": {
+   "ocorrencias": 166,
+   "positivos": 37,
+   "descartados_por_motivo": {
+    "mesma (chamada, código, caminho, linha)": 35,
+    "resultado sem localização (--> ausente: saída filtrada)": 29,
+    "nome ausente na linha": 18,
+    "linha não bate (o trecho impresso pelo rustc difere do reconstruído)": 14,
+    "nome não extraível da mensagem (E0061)": 9,
+    "repetição: mesmo erro sobre o mesmo arquivo (nova rodada do cargo)": 8,
+    "arquivo não reconstruído": 6,
+    "caminho não resolvido (não existe hoje e nenhuma sessão o editou)": 5,
+    "snapshot não é Rust válido (rustfmt): a reconstrução não é o arquivo real": 3,
+    "linha não bate (a linha está fora do arquivo reconstruído)": 2
+   },
+   "ocorrencias_brutas": 166,
+   "apos_dedupe_da_chamada": 131
+  },
+  "B_sem_sessoes_VGP (ampliado, o pedido)": {
+   "ocorrencias": 112,
+   "positivos": 25,
+   "descartados_por_motivo": {
+    "resultado sem localização (--> ausente: saída filtrada)": 23,
+    "mesma (chamada, código, caminho, linha)": 21,
+    "nome ausente na linha": 12,
+    "linha não bate (o trecho impresso pelo rustc difere do reconstruído)": 12,
+    "nome não extraível da mensagem (E0061)": 7,
+    "arquivo não reconstruído": 6,
+    "repetição: mesmo erro sobre o mesmo arquivo (nova rodada do cargo)": 3,
+    "snapshot não é Rust válido (rustfmt): a reconstrução não é o arquivo real": 3
+   },
+   "ocorrencias_brutas": 112,
+   "apos_dedupe_da_chamada": 91
+  },
+  "C_todas (EXTRA: ate agora)": {
+   "ocorrencias": 170,
+   "positivos": 37,
+   "descartados_por_motivo": {
+    "mesma (chamada, código, caminho, linha)": 35,
+    "resultado sem localização (--> ausente: saída filtrada)": 29,
+    "nome ausente na linha": 18,
+    "linha não bate (o trecho impresso pelo rustc difere do reconstruído)": 14,
+    "nome não extraível da mensagem (E0061)": 9,
+    "caminho não resolvido (não existe hoje e nenhuma sessão o editou)": 9,
+    "repetição: mesmo erro sobre o mesmo arquivo (nova rodada do cargo)": 8,
+    "arquivo não reconstruído": 6,
+    "snapshot não é Rust válido (rustfmt): a reconstrução não é o arquivo real": 3,
+    "linha não bate (a linha está fora do arquivo reconstruído)": 2
+   },
+   "ocorrencias_brutas": 170,
+   "apos_dedupe_da_chamada": 135
+  },
+  "C_sem_sessoes_VGP (EXTRA: ate agora)": {
+   "ocorrencias": 112,
+   "positivos": 25,
+   "descartados_por_motivo": {
+    "resultado sem localização (--> ausente: saída filtrada)": 23,
+    "mesma (chamada, código, caminho, linha)": 21,
+    "nome ausente na linha": 12,
+    "linha não bate (o trecho impresso pelo rustc difere do reconstruído)": 12,
+    "nome não extraível da mensagem (E0061)": 7,
+    "arquivo não reconstruído": 6,
+    "repetição: mesmo erro sobre o mesmo arquivo (nova rodada do cargo)": 3,
+    "snapshot não é Rust válido (rustfmt): a reconstrução não é o arquivo real": 3
+   },
+   "ocorrencias_brutas": 112,
+   "apos_dedupe_da_chamada": 91
+  }
+ },
+ "funil": {
+  "A_todas_as_sessoes (universo atual, = DEV)": {
+   "gerador_atual (como esta hoje)": {
+    "nome": 20,
+    "import": 13,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 37
+   },
+   "so_classe_A (sem o crate)": {
+    "nome": 14,
+    "import": 13,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 31
+   },
+   "crate_completo": {
+    "nome": 12,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 27
+   },
+   "SOBRAM (crate completo e fora da classe A)": {
+    "nome": 11,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 26
+   },
+   "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+    "nome": 5,
+    "import": 11,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+    "nome": 11,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 26
+   },
+   "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+    "nome": 8,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 23
+   },
+   "sensibilidade 4: 1 + 3 juntas": {
+    "nome": 2,
+    "import": 11,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 16
+   },
+   "incompletos_com_crate_irmao (motivo)": {
+    "touring_intelligence:dobra_quebrada": 2,
+    "touring_code:dobra_quebrada": 1
+   },
+   "incompletos_por_motivo (prioridade)": {
+    "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 5,
+    "estado incompleto: arquivo da entrada fora da árvore de módulos reconstruída": 5
+   },
+   "incompletos_por_qualquer_motivo": {
+    "dobra_quebrada": 10,
+    "entrada_fora_da_arvore": 5
+   },
+   "classe_A_por_razao": {
+    "item  declarado no módulo do uso": 6
+   },
+   "entradas_com_bash_no_crate": 10,
+   "entradas_com_arquivo_proprio_reescrito_por_bash": 6,
+   "entradas_que_citam_outro_crate_do_workspace": 29,
+   "por_projeto (sobram)": {
+    "touring": 18,
+    "analise": 8
+   },
+   "sessoes_distintas (sobram)": 7,
+   "tamanho_do_crate (arquivos) das entradas completas": 71,
+   "agrupamento (sobram): arquivos distintos": 11,
+   "agrupamento (sobram): pares (arquivo, nome) distintos": 18
+  },
+  "A_sem_sessoes_VGP": {
+   "gerador_atual (como esta hoje)": {
+    "nome": 17,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 25
+   },
+   "so_classe_A (sem o crate)": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "crate_completo": {
+    "nome": 12,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 20
+   },
+   "SOBRAM (crate completo e fora da classe A)": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+    "nome": 5,
+    "import": 4,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 12
+   },
+   "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+    "nome": 8,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 16
+   },
+   "sensibilidade 4: 1 + 3 juntas": {
+    "nome": 2,
+    "import": 4,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 9
+   },
+   "incompletos_com_crate_irmao (motivo)": {
+    "touring_intelligence:dobra_quebrada": 2,
+    "touring_code:dobra_quebrada": 1
+   },
+   "incompletos_por_motivo (prioridade)": {
+    "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 5
+   },
+   "incompletos_por_qualquer_motivo": {
+    "dobra_quebrada": 5
+   },
+   "classe_A_por_razao": {
+    "item  declarado no módulo do uso": 6
+   },
+   "entradas_com_bash_no_crate": 8,
+   "entradas_com_arquivo_proprio_reescrito_por_bash": 6,
+   "entradas_que_citam_outro_crate_do_workspace": 22,
+   "por_projeto (sobram)": {
+    "touring": 18,
+    "analise": 1
+   },
+   "sessoes_distintas (sobram)": 6,
+   "tamanho_do_crate (arquivos) das entradas completas": 67.0,
+   "agrupamento (sobram): arquivos distintos": 10,
+   "agrupamento (sobram): pares (arquivo, nome) distintos": 14
+  },
+  "B_todas_as_sessoes (ampliado)": {
+   "gerador_atual (como esta hoje)": {
+    "nome": 20,
+    "import": 13,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 37
+   },
+   "so_classe_A (sem o crate)": {
+    "nome": 14,
+    "import": 13,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 31
+   },
+   "crate_completo": {
+    "nome": 12,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 27
+   },
+   "SOBRAM (crate completo e fora da classe A)": {
+    "nome": 11,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 26
+   },
+   "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+    "nome": 5,
+    "import": 11,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+    "nome": 11,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 26
+   },
+   "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+    "nome": 8,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 23
+   },
+   "sensibilidade 4: 1 + 3 juntas": {
+    "nome": 2,
+    "import": 11,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 16
+   },
+   "incompletos_com_crate_irmao (motivo)": {
+    "touring_intelligence:dobra_quebrada": 2,
+    "touring_code:dobra_quebrada": 1
+   },
+   "incompletos_por_motivo (prioridade)": {
+    "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 5,
+    "estado incompleto: arquivo da entrada fora da árvore de módulos reconstruída": 5
+   },
+   "incompletos_por_qualquer_motivo": {
+    "dobra_quebrada": 10,
+    "entrada_fora_da_arvore": 5
+   },
+   "classe_A_por_razao": {
+    "item  declarado no módulo do uso": 6
+   },
+   "entradas_com_bash_no_crate": 10,
+   "entradas_com_arquivo_proprio_reescrito_por_bash": 6,
+   "entradas_que_citam_outro_crate_do_workspace": 29,
+   "por_projeto (sobram)": {
+    "touring": 18,
+    "analise": 8
+   },
+   "sessoes_distintas (sobram)": 7,
+   "tamanho_do_crate (arquivos) das entradas completas": 71,
+   "agrupamento (sobram): arquivos distintos": 11,
+   "agrupamento (sobram): pares (arquivo, nome) distintos": 18
+  },
+  "B_sem_sessoes_VGP (ampliado, o pedido)": {
+   "gerador_atual (como esta hoje)": {
+    "nome": 17,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 25
+   },
+   "so_classe_A (sem o crate)": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "crate_completo": {
+    "nome": 12,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 20
+   },
+   "SOBRAM (crate completo e fora da classe A)": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+    "nome": 5,
+    "import": 4,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 12
+   },
+   "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+    "nome": 8,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 16
+   },
+   "sensibilidade 4: 1 + 3 juntas": {
+    "nome": 2,
+    "import": 4,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 9
+   },
+   "incompletos_com_crate_irmao (motivo)": {
+    "touring_intelligence:dobra_quebrada": 2,
+    "touring_code:dobra_quebrada": 1
+   },
+   "incompletos_por_motivo (prioridade)": {
+    "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 5
+   },
+   "incompletos_por_qualquer_motivo": {
+    "dobra_quebrada": 5
+   },
+   "classe_A_por_razao": {
+    "item  declarado no módulo do uso": 6
+   },
+   "entradas_com_bash_no_crate": 8,
+   "entradas_com_arquivo_proprio_reescrito_por_bash": 6,
+   "entradas_que_citam_outro_crate_do_workspace": 22,
+   "por_projeto (sobram)": {
+    "touring": 18,
+    "analise": 1
+   },
+   "sessoes_distintas (sobram)": 6,
+   "tamanho_do_crate (arquivos) das entradas completas": 67.0,
+   "agrupamento (sobram): arquivos distintos": 10,
+   "agrupamento (sobram): pares (arquivo, nome) distintos": 14
+  },
+  "C_todas (EXTRA: ate agora)": {
+   "gerador_atual (como esta hoje)": {
+    "nome": 20,
+    "import": 13,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 37
+   },
+   "so_classe_A (sem o crate)": {
+    "nome": 14,
+    "import": 13,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 31
+   },
+   "crate_completo": {
+    "nome": 12,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 27
+   },
+   "SOBRAM (crate completo e fora da classe A)": {
+    "nome": 11,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 26
+   },
+   "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+    "nome": 5,
+    "import": 11,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+    "nome": 11,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 26
+   },
+   "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+    "nome": 8,
+    "import": 11,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 23
+   },
+   "sensibilidade 4: 1 + 3 juntas": {
+    "nome": 2,
+    "import": 11,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 16
+   },
+   "incompletos_com_crate_irmao (motivo)": {
+    "touring_intelligence:dobra_quebrada": 2,
+    "touring_code:dobra_quebrada": 1
+   },
+   "incompletos_por_motivo (prioridade)": {
+    "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 5,
+    "estado incompleto: arquivo da entrada fora da árvore de módulos reconstruída": 5
+   },
+   "incompletos_por_qualquer_motivo": {
+    "dobra_quebrada": 10,
+    "entrada_fora_da_arvore": 5
+   },
+   "classe_A_por_razao": {
+    "item  declarado no módulo do uso": 6
+   },
+   "entradas_com_bash_no_crate": 10,
+   "entradas_com_arquivo_proprio_reescrito_por_bash": 6,
+   "entradas_que_citam_outro_crate_do_workspace": 29,
+   "por_projeto (sobram)": {
+    "touring": 18,
+    "analise": 8
+   },
+   "sessoes_distintas (sobram)": 7,
+   "tamanho_do_crate (arquivos) das entradas completas": 71,
+   "agrupamento (sobram): arquivos distintos": 11,
+   "agrupamento (sobram): pares (arquivo, nome) distintos": 18
+  },
+  "C_sem_sessoes_VGP (EXTRA: ate agora)": {
+   "gerador_atual (como esta hoje)": {
+    "nome": 17,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 25
+   },
+   "so_classe_A (sem o crate)": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "crate_completo": {
+    "nome": 12,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 20
+   },
+   "SOBRAM (crate completo e fora da classe A)": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+    "nome": 5,
+    "import": 4,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 12
+   },
+   "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+    "nome": 11,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 19
+   },
+   "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+    "nome": 8,
+    "import": 4,
+    "atributo": 3,
+    "kwarg": 1,
+    "total": 16
+   },
+   "sensibilidade 4: 1 + 3 juntas": {
+    "nome": 2,
+    "import": 4,
+    "atributo": 2,
+    "kwarg": 1,
+    "total": 9
+   },
+   "incompletos_com_crate_irmao (motivo)": {
+    "touring_intelligence:dobra_quebrada": 2,
+    "touring_code:dobra_quebrada": 1
+   },
+   "incompletos_por_motivo (prioridade)": {
+    "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 5
+   },
+   "incompletos_por_qualquer_motivo": {
+    "dobra_quebrada": 5
+   },
+   "classe_A_por_razao": {
+    "item  declarado no módulo do uso": 6
+   },
+   "entradas_com_bash_no_crate": 8,
+   "entradas_com_arquivo_proprio_reescrito_por_bash": 6,
+   "entradas_que_citam_outro_crate_do_workspace": 22,
+   "por_projeto (sobram)": {
+    "touring": 18,
+    "analise": 1
+   },
+   "sessoes_distintas (sobram)": 6,
+   "tamanho_do_crate (arquivos) das entradas completas": 67.0,
+   "agrupamento (sobram): arquivos distintos": 10,
+   "agrupamento (sobram): pares (arquivo, nome) distintos": 14
+  }
+ },
+ "git_memo": {
+  "hits": 18271,
+  "miss": 4065
+ },
+ "tempo_s": 191.2,
+ "candidatos_a_held_out (ts > corte A, sem sessoes VGP)": {
+  "gerador_atual (como esta hoje)": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "so_classe_A (sem o crate)": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "crate_completo": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "SOBRAM (crate completo e fora da classe A)": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 4: 1 + 3 juntas": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "incompletos_com_crate_irmao (motivo)": {},
+  "incompletos_por_motivo (prioridade)": {},
+  "incompletos_por_qualquer_motivo": {},
+  "classe_A_por_razao": {},
+  "entradas_com_bash_no_crate": 0,
+  "entradas_com_arquivo_proprio_reescrito_por_bash": 0,
+  "entradas_que_citam_outro_crate_do_workspace": 0,
+  "por_projeto (sobram)": {},
+  "sessoes_distintas (sobram)": 0,
+  "tamanho_do_crate (arquivos) das entradas completas": 0,
+  "agrupamento (sobram): arquivos distintos": 0,
+  "agrupamento (sobram): pares (arquivo, nome) distintos": 0
+ },
+ "candidatos_a_held_out_EXTRA (ts > corte A, ate agora, sem sessoes VGP)": {
+  "gerador_atual (como esta hoje)": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "so_classe_A (sem o crate)": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "crate_completo": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "SOBRAM (crate completo e fora da classe A)": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 1: SOBRAM sem nenhum arquivo do crate reescrito por Bash": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 2: SOBRAM sem o ARQUIVO DA ENTRADA reescrito por Bash": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 3: SOBRAM com os crates irmaos citados tambem completos no instante": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "sensibilidade 4: 1 + 3 juntas": {
+   "nome": 0,
+   "import": 0,
+   "atributo": 0,
+   "kwarg": 0,
+   "total": 0
+  },
+  "incompletos_com_crate_irmao (motivo)": {},
+  "incompletos_por_motivo (prioridade)": {},
+  "incompletos_por_qualquer_motivo": {},
+  "classe_A_por_razao": {},
+  "entradas_com_bash_no_crate": 0,
+  "entradas_com_arquivo_proprio_reescrito_por_bash": 0,
+  "entradas_que_citam_outro_crate_do_workspace": 0,
+  "por_projeto (sobram)": {},
+  "sessoes_distintas (sobram)": 0,
+  "tamanho_do_crate (arquivos) das entradas completas": 0,
+  "agrupamento (sobram): arquivos distintos": 0,
+  "agrupamento (sobram): pares (arquivo, nome) distintos": 0
+ },
+ "DEV_apos_as_regras_novas": {
+  "sobram": {
+   "nome": 11,
+   "import": 11,
+   "atributo": 3,
+   "kwarg": 1,
+   "total": 26
+  },
+  "nome_perdidos_pelo_vrs_e_o_que_acontece": [
+   {
+    "id": "500cda2f6836",
+    "nome": "Capability",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 43,
+    "cross_crate": [],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "d64661f05b97",
+    "nome": "cli_index_ingest",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 71,
+    "cross_crate": [
+     "touring_analysis",
+     "touring_code",
+     "touring_foundation",
+     "touring_hook_runtime",
+     "touring_hooks_core",
+     "touring_hooks_shared"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "a26c5f06ffef",
+    "nome": "retirement",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 56,
+    "cross_crate": [
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "75709ed1e368",
+    "nome": "retirement",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 56,
+    "cross_crate": [
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "72d01144b53e",
+    "nome": "refresh_parent_status",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 71,
+    "cross_crate": [
+     "touring_hooks_core"
+    ],
+    "bash_crate": [
+     "src/cli/handlers/decompose.rs",
+     "src/cli/kpi.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "54839a2c04bb",
+    "nome": "cli_decompose_finalize",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 71,
+    "cross_crate": [
+     "touring_hooks_core"
+    ],
+    "bash_crate": [
+     "src/cli/handlers/decompose.rs",
+     "src/cli/kpi.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "6e79fd7a1a9c",
+    "nome": "cli_decompose_ready",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 71,
+    "cross_crate": [
+     "touring_hooks_core"
+    ],
+    "bash_crate": [
+     "src/cli/handlers/decompose.rs",
+     "src/cli/kpi.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "ee02a5b247c4",
+    "nome": "refresh_parent_status",
+    "completo": true,
+    "motivos": [],
+    "classe_a": "item `refresh_parent_status` declarado no módulo do uso (L1013)",
+    "n_arquivos": 71,
+    "cross_crate": [
+     "touring_foundation",
+     "touring_orchestration"
+    ],
+    "bash_crate": [
+     "src/cli/kpi.rs"
+    ],
+    "bash_proprio": true
+   },
+   {
+    "id": "78efc1183d3a",
+    "nome": "default_commitments_path",
+    "completo": false,
+    "motivos": [
+     "dobra_quebrada"
+    ],
+    "classe_a": "item `default_commitments_path` declarado no módulo do uso (L443)",
+    "n_arquivos": 70,
+    "cross_crate": [
+     "touring_code",
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": true
+   },
+   {
+    "id": "fcd3c4e64945",
+    "nome": "load_commitments",
+    "completo": false,
+    "motivos": [
+     "dobra_quebrada"
+    ],
+    "classe_a": "item `load_commitments` declarado no módulo do uso (L456)",
+    "n_arquivos": 70,
+    "cross_crate": [
+     "touring_code",
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": true
+   },
+   {
+    "id": "f837803e6411",
+    "nome": "today_iso",
+    "completo": false,
+    "motivos": [
+     "dobra_quebrada"
+    ],
+    "classe_a": "item `today_iso` declarado no módulo do uso (L462)",
+    "n_arquivos": 70,
+    "cross_crate": [
+     "touring_code",
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": true
+   },
+   {
+    "id": "143891eb1b1b",
+    "nome": "code_mode_adherence",
+    "completo": false,
+    "motivos": [
+     "dobra_quebrada"
+    ],
+    "classe_a": "item `code_mode_adherence` declarado no módulo do uso (L480)",
+    "n_arquivos": 70,
+    "cross_crate": [
+     "touring_code",
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": true
+   },
+   {
+    "id": "4d46547b4659",
+    "nome": "code_mode_signal_use",
+    "completo": false,
+    "motivos": [
+     "dobra_quebrada"
+    ],
+    "classe_a": "item `code_mode_signal_use` declarado no módulo do uso (L738)",
+    "n_arquivos": 70,
+    "cross_crate": [
+     "touring_code",
+     "touring_foundation",
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": true
+   },
+   {
+    "id": "16398209bb21",
+    "nome": "is_automated_payload",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 56,
+    "cross_crate": [
+     "touring_foundation"
+    ],
+    "bash_crate": [
+     "src/prompt_enhance.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "6c6a484e7a77",
+    "nome": "is_automated_payload",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 56,
+    "cross_crate": [
+     "touring_foundation"
+    ],
+    "bash_crate": [
+     "src/prompt_enhance.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "89cf17e67da6",
+    "nome": "is_automated_payload",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 56,
+    "cross_crate": [
+     "touring_foundation"
+    ],
+    "bash_crate": [
+     "src/prompt_enhance.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "6072f2975dca",
+    "nome": "Self",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 63,
+    "cross_crate": [
+     "touring_foundation"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "378ac0f7a5cf",
+    "nome": "with",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 44,
+    "cross_crate": [
+     "touring_analysis",
+     "touring_foundation",
+     "touring_hook_runtime",
+     "touring_hooks_prediction",
+     "touring_intelligence"
+    ],
+    "bash_crate": [
+     "src/hooks/permission_request.rs"
+    ],
+    "bash_proprio": false
+   },
+   {
+    "id": "e89397b12181",
+    "nome": "compose_details",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 76,
+    "cross_crate": [
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "53a9e211e5b8",
+    "nome": "compose_details",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 76,
+    "cross_crate": [
+     "touring_intelligence"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "670ac2ee6654",
+    "nome": "serial_test",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 79,
+    "cross_crate": [
+     "touring_foundation",
+     "touring_hook_runtime"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   },
+   {
+    "id": "c1cf0f44877a",
+    "nome": "pending_for",
+    "completo": true,
+    "motivos": [],
+    "classe_a": null,
+    "n_arquivos": 79,
+    "cross_crate": [
+     "touring_foundation",
+     "touring_hook_runtime"
+    ],
+    "bash_crate": [],
+    "bash_proprio": false
+   }
+  ]
+ }
+}

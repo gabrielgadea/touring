@@ -12,6 +12,17 @@ use crate::hook_decompose_bridge::bridge_precompact_checkpoint;
 use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 
+/// S8 (2026-10-08): avança a época da dedupe de injeção para a sessão do payload.
+/// Fail-open: envelope sem `session_id` não avança época nenhuma (a dedupe segue
+/// na época corrente — nunca bloqueia nem zera às cegas).
+fn advance_dedup_epoch(project_root: &std::path::Path, input: &Value) {
+    if let Some(session) = input.get("session_id").and_then(|v| v.as_str())
+        && !session.is_empty()
+    {
+        touring_hooks_shared::injection_dedup::advance_epoch(project_root, session);
+    }
+}
+
 /// Handle post-compact events by re-warming the result cache.
 ///
 /// Queries the top accessed files from the knowledge graph and pre-computes
@@ -23,6 +34,13 @@ pub fn run(rt: &mut HookRuntime, _input: &Value) -> String {
     if validate_payload::<crate::schemas::PostCompactPayload>(_input).is_err() {
         return String::new();
     }
+
+    // S8 (2026-10-08): a compactação podou o contexto — a próxima cópia de uma
+    // seção de conselho é de fato a primeira que o modelo vê. A época da dedupe
+    // (`injection_dedup`) avança AQUI: o session-start não roda mais com
+    // source=compact desde 08/10 (matcher "startup|resume|clear|fork"), então o
+    // post-compact é o único marco confiável do ciclo.
+    advance_dedup_epoch(&rt.project_root, _input);
 
     const MAX_PREWARM: usize = 10;
 

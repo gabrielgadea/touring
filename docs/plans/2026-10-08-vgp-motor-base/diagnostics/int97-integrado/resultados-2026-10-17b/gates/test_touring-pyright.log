@@ -1,0 +1,266 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.43s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_pyright-a050e28069285cbb)
+
+running 178 tests
+test client::tests::any_other_server_request_answers_null ... ok
+test client::tests::configuration_request_answers_each_section_and_null_for_unknown ... ok
+test client::tests::configuration_requests_are_answered_with_the_declared_sections ... ok
+test client::tests::an_unchanged_report_cannot_answer_a_pull_without_a_result_id ... ok
+test client::tests::framing_counts_bytes_not_chars ... ok
+test client::tests::framing_accepts_any_header_case_and_extra_headers ... ok
+test client::tests::framing_reads_consecutive_frames_then_eof_is_none ... ok
+test client::tests::framing_rejects_missing_length_truncated_body_and_oversize ... ok
+test client::tests::framing_round_trip_in_buffer ... ok
+test client::tests::publish_match_requires_uri_and_exact_version ... ok
+test client::tests::open_versions_are_strictly_monotonic ... ok
+test client::tests::a_pull_before_quiescence_is_the_empty_trap_and_after_it_is_the_truth ... ok
+test client::tests::pull_gives_up_at_the_deadline_when_the_server_keeps_cancelling ... ok
+test client::tests::reopening_the_same_uri_never_returns_the_previous_cleanup ... ok
+test client::tests::retry_later_covers_exactly_server_cancelled_and_content_modified ... ok
+test client::tests::same_uri_ignores_percent_encoding_differences ... ok
+test client::tests::wait_publish_reports_closed_when_the_server_dies ... ok
+test client::tests::pull_retries_while_the_server_cancels_and_returns_the_items ... ok
+test client::tests::wait_publish_skips_null_stale_and_other_uri_and_returns_the_right_version ... ok
+test client::tests::drop_kills_and_reaps_a_server_that_ignores_shutdown ... ok
+test client::tests::wait_publish_times_out_when_the_server_stays_silent ... ok
+test deno::tests::a_node_project_is_not_a_deno_project_even_with_a_deno_json_farther_up ... ok
+test deno::tests::language_ids_follow_the_extension ... ok
+test deno::tests::the_deno_root_is_the_highest_deno_json_between_the_file_and_the_project_root ... ok
+test deno::tests::the_project_binary_wins_over_path_and_a_missing_deno_is_an_absent_verifier ... ok
+test lsp_nucleo::tests::a_dead_server_is_unknown_with_its_name_never_allow ... ok
+test client::tests::wait_quiescent_returns_only_after_the_first_true_report ... ok
+test client::tests::wait_quiescent_times_out_when_the_server_never_gets_quiet ... ok
+test lsp_nucleo::tests::a_normalizer_refusal_is_unknown_with_its_own_reason ... ok
+test client::tests::quiescent_false_reports_are_counted_so_a_spanning_pull_can_be_rejected ... ok
+test lsp_nucleo::tests::a_degraded_workspace_never_denies_but_still_reports_with_the_reason ... ok
+test lsp_nucleo::tests::inline_path_is_keyed_by_path_and_content_and_by_extension ... ok
+test lsp_nucleo::tests::a_pull_that_spans_a_busy_report_is_asked_again ... ok
+test lsp_nucleo::tests::a_workspace_that_failed_to_load_is_unknown_with_the_servers_message_never_allow ... ok
+test lsp_nucleo::tests::a_server_that_never_gets_quiet_is_unknown_with_the_deadline_never_allow ... ok
+test lsp_nucleo::tests::inline_programs_are_opened_as_a_virtual_file_with_the_servers_extension ... ok
+test lsp_nucleo::tests::pull_check_waits_for_quiescence_and_is_not_fooled_by_the_early_empty_report ... ok
+test lsp_nucleo::tests::server_cancelled_answers_are_retried_inside_a_check ... ok
+test lsp_nucleo::tests::the_mode_follows_what_the_server_advertises ... ok
+test lsp_nucleo::tests::the_mode_choice_follows_the_server_unless_forced_and_refuses_unless_required ... ok
+test lsp_nucleo::tests::without_the_gate_the_same_pull_reads_the_empty_trap_as_allow ... ok
+test pool::tests::a_busy_session_is_never_evicted_and_the_cap_still_holds ... ok
+test pool::tests::a_busy_root_does_not_block_other_roots ... ok
+test lsp_nucleo::tests::the_delta_against_disk_drops_what_the_disk_already_had ... ok
+test pool::tests::a_failed_pre_check_reaches_the_hook_at_once_and_starts_nothing ... ok
+test pool::tests::a_failed_warm_up_backs_off_and_reports_why ... ok
+test pool::tests::a_language_without_a_verifier_is_unknown_and_says_so ... ok
+test pool::tests::a_panicking_warm_up_ends_in_a_backoff_not_in_a_slot_stuck_warming ... ok
+test pool::tests::a_poisoned_slot_lock_is_recovered_not_propagated ... ok
+test pool::tests::a_dead_server_drops_the_entry_and_the_next_use_recreates_it ... ok
+test pool::tests::a_single_verifier_can_be_switched_off_by_name ... ok
+test pool::tests::a_process_that_did_not_opt_in_never_spawns ... ok
+test pool::tests::an_unknown_about_the_file_keeps_the_warm_session_and_one_about_the_session_drops_it ... ok
+test pool::tests::backoff_is_per_root ... ok
+test pool::tests::concurrent_calls_on_one_root_share_one_server ... ok
+test pool::tests::config_defaults_overrides_and_garbage ... ok
+test lsp_nucleo::tests::session_health_follows_the_kind_of_failure_not_the_verdict ... ok
+test pool::tests::failed_discover_is_unknown_and_backs_off_for_five_minutes ... ok
+test pool::tests::a_deadline_overrun_drops_the_entry_and_returns_the_reason ... ok
+test pool::tests::kill_switch_is_unknown_without_any_spawn ... ok
+test pool::tests::idle_sessions_are_also_reaped_by_the_next_call_of_any_root ... ok
+test pool::tests::opting_in_is_idempotent ... ok
+test pool::tests::public_checar_without_a_venv_is_unknown_then_backs_off ... ok
+test pool::tests::pyright_keeps_its_synchronous_start ... ok
+test pool::tests::reap_forgets_expired_backoff_and_empty_slots ... ok
+test pool::tests::rust_analyzers_cap_has_its_own_knob_and_a_zero_becomes_one ... ok
+test pool::tests::slots_are_keyed_by_verifier_and_by_the_package_that_provides_the_typescript ... ok
+test pool::tests::idle_session_is_reaped_with_an_injected_clock ... ok
+test pool::tests::one_spawn_serves_many_checks_of_the_same_root ... ok
+test pool::tests::a_warming_session_counts_against_the_cap_and_is_never_evicted ... ok
+test pool::tests::the_cap_is_per_verifier_so_one_language_does_not_evict_another ... ok
+test pool::tests::the_root_being_called_is_never_reaped_as_idle_right_before_use ... ok
+test pool::tests::without_opting_in_every_verifier_is_unknown_with_its_own_name ... ok
+test pyright::tests::balde_classification ... ok
+test pyright::tests::builtin_class_table_is_sorted_for_binary_search_and_has_the_core_types ... ok
+test pool::tests::the_cap_follows_the_configuration ... ok
+test pyright::tests::check_builtin_member_is_forma_and_only_warns_in_every_bucket ... ok
+test pyright::tests::check_clean_and_non_negating_diagnostics_allow ... ok
+test pool::tests::the_third_root_evicts_the_least_recently_used_session ... ok
+test pyright::tests::check_dynamic_scope_only_warns_in_every_bucket ... ok
+test pyright::tests::check_inline_denies_and_never_writes_the_virtual_file ... ok
+test pyright::tests::check_opens_overlays_before_and_closes_them_after ... ok
+test pool::tests::slow_verifiers_warm_up_in_the_background_and_the_hook_never_waits ... ok
+test pyright::tests::check_project_file_policy_p2_warn_for_own_deny_for_external ... ok
+test pyright::tests::check_reports_only_the_delta_against_disk ... ok
+test pyright::tests::check_budget_covers_the_whole_call_including_the_disk_baseline ... ok
+test pyright::tests::classe_do_achado_matches_the_layer_one_vocabulary ... ok
+test pyright::tests::discover_without_a_venv_names_what_it_searched ... ok
+test pyright::tests::escopo_builtin_class_member_is_forma_even_when_dotted ... ok
+test pyright::tests::escopo_concrete_class_member_is_tipo_a_static_type_never_an_existence_claim ... ok
+test pyright::tests::escopo_dunder_attribute_is_dinamico_before_the_builtin_test ... ok
+test pyright::tests::escopo_external_module ... ok
+test pyright::tests::escopo_forma_needs_the_last_segment_to_be_a_builtin_type ... ok
+test pyright::tests::escopo_names_that_are_not_dunders_keep_their_class_scope ... ok
+test pyright::tests::escopo_own_name ... ok
+test pyright::tests::check_same_uri_twice_returns_the_second_content_not_the_cleanup ... ok
+test pyright::tests::escopo_project_module_module_file_and_package ... ok
+test pyright::tests::escopo_undefined_name_under_import_star_is_dinamico_and_without_it_proprio ... ok
+test pyright::tests::escopo_unknown_import_symbol_without_a_line_falls_back_to_project ... ok
+test pyright::tests::file_uri_percent_encodes_like_python_as_uri ... ok
+test pyright::tests::escopo_unknown_import_symbol_reads_the_module_from_the_from_line ... ok
+test pyright::tests::inline_path_is_virtual_deterministic_and_content_keyed ... ok
+test pyright::tests::locate_server_prefers_pyright_then_venv_then_basedpyright_and_never_installs ... ok
+test pyright::tests::modulo_found_outside_the_root_is_not_a_project_module ... ok
+test pyright::tests::negacao_names_the_high_precision_forms ... ok
+test pyright::tests::negacao_only_warns_on_incomplete_inference_and_other_rules ... ok
+test pyright::tests::negacao_union_does_not_deny ... ok
+test pyright::tests::check_tmp_path_denies_like_inline ... ok
+test pyright::tests::p0b_b_controles_o_publico_de_modulo_externo_e_o_privado_de_modulo_do_projeto_seguem_negando ... ok
+test pyright::tests::p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem ... ok
+test pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro ... ok
+test pyright::tests::rebaixar_tmp_na_escrita_trata_o_fragmento_como_arquivo_do_projeto ... ok
+test pyright::tests::result_serializes_with_lowercase_verdict_strings ... ok
+test pyright::tests::severidade_policy_p4_every_cell ... ok
+test rust_analyzer::tests::a_field_access_that_rust_analyzer_labels_e0559_is_an_atributo ... ok
+test rust_analyzer::tests::an_import_from_an_undeclared_crate_only_warns_because_the_dependency_may_come_next ... ok
+test rust_analyzer::tests::an_unlinked_file_is_unknown_never_an_allow ... ok
+test rust_analyzer::tests::dependencies_are_read_from_every_dependency_table_and_normalised ... ok
+test rust_analyzer::tests::descoberta::a_global_rust_analyzer_on_path_is_never_a_substitute ... ok
+test rust_analyzer::tests::descoberta::a_path_that_does_not_exist_is_refused ... ok
+test rust_analyzer::tests::descoberta::a_project_without_cargo_is_unknown_before_any_process_runs ... ok
+test rust_analyzer::tests::descoberta::a_toolchain_without_the_component_is_an_absent_verifier_with_the_rustup_reason ... ok
+test pyright::tests::check_deadline_exceeded_is_unknown_with_a_reason_never_allow ... ok
+test pyright::tests::p0b_b_membro_de_objeto_que_nao_e_modulo_so_avisa_em_todo_balde ... ok
+test rust_analyzer::tests::diagnostics_that_are_not_about_invented_names_are_not_findings ... ok
+test rust_analyzer::tests::e0425_unknown_value_is_a_nome_read_from_the_source_range ... ok
+test rust_analyzer::tests::e0432_unresolved_import_is_scoped_by_the_root_of_the_path ... ok
+test rust_analyzer::tests::e0560_unknown_struct_literal_field_is_a_kwarg_named_by_its_range ... ok
+test rust_analyzer::tests::e0583_unresolved_module_is_an_import_that_warns ... ok
+test rust_analyzer::tests::e0599_assoc_item_has_no_name_in_the_message_so_it_comes_from_the_path ... ok
+test rust_analyzer::tests::e0599_unknown_method_of_a_std_type_is_externo_and_denies ... ok
+test rust_analyzer::tests::identifier_helpers_take_the_right_end ... ok
+test rust_analyzer::tests::only_rust_analyzers_own_diagnostics_count ... ok
+test rust_analyzer::tests::range_columns_are_utf16_units_not_bytes_or_chars ... ok
+test rust_analyzer::tests::std_types_are_recognised_through_references_generics_and_paths ... ok
+test rust_analyzer::tests::the_cargo_root_is_the_highest_workspace_manifest_else_the_nearest_crate ... ok
+test servidor::tests::a_deno_json_above_the_file_routes_typescript_to_deno ... ok
+test rust_analyzer::tests::descoberta::the_binary_is_whatever_rustup_resolves_for_the_project ... ok
+test servidor::tests::ambiente_finds_only_executable_files_in_order ... ok
+test servidor::tests::dirs_walk_from_the_file_up_to_the_root_and_never_past_it ... ok
+test servidor::tests::extension_matching_is_case_insensitive_and_needs_a_dot ... ok
+test servidor::tests::names_round_trip_and_are_unique ... ok
+test servidor::tests::lang_table_maps_every_layer_one_language_or_none ... ok
+test servidor::tests::only_pyright_starts_synchronously ... ok
+test servidor::tests::no_marker_at_all_is_not_deno ... ok
+test ts_diag::tests::a_missing_module_only_warns_because_it_may_be_installed_next ... ok
+test servidor::tests::the_nearest_marker_decides_between_deno_and_node ... ok
+test ts_diag::tests::diagnostics_outside_the_name_classes_are_not_findings ... ok
+test ts_diag::tests::a_specifier_is_external_only_when_it_is_installed_or_a_node_module ... ok
+test ts_diag::tests::lib_type_tables_are_sorted_for_binary_search ... ok
+test ts_diag::tests::lib_types_are_recognised_by_head_and_object_or_union_types_are_not ... ok
+test ts_diag::tests::package_names_keep_the_scope_and_drop_the_subpath ... ok
+test ts_diag::tests::quoted_runs_pair_up_single_quotes_in_order ... ok
+test ts_diag::tests::the_code_may_arrive_as_a_string_and_a_missing_range_drops_the_finding ... ok
+test ts_diag::tests::the_deno_normalizer_accepts_only_the_type_checker_source ... ok
+test ts_diag::tests::ts2304_unknown_name_is_nome_proprio ... ok
+test ts_diag::tests::ts2305_unknown_export_reads_name_and_module_and_scopes_by_the_module ... ok
+test ts_diag::tests::ts2339_missing_member_of_a_lib_type_is_externo_and_of_a_project_type_projeto ... ok
+test ts_diag::tests::unknown_object_literal_property_is_a_kwarg ... ok
+test tsserver::tests::a_failed_reply_is_a_server_error_with_its_message ... ok
+test pyright::tests::p0b_b_modulo_externo_membro_privado_ou_dunder_abstem_em_todo_balde ... ok
+test tsserver::tests::a_dead_server_is_unknown_with_its_name_and_the_session_is_condemned ... ok
+test tsserver::tests::a_file_outside_every_tsconfig_is_unknown_and_keeps_the_session ... ok
+test tsserver::tests::a_finding_is_read_from_the_reply_of_its_own_request_not_from_a_stale_one ... ok
+test tsserver::tests::descoberta::a_global_tsserver_on_path_is_never_a_substitute ... ok
+test tsserver::tests::descoberta::a_typescript_above_the_project_root_is_not_the_projects ... ok
+test tsserver::tests::a_syntax_error_is_unknown_and_keeps_the_session ... ok
+test tsserver::tests::descoberta::the_nearest_node_modules_typescript_wins_and_names_the_package ... ok
+test tsserver::tests::descoberta::without_node_the_project_typescript_cannot_run ... ok
+test tsserver::tests::descoberta::abrir_runs_the_projects_tsserver_with_typing_acquisition_off_end_to_end ... ok
+test tsserver::tests::dropping_the_session_kills_and_reaps_the_server ... ok
+test tsserver::tests::javascript_is_checked_only_under_ts_check_or_check_js ... ok
+test tsserver::tests::script_kinds_follow_the_extension ... ok
+test tsserver::tests::inline_code_denies ... ok
+test tsserver::tests::tsserver_positions_become_zero_based_lsp_ranges ... ok
+test tsserver::tests::the_delta_against_disk_drops_what_the_disk_already_had ... ok
+test rust_analyzer::tests::descoberta::abrir_starts_the_binary_rustup_resolves_and_checks_end_to_end ... ok
+test tsserver::tests::a_silent_server_overruns_the_deadline_and_the_session_is_condemned ... ok
+
+test result: ok. 178 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.09s
+
+     Running tests/ausente.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/ausente-ac1a0ce64d6f5e84)
+
+running 2 tests
+test the_language_entry_point_routes_to_the_project_verifier_or_says_there_is_none ... ok
+test every_absent_verifier_is_unknown_with_its_reason_and_starts_no_process ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/deno_real.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/deno_real-e74662ee54b3bdb9)
+
+running 1 test
+test ts2304_ts2339_ts2305_are_found_by_deno_lsp_and_the_clean_original_is_zero ... ignored, needs deno on PATH
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pool_guard.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pool_guard-eabef93fd9609b01)
+
+running 1 test
+test a_process_that_never_opted_in_answers_unknown_and_executes_nothing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pool_real.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pool_real-f5bce0b5a9e128b3)
+
+running 1 test
+test twenty_checks_on_one_root_share_one_server_and_the_warm_ones_are_fast ... ignored, needs the real pyright-langserver of the analise project
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/pyright_real.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pyright_real-3ac807412c287a8c)
+
+running 15 tests
+test clean_code_and_a_real_module_have_no_achado ... ignored, needs the real pyright-langserver of the analise project
+test delta_against_the_real_disk_content_blames_only_the_edit ... ignored, needs the real pyright-langserver of the analise project
+test dunder_attribute_of_a_class_is_dynamic_and_only_warns ... ignored, needs the real pyright-langserver of the analise project
+test invented_attribute_of_a_stdlib_module ... ignored, needs the real pyright-langserver of the analise project
+test invented_import_of_a_name_missing_from_a_project_module ... ignored, needs the real pyright-langserver of the analise project
+test invented_keyword_argument ... ignored, needs the real pyright-langserver of the analise project
+test invented_member_of_a_stdlib_class_instance_is_a_type_claim_and_only_warns ... ignored, needs the real pyright-langserver of the analise project
+test invented_method_of_a_str ... ignored, needs the real pyright-langserver of the analise project
+test invented_undefined_name ... ignored, needs the real pyright-langserver of the analise project
+test known_gaps_literal_receiver_overloaded_callee_and_class_object_are_not_negations ... ignored, needs the real pyright-langserver of the analise project
+test overlay_makes_an_unsaved_symbol_resolvable ... ignored, needs the real pyright-langserver of the analise project
+test reopening_the_same_uri_returns_each_contents_own_result_not_the_cleanup ... ignored, needs the real pyright-langserver of the analise project
+test session_for_a_project_without_a_venv_fails_open_with_a_reason ... ignored, needs the real pyright-langserver of the analise project
+test undefined_name_under_a_star_import_is_dynamic_and_only_warns ... ignored, needs the real pyright-langserver of the analise project
+test warm_latency_p95_fits_the_one_second_budget ... ignored, needs the real pyright-langserver of the analise project
+
+test result: ok. 0 passed; 0 failed; 15 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/rust_real.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/rust_real-f89d826e2f329ee8)
+
+running 3 tests
+test a_file_no_module_declares_is_unknown_not_allow ... ignored, needs rustup with the rust-analyzer component
+test a_workspace_whose_dependencies_do_not_load_is_degraded_and_never_denies ... ignored, needs rustup with the rust-analyzer component
+test invented_name_field_and_method_are_found_and_the_clean_original_is_zero ... ignored, needs rustup with the rust-analyzer component
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sonda_custo.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/sonda_custo-cfaadbd0ae2507a9)
+
+running 1 test
+test cost_of_one_verifier_on_one_project ... ignored, starts a real verifier on a real project; run alone, under hw-slot
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tsserver_real.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/tsserver_real-2b47f1622e2cae5c)
+
+running 3 tests
+test a_file_outside_every_tsconfig_and_a_syntax_error_are_unknown_not_allow ... ignored, needs the TypeScript install of analise/frontend and node
+test overlays_make_an_unsaved_module_visible_to_the_import ... ignored, needs the TypeScript install of analise/frontend and node
+test ts2304_ts2339_ts2305_are_found_and_the_clean_original_is_zero ... ignored, needs the TypeScript install of analise/frontend and node
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests touring_pyright
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

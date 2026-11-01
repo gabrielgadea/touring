@@ -1,0 +1,988 @@
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.F.FFFFF.FFFFFFFF.                         [100%]
+=================================== FAILURES ===================================
+________ test_limpar_apaga_comentarios_e_strings_e_preserva_os_offsets _________
+
+    def test_limpar_apaga_comentarios_e_strings_e_preserva_os_offsets():
+        t = 'let a = "mod x;"; // mod y;\n/* mod z; /* aninhado */ mod w; */ let b = r#"mod v;"#; let c = \'m\'; fn f<\'a>() {}\n'
+        limpo = ers.limpar(t)
+        assert len(limpo) == len(t) and limpo.count("\n") == t.count("\n")
+>       assert "mod" not in limpo
+E       assert 'mod' not in 'let a = "mo...<\'a>() {}\n'
+E         
+E         'mod' is contained here:
+E           let a = "mod x;"; // mod y;
+E         ?          +++
+E           /* mod z; /* aninhado */ mod w; */ let b = r#"mod v;"#; let c = 'm'; fn f<'a>() {}
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:70: AssertionError
+_________ test_declaracoes_mod_externas_inline_atributos_e_aninhamento _________
+
+    def test_declaracoes_mod_externas_inline_atributos_e_aninhamento():
+        t = '''#![allow(dead_code)]
+    pub mod a;
+    mod b;
+    pub(crate) mod c;
+    #[cfg(test)]
+    mod tests;
+    #[path = "x_tests.rs"]
+    mod xt;
+    mod inline { pub fn f() {} mod fundo; }
+    // mod comentado;
+    const S: &str = "mod em_string;";
+    '''
+        ds = {d.nome: d for d in ers.declaracoes_mod(t)}
+>       assert set(ds) == {"a", "b", "c", "tests", "xt", "inline", "fundo"}
+E       AssertionError: assert set() == {'a', 'b', 'c... 'tests', ...}
+E         
+E         Extra items in the right set:
+E         'a'
+E         'b'
+E         'c'
+E         'tests'
+E         'fundo'...
+E         
+E         ...Full output truncated (3 lines hidden), use '-vv' to show
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:88: AssertionError
+________________ test_arvore_basica_mod_rs_e_arquivo_com_filhos ________________
+
+    def test_arvore_basica_mod_rs_e_arquivo_com_filhos():
+        arq = {
+            "/c/src/lib.rs": "pub mod m;\nmod n;\n",
+            "/c/src/m.rs": "pub fn f() {}\nmod sub;\n",  # m.rs (nao mod-rs): os filhos moram em src/m/
+            "/c/src/m/sub.rs": "pub fn g() {}\n",
+            "/c/src/n/mod.rs": "mod fundo;\npub fn h() {}\n",  # n/mod.rs: os filhos moram ao lado
+            "/c/src/n/fundo.rs": "",
+        }
+        est = ers.estado_do_crate(C, Falso(arq))
+>       assert rels(est) == ["src/lib.rs", "src/m.rs", "src/m/sub.rs", "src/n/fundo.rs", "src/n/mod.rs"]
+E       AssertionError: assert [] == ['src/lib.rs'...src/n/mod.rs']
+E         
+E         Right contains 5 more items, first extra item: 'src/lib.rs'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:106: AssertionError
+_____________________ test_todas_as_raizes_do_crate_entram _____________________
+
+    def test_todas_as_raizes_do_crate_entram():
+        arq = {
+            "/c/src/lib.rs": "", "/c/src/main.rs": "mod cli;\n", "/c/src/cli.rs": "",
+            "/c/src/bin/x.rs": "mod y;\n", "/c/src/bin/y.rs": "", "/c/src/bin/z/main.rs": "",
+            "/c/tests/t.rs": "mod h;\n", "/c/tests/h.rs": "", "/c/examples/e.rs": "", "/c/benches/b.rs": "", "/c/build.rs": "",
+        }
+        est = ers.estado_do_crate(C, Falso(arq))
+>       assert rels(est) == sorted(p.removeprefix("/c/") for p in arq)
+E       AssertionError: assert [] == ['benches/b.r...main.rs', ...]
+E         
+E         Right contains 11 more items, first extra item: 'benches/b.rs'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:120: AssertionError
+____________ test_raiz_declarada_no_manifesto_entra_por_extras_raiz ____________
+
+    def test_raiz_declarada_no_manifesto_entra_por_extras_raiz():
+        arq = {"/c/custom/entrada.rs": "mod a;\n", "/c/custom/a.rs": ""}
+        est = ers.estado_do_crate(C, Falso(arq), extras_raiz=[C / "custom/entrada.rs"])
+>       assert rels(est) == ["custom/a.rs", "custom/entrada.rs"]
+E       AssertionError: assert [] == ['custom/a.rs...m/entrada.rs']
+E         
+E         Right contains 2 more items, first extra item: 'custom/a.rs'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:127: AssertionError
+_____________ test_orfao_nao_entra_e_nao_torna_o_crate_incompleto ______________
+
+    def test_orfao_nao_entra_e_nao_torna_o_crate_incompleto():
+        arq = {"/c/src/lib.rs": "mod a;\n", "/c/src/a.rs": "", "/c/src/solto.rs": "fn x() {}\n"}
+        est = ers.estado_do_crate(C, Falso(arq))
+>       assert rels(est) == ["src/a.rs", "src/lib.rs"]
+E       AssertionError: assert [] == ['src/a.rs', 'src/lib.rs']
+E         
+E         Right contains 2 more items, first extra item: 'src/a.rs'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:133: AssertionError
+_ test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs __
+
+    def test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs():
+        arq = {
+            "/c/src/lib.rs": '#[path = "x_tests.rs"]\nmod tests;\nmod m;\n#[path = "../shared/s.rs"]\nmod s;\n',
+            "/c/src/x_tests.rs": "mod deep;\n",  # carregado por #[path]: age como mod-rs -> filhos em src/
+            "/c/src/deep.rs": "",
+            "/c/src/m.rs": '#[path = "m_tests.rs"]\nmod tests;\n',  # relativo a src/ (onde m.rs mora), nao a src/m/
+            "/c/src/m_tests.rs": "",
+            "/c/shared/s.rs": "",
+        }
+        est = ers.estado_do_crate(C, Falso(arq))
+>       assert rels(est) == ["shared/s.rs", "src/deep.rs", "src/lib.rs", "src/m.rs", "src/m_tests.rs", "src/x_tests.rs"]
+E       AssertionError: assert [] == ['shared/s.rs...c/x_tests.rs']
+E         
+E         Right contains 6 more items, first extra item: 'shared/s.rs'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:148: AssertionError
+_______________ test_modulo_inline_aninha_o_diretorio_dos_filhos _______________
+
+    def test_modulo_inline_aninha_o_diretorio_dos_filhos():
+        arq = {
+            "/c/src/lib.rs": "mod a { mod b; }\nmod m;\n",
+            "/c/src/a/b.rs": "",
+            "/c/src/m.rs": 'mod a { #[path = "p.rs"] mod q; mod r; }\n',
+            "/c/src/m/a/p.rs": "",
+            "/c/src/m/a/r.rs": "",
+        }
+        est = ers.estado_do_crate(C, Falso(arq))
+>       assert rels(est) == ["src/a/b.rs", "src/lib.rs", "src/m.rs", "src/m/a/p.rs", "src/m/a/r.rs"]
+E       AssertionError: assert [] == ['src/a/b.rs'...src/m/a/r.rs']
+E         
+E         Right contains 5 more items, first extra item: 'src/a/b.rs'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:160: AssertionError
+_______________________ test_ciclo_por_path_attr_termina _______________________
+
+    def test_ciclo_por_path_attr_termina():
+        arq = {"/c/src/lib.rs": '#[path = "a.rs"]\nmod a;\n', "/c/src/a.rs": '#[path = "lib.rs"]\nmod l;\n'}
+        est = ers.estado_do_crate(C, Falso(arq))
+>       assert rels(est) == ["src/a.rs", "src/lib.rs"] and len(est.arquivos) == 2
+E       AssertionError: assert ([] == ['src/a.rs', 'src/lib.rs']
+E         
+E         Right contains 2 more items, first extra item: 'src/a.rs'
+E         Use -v to get more diff)
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:166: AssertionError
+__________ test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto __________
+
+    def test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto():
+        est = ers.estado_do_crate(C, Falso({"/c/src/lib.rs": "mod z;\n"}))
+>       assert faltas(est) == {"src/z.rs": "mod_sem_arquivo"} or faltas(est) == {"src/z/mod.rs": "mod_sem_arquivo"}
+E       AssertionError: assert ({} == {'src/z.rs': ..._sem_arquivo'}
+E         
+E         Right contains 1 more item:
+E         {'src/z.rs': 'mod_sem_arquivo'}
+E         Use -v to get more diff or {} == {'src/z/mod.r..._sem_arquivo'}
+E         
+E         Right contains 1 more item:
+E         {'src/z/mod.rs': 'mod_sem_arquivo'}
+E         Use -v to get more diff)
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:171: AssertionError
+____ test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod _____
+
+    def test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod():
+        arq = {"/c/src/lib.rs": "mod m;\n"}
+        est = ers.estado_do_crate(C, Falso(arq, quebrados=["/c/src/m.rs"]))
+>       assert list(faltas(est).values()) == ["dobra_quebrada"]
+E       AssertionError: assert [] == ['dobra_quebrada']
+E         
+E         Right contains one more item: 'dobra_quebrada'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:179: AssertionError
+_ test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay __
+
+    def test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay():
+        arq = {"/c/src/lib.rs": "mod m;\n", "/c/src/m.rs": "pub fn f() {}\n"}
+        est = ers.estado_do_crate(C, Falso(arq, suspeitos=["/c/src/m.rs"]))
+>       assert faltas(est) == {"src/m.rs": "reescrito_por_bash"} and rels(est) == ["src/lib.rs"]
+E       AssertionError: assert ({} == {'src/m.rs': ...ito_por_bash'}
+E         
+E         Right contains 1 more item:
+E         {'src/m.rs': 'reescrito_por_bash'}
+E         Use -v to get more diff)
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:186: AssertionError
+_________________ test_crate_sem_raiz_no_instante_e_incompleto _________________
+
+    def test_crate_sem_raiz_no_instante_e_incompleto():
+        est = ers.estado_do_crate(C, Falso({"/c/src/solto.rs": ""}))
+>       assert [f.motivo for f in est.faltas] == ["sem_raiz"]
+E       AssertionError: assert [] == ['sem_raiz']
+E         
+E         Right contains one more item: 'sem_raiz'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:192: AssertionError
+_____________ test_entrada_fora_da_arvore_de_modulos_e_incompleta ______________
+
+    def test_entrada_fora_da_arvore_de_modulos_e_incompleta():
+        """O rustc so reporta erro em arquivo que compilou, logo ele ESTAVA na arvore: se a reconstrucao nao o alcanca, ela diverge."""
+        arq = {"/c/src/lib.rs": "mod a;\n", "/c/src/a.rs": "", "/c/src/solto.rs": ""}
+        est = ers.estado_do_crate(C, Falso(arq), proprio="/c/src/solto.rs")
+>       assert [f.motivo for f in est.faltas] == ["entrada_fora_da_arvore"]
+E       AssertionError: assert [] == ['entrada_fora_da_arvore']
+E         
+E         Right contains one more item: 'entrada_fora_da_arvore'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:200: AssertionError
+________________________ test_prioridade_entre_motivos _________________________
+
+    def test_prioridade_entre_motivos():
+        arq = {"/c/src/lib.rs": "mod m;\nmod n;\nmod z;\n", "/c/src/n.rs": ""}
+        est = ers.estado_do_crate(C, Falso(arq, quebrados=["/c/src/m.rs"]))
+>       assert {f.motivo for f in est.faltas} == {"dobra_quebrada", "mod_sem_arquivo"}
+E       AssertionError: assert set() == {'dobra_quebr..._sem_arquivo'}
+E         
+E         Extra items in the right set:
+E         'dobra_quebrada'
+E         'mod_sem_arquivo'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:208: AssertionError
+_ test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante _
+
+    def test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante():
+        arq = {"/c/src/lib.rs": "mod m;\n", "/c/src/m.rs": "pub fn f() {}\n"}
+        est = ers.estado_do_crate(C, Falso(arq))
+        ov = ers.overlays_do_crate(est, "/c/src/lib.rs")
+>       assert [(str(p), t) for p, t in ov] == [("/c/src/m.rs", "pub fn f() {}\n")]
+E       AssertionError: assert [] == [('/c/src/m.r...fn f() {}\n')]
+E         
+E         Right contains one more item: ('/c/src/m.rs', 'pub fn f() {}\n')
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:216: AssertionError
+__________ test_materializar_grava_os_modulos_no_formato_do_manifesto __________
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_materializar_grava_os_mod0')
+
+    def test_materializar_grava_os_modulos_no_formato_do_manifesto(tmp_path):
+        arq = {"/c/src/lib.rs": "mod m;\n", "/c/src/m.rs": "pub fn f() {}\n"}
+        est = ers.estado_do_crate(C, Falso(arq))
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        over = ers.materializar(est, "/c/src/lib.rs", destino, "eid1")
+>       assert [(o["path"], o["sha256"]) for o in over] == [("/c/src/m.rs", ers.sha("pub fn f() {}\n"))]
+E       AssertionError: assert [] == [('/c/src/m.r...23d0b10db47')]
+E         
+E         Right contains one more item: ('/c/src/m.rs', '16c2fca9e371936458d01576b4ca311c22d166a45539ccbc9104823d0b10db47')
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:226: AssertionError
+________ test_item_declarado_no_modulo_do_uso_e_classe_a[fn alvo() {}] _________
+
+decl = 'fn alvo() {}'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nfn alvo() {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+___ test_item_declarado_no_modulo_do_uso_e_classe_a[pub(crate) fn alvo() {}] ___
+
+decl = 'pub(crate) fn alvo() {}'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\npub(crate) fn alvo() {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+_____ test_item_declarado_no_modulo_do_uso_e_classe_a[async fn alvo() {}] ______
+
+decl = 'async fn alvo() {}'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nasync fn alvo() {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+________ test_item_declarado_no_modulo_do_uso_e_classe_a[struct alvo;] _________
+
+decl = 'struct alvo;'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nstruct alvo;\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+_______ test_item_declarado_no_modulo_do_uso_e_classe_a[enum alvo { A }] _______
+
+decl = 'enum alvo { A }'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nenum alvo { A }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+________ test_item_declarado_no_modulo_do_uso_e_classe_a[trait alvo {}] ________
+
+decl = 'trait alvo {}'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\ntrait alvo {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+______ test_item_declarado_no_modulo_do_uso_e_classe_a[type alvo = u32;] _______
+
+decl = 'type alvo = u32;'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\ntype alvo = u32;\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+____ test_item_declarado_no_modulo_do_uso_e_classe_a[const alvo: u32 = 1;] _____
+
+decl = 'const alvo: u32 = 1;'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nconst alvo: u32 = 1;\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+____ test_item_declarado_no_modulo_do_uso_e_classe_a[static alvo: u32 = 1;] ____
+
+decl = 'static alvo: u32 = 1;'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nstatic alvo: u32 = 1;\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+_________ test_item_declarado_no_modulo_do_uso_e_classe_a[mod alvo {}] _________
+
+decl = 'mod alvo {}'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nmod alvo {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+____ test_item_declarado_no_modulo_do_uso_e_classe_a[union alvo { a: u32 }] ____
+
+decl = 'union alvo { a: u32 }'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nunion alvo { a: u32 }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+_ test_item_declarado_no_modulo_do_uso_e_classe_a[macro_rules! alvo { () => {} }] _
+
+decl = 'macro_rules! alvo { () => {} }'
+
+    @pytest.mark.parametrize("decl", ["fn alvo() {}", "pub(crate) fn alvo() {}", "async fn alvo() {}", "struct alvo;", "enum alvo { A }",
+                                      "trait alvo {}", "type alvo = u32;", "const alvo: u32 = 1;", "static alvo: u32 = 1;", "mod alvo {}",
+                                      "union alvo { a: u32 }", "macro_rules! alvo { () => {} }"])
+    def test_item_declarado_no_modulo_do_uso_e_classe_a(decl):
+>       assert (A(f"fn principal() {{ @@alvo(); }}\n{decl}\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn principal() { @@alvo(); }\nmacro_rules! alvo { () => {} }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+______________________ test_use_traz_o_nome_para_o_modulo ______________________
+
+    def test_use_traz_o_nome_para_o_modulo():
+        for uso_ in ("use a::b::alvo;", "use a::{x, y::alvo};", "use a::b as alvo;", "use a::alvo::{self, c};", "pub use a::{b, c as alvo};", "extern crate alvo;"):
+>           assert (A(f"{uso_}\nfn principal() {{ @@alvo(); }}\n", "alvo") or "").startswith("use"), uso_
+E           AssertionError: use a::b::alvo;
+E           assert False
+E            +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('use')
+E            +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E            +      where None = A('use a::b::alvo;\nfn principal() { @@alvo(); }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:255: AssertionError
+_______________ test_item_no_mesmo_mod_inline_do_uso_e_classe_a ________________
+
+    def test_item_no_mesmo_mod_inline_do_uso_e_classe_a():
+>       assert (A("mod tests { fn principal() { @@alvo(); }\nfn alvo() {} }\n", "alvo") or "").startswith("item")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('mod tests { fn principal() { @@alvo(); }\nfn alvo() {} }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:265: AssertionError
+_____________________ test_parametro_da_funcao_e_classe_a ______________________
+
+    def test_parametro_da_funcao_e_classe_a():
+>       assert (A("fn g(x: u32, mut alvo: u32) -> u32 { @@alvo }\n", "alvo") or "").startswith("parâmetro")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('parâmetro')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn g(x: u32, mut alvo: u32) -> u32 { @@alvo }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:274: AssertionError
+_ test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao __
+
+    def test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao():
+>       assert (A("fn g() { let mut alvo = 1; @@alvo += 1; }\n", "alvo") or "").startswith("let")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('let')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn g() { let mut alvo = 1; @@alvo += 1; }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:280: AssertionError
+______________ test_binding_de_padrao_do_bloco_que_envolve_o_uso _______________
+
+    def test_binding_de_padrao_do_bloco_que_envolve_o_uso():
+>       assert (A("fn g(x: Option<u32>) { if let Some(alvo) = x { @@alvo; } }\n", "alvo") or "").startswith("binding")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('binding')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn g(x: Option<u32>) { if let Some(alvo) = x { @@alvo; } }\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:287: AssertionError
+______________________ test_parametro_generico_e_classe_a ______________________
+
+    def test_parametro_generico_e_classe_a():
+>       assert (A("fn g<T: Clone>(x: T) -> @@T { x }\n", "T") or "").startswith("parâmetro genérico")
+E       AssertionError: assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('parâmetro genérico')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('fn g<T: Clone>(x: T) -> @@T { x }\n', 'T')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:294: AssertionError
+_____________ test_posicao_com_caractere_nao_ascii_antes_da_coluna _____________
+
+    def test_posicao_com_caractere_nao_ascii_antes_da_coluna():
+>       assert (A("const S: &str = \"ç ã é\"; fn principal() { let _x = \"ñ\"; @@alvo(); }\nfn alvo() {}\n", "alvo") or "").startswith("item")
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x7e26587ccc28>('item')
+E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
+E        +      where None = A('const S: &str = "ç ã é"; fn principal() { let _x = "ñ"; @@alvo(); }\nfn alvo() {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:298: AssertionError
+_ test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje __
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_crate_m_f_com_f_so_no_ins0')
+
+    def test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje(tmp_path):
+        r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() -> u32 { 1 }\n"},
+                 {"src/m.rs": "pub fn g() -> u32 { 2 }\n"})
+        est = estado(r, proprio=r / "src/lib.rs")
+        ov = {str(p.relative_to(r)): t for p, t in ers.overlays_do_crate(est, str(r / "src/lib.rs"))}
+>       assert ov == {"src/m.rs": "pub fn f() -> u32 { 1 }\n"}
+E       AssertionError: assert {} == {'src/m.rs': ... u32 { 1 }\n'}
+E         
+E         Right contains 1 more item:
+E         {'src/m.rs': 'pub fn f() -> u32 { 1 }\n'}
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:363: AssertionError
+____ test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao ____
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_da_sessao_antes_do0')
+
+    def test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao(tmp_path):
+        r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() -> u32 { 1 }\n"}, {"src/m.rs": "pub fn g() -> u32 { 2 }\n"})
+        m = r / "src/m.rs"
+        idx = {m: [edit(T_SESSAO, "e1", m, "{ 1 }", "{ 11 }"), edit(T_DEPOIS, "e2", m, "{ 11 }", "{ 111 }")]}
+        ov = {str(p.relative_to(r)): t for p, t in ers.overlays_do_crate(estado(r, idx), str(r / "src/lib.rs"))}
+>       assert ov == {"src/m.rs": "pub fn f() -> u32 { 11 }\n"}
+E       AssertionError: assert {} == {'src/m.rs': ...u32 { 11 }\n'}
+E         
+E         Right contains 1 more item:
+E         {'src/m.rs': 'pub fn f() -> u32 { 11 }\n'}
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:373: AssertionError
+_ test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante _
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_use_super_glob_com_o_pai_0')
+
+    def test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante(tmp_path):
+        antes = {"src/lib.rs": "mod m;\n", "src/m/mod.rs": "mod filho;\npub fn helper() -> u32 { 1 }\n",
+                 "src/m/filho.rs": "use super::*;\npub fn usa() -> u32 { helper() }\n"}
+        r = repo(tmp_path, antes, {"src/m/mod.rs": "mod filho;\npub fn ajuda() -> u32 { 1 }\n"})
+        est = estado(r, proprio=r / "src/m/filho.rs")
+        ov = {str(p.relative_to(r)): t for p, t in ers.overlays_do_crate(est, str(r / "src/m/filho.rs"))}
+>       assert set(ov) == {"src/lib.rs", "src/m/mod.rs"} and "pub fn helper()" in ov["src/m/mod.rs"] and "ajuda" not in ov["src/m/mod.rs"]
+E       AssertionError: assert (set() == {'src/lib.rs', 'src/m/mod.rs'}
+E         
+E         Extra items in the right set:
+E         'src/m/mod.rs'
+E         'src/lib.rs'
+E         Use -v to get more diff)
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:382: AssertionError
+____________ test_modulo_criado_por_write_da_sessao_entra_no_crate _____________
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_criado_por_write_d0')
+
+    def test_modulo_criado_por_write_da_sessao_entra_no_crate(tmp_path):
+>       r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() {}\n"}, {})
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:386: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+    git(r, "commit", "-q", "-m", "hoje", data=D3)
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+    subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_criado_por_write_d0/proj', 'commit', '-q', '-m', ...],)
+kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_criado_por_write_d0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+
+/usr/lib/python3.14/subprocess.py:578: CalledProcessError
+____ test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto _____
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_declarado_mas_cria0')
+
+    def test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto(tmp_path):
+        r = repo(tmp_path, {"src/lib.rs": "pub mod m;\npub mod z;\n", "src/m.rs": ""}, {"src/z.rs": "pub fn z() {}\n"})
+        # `z.rs` so existe no commit 2 (depois do instante): no instante nao ha commit nem Write que o crie
+        est = estado(r)
+>       assert ers.motivo_incompleto(est) == (False, ers.MOTIVO_INCOMPLETO["mod_sem_arquivo"])
+E       AssertionError: assert (False, 'ok') == (False, 'esta..._sem_arquivo')
+E         
+E         At index 1 diff: 'ok' != 'estado incompleto: mod_sem_arquivo'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:398: AssertionError
+_ test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto _
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_que_nao_casa_com_a0')
+
+    def test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto(tmp_path):
+>       r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() {}\n"}, {})
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:402: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+    git(r, "commit", "-q", "-m", "hoje", data=D3)
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+    subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_que_nao_casa_com_a0/proj', 'commit', '-q', '-m', ...],)
+kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_que_nao_casa_com_a0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+
+/usr/lib/python3.14/subprocess.py:578: CalledProcessError
+______ test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa _______
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_provedor_marca_como_suspe0')
+
+    def test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa(tmp_path):
+>       r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() {}\n"}, {})
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:409: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+    git(r, "commit", "-q", "-m", "hoje", data=D3)
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+    subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_provedor_marca_como_suspe0/proj', 'commit', '-q', '-m', ...],)
+kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_provedor_marca_como_suspe0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+
+/usr/lib/python3.14/subprocess.py:578: CalledProcessError
+__________________ test_extras_de_raiz_do_manifesto_do_crate ___________________
+
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_extras_de_raiz_do_manifes0')
+
+    def test_extras_de_raiz_do_manifesto_do_crate(tmp_path):
+>       r = repo(tmp_path, {"custom/entrada.rs": "mod a;\n", "custom/a.rs": ""}, {})
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:417: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+    git(r, "commit", "-q", "-m", "hoje", data=D3)
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+    subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_extras_de_raiz_do_manifes0/proj', 'commit', '-q', '-m', ...],)
+kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_extras_de_raiz_do_manifes0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+
+/usr/lib/python3.14/subprocess.py:578: CalledProcessError
+=========================== short test summary info ============================
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_limpar_apaga_comentarios_e_strings_e_preserva_os_offsets
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_declaracoes_mod_externas_inline_atributos_e_aninhamento
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_arvore_basica_mod_rs_e_arquivo_com_filhos
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_todas_as_raizes_do_crate_entram
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_raiz_declarada_no_manifesto_entra_por_extras_raiz
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_orfao_nao_entra_e_nao_torna_o_crate_incompleto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_inline_aninha_o_diretorio_dos_filhos
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_ciclo_por_path_attr_termina
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_crate_sem_raiz_no_instante_e_incompleto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_entrada_fora_da_arvore_de_modulos_e_incompleta
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_prioridade_entre_motivos
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_materializar_grava_os_modulos_no_formato_do_manifesto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[fn alvo() {}]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[pub(crate) fn alvo() {}]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[async fn alvo() {}]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[struct alvo;]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[enum alvo { A }]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[trait alvo {}]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[type alvo = u32;]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[const alvo: u32 = 1;]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[static alvo: u32 = 1;]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[mod alvo {}]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[union alvo { a: u32 }]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[macro_rules! alvo { () => {} }]
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_use_traz_o_nome_para_o_modulo
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_no_mesmo_mod_inline_do_uso_e_classe_a
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_parametro_da_funcao_e_classe_a
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_binding_de_padrao_do_bloco_que_envolve_o_uso
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_parametro_generico_e_classe_a
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_posicao_com_caractere_nao_ascii_antes_da_coluna
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_criado_por_write_da_sessao_entra_no_crate
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_extras_de_raiz_do_manifesto_do_crate
+44 failed, 4 passed in 0.55s

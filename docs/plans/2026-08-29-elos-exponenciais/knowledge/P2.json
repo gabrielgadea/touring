@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "R\u00e9gua pol\u00edtica\u2192decis\u00e3o viva: KPI touring.learning.policy_discrimination actual=1.0 PASS (todos os estados multi-a\u00e7\u00e3o da learning_qtable com dispers\u00e3o >0.01; 127 pares \u2014 a mesma tabela que o replay treina); predict-action DISCRIMINA ao vivo (false\u21920.500, cargo check\u21920.991, echo ok\u21920.972 \u2014 a constante 0.990 morreu); doc do trait suggest_context_level corrigida (dizia QTable, sempre foi LinUCB); rationale do ema_reward atualizado (reten\u00e7\u00e3o P1 tornou obsoleto o 'zera a cada restart' \u2014 0.84 medido p\u00f3s-restart). Ligar QTable a decisor real fica GATED no KPI."
+    }
+  ],
+  "relations": []
+}

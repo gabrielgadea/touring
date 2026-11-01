@@ -10,6 +10,7 @@ use crate::context::CortexContext;
 use crate::handler::Handler;
 use crate::pipeline::Pipeline;
 use crate::types::{Decision, HandlerResult, HookEvent};
+use touring_foundation::truncate_str;
 use touring_hooks as hooks;
 
 use once_cell::sync::Lazy;
@@ -248,8 +249,16 @@ impl Handler for PreEditHandler {
             None => return HandlerResult::skip(self.name()),
         };
 
+        // The project runtime carries what a bare knowledge DB cannot: entity
+        // disambiguation (7a), quality evolution (9) and the project's own search
+        // index (14). Built the way the sibling handlers build theirs; it used to be
+        // `None` here with the root at hand (cross-audit 14/09/2026, D5).
+        let runtime = hooks::runtime::HookRuntime::new(&ctx.project_root).ok();
         let rel_path = hooks::make_relative(&file_path, &ctx.project_root);
-        let context = hooks::pre_edit::compose_edit_context(None, &ctx.knowledge, &rel_path);
+        let context = with_unavailable_signals(
+            hooks::pre_edit::compose_edit_context(runtime.as_ref(), &ctx.knowledge, &rel_path),
+            runtime.is_some(),
+        );
 
         match context {
             Some(ctx_str) if !ctx_str.is_empty() => {
@@ -257,6 +266,47 @@ impl Handler for PreEditHandler {
             }
             _ => HandlerResult::skip(self.name()),
         }
+    }
+}
+
+/// The signals that need the project runtime, named when it could not open: an
+/// absent signal must read as "unknown", never as "nothing to report".
+const RUNTIME_SIGNALS_UNAVAILABLE: &str = "pre_edit signals unavailable (project runtime did not \
+     open): entity ambiguity, quality evolution, related docs from the project index";
+
+fn with_unavailable_signals(context: Option<String>, runtime_available: bool) -> Option<String> {
+    if runtime_available {
+        return context;
+    }
+    Some(match context.filter(|c| !c.is_empty()) {
+        Some(c) => format!("{c}\n{RUNTIME_SIGNALS_UNAVAILABLE}"),
+        None => RUNTIME_SIGNALS_UNAVAILABLE.to_string(),
+    })
+}
+
+#[cfg(test)]
+mod pre_edit_signal_tests {
+    use super::{RUNTIME_SIGNALS_UNAVAILABLE, with_unavailable_signals};
+
+    /// Cross-audit 14/09/2026 (D5): without a runtime three signals vanished and
+    /// the context looked complete. The absence is now part of the context.
+    #[test]
+    fn a_missing_runtime_is_named_and_a_present_one_adds_nothing() {
+        assert_eq!(
+            with_unavailable_signals(Some("impact: 2".into()), true).as_deref(),
+            Some("impact: 2")
+        );
+        assert_eq!(with_unavailable_signals(None, true), None);
+        let degraded = with_unavailable_signals(Some("impact: 2".into()), false).unwrap();
+        assert!(degraded.starts_with("impact: 2\n"), "{degraded}");
+        assert!(
+            degraded.ends_with(RUNTIME_SIGNALS_UNAVAILABLE),
+            "{degraded}"
+        );
+        assert_eq!(
+            with_unavailable_signals(None, false).as_deref(),
+            Some(RUNTIME_SIGNALS_UNAVAILABLE)
+        );
     }
 }
 
@@ -401,7 +451,7 @@ impl Handler for SessionStartHandler {
             parts.push(format!("{} edits tracked", stats.edit_count));
         }
 
-        let session_short = &ctx.session_id[..ctx.session_id.len().min(8)];
+        let session_short = truncate_str(&ctx.session_id, 8);
         let context = format!(
             "Touring Knowledge: {} | session={}",
             parts.join(", "),
@@ -639,13 +689,8 @@ impl Handler for ClassifyIntentHandler {
     }
 
     fn execute(&self, ctx: &mut CortexContext) -> HandlerResult {
-        // Claude Code sends "userMessage" for UserPromptSubmit; fall back to "prompt"
-        let prompt = ctx
-            .input
-            .get("userMessage")
-            .or_else(|| ctx.input.get("prompt"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        // One source for the field name — see `IntentClassifier::prompt_from_input`.
+        let prompt = hooks::classifier::prompt_from_input(&ctx.input);
 
         let result = self.classifier.classify(prompt);
         let techniques = hooks::IntentClassifier::get_techniques(result.level);

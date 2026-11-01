@@ -1,0 +1,11 @@
+{
+  "phase": "H0",
+  "entities": [
+    {
+      "entity_id": "phase:H0",
+      "type": "phase",
+      "description": "Censo completo: (1) FORKS \u2014 3 pares DIFFER, resilience=can\u00f4nico (let-chains modernos), foundation=c\u00f3pia antiga com mais coment\u00e1rios; \u00fanico consumer dos forks foundation \u00e9 interno (failover/mod.rs); gate_metrics.rs da foundation j\u00e1 consome resilience::sentinel; (2) WRITE PATHS memory_entries \u2014 s\u00f3 2 production full-row (rlm.rs + ceg_impls RPC); demais s\u00e3o UPDATEs manuten\u00e7\u00e3o (outcome_reward/access_count), fixtures cfg(test) e migration tooling (consolidation.rs, migrate.rs); (3) ENV \u2014 40 arquivos, 33 sem ENV_LOCK: ~31 testes (inline cfg(test) + tests/ integration) + 2 candidatos produ\u00e7\u00e3o (recursion_guard.rs, rollback_plan.rs) p/ auditar; (4) rust-analyzer 1.97.1 dispon\u00edvel com subcomando scip."
+    }
+  ],
+  "relations": []
+}

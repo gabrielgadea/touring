@@ -1,290 +1,111 @@
-# Mutation Testing — Wave T1+T2 Playbook
+# Mutation Testing — playbook do `touring mutation-test`
 
-> **Status**: Operational since 2026-04-25 | **Wrapper**: `touring mutation-test` (T1) | **CI**: `mutation-baseline` job + `mutants-incremental` job (T2) | **KPI**: `touring.mutation.kill_rate` (R2)
+> **Criado**: 2026-08-28 (estreia real do KPI `touring.mutation.kill_rate` — antes
+> desta data este arquivo era uma referência fantasma: a tabela TIER 4 do client
+> apontava para um playbook que nunca existiu).
+> **Executores**: CLI `crates/touring-server/src/cli/mutation_test.rs` → daemon
+> handler `cli-mutation-test` (`crates/touring-cli/src/cli/handlers/mutation_test.rs`)
+> → core `crates/touring-hooks-core/src/mutation_test.rs` (cargo-mutants).
 
----
+## O que é
 
-## Why mutation testing
+Wrapper estruturado sobre [cargo-mutants](https://mutants.rs): o daemon roda a
+corrida, calcula `kill_rate`, aplica o gate de threshold e devolve um envelope
+JSON estável que CI e KPI consomem. Pré-requisito: `cargo install cargo-mutants`
+— ausente, o daemon devolve envelope `binary_not_found` (degradação estruturada,
+nunca crash).
 
-Line/branch coverage tells you which lines a test *touched*; mutation testing
-tells you which mutations of those lines a test *would have caught*. A
-function with 100% line coverage and 0% mutation kill rate is not actually
-verified — the tests run the code but never assert on its behavior. Mutation
-testing is a **stronger** signal than coverage and complements it as the
-"how much does the suite actually verify" metric.
+```text
+kill_rate = (killed + timeout) / (killed + timeout + survived) × 100
+```
 
-The wrapper exists so the same `touring mutation-test` invocation runs
-locally (developer iterating), in CI (advisory weekly job), inside the holon
-audit (`run_full_audit.sh`), and feeds back into the executive dashboard
-(`touring repo-score` Testing category).
+Mutantes `unviable` (não compilam) ficam fora do denominador — não medem teste
+nenhum.
 
----
-
-## Quickstart
+## Uso canônico
 
 ```bash
-# Install (one-time, ~3 min)
-cargo install cargo-mutants
-
-# Run a single package (fastest path — populates cache)
-touring mutation-test --package touring-ast --threshold 70 --timeout 120
-
-# Read cached result without re-running (zero cost)
-touring mutation-test --cache-only
-
-# Force re-run (bypass 7-day cache window)
-touring mutation-test --package touring-ast --force
-
-# Whole workspace (slow — usually only in scheduled CI)
-touring mutation-test --threshold 50
-
-# Inspect the cache file directly
-cat ~/.claude/rust/.touring-cache/mutation-test/touring-ast.json
+touring mutation-test --package touring-identity   # 1 crate — a corrida normal
+touring mutation-test --cache-only                 # só lê o cache (nunca dispara corrida)
+touring mutation-test --force                      # workspace INTEIRO (horas) — force obrigatório
+touring mutation-test --threshold 70 --timeout 120 # calibra gate e timeout por mutante
+touring mutation-test --jobs 8                     # paralelismo do cargo-mutants
 ```
 
----
+## O force-gate de workspace (2026-08-28)
 
-## Wrapper output schema
+Payload **sem `package` e sem `force`** é recusado ANTES de qualquer execução
+com envelope falante:
 
-```jsonc
-{
-  "ok": true,
-  "cached": false,                  // true when served from disk cache
-  "package": "touring-ast",         // null when whole-workspace
-  "mutants_total": 100,             // = killed + survived + timeout + unviable
-  "mutants_killed": 80,             // detected (test failed) — good
-  "mutants_survived": 15,           // missed (no test failed) — gap in coverage
-  "mutants_timeout": 3,             // timed out — counts as killed for kill_rate
-  "mutants_unviable": 2,            // didn't compile — excluded from denominator
-  "kill_rate": 84.69,               // (killed + timeout) / (killed + timeout + survived)
-  "elapsed_secs": 142,
-  "passed_threshold": true,
-  "threshold": 80.0,
-  "cargo_mutants_version": "26.1.2"
-}
+```json
+{ "ok": false, "kind": "workspace_requires_force",
+  "hint": "pass --package <crate> for the normal run, or --force to accept the full-workspace cost" }
 ```
 
-Failure envelope (binary missing, parse error, etc.):
+Origem: um teste unitário sem args (`no_args_routes_to_daemon_without_panicking`)
+disparava uma corrida de workspace REAL no daemon a cada `cargo test` — jobs=24,
+load 26, background tasks mortas no floor de timeout. A recusa é o executor da
+regra; o teste hoje usa `--cache-only` (a variante inerte). Memória:
+`teste-unitario-dispara-corrida-de-producao`.
 
-```jsonc
-{
-  "ok": false,
-  "error": "cargo-mutants binary not found ...",
-  "kind": "binary_not_found"        // also: exit_failed, outcomes_missing, outcomes_parse, io
-}
+## Orçamentos e classificação heavy
+
+| Camada | Mecanismo | Valor |
+|---|---|---|
+| Server (client) | `raise_timeout_floor(HEAVY_OP_BUDGET_SECS)` no branch não-cache | floor 1800 s (`--timeout` explícito maior vence) |
+| Daemon | `is_heavy_hook` inclui `cli-mutation-test` | budget heavy (vs 15 s light) |
+| Guard | `mutation_test_is_classified_heavy` (daemon_tests.rs) | lê a janela da fn — declaração ≠ executor reprova |
+
+Sem essas duas pontas a corrida real (~19 min no touring-identity) morria no
+budget light de 15 s do daemon **ou** no floor de 120 s do client — o defeito
+"client com floor menor que o budget do server" da classe declaração≠executor.
+
+## Probe do binário (CARGO_HOME)
+
+`cargo_mutants_available()` consulta o `PATH` **e** `$CARGO_HOME/bin` (fallback
+`~/.cargo/bin`) — a mesma resolução do cargo real. O daemon roda com PATH
+estreito (restart via systemd/daemon-ctl não herda o shell), então o probe só
+por PATH dava `binary_not_found` com o binário instalado. O restart canônico
+pós-deploy carrega o PATH: `PATH="$HOME/.cargo/bin:$PATH" touring daemon-ctl restart`.
+
+## Cache
+
+- Local: `<workspace>/.touring-cache/mutation-test/<package>.json` (workspace →
+  `_workspace.json`).
+- TTL: 7 dias; `--force` ignora, `--cache-only` nunca dispara corrida.
+- O KPI lê pelo cache (ver abaixo) — corrida cara roda quando alguém decide,
+  não a cada `touring kpi`.
+
+## KPI — `touring.mutation.kill_rate`
+
+Declarado em `docs/kpi/commitments.yaml`:
+
+```yaml
+source: "daemon:cli-mutation-test@touring-identity:/kill_rate"
+threshold: 50.0   # gte
 ```
 
----
+A gramática `@<scope>` (2026-08-28, `split_handler_scope` em kpi.rs) injeta o
+package no payload do handler com `cache_only: true` — o KPI **nunca** dispara
+corrida; STUB honesto quando o cache não existe. Estreia medida em 2026-08-28:
+**kill_rate 98,15%** no touring-identity (106 killed + 0 timeout + 2 survived;
+2 corridas reproduzindo o número). Guia do sistema de KPI: `docs/kpi/README.md`.
 
-## Threshold ramp-up
+## Gotchas conhecidos (todos pagos por execução)
 
-The CI job and the R2 commitment use a deliberately conservative starting
-threshold to avoid breaking the gate before the test suite has been
-audited for mutation gaps. Bump the threshold in **two** places when each
-milestone is reached:
+1. **Corrida workspace órfã**: se um processo cargo-mutants ficou órfão, matar
+   pelo PID do cargo-mutants (verificado em `/proc/<pid>/cmdline`) — JAMAIS
+   `pkill -f touring` (REGRA #19; um dos PIDs vizinhos era o daemon de outra
+   sessão CC viva).
+2. **ICE do compilador durante baseline**: um internal compiler error (GCC 16 em
+   `sqlite3.c` via cc-rs) mata o baseline e o envelope vira `no_viable_mutants`
+   — transiente; retry passa. O envelope está correto: baseline quebrado não é
+   kill_rate 0.
+3. **Rodar sob build pesado**: mutation em paralelo com `cargo build --release`
+   do workspace disputa o mesmo target dir lock e satura I/O — sequencie.
 
-| Phase    | Threshold | Where to update                                                                                     |
-|----------|-----------|-----------------------------------------------------------------------------------------------------|
-| Week 1-2 | **50%**   | `docs/ci-template.yml` (`mutation-baseline`) + `docs/kpi/commitments.yaml` (`touring.mutation.kill_rate`) |
-| Week 3-4 | 65%       | same two files                                                                                      |
-| Month 2  | 75%       | same two files                                                                                      |
-| Month 3  | **80%**   | same two files — promote `mutation-baseline` from `continue-on-error: true` to required             |
+## Referências
 
-Bumping the threshold is a **deliberate** action — never raise it
-implicitly via auto-merge of a "improve mutation kill rate" PR. The R2 KPI
-commitment is the canonical declaration; the CI threshold mirrors it.
-
----
-
-## Architecture (T1 + T2)
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│  Developer / CI / holon audit                                      │
-│         │                                                          │
-│         ▼                                                          │
-│  touring mutation-test [--package P] [--threshold T] [--cache-only]│
-│         │                                                          │
-│         │ (daemon socket — rkyv or JSON)                           │
-│         ▼                                                          │
-│  cli_handlers_mutation_test::cli_mutation_test                     │
-│         │                                                          │
-│         │  ─── cache hit?  ──── yes ──► return cached envelope     │
-│         │                                                          │
-│         ▼ no                                                       │
-│  mutation_test::run_mutation_test                                  │
-│         │                                                          │
-│         ├──► spawns `cargo mutants -p P --output <dir> ...`         │
-│         │                                                          │
-│         └──► parse_outcomes_json(<dir>/mutants.out/outcomes.json)  │
-│                  │                                                 │
-│                  ▼                                                 │
-│         compute_kill_rate(killed, survived, timeout)               │
-│                  │                                                 │
-│                  ▼                                                 │
-│         cache_store(<workspace>/.touring-cache/mutation-test/...)  │
-│                  │                                                 │
-│                  ▼                                                 │
-│         MutationReport JSON envelope (returned to caller)          │
-│                                                                    │
-│  ─── consumers ────────────────────────────────────────────────    │
-│  • touring repo-score   → Testing category source = mutation_test  │
-│  • touring kpi --check  → touring.mutation.kill_rate commitment    │
-│  • run_full_audit.sh    → advisory gate (skip if cargo-mutants ⊥)  │
-│  • CI artifact          → mutation-report.json + mutants.out/      │
-└────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## CI integration
-
-Two **complementary** jobs run cargo-mutants in different modes:
-
-| Job                      | Trigger              | Scope                          | Duration  | Purpose                                          |
-|--------------------------|----------------------|--------------------------------|-----------|--------------------------------------------------|
-| `mutants-incremental`    | every PR             | `cargo mutants --in-diff`      | ~10-15min | Catch regressions on changed code                |
-| `mutation-baseline` (T2) | weekly cron + manual | full package via wrapper       | up to 60m | Refresh whole-package baseline + populate cache  |
-
-The wrapper job:
-- Runs `cargo build --release --bin touring --bin touring-hook` (the wrapper
-  needs the binary to exec `cargo mutants` and write the cache).
-- Starts the daemon (the wrapper writes to `<ws>/.touring-cache/...`
-  via the daemon, not directly).
-- Calls `touring mutation-test --package touring-ast --threshold 50 --force`.
-- Uploads `mutation-report.json` + the raw `mutants.out/` tree as artifacts.
-- `continue-on-error: true` until month 3 (then promote to required).
-
----
-
-## Local audit gate
-
-`tools/holon/tests/run_full_audit.sh` includes a **skip-aware** gate:
-
-```bash
-gate "mutation-test (touring-ast, advisory) [skip if absent]" \
-    bash -c '
-        command -v cargo-mutants >/dev/null 2>&1 || { echo "skip"; exit 0; }
-        command -v touring        >/dev/null 2>&1 || { echo "skip"; exit 0; }
-        out=$(touring mutation-test --package touring-ast --threshold 50 --cache-only 2>/dev/null || true)
-        # cache_miss or wrapper error → advisory pass
-        # passed_threshold=false       → fail
-        # passed_threshold=true        → pass
-        ...
-    '
-```
-
-The gate consults `--cache-only` (zero-cost read) instead of running mutation
-testing — the **scheduled** CI job is responsible for populating that cache.
-Local devs see "skip" on machines without `cargo-mutants`, or "no cache yet"
-on a fresh checkout, neither of which blocks the audit.
-
----
-
-## Cache layout
-
-```
-<workspace>/.touring-cache/mutation-test/
-├── _workspace.json          ← whole-workspace run (--package omitted)
-├── touring-ast.json
-├── touring-hooks.json
-└── ...
-```
-
-- One file per package filter (or `_workspace.json` for unfiltered runs).
-- 7-day stale window (configurable via `MutationConfig` — see `mutation_test.rs`).
-- Atomic write: tempfile + `fs::rename` (no half-written cache).
-- Format: pretty-printed `MutationReport` JSON.
-
-To inspect the most recent run for a package:
-
-```bash
-jq . ~/.claude/rust/.touring-cache/mutation-test/touring-ast.json
-```
-
-To wipe the cache (force next run to re-execute):
-
-```bash
-rm ~/.claude/rust/.touring-cache/mutation-test/touring-ast.json
-# or
-touring mutation-test --package touring-ast --force
-```
-
----
-
-## Interpreting outcomes
-
-| Field              | Good if…                                                                 |
-|--------------------|--------------------------------------------------------------------------|
-| `mutants_killed`   | High vs total. Each killed mutant = one bug your test suite *would* catch. |
-| `mutants_survived` | Low. Each survivor is a real coverage gap — the test ran but didn't assert. |
-| `mutants_timeout`  | Low (≤ 5% of total). High counts mean tests have non-deterministic perf. |
-| `mutants_unviable` | Variable. Indicates mutations the compiler rejected — not a quality signal. |
-| `kill_rate`        | ≥ threshold. The headline metric; what the gate enforces.                |
-
-A drop in `kill_rate` between baselines is a **regression signal**: either
-new code shipped without sufficient tests, or an existing test was weakened
-(e.g. an assertion replaced with `assert!(true)`).
-
----
-
-## Troubleshooting
-
-### "cargo-mutants binary not found"
-```
-{ "ok": false, "kind": "binary_not_found", "error": "cargo-mutants binary not found ..." }
-```
-Install: `cargo install cargo-mutants`. The wrapper degrades cleanly — CI
-gates are advisory, the daemon never panics.
-
-### "outcomes_missing"
-```
-{ "ok": false, "kind": "outcomes_missing", "error": "outcomes.json missing at ..." }
-```
-`cargo-mutants` crashed before writing the artifact. Check
-`<output_dir>/mutants.out/log/baseline.log` for the build error — usually
-the unmutated baseline fails to compile (workspace already broken).
-
-### "exit_failed"
-```
-{ "ok": false, "kind": "exit_failed", "error": "cargo-mutants exit failed ..." }
-```
-`cargo-mutants` itself errored AND `outcomes.json` is absent. This is
-distinct from "tests caught a mutant" (which exits non-zero but still
-writes outcomes — handled cleanly). Inspect stderr, often a cargo
-toolchain issue.
-
-### CI timeout (60min)
-- Reduce scope: pass `--package <single_crate>` instead of whole workspace.
-- Increase `--timeout` (per-mutant) only if individual test runs are slow;
-  do **not** increase the CI `timeout-minutes` past 60 (runner cost).
-- Consider sharding: `cargo mutants --shard 1/4` (and run 4 jobs). Wrapper
-  doesn't expose `--shard` yet — see follow-up T3.
-
-### Kill rate stuck below threshold
-- Inspect surviving mutants: `cat target/mutants/<package>/mutants.out/missed.txt`
-- Each line is `path:line:col: replace X with Y` — write a test that
-  distinguishes the original from the mutation.
-
----
-
-## Source map
-
-| Concern                      | File                                                                 |
-|------------------------------|----------------------------------------------------------------------|
-| Lib (config + parser + cache) | `crates/touring-hooks/src/mutation_test.rs`                          |
-| Daemon handler                | `crates/touring-hooks/src/cli_handlers_mutation_test.rs`             |
-| CLI subcommand                | `crates/touring-server/src/cli/mutation_test.rs`                     |
-| Hook registry wire            | `crates/touring-hooks/src/hook_registry.rs` (`cli-mutation-test`)    |
-| R1 Testing category           | `crates/touring-hooks/src/cli_handlers_repo_score.rs::score_testing` |
-| R2 KPI commitment             | `docs/kpi/commitments.yaml` (`touring.mutation.kill_rate`)           |
-| CI baseline job               | `docs/ci-template.yml` (`mutation-baseline`)                         |
-| CI PR diff job                | `docs/ci-template.yml` (`mutants-incremental`)                       |
-| Audit gate                    | `tools/holon/tests/run_full_audit.sh` (advisory, skip-aware)         |
-
----
-
-## Related skills
-
-- `~/.claude/skills/Touring/SKILL.md` — TIER 4 row mentions `touring mutation-test`
-- `crates/touring-server/.claude/CLAUDE.md` — workspace conventions
+- Cross-audit da estreia: `docs/audits/cross-audit-2026-08-28-kpi-mutation-lifecycle.md`
+- Sistema de commitments: `docs/kpi/README.md`
+- cargo-mutants: https://mutants.rs

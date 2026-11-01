@@ -257,6 +257,7 @@ pub fn find_all_cycles(
     db: &FileKnowledgeDB,
     workspace_root_filter: Option<&str>,
     prune_nonexistent: bool,
+    trusted_only: bool,
 ) -> Vec<Cycle> {
     // Build adjacency list from wiring_map (module_file → consumer_file)
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
@@ -268,11 +269,20 @@ pub fn find_all_cycles(
         Some(_) => " AND (workspace_root = ?1 OR workspace_root IS NULL)",
         None => "",
     };
+    // H2 (2026-08-12): trusted mode excludes the name-matching heuristic
+    // (`ast_inferred`, ~66% of edges) — measured: SCCs go 7 (917-module giant)
+    // → 0 when it is excluded. What remains is import-resolved + SCIP
+    // type-resolved truth.
+    let trust_predicate = if trusted_only {
+        " AND contract_source != 'ast_inferred'"
+    } else {
+        ""
+    };
     let sql = format!(
         "SELECT DISTINCT module_file, consumer_file, workspace_root FROM wiring_map
          WHERE module_file IS NOT NULL
            AND consumer_file IS NOT NULL
-           AND module_file != consumer_file{ws_predicate}",
+           AND module_file != consumer_file{ws_predicate}{trust_predicate}",
     );
 
     let rows: Vec<(String, String, Option<String>)> = {
@@ -426,6 +436,543 @@ pub fn find_all_cycles(
         .collect()
 }
 
+/// Whether `language` declares an API the wiring map tracks: data and markup
+/// files do not. The rebuild, the edit path and the read path share this
+/// predicate.
+///
+/// Renamed from `is_code_language` (cross-audit 14/09/2026, B9): the name was
+/// also `touring_hooks_shared::detect_language::is_code_language`, an ALLOW-list
+/// with the opposite default for an unknown language, and `post_read` kept a
+/// third, inline copy.
+#[must_use]
+pub fn declares_wireable_api(language: &str) -> bool {
+    !matches!(
+        language,
+        "toml" | "json" | "yaml" | "markdown" | "html" | "css"
+    )
+}
+
+/// Register every public symbol of `symbols` as a producer row of `file_path`,
+/// with its REAL visibility: `pub(crate)` is stored as `crate`, never as
+/// `public`, because the orphan queries count only `visibility = 'public'`.
+/// Does not clear — the caller owns the clear and the transaction. Returns the
+/// rows actually written (a refused file or an existing row counts zero).
+pub fn register_public_symbols(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    symbols: &[touring_code::ast::symbols::Symbol],
+) -> u32 {
+    let mut registered = 0;
+    for sym in symbols.iter().filter(|sym| sym.is_public) {
+        let visibility = sym
+            .visibility
+            .as_ref()
+            .map_or("public", touring_code::ast::Visibility::as_str);
+        if db
+            .register_pub_symbol_counted(
+                file_path,
+                &sym.name,
+                sym.kind.as_str(),
+                visibility,
+                crate::knowledge_wiring::WiringOrigin::AstDeclared,
+            )
+            .unwrap_or(false)
+        {
+            registered += 1;
+        }
+    }
+    registered
+}
+
+/// Replace the producer rows of `file_path` with the public symbols its current
+/// `content` declares — the same extraction and visibility the rebuild uses.
+///
+/// Returns `None` and touches nothing when the language declares no API or the
+/// file cannot be parsed: rows that cannot be re-derived are kept, never
+/// cleared. Clearing and re-registering from the stored `symbols_json` — which
+/// carries no visibility — wiped the producers of every edited file
+/// (14/09/2026).
+pub fn refresh_file_producers(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    language: &str,
+    content: &str,
+) -> Option<u32> {
+    if !declares_wireable_api(language) {
+        return None;
+    }
+    // A companion file produces nothing (decision 1-A): the write gate would
+    // refuse every row anyway, so its residue is cleared and nothing is counted.
+    if touring_foundation::config::is_companion_key(file_path) {
+        let _ = db.clear_wiring(file_path);
+        return Some(0);
+    }
+    let symbols = crate::ast_bridge::extract_enriched_symbols(content, file_path)?;
+    let _ = db.clear_wiring(file_path);
+    let registered = register_public_symbols(db, file_path, &symbols);
+    if language == "python" {
+        retarget_vanished_consumers(db, file_path, content, &symbols);
+    }
+    Some(registered)
+}
+
+/// Consumer rows other files hold on the Python module `file_path` for a symbol
+/// it no longer defines.
+///
+/// A module split moves `No` to a sibling, and the edges written while the old
+/// module defined it keep pointing there — where `impact` finds them by name and
+/// `orphans` never looks (18/09/2026, analise: `grafo_memoria.py::No` kept the
+/// consumer it had on 16/09 after the split). The consumers did not change, so
+/// nothing re-reads them; their edges are settled here instead. A symbol the file
+/// still imports is forwarded: its edges move to the module that defines it, or
+/// stay when the chain cannot be followed (no proof either way). A symbol the file
+/// neither defines nor imports is gone, and so are its edges.
+fn retarget_vanished_consumers(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    content: &str,
+    symbols: &[touring_code::ast::symbols::Symbol],
+) {
+    let Some(root) = db.workspace_root() else {
+        return;
+    };
+    let stale = consumers_of_undefined_symbols(db, file_path, symbols);
+    if stale.is_empty() {
+        return;
+    }
+    let abs_module = std::path::Path::new(root).join(file_path);
+    let abs_module = abs_module.to_string_lossy();
+    let imported: HashSet<String> = crate::ast_bridge::extract_file_imports(content, &abs_module)
+        .into_iter()
+        .flat_map(|(_, names)| names)
+        .map(|name| {
+            name.split(" as ")
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        })
+        .collect();
+    for (symbol, consumer, line, source) in stale {
+        if imported.contains(&symbol) {
+            let definer = crate::symbol_extractors::definer_module(&abs_module, &symbol, None);
+            if definer == abs_module {
+                continue;
+            }
+            let _ = db.record_consumer_with_origin(
+                &definer,
+                &symbol,
+                &consumer,
+                line,
+                crate::knowledge_wiring::WiringOrigin::from_contract_source(&source),
+            );
+        }
+        let _ = db.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file = ?3",
+            params![file_path, symbol, consumer],
+        );
+    }
+    FileKnowledgeDB::invalidate_wiring_modules_cache();
+}
+
+/// Other files' consumer rows on `file_path` whose symbol it does not define:
+/// `(symbol, consumer, import_line, contract_source)`.
+fn consumers_of_undefined_symbols(
+    db: &FileKnowledgeDB,
+    file_path: &str,
+    symbols: &[touring_code::ast::symbols::Symbol],
+) -> Vec<(String, String, Option<i64>, String)> {
+    let defined: HashSet<&str> = symbols.iter().map(|s| s.name.as_str()).collect();
+    let rows: Vec<(String, String, Option<i64>, String)> = db
+        .conn_ref()
+        .prepare(
+            "SELECT symbol_name, consumer_file, import_line, contract_source FROM wiring_map
+             WHERE module_file = ?1 AND consumer_file IS NOT NULL AND consumer_file != module_file
+               AND symbol_name != '*'",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map(params![file_path], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })?
+            .collect()
+        })
+        .unwrap_or_default();
+    rows.into_iter()
+        .filter(|(symbol, ..)| !defined.contains(symbol.as_str()))
+        .collect()
+}
+
+/// The consumer rows a file's imports make, resolved exactly as the rebuild
+/// resolves them. Each `(module, symbols)` the file's language extractor yields
+/// goes through `resolve_import_path_with_source`; the edge is credited to the
+/// module that DEFINES the symbol (`definer_module`, re-exports followed); an
+/// import that resolves nowhere is recorded unresolved, with its class. Returns
+/// the edges recorded.
+///
+/// One pass for the rebuild and the hook path (C08). Until 18/09/2026 the hook
+/// path read `imports_json` through a `::` splitter — Rust syntax — so a Python
+/// or TypeScript file edited or ingested lost every import edge until the next
+/// rebuild: the analise split `grafo_memoria.py`, ingested the five files, and 12
+/// of 13 symbols its siblings import from `grafo_modelo.py` read as orphans.
+pub fn record_import_consumers(
+    db: &FileKnowledgeDB,
+    rel_path: &str,
+    abs_path: &str,
+    language: &str,
+    content: &str,
+) -> usize {
+    let _ = db.clear_unresolved_for_consumer(rel_path);
+    let mut recorded = 0;
+    // Only the imports that USE what they name: a re-export or a dead import
+    // is not a consumer (18/09/2026, Gabriel).
+    for (module_path, imported_symbols) in
+        crate::ast_bridge::extract_consumed_imports(content, abs_path)
+    {
+        let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
+            &module_path,
+            language,
+            Some(abs_path),
+        ) else {
+            // Classified in the workspace of the same file the attempt used, so
+            // the verdict never drifts from the attempt.
+            let class = crate::symbol_extractors::classify_unresolved(&module_path, Some(abs_path));
+            for symbol_name in &imported_symbols {
+                let _ = db.record_unresolved_import_classified(
+                    &module_path,
+                    symbol_name,
+                    rel_path,
+                    None,
+                    language,
+                    class.as_str(),
+                );
+            }
+            continue;
+        };
+        for symbol_name in &imported_symbols {
+            // 24/09/2026 (touring-36; doctor wiring_diagnostic kind_unknown=8):
+            // (2) a scope keyword is never a symbol — it is born ScopeKeyword.
+            if crate::symbol_extractors::is_scope_keyword(symbol_name) {
+                let _ = db.record_unresolved_import_classified(
+                    &module_path,
+                    symbol_name,
+                    rel_path,
+                    None,
+                    language,
+                    crate::symbol_extractors::UnresolvedClass::ScopeKeyword.as_str(),
+                );
+                continue;
+            }
+            // The import resolved to a MODULE; the producer row lives wherever
+            // the symbol is DEFINED, so a façade is never credited with a
+            // consumer it only forwards.
+            let definer =
+                crate::symbol_extractors::definer_module(&module_file, symbol_name, Some(abs_path));
+            // (3) a definer that is the consumer file itself is self-reference —
+            // the self_refs pass owns that class (pub → internal_only, private
+            // → nothing); this pass records no edge for it.
+            if definer == rel_path {
+                continue;
+            }
+            // (1) a fallback is not a resolution: only a GENUINE definer — a
+            // producer row, or a definition the chain/on-disk facts reach —
+            // earns an edge. Everything else is an unresolved import with a
+            // class, never an `ast_resolved` row without a producer: the
+            // phantom no repair can ever clear.
+            //
+            // Check 1a: direct producer row in the DB for (definer, symbol).
+            // `find_producer_modules_for_qualified` only looks at CALLABLE_KINDS
+            // (method/function/async_function), so structs, enums and type aliases
+            // registered via `register_pub_symbol` — the canonical path — would
+            // never satisfy the genuine gate through that query alone. The direct
+            // `SELECT 1` here closes that gap for all symbol kinds.
+            let in_db = db
+                .conn_ref()
+                .query_row(
+                    "SELECT 1 FROM wiring_map \
+                     WHERE module_file = ?1 AND symbol_name = ?2 \
+                     AND consumer_file IS NULL LIMIT 1",
+                    rusqlite::params![definer, symbol_name],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+            let genuine = in_db
+                || crate::symbol_extractors::definer_module_opt(
+                    &module_file,
+                    symbol_name,
+                    Some(abs_path),
+                )
+                .is_some()
+                || db
+                    .find_producer_modules_for_qualified(
+                        &[(definer.clone(), symbol_name.clone())],
+                        None,
+                    )
+                    .map(|found| !found.is_empty())
+                    .unwrap_or(true);
+            if genuine
+                && db
+                    .record_consumer(&definer, symbol_name, rel_path, None)
+                    .is_ok()
+            {
+                recorded += 1;
+            } else if !genuine {
+                let _ = db.record_unresolved_import_classified(
+                    &module_path,
+                    symbol_name,
+                    rel_path,
+                    None,
+                    language,
+                    crate::symbol_extractors::UnresolvedClass::WorkspaceUnresolved.as_str(),
+                );
+            }
+        }
+    }
+    // S223 (25/09/2026): the rebuild types a consumer row no producer carries from
+    // the definer's symbol table (I17); this incremental path did not, so every new
+    // consumer of a private helper was born `unknown` until the next full rebuild.
+    if recorded > 0
+        && let Err(e) = db.resolve_consumer_kinds_for_consumer(rel_path)
+    {
+        tracing::warn!(error = %e, consumer = rel_path, "consumer-kind resolution failed; rows stay `unknown` until the next rebuild");
+    }
+    recorded
+}
+
+/// Option B (19/09/2026, Gabriel): every segment of a Rust path that names a
+/// module credits the file that DECLARES it (`pub mod b;`). Returns the edges
+/// recorded.
+///
+/// Only the LEAF of a path was credited, so a module that serves as a namespace
+/// was an orphan by construction: 643 of them here, 392 with a traversal one line
+/// away (measured by the analise session). A path only a re-export names credits
+/// nothing — the rule of 18/09 — and a child module this file declares and uses
+/// itself lands on `(file, module) → file`, the `internal_only` class.
+///
+/// One pass for the rebuild and the hook path (C08).
+pub fn record_module_path_consumers(
+    db: &FileKnowledgeDB,
+    rel_path: &str,
+    abs_path: &str,
+    content: &str,
+) -> usize {
+    let Some(root) = db.workspace_root() else {
+        return 0;
+    };
+    let root = std::path::Path::new(root);
+    let declared = touring_code::ast::graph::rust_declared_module_names(content);
+    let mut recorded = 0;
+    for path in touring_code::ast::graph::rust_module_paths(content) {
+        let Some(module) = path.rsplit("::").next() else {
+            continue;
+        };
+        // A path that ENDS in a scope keyword (`use super::*;`, the `super::super` prefix of
+        // `super::super::a::f()`) names no module by its last word: `super` is a position, not an
+        // item anyone declares, so the edge would land on a symbol with no producer (doctor
+        // `kind_unknown`, 04/10/2026). The rule `record_import_consumers` applies to `use` imports.
+        if crate::symbol_extractors::is_scope_keyword(module) {
+            continue;
+        }
+        // The DECLARATION comes first, because it is the fact: walking forward
+        // from the crate root finds each segment as a `mod` item of the file
+        // reached so far. Only then the layout resolver, which probes the
+        // filesystem and follows re-exports — both inferences. Order matters:
+        // touring-cli declares `pub mod shared { … }` inline AND re-exports
+        // names from `touring_hook_runtime::shared`, and `reexport_origins`
+        // matches any segment of that path, so the resolver credited the OTHER
+        // crate's module while the local declaration sat one line away (4
+        // modules, 19/09/2026).
+        let declarer = crate::symbol_extractors::declarer_of_crate_path(&path, abs_path, root)
+            .map(|(declarer, _)| declarer)
+            .or_else(|| {
+                crate::symbol_extractors::resolve_import_path_with_source(
+                    &path,
+                    "rust",
+                    Some(abs_path),
+                )
+                .and_then(|module_file| {
+                    crate::symbol_extractors::declaring_file_for_module(&module_file, root)
+                })
+            })
+            // A bare child module of THIS file: the file declares it, so the
+            // file is its declarer, and the edge reads `internal_only`.
+            .or_else(|| declared.contains(module).then(|| rel_path.to_string()));
+        if let Some(declarer) = declarer
+            && db
+                .record_consumer(&declarer, module, rel_path, None)
+                .is_ok()
+        {
+            recorded += 1;
+        }
+    }
+    recorded
+}
+
+/// B5: `import pacote.modulo as m` + `m.Nome`. The module path resolves the way
+/// an import's does, the symbol is credited to the module that DEFINES it (a
+/// façade only forwards), and the edge is an `ast_inferred` guess by name. Each
+/// `(module_path, symbol)` comes from `python_qualified_uses`. Returns the edges
+/// recorded.
+///
+/// One pass for the rebuild and the hook path (C08). Until 18/09/2026 only the
+/// rebuild wrote these edges, and without the definer: the edit path cleared
+/// them with the other inferred rows and never re-derived them, so every edited
+/// Python file lost them until the next rebuild. They also feed the gate of the
+/// Python method pass, so they are written before it.
+pub fn record_python_qualified_uses(
+    db: &FileKnowledgeDB,
+    rel_path: &str,
+    abs_path: &str,
+    uses: &[(String, String)],
+) -> usize {
+    let mut recorded = 0;
+    for (module_path, symbol) in uses {
+        let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
+            module_path,
+            "python",
+            Some(abs_path),
+        ) else {
+            continue;
+        };
+        let definer =
+            crate::symbol_extractors::definer_module(&module_file, symbol, Some(abs_path));
+        if db
+            .record_consumer_with_origin(
+                &definer,
+                symbol,
+                rel_path,
+                None,
+                crate::knowledge_wiring::WiringOrigin::AstInferred,
+            )
+            .is_ok()
+        {
+            recorded += 1;
+        }
+    }
+    recorded
+}
+
+/// Every wiring row `file_path` owns, re-derived from its current `content`: its
+/// producers (real visibility), then its consumer rows — `use` imports, direct
+/// paths, and the INFERRED edges (bare calls, type positions, qualified calls).
+///
+/// The hook-path twin of the rebuild's per-file pass, and the ONE function the
+/// edit, read, file-changed and task-output paths call. Until 14/09/2026 they
+/// were four sequences: the edit path ran all three steps, the read path cleared
+/// every consumer row and re-recorded only `use` imports plus an obsolete
+/// name-only pass that labelled guesses `ast_resolved` (reading `dep_health.rs`
+/// once took it from 79 inferred edges to 0), and file-changed/task-output ran
+/// the first two steps, losing the inferred edges the same way — orphans that
+/// grew with every read and vanished at the next rebuild (cross-audit B1/B2).
+pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
+    let _ = refresh_file_producers(db, file_path, language, content);
+    update_wiring_after_edit(db, file_path);
+    // Every language's imports resolve in the pass the rebuild uses (C08). Rust
+    // used to keep only `update_wiring_after_edit`, whose `imports_json` is a
+    // line regex: it never saw a `use a::{B, C}` list, and a re-export the file
+    // also uses in its body (18/09/2026) read one way here, another there.
+    if !touring_foundation::config::is_companion_key(file_path)
+        && let Some(root) = db.workspace_root()
+    {
+        let abs = std::path::Path::new(root).join(file_path);
+        let _ = db.clear_declared_consumer_entries(file_path);
+        record_import_consumers(db, file_path, &abs.to_string_lossy(), language, content);
+        if language == "rust" {
+            record_module_path_consumers(db, file_path, &abs.to_string_lossy(), content);
+        }
+    }
+    // `update_wiring_after_edit` clears consumer rows only for a file with stored
+    // imports; the inferred edges are re-derived below either way, so the stale
+    // ones of calls the file no longer makes are dropped first.
+    let _ = db.clear_inferred_consumer_entries(file_path);
+    // Before the method pass: its Python gate reads the modules this file has
+    // edges to, and `alias.Nome` is one of the ways a module is reached.
+    if language == "python"
+        && db.polyglot()
+        && let Some(root) = db.workspace_root()
+    {
+        let abs = std::path::Path::new(root).join(file_path);
+        record_python_qualified_uses(
+            db,
+            file_path,
+            &abs.to_string_lossy(),
+            &touring_code::ast::graph::python_qualified_uses(content),
+        );
+    }
+    record_direct_path_consumers(db, file_path, content);
+    record_self_references(db, file_path, language, content);
+    // S223b (26/09/2026): the consumer-scoped kind resolution also runs inside the
+    // import pass, but only over the rows that pass wrote — the direct-path,
+    // inferred and qualified edges above come AFTER it and were born `unknown`
+    // (analise doctor: kind_unknown=10, all `ast_inferred` on private helpers). Once
+    // every row this file owns is written, type them all.
+    if let Err(e) = db.resolve_consumer_kinds_for_consumer(file_path) {
+        tracing::warn!(error = %e, consumer = file_path, "consumer-kind resolution failed; rows stay `unknown` until the next rebuild");
+    }
+    // 27/09/2026: and the rows that point AT this file. A consumer written before its
+    // definer (a RED test before the function) was born `unknown`, and only a refresh of
+    // that consumer re-typed it — the definer's own refresh never did (analise doctor
+    // kind_unknown=1: `extrair_rds`, test 14:06, function 14:42).
+    if let Err(e) = db.resolve_consumer_kinds_for_producer(file_path) {
+        tracing::warn!(error = %e, producer = file_path, "producer-side kind resolution failed; rows stay `unknown` until the next rebuild");
+    }
+}
+
+/// The file's use of its own public symbols (`internal_only`), re-derived like
+/// every other consumer row it owns, through the rebuild's own rule
+/// ([`touring_code::ast::graph::self_referenced_names`]). Until 18/09/2026 only
+/// the rebuild wrote these edges, so an edit cleared them with the other inferred
+/// rows and the file's internal symbols read as orphans until the next rebuild.
+fn record_self_references(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
+    if !(language == "rust" || (language == "python" && db.polyglot())) {
+        return;
+    }
+    let Some(symbols) = crate::ast_bridge::extract_enriched_symbols(content, file_path) else {
+        return;
+    };
+    // The producer is the file itself: `self_referenced_names` only returns
+    // symbols this file declares, so it is the definer by construction.
+    let declaring_file = file_path;
+    for name in touring_code::ast::graph::self_referenced_names(content, &symbols, language) {
+        let _ = db.record_consumer_with_origin(
+            declaring_file,
+            &name,
+            file_path,
+            None,
+            crate::knowledge_wiring::WiringOrigin::AstInferred,
+        );
+    }
+}
+
+/// [`refresh_file_wiring`] for a caller that holds only the path (relative to
+/// `project_root`, or absolute). `false`, touching nothing, when the walker would
+/// refuse the file or it is missing or unreadable.
+///
+/// Cross-audit 14/09/2026 (B3): the admission policy used to live only in the
+/// edit path, so `file_changed` and `task_output` wrote wiring under keys the
+/// rebuild never produces — absolute paths, excluded directories. The file is
+/// stored under the ONE key the walker gives it.
+pub fn refresh_file_wiring_from_disk(
+    db: &FileKnowledgeDB,
+    project_root: &std::path::Path,
+    file_path: &str,
+) -> bool {
+    let rel = crate::hook_runtime::make_relative(file_path, project_root);
+    let Ok(key) = crate::shared::reindex::admission_key_for_root(project_root, &rel) else {
+        return false;
+    };
+    let abs = if std::path::Path::new(&rel).is_absolute() {
+        std::path::PathBuf::from(&rel)
+    } else {
+        project_root.join(&rel)
+    };
+    let Ok(content) = std::fs::read_to_string(abs) else {
+        return false;
+    };
+    let language = crate::shared::detect_language::detect_language_owned(&key);
+    refresh_file_wiring(db, &key, &language, &content);
+    true
+}
+
 /// Update wiring map after a file is edited.
 ///
 /// Re-scans the file's knowledge to update pub symbol registrations
@@ -435,28 +982,11 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
     let previous_score = db.integration_score(file_path).unwrap_or(1.0);
 
     if let Ok(Some(knowledge)) = db.lookup(file_path) {
-        // Re-register pub symbols (clear + re-add to catch added/removed)
-        if let Some(ref symbols_json) = knowledge.symbols_json
-            && let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json)
-        {
-            let _ = db.clear_wiring(file_path);
-            for sym in &symbols {
-                let is_public = sym
-                    .get("is_public")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                if is_public {
-                    let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    let kind = sym
-                        .get("kind")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("unknown");
-                    if !name.is_empty() {
-                        let _ = db.register_pub_symbol(file_path, name, kind, "public");
-                    }
-                }
-            }
-        }
+        // Producer rows are NOT touched here. The stored `symbols_json` carries no
+        // visibility, and clearing them to re-register from it wiped the producers
+        // of every edited file (14/09/2026: 10 of 15 touring files edited after
+        // the rebuild had none). Callers holding the content refresh them with
+        // `refresh_file_producers`; the rest leave them as the last parse saw them.
 
         // Re-register consumer entries (this file as consumer).
         //
@@ -511,130 +1041,80 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
 /// `update_wiring_after_edit`, so this just re-populates the consumer edges
 /// with direct-path evidence in addition to `use`-import evidence.
 pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, content: &str) {
-    for path in extract_direct_path_expressions(content) {
-        record_consumer_from_path(db, &path, consumer_file);
-    }
-    // FIX-4 (2026-04-13): also detect `pub use <submod>::<symbol>` and
-    // `pub(crate) use <submod>::<symbol>` re-exports. When a parent
-    // module (e.g. `lifecycle.rs`) re-exports a symbol from a co-located
-    // submodule (e.g. `lifecycle/subagent.rs`), the parent IS effectively
-    // a consumer of the submodule — the re-export forwards external
-    // callers through. Without this, every submodule extraction causes
-    // its pub symbols to be flagged orphan even though the parent
-    // re-exports them. Idempotent with `extract_direct_path_expressions`:
-    // that scan only catches `crate::` / `super::` absolute paths, while
-    // this scan covers bare `<mod>::<sym>` re-export syntax.
-    for (submod, symbol) in extract_reexport_pairs(content) {
-        record_reexport_consumer(db, consumer_file, &submod, &symbol);
-    }
-}
-
-/// Extract `(submodule, symbol)` pairs from re-export statements.
-///
-/// Matches `pub use foo::bar;`, `pub(crate) use foo::bar;`,
-/// `pub(super) use foo::bar;`, etc. Ignores absolute paths (`crate::...`,
-/// `super::...`) — those are handled by `extract_direct_path_expressions`.
-fn extract_reexport_pairs(content: &str) -> Vec<(String, String)> {
-    let mut out: Vec<(String, String)> = Vec::new();
-    for line in content.lines() {
-        let trimmed = line.trim_start();
-        // Strip optional `pub` / `pub(<vis>)` prefix.
-        let after_pub = if let Some(rest) = trimmed.strip_prefix("pub(") {
-            // skip until ')'
-            match rest.find(')') {
-                Some(close) => rest[close + 1..].trim_start(),
-                None => continue,
+    let lang = touring_code::ast::Lang::from_path(std::path::Path::new(consumer_file));
+    // `crate::`/`super::` paths are RUST syntax. Read from the raw text of anything else they
+    // are prose: editing the workspace CLAUDE.md (rule 26 writes the example `use
+    // crate::a::b::Z`) recorded that file as a consumer of a symbol that exists nowhere, and
+    // `touring doctor` went 8/9 with `kind_unknown=1` (03/10/2026, XA-17). A REAL path quoted
+    // in a document would be credited the same way, as a use that never happened.
+    if matches!(lang, Some(touring_code::ast::Lang::Rust)) {
+        // The scan reads every `crate::`/`super::` path, `use` lines included, so
+        // the path a `pub use` forwards would read as a use of it (18/09/2026).
+        let forwarded = reexported_paths(consumer_file, content);
+        for path in extract_direct_path_expressions(content) {
+            if !forwarded.contains(&path) {
+                record_consumer_from_path(db, &path, consumer_file);
             }
-        } else if let Some(rest) = trimmed.strip_prefix("pub ") {
-            rest.trim_start()
-        } else {
-            continue;
-        };
-        let after_use = match after_pub.strip_prefix("use ") {
-            Some(s) => s.trim_start(),
-            None => continue,
-        };
-        // Skip absolute paths (handled elsewhere).
-        if after_use.starts_with("crate::")
-            || after_use.starts_with("super::")
-            || after_use.starts_with("self::")
-            || after_use.starts_with("::")
-        {
-            continue;
         }
-        // Accept `<ident>::<ident>[::<ident>...];` — minimal relative re-export.
-        let path_end = after_use
-            .find([';', '{', ' ', '\t', ',', '\n'])
-            .unwrap_or(after_use.len());
-        let path = after_use.get(..path_end).unwrap_or("");
-        if !path.contains("::") {
-            continue;
-        }
-        let mut parts: Vec<&str> = path.split("::").collect();
-        let Some(symbol) = parts.pop() else { continue };
-        if symbol.is_empty() || symbol == "*" || symbol == "self" {
-            continue;
-        }
-        if parts.is_empty() {
-            continue;
-        }
-        let submod = parts.first().copied().unwrap_or("").to_string();
-        // Filter out obviously non-local modules (std, tokio, serde, etc.).
-        // Heuristic: a single-segment submodule name without any built-in
-        // prefix is most likely a local submodule.
-        if matches!(
-            submod.as_str(),
-            "std"
-                | "core"
-                | "alloc"
-                | "tokio"
-                | "serde"
-                | "serde_json"
-                | "anyhow"
-                | "thiserror"
-                | "tracing"
-                | "rusqlite"
-                | "regex"
-                | "chrono"
-                | "blake3"
-                | "uuid"
-                | "rand"
-                | "reqwest"
-        ) {
-            continue;
-        }
-        out.push((submod, symbol.to_string()));
     }
-    out
+    // W4 (2026-09-02): the inference step the rebuild runs post-walk, now on
+    // the edit path too. `update_wiring_after_edit` cleared this file's
+    // consumer rows and re-recorded only `use` imports — every edited file
+    // lost its `ast_inferred` edges until the next full rebuild, and callees
+    // reached by a bare call or a type position read as orphans (measured on
+    // `sandbox_executor.rs` → `limits.rs::apply_resource_caps_to`, 02/09).
+    if let Some(lang) = lang {
+        let method_names = touring_code::ast::graph::extract_method_calls(content, lang);
+        let type_refs = touring_code::ast::graph::extract_type_and_const_refs(content, lang);
+        let qualified_calls = touring_code::ast::graph::extract_qualified_calls(content, lang);
+        let _ = db.record_inferred_consumers(
+            consumer_file,
+            &method_names,
+            &type_refs,
+            // D2 (2026-09-02) — ver `index.rs`: o par qualificado é exato.
+            &qualified_calls,
+        );
+    }
+    // FIX-4 (2026-04-13) recorded a `pub use <submod>::<symbol>` as the parent's
+    // use of the symbol, on this path only. Removed 18/09/2026: a re-export is
+    // not a use (Gabriel), and a caller reaching the symbol through the parent
+    // is credited to the definer, which follows the chain.
 }
 
-/// Record a re-export consumer edge: `consumer_file` re-exports `symbol`
-/// from its own co-located `<submod>.rs` or `<submod>/mod.rs`.
-fn record_reexport_consumer(db: &FileKnowledgeDB, consumer_file: &str, submod: &str, symbol: &str) {
-    if matches!(symbol, "*" | "self" | "Self") {
-        return;
+/// Full paths (`crate::a::Foo`) a Rust file re-exports, from the one reading of
+/// re-exports ([`touring_code::ast::graph::rust_reexports`]).
+fn reexported_paths(consumer_file: &str, content: &str) -> HashSet<String> {
+    if !consumer_file.ends_with(".rs") {
+        return HashSet::new();
     }
-    // Consumer is `.../foo.rs` → submodule lives at `.../foo/<submod>.rs`.
-    let parent_dir = std::path::Path::new(consumer_file)
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default();
-    let stem = std::path::Path::new(consumer_file)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
-    // Try `<parent>/<stem>/<submod>.rs` first (Rust 2018+ layout where
-    // lifecycle.rs with `mod subagent;` looks for lifecycle/subagent.rs).
-    let nested = if parent_dir.is_empty() {
-        format!("{stem}/{submod}.rs")
-    } else {
-        format!("{parent_dir}/{stem}/{submod}.rs")
-    };
-    // The nested submodule is the definer by construction *unless* it in turn
-    // re-exports the symbol from deeper — following the chain costs one cached
-    // scan and keeps the attribution on whoever actually defines it.
-    let definer = crate::symbol_extractors::definer_module(&nested, symbol);
-    let _ = db.record_consumer(&definer, symbol, consumer_file, None);
+    touring_code::ast::graph::rust_reexports(content)
+        .into_iter()
+        .flat_map(|imp| {
+            let module = imp.module_path;
+            imp.symbols
+                .into_iter()
+                .map(move |symbol| format!("{module}::{symbol}"))
+        })
+        .collect()
+}
+
+/// `consumer_file` as an absolute path under the project this database belongs to.
+///
+/// The resolver finds a file's Cargo workspace by walking up from the file (Cargo's
+/// rule). The edit path hands it project-relative paths, and a relative path can only
+/// be read against the PROCESS — whose current directory is wherever the daemon
+/// happened to be spawned (18/09/2026: `~/Work`, and every `use touring_…` read as
+/// external). The database knows its own project root; anchoring here removes the
+/// process from the question.
+fn absolute_consumer(db: &FileKnowledgeDB, consumer_file: &str) -> String {
+    let path = std::path::Path::new(consumer_file);
+    match db.workspace_root() {
+        Some(root) if !path.is_absolute() => std::path::Path::new(root)
+            .join(path)
+            .to_string_lossy()
+            .into_owned(),
+        _ => consumer_file.to_string(),
+    }
 }
 
 /// Resolve a path like `crate::module::symbol` or `super::submod::Type` into
@@ -680,10 +1160,11 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
     // "new orphans" for symbols with obvious live callers, and a rebuild
     // "fixed" them until the next edit. Sharing one resolver is what stops the
     // two paths from disagreeing again (decision matrix C08).
+    let consumer_abs = absolute_consumer(db, consumer_file);
     let Some(module_file) = crate::symbol_extractors::resolve_import_path_with_source(
         module_hint,
         "rust",
-        Some(consumer_file),
+        Some(&consumer_abs),
     ) else {
         return;
     };
@@ -692,7 +1173,8 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
     // `hybrid_search/mod.rs`, which only carries a `pub use`; with no definition
     // there the kind extractor produced `symbol_kind='unknown'` — the single
     // such row in a 76.942-row map, and enough to degrade `touring doctor`.
-    let module_file = crate::symbol_extractors::definer_module(&module_file, symbol_name);
+    let module_file =
+        crate::symbol_extractors::definer_module(&module_file, symbol_name, Some(&consumer_abs));
     let _ = db.record_consumer(&module_file, symbol_name, consumer_file, None);
 }
 
@@ -705,55 +1187,162 @@ fn record_consumer_from_path(db: &FileKnowledgeDB, import_path: &str, consumer_f
 /// `hook_registry.rs`.
 ///
 /// Returns the path up to but not including the first trailing non-path
-/// token (like `(`, `;`, or whitespace). Deduplicated via HashSet.
+/// token (like `(`, `;`, or whitespace). Deduplicated via HashSet. Comments,
+/// string and char literals are skipped, and `super::` segments consumed by
+/// inline `mod x { … }` blocks of the same file are removed first.
 fn extract_direct_path_expressions(content: &str) -> Vec<String> {
     let mut out: std::collections::HashSet<String> = std::collections::HashSet::new();
     let bytes = content.as_bytes();
     let len = bytes.len();
+    let at = |k: usize| bytes.get(k).copied().unwrap_or(0);
+    let is_ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    // Brace depth of the code, and the depths at which inline `mod x {` blocks
+    // opened. A `super::` written inside N inline modules climbs those N modules
+    // first — all within THIS file — before it reaches the file's parent
+    // (cross-audit 14/09/2026: `use super::super::real_engine;` two modules deep
+    // in `f2_5_dep_cves.rs` was resolved against the crate root, `lib.rs`).
+    let mut depth = 0usize;
+    let mut inline_mods: Vec<usize> = Vec::new();
+    let mut pending_mod = false;
     let mut i = 0usize;
     while i < len {
-        // Skip over any byte that isn't a char boundary — UTF-8 multibyte
-        // continuation bytes must never be treated as start positions. Using
-        // `content.get(i..)` returns None on non-boundaries without panicking.
-        let Some(tail) = content.get(i..) else {
-            i += 1;
+        let b = at(i);
+        // Comments, strings and char literals are not code: a path quoted in a
+        // comment wired a consumer to a symbol that does not exist
+        // (`crate::shared::feature_flags::f()` in a `wiring.rs` comment).
+        if b == b'/' && at(i + 1) == b'/' {
+            while i < len && at(i) != b'\n' {
+                i += 1;
+            }
             continue;
-        };
-        // Word-boundary check: previous byte must not be alphanumeric or `_`.
-        let prev_ok = i == 0 || {
-            let p = bytes.get(i - 1).copied().unwrap_or(0);
-            !p.is_ascii_alphanumeric() && p != b'_'
-        };
-        let starts_crate = prev_ok && tail.starts_with("crate::");
-        let starts_super = prev_ok && tail.starts_with("super::");
-        if !(starts_crate || starts_super) {
+        }
+        if b == b'/' && at(i + 1) == b'*' {
+            let mut nest = 1usize;
+            i += 2;
+            while i < len && nest > 0 {
+                if at(i) == b'/' && at(i + 1) == b'*' {
+                    nest += 1;
+                    i += 2;
+                } else if at(i) == b'*' && at(i + 1) == b'/' {
+                    nest -= 1;
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            continue;
+        }
+        let prev_ident = i > 0 && is_ident(at(i - 1));
+        if b == b'r' && !prev_ident && (at(i + 1) == b'"' || at(i + 1) == b'#') {
+            let mut k = i + 1;
+            let mut hashes = 0usize;
+            while at(k) == b'#' {
+                hashes += 1;
+                k += 1;
+            }
+            if at(k) == b'"' {
+                k += 1;
+                'raw: while k < len {
+                    if at(k) == b'"' && (1..=hashes).all(|h| at(k + h) == b'#') {
+                        k += 1 + hashes;
+                        break 'raw;
+                    }
+                    k += 1;
+                }
+                i = k;
+                continue;
+            }
+        }
+        if b == b'"' {
+            i += 1;
+            while i < len && at(i) != b'"' {
+                i += if at(i) == b'\\' { 2 } else { 1 };
+            }
             i += 1;
             continue;
         }
+        if b == b'\'' {
+            // `'x'` or `'\n'` is a char literal; `'a` (a lifetime) has no close.
+            let close = if at(i + 1) == b'\\' {
+                (i + 2..(i + 12).min(len)).find(|&k| at(k) == b'\'')
+            } else {
+                content
+                    .get(i + 1..)
+                    .and_then(|t| t.chars().next())
+                    .map(|c| i + 1 + c.len_utf8())
+                    .filter(|&k| at(k) == b'\'')
+            };
+            i = close.map_or(i + 1, |k| k + 1);
+            continue;
+        }
+        if b == b'{' {
+            depth += 1;
+            if pending_mod {
+                inline_mods.push(depth);
+                pending_mod = false;
+            }
+            i += 1;
+            continue;
+        }
+        if b == b'}' {
+            if inline_mods.last() == Some(&depth) {
+                inline_mods.pop();
+            }
+            depth = depth.saturating_sub(1);
+            i += 1;
+            continue;
+        }
+        if b == b';' {
+            // `mod x;` declares a file module, not an inline block.
+            pending_mod = false;
+            i += 1;
+            continue;
+        }
+        if !prev_ident && content.get(i..).is_some_and(|t| t.starts_with("mod ")) {
+            pending_mod = true;
+            i += 4;
+            continue;
+        }
+        let tail = content.get(i..).unwrap_or("");
+        let starts_path =
+            !prev_ident && (tail.starts_with("crate::") || tail.starts_with("super::"));
+        if !starts_path {
+            // Advance by a whole character so a multibyte byte is never a start.
+            i += tail.chars().next().map_or(1, char::len_utf8);
+            continue;
+        }
         let start = i;
-        // Advance through identifier chars and `::` separators (all ASCII).
         let mut j = i;
         while j < len {
-            let b = bytes.get(j).copied().unwrap_or(0);
-            if b.is_ascii_alphanumeric() || b == b'_' {
+            if is_ident(at(j)) {
                 j += 1;
-            } else if j + 1 < len && b == b':' && bytes.get(j + 1).copied().unwrap_or(0) == b':' {
+            } else if at(j) == b':' && at(j + 1) == b':' {
                 j += 2;
             } else {
                 break;
             }
         }
-        // Strip any trailing `::` so `path` always ends on an identifier.
         let mut end = j;
-        while end > start + 2 && bytes.get(end - 1).copied().unwrap_or(0) == b':' {
+        while end > start + 2 && at(end - 1) == b':' {
             end -= 1;
         }
-        // The span [start..end] is guaranteed ASCII (only identifier chars
-        // and `:`), so slicing is safe.
-        if let Some(path) = content.get(start..end)
-            && path.matches("::").count() >= 2
-        {
-            out.insert(path.to_string());
+        if let Some(path) = content.get(start..end) {
+            let supers = path.split("::").take_while(|s| *s == "super").count();
+            let inside = inline_mods.len();
+            let resolved = if supers == 0 {
+                Some(path.to_string())
+            } else if supers <= inside {
+                // Every `super` climbs an inline module of this same file: the
+                // path names this file's own items, which it does not consume.
+                None
+            } else {
+                Some(path.split("::").skip(inside).collect::<Vec<_>>().join("::"))
+            };
+            if let Some(path) = resolved
+                && path.matches("::").count() >= 2
+            {
+                out.insert(path);
+            }
         }
         i = j.max(start + 1);
     }

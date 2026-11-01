@@ -1,0 +1,842 @@
+{
+  "status": "DEGRADED",
+  "script": "ground_truth_collector",
+  "timestamp": "2026-08-24T01:54:54+00:00",
+  "intent": "potencializar ao maximo o code mode do Touring: fix stderr sandbox d0, taxonomia de erro e spill d3, SDK stub tipado bindings d1, snippet-to-binding trust gateando d2, contrafactual medido d4, KV-cache hygiene hooks D9, fachada MCP search-execute T2, sub-chamadas CEG T12",
+  "duration_ms": 1393,
+  "daemon_degraded": true,
+  "extracted": {
+    "symbols": [],
+    "paths": []
+  },
+  "summary": {
+    "verified_symbols": 0,
+    "unverified_symbols": 0,
+    "gotchas_found": 0,
+    "lessons_applied": 0,
+    "orphan_count": 1,
+    "paths_inspected": 0
+  },
+  "doctor": {
+    "components": [
+      {
+        "name": "binary_version",
+        "status": "ok",
+        "detail": "touring 30.4.13"
+      },
+      {
+        "name": "daemon_socket",
+        "status": "ok",
+        "detail": "/tmp/touring-daemon-1000.sock"
+      },
+      {
+        "name": "daemon_health",
+        "status": "ok",
+        "detail": "status=healthy, projects=5"
+      },
+      {
+        "name": "circuit_breaker",
+        "status": "ok",
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+      },
+      {
+        "name": "project_db",
+        "status": "ok",
+        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (191209472 bytes)"
+      },
+      {
+        "name": "project_actor",
+        "status": "ok",
+        "detail": "responsive (0 ms)"
+      },
+      {
+        "name": "wiring_diagnostic",
+        "status": "warning",
+        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=116656 producers=11954 consumers=104702 pub=11144 kind_unknown=40059 non_wireable=0 unread=0 abs_paths=0"
+      }
+    ]
+  },
+  "status_snapshot": {
+    "composite_health_score": 0.6954,
+    "daemon_health": {
+      "components": [
+        {
+          "name": "knowledge_db",
+          "note": "always initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "linucb_bandit",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "symbol_store",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "crdt_graph",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "predictor",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "cognitive_runtime",
+          "note": "initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "enrichment_pipeline",
+          "note": "auto-triggered at session-start",
+          "status": "active"
+        },
+        {
+          "name": "gotcha_db",
+          "note": "integrated in knowledge_db",
+          "status": "healthy"
+        }
+      ],
+      "healthy_count": 7,
+      "total_count": 8
+    },
+    "gate_metrics": {
+      "activity_instructions_loaded_count": 0,
+      "activity_post_edit_count": 18,
+      "activity_post_write_count": 3,
+      "activity_pre_compact_count": 0,
+      "activity_pre_edit_count": 0,
+      "actor_budget_timeout_count": 0,
+      "actor_queue_wait": {
+        "count": 2031,
+        "max_us": 756223,
+        "p50_us": 81,
+        "p90_us": 20591,
+        "p999_us": 680447,
+        "p99_us": 209535
+      },
+      "actor_send_timeout_count": 0,
+      "adoption_antipattern_count": 6,
+      "adoption_touring_count": 14,
+      "ann_search_latency": {
+        "count": 23,
+        "max_us": 6545407,
+        "p50_us": 94719,
+        "p90_us": 6299647,
+        "p999_us": 6545407,
+        "p99_us": 6545407
+      },
+      "antipattern_converted_count": 0,
+      "blast_inject_count": 0,
+      "blast_mutation_count": 0,
+      "blast_timeout_count": 0,
+      "cargo_test_paused_count": 0,
+      "ceg_blocked_count": 1,
+      "ceg_captured_count": 241,
+      "ceg_fast_path_count": 240,
+      "ceg_sandboxed_count": 0,
+      "compression_bytes_in_total": 0,
+      "compression_bytes_out_total": 0,
+      "compression_profile_applied_count": 0,
+      "core_pinning_e_count": 0,
+      "core_pinning_p_count": 0,
+      "ctx_batch_execute_count": 0,
+      "ctx_batch_item_count": 0,
+      "ctx_budget_alert_emitted_count": 0,
+      "ctx_budget_warning_emitted_count": 0,
+      "ctx_discover_opportunities_found": 0,
+      "ctx_discover_session_count": 0,
+      "ctx_doctor_call_count": 0,
+      "ctx_execute_file_count": 0,
+      "ctx_explain_count": 0,
+      "ctx_gain_graph_count": 0,
+      "ctx_purge_count": 0,
+      "ctx_replay_count": 0,
+      "ctx_session_adoption_query_count": 0,
+      "ctx_smart_count": 0,
+      "ctx_upgrade_count": 0,
+      "diagnostic_b302_emitted_count": 0,
+      "diagnostic_q220_nonidempotent_emitted_count": 0,
+      "diagnostic_tdg_emitted_count": 0,
+      "diagnostic_w115_skipped_region_written_count": 0,
+      "diagnostic_wiring_finding_emitted_count": 2516,
+      "enrichment_context_bytes_total": 188686,
+      "enrichment_emit_count": 148,
+      "enrichment_mean_bytes_per_emit": 1274.9054054054054,
+      "gate_metrics_daily_flush_count": 0,
+      "health_delta_compute_count": 0,
+      "health_delta_improvement_count": 0,
+      "health_delta_outstanding": 0,
+      "health_delta_record_count": 0,
+      "health_delta_recovery_count": 0,
+      "health_delta_regression_count": 0,
+      "health_delta_streak_alert_count": 0,
+      "hook_dispatch_latency": {
+        "count": 2030,
+        "max_us": 6705151,
+        "p50_us": 496,
+        "p90_us": 42239,
+        "p999_us": 6410239,
+        "p99_us": 217343
+      },
+      "jdm_class_a_count": 0,
+      "jdm_class_b_count": 0,
+      "jdm_class_c_count": 0,
+      "jdm_class_d_count": 0,
+      "linucb_route_generator_count": 0,
+      "linucb_route_hint_count": 0,
+      "linucb_route_manual_count": 0,
+      "mcts_shadow_deadlock_detected_count": 0,
+      "mcts_shadow_run_count": 0,
+      "mcts_shadow_timeout_count": 0,
+      "measured_tokens_in_total": 0,
+      "measured_tokens_out_total": 0,
+      "memory_pressure_green_count": 0,
+      "memory_pressure_red_count": 0,
+      "memory_pressure_total_tick_count": 0,
+      "memory_pressure_yellow_count": 0,
+      "memory_rss_mb": 1672.54296875,
+      "memory_virt_mb": 20646823.10546875,
+      "metadata_backpressure_dropped": 0,
+      "metadata_cache_hit": 0,
+      "phrase_query_match_count": 7,
+      "pillar_induction_emitted_count": 0,
+      "pillar_induction_followed_count": 0,
+      "post_tool_l4_mandatory": 0,
+      "pre_edit_fast_path": 40,
+      "pre_edit_fast_ratio": 0.8,
+      "pre_edit_full": 10,
+      "pre_grep_enrichment_count": 0,
+      "pre_grep_zero_results_count": 0,
+      "pre_write_fast_path": 40,
+      "pre_write_fast_ratio": 0.8,
+      "pre_write_full": 10,
+      "prefetch_enqueued_count": 0,
+      "prefetch_warmed_count": 0,
+      "query_cache_hit_count": 16,
+      "query_cache_hit_ratio": 0.3636363636363637,
+      "query_cache_invalidate_count": 0,
+      "query_cache_miss_count": 28,
+      "read_aggressive_chunked_count": 0,
+      "read_aggressive_passthrough_count": 0,
+      "reindex_failure_count": 0,
+      "rkyv_dispatch_bytes": 55868,
+      "rkyv_dispatch_count": 290,
+      "rkyv_dispatch_latency": {
+        "count": 289,
+        "max_us": 7127039,
+        "p50_us": 337,
+        "p90_us": 99071,
+        "p999_us": 7127039,
+        "p99_us": 6410239
+      },
+      "rkyv_mean_bytes": 192.64827586206897,
+      "rkyv_parse_error_count": 0,
+      "rkyv_response_count": 289,
+      "routed_bytes_in_total": 0,
+      "routed_bytes_out_total": 0,
+      "sandbox_tee_persisted_count": 0,
+      "sandbox_timeout_fallback_count": 0,
+      "savings_event_count": 0,
+      "suggestion_uptake_emitted_count": 148,
+      "suggestion_uptake_followed_count": 2,
+      "swap_thrashing_detected_count": 0,
+      "tantivy_commit_count": 21,
+      "tantivy_query_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "tantivy_query_latency_us": 0,
+      "tantivy_stream_backpressure_drop_count": 0,
+      "tantivy_stream_enqueued_count": 21,
+      "tantivy_stream_flush_count": 21,
+      "tantivy_stream_flush_docs_count": 21,
+      "tantivy_stream_index_unavailable_drop_count": 0,
+      "tantivy_trigram_query_count": 0,
+      "tantivy_upsert_count": 21,
+      "task_sync_create_count": 0,
+      "task_sync_deduped_count": 0,
+      "task_sync_update_propagated_count": 0,
+      "token_measured_event_count": 0,
+      "tokio_injection_queue_depth": 0,
+      "tokio_num_blocking_threads": 0,
+      "tokio_num_idle_threads": 0,
+      "tokio_num_workers": 0,
+      "tool_output_routed_count": 0,
+      "tool_outputs_cleanup_deleted_count": 0,
+      "tool_outputs_ttl_skip_count": 0,
+      "total_invocations": 100,
+      "touring_init_invocation_count": 0,
+      "wave3_t201_count": 0,
+      "wave3_t202_count": 0,
+      "wave3_t203_count": 0,
+      "wave3_t204_count": 0,
+      "wave3_t205_count": 0,
+      "wave3_t206_count": 0,
+      "wave3_t207_count": 0,
+      "wave3_t208_count": 0,
+      "wave3_t209_count": 0,
+      "wave3_t210_count": 0,
+      "wave3_t211_count": 0,
+      "wave3_t212_count": 0,
+      "wave3_t213_count": 0,
+      "wave3_t214_count": 0,
+      "wave3_t215_count": 0,
+      "wave3_t301_count": 0,
+      "wave3_t302_count": 0,
+      "wave3_t303_count": 0,
+      "wave3_t304_count": 0,
+      "wave3_t305_count": 0,
+      "wave3_t306_count": 0,
+      "wave3_t307_count": 0,
+      "wave3_t308_count": 0,
+      "wave3_t309_count": 0,
+      "wave3_t310_count": 0,
+      "workflow_advice_emitted_count": 148,
+      "workflow_antipattern_detected_count": 121
+    },
+    "health_delta": {
+      "alert_threshold": 3,
+      "compute_count": 0,
+      "improvement_count": 0,
+      "outstanding": 0,
+      "record_count": 0,
+      "recovery_count": 0,
+      "regression_count": 0,
+      "streak_alert_count": 0
+    },
+    "incremental": {
+      "backing_cache": "HookResultCache (moka, 5-min TTL)",
+      "cache_hit_rate": 0.0,
+      "file_count": 4765,
+      "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+      "symbol_count": 284770,
+      "total_accesses": 0
+    },
+    "index": {
+      "file_count": 0,
+      "initialized": true,
+      "symbol_count": 0
+    },
+    "learning": {
+      "agentic_rl_state": {
+        "active": true,
+        "learning_phase_score": 0.9935595141138104,
+        "update_count": 5
+      },
+      "arm_count": 8,
+      "bandit_type": "linucb",
+      "ema_reward": 0.2516454,
+      "last_td_error": 3.1201798469099997,
+      "linucb_loaded": true,
+      "mean_td_error": 1.8223333333333336,
+      "update_count": 6
+    },
+    "quality_signal": {
+      "bottleneck": "acyclicity",
+      "raw": {
+        "complexity_gini": 0.4841373128790473,
+        "cycle_count": 16,
+        "max_depth": 12,
+        "modularity_q": 0.16900036510489103,
+        "redundancy_ratio": 0.0,
+        "total_edges": 2396,
+        "total_functions": 14103,
+        "total_nodes": 1342
+      },
+      "root": "/home/gabrielgadea/projects/touring",
+      "root_causes": {
+        "acyclicity": 0.058823529411764705,
+        "depth": 0.4,
+        "equality": 0.5158626871209526,
+        "modularity": 0.44600024340326067,
+        "redundancy": 1.0
+      },
+      "signal_0_10000": 3521,
+      "signal_normalized": 0.35212434840299023
+    },
+    "resource_monitor": "",
+    "sessions": {
+      "count": 20,
+      "sessions": [
+        {
+          "created_at": "2026-05-07T03:03:17.996170012+00:00",
+          "objective": "",
+          "session_id": "wave24-test",
+          "task_type": "task",
+          "updated_at": "2026-08-22T02:52:12.454132007+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:11:27.874896257+00:00",
+          "objective": "",
+          "session_id": "7",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:57:03.205762214+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:11:14.236313802+00:00",
+          "objective": "",
+          "session_id": "6",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:36:51.959756999+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:54.946235859+00:00",
+          "objective": "",
+          "session_id": "5",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:15:13.009183997+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:40.455318494+00:00",
+          "objective": "",
+          "session_id": "4",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:11:58.042741831+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:07.620175666+00:00",
+          "objective": "",
+          "session_id": "2",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:11:01.523023796+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:26.254762708+00:00",
+          "objective": "",
+          "session_id": "3",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:09:06.147963157+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:09:53.594473086+00:00",
+          "objective": "",
+          "session_id": "1",
+          "task_type": "task",
+          "updated_at": "2026-08-12T16:05:53.093816901+00:00"
+        },
+        {
+          "created_at": "2026-07-01T02:51:12.760940430+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-6712d46d-ad63-476e-9",
+          "task_type": "generator",
+          "updated_at": "2026-07-01T02:51:13.011892254+00:00"
+        },
+        {
+          "created_at": "2026-06-27T17:20:52.247591757+00:00",
+          "objective": "objective zx9",
+          "session_id": "purpose-test-sess-zx9",
+          "task_type": "feature",
+          "updated_at": "2026-06-27T17:20:52.247591757+00:00"
+        },
+        {
+          "created_at": "2026-06-27T16:34:59.403659258+00:00",
+          "objective": "",
+          "session_id": "default",
+          "task_type": "general",
+          "updated_at": "2026-06-27T16:34:59.403659258+00:00"
+        },
+        {
+          "created_at": "2026-06-21T00:51:20.603382698+00:00",
+          "objective": "Rust Module",
+          "session_id": "gen-24f88fad-eedb-45c6-8",
+          "task_type": "generator",
+          "updated_at": "2026-06-21T00:51:20.704425630+00:00"
+        },
+        {
+          "created_at": "2026-06-13T15:28:48.302941228+00:00",
+          "objective": "Rust Module",
+          "session_id": "gen-3fc4e322-1141-452e-b",
+          "task_type": "generator",
+          "updated_at": "2026-06-13T15:28:48.414005121+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:02.904179368+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-3b5c4696-6918-469b-9",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:02.991890344+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:02.360173010+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-e137d620-44d8-4230-8",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:02.444796208+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:01.805899779+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-5d4d229c-dc11-4de0-b",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:01.893154147+00:00"
+        },
+        {
+          "created_at": "2026-06-06T03:57:01.253100624+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-11febd98-d24f-4ab6-b",
+          "task_type": "generator",
+          "updated_at": "2026-06-06T03:57:01.340938433+00:00"
+        },
+        {
+          "created_at": "2026-06-04T04:04:08.328713705+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-da4bba7c-4043-43bc-8",
+          "task_type": "generator",
+          "updated_at": "2026-06-04T04:04:45.466303980+00:00"
+        },
+        {
+          "created_at": "2026-06-03T17:09:13.770561667+00:00",
+          "objective": "Python Script",
+          "session_id": "gen-d07b6438-fa03-419a-9",
+          "task_type": "generator",
+          "updated_at": "2026-06-03T17:09:13.865996124+00:00"
+        },
+        {
+          "created_at": "2026-06-01T22:59:09.915025609+00:00",
+          "objective": "ES1 P2 z3 0.20 migration — close P1 stand-down with real native backend -j",
+          "session_id": "engineer-1780354749",
+          "task_type": "implementation",
+          "updated_at": "2026-06-01T22:59:09.915025609+00:00"
+        }
+      ]
+    },
+    "wiring": {
+      "hypergraph_cycles": {
+        "count": 1757,
+        "detail": {
+          "_elided_array_len": 1285
+        }
+      },
+      "knowledge_activity": {
+        "access_count": 2472,
+        "bash_count": 2156,
+        "coedit_pairs": 3656,
+        "edit_count": 1203,
+        "gotcha_count": 13,
+        "relation_count": 12192,
+        "task_metrics_count": 237
+      },
+      "module_count": 1500,
+      "multi_import_hyperedges": {
+        "count": 0
+      },
+      "orphan_count": 2516,
+      "total_consumers": 19944,
+      "total_pub_symbols": 8479
+    }
+  },
+  "e2e": {
+    "version": "30.4.13",
+    "target": "/home/gabrielgadea/projects/touring",
+    "depth": "standard",
+    "timestamp": "1787536493",
+    "overall_score": 0.8584054337941378,
+    "overall_status": "pass",
+    "total_duration_ms": 541,
+    "phases": [
+      {
+        "phase": "index",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 2.0,
+        "duration_ms": 16,
+        "metrics": {
+          "coverage_pct": "100.0",
+          "disk_files": 3641,
+          "indexed_files": 4765,
+          "knowledge_files": 4489,
+          "relation_count": 12192,
+          "symbol_count": 284770,
+          "symbols_per_file": 59.76285414480588,
+          "tantivy_commits": 0,
+          "tantivy_docs": 84966,
+          "tantivy_pending": 0,
+          "tantivy_size_bytes": 5350,
+          "tantivy_upserts": 0
+        },
+        "issues": [],
+        "tests_run": 5,
+        "tests_passed": 5
+      },
+      {
+        "phase": "wiring",
+        "status": "warn",
+        "score": 0.7405958806450486,
+        "weight": 2.0,
+        "duration_ms": 292,
+        "metrics": {
+          "avg_integration_score": 0.7661864312204014,
+          "broken_chains": 0,
+          "churn_pattern_count": 0,
+          "consumer_coverage_pct": "82.7",
+          "functional_chains": 8,
+          "modules_below_threshold": 50,
+          "orphan_count": 4549,
+          "orphan_rate_pct": "17.3",
+          "total_consumers": 104702,
+          "total_pub_symbols": 26272,
+          "wiring_score": 0.7405958806450486
+        },
+        "issues": [
+          "High orphan rate: 4549/26272 (17.3%)"
+        ],
+        "tests_run": 4,
+        "tests_passed": 3
+      },
+      {
+        "phase": "knowledge",
+        "status": "pass",
+        "score": 0.8999999999999999,
+        "weight": 1.0,
+        "duration_ms": 10,
+        "metrics": {
+          "access_count": 2472,
+          "active_gotchas": 0,
+          "avg_line_count": 925.4448652261083,
+          "avg_symbol_density": 0.08114272316878662,
+          "bash_outcome_count": 2156,
+          "coedit_pairs": 3656,
+          "edit_history_count": 1203,
+          "file_knowledge_count": 4489,
+          "gotcha_hit_rate_pct": "2953276.9",
+          "gotcha_prevented_errors": 0,
+          "gotcha_total": 13,
+          "hot_files": 21,
+          "import_graph_health": 1.0,
+          "knowledge_activity": {
+            "access_count": 2472,
+            "bash_count": 2156,
+            "coedit_pairs": 3656,
+            "edit_count": 1203,
+            "gotcha_count": 13,
+            "relation_count": 12192,
+            "task_metrics_count": 237
+          },
+          "knowledge_score": 0.9990643795945644,
+          "language_distribution": {
+            "css": 7,
+            "example": 1,
+            "html": 4,
+            "javascript": 1086,
+            "json": 232,
+            "jsonc": 1,
+            "markdown": 643,
+            "output": 31,
+            "python": 229,
+            "rust": 2070,
+            "scm": 1,
+            "service": 2,
+            "shell": 46,
+            "timer": 1,
+            "toml": 101,
+            "txt": 4,
+            "unknown": 2,
+            "yaml": 28
+          },
+          "languages": 18,
+          "memory_entries": 7994
+        },
+        "issues": [
+          "21 hot file(s) edited 3+ times in 7d"
+        ],
+        "tests_run": 7,
+        "tests_passed": 6
+      },
+      {
+        "phase": "ast",
+        "status": "warn",
+        "score": 0.7757999999999999,
+        "weight": 2.0,
+        "duration_ms": 203,
+        "metrics": {
+          "blast_radius_sample": 1,
+          "files_parsed": 30,
+          "files_sampled": 30,
+          "high_complexity_files": 0,
+          "languages": {
+            "json": 2,
+            "markdown": 7,
+            "python": 3,
+            "rust": 5,
+            "shell": 5,
+            "toml": 3,
+            "yaml": 5
+          },
+          "parse_rate_pct": "100.0",
+          "total_symbols": 758
+        },
+        "issues": [],
+        "tests_run": 31,
+        "tests_passed": 31
+      },
+      {
+        "phase": "quality",
+        "status": "pass",
+        "score": 0.9,
+        "weight": 1.5,
+        "duration_ms": 15,
+        "metrics": {
+          "antipattern_rate_pct": "10.0",
+          "avg_error_coverage": "0.052",
+          "avg_quality_score": "0.946",
+          "files_analyzed": 30,
+          "files_with_antipatterns": 3,
+          "max_complexity": 64,
+          "top_offenders": [
+            {
+              "count": 1,
+              "file": "client/omarchy/bin/cidata_gen.py"
+            },
+            {
+              "count": 1,
+              "file": "client/omarchy/bin/cidata_iso.py"
+            },
+            {
+              "count": 1,
+              "file": "client/omarchy/bin/hooks_runnable.py"
+            }
+          ],
+          "total_antipatterns": 3,
+          "total_unwraps": 9
+        },
+        "issues": [
+          "client/omarchy/bin/cidata_gen.py: 1 antipattern(s)",
+          "client/omarchy/bin/cidata_iso.py: 1 antipattern(s)",
+          "client/omarchy/bin/hooks_runnable.py: 1 antipattern(s)"
+        ],
+        "tests_run": 30,
+        "tests_passed": 27
+      },
+      {
+        "phase": "learning",
+        "status": "pass",
+        "score": 0.8857142857142857,
+        "weight": 0.5,
+        "duration_ms": 2,
+        "metrics": {
+          "bandit_active": false,
+          "blast_connections": 0,
+          "cognitive_enriched": true,
+          "crdt_active": true,
+          "ema_reward": 0.2516454,
+          "linucb_arms": 8,
+          "linucb_health_injected": true,
+          "predictor_active": true,
+          "update_count": 6
+        },
+        "issues": [],
+        "tests_run": 7,
+        "tests_passed": 6
+      }
+    ],
+    "summary": {
+      "total_phases": 6,
+      "phases_passed": 4,
+      "phases_warned": 2,
+      "phases_failed": 0,
+      "total_tests_run": 84,
+      "total_tests_passed": 78,
+      "total_issues": 5,
+      "top_issues": [
+        "[WIRING] High orphan rate: 4549/26272 (17.3%)",
+        "[KNOWLEDGE] 21 hot file(s) edited 3+ times in 7d",
+        "[QUALITY] client/omarchy/bin/cidata_gen.py: 1 antipattern(s)",
+        "[QUALITY] client/omarchy/bin/cidata_iso.py: 1 antipattern(s)",
+        "[QUALITY] client/omarchy/bin/hooks_runnable.py: 1 antipattern(s)"
+      ]
+    },
+    "cache_stats": {
+      "hook_result_cache": {
+        "entry_count": 0,
+        "hit_rate": 0.0,
+        "hits": 0,
+        "misses": 0
+      }
+    }
+  },
+  "wiring_audit": {
+    "cycles": {
+      "count": 0,
+      "detail": {
+        "cycle_count": 0,
+        "cycles": []
+      }
+    },
+    "low_score_modules": {
+      "_elided_array_len": 1031
+    },
+    "orphans": {
+      "dead_patterns": [],
+      "diagnostic_count": 2516,
+      "diagnostics": {
+        "_elided_array_len": 2516
+      },
+      "orphan_count": 2516,
+      "orphans": {
+        "_elided_array_len": 2516
+      },
+      "resolution": {
+        "heuristic_edges": 63606,
+        "name_only_candidates": 9482,
+        "origin_breakdown": [
+          {
+            "origin": "ast_declared",
+            "rows": 11954
+          },
+          {
+            "origin": "ast_read",
+            "rows": 406
+          },
+          {
+            "origin": "ast_resolved",
+            "rows": 631
+          },
+          {
+            "origin": "scip_resolved",
+            "rows": 40059
+          },
+          {
+            "origin": "ast_inferred",
+            "rows": 63606
+          }
+        ],
+        "top_unresolved_modules_debt_only": [],
+        "unresolved_by_class": [
+          {
+            "call_sites": 7091,
+            "class": "external"
+          },
+          {
+            "call_sites": 2391,
+            "class": "scope_keyword"
+          }
+        ],
+        "unresolved_samples": []
+      }
+    },
+    "rfc100_diagnostics": {
+      "count": 2516,
+      "findings": {
+        "_elided_array_len": 2516
+      }
+    }
+  },
+  "wiring_orphans": {
+    "_elided_array_len": 2516
+  },
+  "evolution_drift": {},
+  "memory_lessons": [],
+  "gotcha_per_file": {},
+  "vgp_verifications": [],
+  "ast_overviews": {},
+  "ast_blasts": {}
+}

@@ -1,0 +1,322 @@
+{
+ "estado": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py",
+ "sha_antes": "031a6fb8e59dc83d1ddc0bd2cff52310e6ec8364e2ab4e93f2bbd579a34bea11",
+ "sha_depois": "031a6fb8e59dc83d1ddc0bd2cff52310e6ec8364e2ab4e93f2bbd579a34bea11",
+ "controle_sem_mutacao": {
+  "rc": 0,
+  "falhas": [],
+  "resumo": "46 passed in 0.19s"
+ },
+ "mutantes_mortos": "23/23",
+ "mutantes": [
+  {
+   "mutante": "m1",
+   "descricao": "so o __init__ (sem o submodulo do from-import)",
+   "rc": 1,
+   "falhas": [
+    "test_from_pacote_import_submodulo_o_caso_real",
+    "test_from_pacote_import_subpacote",
+    "test_from_pontilhado_import_submodulo",
+    "test_varios_nomes_no_mesmo_from",
+    "test_relativos",
+    "test_tipos_dos_modulos",
+    "test_incompleta_quando_o_submodulo_nao_reconstroi",
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_overlays_e_faltas_nomeia_o_que_faltou",
+    "test_o_fecho_cobre_o_que_a_profundidade_2_so_media",
+    "test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe",
+    "test_ciclo_termina_e_cada_modulo_aparece_uma_vez",
+    "test_o_proprio_arquivo_da_entrada_nao_entra_no_fecho",
+    "test_profundidade_registrada_e_a_menor_entre_os_caminhos"
+   ],
+   "resumo": "14 failed, 32 passed in 0.28s",
+   "morto": true
+  },
+  {
+   "mutante": "m2",
+   "descricao": "sem os pacotes ancestrais",
+   "rc": 1,
+   "falhas": [
+    "test_from_pacote_import_submodulo_o_caso_real",
+    "test_import_pontilhado_traz_os_pacotes_ancestrais",
+    "test_import_pontilhado_com_alias",
+    "test_from_pacote_import_subpacote",
+    "test_from_pontilhado_import_submodulo",
+    "test_varios_nomes_no_mesmo_from",
+    "test_nome_que_nao_e_modulo_nao_inventa_arquivo",
+    "test_import_estrela_so_o_pacote",
+    "test_tipos_dos_modulos",
+    "test_incompleta_quando_o_init_nao_reconstroi",
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_overlays_e_faltas_nomeia_o_que_faltou",
+    "test_overlays_legado_continua_pulando_em_silencio"
+   ],
+   "resumo": "13 failed, 33 passed in 0.25s",
+   "morto": true
+  },
+  {
+   "mutante": "m3",
+   "descricao": "relativo sem o __init__ do pacote corrente",
+   "rc": 1,
+   "falhas": [
+    "test_relativos"
+   ],
+   "resumo": "1 failed, 45 passed in 0.20s",
+   "morto": true
+  },
+  {
+   "mutante": "m4",
+   "descricao": "estado_completo ignora a falta",
+   "rc": 1,
+   "falhas": [
+    "test_incompleta_quando_o_submodulo_nao_reconstroi",
+    "test_incompleta_quando_o_init_nao_reconstroi",
+    "test_estado_completo_exige_o_modulo_de_profundidade_2",
+    "test_estado_completo_exige_o_modulo_de_profundidade_3",
+    "test_a_falta_de_profundidade_1_mantem_o_motivo_antigo",
+    "test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova",
+    "test_git_src_dependencia_fora_do_historico_e_inconclusiva"
+   ],
+   "resumo": "7 failed, 39 passed in 0.25s",
+   "morto": true
+  },
+  {
+   "mutante": "m5",
+   "descricao": "overlays_e_faltas esconde a falta",
+   "rc": 1,
+   "falhas": [
+    "test_overlays_e_faltas_nomeia_o_que_faltou",
+    "test_overlays_e_faltas_nomeia_o_irreconstrutivel_do_fecho"
+   ],
+   "resumo": "2 failed, 44 passed in 0.23s",
+   "morto": true
+  },
+  {
+   "mutante": "m6",
+   "descricao": "sem a 2a base (dir do script)",
+   "rc": 1,
+   "falhas": [
+    "test_irmao_do_script_segue_resolvendo",
+    "test_git_src_conserva_simbolo_que_a_dependencia_perdeu_depois",
+    "test_git_src_nao_importa_simbolo_que_a_dependencia_ganhou_depois",
+    "test_git_src_dependencia_fora_do_historico_e_inconclusiva"
+   ],
+   "resumo": "4 failed, 42 passed in 0.21s",
+   "morto": true
+  },
+  {
+   "mutante": "m7",
+   "descricao": "aceita modulo fora da raiz",
+   "rc": 1,
+   "falhas": [
+    "test_modulo_fora_da_raiz_do_projeto_nao_entra"
+   ],
+   "resumo": "1 failed, 45 passed in 0.24s",
+   "morto": true
+  },
+  {
+   "mutante": "m8",
+   "descricao": "volta a regra antiga",
+   "rc": 1,
+   "falhas": [
+    "test_from_pacote_import_submodulo_o_caso_real",
+    "test_import_pontilhado_traz_os_pacotes_ancestrais",
+    "test_import_pontilhado_com_alias",
+    "test_from_pacote_import_subpacote",
+    "test_from_pontilhado_import_submodulo",
+    "test_varios_nomes_no_mesmo_from",
+    "test_nome_que_nao_e_modulo_nao_inventa_arquivo",
+    "test_import_estrela_so_o_pacote",
+    "test_relativos"
+   ],
+   "resumo": "9 failed, 37 passed in 0.26s",
+   "morto": true
+  },
+  {
+   "mutante": "m9",
+   "descricao": "overlay grava o arquivo de HOJE",
+   "rc": 1,
+   "falhas": [
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe",
+    "test_overlays_cobrem_todo_o_fecho_com_o_conteudo_do_instante",
+    "test_git_src_conserva_simbolo_que_a_dependencia_perdeu_depois",
+    "test_git_src_nao_importa_simbolo_que_a_dependencia_ganhou_depois"
+   ],
+   "resumo": "5 failed, 41 passed in 0.23s",
+   "morto": true
+  },
+  {
+   "mutante": "m10",
+   "descricao": "profundidade 2 ignora o que ja esta coberto",
+   "rc": 1,
+   "falhas": [
+    "test_o_fecho_cobre_o_que_a_profundidade_2_so_media",
+    "test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada",
+    "test_o_fecho_e_fechado_e_o_oraculo_independente_concorda",
+    "test_construir_grava_o_fecho_no_manifesto_e_o_oraculo_fecha"
+   ],
+   "resumo": "4 failed, 42 passed in 0.21s",
+   "morto": true
+  },
+  {
+   "mutante": "m11",
+   "descricao": "profundidade 2 conta a propria entrada como lacuna",
+   "rc": 1,
+   "falhas": [
+    "test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada"
+   ],
+   "resumo": "1 failed, 45 passed in 0.20s",
+   "morto": true
+  },
+  {
+   "mutante": "m12",
+   "descricao": "para na profundidade 1",
+   "rc": 1,
+   "falhas": [
+    "test_o_fecho_cobre_o_que_a_profundidade_2_so_media",
+    "test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe",
+    "test_fecho_alcanca_o_reexporte_de_2_niveis",
+    "test_estado_completo_exige_o_modulo_de_profundidade_2",
+    "test_estado_completo_exige_o_modulo_de_profundidade_3",
+    "test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova",
+    "test_irreconstrutivel_nao_se_expande_e_nao_levanta",
+    "test_overlays_cobrem_todo_o_fecho_com_o_conteudo_do_instante",
+    "test_overlays_e_faltas_nomeia_o_irreconstrutivel_do_fecho",
+    "test_o_fecho_e_fechado_e_o_oraculo_independente_concorda",
+    "test_fecho_segue_os_imports_do_instante_nao_os_de_hoje",
+    "test_ciclo_termina_e_cada_modulo_aparece_uma_vez",
+    "test_construir_grava_o_fecho_no_manifesto_e_o_oraculo_fecha"
+   ],
+   "resumo": "13 failed, 33 passed in 0.26s",
+   "morto": true
+  },
+  {
+   "mutante": "m13",
+   "descricao": "para na profundidade 2",
+   "rc": 1,
+   "falhas": [
+    "test_fecho_alcanca_o_reexporte_de_2_niveis",
+    "test_estado_completo_exige_o_modulo_de_profundidade_3",
+    "test_overlays_cobrem_todo_o_fecho_com_o_conteudo_do_instante",
+    "test_o_fecho_e_fechado_e_o_oraculo_independente_concorda",
+    "test_construir_grava_o_fecho_no_manifesto_e_o_oraculo_fecha"
+   ],
+   "resumo": "5 failed, 41 passed in 0.22s",
+   "morto": true
+  },
+  {
+   "mutante": "m14",
+   "descricao": "o fecho segue o arquivo de HOJE",
+   "rc": 1,
+   "falhas": [
+    "test_o_fecho_cobre_o_que_a_profundidade_2_so_media",
+    "test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe",
+    "test_fecho_segue_os_imports_do_instante_nao_os_de_hoje"
+   ],
+   "resumo": "3 failed, 43 passed in 0.20s",
+   "morto": true
+  },
+  {
+   "mutante": "m15",
+   "descricao": "sem guarda de ciclo",
+   "rc": 124,
+   "falhas": [
+    "TIMEOUT"
+   ],
+   "resumo": "timeout de 60 s: o mutante nao termina",
+   "morto": true
+  },
+  {
+   "mutante": "m16",
+   "descricao": "a propria entrada entra no fecho",
+   "rc": 1,
+   "falhas": [
+    "test_o_proprio_arquivo_da_entrada_nao_entra_no_fecho"
+   ],
+   "resumo": "1 failed, 45 passed in 0.21s",
+   "morto": true
+  },
+  {
+   "mutante": "m17",
+   "descricao": "a falta de profundidade >= 2 e ignorada",
+   "rc": 1,
+   "falhas": [
+    "test_estado_completo_exige_o_modulo_de_profundidade_2",
+    "test_estado_completo_exige_o_modulo_de_profundidade_3",
+    "test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova"
+   ],
+   "resumo": "3 failed, 43 passed in 0.21s",
+   "morto": true
+  },
+  {
+   "mutante": "m18",
+   "descricao": "profundidade registrada sempre 1",
+   "rc": 1,
+   "falhas": [
+    "test_fecho_alcanca_o_reexporte_de_2_niveis",
+    "test_estado_completo_exige_o_modulo_de_profundidade_2",
+    "test_estado_completo_exige_o_modulo_de_profundidade_3",
+    "test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova",
+    "test_irreconstrutivel_nao_se_expande_e_nao_levanta",
+    "test_fecho_segue_os_imports_do_instante_nao_os_de_hoje",
+    "test_construir_grava_o_fecho_no_manifesto_e_o_oraculo_fecha"
+   ],
+   "resumo": "7 failed, 39 passed in 0.24s",
+   "morto": true
+  },
+  {
+   "mutante": "m19",
+   "descricao": "a falta funda usa o motivo da profundidade 1",
+   "rc": 1,
+   "falhas": [
+    "test_estado_completo_exige_o_modulo_de_profundidade_2",
+    "test_estado_completo_exige_o_modulo_de_profundidade_3",
+    "test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova"
+   ],
+   "resumo": "3 failed, 43 passed in 0.20s",
+   "morto": true
+  },
+  {
+   "mutante": "m20",
+   "descricao": "avaliar ignora o limite de profundidade",
+   "rc": 1,
+   "falhas": [
+    "test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova"
+   ],
+   "resumo": "1 failed, 45 passed in 0.21s",
+   "morto": true
+  },
+  {
+   "mutante": "m21",
+   "descricao": "manifesto grava tamanho 0",
+   "rc": 1,
+   "falhas": [
+    "test_construir_grava_o_fecho_no_manifesto_e_o_oraculo_fecha"
+   ],
+   "resumo": "1 failed, 45 passed in 0.21s",
+   "morto": true
+  },
+  {
+   "mutante": "m22",
+   "descricao": "verificador independente sempre vazio",
+   "rc": 1,
+   "falhas": [
+    "test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe",
+    "test_o_fecho_e_fechado_e_o_oraculo_independente_concorda"
+   ],
+   "resumo": "2 failed, 44 passed in 0.22s",
+   "morto": true
+  },
+  {
+   "mutante": "m23",
+   "descricao": "p90 errado",
+   "rc": 1,
+   "falhas": [
+    "test_distribuicao_do_tamanho_do_fecho"
+   ],
+   "resumo": "1 failed, 45 passed in 0.20s",
+   "morto": true
+  }
+ ]
+}

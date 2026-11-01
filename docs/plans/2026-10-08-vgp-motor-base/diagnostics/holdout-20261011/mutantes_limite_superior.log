@@ -1,0 +1,12 @@
+hw-slot: aguardando — temp 92C > 88C
+  MORTO  m1 taxa pontual no lugar do limite: ['FALHA limite superior 95% de 0/600 = 0.0000% ≠ 0.5% (±0.01 pp)']
+  MORTO  m2 bilateral (alfa/2): ['FALHA limite superior 95% de 0/600 = 0.6129% ≠ 0.5% (±0.01 pp)']
+  MORTO  m3 a flag nao gera pendencia: ['FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: pronto = True ≠ False — sem pendências']
+  MORTO  m4 main ignora a flag: ['FALHA CLI com a flag: rc 0 ≠ 1']
+  MORTO  m5 a flag vale sempre: ['FALHA cenário «5/600 e 2/600 sem a flag: a taxa pontual passa»: pronto = False ≠ True — falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) — com n=600 o teto admite no máximo 1 falso(s) | falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)']
+  MORTO  m6 pendencia sem o n permitido: ['FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: falta «com n=600 o teto admite no máximo 1 falso(s)» nas pendências — falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) | falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%)']
+  MORTO  m7 bissecao curta: ['FALHA limite superior 95% de 1/600 = 12.6458% ≠ 0.79% (±0.01 pp)']
+  MORTO  m8 teto frouxo: ['FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: pronto = True ≠ False — sem pendências']
+controle sem mutacao: passou | sha do juiz antes/depois iguais: True
+8/8 mutantes mortos
+rc=0

@@ -1,0 +1,65 @@
+{
+  "note": "Sources this skill makes claims about. Regenerate with skill_pin_gate.py --update AFTER reviewing the skill against the changed source — never before.",
+  "pins": [
+    {
+      "kind": "cli",
+      "ref": "ast",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "decompose",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "doctor",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "index",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "learning",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "memory",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "shadow",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "cli",
+      "ref": "status",
+      "fingerprint": "present"
+    },
+    {
+      "kind": "file",
+      "ref": "CLAUDE.md",
+      "fingerprint": "e34668246bfb6b8a00c1c60dbed955fe2b6d4a566b394af2049ccd6f5e52cbf9"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/elite-50-quality.md",
+      "fingerprint": "11084fb5ee028005df1b753b34eacb99ddbee9fbdca1063da7ab725eedb9f873"
+    },
+    {
+      "kind": "file",
+      "ref": "rules/touring-cli-index.md",
+      "fingerprint": "af91f643cd16089e6932a92d4add1d30926a52084cfc8dbeb7b238b430885deb"
+    },
+    {
+      "kind": "file",
+      "ref": "skills/Touring/references/TACO-subagent-rule.md",
+      "fingerprint": "b68077ff3f7c548b6d4b419a54c57ca90aff5a399c56d9ac7e02a809e597e32a"
+    }
+  ]
+}

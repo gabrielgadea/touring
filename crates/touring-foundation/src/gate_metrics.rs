@@ -16,7 +16,7 @@
 //! `gate_metrics` key.
 
 use hdrhistogram::Histogram;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 /// Latency histogram wrapped in a `Mutex` for cross-thread recording.
@@ -360,6 +360,26 @@ pub struct GateMetrics {
     /// P50 < 500μs for the 64-dim U4-quantized index at typical sizes.
     pub ann_search_latency: LatencyHistogram,
 
+    // ── GPU embeddings (15/09/2026) ───────────────────────────────────────
+    //
+    // Which device the fastembed runtime of this process runs on, and what it
+    // costs. The ONNX CUDA provider falls back to CPU in silence unless told
+    // otherwise, so the device an embedding actually ran on is recorded per run
+    // instead of being inferred from configuration.
+    /// Latency of one embedding run (a query or a batch), on either device.
+    pub embedding_latency: LatencyHistogram,
+    /// Texts embedded on the CUDA execution provider.
+    pub embedding_texts_cuda_count: AtomicU64,
+    /// Texts embedded on the CPU execution provider.
+    pub embedding_texts_cpu_count: AtomicU64,
+    /// Times the embedder left CUDA for CPU (at load or after an inference error).
+    pub embedding_cuda_fallback_count: AtomicU64,
+    /// Reason of the latest CUDA→CPU fallback, verbatim. ONNX Runtime's message
+    /// names the exact library it failed to open, which is the remedy.
+    pub embedding_cuda_fallback_reason: Mutex<String>,
+    /// Device of the most recent embedding run: 0 none yet, 1 cpu, 2 cuda.
+    pub embedding_device: AtomicU8,
+
     // ── Tantivy Stream Actor (Suggestion 2 — 2026-04-20) ──────────────────
     //
     // Observability for the async streaming upsert pipeline introduced by
@@ -578,7 +598,6 @@ pub struct GateMetrics {
     /// so emitted == followed by construction.
     pub hook_rewrite_applied_count: AtomicU64,
 
-
     /// Total sandbox executions that fell back to original tool execution
     /// due to timeout.
     ///
@@ -599,6 +618,22 @@ pub struct GateMetrics {
     pub tool_outputs_cleanup_deleted_count: AtomicU64,
     /// NEW-2 — Sandbox failures persisted via tee mode (exit_code != 0).
     pub sandbox_tee_persisted_count: AtomicU64,
+    /// W4 d4 — total `ctx_execute`/`touring run` executions journaled.
+    pub code_mode_runs_count: AtomicU64,
+    /// W4 d4 — MEASURED context savings of the spill: bytes produced by the
+    /// program minus bytes delivered inline (the counterfactual the model
+    /// would otherwise have paid in context).
+    pub code_mode_bytes_elided_total: AtomicU64,
+    /// C2-W0 d4/S-5.2 — daemon sub-calls made from inside a `touring run
+    /// --orchestrate` sandbox (requests carrying an `origin` of the form
+    /// `<run_id>:code:<n>`). Each one is exactly one MCP tool call that did
+    /// NOT round-trip through the model's context.
+    pub code_mode_subcalls_count: AtomicU64,
+    /// C2-W0 d4 — counterfactual bytes of those sub-calls: `len(payload)` +
+    /// `len(output)` summed at the dispatch site — the tool-parts that tool
+    /// calling WOULD have injected into the context (they died in the
+    /// sandbox instead). Exact sums, never estimates (A2 discipline).
+    pub code_mode_subcall_bytes_total: AtomicU64,
     /// NEW-1 — Per-command compression profile applications (any profile).
     pub compression_profile_applied_count: AtomicU64,
     // ── A2 (2026-08-08) — MEASURED context savings ─────────────────────────
@@ -721,6 +756,48 @@ pub struct GateMetrics {
     // keeping the JSON shape stable.
     /// X0 CAPTURE — tool calls that entered the CEG pipeline.
     pub ceg_captured_count: AtomicU64,
+    /// S3 — inspeção ISOLADA que passou: a 1ª da classe na janela executa
+    /// intacta. Denominador do KPI de recalibração — sem ele não dá para
+    /// distinguir "o predicado está calibrado" de "o predicado nunca fala".
+    pub g1_inspect_first_passed_count: AtomicU64,
+    /// S3 — rajada de inspeção negada com a rota fundida (a 2ª em diante).
+    pub g1_inspect_burst_advised_count: AtomicU64,
+    /// S5 (29/08) — par write→run negado: `cat > script` seguido de N execuções
+    /// do MESMO script na janela — o loop execute-observe manual; o remédio é
+    /// `touring run --file <o próprio script>` (conversão 1:1, zero reescrita).
+    pub g10_write_run_pair_denied_count: AtomicU64,
+    /// S5 (29/08) — heredoc inline (`python3 -`/`-c`) VISTO fora da rajada:
+    /// contagem de calibração (medir antes de armar) — a exclusão atual é
+    /// deliberada e este counter é o dado que decidirá se ela fica.
+    pub exec_heredoc_inline_seen_count: AtomicU64,
+    /// N5 — injeção nativa SEGUIDA: Bash escolhida onde tool dedicada existia
+    /// (search/read). Numerador do KPI — ESCOLHA, não execução (o deny
+    /// posterior não apaga o sinal da pressão).
+    pub native_injection_followed_count: AtomicU64,
+    /// N5 — injeção RESISTIDA: tool dedicada (Grep/Glob/Read) na oportunidade.
+    pub native_injection_resisted_count: AtomicU64,
+    /// N5 — terceira via: `touring run`/`touring exec` escolhido (sandbox).
+    pub native_injection_code_route_count: AtomicU64,
+    /// I-2 (31/10/2026) — blocks the injection policy cut IN THIS PROCESS since
+    /// boot (one per family cut, the unit of `injection_journal::Cut`). The
+    /// journal stays the canonical cross-process record (`touring kpi` →
+    /// `context_budget.injection_suppressed`); this is the live counter
+    /// `touring gate-metrics -j` can show without reading a file.
+    pub injection_suppressed_blocks_count: AtomicU64,
+    /// I-2 — bytes behind `injection_suppressed_blocks_count`.
+    pub injection_suppressed_bytes_count: AtomicU64,
+    /// P2 — rotas oferecidas com a apresentação `native` em vigor (o denominador do braço).
+    pub code_mode_arm_offered_native_count: AtomicU64,
+    /// P2 — rotas OFERECIDAS em `native` que o modelo de fato tomou (o numerador).
+    pub code_mode_arm_followed_native_count: AtomicU64,
+    /// P2 — rotas oferecidas com a apresentação `both` em vigor (o denominador do braço).
+    pub code_mode_arm_offered_both_count: AtomicU64,
+    /// P2 — rotas OFERECIDAS em `both` que o modelo de fato tomou (o numerador).
+    pub code_mode_arm_followed_both_count: AtomicU64,
+    /// P2 — rotas oferecidas com a apresentação `code` em vigor (o denominador do braço).
+    pub code_mode_arm_offered_code_count: AtomicU64,
+    /// P2 — rotas OFERECIDAS em `code` que o modelo de fato tomou (o numerador).
+    pub code_mode_arm_followed_code_count: AtomicU64,
 
     /// X7 DECISION — calls whose verdict was `Deny` (hard-blocked by gateway).
     pub ceg_blocked_count: AtomicU64,
@@ -791,6 +868,53 @@ pub struct GateMetrics {
     /// `Bash` actions that are raw-shell inspection antipatterns (grep/cat/find/
     /// sed — the prior-bash side). `adoption_ratio = touring / (touring + antipattern)`.
     pub adoption_antipattern_count: AtomicU64,
+
+    /// **W0 S-0.1 (2026-08-24)** — code-mode adoption denominator: EVERY `Bash`
+    /// PreToolUse action observed by the suggester hook, counted before any
+    /// classification or dedupe (the F3 pair above sees only the classified
+    /// touring/antipattern subsets). With `code_mode_runs_count` powers
+    /// `touring.code_mode.adoption_ratio = runs / bash_calls`. Daemon-lifetime
+    /// accumulator like every counter in this struct — the plan's draft name
+    /// (`session_bash_calls_count`) claimed a session scope the struct does
+    /// not have, so the name states the real scope.
+    pub bash_calls_total_count: AtomicU64,
+
+    /// **W1 S-1.4 (2026-08-24)** — unified per-gate telemetry for the
+    /// code-mode gates: `[gate][event]` with gates G1/G2/G3/G6/G7 and events
+    /// emitted/followed/denied/bypassed — the same contract as
+    /// `pillar_induction_*`. Promote/demote (S-7.2) reads THESE counters,
+    /// never opinion: a gate whose denies are not followed gets demoted by
+    /// code, not by meeting.
+    pub gate_events: [[AtomicU64; 4]; 8],
+
+    /// **W2 S-2.3 (2026-08-24)** — G1 A/B continuation check: after a burst
+    /// deny, was the session's NEXT call an inspection of the SAME class?
+    /// (= the deny was right — the burst would have continued). Live precision
+    /// `same / (same + other)`; below 0.70 with 100+ events the gate
+    /// SELF-DEMOTES to advisory — the threshold stops being an opinion.
+    pub g1_post_deny_same_class_count: AtomicU64,
+    /// W2 S-2.3 — the next call was NOT the same inspection class (the deny
+    /// may have interrupted legitimate exploration). A next call that FOLLOWS
+    /// the remedy (`touring run`) counts as `same_class`, not here: converting
+    /// the burst is the gate's best outcome, and counting it as a false
+    /// positive would self-demote a gate that is working (measured live on the
+    /// very first G1 deny, 2026-08-25).
+    pub g1_post_deny_other_count: AtomicU64,
+
+    /// W3 S-3.3 — G4 (read-sem-localizar) observed, NEVER denied: 365 fires
+    /// spread over 27/55 sessions in the simulation — diffusion means a high
+    /// false-positive risk, so it stays telemetry until S-7.2 has live data.
+    pub g4_observed_count: AtomicU64,
+    /// W3 S-3.3 — G5 (edit-burst-sem-validação) observed at burst END, never
+    /// during: P9 measured at 17%.
+    pub g5_observed_count: AtomicU64,
+    /// M3 (paralelização-agentes 29/08/2026) — delegation advisory emitted:
+    /// the session read its 10th DISTINCT file inside the window (the
+    /// measured broad-exploration trigger; advisory-only, once per window).
+    pub m3_delegation_advised_count: AtomicU64,
+    /// W6 S-6.3 — added comment line with a counterfactual modal and no run_id
+    /// nearby (advisory only — prose in comments has real false positives).
+    pub e3_counterfactual_observed_count: AtomicU64,
 
     /// **Task #6 (2026-06-29)** — pillar-induction denominator: armed pillar nudges
     /// emitted by `cli_suggester` (master-cli / learning-memory — the differentials
@@ -877,6 +1001,12 @@ impl Default for GateMetrics {
             mcts_shadow_timeout_count: AtomicU64::new(0),
             mcts_shadow_deadlock_detected_count: AtomicU64::new(0),
             ann_search_latency: LatencyHistogram::new(),
+            embedding_latency: LatencyHistogram::new(),
+            embedding_texts_cuda_count: AtomicU64::new(0),
+            embedding_texts_cpu_count: AtomicU64::new(0),
+            embedding_cuda_fallback_count: AtomicU64::new(0),
+            embedding_cuda_fallback_reason: Mutex::new(String::new()),
+            embedding_device: AtomicU8::new(0),
             tantivy_stream_enqueued_count: AtomicU64::new(0),
             tantivy_stream_backpressure_drop_count: AtomicU64::new(0),
             tantivy_stream_flush_count: AtomicU64::new(0),
@@ -921,6 +1051,10 @@ impl Default for GateMetrics {
             tool_outputs_ttl_skip_count: AtomicU64::new(0),
             tool_outputs_cleanup_deleted_count: AtomicU64::new(0),
             sandbox_tee_persisted_count: AtomicU64::new(0),
+            code_mode_runs_count: AtomicU64::new(0),
+            code_mode_bytes_elided_total: AtomicU64::new(0),
+            code_mode_subcalls_count: AtomicU64::new(0),
+            code_mode_subcall_bytes_total: AtomicU64::new(0),
             compression_profile_applied_count: AtomicU64::new(0),
             compression_bytes_in_total: AtomicU64::new(0),
             compression_bytes_out_total: AtomicU64::new(0),
@@ -977,6 +1111,21 @@ impl Default for GateMetrics {
             wave3_t310_count: AtomicU64::new(0),
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: AtomicU64::new(0),
+            g1_inspect_first_passed_count: AtomicU64::new(0),
+            g1_inspect_burst_advised_count: AtomicU64::new(0),
+            g10_write_run_pair_denied_count: AtomicU64::new(0),
+            exec_heredoc_inline_seen_count: AtomicU64::new(0),
+            native_injection_followed_count: AtomicU64::new(0),
+            native_injection_resisted_count: AtomicU64::new(0),
+            native_injection_code_route_count: AtomicU64::new(0),
+            injection_suppressed_blocks_count: AtomicU64::new(0),
+            injection_suppressed_bytes_count: AtomicU64::new(0),
+            code_mode_arm_offered_native_count: AtomicU64::new(0),
+            code_mode_arm_followed_native_count: AtomicU64::new(0),
+            code_mode_arm_offered_both_count: AtomicU64::new(0),
+            code_mode_arm_followed_both_count: AtomicU64::new(0),
+            code_mode_arm_offered_code_count: AtomicU64::new(0),
+            code_mode_arm_followed_code_count: AtomicU64::new(0),
             ceg_blocked_count: AtomicU64::new(0),
             ceg_sandboxed_count: AtomicU64::new(0),
             ceg_fast_path_count: AtomicU64::new(0),
@@ -989,6 +1138,14 @@ impl Default for GateMetrics {
             suggestion_uptake_followed_count: AtomicU64::new(0),
             adoption_touring_count: AtomicU64::new(0),
             adoption_antipattern_count: AtomicU64::new(0),
+            bash_calls_total_count: AtomicU64::new(0),
+            gate_events: std::array::from_fn(|_| std::array::from_fn(|_| AtomicU64::new(0))),
+            g1_post_deny_same_class_count: AtomicU64::new(0),
+            g1_post_deny_other_count: AtomicU64::new(0),
+            g4_observed_count: AtomicU64::new(0),
+            g5_observed_count: AtomicU64::new(0),
+            m3_delegation_advised_count: AtomicU64::new(0),
+            e3_counterfactual_observed_count: AtomicU64::new(0),
             pillar_induction_emitted_count: AtomicU64::new(0),
             pillar_induction_followed_count: AtomicU64::new(0),
             ceg_write_paths_observed_count: AtomicU64::new(0),
@@ -1284,6 +1441,193 @@ pub fn record_sandbox_tee_persisted() {
         .fetch_add(1, Ordering::Relaxed);
 }
 
+/// W0 S-0.1 — record one raw `Bash` PreToolUse action (the code-mode adoption
+/// denominator). Called unconditionally for every Bash action, before the
+/// suggester's dedupe/early-return paths, so the denominator sees all actions.
+pub fn record_bash_call() {
+    global()
+        .bash_calls_total_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// W1 S-1.4 — the code-mode gates whose events the unified telemetry tracks.
+/// `as usize` is the row index into `GateMetrics::gate_events`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateId {
+    /// G1 — burst of atomic inspections of the same class (W2 teeth).
+    G1 = 0,
+    /// G2 — `$?` read through a pipe without pipefail (W1 deny).
+    G2 = 1,
+    /// G3 — edit without a prior read, session-mode gate (W3).
+    G3 = 2,
+    /// G6 — byte-identical repeat inside the TTL window (W1).
+    G6 = 3,
+    /// G7 — re-inspection of the same target file (W3).
+    G7 = 4,
+    /// G8 — inspection loop rewritten into one sandbox sweep (2026-08-25).
+    G8 = 5,
+    /// G9 — blind inline write (`sed -i`/`awk -i inplace`/`perl -pi`) denied
+    /// with the derived route (Edit with the 17 gates / sandbox) — N3a, 2026-08-26.
+    G9 = 6,
+    /// G10 — homogeneous exec burst (N serial calls of the same interpreter,
+    /// 0 `touring run` in window) folded into one R9 aggregate program — S4, 2026-08-26.
+    G10 = 7,
+}
+
+impl GateId {
+    /// Stable snapshot key (`gate_events.<label>.<event>`).
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::G1 => "g1_burst",
+            Self::G2 => "g2_pipe_exit",
+            Self::G3 => "g3_edit_sem_read",
+            Self::G6 => "g6_redundant",
+            Self::G7 => "g7_reinspect",
+            Self::G8 => "g8_loop_rewrite",
+            Self::G9 => "g9_sed_inline",
+            Self::G10 => "g10_exec_burst",
+        }
+    }
+
+    /// All gates, for snapshot iteration.
+    pub fn all() -> &'static [GateId] {
+        &[
+            Self::G1,
+            Self::G2,
+            Self::G3,
+            Self::G6,
+            Self::G7,
+            Self::G8,
+            Self::G9,
+            Self::G10,
+        ]
+    }
+}
+
+/// W1 S-1.4 — the four events of the per-gate contract. `as usize` is the
+/// column index into `GateMetrics::gate_events`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateEvent {
+    /// An advisory was shown (the gate spoke without denying).
+    Emitted = 0,
+    /// The next call adopted the canonical conversion (60s window).
+    Followed = 1,
+    /// The gate denied the call, carrying the derived remedy.
+    Denied = 2,
+    /// A human bypass token / kill switch let the call through.
+    Bypassed = 3,
+}
+
+impl GateEvent {
+    /// Stable snapshot key.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Emitted => "emitted",
+            Self::Followed => "followed",
+            Self::Denied => "denied",
+            Self::Bypassed => "bypassed",
+        }
+    }
+
+    /// All events, for snapshot iteration.
+    pub fn all() -> &'static [GateEvent] {
+        &[Self::Emitted, Self::Followed, Self::Denied, Self::Bypassed]
+    }
+}
+
+/// W1 S-1.4 — record one gate event. Consumed by `cli_suggester` (the gates)
+/// and read back by `touring kpi` / S-7.2 promote-demote.
+pub fn record_gate_event(gate: GateId, event: GateEvent) {
+    global().gate_events[gate as usize][event as usize].fetch_add(1, Ordering::Relaxed);
+}
+
+/// I-2 (31/10/2026) — record what the injection policy cut: `blocks` family
+/// cuts carrying `bytes`. Called by `injection_policy` next to the journal write.
+pub fn record_injection_suppressed(blocks: u64, bytes: u64) {
+    let m = global();
+    m.injection_suppressed_blocks_count
+        .fetch_add(blocks, Ordering::Relaxed);
+    m.injection_suppressed_bytes_count
+        .fetch_add(bytes, Ordering::Relaxed);
+}
+
+/// W3 S-3.3 — record one G4 observation (read without a prior locate).
+pub fn record_g4_observed() {
+    global().g4_observed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// M3 (29/08/2026) — record one delegation advisory (10th distinct file read).
+pub fn record_m3_delegation_advised() {
+    global()
+        .m3_delegation_advised_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// W3 S-3.3 — record one G5 observation (an edit burst ended unvalidated).
+pub fn record_g5_observed() {
+    global().g5_observed_count.fetch_add(1, Ordering::Relaxed);
+}
+
+/// W6 S-6.3 — record one counterfactual-comment observation.
+pub fn record_e3_counterfactual() {
+    global()
+        .e3_counterfactual_observed_count
+        .fetch_add(1, Ordering::Relaxed);
+}
+
+/// W2 S-2.3 — record the G1 continuation verdict (`same_class` = the deny was
+/// right: the burst would have continued).
+pub fn record_g1_continuation(same_class: bool) {
+    let g = global();
+    if same_class {
+        g.g1_post_deny_same_class_count
+            .fetch_add(1, Ordering::Relaxed);
+    } else {
+        g.g1_post_deny_other_count.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// W2 S-2.3 — live G1 precision from the continuation counters:
+/// `Some((same / total, total))` once any event exists, `None` before (absent
+/// signal is unknown, never zero). The self-demotion gate reads THIS — with
+/// the volume, so a handful of early events never demotes anything.
+pub fn g1_live_precision() -> Option<(f64, u64)> {
+    let g = global();
+    let same = g.g1_post_deny_same_class_count.load(Ordering::Relaxed);
+    let other = g.g1_post_deny_other_count.load(Ordering::Relaxed);
+    let total = same + other;
+    if total == 0 {
+        None
+    } else {
+        Some((same as f64 / total as f64, total))
+    }
+}
+
+/// W4 d4 — record one code-mode execution and its measured context savings
+/// (`bytes_elided` = full output bytes − inline bytes delivered; 0 when the
+/// whole output fit inline).
+pub fn record_code_mode_run(bytes_elided: u64) {
+    let g = global();
+    g.code_mode_runs_count.fetch_add(1, Ordering::Relaxed);
+    g.code_mode_bytes_elided_total
+        .fetch_add(bytes_elided, Ordering::Relaxed);
+}
+
+/// C2-W0 d4/S-5.2 — record one orchestrate sub-call (a request carrying an
+/// `origin` of the form `<run_id>:code:<n>`). `payload_bytes + output_bytes`
+/// is the exact size of the tool-part that tool calling WOULD have injected
+/// into the model's context — it died in the sandbox instead. The exact-sum
+/// discipline mirrors A2: sums taken at the site that does the work, never
+/// multiplied estimates.
+pub fn record_code_mode_subcall(payload_bytes: u64, output_bytes: u64) {
+    let g = global();
+    g.code_mode_subcalls_count.fetch_add(1, Ordering::Relaxed);
+    g.code_mode_subcall_bytes_total.fetch_add(
+        payload_bytes.saturating_add(output_bytes),
+        Ordering::Relaxed,
+    );
+}
+
 /// NEW-1 — record a compression profile application.
 pub fn record_compression_profile_applied() {
     global()
@@ -1341,8 +1685,7 @@ pub fn record_compression_savings(before: &str, after: &str) {
             .fetch_add(tin as u64, Ordering::Relaxed);
         m.measured_tokens_out_total
             .fetch_add(tout as u64, Ordering::Relaxed);
-        m.token_measured_event_count
-            .fetch_add(1, Ordering::Relaxed);
+        m.token_measured_event_count.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -1353,7 +1696,8 @@ pub fn record_compression_savings(before: &str, after: &str) {
 /// reported next to the totals instead of being assumed complete.
 pub fn record_routing_savings(bytes_in: u64, bytes_out: u64) {
     let m = global();
-    m.routed_bytes_in_total.fetch_add(bytes_in, Ordering::Relaxed);
+    m.routed_bytes_in_total
+        .fetch_add(bytes_in, Ordering::Relaxed);
     m.routed_bytes_out_total
         .fetch_add(bytes_out, Ordering::Relaxed);
     m.savings_event_count.fetch_add(1, Ordering::Relaxed);
@@ -1424,6 +1768,56 @@ pub fn record_mcts_shadow_deadlock_detected() {
 #[inline]
 pub fn record_ann_search_latency_us(micros: u64) {
     global().ann_search_latency.record_us(micros);
+}
+
+// ── GPU embeddings recording (15/09/2026) ─────────────────────────────────
+
+/// `embedding_device` value for a run on the CPU execution provider.
+const EMBEDDING_DEVICE_CPU: u8 = 1;
+/// `embedding_device` value for a run on the CUDA execution provider.
+const EMBEDDING_DEVICE_CUDA: u8 = 2;
+
+/// Record one embedding run of `texts` texts on the CUDA execution provider.
+#[inline]
+pub fn record_embedding_run_cuda(texts: usize, micros: u64) {
+    let m = global();
+    m.embedding_latency.record_us(micros);
+    m.embedding_texts_cuda_count
+        .fetch_add(texts as u64, Ordering::Relaxed);
+    m.embedding_device
+        .store(EMBEDDING_DEVICE_CUDA, Ordering::Relaxed);
+}
+
+/// Record one embedding run of `texts` texts on the CPU execution provider.
+#[inline]
+pub fn record_embedding_run_cpu(texts: usize, micros: u64) {
+    let m = global();
+    m.embedding_latency.record_us(micros);
+    m.embedding_texts_cpu_count
+        .fetch_add(texts as u64, Ordering::Relaxed);
+    m.embedding_device
+        .store(EMBEDDING_DEVICE_CPU, Ordering::Relaxed);
+}
+
+/// Record that the embedder left CUDA for CPU, and why.
+pub fn record_embedding_cuda_fallback(reason: &str) {
+    let m = global();
+    m.embedding_cuda_fallback_count
+        .fetch_add(1, Ordering::Relaxed);
+    let mut slot = m
+        .embedding_cuda_fallback_reason
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    reason.clone_into(&mut slot);
+}
+
+/// Label of an `embedding_device` value, as `touring gate-metrics` prints it.
+pub fn embedding_device_label(code: u8) -> &'static str {
+    match code {
+        EMBEDDING_DEVICE_CPU => "cpu",
+        EMBEDDING_DEVICE_CUDA => "cuda",
+        _ => "none",
+    }
 }
 
 // ── Tantivy Stream Actor recording functions (Suggestion 2 — 2026-04-20) ──
@@ -1566,6 +1960,52 @@ pub fn record_rkyv_dispatch_latency_us(micros: u64) {
 #[inline]
 pub fn record_hook_dispatch_latency_us(micros: u64) {
     global().hook_dispatch_latency.record_us(micros);
+}
+
+/// F0.3d (2026-09-01): per-hook dispatch counts, keyed by hook name.
+///
+/// `hook_dispatch_latency` aggregates every hook, so while chasing live
+/// `post-bash` deliveries that never reached the signal mirror there was no
+/// daemon-side number that could say whether `post-bash` had been dispatched
+/// at all, or only its sibling `post-tool-rl`. Kept outside `GateMetrics`
+/// (a `Mutex<BTreeMap>` beside the atomics) so the snapshot struct and its
+/// golden JSON tests stay untouched; the CLI merges it as a sibling key
+/// `hook_dispatch_by_name` in `touring gate-metrics -j`.
+static HOOK_DISPATCH_BY_NAME: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::BTreeMap<String, u64>>,
+> = std::sync::OnceLock::new();
+
+/// Unix epoch (seconds) of the FIRST named dispatch in this process — the
+/// window the per-hook counts cover, so a reader can cut a cumulative sink
+/// (the signal mirror) to the same interval before dividing.
+static HOOK_DISPATCH_EPOCH: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+
+/// Count one daemon-side dispatch of `hook_name` (the actor's dispatch table
+/// lookup — counted whether or not the table has a handler for it).
+pub fn record_hook_dispatch_named(hook_name: &str) {
+    let _ = HOOK_DISPATCH_EPOCH.get_or_init(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    });
+    let map = HOOK_DISPATCH_BY_NAME.get_or_init(Default::default);
+    if let Ok(mut guard) = map.lock() {
+        *guard.entry(hook_name.to_string()).or_insert(0) += 1;
+    }
+}
+
+/// Epoch seconds of the first named dispatch (`None` before any dispatch).
+pub fn hook_dispatch_since_epoch() -> Option<u64> {
+    HOOK_DISPATCH_EPOCH.get().copied()
+}
+
+/// Snapshot of [`record_hook_dispatch_named`] counts (name → dispatches).
+pub fn hook_dispatch_by_name() -> std::collections::BTreeMap<String, u64> {
+    HOOK_DISPATCH_BY_NAME
+        .get()
+        .and_then(|m| m.lock().ok().map(|g| g.clone()))
+        .unwrap_or_default()
 }
 
 /// Record how long one `ProjectCommand::RunHook` waited in the per-project
@@ -1949,16 +2389,19 @@ pub use crate::gate_metrics_snapshot::{
     record_ctx_execute_file, record_ctx_execute_file_count, record_ctx_explain,
     record_ctx_gain_graph, record_ctx_purge, record_ctx_replay, record_ctx_session_adoption_query,
     record_ctx_smart, record_ctx_upgrade, record_enrichment_emitted,
-    record_gate_metrics_daily_flush, record_pillar_induction_emitted,
-    record_pillar_induction_followed, record_read_aggressive_chunked,
-    record_read_aggressive_passthrough, record_suggestion_emitted, record_suggestion_followed,
-    record_touring_init_invocation, record_wave3_t201, record_wave3_t202, record_wave3_t203,
-    record_wave3_t204, record_wave3_t205, record_wave3_t206, record_wave3_t207, record_wave3_t208,
-    record_wave3_t209, record_wave3_t210, record_wave3_t211, record_wave3_t212, record_wave3_t213,
-    record_wave3_t214, record_wave3_t215, record_wave3_t301, record_wave3_t302, record_wave3_t303,
-    record_wave3_t304, record_wave3_t305, record_wave3_t306, record_wave3_t307, record_wave3_t308,
-    record_wave3_t309, record_wave3_t310, record_workflow_advice_emitted,
-    record_workflow_antipattern_detected,
+    record_exec_heredoc_inline_seen, record_g1_inspect_burst_advised,
+    record_g1_inspect_first_passed, record_g10_write_run_pair_denied,
+    record_gate_metrics_daily_flush, record_native_injection_code_route,
+    record_native_injection_followed, record_native_injection_resisted,
+    record_pillar_induction_emitted, record_pillar_induction_followed,
+    record_read_aggressive_chunked, record_read_aggressive_passthrough, record_suggestion_emitted,
+    record_suggestion_followed, record_touring_init_invocation, record_wave3_t201,
+    record_wave3_t202, record_wave3_t203, record_wave3_t204, record_wave3_t205, record_wave3_t206,
+    record_wave3_t207, record_wave3_t208, record_wave3_t209, record_wave3_t210, record_wave3_t211,
+    record_wave3_t212, record_wave3_t213, record_wave3_t214, record_wave3_t215, record_wave3_t301,
+    record_wave3_t302, record_wave3_t303, record_wave3_t304, record_wave3_t305, record_wave3_t306,
+    record_wave3_t307, record_wave3_t308, record_wave3_t309, record_wave3_t310,
+    record_workflow_advice_emitted, record_workflow_antipattern_detected,
 };
 
 #[cfg(test)]

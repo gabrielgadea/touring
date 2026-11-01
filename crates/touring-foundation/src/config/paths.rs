@@ -198,6 +198,149 @@ impl TouringConfig {
             .unwrap_or(false)
     }
 
+    /// The Claude Code project slug of a path: `/` becomes `-`, leading `-` kept
+    /// (`/home/u/projects/x` → `-home-u-projects-x`). It names the memory
+    /// directory `~/.claude/projects/<slug>/memory` — the one place the auto-memory
+    /// of a project lives (98 files for touring, 606 for analise, 145 for `~`,
+    /// measured 13/09/2026), and until this reader nothing indexed it.
+    #[must_use]
+    pub fn claude_project_slug(path: &std::path::Path) -> String {
+        path.to_string_lossy().replace('/', "-")
+    }
+
+    /// The companion roots of `project_root` — directories OUTSIDE the project
+    /// whose files the index carries under the stable key
+    /// `@companion/<name>/<relative path>`: the `[index.companion_roots]` table of
+    /// `.touring/touring.toml` (`name = "path"`; `~` expands to `$HOME`, `{slug}`
+    /// to the project's Claude Code slug) layered over the defaults — `rules`,
+    /// `commands`, `agents`, `skills` under `~/.claude`, `memory` (this
+    /// project's auto-memory) and `memory-home` (the memory of `~` as a project)
+    /// — unless `[index] companion_defaults = false`. Names are the key alphabet
+    /// (`[A-Za-z0-9_-]`); an invalid name or a root missing on disk is dropped,
+    /// and a malformed file yields the defaults (fail-open, like the daemon
+    /// opt-in above). Sorted by name so every walk sees the same order.
+    ///
+    /// A root without a `.touring/` directory has NO companions: that directory
+    /// is where the index is configured, and a scratch directory handed to a
+    /// rebuild (every test fixture, `touring index rebuild --dir /tmp/x`) must
+    /// not pull the whole of `~/.claude/skills` into its store by default.
+    #[must_use]
+    pub fn companion_roots_for(project_root: &std::path::Path) -> Vec<CompanionRoot> {
+        if !project_root.join(".touring").is_dir() {
+            return Vec::new();
+        }
+        let home = std::env::var("HOME").ok().map(PathBuf::from);
+        let slug = Self::claude_project_slug(project_root);
+        let expand = |raw: &str| -> Option<PathBuf> {
+            let with_slug = raw.replace("{slug}", &slug);
+            if let Some(rest) = with_slug.strip_prefix("~/") {
+                return home.as_ref().map(|h| h.join(rest));
+            }
+            if with_slug == "~" {
+                return home.clone();
+            }
+            Some(PathBuf::from(with_slug))
+        };
+        let mut roots: std::collections::BTreeMap<String, PathBuf> =
+            std::collections::BTreeMap::new();
+        let toml_path = project_root.join(".touring").join("touring.toml");
+        let value = std::fs::read_to_string(&toml_path)
+            .ok()
+            .and_then(|t| t.parse::<toml::Value>().ok());
+        let index = value.as_ref().and_then(|v| v.get("index"));
+        let defaults_on = index
+            .and_then(|i| i.get("companion_defaults"))
+            .and_then(toml::Value::as_bool)
+            .unwrap_or(true);
+        if defaults_on && let Some(h) = home.as_ref() {
+            for name in ["rules", "commands", "agents", "skills"] {
+                roots.insert(name.to_string(), h.join(".claude").join(name));
+            }
+            roots.insert(
+                "memory".to_string(),
+                h.join(".claude")
+                    .join("projects")
+                    .join(&slug)
+                    .join("memory"),
+            );
+            let home_slug = Self::claude_project_slug(h);
+            if home_slug != slug {
+                roots.insert(
+                    "memory-home".to_string(),
+                    h.join(".claude")
+                        .join("projects")
+                        .join(home_slug)
+                        .join("memory"),
+                );
+            }
+        }
+        if let Some(table) = index
+            .and_then(|i| i.get("companion_roots"))
+            .and_then(toml::Value::as_table)
+        {
+            for (name, raw) in table {
+                let Some(raw) = raw.as_str() else { continue };
+                if let Some(path) = expand(raw) {
+                    roots.insert(name.clone(), path);
+                }
+            }
+        }
+        roots
+            .into_iter()
+            .filter(|(name, path)| {
+                !name.is_empty()
+                    && name
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+                    && path.is_dir()
+            })
+            .map(|(name, path)| CompanionRoot { name, path })
+            .collect()
+    }
+
+    /// Directories of `project_root` the index must not walk, declared by the
+    /// project: `[index] exclude_dirs = ["client", "vendor/generated"]` in
+    /// `.touring/touring.toml`. Each entry is a path RELATIVE to the root (never a
+    /// bare name matched anywhere — a `client/` of a web app is code); leading
+    /// `./` and trailing `/` are ignored, and absolute paths, `..` components and
+    /// empty entries are dropped. No `.touring/` or no table → nothing excluded.
+    /// Sorted and de-duplicated so every walk sees the same list.
+    #[must_use]
+    pub fn index_excluded_dirs_for(project_root: &std::path::Path) -> Vec<String> {
+        if !project_root.join(".touring").is_dir() {
+            return Vec::new();
+        }
+        let Some(value) =
+            std::fs::read_to_string(project_root.join(".touring").join("touring.toml"))
+                .ok()
+                .and_then(|t| t.parse::<toml::Value>().ok())
+        else {
+            return Vec::new();
+        };
+        let mut dirs: Vec<String> = value
+            .get("index")
+            .and_then(|i| i.get("exclude_dirs"))
+            .and_then(toml::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(toml::Value::as_str)
+            .map(|raw| {
+                raw.trim()
+                    .trim_start_matches("./")
+                    .trim_end_matches('/')
+                    .to_string()
+            })
+            .filter(|d| {
+                !d.is_empty()
+                    && !std::path::Path::new(d).is_absolute()
+                    && d.split('/').all(|c| !c.is_empty() && c != "." && c != "..")
+            })
+            .collect();
+        dirs.sort();
+        dirs.dedup();
+        dirs
+    }
+
     /// touring_knowledge.db is always local to the project.
     /// None if the path has not been set (before detect_tiered is called).
     #[must_use]
@@ -267,8 +410,14 @@ impl TouringConfig {
     }
 
     /// A directory is a project root iff it holds one of the REAL markers.
+    ///
+    /// `.git` may be a FILE: a linked worktree (and a submodule) carries a
+    /// `gitdir:` pointer instead of the directory. Accepting only the directory
+    /// resolved a worktree to its parent project, and the WorktreeCreate rebuild
+    /// indexed the worktree under the parent's databases (cross-audit
+    /// 14/09/2026, B6).
     fn has_project_marker(dir: &std::path::Path) -> bool {
-        if dir.join(".touring").is_dir() || dir.join(".git").is_dir() {
+        if dir.join(".touring").is_dir() || dir.join(".git").exists() {
             return true;
         }
         let cargo = dir.join("Cargo.toml");
@@ -312,6 +461,100 @@ impl TouringConfig {
                 .join("touring")
                 .join("knowledge.db")
         }
+    }
+
+    /// The project root a canonical knowledge/symbols DB path belongs to —
+    /// the inverse of [`Self::knowledge_db_canonical`].
+    ///
+    /// It lives beside its mirror image on purpose: whoever changes the layout
+    /// `<root>/.claude/touring/<name>.db` has to change both, and having them
+    /// in two crates is how they drift.
+    ///
+    /// Used to canonicalize wiring paths against the root of the DATABASE
+    /// rather than of the process. Until 2026-08-19 that root came from
+    /// `TOURING_WORKSPACE_ROOT`, which every per-project daemon inherits from
+    /// the session that spawned it — so one project's paths were normalized
+    /// against another's root, and a DELETE keyed to the same marker was aimed
+    /// at the wrong project's rows.
+    ///
+    /// Both directory names are CHECKED rather than assumed: three components
+    /// up from an arbitrary path is meaningless, and for a shallow path it is
+    /// `/`, which would make every absolute path "relative". A relative input
+    /// resolves against the current directory, because that is the shape the
+    /// daemon actually opens (`.claude/touring/knowledge.db` with its cwd
+    /// pinned to the project). `$HOME` is refused: `~/.claude/touring/*.db` is
+    /// the GLOBAL store, whose rows span projects and have no single root.
+    ///
+    /// Returns the root WITH a trailing separator, ready for `strip_prefix`,
+    /// or `None` when no root can be derived.
+    #[must_use]
+    pub fn project_root_for_db(db_path: &std::path::Path) -> Option<String> {
+        let resolved;
+        let db_path = if db_path.is_absolute() {
+            db_path
+        } else {
+            resolved = std::env::current_dir().ok()?.join(db_path);
+            resolved.as_path()
+        };
+        let touring_dir = db_path.parent()?;
+        if touring_dir.file_name()? != "touring" {
+            return None;
+        }
+        let claude_dir = touring_dir.parent()?;
+        if claude_dir.file_name()? != ".claude" {
+            return None;
+        }
+        let root = claude_dir.parent()?;
+        if root.as_os_str().is_empty() {
+            return None;
+        }
+        if std::env::var_os("HOME").is_some_and(|home| root == std::path::Path::new(&home)) {
+            return None;
+        }
+        let mut root = root.to_string_lossy().into_owned();
+        if !root.ends_with('/') {
+            root.push('/');
+        }
+        Some(root)
+    }
+
+    /// Whether non-Rust source participates in the wiring graph **for one
+    /// project root**.
+    ///
+    /// The flag was a process-global `OnceLock` over `TOURING_POLYGLOT_WIRING`,
+    /// which forced an all-or-nothing answer: a Python codebase either got
+    /// Rust-only wiring, or every project served by the machine flipped at
+    /// once. But whether Python counts as wiring is a property of the PROJECT,
+    /// exactly as its canonical root is — so it is resolved from the project,
+    /// per database.
+    ///
+    /// Order: `TOURING_POLYGLOT_WIRING` (the historical escape hatch — an
+    /// explicit env override still wins, which is what keeps the polyglot PoC
+    /// tests and CI deterministic) → `polyglot_wiring` in the Project layer
+    /// (`<root>/.touring/touring.toml`) → User layer → `false`.
+    ///
+    /// `None` root (in-memory DB, non-canonical layout) resolves to the env
+    /// alone, then `false`. Reading up to three TOML files is fine because
+    /// callers resolve this ONCE per database open and keep the `bool` — the
+    /// write gate runs per symbol and must stay a field read.
+    #[must_use]
+    pub fn polyglot_wiring_for_root(project_root: Option<&std::path::Path>) -> bool {
+        if let Ok(raw) = std::env::var("TOURING_POLYGLOT_WIRING") {
+            return raw == "1" || raw.eq_ignore_ascii_case("true");
+        }
+        let Some(root) = project_root else {
+            return false;
+        };
+        let system = Some(PathBuf::from("/etc/touring/config.toml"));
+        let user = std::env::var("HOME")
+            .ok()
+            .map(|h| PathBuf::from(h).join(".touring").join("config.toml"));
+        let project = Some(root.join(".touring").join("touring.toml"));
+        // Layer reads fail OPEN (missing/malformed contributes nothing), so a
+        // broken toml can never turn wiring on by accident.
+        TouringConfig::detect_layered_from(system, user, project)
+            .map(|c| c.polyglot_wiring)
+            .unwrap_or(false)
     }
 
     /// Canonical path for the consolidated memory DB.
@@ -503,6 +746,22 @@ mod normalize_project_root_tests {
     }
 
     #[test]
+    fn a_linked_worktree_is_its_own_project_not_its_parent() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let home = tmp.path();
+        mkdirs(home, "proj/.git");
+        let worktree = mkdirs(home, "proj/.worktrees/feature");
+        std::fs::write(
+            worktree.join(".git"),
+            "gitdir: ../../.git/worktrees/feature\n",
+        )
+        .expect(".git file");
+        let inside = mkdirs(home, "proj/.worktrees/feature/src");
+        let got = TouringConfig::normalize_project_root_inner(&inside, Some(home));
+        assert_eq!(got, worktree, "the `.git` FILE marks the worktree root");
+    }
+
+    #[test]
     fn versioned_home_dot_claude_is_not_a_project() {
         // Live incident 2026-07-20: ~/.claude carries .git (versioned dotfiles);
         // the walk promoted it to a project root and minted the pathological
@@ -605,6 +864,379 @@ mod normalize_project_root_tests {
         assert_eq!(
             relative, home,
             "relative cwd must resolve to the global (home)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod project_root_for_db_tests {
+    use super::TouringConfig;
+    use std::path::Path;
+
+    #[test]
+    fn inverts_knowledge_db_canonical() {
+        // The property that matters: build a path from a root, get the root back.
+        let root = Path::new("/home/u/projects/app");
+        let db = TouringConfig::knowledge_db_canonical(root);
+        assert_eq!(
+            TouringConfig::project_root_for_db(&db),
+            Some("/home/u/projects/app/".to_string())
+        );
+    }
+
+    #[test]
+    fn resolves_a_relative_db_path_against_the_current_directory() {
+        // The daemon opens `.claude/touring/knowledge.db` with its cwd pinned to
+        // the project root — the only shape production uses, and the one the
+        // first cut of this rule rejected (three components up from a relative
+        // path is the empty path), so the migration silently did nothing.
+        let cwd = std::env::current_dir().expect("cwd");
+        assert_eq!(
+            TouringConfig::project_root_for_db(Path::new(".claude/touring/knowledge.db")),
+            Some(format!("{}/", cwd.display()))
+        );
+    }
+
+    #[test]
+    fn refuses_the_global_store_under_home() {
+        let home = std::env::var("HOME").expect("HOME");
+        let global = format!("{home}/.claude/touring/knowledge.db");
+        assert_eq!(TouringConfig::project_root_for_db(Path::new(&global)), None);
+    }
+
+    #[test]
+    fn refuses_layouts_that_are_not_dot_claude_touring() {
+        assert_eq!(
+            TouringConfig::project_root_for_db(Path::new("/tmp/scratch.db")),
+            None
+        );
+        assert_eq!(
+            TouringConfig::project_root_for_db(Path::new("/a/b/c/knowledge.db")),
+            None
+        );
+        assert_eq!(
+            TouringConfig::project_root_for_db(Path::new(
+                "/home/u/app/config/touring/knowledge.db"
+            )),
+            None,
+            "the parent of `touring/` must be `.claude/`"
+        );
+    }
+}
+
+#[cfg(test)]
+mod polyglot_wiring_opt_in_tests {
+    use super::TouringConfig;
+
+    /// Writes `<root>/.touring/touring.toml` with the given body.
+    fn project_with(body: &str) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&dir).expect("mkdir .touring");
+        std::fs::write(dir.join("touring.toml"), body).expect("write toml");
+        tmp
+    }
+
+    // These tests read the process env, so they assert only what holds under
+    // BOTH states of `TOURING_POLYGLOT_WIRING` — mutating it would be a
+    // process-global side effect on a parallel test runner. When the override
+    // is set, it wins by design and the project layer is not consulted; that
+    // branch is asserted directly below.
+    fn env_override() -> Option<bool> {
+        std::env::var("TOURING_POLYGLOT_WIRING")
+            .ok()
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+    }
+
+    #[test]
+    fn a_project_can_say_yes_on_its_own() {
+        let tmp = project_with("polyglot_wiring = true\n");
+        let expected = env_override().unwrap_or(true);
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(Some(tmp.path())),
+            expected,
+            "the project layer is what turns polyglot wiring on for ONE project"
+        );
+    }
+
+    #[test]
+    fn a_project_that_says_nothing_stays_rust_only() {
+        let tmp = project_with("cache_size = 10000\n");
+        let expected = env_override().unwrap_or(false);
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(Some(tmp.path())),
+            expected,
+            "silence means Rust-only — the 258-false-positive default"
+        );
+    }
+
+    #[test]
+    fn no_root_resolves_to_the_env_alone() {
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(None),
+            env_override().unwrap_or(false)
+        );
+    }
+
+    #[test]
+    fn a_malformed_project_toml_never_turns_it_on() {
+        // Layer reads fail OPEN. Failing open must mean OFF here: a broken
+        // config that silently enabled polyglot wiring would change what the
+        // whole graph answers, which is the opposite of a safe default.
+        let tmp = project_with("polyglot_wiring = tru\n[[[");
+        let expected = env_override().unwrap_or(false);
+        assert_eq!(
+            TouringConfig::polyglot_wiring_for_root(Some(tmp.path())),
+            expected
+        );
+    }
+
+    #[test]
+    fn two_projects_disagree_without_touching_each_other() {
+        // The whole point of the per-project opt-in: one yes, one no, same
+        // process, same instant.
+        let yes = project_with("polyglot_wiring = true\n");
+        let no = project_with("polyglot_wiring = false\n");
+        let a = TouringConfig::polyglot_wiring_for_root(Some(yes.path()));
+        let b = TouringConfig::polyglot_wiring_for_root(Some(no.path()));
+        match env_override() {
+            Some(forced) => {
+                assert_eq!(
+                    (a, b),
+                    (forced, forced),
+                    "an explicit env override applies to both"
+                );
+            }
+            None => assert!(a && !b, "each project answers for itself: got ({a}, {b})"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod companion_roots_tests {
+    use super::TouringConfig;
+    use std::path::{Path, PathBuf};
+
+    /// A project root with `<root>/.touring/touring.toml` holding `body`.
+    fn project_with(body: &str) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&dir).expect("mkdir .touring");
+        std::fs::write(dir.join("touring.toml"), body).expect("write toml");
+        tmp
+    }
+
+    fn names(roots: &[super::CompanionRoot]) -> Vec<&str> {
+        roots.iter().map(|r| r.name.as_str()).collect()
+    }
+
+    fn path_of<'a>(roots: &'a [super::CompanionRoot], name: &str) -> Option<&'a Path> {
+        roots
+            .iter()
+            .find(|r| r.name == name)
+            .map(|r| r.path.as_path())
+    }
+
+    // These tests never mutate `HOME` (process-global on a parallel runner):
+    // the defaults are asserted only through properties that hold whatever
+    // the home directory contains, and the explicit table is asserted exactly.
+
+    #[test]
+    fn an_explicit_table_with_defaults_off_is_the_whole_answer_sorted_by_name() {
+        let tmp = project_with("[index]\ncompanion_defaults = false\n");
+        let notes = tmp.path().join("notes");
+        let zed = tmp.path().join("zed");
+        std::fs::create_dir_all(&notes).unwrap();
+        std::fs::create_dir_all(&zed).unwrap();
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            format!(
+                "[index]\ncompanion_defaults = false\n[index.companion_roots]\nzed = \"{}\"\nnotes = \"{}\"\n",
+                zed.display(),
+                notes.display()
+            ),
+        )
+        .unwrap();
+        let roots = TouringConfig::companion_roots_for(tmp.path());
+        assert_eq!(
+            names(&roots),
+            vec!["notes", "zed"],
+            "sorted by name, nothing else"
+        );
+        assert_eq!(path_of(&roots, "notes"), Some(notes.as_path()));
+        assert_eq!(path_of(&roots, "zed"), Some(zed.as_path()));
+    }
+
+    #[test]
+    fn a_missing_directory_and_an_invalid_name_are_dropped() {
+        let tmp = project_with("");
+        let here = tmp.path().join("here");
+        std::fs::create_dir_all(&here).unwrap();
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            format!(
+                "[index]\ncompanion_defaults = false\n[index.companion_roots]\nhere = \"{}\"\ngone = \"{}\"\n\"bad name\" = \"{}\"\n\"a/b\" = \"{}\"\n",
+                here.display(),
+                tmp.path().join("does-not-exist").display(),
+                here.display(),
+                here.display()
+            ),
+        )
+        .unwrap();
+        let roots = TouringConfig::companion_roots_for(tmp.path());
+        assert_eq!(
+            names(&roots),
+            vec!["here"],
+            "a root missing on disk and a name outside the key alphabet never reach the walker"
+        );
+    }
+
+    #[test]
+    fn slug_and_tilde_expand_in_explicit_paths() {
+        let tmp = project_with("");
+        let slug = TouringConfig::claude_project_slug(tmp.path());
+        assert!(
+            !slug.contains('/'),
+            "the slug is the path with every `/` turned into `-`: {slug}"
+        );
+        let by_slug = tmp.path().join("store").join(&slug).join("memory");
+        std::fs::create_dir_all(&by_slug).unwrap();
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            format!(
+                "[index]\ncompanion_defaults = false\n[index.companion_roots]\nmem = \"{}/store/{{slug}}/memory\"\n",
+                tmp.path().display()
+            ),
+        )
+        .unwrap();
+        let roots = TouringConfig::companion_roots_for(tmp.path());
+        assert_eq!(
+            path_of(&roots, "mem"),
+            Some(by_slug.as_path()),
+            "`{{slug}}` expands to this project's slug"
+        );
+
+        // `~` expands to HOME; the root is kept exactly when that directory exists.
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            "[index]\ncompanion_defaults = false\n[index.companion_roots]\nhome = \"~\"\n",
+        )
+        .unwrap();
+        let roots = TouringConfig::companion_roots_for(tmp.path());
+        match std::env::var("HOME")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|h| h.is_dir())
+        {
+            Some(home) => assert_eq!(path_of(&roots, "home"), Some(home.as_path())),
+            None => assert!(roots.is_empty(), "no HOME, no `~` root"),
+        }
+    }
+
+    #[test]
+    fn the_defaults_are_named_roots_under_home_that_exist_on_disk() {
+        let tmp = project_with("");
+        let roots = TouringConfig::companion_roots_for(tmp.path());
+        let home = std::env::var("HOME").ok().map(PathBuf::from);
+        for root in &roots {
+            assert!(
+                root.path.is_dir(),
+                "{}: every companion root exists on disk",
+                root.path.display()
+            );
+            assert!(
+                [
+                    "rules",
+                    "commands",
+                    "agents",
+                    "skills",
+                    "memory",
+                    "memory-home"
+                ]
+                .contains(&root.name.as_str()),
+                "unexpected default name {}",
+                root.name
+            );
+            let home = home.as_ref().expect("a default root implies HOME was set");
+            assert!(
+                root.path.starts_with(home.join(".claude")),
+                "{} lives under ~/.claude",
+                root.path.display()
+            );
+        }
+        if let Some(memory) = path_of(&roots, "memory") {
+            let slug = TouringConfig::claude_project_slug(tmp.path());
+            assert!(
+                memory.ends_with(Path::new("projects").join(slug).join("memory")),
+                "the project memory is keyed by its slug: {}",
+                memory.display()
+            );
+        }
+        // Sorted by name, so every walk sees the same order.
+        let mut sorted = names(&roots);
+        sorted.sort_unstable();
+        assert_eq!(names(&roots), sorted);
+    }
+
+    #[test]
+    fn an_explicit_entry_overrides_a_default_of_the_same_name() {
+        let tmp = project_with("");
+        let mine = tmp.path().join("my-rules");
+        std::fs::create_dir_all(&mine).unwrap();
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            format!("[index.companion_roots]\nrules = \"{}\"\n", mine.display()),
+        )
+        .unwrap();
+        let roots = TouringConfig::companion_roots_for(tmp.path());
+        assert_eq!(
+            path_of(&roots, "rules"),
+            Some(mine.as_path()),
+            "the project's own `rules` wins over `~/.claude/rules`"
+        );
+    }
+
+    #[test]
+    fn a_root_without_touring_dir_has_no_companions_at_all() {
+        // No `.touring/` → no index configuration → nothing beyond the root
+        // itself, whatever HOME holds. This is what keeps every scratch root
+        // (test fixtures, `rebuild --dir /tmp/x`) from walking `~/.claude`.
+        let bare = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(bare.path().join(".claude")).unwrap();
+        assert!(TouringConfig::companion_roots_for(bare.path()).is_empty());
+    }
+
+    #[test]
+    fn excluded_dirs_are_root_relative_normalized_and_sanitized() {
+        let tmp = project_with(
+            "[index]\nexclude_dirs = [\"./client/\", \"vendor/generated\", \"client\", \"/etc\", \"../up\", \"a/../b\", \"\"]\n",
+        );
+        assert_eq!(
+            TouringConfig::index_excluded_dirs_for(tmp.path()),
+            vec!["client".to_string(), "vendor/generated".to_string()]
+        );
+        let bare = tempfile::tempdir().expect("tempdir");
+        assert!(
+            TouringConfig::index_excluded_dirs_for(bare.path()).is_empty(),
+            "no .touring, no exclusions"
+        );
+        let broken = project_with("[index]\nexclude_dirs = [[[");
+        assert!(
+            TouringConfig::index_excluded_dirs_for(broken.path()).is_empty(),
+            "malformed file excludes nothing"
+        );
+    }
+
+    #[test]
+    fn a_malformed_file_yields_the_defaults_and_no_explicit_root() {
+        let broken = project_with("[index]\ncompanion_defaults = fals\n[[[");
+        let clean = project_with("");
+        let a = TouringConfig::companion_roots_for(broken.path());
+        let b = TouringConfig::companion_roots_for(clean.path());
+        assert_eq!(
+            names(&a),
+            names(&b),
+            "fail-open means the defaults, exactly as an empty file would give them"
         );
     }
 }

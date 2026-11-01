@@ -90,8 +90,7 @@ impl PolyglotSemanticReport {
         parser
             .set_language(&lang.tree_sitter_language())
             .map_err(|e| AstError::ParseFailed(format!("set_language: {e}")))?;
-        let tree = parser
-            .parse(source, None)
+        let tree = crate::ast::parser::parse_bounded(&mut parser, source, None)
             .ok_or_else(|| AstError::ParseFailed("tree-sitter parse returned None".into()))?;
 
         let bytes = source.as_bytes();

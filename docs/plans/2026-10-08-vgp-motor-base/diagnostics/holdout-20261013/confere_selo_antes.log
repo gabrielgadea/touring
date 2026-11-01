@@ -1,0 +1,9 @@
+== selftest
+selftest: ok (intacto passa True · 1 byte trocado reprova True)
+rc=0
+== 20261013
+selo INTACTO: /home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261013 (sha_tree 8ce465ddeb03f500)
+rc=0
+== 20261011 (gasto no P0M; o selo e o de 09/10)
+selo INTACTO: /home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011 (sha_tree c495bcab66718230)
+rc=0

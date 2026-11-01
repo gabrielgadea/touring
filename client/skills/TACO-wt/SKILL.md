@@ -29,6 +29,10 @@ economiza 10× em retrabalho.
 
 ---
 
+## Uma wave é reivindicada, não lida
+
+`forensic_runner.py` roda waves em `ThreadPoolExecutor` — paralelismo dentro de UMA sessão. Entre sessões não há exclusão nenhuma: dois "validate W12" concorrentes executam a MESMA wave sobre os mesmos arquivos. Antes de executar, tome a unidade: `touring decompose claim <task> --owner wt-<wave>` (UPDATE condicional com lease; `ready`/`status` só LEEM). Ref: `Touring/references/skill-operating-principles.md` (P5).
+
 ## Quick-start em 4 comandos
 
 ```bash
@@ -125,6 +129,8 @@ Full lessons in [references/lessons.md](references/lessons.md). One-line digest:
 
 ## Quality gates (every wave passes these before merge)
 
+Estes gates são as cláusulas locais; o veredito de "pronto" do plano inteiro é `loop_converged.py --task <id> --scope <path>`, exit 0 — a wave passar não é o plano convergir. Ref: `Touring/references/skill-operating-principles.md` (P2).
+
 | Gate | Tool | Pass criterion |
 |------|------|----------------|
 | Sub-scripts compile | `python3 -m py_compile` | exit 0 |
@@ -135,6 +141,58 @@ Full lessons in [references/lessons.md](references/lessons.md). One-line digest:
 | Cross-audit normal-mode | `cross_audit.py` | composite `≥0.8` |
 | Evidence completeness | `evidence_collector.py --strict` | 0 missing |
 | TOON checkpoint emitted | `toon_checkpoint.py emit` | hash chain valid |
+
+---
+
+## Exit codes (`cross_audit.py` + scripts) — empirical 01/09/2026
+
+Documentação dos exit codes que `cross_audit.py` e outros scripts **já retornam** (Rank #5 do plano `docs/plans/2026-09-01-skill-aprimoramento/`). Verificado em `scripts/lib.py:312-316` e `scripts/cross_audit.py:285-293`.
+
+| Code | Constant | Trigger | Meaning |
+|------|----------|---------|---------|
+| **0** | `EXIT_OK` | `composite_status` ∈ {PASS, BASELINE} (score ≥ 0.8) | success — gate passed |
+| **1** | `EXIT_FAIL` | (fallback em `_exit_code`, status desconhecido) | reserved — nunca emitido em prática; ver red flag abaixo |
+| **2** | `EXIT_WARN` | `composite_status` == WARN (0.5 ≤ score < 0.8) | composite below threshold mas passable |
+| **3** | `EXIT_STRUCTURAL` | structural failure (data files missing, TOON chain quebrado, score impossível) | hard failure — re-execute após corrigir estrutura |
+| **130** | `EXIT_INTERRUPTED` | SIGINT / SIGTERM | user interrupt |
+
+### Red flag RF2 (capturado 01/09/2026)
+
+`cross_audit.py:292` retorna o **literal `2`** para `composite_status == "FAIL"` em vez de `EXIT_FAIL` (que é `1`). Consequência: FAIL reports como exit code `2` → **colide com WARN** → automação que chaveia em `!= 0` perde a distinção entre "passable with low score" e "fatal composite". Out-of-scope para Rank #5 (documentação-only); tracked para fix futuro. Lesson: **fail-closed é exit code distinto por classe** — collapse gera ambiguidade downstream.
+
+### Quick reference
+
+```bash
+# Catch-all: exit code != 0 = problema
+cross_audit.py ... ; case $? in
+  0)   echo "OK" ;;
+  2)   echo "WARN ou FAIL (RF2 indistinguível — checar composite_status no JSON)" ;;
+  3)   echo "STRUCTURAL — corrigir estrutura antes de re-executar" ;;
+  130) echo "INTERRUPTED" ;;
+  *)   echo "unexpected: $?" ;;
+esac
+
+# Distinguish WARN vs FAIL (post-RF2 fix): ler `composite_status` do JSON
+cross_audit.py ... -j | jq -e '.composite_status == "PASS"'
+```
+
+### MUST (E) — Verification before completion (transversal Marcel Point #1, 2026-09-01)
+
+NO COMPLETION CLAIMS WITHOUT FRESH EVIDENCE. Before stating "done", "fixed", "passes", "ready", "ship", or any success synonym, you MUST have run the verification command in **this turn** and seen the output. Red-green cycle for regressions: write test → run (pass) → revert fix → run (MUST FAIL) → restore → run (pass). Source: obra `superpowers:verification-before-completion` (Iron Law) cross-pollinated 2026-09-01; closes universal gap (E) RED-GREEN-REFACTOR across 7 skills (Marcel Point #1 do Gabriel — single MUST idêntico, single commit). Rationalization table (apply verbatim):
+
+| Excuse | Reality |
+|---|---|
+| "Should work now" | RUN the verification |
+| "I'm confident" | Confidence ≠ evidence |
+| "Just this once" | No exceptions |
+| "Linter passed" | Linter ≠ compiler |
+| "Agent said success" | Verify independently |
+| "I'm tired" | Exhaustion ≠ excuse |
+| "Partial check is enough" | Partial proves nothing |
+
+**Skip condition**: applies only to claims about code this skill produces/modifies/audits. Read-only reconnaissance (mapping, search, recall) is exempt.
+
+Ref: `docs/plans/2026-09-01-skill-aprimoramento/plan.md` §3.1 Rank #4.
 
 ---
 

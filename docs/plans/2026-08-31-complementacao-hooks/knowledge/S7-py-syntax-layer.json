@@ -1,0 +1,45 @@
+{
+  "phase": "S7-py-syntax-layer",
+  "entities": [
+    {
+      "entity_id": "phase:S7-py-syntax-layer",
+      "type": "phase",
+      "description": "PySyntaxSignalLayer (hooks-shared/qa_syntax.rs): parse tree-sitter do conteudo proposto de todo Write .py antes de gravar; Edit (fragmento) e pre_read pulados com razao declarada (E4). Score 0.95, mensagem ensina a correcao (A5). Registrado no pipeline de pre_write; qa_syntax re-exportado em crate::shared (hook-handlers/lib.rs). Testes: 3 no layer + handler test_pre_write_flags_python_syntax_error_in_proposed_file."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:S7-py-syntax-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S7-py-syntax-layer|produces|memory:loop:task_1788294728027014117:S7-py-syntax-layer:done",
+      "source": "phase:S7-py-syntax-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:S7-py-syntax-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S7-py-syntax-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S7-py-syntax-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S7-py-syntax-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S7-py-syntax-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

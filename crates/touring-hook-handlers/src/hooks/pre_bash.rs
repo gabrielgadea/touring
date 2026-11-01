@@ -14,6 +14,9 @@
 //!
 //! Target latency: <10ms.
 
+use touring_code::vgp::CheckInput;
+use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+
 use super::knowledge::FileKnowledgeDB;
 use super::runtime::{HookResponse, HookRuntime};
 use super::shared::hook_helpers;
@@ -45,6 +48,29 @@ pub fn run(
 ///
 /// Used by the daemon to handle the hook without calling `process::exit`.
 pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
+    run_returning_with(runtime, input, &vgp_sombra_de_bash)
+}
+
+/// The VGP verdict enters through `vgp` (the production seam is [`vgp_sombra_de_bash`]), so the
+/// precedence of the chain is testable without the motor. The chain deposits advisories in
+/// `avisos` instead of returning them; the most severe verdict wins and the advisories ride
+/// along ([`HookResponse::with_advisories`] — the one rule shared with `cli-suggest`).
+fn run_returning_with(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    vgp: &dyn Fn(&HookRuntime, &serde_json::Value, &str) -> Option<HookResponse>,
+) -> HookResponse {
+    let mut avisos: Vec<String> = Vec::new();
+    let resposta = run_chain(runtime, input, vgp, &mut avisos);
+    resposta.with_advisories(avisos)
+}
+
+fn run_chain(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    vgp: &dyn Fn(&HookRuntime, &serde_json::Value, &str) -> Option<HookResponse>,
+    avisos: &mut Vec<String>,
+) -> HookResponse {
     // D9: Validate payload with typed schema — fail fast on malformed input.
     let tool_input = match input.get("tool_input") {
         Some(v) => v,
@@ -58,6 +84,21 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
 
     if command.is_empty() {
         return HookResponse::Allow;
+    }
+
+    // ── VGP inline (V5, 09/10): `python3 - <<EOF` / `python3 -c` / `touring run --code|--file`
+    // passam pelo MESMO motor com path <string> e a raiz da sessão — "sombra" (default) só
+    // registra; "ativo" é só por [vgp] modo do projeto (V4). Fail-open de ponta a ponta.
+    //
+    // 30.4.97 (ordem dos gates): o `[VGP · aviso]` NÃO encerra a cadeia — antes ele retornava
+    // aqui e escondia o Block do `bash_ast_validator`, o Deny do `PreToolValidator` e o do
+    // W-540 de um comando perigoso na mesma linha. O aviso é depositado; um deny do VGP
+    // (ou qualquer outra decisão) segue encerrando.
+    if let Some(resposta_vgp) = vgp(runtime, input, command) {
+        match resposta_vgp {
+            HookResponse::Context { context, .. } => avisos.push(context),
+            outra => return outra,
+        }
     }
 
     // Wave v4.29.0 — S2: structural bash validation. Strips quoted strings
@@ -87,18 +128,14 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
 
     // SECURITY: PreToolValidator gate — block dangerous commands before execution.
     // Validate the tool invocation against known dangerous patterns (rm -rf, git reset --hard, etc.).
-    let tool_name = extract_command_short(command);
-    let params = command
-        .strip_prefix(&format!("{} ", tool_name))
-        .unwrap_or("")
-        .trim();
-
-    let validation = runtime.ctx.pre_tool_validator.validate(&tool_name, params);
+    // Every simple command of the line, each by its own words (18/09/2026): the
+    // old split validated ONE tool with the text after it at the start of the
+    // line — empty for `cd x && git push -f`, raw text for everything else.
+    let validation = runtime.ctx.pre_tool_validator.validate_command(command);
     if validation.is_blocked() {
         tracing::warn!(
-            "PreToolValidator blocked: tool={} params={} reason={}",
-            tool_name,
-            params,
+            "PreToolValidator blocked: command={} reason={}",
+            command,
             validation.reason.as_deref().unwrap_or("unknown")
         );
         return HookResponse::Deny {
@@ -190,16 +227,16 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
             match runtime.learning.pensieve.try_borrow() {
                 Ok(pensieve) => {
                     // Use check_known_failure_seq for multi-token commands, single-state for one token.
-                    let penalty = match states.first() {
-                        Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                        _ => pensieve.check_known_failure_seq(&states),
+                    let matched = match states.first() {
+                        Some(&single) if states.len() == 1 => {
+                            pensieve.check_known_failure_detail(single)
+                        }
+                        _ => pensieve.check_known_failure_seq_detail(&states),
                     };
-                    penalty.map(|sim| {
-                        format!(
-                            "Similar command failed recently (similarity={:.0}%)",
-                            sim * 100.0
-                        )
-                    })
+                    // The notice names the command that failed — a percentage
+                    // alone tells the model that something similar failed, not
+                    // what to avoid repeating.
+                    matched.map(|m| m.command_notice())
                 }
                 _ => {
                     tracing::debug!("pensieve: skipped check (already borrowed)");
@@ -223,7 +260,12 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     // "" fires recent_bash_outcomes for bare commands (cargo, pytest, etc.) even without a file target.
     let merged = if let Some(ref cognitive) = runtime.cognitive {
         let path_ref = file_ctx.as_deref().unwrap_or("");
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, path_ref, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            path_ref,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if enriched.is_empty() {
             merged
         } else {
@@ -236,10 +278,43 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         merged
     };
 
+    // S-8 (plan r2): semantic bash gate — o DESCONHECIDO recebe um reversibility
+    // Score do aluno local como advisory (enriquece, nunca nega por palpite).
+    let merged = {
+        let short = extract_command_short(command);
+        if !short.is_empty() && !touring_hook_runtime::prompt_enhance::is_known_program(&short) {
+            match touring_hook_runtime::prompt_enhance::semantic_reversibility(command) {
+                Some((score, wire_ms)) => {
+                    let note = format!(
+                        "ceg_semantic_reversibility: {score:.2}/2 (aluno local, {wire_ms}ms) — advisory, não bloqueia"
+                    );
+                    Some(match merged {
+                        Some(m) => format!("{m}\n{note}"),
+                        None => note,
+                    })
+                }
+                None => merged,
+            }
+        } else {
+            merged
+        }
+    };
+
     match merged {
         Some(ctx) if !ctx.is_empty() => {
             // Truncate to CILA budget — prevents oversized context at low levels.
             let ctx = truncate_str(&ctx, max_chars).to_string();
+            // S-9 (r3 shadow): observe the injection before it reaches the model.
+            // Observe-only — never alters `ctx` or the returned response.
+            {
+                let sid = crate::shared::signals::payload_session(input).unwrap_or("");
+                touring_hook_runtime::r3_shadow::maybe_emit_a1_block(
+                    &runtime.project_root,
+                    sid,
+                    "pre-bash",
+                    &ctx,
+                );
+            }
             HookResponse::Context {
                 context: ctx,
                 event_name: Some("PreToolUse".to_string()),
@@ -249,27 +324,56 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     }
 }
 
-/// Extract the primary command name (first non-env word).
+/// Extract the primary command name: the last `&&` step, its first `;` segment that runs
+/// something, past env assignments (`FOO=1`) and wrappers (`sudo`, `env -u X`,
+/// `timeout -s KILL 30`, `nice -n 5`, `nohup`, `time`, `command`, `exec`, `stdbuf`).
+///
+/// S21: it returned `TOURING_CODE_MODE=native` and `S=/tmp/…;` as the "command" of real
+/// failures, so the lessons named assignments instead of programs.
 pub fn extract_command_short(command: &str) -> String {
-    let trimmed = command.trim();
-    let effective = trimmed.split("&&").last().unwrap_or(trimmed).trim();
+    let step = command.trim().rsplit("&&").next().unwrap_or("").trim();
+    step.split(';').find_map(first_program).unwrap_or_default()
+}
 
-    let effective = effective
-        .strip_prefix("sudo ")
-        .or_else(|| effective.strip_prefix("timeout "))
-        .map(|s| {
-            s.split_whitespace()
-                .skip_while(|w| w.parse::<f64>().is_ok())
-                .collect::<Vec<_>>()
-                .join(" ")
-        })
-        .unwrap_or_else(|| effective.to_string());
+/// First word of `segment` that is a program, skipping assignments and wrapper prefixes.
+fn first_program(segment: &str) -> Option<String> {
+    let mut words = segment.split_whitespace().peekable();
+    while let Some(w) = words.next() {
+        if is_env_assignment(w) {
+            continue;
+        }
+        let takes_value: &[&str] = match w {
+            "sudo" => &["-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U"],
+            "env" => &["-u", "-C", "-S"],
+            "timeout" => &["-s", "-k", "--signal", "--kill-after"],
+            "nice" => &["-n", "--adjustment"],
+            "stdbuf" => &["-i", "-o", "-e"],
+            "nohup" | "time" | "command" | "exec" => &[],
+            other => return Some(other.to_string()),
+        };
+        while let Some(next) = words.peek().copied() {
+            if takes_value.contains(&next) {
+                words.next();
+                words.next();
+            } else if next.starts_with('-')
+                || is_env_assignment(next)
+                || (w == "timeout" && next.parse::<f64>().is_ok())
+            {
+                words.next();
+            } else {
+                break;
+            }
+        }
+    }
+    None
+}
 
-    effective
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .to_string()
+fn is_env_assignment(word: &str) -> bool {
+    word.split_once('=').is_some_and(|(k, _)| {
+        !k.is_empty()
+            && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !k.starts_with(|c: char| c.is_ascii_digit())
+    })
 }
 
 /// Extract file paths mentioned in the command.
@@ -479,6 +583,114 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let db = FileKnowledgeDB::new(&tmp.path().join("test.db")).unwrap();
         (tmp, db)
+    }
+
+    /// Guard: the call site in `run_returning` exists and fires.
+    ///
+    /// Mutant killed: `call_site_removed_from_pre_bash` — removing the
+    /// `maybe_emit_a1_block(…)` call from `run_returning` causes 0 lines to be
+    /// emitted even when `HookResponse::Context` is returned; this assertion fails.
+    ///
+    /// The thread-local [`touring_hook_runtime::r3_shadow::with_events_path`] is used
+    /// so parallel tests never touch the production events file and never race on
+    /// `TOURING_R3_EVENTS_FILE`.
+    #[test]
+    fn a1_block_emitted_at_context_injection() {
+        use sha2::{Digest as _, Sha256};
+        use touring_hook_runtime::r3_shadow;
+
+        assert!(
+            std::env::var_os(r3_shadow::ENV_FLAG).is_none(),
+            "run without TOURING_R3_SHADOW"
+        );
+
+        let tmp = TempDir::new().expect("tempdir");
+
+        // Enable shadow via toml for this project_root.
+        let toml_dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&toml_dir).expect("mkdir .touring");
+        std::fs::write(toml_dir.join("touring.toml"), "[shadow]\nr3 = true\n")
+            .expect("write touring.toml");
+
+        // Build runtime first, then insert a failed outcome directly into
+        // runtime.knowledge — avoids any DB path or schema-version mismatch.
+        let runtime = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        // Compute short_key the SAME way run_returning does so the DB lookup
+        // matches the stored record (command_shape may return "ruff check", not "ruff").
+        let cmd = "ruff check src/target_file.py";
+        let short_key = crate::shared::bash_ast_validator::command_shape(cmd)
+            .unwrap_or_else(|| extract_command_short(cmd));
+        runtime
+            .ctx
+            .knowledge
+            .record_bash_outcome(&BashOutcome {
+                command: cmd.to_string(),
+                command_short: short_key,
+                exit_code: 1,
+                success: false,
+                error_pattern: Some("E501: line too long".to_string()),
+                file_context: Some("src/target_file.py".to_string()),
+                ..Default::default()
+            })
+            .ok();
+
+        // ── Case 1: input that produces HookResponse::Context ────────────────
+        let input_ctx = serde_json::json!({
+            "session_id": "test-session-callsite",
+            "tool_input": { "command": "ruff check src/target_file.py" }
+        });
+        let events = tmp.path().join("callsite_events.jsonl");
+        let response = r3_shadow::with_events_path(&events, || run_returning(&runtime, &input_ctx));
+
+        match response {
+            HookResponse::Context { ref context, .. } => {
+                // Call site present → exactly 1 a1_block line.
+                let text = std::fs::read_to_string(&events).expect("read events");
+                let lines: Vec<_> = text.lines().collect();
+                assert_eq!(lines.len(), 1, "exactly 1 a1_block per Context injection");
+
+                let ev: serde_json::Value = serde_json::from_str(lines[0]).expect("valid JSON");
+                assert_eq!(ev["kind"], "a1_block");
+                assert_eq!(
+                    ev["bytes"].as_u64().unwrap(),
+                    context.len() as u64,
+                    "bytes must equal the RETURNED context length"
+                );
+                // first_line_sha must be sha256 of first line — computed independently.
+                let first_line = context.lines().next().unwrap_or("");
+                let expected_sha: String = {
+                    let d = Sha256::digest(first_line.as_bytes());
+                    d.iter().take(8).map(|b| format!("{b:02x}")).collect()
+                };
+                assert_eq!(
+                    ev["first_line_sha"], expected_sha,
+                    "first_line_sha must be sha256 of first line of returned context"
+                );
+            }
+            _ => {
+                // Non-Context response → 0 lines expected (Allow/Deny don't inject).
+                let has_lines = events
+                    .exists()
+                    .then(|| std::fs::read_to_string(&events).unwrap_or_default())
+                    .unwrap_or_default();
+                assert!(
+                    has_lines.is_empty(),
+                    "non-Context response must not emit a1_block; got: {has_lines}"
+                );
+                panic!("expected HookResponse::Context — check knowledge DB pre-population");
+            }
+        }
+
+        // ── Case 2: no tool_input → Allow, 0 lines ───────────────────────────
+        let events2 = tmp.path().join("callsite_events2.jsonl");
+        let resp2 = r3_shadow::with_events_path(&events2, || {
+            run_returning(&runtime, &serde_json::json!({}))
+        });
+        assert!(
+            matches!(resp2, HookResponse::Allow),
+            "no tool_input must return Allow"
+        );
+        assert!(!events2.exists(), "Allow response must not emit a1_block");
     }
 
     #[test]
@@ -696,6 +908,683 @@ mod tests {
         assert!(
             ctx.contains("test"),
             "BM25 should rank 'test failed' higher for 'cargo' query, got: {ctx}"
+        );
+    }
+}
+
+// ─────────────────────────── V5 — inline Python no pre-bash ───────────────────────────
+
+/// Extrai o programa Python de um comando, quando há um: `touring run --code|--file` (hook
+/// "touring-run"), `python3 - <<'TAG' … TAG` ou `python3 -c '…'` (hook "pre-bash", path <string>).
+fn extrai_inline_python(command: &str) -> Option<(&'static str, String, String)> {
+    if command.contains("touring run") {
+        if let Some(code) = valor_de_flag_shell(command, "--code") {
+            return Some(("touring-run", code, "<string>".into()));
+        }
+        if let Some(f) = valor_de_flag_shell(command, "--file") {
+            let prog = std::fs::read_to_string(&f).unwrap_or_default();
+            return Some(("touring-run", prog, "<string>".into()));
+        }
+        return None;
+    }
+    if !command.contains("python") {
+        return None;
+    }
+    if let Some(code) = valor_de_flag_shell(command, "-c") {
+        return Some(("pre-bash", code, "<string>".into()));
+    }
+    heredoc_python(command).map(|prog| ("pre-bash", prog, "<stdin>".into()))
+}
+
+/// `python3 - <<'PY' … PY` / `python3 - <<PY … PY`: o corpo do heredoc, como o traceback o nomeia.
+fn heredoc_python(command: &str) -> Option<String> {
+    let pos = command.find("<<")?;
+    // o heredoc é de PYTHON só se o comando que o abre é um interpretador: `cat > s.sh <<'EOF'` com
+    // `python3 x.py` no corpo é um script de SHELL — a V5 o lia como programa Python e negava `python3`,
+    // `tmp` e `x` como nomes sem definição (achado pelo teste de execução do FRAG, 10/10/2026)
+    let inicio = command[..pos].rfind('\n').map_or(0, |i| i + 1);
+    if !command[inicio..pos]
+        .split_whitespace()
+        .any(crate::vgp_execucao::palavra_eh_python)
+    {
+        return None;
+    }
+    let rest = &command[pos + 2..];
+    let rest = rest.trim_start_matches(['-', ' ']);
+    let (tag, quoted) = match rest.chars().next() {
+        Some(q @ ('\'' | '"')) => (&rest[1..rest[1..].find(q).map(|i| i + 1)?], true),
+        _ => {
+            let end = rest.find([' ', '\n'])?;
+            (&rest[..end], false)
+        }
+    };
+    let _ = quoted;
+    let corpo = &rest[rest.find('\n')? + 1..];
+    let fim = corpo.find(&format!("\n{tag}"))?;
+    Some(format!("{}\n", &corpo[..fim]))
+}
+
+/// O valor de uma flag num comando shell, com aspas simples/duplas — mínimo e fail-open (a V5 é
+/// sombra: uma aspa mal balanceada vira None, nunca um erro).
+fn valor_de_flag_shell(command: &str, flag: &str) -> Option<String> {
+    let mut rest = command;
+    while let Some(pos) = rest.find(flag) {
+        rest = &rest[pos + flag.len()..];
+        let rest = rest.trim_start();
+        if flag == "-c" && !rest.starts_with(['\'', '"']) {
+            // -c exige o programa logo após — senão era outra flag (-cp, -count…)
+            continue;
+        }
+        return match rest.chars().next() {
+            Some('\'') => rest[1..].find('\'').map(|i| rest[1..i + 1].to_string()),
+            Some('"') => rest[1..].find('"').map(|i| rest[1..i + 1].to_string()),
+            _ => rest.split([' ', '\t', '\n']).next().map(str::to_string),
+        };
+    }
+    None
+}
+
+/// A raiz dos nomes do inline: o segmento `-projects-<nome>` do path (como vivos.project_root),
+/// senão CLAUDE_PROJECT_DIR, senão a raiz do hook.
+fn raiz_inline(path: &str, runtime: &HookRuntime) -> std::path::PathBuf {
+    for (nome, raiz) in [("analise", "analise"), ("touring", "touring")] {
+        if path.contains(&format!("-projects-{nome}/"))
+            || path.ends_with(&format!("-projects-{nome}"))
+        {
+            let home = std::env::var("HOME").unwrap_or_default();
+            return std::path::PathBuf::from(format!("{home}/projects/{raiz}"));
+        }
+    }
+    if let Ok(dir) = std::env::var("CLAUDE_PROJECT_DIR")
+        && !dir.is_empty()
+    {
+        return std::path::PathBuf::from(dir);
+    }
+    runtime.project_root.clone()
+}
+
+/// VGP sobre o comando: o programa inline (V5) e os arquivos de scratch que ele EXECUTA (FRAG,
+/// `python3 X.py`/`node X.js`). Duas perguntas ao mesmo motor; o deny de uma vence o aviso da outra.
+fn vgp_sombra_de_bash(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    command: &str,
+) -> Option<HookResponse> {
+    crate::vgp_execucao::combina(
+        vgp_inline_de_bash(runtime, input, command),
+        crate::vgp_execucao::vgp_de_execucao(runtime, input, command),
+    )
+}
+
+/// VGP sobre o programa inline (V5): `Some(resposta)` só em "ativo"; "sombra"/"off" → sempre None.
+fn vgp_inline_de_bash(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    command: &str,
+) -> Option<HookResponse> {
+    let mode = vgp_mode(&runtime.project_root);
+    if mode == VgpMode::Off {
+        return None;
+    }
+    let (hook, programa, path) = extrai_inline_python(command)?;
+    if programa.trim().is_empty() {
+        return None;
+    }
+    let vgp_in = CheckInput {
+        path: path.clone(),
+        content: programa,
+        project_root: raiz_inline(&path, runtime),
+        disk: None,
+        overlays: std::collections::HashMap::new(),
+        lang: "python".into(),
+    };
+    let out = sombra_check(
+        hook,
+        &vgp_in,
+        input
+            .pointer("/session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        input
+            .pointer("/tool_use_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        mode,
+        crate::vgp_l2::extra(&vgp_in),
+    );
+    if mode != VgpMode::Ativo {
+        return None;
+    }
+    crate::vgp_execucao::resposta_do_vgp(&out, &path, false)
+}
+
+#[cfg(test)]
+mod vgp_inline_tests {
+    use super::*;
+
+    #[test]
+    fn extrai_python_c() {
+        let (hook, prog, path) = extrai_inline_python("python3 -c 'print(1)' 2>&1 | head").unwrap();
+        assert_eq!(
+            (hook, prog.as_str(), path.as_str()),
+            ("pre-bash", "print(1)", "<string>")
+        );
+    }
+
+    #[test]
+    fn extrai_touring_run_code() {
+        let (_, prog, _) = extrai_inline_python(
+            "touring run --lang python --timeout-ms 30000 --code '\nimport os\nprint(os)'",
+        )
+        .unwrap();
+        assert!(prog.contains("import os"));
+    }
+
+    #[test]
+    fn extrai_heredoc() {
+        let (_, prog, path) = extrai_inline_python("python3 - <<'PY'\nprint(2)\nPY\n").unwrap();
+        assert_eq!((prog.as_str(), path.as_str()), ("print(2)\n", "<stdin>"));
+    }
+
+    #[test]
+    fn comando_sem_python_e_none() {
+        assert!(extrai_inline_python("ls -la /tmp").is_none());
+    }
+
+    /// FRAG: o corpo de um heredoc que NÃO alimenta um interpretador é dado, ainda que cite `python3`.
+    #[test]
+    fn heredoc_de_shell_que_cita_python_nao_e_programa_python() {
+        for cmd in [
+            "cat > s.sh <<'EOF'\npython3 /tmp/x/frag.py\nEOF\n",
+            "cat <<EOF > run.sh\nuv run python x.py\nEOF\n",
+            "tee notas.md <<'MD'\nrode python3 x.py depois\nMD\n",
+        ] {
+            assert!(extrai_inline_python(cmd).is_none(), "{cmd:?}");
+        }
+        // e os heredocs que alimentam o interpretador continuam sendo programa
+        for cmd in [
+            "python3 - <<'PY'\nprint(2)\nPY\n",
+            "python <<EOF\nprint(2)\nEOF\n",
+            "uv run python - <<'PY'\nprint(2)\nPY\n",
+            "cd /tmp && python3.12 - <<'PY'\nprint(2)\nPY\n",
+            ".venv/bin/python3 - <<'PY'\nprint(2)\nPY\n",
+        ] {
+            let (_, prog, path) = extrai_inline_python(cmd).unwrap_or_else(|| panic!("{cmd:?}"));
+            assert_eq!(
+                (prog.as_str(), path.as_str()),
+                ("print(2)\n", "<stdin>"),
+                "{cmd:?}"
+            );
+        }
+    }
+}
+
+/// Ordem dos gates (30.4.97): o deny aplicável vence o `[VGP · aviso]`, qualquer que seja a
+/// ordem de registro. O veredito do VGP entra pela costura `run_returning_with`.
+#[cfg(test)]
+mod vgp_ordem_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use touring_hook_runtime::verdict::ALSO_NON_BLOCKING;
+
+    const AVISO: &str = "[VGP · aviso] atributo `inexistente` (<string>:2)";
+    const PERIGOSO: &str = "rm -rf /tmp/work";
+
+    fn avisa(_: &HookRuntime, _: &serde_json::Value, _: &str) -> Option<HookResponse> {
+        Some(HookResponse::Context {
+            context: AVISO.to_string(),
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    fn nada(_: &HookRuntime, _: &serde_json::Value, _: &str) -> Option<HookResponse> {
+        None
+    }
+
+    fn nega(_: &HookRuntime, _: &serde_json::Value, _: &str) -> Option<HookResponse> {
+        Some(HookResponse::Deny {
+            reason: "[VGP · deny] import `x` inexistente".to_string(),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    fn roda(
+        cmd: &str,
+        vgp: &dyn Fn(&HookRuntime, &serde_json::Value, &str) -> Option<HookResponse>,
+    ) -> HookResponse {
+        let tmp = TempDir::new().expect("tempdir");
+        let runtime = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        let input = serde_json::json!({
+            "session_id": "g97-vgp-ordem-bash",
+            "tool_input": { "command": cmd }
+        });
+        run_returning_with(&runtime, &input, vgp)
+    }
+
+    /// O caso: python inline com aviso do VGP E um comando perigoso na mesma linha. Antes, o
+    /// aviso retornava na hora e o `rm -rf` nunca passava pelo `bash_ast_validator`.
+    #[test]
+    fn aviso_do_vgp_nao_esconde_o_bloqueio_de_comando_perigoso() {
+        match roda(PERIGOSO, &avisa) {
+            HookResponse::Deny { reason, .. } => {
+                assert!(
+                    reason.contains("rm -rf"),
+                    "o bloqueio é o do validador: {reason}"
+                );
+                assert!(
+                    reason.contains(AVISO),
+                    "o aviso vai junto no texto: {reason}"
+                );
+                assert!(reason.contains(ALSO_NON_BLOCKING), "{reason}");
+            }
+            outra => panic!("o deny aplicável vence o aviso do VGP: {outra:?}"),
+        }
+    }
+
+    /// Controle positivo do caso acima: SEM aviso do VGP o mesmo comando já é negado — o gate
+    /// existe e a diferença é só a ordem.
+    #[test]
+    fn sem_aviso_o_bloqueio_segue_sem_texto_do_vgp() {
+        match roda(PERIGOSO, &nada) {
+            HookResponse::Deny { reason, .. } => {
+                assert!(reason.contains("rm -rf"), "{reason}");
+                assert!(!reason.contains("VGP"), "{reason}");
+            }
+            outra => panic!("o validador nega o comando perigoso: {outra:?}"),
+        }
+    }
+
+    /// Controle: comando inofensivo com aviso do VGP segue com o aviso (Context, nunca deny).
+    #[test]
+    fn comando_inofensivo_com_aviso_do_vgp_segue_com_o_aviso() {
+        match roda("ls docs", &avisa) {
+            HookResponse::Context { context, .. } => {
+                assert!(context.contains(AVISO), "{context}");
+            }
+            outra => panic!("só o aviso: {outra:?}"),
+        }
+    }
+
+    /// O deny do VGP continua encerrando a cadeia (é decisão, não aviso).
+    #[test]
+    fn deny_do_vgp_continua_encerrando_a_cadeia() {
+        match roda("ls docs", &nega) {
+            HookResponse::Deny { reason, .. } => {
+                assert!(reason.contains("[VGP · deny]"), "{reason}");
+            }
+            outra => panic!("o deny do VGP segue deny: {outra:?}"),
+        }
+    }
+}
+
+/// FRAG (10/10/2026): o deny do fragmento `.py` em `/tmp` mora na EXECUÇÃO, não na escrita (spec
+/// §5.1: o deny exige que nenhuma edição seguinte possa tornar o código certo). `python3 X.py` /
+/// `uv run python X.py` / `node X.js` com `X` existente passam o conteúdo ATUAL pelo MESMO motor,
+/// agora com o contexto de execução. Os testes rodam o `run_returning` de produção sobre arquivos
+/// reais; o log da sombra é redirecionado por thread, o `~/.claude` nunca é tocado.
+#[cfg(test)]
+mod vgp_execucao_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use touring_code::vgp::sombra::com_log_em;
+
+    /// Nome ausente do PROJETO: a edição seguinte ainda poderia criá-lo.
+    const FRAGMENTO: &str = "resultado = 1\nprint(nome_do_projeto_inexistente)\n";
+    /// Atributo ausente da STDLIB: nenhuma edição do projeto o cria. (`unicodedata`, não `os`: a
+    /// camada 1 modela os atributos de `unicodedata`; os de `os`/`json` só a camada 2 conhece.)
+    const PATHX: &str = "import unicodedata\nprint(unicodedata.combending('a'))\n";
+    const LIMPO: &str = "import os\nprint(os.path.join('a', 'b'))\n";
+
+    struct Ambiente {
+        projeto: TempDir,
+        scratch: TempDir,
+        runtime: HookRuntime,
+    }
+
+    impl Ambiente {
+        fn novo(modo: &str) -> Self {
+            // o projeto NÃO pode morar sob `/tmp/` (o $TMPDIR pode estar lá): o balde da
+            // política é literal, e um `src/a.py` ali já nasceria "scratch"
+            let projeto = TempDir::new_in("/var/tmp").expect("projeto");
+            std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
+            std::fs::write(
+                projeto.path().join(".touring/touring.toml"),
+                format!("[vgp]\nmodo = \"{modo}\"\ncamada2_langs = []\n"),
+            )
+            .expect("toml");
+            // o balde `/tmp/` é literal na política: o scratch NÃO pode depender do $TMPDIR
+            let scratch = TempDir::new_in("/tmp").expect("scratch");
+            let runtime = HookRuntime::new(projeto.path()).expect("HookRuntime::new");
+            Self {
+                projeto,
+                scratch,
+                runtime,
+            }
+        }
+
+        fn arquivo(&self, nome: &str, texto: &str) -> String {
+            let p = self.scratch.path().join(nome);
+            std::fs::write(&p, texto).expect("escreve");
+            p.display().to_string()
+        }
+
+        fn log(&self) -> std::path::PathBuf {
+            self.scratch.path().join("sombra.jsonl")
+        }
+
+        fn roda(&self, comando: &str) -> HookResponse {
+            let input = serde_json::json!({
+                "session_id": "frag-exec",
+                "tool_input": { "command": comando }
+            });
+            com_log_em(&self.log(), || run_returning(&self.runtime, &input))
+        }
+
+        /// As linhas do log da sombra (`hook`, `lang`, `verdict`) — o que o motor MEDIU.
+        fn linhas(&self) -> Vec<serde_json::Value> {
+            std::fs::read_to_string(self.log())
+                .unwrap_or_default()
+                .lines()
+                .filter_map(|l| serde_json::from_str(l).ok())
+                .collect()
+        }
+    }
+
+    fn razao_do_deny(r: HookResponse) -> String {
+        match r {
+            HookResponse::Deny { reason, .. } => reason,
+            outra => panic!("esperava Deny, veio {outra:?}"),
+        }
+    }
+
+    fn nao_e_deny(r: &HookResponse) {
+        assert!(
+            !matches!(r, HookResponse::Deny { .. } | HookResponse::Block { .. }),
+            "não deveria negar: {r:?}"
+        );
+    }
+
+    #[test]
+    fn executar_o_fragmento_em_tmp_nega_e_ensina() {
+        let a = Ambiente::novo("ativo");
+        let frag = a.arquivo("frag.py", FRAGMENTO);
+        let razao = razao_do_deny(a.roda(&format!("python3 {frag}")));
+        assert!(razao.contains("[VGP · deny]"), "{razao}");
+        assert!(razao.contains("nome_do_projeto_inexistente"), "{razao}");
+        assert!(razao.contains(&frag), "o deny nomeia o arquivo: {razao}");
+        assert!(
+            razao.contains("executad"),
+            "o deny ensina que o arquivo roda agora: {razao}"
+        );
+        let linhas = a.linhas();
+        let exec = linhas
+            .iter()
+            .find(|l| l["hook"] == "pre-bash-exec")
+            .expect("a execução também grava a sombra");
+        assert_eq!(exec["lang"], "python");
+        assert_eq!(exec["verdict"], "deny");
+    }
+
+    #[test]
+    fn uv_run_python_executa_o_arquivo_tambem() {
+        let a = Ambiente::novo("ativo");
+        let frag = a.arquivo("frag.py", FRAGMENTO);
+        for cmd in [
+            format!("uv run python {frag}"),
+            format!("uv run --with requests --python 3.12 python3 {frag}"),
+            format!("cd / && PYTHONPATH=x uv run python -u {frag} --arg"),
+            format!("python3 -u -B {frag} 2>&1 | head"),
+        ] {
+            let razao = razao_do_deny(a.roda(&cmd));
+            assert!(razao.contains("[VGP · deny]"), "{cmd}: {razao}");
+        }
+    }
+
+    #[test]
+    fn python_c_continua_igual_a_hoje() {
+        let a = Ambiente::novo("ativo");
+        let razao = razao_do_deny(a.roda("python3 -c 'print(nome_do_projeto_inexistente)'"));
+        assert!(razao.contains("[VGP · deny]"), "{razao}");
+        assert!(
+            razao.contains("<string>:1"),
+            "o inline segue o caminho de sempre: {razao}"
+        );
+        assert!(
+            a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
+            "python -c não é execução de arquivo"
+        );
+    }
+
+    #[test]
+    fn fragmento_limpo_executa_sem_deny() {
+        let a = Ambiente::novo("ativo");
+        let ok = a.arquivo("ok.py", LIMPO);
+        let r = a.roda(&format!("python3 {ok}"));
+        nao_e_deny(&r);
+        if let HookResponse::Context { context, .. } = &r {
+            assert!(
+                !context.contains("VGP"),
+                "arquivo limpo não avisa: {context}"
+            );
+        }
+        let linhas = a.linhas();
+        assert_eq!(
+            linhas
+                .iter()
+                .filter(|l| l["hook"] == "pre-bash-exec")
+                .map(|l| l["verdict"].as_str().unwrap_or(""))
+                .collect::<Vec<_>>(),
+            ["allow"],
+            "o arquivo limpo foi MEDIDO (allow), não ignorado"
+        );
+    }
+
+    #[test]
+    fn alvo_externo_inexistente_nega_na_execucao_p1() {
+        let a = Ambiente::novo("ativo");
+        let x = a.arquivo("x.py", PATHX);
+        let razao = razao_do_deny(a.roda(&format!("python3 {x}")));
+        assert!(razao.contains("combending"), "{razao}");
+    }
+
+    #[test]
+    fn python_m_nao_executa_arquivo() {
+        let a = Ambiente::novo("ativo");
+        let frag = a.arquivo("frag.py", FRAGMENTO);
+        for cmd in [
+            format!("python3 -m pytest {frag}"),
+            format!("python3 -m {frag}"),
+            format!("python3 -mpytest {frag}"),
+            format!("python3 -uc 'print(1)' {frag}"),
+            format!("python3 - {frag}"),
+            format!("uv run python -m pytest {frag}"),
+        ] {
+            nao_e_deny(&a.roda(&cmd));
+            assert!(
+                a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
+                "{cmd}: não é o arquivo que roda"
+            );
+        }
+    }
+
+    #[test]
+    fn so_o_comando_simples_conta_nunca_o_texto_da_linha() {
+        let a = Ambiente::novo("ativo");
+        let frag = a.arquivo("frag.py", FRAGMENTO);
+        for cmd in [
+            format!("echo python3 {frag}"),
+            format!("echo \"python3 {frag}\""),
+            format!("grep -n python3 {frag}"),
+            format!("cat {frag} # python3 {frag}"),
+            format!(
+                "cat > {}/s.sh <<'EOF'\npython3 {frag}\nEOF",
+                a.scratch.path().display()
+            ),
+            format!("python3 {}/nao_existe.py", a.scratch.path().display()),
+            format!("python3 {}", a.arquivo("nota.txt", FRAGMENTO)),
+        ] {
+            nao_e_deny(&a.roda(&cmd));
+            assert!(
+                a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
+                "{cmd}: nada a executar"
+            );
+        }
+    }
+
+    #[test]
+    fn caminho_relativo_resolve_pelo_cd_da_linha() {
+        let a = Ambiente::novo("ativo");
+        a.arquivo("frag.py", FRAGMENTO);
+        let razao = razao_do_deny(a.roda(&format!(
+            "cd {} && python3 frag.py",
+            a.scratch.path().display()
+        )));
+        assert!(razao.contains("[VGP · deny]"), "{razao}");
+    }
+
+    #[test]
+    fn so_o_scratch_e_julgado_na_execucao_script_do_repo_nao_e_re_julgado_sem_baseline() {
+        // o `continua` da ordem vale para o caminho: P2 segue só em /tmp e no .cache do projeto —
+        // um script de `src/` foi julgado, com delta contra o disco, quando foi escrito; julgá-lo
+        // de novo a cada execução, sem baseline, negaria o que já existia
+        let a = Ambiente::novo("ativo");
+        std::fs::create_dir_all(a.projeto.path().join("src")).expect("mkdir");
+        let src = a.projeto.path().join("src/a.py");
+        std::fs::write(&src, PATHX).expect("escreve");
+        nao_e_deny(&a.roda(&format!("python3 {}", src.display())));
+        assert!(
+            a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
+            "script fora do scratch nem é medido"
+        );
+        // o .cache da RAIZ do projeto roda agora, como o /tmp
+        std::fs::create_dir_all(a.projeto.path().join(".cache/x")).expect("mkdir");
+        let cache = a.projeto.path().join(".cache/x/a.py");
+        std::fs::write(&cache, FRAGMENTO).expect("escreve");
+        razao_do_deny(a.roda(&format!("python3 {}", cache.display())));
+        // e o relativo, pelo cwd do hook
+        let relativo = a.roda(&format!(
+            "cd {} && python3 .cache/x/a.py",
+            a.projeto.path().display()
+        ));
+        razao_do_deny(relativo);
+    }
+
+    #[test]
+    fn node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny() {
+        let a = Ambiente::novo("ativo");
+        let js = a.arquivo("frag.js", "console.log(naoExiste);\n");
+        for cmd in [
+            format!("node {js}"),
+            format!("node --no-warnings -r ./x {js}"),
+        ] {
+            nao_e_deny(&a.roda(&cmd));
+        }
+        let linhas = a.linhas();
+        let medidas: Vec<_> = linhas
+            .iter()
+            .filter(|l| l["hook"] == "pre-bash-exec")
+            .collect();
+        assert_eq!(medidas.len(), 2, "o predicado de node dispara: {linhas:?}");
+        assert!(medidas.iter().all(|l| l["lang"] == "javascript"));
+        // `node -e` é inline, não arquivo
+        nao_e_deny(&a.roda("node -e 'console.log(1)'"));
+        assert_eq!(a.linhas().len(), 2, "node -e não grava linha de execução");
+    }
+
+    #[test]
+    fn sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede() {
+        let a = Ambiente::novo("sombra");
+        let frag = a.arquivo("frag.py", FRAGMENTO);
+        nao_e_deny(&a.roda(&format!("python3 {frag}")));
+        let linhas = a.linhas();
+        let exec = linhas
+            .iter()
+            .find(|l| l["hook"] == "pre-bash-exec")
+            .expect("a sombra registra a execução");
+        assert_eq!(
+            exec["verdict"], "deny",
+            "o motor mediu deny; a resposta não muda"
+        );
+
+        let off = Ambiente::novo("off");
+        let frag = off.arquivo("frag.py", FRAGMENTO);
+        nao_e_deny(&off.roda(&format!("python3 {frag}")));
+        assert!(off.linhas().is_empty(), "modo off não mede nem registra");
+    }
+}
+
+/// S-2 (2026-10-26) — the notice must NAME the command that failed.
+///
+/// The notice used to carry a percentage and nothing else: the model was told
+/// that something similar had failed, and not what to avoid repeating.
+#[cfg(test)]
+mod pensieve_notice_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn ambiente() -> (TempDir, HookRuntime) {
+        // The project cannot live under `/tmp/` (the $TMPDIR may be there): the
+        // policy bucket is literal, and a `src/a.py` there is born "scratch".
+        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
+        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
+        std::fs::write(
+            projeto.path().join(".touring/touring.toml"),
+            "[vgp]\nmodo = \"off\"\ncamada2_langs = []\n",
+        )
+        .expect("toml");
+        let runtime = HookRuntime::new(projeto.path()).expect("HookRuntime::new");
+        (projeto, runtime)
+    }
+
+    /// Record the failure the way `post_bash` does: WITH the command.
+    fn registra_falha(rt: &HookRuntime, comando: &str) {
+        let short_key = crate::shared::bash_ast_validator::command_shape(comando)
+            .unwrap_or_else(|| extract_command_short(comando));
+        let states = crate::shared::command_hash::command_to_states(&short_key);
+        let mut p = rt.learning.pensieve.borrow_mut();
+        p.record_failure_with_command(&states, "exit code 1", states.len(), comando);
+    }
+
+    fn contexto(rt: &HookRuntime, comando: &str) -> String {
+        let input = serde_json::json!({
+            "session_id": "pensieve-s2",
+            "tool_input": { "command": comando }
+        });
+        match run_returning(rt, &input) {
+            HookResponse::Context { context, .. } => context,
+            // Nothing injected is the right answer for a command with no past failure:
+            // `sem_falha_passada_não_avisa` asserts exactly that (REGRA #21, found while
+            // gating the tool_trio change — the helper used to panic on `Allow`).
+            HookResponse::Allow => String::new(),
+            outra => panic!("esperava Context ou Allow, veio {outra:?}"),
+        }
+    }
+
+    #[test]
+    fn o_aviso_nomeia_o_comando_que_falhou() {
+        let (_projeto, rt) = ambiente();
+        registra_falha(&rt, "cargo test -p touring-intelligence");
+
+        let ctx = contexto(&rt, "cargo test -p touring-intelligence");
+
+        assert!(
+            ctx.contains("cargo test"),
+            "o aviso tem que nomear o comando que falhou: {ctx}"
+        );
+        assert!(
+            !ctx.contains("Similar command failed recently"),
+            "o aviso antigo (só similaridade) ainda está em uso: {ctx}"
+        );
+    }
+
+    #[test]
+    fn sem_falha_passada_não_avisa() {
+        let (_projeto, rt) = ambiente();
+        let ctx = contexto(&rt, "cargo test -p touring-intelligence");
+        assert!(
+            !ctx.contains("Similar failure"),
+            "sem falha no store não há aviso: {ctx}"
         );
     }
 }

@@ -8,7 +8,45 @@
 //! WAL, LinUCB, and CRDT state before exiting. The previous C-level `signal()`
 //! handler bypassed `graceful_shutdown()` entirely, risking data loss.
 
+const USAGE: &str = "touring-daemon — the Touring backend (one per socket).\n\
+\n\
+Takes no arguments: every launcher (`touring_foundation::daemon_spawn`, `update-touring`)\n\
+execs it bare. Manage it with `touring daemon-ctl status|restart|stop` (REGRA #19).\n\
+\n\
+Options:\n  -V, --version  print the version and exit (never starts a daemon)\n  -h, --help     print this help and exit";
+
+/// What the binary does with its arguments, decided BEFORE any side effect.
+///
+/// D5 (analise-92, 06/10/2026): `main` never read its arguments, so `touring-daemon --version` — a
+/// probe — went on to bind and start a daemon, leaving through `AlreadyAlive` with rc 0. A question
+/// must never become a spawn (REGRA #19). `None` means "no arguments: run the daemon"; anything
+/// else is `(exit code, text)` — 0 goes to stdout, the rest to stderr.
+fn early_exit(args: &[String]) -> Option<(i32, String)> {
+    let first = args.first()?;
+    Some(match first.as_str() {
+        "--version" | "-V" => (0, format!("touring-daemon {}", env!("CARGO_PKG_VERSION"))),
+        "--help" | "-h" => (0, USAGE.to_string()),
+        other => (
+            2,
+            format!(
+                "touring-daemon: unexpected argument '{other}' — the daemon takes none (only --version, \
+                 --help). Launch it bare, or manage it with `touring daemon-ctl`."
+            ),
+        ),
+    })
+}
+
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some((code, text)) = early_exit(&args) {
+        if code == 0 {
+            println!("{text}");
+        } else {
+            eprintln!("{text}");
+        }
+        std::process::exit(code);
+    }
+
     // Sprint 4.5 (Wave touring-process-hygiene 2026-05-23): install panic
     // forensics hook FIRST — before tracing init, before set_process_name,
     // before tokio runtime spawns any worker. Captures every panic in any
@@ -18,6 +56,10 @@ fn main() {
     // terminates immediately after the hook returns — no behavior change,
     // only diagnostics.
     touring_hooks::panic_log::install_hook();
+
+    // VGP camada 2: o pool pyright fica LIGADO neste processo (o daemon é o dono do pyright —
+    // o hook standalone efêmero NUNCA chama isto e `checar` devolve unknown sem spawnar).
+    touring_pyright::pool::habilitar_neste_processo();
 
     // Sprint 3 PC-1 (REGRA #19): set kernel-visible comm so `ps -o comm`,
     // `pgrep`, and the cli_handlers daemon detector can distinguish this
@@ -65,5 +107,52 @@ fn main() {
             eprintln!("[touring-daemon] fatal: rt.block_on returned Err — exit(1): {e}");
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::early_exit;
+
+    fn args(a: &[&str]) -> Vec<String> {
+        a.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn no_argument_runs_the_daemon() {
+        assert_eq!(early_exit(&[]), None);
+    }
+
+    #[test]
+    fn a_version_probe_answers_and_never_runs_the_daemon() {
+        for flag in ["--version", "-V"] {
+            let (code, text) = early_exit(&args(&[flag])).expect("a probe is answered, not run");
+            assert_eq!(code, 0);
+            assert_eq!(
+                text,
+                format!("touring-daemon {}", env!("CARGO_PKG_VERSION"))
+            );
+        }
+    }
+
+    #[test]
+    fn help_answers_and_names_the_manager() {
+        let (code, text) = early_exit(&args(&["--help"])).expect("help is answered");
+        assert_eq!(code, 0);
+        assert!(
+            text.contains("daemon-ctl") && text.contains("--version"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_unknown_argument_is_refused_with_the_accepted_ones() {
+        let (code, text) =
+            early_exit(&args(&["--socket", "/tmp/x.sock"])).expect("refused, not run");
+        assert_eq!(code, 2);
+        assert!(
+            text.contains("'--socket'") && text.contains("--version"),
+            "{text}"
+        );
     }
 }

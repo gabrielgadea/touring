@@ -450,8 +450,8 @@ fn test_all_workflow_hooks_in_registry() {
 fn test_hook_registry_counts_match_the_dispatch_registry() {
     assert_eq!(
         ALL_DAEMON_HOOK_NAMES.len(),
-        219,
-        "ALL_DAEMON_HOOK_NAMES must have exactly 219 entries (sync with touring-dispatch hook_registry test)"
+        241,
+        "ALL_DAEMON_HOOK_NAMES must have exactly 241 entries (sync with touring-dispatch hook_registry test; 2026-08-12: +10 memory facet commands F1-F6, +1 cli-wiring-scip-ingest H2; 2026-08-18: +4 decompose verbs — claim, release, ticket, frontier; 2026-08-24: +1 cli-code-mode-run; 2026-08-29 R1: +1 cli-gotcha-resolve; 2026-08-29 R4: +2 cli-experiment-{{record,list}}; 2026-08-29 P2: +1 cli-learning-replay; 2026-09-13 I13: +1 cli-index-why; 2026-09-20: +1 cli-decompose-reconcile-stages — o e7f47c1d não bumpou nenhuma das 4 cópias; corrigido 25/09, REGRA #21)"
     );
     // NOTE: all_daemon_hook_names() and ALL_DAEMON_HOOK_NAMES differ by feature-gated entries
     // and 'stop' which is in constant but not in function.
@@ -459,10 +459,19 @@ fn test_hook_registry_counts_match_the_dispatch_registry() {
     // Ciente da feature, como o tripwire irmão em
     // `touring-dispatch/src/hook_registry_tests.rs`: `acp-protocol` (não-default)
     // contribui 2 nomes, então um literal único não pode ser verdade nos dois perfis.
+    // 2026-08-18: +4 decompose verbs (C2 atomic claim + C3 Wayfinder).
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve (o produtor do canal de resolução).
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list} (superfície do ExperimentLog).
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay (canal offline→engine).
+    // 2026-09-13 (I13): +1 cli-index-why (por que um arquivo está, ou não, no índice).
+    // 2026-09-20: +1 cli-decompose-reconcile-stages — fecha estagio cujos
+    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera):
+    //   246->247 / 248->249.
+    // 2026-09-19: +1 cli-decompose-archive (a rota da retenção, que não tinha chamador).
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 249;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 247;
     assert_eq!(
         all_daemon_hook_names().len(),
         EXPECTED_NAMES,

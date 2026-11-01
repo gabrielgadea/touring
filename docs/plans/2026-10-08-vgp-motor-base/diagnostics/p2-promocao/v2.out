@@ -1,0 +1,5 @@
+hw-slot: aguardando — temp 92C > 88C
+recall de símbolo · arquivo 11/13 · inline 21/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 13]} | falsos deny 0 em {'arquivo': 400, 'inline': 274} | avisos em negativos 58 | p95 136.2 ms | chamadas 738 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 0/400 · taxa 0.000% · limite_superior_95 0.75% (teto 1%; o n=400 admite até 0 falso(s))
+  falso deny (inline): 0/274 · taxa 0.000% · limite_superior_95 1.09% (teto 1%; o n=274 admite até -1 falso(s)) · limite acima do teto (só reprova com --exigir-limite-superior)
+veredito: PRONTO

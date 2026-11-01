@@ -1,0 +1,242 @@
+.....................FF..FFF..FFFFFFFFF.                                 [100%]
+=================================== FAILURES ===================================
+______________ test_o_fecho_cobre_o_que_a_profundidade_2_so_media ______________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_fecho_cobre_o_que_a_pro0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e90801350>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_fecho_cobre_o_que_a_pro0')
+
+    def test_o_fecho_cobre_o_que_a_profundidade_2_so_media(raiz, monkeypatch, tmp_path):
+        """HO13f: `publicar_mapa.py` (do INSTANTE) importa `util` e `.outro.folha` — antes só MEDIDOS fora do manifesto (91 das
+        1.153 entradas do 20261013 tinham lacuna); o fecho transitivo os sobrepõe e a lacuna some."""
+        instante = "import util\nfrom .outro import folha\nfrom . import publicar_mapa\n"
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", lambda arq, ts, indice: instante if Path(arq).name == "publicar_mapa.py" else "")
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        e = inline(raiz)
+        over, faltas = eni.overlays_e_faltas(e, "from scripts.eleitoral import publicar_mapa as pm\n", {}, destino)
+        assert faltas == []
+>       assert {"util.py", "scripts/eleitoral/outro/__init__.py", "scripts/eleitoral/outro/folha.py"} <= rels(raiz, [o["path"] for o in over])
+E       AssertionError: assert {'scripts/ele...y', 'util.py'} <= {'scripts/__i...icar_mapa.py'}
+E         
+E         Extra items in the left set:
+E         'scripts/eleitoral/outro/__init__.py'
+E         'scripts/eleitoral/outro/folha.py'
+E         'util.py'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:226: AssertionError
+________ test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe ________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_oraculo_de_cobertura_en0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e9098f3e0>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_oraculo_de_cobertura_en0')
+
+    def test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe(raiz, monkeypatch, tmp_path):
+        """Controle positivo do verificador independente (`importacoes_nao_cobertas`): tirar um overlay do fecho TEM de acusar."""
+        instante = "import util\n"
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", lambda arq, ts, indice: instante if Path(arq).name == "publicar_mapa.py" else "")
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        e = inline(raiz)
+        over, _ = eni.overlays_e_faltas(e, "from scripts.eleitoral import publicar_mapa as pm\n", {}, destino)
+        sem_util = [o for o in over if Path(o["path"]).name != "util.py"]
+>       assert len(sem_util) == len(over) - 1
+E       AssertionError: assert 3 == (3 - 1)
+E        +  where 3 = len([{'path': '/tmp/pytest-of-gabrielgadea/pytest-415/test_o_oraculo_de_cobertura_en0/proj/scripts/__init__.py', 'file': '...: 'estado_no_instante/modulos/inl/2.py', 'sha256': '78bdb4dea631a247ca66eb3c01d1efb01da6b7dd449686fc14fdbf4f2709b490'}])
+E        +  and   3 = len([{'path': '/tmp/pytest-of-gabrielgadea/pytest-415/test_o_oraculo_de_cobertura_en0/proj/scripts/__init__.py', 'file': '...: 'estado_no_instante/modulos/inl/2.py', 'sha256': '78bdb4dea631a247ca66eb3c01d1efb01da6b7dd449686fc14fdbf4f2709b490'}])
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:239: AssertionError
+__________________ test_fecho_alcanca_o_reexporte_de_2_niveis __________________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_fecho_alcanca_o_reexporte0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e909b2190>
+
+    def test_fecho_alcanca_o_reexporte_de_2_niveis(raiz_fecho, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho))
+>       fecho = eni.fecho_transitivo(inline(raiz_fecho), ENTRADA_PKG, {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:315: AttributeError
+____________ test_estado_completo_exige_o_modulo_de_profundidade_2 _____________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_estado_completo_exige_o_m0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e906a7ad0>
+
+    def test_estado_completo_exige_o_modulo_de_profundidade_2(raiz_fecho, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, {"pkg/nucleo.py"}))
+>       assert eni.estado_completo(inline(raiz_fecho), ENTRADA_PKG, {}) == (False, MOTIVO_FECHO)
+E       AssertionError: assert (True, 'ok') == (False, 'esta... no instante')
+E         
+E         At index 0 diff: True != False
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:321: AssertionError
+____________ test_estado_completo_exige_o_modulo_de_profundidade_3 _____________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_estado_completo_exige_o_m1/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e90b17dd0>
+
+    def test_estado_completo_exige_o_modulo_de_profundidade_3(raiz_fecho, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, {"pkg/base.py"}))
+>       assert eni.estado_completo(inline(raiz_fecho), ENTRADA_PKG, {}) == (False, MOTIVO_FECHO)
+E       AssertionError: assert (True, 'ok') == (False, 'esta... no instante')
+E         
+E         At index 0 diff: True != False
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:326: AssertionError
+___ test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova ____
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_avaliar_na_profundidade_10/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e909fd180>
+
+    def test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova(raiz_fecho, monkeypatch):
+        """A medida do viés: a MESMA entrada passa na regra de profundidade 1 e reprova no fecho."""
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, {"pkg/nucleo.py"}))
+>       fecho = eni.fecho_transitivo(inline(raiz_fecho), ENTRADA_PKG, {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:344: AttributeError
+______________ test_irreconstrutivel_nao_se_expande_e_nao_levanta ______________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_irreconstrutivel_nao_se_e0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e9094d3b0>
+
+    def test_irreconstrutivel_nao_se_expande_e_nao_levanta(raiz_fecho, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, {"pkg/nucleo.py"}))
+>       fecho = eni.fecho_transitivo(inline(raiz_fecho), ENTRADA_PKG, {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:351: AttributeError
+_________ test_overlays_cobrem_todo_o_fecho_com_o_conteudo_do_instante _________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_overlays_cobrem_todo_o_fe0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e9094d6d0>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_overlays_cobrem_todo_o_fe0')
+
+    def test_overlays_cobrem_todo_o_fecho_com_o_conteudo_do_instante(raiz_fecho, monkeypatch, tmp_path):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, instante={"pkg/base.py": BASE_DO_INSTANTE}))
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        over, faltas = eni.overlays_e_faltas(inline(raiz_fecho), ENTRADA_PKG, {}, destino)
+        assert faltas == []
+        por_rel = {str(Path(o["path"]).resolve().relative_to(raiz_fecho.resolve())): o for o in over}
+>       assert set(por_rel) == {"pkg/__init__.py", "pkg/nucleo.py", "pkg/base.py"}
+E       AssertionError: assert {'pkg/__init__.py'} == {'pkg/__init_...kg/nucleo.py'}
+E         
+E         Extra items in the right set:
+E         'pkg/base.py'
+E         'pkg/nucleo.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:363: AssertionError
+__________ test_overlays_e_faltas_nomeia_o_irreconstrutivel_do_fecho ___________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_overlays_e_faltas_nomeia_1/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e906a84d0>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_overlays_e_faltas_nomeia_1')
+
+    def test_overlays_e_faltas_nomeia_o_irreconstrutivel_do_fecho(raiz_fecho, monkeypatch, tmp_path):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, {"pkg/nucleo.py"}))
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        over, faltas = eni.overlays_e_faltas(inline(raiz_fecho), ENTRADA_PKG, {}, destino)
+>       assert [Path(f).name for f in faltas] == ["nucleo.py"] and [Path(o["path"]).name for o in over] == ["__init__.py"]
+E       AssertionError: assert ([] == ['nucleo.py']
+E         
+E         Right contains one more item: 'nucleo.py'
+E         Use -v to get more diff)
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:374: AssertionError
+___________ test_o_fecho_e_fechado_e_o_oraculo_independente_concorda ___________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_fecho_e_fechado_e_o_ora0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e90936150>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_fecho_e_fechado_e_o_ora0')
+
+    def test_o_fecho_e_fechado_e_o_oraculo_independente_concorda(raiz_fecho, monkeypatch, tmp_path):
+        """`importacoes_nao_cobertas` (leitura independente do BFS) acha 0 lacuna no fecho; sem o `base.py` ela acusa."""
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho))
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        e = inline(raiz_fecho)
+        over, _ = eni.overlays_e_faltas(e, ENTRADA_PKG, {}, destino)
+>       assert eni.importacoes_nao_cobertas(e, over, destino) == []
+E       AssertionError: assert ['/tmp/pytest...kg/nucleo.py'] == []
+E         
+E         Left contains one more item: '/tmp/pytest-of-gabrielgadea/pytest-415/test_o_fecho_e_fechado_e_o_ora0/projfecho/pkg/nucleo.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:384: AssertionError
+____________ test_fecho_segue_os_imports_do_instante_nao_os_de_hoje ____________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_fecho_segue_os_imports_do0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e909356d0>
+
+    def test_fecho_segue_os_imports_do_instante_nao_os_de_hoje(raiz_fecho, monkeypatch):
+        """Hoje `pkg/__init__.py` importa `nucleo`; no INSTANTE importava `base` direto — o fecho segue o instante."""
+        instante = {"pkg/__init__.py": "from .base import g as f\n"}
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho, instante=instante))
+>       fecho = eni.fecho_transitivo(inline(raiz_fecho), ENTRADA_PKG, {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:393: AttributeError
+_______________ test_ciclo_termina_e_cada_modulo_aparece_uma_vez _______________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_ciclo_termina_e_cada_modu0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e909f1b70>
+
+    def test_ciclo_termina_e_cada_modulo_aparece_uma_vez(raiz_fecho, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho))
+>       fecho = eni.fecho_transitivo(inline(raiz_fecho), "from ciclo import a\n", {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:399: AttributeError
+_____________ test_o_proprio_arquivo_da_entrada_nao_entra_no_fecho _____________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_o_proprio_arquivo_da_entr0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e909423c0>
+
+    def test_o_proprio_arquivo_da_entrada_nao_entra_no_fecho(raiz_fecho, monkeypatch):
+        """`helper` importa `main` de volta: `main.py` e a entrada (o `--content-file`), nunca um overlay dela mesma."""
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho))
+        e = de_arquivo(raiz_fecho, "app/main.py")
+>       fecho = eni.fecho_transitivo(e, FECHO["app/main.py"], {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:407: AttributeError
+___________ test_profundidade_registrada_e_a_menor_entre_os_caminhos ___________
+
+raiz_fecho = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-415/test_profundidade_registrada_e0/projfecho')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x750e909f23c0>
+
+    def test_profundidade_registrada_e_a_menor_entre_os_caminhos(raiz_fecho, monkeypatch):
+        """`pkg/base.py` e alcancavel por 2 caminhos (direto e via nucleo); vale o mais raso."""
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_fecho(raiz_fecho))
+>       fecho = eni.fecho_transitivo(inline(raiz_fecho), "from pkg import f\nfrom pkg import base\n", {})
+                ^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'fecho_transitivo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:414: AttributeError
+=========================== short test summary info ============================
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_o_fecho_cobre_o_que_a_profundidade_2_so_media
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_o_oraculo_de_cobertura_enxerga_a_lacuna_quando_ela_existe
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_fecho_alcanca_o_reexporte_de_2_niveis
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_estado_completo_exige_o_modulo_de_profundidade_2
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_estado_completo_exige_o_modulo_de_profundidade_3
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_avaliar_na_profundidade_1_reproduz_a_regra_antiga_e_o_fecho_a_nova
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_irreconstrutivel_nao_se_expande_e_nao_levanta
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_overlays_cobrem_todo_o_fecho_com_o_conteudo_do_instante
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_overlays_e_faltas_nomeia_o_irreconstrutivel_do_fecho
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_o_fecho_e_fechado_e_o_oraculo_independente_concorda
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_fecho_segue_os_imports_do_instante_nao_os_de_hoje
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_ciclo_termina_e_cada_modulo_aparece_uma_vez
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_o_proprio_arquivo_da_entrada_nao_entra_no_fecho
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_profundidade_registrada_e_a_menor_entre_os_caminhos
+14 failed, 26 passed in 0.16s

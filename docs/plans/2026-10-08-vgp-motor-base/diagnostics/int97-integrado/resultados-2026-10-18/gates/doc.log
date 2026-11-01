@@ -1,0 +1,6 @@
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+    Checking touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+ Documenting touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.76s
+   Generated /home/gabrielgadea/projects/touring/target/wt-int97/doc/touring_code/index.html

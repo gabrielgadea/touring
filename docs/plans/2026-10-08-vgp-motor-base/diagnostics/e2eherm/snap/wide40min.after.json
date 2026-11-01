@@ -1,0 +1,385 @@
+{
+ "/home/gabrielgadea/.claude/touring/cross_agent_events.db": {
+  "mtime": 1791073116,
+  "size": 24576,
+  "tables": {
+   "actors": 61,
+   "events": 0
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/entity_registry.db": {
+  "mtime": 1787516858,
+  "size": 49152,
+  "tables": {
+   "entity_codes": 28,
+   "generic_name_patterns": 8,
+   "symbol_disambiguation": 0
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/experiment_log.db": {
+  "mtime": 1791291171,
+  "size": 143360,
+  "tables": {
+   "experiment_log": 1536
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/graph.db": {
+  "mtime": 1791554541,
+  "size": 1167360,
+  "tables": {
+   "dependencies": 0,
+   "dependency_symbols": 0,
+   "got_sessions": 0,
+   "learning_drift": 0,
+   "learning_linucb": 0,
+   "learning_qtable": 31,
+   "learning_wilson": 0,
+   "symbols": 1553,
+   "symbols_fts": 1553,
+   "symbols_fts_config": 1,
+   "symbols_fts_data": 58,
+   "symbols_fts_docsize": 1553,
+   "symbols_fts_idx": 56
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/knowledge.db": {
+  "mtime": 1791554541,
+  "size": 2375680,
+  "tables": {
+   "action_type_deactivation": 0,
+   "bash_outcomes": 0,
+   "cc_action_suggestions": 0,
+   "cli_checkpoints": 6,
+   "cli_sessions": 6,
+   "cognitive_enrichment": 31,
+   "decomposition_events": 66,
+   "decomposition_snapshots": 13,
+   "decomposition_subtasks": 36,
+   "edge_confidence": 0,
+   "edit_history": 0,
+   "failure_counts": 0,
+   "file_access_log": 46,
+   "file_blake3_registry": 57,
+   "file_coedits": 434,
+   "file_communities": 0,
+   "file_feature_flags": 8,
+   "file_knowledge": 231,
+   "file_relations": 1375,
+   "file_test_coverage": 0,
+   "file_todos": 0,
+   "gotchas": 6,
+   "hook_event_correlations": 0,
+   "hook_events": 0,
+   "hook_intent_class": 0,
+   "hook_patterns_ephemeral": 0,
+   "hook_patterns_semantic": 0,
+   "hook_patterns_working": 0,
+   "hook_quality_signals": 0,
+   "hook_task_completions": 0,
+   "metadata_benchmark_runs": 0,
+   "module_ecosystem": 176,
+   "pending_approvals": 1,
+   "session_file_summary": 83,
+   "subtask_results": 0,
+   "symbol_events_log": 197,
+   "task_decompositions": 10,
+   "wiring_map": 14,
+   "wiring_suggestions": 0,
+   "wiring_unresolved": 4
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/memory.db": {
+  "mtime": 1791637501,
+  "size": 3723264,
+  "tables": {
+   "chunks": 283,
+   "chunks_fts": 283,
+   "chunks_fts_config": 1,
+   "chunks_fts_data": 45,
+   "chunks_fts_docsize": 283,
+   "chunks_fts_idx": 43,
+   "embeddings": 265,
+   "memories_fts": 622,
+   "memories_fts_config": 1,
+   "memories_fts_data": 115,
+   "memories_fts_docsize": 622,
+   "memories_fts_idx": 113,
+   "memory_coserved": 856,
+   "memory_entries": 622,
+   "memory_links": 19,
+   "memory_tags": 1581,
+   "meta": 0,
+   "snippet_stats": 65,
+   "tags_fts": 1581,
+   "tags_fts_config": 1,
+   "tags_fts_data": 12,
+   "tags_fts_docsize": 1581,
+   "tags_fts_idx": 9
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/semantic.db": {
+  "mtime": 1787627150,
+  "size": 102400,
+  "tables": {
+   "chunks": 203,
+   "chunks_fts": 203,
+   "chunks_fts_config": 1,
+   "chunks_fts_data": 18,
+   "chunks_fts_docsize": 203,
+   "chunks_fts_idx": 16
+  }
+ },
+ "/home/gabrielgadea/.claude/touring/symbols.db": {
+  "mtime": 1791213665,
+  "size": 3747840,
+  "tables": {
+   "dependencies": 0,
+   "dependency_symbols": 0,
+   "symbols": 6642,
+   "symbols_fts": 6642,
+   "symbols_fts_config": 1,
+   "symbols_fts_data": 187,
+   "symbols_fts_docsize": 6642,
+   "symbols_fts_idx": 132
+  }
+ },
+ "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/graph.db": {
+  "mtime": 1791640784,
+  "size": 4096,
+  "tables": {
+   "dependencies": 0,
+   "dependency_symbols": 0,
+   "symbols": 0,
+   "symbols_fts": 0,
+   "symbols_fts_config": 1,
+   "symbols_fts_data": 2,
+   "symbols_fts_docsize": 0,
+   "symbols_fts_idx": 0
+  }
+ },
+ "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/knowledge.db": {
+  "mtime": 1791642231,
+  "size": 503808,
+  "tables": {
+   "bash_outcomes": 0,
+   "cognitive_enrichment": 0,
+   "decomposition_events": 0,
+   "decomposition_snapshots": 0,
+   "decomposition_subtasks": 0,
+   "edge_confidence": 0,
+   "edit_history": 0,
+   "failure_counts": 0,
+   "file_access_log": 0,
+   "file_blake3_registry": 0,
+   "file_coedits": 0,
+   "file_communities": 0,
+   "file_feature_flags": 0,
+   "file_knowledge": 0,
+   "file_relations": 0,
+   "file_test_coverage": 0,
+   "file_todos": 0,
+   "gotchas": 0,
+   "hook_event_correlations": 0,
+   "hook_events": 0,
+   "hook_intent_class": 0,
+   "hook_patterns_ephemeral": 0,
+   "hook_patterns_semantic": 0,
+   "hook_patterns_working": 0,
+   "hook_quality_signals": 0,
+   "hook_task_completions": 0,
+   "metadata_benchmark_runs": 0,
+   "module_ecosystem": 0,
+   "session_file_summary": 0,
+   "subtask_results": 0,
+   "symbol_events_log": 0,
+   "task_decompositions": 0,
+   "wiring_map": 0,
+   "wiring_suggestions": 0,
+   "wiring_unresolved": 0
+  }
+ },
+ "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/memory.db": {
+  "mtime": 1791640784,
+  "size": 4096,
+  "tables": {
+   "embeddings": 0,
+   "memories_fts": 0,
+   "memories_fts_config": 1,
+   "memories_fts_data": 2,
+   "memories_fts_docsize": 0,
+   "memories_fts_idx": 0,
+   "memory_entries": 0,
+   "memory_links": 0,
+   "memory_tags": 0,
+   "meta": 0,
+   "snippet_stats": 0,
+   "tags_fts": 0,
+   "tags_fts_config": 1,
+   "tags_fts_data": 2,
+   "tags_fts_docsize": 0,
+   "tags_fts_idx": 0
+  }
+ },
+ "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/symbols.db": {
+  "mtime": 1791640784,
+  "size": 4096,
+  "tables": {
+   "dependencies": 0,
+   "dependency_symbols": 0,
+   "symbols": 0,
+   "symbols_fts": 0,
+   "symbols_fts_config": 1,
+   "symbols_fts_data": 2,
+   "symbols_fts_docsize": 0,
+   "symbols_fts_idx": 0
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/cross_agent_events.db": {
+  "mtime": 1791073116,
+  "size": 49152,
+  "tables": {
+   "actors": 416,
+   "events": 0
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/entity_registry.db": {
+  "mtime": 1775925124,
+  "size": 49152,
+  "tables": {
+   "entity_codes": 28,
+   "generic_name_patterns": 8,
+   "symbol_disambiguation": 0
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/experiment_log.db": {
+  "mtime": 1788489698,
+  "size": 212992,
+  "tables": {
+   "experiment_log": 2403
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/graph.db": {
+  "mtime": 1791645915,
+  "size": 355606528,
+  "tables": {
+   "dependencies": 0,
+   "dependency_symbols": 0,
+   "got_sessions": 0,
+   "learning_drift": 1,
+   "learning_linucb": 8,
+   "learning_qtable": 133,
+   "learning_wilson": 0,
+   "symbols": 660015,
+   "symbols_fts": 660015,
+   "symbols_fts_config": 1,
+   "symbols_fts_data": 9696,
+   "symbols_fts_docsize": 660015,
+   "symbols_fts_idx": 2228,
+   "touring_hook_events": 102
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/knowledge.db": {
+  "mtime": 1791644484,
+  "size": 176607232,
+  "tables": {
+   "action_type_deactivation": 1,
+   "bash_outcomes": 16495,
+   "cc_action_suggestions": 10,
+   "cli_checkpoints": 93,
+   "cli_sessions": 136,
+   "cognitive_enrichment": 1015,
+   "decomposition_events": 4400,
+   "decomposition_snapshots": 652,
+   "decomposition_subtasks": 1737,
+   "edge_confidence": 0,
+   "edit_history": 5045,
+   "failure_counts": 0,
+   "file_access_log": 9147,
+   "file_blake3_registry": 9104,
+   "file_coedits": 19671,
+   "file_communities": 0,
+   "file_feature_flags": 499,
+   "file_knowledge": 9681,
+   "file_relations": 50091,
+   "file_test_coverage": 0,
+   "file_todos": 95,
+   "functional_chains": 152,
+   "functional_signatures": 1293,
+   "gotchas": 13,
+   "hook_event_correlations": 0,
+   "hook_events": 0,
+   "hook_intent_class": 0,
+   "hook_patterns_ephemeral": 0,
+   "hook_patterns_semantic": 0,
+   "hook_patterns_working": 0,
+   "hook_quality_signals": 0,
+   "hook_task_completions": 0,
+   "index_generation": 21,
+   "metadata_benchmark_runs": 2,
+   "module_ecosystem": 1293,
+   "pending_approvals": 4,
+   "session_file_summary": 1106,
+   "subtask_results": 111,
+   "symbol_events_log": 8586,
+   "task_decompositions": 430,
+   "wiring_map": 101755,
+   "wiring_suggestions": 0,
+   "wiring_unresolved": 7688
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/memory.db": {
+  "mtime": 1791645203,
+  "size": 175566848,
+  "tables": {
+   "chunks": 19868,
+   "chunks_fts": 19868,
+   "chunks_fts_config": 1,
+   "chunks_fts_data": 1209,
+   "chunks_fts_docsize": 19868,
+   "chunks_fts_idx": 1022,
+   "embeddings": 20307,
+   "memories_fts": 21637,
+   "memories_fts_config": 1,
+   "memories_fts_data": 2627,
+   "memories_fts_docsize": 27147,
+   "memories_fts_idx": 1834,
+   "memory_coserved": 39570,
+   "memory_entries": 21637,
+   "memory_links": 460,
+   "memory_tags": 48695,
+   "meta": 0,
+   "snippet_stats": 789,
+   "tags_fts": 48695,
+   "tags_fts_config": 1,
+   "tags_fts_data": 171,
+   "tags_fts_docsize": 48695,
+   "tags_fts_idx": 51
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/semantic.db": {
+  "mtime": 1787605653,
+  "size": 315392,
+  "tables": {
+   "chunks": 537,
+   "chunks_fts": 537,
+   "chunks_fts_config": 1,
+   "chunks_fts_data": 31,
+   "chunks_fts_docsize": 537,
+   "chunks_fts_idx": 29
+  }
+ },
+ "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db": {
+  "mtime": 1791643800,
+  "size": 503709696,
+  "tables": {
+   "dependencies": 0,
+   "dependency_symbols": 0,
+   "symbols": 376654,
+   "symbols_fts": 376654,
+   "symbols_fts_config": 1,
+   "symbols_fts_data": 9784,
+   "symbols_fts_docsize": 376654,
+   "symbols_fts_idx": 2142
+  }
+ }
+}

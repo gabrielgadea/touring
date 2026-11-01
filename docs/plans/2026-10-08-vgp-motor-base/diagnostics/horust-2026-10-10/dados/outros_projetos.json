@@ -1,0 +1,72 @@
+{
+ "kazuba-cargo": {
+  "transcripts": 0,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ },
+ "touring-wt-q50": {
+  "transcripts": 11,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ },
+ "touring-wt-wiring": {
+  "transcripts": 1,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ },
+ "konverter": {
+  "transcripts": 0,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ },
+ "claude-trading": {
+  "transcripts": 0,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ },
+ "2026-04-layerzero": {
+  "transcripts": 0,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ },
+ "transferegov-pipeline": {
+  "transcripts": 0,
+  "edicoes_rs": 0,
+  "chamadas_cargo": 0,
+  "ocorrencias_brutas_por_codigo": {},
+  "positivos_do_gerador_atual": 0,
+  "descartados": {},
+  "funil": null,
+  "sessoes_vgp_entre_eles": 0
+ }
+}

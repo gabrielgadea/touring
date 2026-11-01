@@ -5,6 +5,8 @@ use std::sync::Arc;
 use tempfile::TempDir;
 use touring_hooks::knowledge::FileKnowledgeDB;
 
+#[cfg(test)]
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[allow(clippy::arc_with_non_send_sync)] // single-threaded test context
 fn make_test_ctx(event: HookEvent, input: serde_json::Value) -> (TempDir, CortexContext) {
     let tmp = TempDir::new().unwrap();
@@ -568,13 +570,14 @@ fn test_worktree_enter_allow_without_rlm() {
 
 #[test]
 fn test_worktree_enter_env_file_written_when_exists() {
+    let _env = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     use std::io::Read;
     let tmp = tempfile::TempDir::new().expect("tmp dir");
     let env_file = tmp.path().join("claude.env");
     std::fs::write(&env_file, "").expect("create env file");
 
     // Set CLAUDE_ENV_FILE to our temp file
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("CLAUDE_ENV_FILE", env_file.to_str().expect("utf8 path")) };
 
     let input = serde_json::json!({
@@ -602,7 +605,7 @@ fn test_worktree_enter_env_file_written_when_exists() {
     );
 
     // Cleanup env var to avoid test pollution
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("CLAUDE_ENV_FILE") };
     drop(ctx_tmp);
 }
@@ -614,4 +617,49 @@ fn test_lifecycle_registration() {
     let mut pipeline = Pipeline::new();
     register(&mut pipeline);
     assert_eq!(pipeline.handler_count(), 21); // 15 original + 6 new (H77-H82)
+}
+
+/// 14/09/2026: the handler spawned `touring index rebuild --dir <worktree>` with
+/// the PARENT project as cwd, so the rebuild sealed an empty "complete"
+/// generation over the parent's index — three times per test run, because the
+/// worktree tests pass paths that do not exist. The rebuild now runs inside the
+/// worktree, as its own project, and only when the worktree is there.
+#[test]
+fn a_worktree_rebuild_runs_inside_the_worktree_and_only_when_it_exists() {
+    assert!(
+        worktree_rebuild_command("/tmp/touring-missing-worktree-7c1e").is_none(),
+        "a worktree that does not exist gets no rebuild"
+    );
+    let worktree = TempDir::new().unwrap();
+    let cmd = worktree_rebuild_command(&worktree.path().to_string_lossy())
+        .expect("an existing worktree gets a rebuild");
+    assert_eq!(cmd.get_current_dir(), Some(worktree.path()));
+    let args: Vec<String> = cmd
+        .get_args()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(
+        args,
+        ["index", "rebuild"],
+        "the worktree is the project, not a --dir of the parent"
+    );
+}
+
+/// Cross-audit 14/09/2026 (B6/B10): the command's shape was all the test above
+/// checked. What makes "runs inside the worktree" true is that the client
+/// resolves the rebuild's cwd to the WORKTREE — whose `.git` is a file — and
+/// not to the parent project that holds the `.git` directory.
+#[test]
+fn the_worktree_cwd_resolves_to_the_worktree_not_its_parent() {
+    let parent = TempDir::new().unwrap();
+    std::fs::create_dir_all(parent.path().join(".git")).unwrap();
+    let worktree = parent.path().join("wt");
+    std::fs::create_dir_all(&worktree).unwrap();
+    std::fs::write(worktree.join(".git"), "gitdir: ../.git/worktrees/wt\n").unwrap();
+    let cmd = worktree_rebuild_command(&worktree.to_string_lossy()).expect("rebuild");
+    let cwd = cmd.get_current_dir().expect("cwd").to_path_buf();
+    assert_eq!(
+        touring_foundation::TouringConfig::normalize_project_root(&cwd),
+        worktree
+    );
 }

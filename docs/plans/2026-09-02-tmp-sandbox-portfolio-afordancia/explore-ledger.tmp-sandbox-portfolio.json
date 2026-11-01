@@ -1,0 +1,1210 @@
+{
+ "version": 2,
+ "topic": "afordancia sandbox portfolio tmp code-mode harness",
+ "scope": "/home/gabrielgadea/projects/touring",
+ "created_at": 1788333694.844481,
+ "rounds": [
+  {
+   "round": 1,
+   "new_findings": 17,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 4,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 12,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 1,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:35-0300"
+  },
+  {
+   "round": 2,
+   "new_findings": 2,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 2,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:35-0300"
+  },
+  {
+   "round": 3,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:36-0300"
+  },
+  {
+   "round": 4,
+   "new_findings": 3,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 3,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:36-0300"
+  },
+  {
+   "round": 5,
+   "new_findings": 2,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 2,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:36-0300"
+  },
+  {
+   "round": 6,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:37-0300"
+  },
+  {
+   "round": 7,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:37-0300"
+  },
+  {
+   "round": 8,
+   "new_findings": 2,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 2,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:21:37-0300"
+  },
+  {
+   "round": 9,
+   "new_findings": 9,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 9,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:10-0300"
+  },
+  {
+   "round": 10,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:11-0300"
+  },
+  {
+   "round": 11,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:11-0300"
+  },
+  {
+   "round": 12,
+   "new_findings": 3,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 3,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:12-0300"
+  },
+  {
+   "round": 13,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:12-0300"
+  },
+  {
+   "round": 14,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:13-0300"
+  },
+  {
+   "round": 15,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:13-0300"
+  },
+  {
+   "round": 16,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:13-0300"
+  },
+  {
+   "round": 17,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:14-0300"
+  },
+  {
+   "round": 18,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:14-0300"
+  },
+  {
+   "round": 19,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:15-0300"
+  },
+  {
+   "round": 20,
+   "new_findings": 0,
+   "lens_stats": {
+    "lexical": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "structural": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "institutional": {
+     "found": 4,
+     "new": 0,
+     "truncated": 0
+    },
+    "antistaleness": {
+     "found": 12,
+     "new": 0,
+     "truncated": 24
+    },
+    "quality": {
+     "found": 0,
+     "new": 0,
+     "truncated": 0
+    },
+    "portfolio": {
+     "found": 1,
+     "new": 0,
+     "truncated": 0
+    }
+   },
+   "degraded": false,
+   "at": "2026-09-02T04:22:15-0300"
+  }
+ ],
+ "findings": {
+  "f_2da103c2a170": {
+   "id": "f_2da103c2a170",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "retomar:code-mode-afordancia:2026-08-25",
+   "evidence": "touring memory recall afordancia sandbox portfolio tmp code-mode harness",
+   "detail": "retomar:code-mode-afordancia:2026-08-25 <!-- OKF document -->\n---\nokf_version: \"1.0\"\ntype: ResumePoint\ntitle: \"Retomar aqui — afordância de code mode\"\ndescription: \"Estado exato ao fim da sessão de 25",
+   "depth": "D1",
+   "stored_at": "2026-08-25 12:28:22",
+   "round": 1
+  },
+  "f_b1d434510305": {
+   "id": "f_b1d434510305",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "report:diagnostic:touring-20260902T041748",
+   "evidence": "touring memory recall afordancia sandbox portfolio tmp code-mode harness",
+   "detail": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/diagnostics/touring-20260902T041748.md",
+   "depth": "D1",
+   "stored_at": "2026-09-02 07:17:48",
+   "round": 1
+  },
+  "f_f3e63f900421": {
+   "id": "f_f3e63f900421",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "roadmap:code-as-agent-harness-touring:2026-05-29",
+   "evidence": "touring memory recall afordancia sandbox portfolio tmp code-mode harness",
+   "detail": "Paper Code as Agent Harness (arXiv 2605.18747) isomorfico ao TACO. Roadmap completo: rust/docs/2026-05-29-code-as-agent-harness-touring-roadmap.md. 7 Open Problems sec5.2 = fronteira de melhoria. 4 pr",
+   "depth": "D1",
+   "stored_at": "2026-05-29 13:53:36",
+   "round": 1
+  },
+  "f_b4b72df59b78": {
+   "id": "f_b4b72df59b78",
+   "lens": "institutional",
+   "kind": "memory",
+   "key": "wave:elite-harness-S06-BUILT:2026-05-29",
+   "evidence": "touring memory recall afordancia sandbox portfolio tmp code-mode harness",
+   "detail": "S-06 R5/OP1 unified HarnessQuality 6-dim KPI BUILT+cargo-validated. New module gateway/harness_metric.rs: HarnessQuality{executable,inspectable,stateful,governed,performant,evolving,composite:f64} + f",
+   "depth": "D1",
+   "stored_at": "2026-05-29 23:36:57",
+   "round": 1
+  },
+  "f_fa664f63ad69": {
+   "id": "f_fa664f63ad69",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/client/skills/taco-planning/SKILL.md:303",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   `~/projects/touring/docs/plans/2026-08-25-code-mode-afordancia/` — o plano que os",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_1e663d8648bb": {
+   "id": "f_1e663d8648bb",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/client/skills/Touring/references/code-mode-operational.md:4",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "> Origem: plano `docs/plans/2026-08-25-code-mode-afordancia/` (CONVERGIDO,",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_e52496a3b041": {
+   "id": "f_e52496a3b041",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/client/skills/Touring/references/code-mode-operational.md:169",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "| Plano convergido + fases P0-P4 | `~/projects/touring/docs/plans/2026-08-25-code-mode-afordancia/` |",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_89aa50c128eb": {
+   "id": "f_89aa50c128eb",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md:5",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "plan_id: 2026-09-02-tmp-sandbox-portfolio-afordancia",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_5793bae89e89": {
+   "id": "f_5793bae89e89",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/diagnostics/touring-20260902T041748.md:5",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "plan_id: 2026-09-02-tmp-sandbox-portfolio-afordancia",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_af935425699e": {
+   "id": "f_af935425699e",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/audits/cross-audit-2026-08-25.md:5",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "tags: [cross-audit, code-mode, afordancia, e2e-proof]",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_fa3c7aa25c7d": {
+   "id": "f_fa3c7aa25c7d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/audits/cross-audit-2026-08-25.md:123",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "`docs/plans/2026-08-25-code-mode-afordancia/phases/P2.3.md` + `P2.4.md` (calibração),",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_94c613e5c018": {
+   "id": "f_94c613e5c018",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/audits/cross-audit-2026-08-25.md:124",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "`docs/plans/2026-08-25-code-mode-afordancia/phases/P3.md` (T3-B).",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_866046780139": {
+   "id": "f_866046780139",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-24-code-mode-max/strategy-2026-08-24-code-mode-max.md:6",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "tags: [code-mode, adw, sandbox, observabilidade, afordancia]",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_b69ef48022ae": {
+   "id": "f_b69ef48022ae",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-01-work-outer/explore-ledger.skill-research.json:84",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "      \"detail\": \"Selecao de skill e puro raciocinio LLM contra description do frontmatter. Mecanismo de forca via 4 cana",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_2b431fd87b9a": {
+   "id": "f_2b431fd87b9a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-31-complementacao-hooks/log.md:26",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "A1 done: modulo check_compile (touring-hook-handlers): resolve_crate_name (walk-up ate [package]), debounce 30s por crat",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_9d525c76413d": {
+   "id": "f_9d525c76413d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-08-portfolio-de-capacidades/strategy-2026-08-08-portfolio-de-capacidades.md:9",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "tags: [portfolio, prior-art, descoberta-por-intento, aco, context7, afordancia]",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_34a326b5dd40": {
+   "id": "f_34a326b5dd40",
+   "lens": "portfolio",
+   "kind": "gap",
+   "key": "nenhum artefato conhecido cobre \"afordancia sandbox portfolio tmp code-mode harness\" (11502 registros varridos) — o port",
+   "evidence": "touring portfolio afordancia sandbox portfolio tmp code-mode harness",
+   "detail": "nenhum artefato conhecido cobre \"afordancia sandbox portfolio tmp code-mode harness\" (11502 registros varridos) — o portfólio não tem prior-art para este intento",
+   "depth": "D0",
+   "round": 1
+  },
+  "f_8bcf528f7d36": {
+   "id": "f_8bcf528f7d36",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-31-complementacao-hooks/knowledge/A1-check-compile-layer.json:7",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "      \"description\": \"A1 done: modulo check_compile (touring-hook-handlers): resolve_crate_name (walk-up ate [package]),",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_0d6b3121234a": {
+   "id": "f_0d6b3121234a",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-31-complementacao-hooks/phases/A1-check-compile-layer.md:19",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "A1 done: modulo check_compile (touring-hook-handlers): resolve_crate_name (walk-up ate [package]), debounce 30s por crat",
+   "depth": "D0",
+   "round": 2
+  },
+  "f_1257771b394f": {
+   "id": "f_1257771b394f",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-code-mode-diagnostico-afordancia/phases/S2.md:5",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "plan_id: 2026-08-26-code-mode-diagnostico-afordancia",
+   "depth": "D0",
+   "round": 4
+  },
+  "f_583bdf35369b": {
+   "id": "f_583bdf35369b",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-code-mode-diagnostico-afordancia/strategy-2026-08-26-code-mode-diagnostico-afordancia.md:6",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "plan_id: 2026-08-26-code-mode-diagnostico-afordancia",
+   "depth": "D0",
+   "round": 4
+  },
+  "f_c328b33ea55b": {
+   "id": "f_c328b33ea55b",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-code-mode-diagnostico-afordancia/strategy-2026-08-26-code-mode-diagnostico-afordancia.md:7",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "tags: [code-mode, afordancia, deepseek-harness, diagnostico, gates, n5-metric, orchestrate-sdk]",
+   "depth": "D0",
+   "round": 4
+  },
+  "f_03f24a5305b5": {
+   "id": "f_03f24a5305b5",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-08-portfolio-de-capacidades/phases/P1-P6-portfolio-de-capacidades.md:9",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "tags: [portfolio, prior-art, bm25, bilingue, afordancia, regra-0, regra-21]",
+   "depth": "D0",
+   "round": 5
+  },
+  "f_382c7dceabd7": {
+   "id": "f_382c7dceabd7",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-07-gortex-insights/exploration-gortex.md:6",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "tags: [exploration, gortex, benchmarking-externo, wiring, retrieval-eval, token-economy, afordancia]",
+   "depth": "D0",
+   "round": 5
+  },
+  "f_1b09361f0013": {
+   "id": "f_1b09361f0013",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-24-code-mode-antecipa/plan.md:40",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "  `afordancia-desligada-quebra-em-silencio` (exercitar antes de ligar em massa) ·",
+   "depth": "D0",
+   "round": 8
+  },
+  "f_46b1cdfe99e9": {
+   "id": "f_46b1cdfe99e9",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-08-24-code-mode-antecipa/plan.md:395",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "**Regra de exercício** (lição `afordancia-desligada-quebra-em-silencio`): toda",
+   "depth": "D0",
+   "round": 8
+  },
+  "f_3297d4aa69e6": {
+   "id": "f_3297d4aa69e6",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:3",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": " \"topic\": \"afordancia sandbox portfolio tmp code-mode harness\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_e49af9b210a2": {
+   "id": "f_e49af9b210a2",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:317",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"key\": \"retomar:code-mode-afordancia:2026-08-25\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_a33df4068ab2": {
+   "id": "f_a33df4068ab2",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:318",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"evidence\": \"touring memory recall afordancia sandbox portfolio tmp code-mode harness\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_abc346b6822d": {
+   "id": "f_abc346b6822d",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:319",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"detail\": \"retomar:code-mode-afordancia:2026-08-25 <!-- OKF document -->\\n---\\nokf_version: \\\"1.0\\\"\\ntype: ResumePoin",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_72858ad5af27": {
+   "id": "f_72858ad5af27",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:329",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"evidence\": \"touring memory recall afordancia sandbox portfolio tmp code-mode harness\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_c85db2d09fef": {
+   "id": "f_c85db2d09fef",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:330",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"detail\": \"OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-02-tmp-sandbox-portfolio-aforda",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_907bc2da08ad": {
+   "id": "f_907bc2da08ad",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:340",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"evidence\": \"touring memory recall afordancia sandbox portfolio tmp code-mode harness\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_f9fb56d8ed93": {
+   "id": "f_f9fb56d8ed93",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:351",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"evidence\": \"touring memory recall afordancia sandbox portfolio tmp code-mode harness\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_87192c72e278": {
+   "id": "f_87192c72e278",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:363",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"detail\": \"   `~/projects/touring/docs/plans/2026-08-25-code-mode-afordancia/` — o plano que os\",",
+   "depth": "D0",
+   "round": 9
+  },
+  "f_c01062745ee4": {
+   "id": "f_c01062745ee4",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:373",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"detail\": \"> Origem: plano `docs/plans/2026-08-25-code-mode-afordancia/` (CONVERGIDO,\",",
+   "depth": "D0",
+   "round": 12
+  },
+  "f_618cabb2f250": {
+   "id": "f_618cabb2f250",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:383",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"detail\": \"| Plano convergido + fases P0-P4 | `~/projects/touring/docs/plans/2026-08-25-code-mode-afordancia/` |\",",
+   "depth": "D0",
+   "round": 12
+  },
+  "f_9fda2c5b0df5": {
+   "id": "f_9fda2c5b0df5",
+   "lens": "antistaleness",
+   "kind": "grep-hit",
+   "key": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/explore-ledger.tmp-sandbox-portfolio.json:391",
+   "evidence": "rg '\\bafordancia\\b' /home/gabrielgadea/projects/touring",
+   "detail": "   \"key\": \"/home/gabrielgadea/projects/touring/docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md:5\",",
+   "depth": "D0",
+   "round": 12
+  }
+ },
+ "coverage": {
+  "lexical": {
+   "visits": 20,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "structural": {
+   "visits": 20,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "institutional": {
+   "visits": 20,
+   "max_depth": "D1",
+   "truncated_total": 0
+  },
+  "antistaleness": {
+   "visits": 20,
+   "max_depth": "D0",
+   "truncated_total": 480
+  },
+  "quality": {
+   "visits": 20,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "portfolio": {
+   "visits": 20,
+   "max_depth": "D0",
+   "truncated_total": 0
+  },
+  "external": {
+   "visits": 1,
+   "max_depth": null,
+   "truncated_total": 0,
+   "state": "visited",
+   "note": "Context7 pytest tmp_path_retention/basetemp; CC guide TMPDIR/scratchpad; praticas: PrivateTmp/TemporaryFileSystem, ulimit -f, Bazel action tmp+cache, E2B/Modal per-run VM, Anthropic programmatic tool calling sandbox"
+  }
+ },
+ "questions": [],
+ "verdict": {
+  "converged": true,
+  "statement": "no new findings under current questions/lenses after 2 dry rounds — NOT a claim of completeness",
+  "clauses": {
+   "rounds_run": 20,
+   "dry_tail": true,
+   "dry_rounds_required": 2,
+   "manual_lenses_pending": [],
+   "open_questions": 0,
+   "degraded_rounds": 0,
+   "echoes_suppressed": 0
+  },
+  "unmet": [],
+  "next_action": null,
+  "at": "2026-09-02T04:28:38-0300"
+ }
+}

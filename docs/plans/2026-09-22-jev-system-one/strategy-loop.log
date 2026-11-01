@@ -1,0 +1,73 @@
+{
+ "status": "completed",
+ "run_id": "strategy-loop-1790076128-b824294f.793193",
+ "class_d_divergence": false,
+ "steps": [
+  {
+   "node": "arm_marker",
+   "exec_key": "arm_marker#0",
+   "exit_code": 0,
+   "verdict": "pass"
+  },
+  {
+   "node": "recall",
+   "exec_key": "recall#0",
+   "exit_code": 0,
+   "parallel": "ground",
+   "verdict": "pass"
+  },
+  {
+   "node": "diagnose",
+   "exec_key": "diagnose#0",
+   "exit_code": 0,
+   "parallel": "ground",
+   "verdict": "pass"
+  },
+  {
+   "node": "ground",
+   "exec_key": "ground#0",
+   "exit_code": 0,
+   "verdict": "pass"
+  },
+  {
+   "node": "explore_round",
+   "exec_key": "explore_round#0",
+   "exit_code": 0
+  },
+  {
+   "node": "explore_loop",
+   "loop_round": "explore_round#0",
+   "new_findings": 11,
+   "dry_signal": "present"
+  },
+  {
+   "node": "explore_round",
+   "exec_key": "explore_round#1",
+   "exit_code": 0
+  },
+  {
+   "node": "explore_loop",
+   "loop_round": "explore_round#1",
+   "new_findings": 0,
+   "dry_signal": "present"
+  },
+  {
+   "node": "explore_round",
+   "exec_key": "explore_round#2",
+   "exit_code": 0
+  },
+  {
+   "node": "explore_loop",
+   "loop_round": "explore_round#2",
+   "new_findings": 0,
+   "dry_signal": "present"
+  },
+  {
+   "node": "evidence_report",
+   "exec_key": "evidence_report#0",
+   "exit_code": 0,
+   "verdict": "pass"
+  }
+ ]
+}
+EXIT=0

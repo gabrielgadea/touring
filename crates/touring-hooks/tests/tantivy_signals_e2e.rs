@@ -10,42 +10,75 @@ mod tests {
 
     use touring_hooks::shared::signals;
 
+    /// A project of its own (a `.git` marker keeps the root from normalizing to
+    /// `$HOME`). Every signal used to be called with `None` — the user's REAL
+    /// global index — and asserted `is_none() || is_some()`, which nothing can
+    /// fail (cross-audit 14/09/2026, D9).
+    fn project() -> tempfile::TempDir {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".git")).unwrap();
+        tmp
+    }
+
     // ── Signal function smoke tests ─────────────────────────────────────────────
 
     /// Verify `tantivy_related_docs_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_related_docs_signal_never_panics() {
-        let result = signals::tantivy_related_docs_signal(None, "src/shared/signals.rs");
-        // Valid inputs: returns Some or None, no panic
-        assert!(result.is_none() || result.is_some());
+        let root = project();
+        let result =
+            signals::tantivy_related_docs_signal(Some(root.path()), "src/shared/signals.rs");
+        assert!(
+            result.is_none(),
+            "an empty project index has nothing to relate: {result:?}"
+        );
     }
 
     /// Verify `tantivy_fuzzy_file_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_fuzzy_file_signal_never_panics() {
-        let result = signals::tantivy_fuzzy_file_signal(None, "src/shared/signals.rs");
-        assert!(result.is_none() || result.is_some());
+        let root = project();
+        let result = signals::tantivy_fuzzy_file_signal(Some(root.path()), "src/shared/signals.rs");
+        assert!(
+            result.is_none(),
+            "an empty project index has nothing to relate: {result:?}"
+        );
     }
 
     /// Verify `tantivy_kind_context_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_kind_context_signal_never_panics() {
-        let result = signals::tantivy_kind_context_signal(None, "src/shared/signals.rs");
-        assert!(result.is_none() || result.is_some());
+        let root = project();
+        let result =
+            signals::tantivy_kind_context_signal(Some(root.path()), "src/shared/signals.rs");
+        assert!(
+            result.is_none(),
+            "an empty project index has nothing to relate: {result:?}"
+        );
     }
 
     /// Verify `tantivy_crate_origin_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_crate_origin_signal_never_panics() {
-        let result = signals::tantivy_crate_origin_signal(None, "src/shared/signals.rs");
-        assert!(result.is_none() || result.is_some());
+        let root = project();
+        let result =
+            signals::tantivy_crate_origin_signal(Some(root.path()), "src/shared/signals.rs");
+        assert!(
+            result.is_none(),
+            "an empty project index has nothing to relate: {result:?}"
+        );
     }
 
     /// Verify `tantivy_fuzzy_symbol_signal` returns Some or None without panicking.
     #[test]
     fn tantivy_fuzzy_symbol_signal_never_panics() {
-        let result = signals::tantivy_fuzzy_symbol_signal(None, "src/shared/signals.rs");
-        assert!(result.is_none() || result.is_some());
+        let root = project();
+        let result =
+            signals::tantivy_fuzzy_symbol_signal(Some(root.path()), "src/shared/signals.rs");
+        assert!(
+            result.is_none(),
+            "an empty project index has nothing to relate: {result:?}"
+        );
     }
 
     // ── Signal weight validation ────────────────────────────────────────────────
@@ -53,12 +86,14 @@ mod tests {
     /// All Tantivy signals must have weight in [0.0, 1.0].
     #[test]
     fn all_tantivy_signals_have_valid_weight() {
+        let root = project();
+        let root = Some(root.path());
         let cases = [
-            signals::tantivy_related_docs_signal(None, "src/shared/signals.rs"),
-            signals::tantivy_fuzzy_file_signal(None, "src/shared/signals.rs"),
-            signals::tantivy_kind_context_signal(None, "src/shared/signals.rs"),
-            signals::tantivy_crate_origin_signal(None, "src/shared/signals.rs"),
-            signals::tantivy_fuzzy_symbol_signal(None, "src/shared/signals.rs"),
+            signals::tantivy_related_docs_signal(root, "src/shared/signals.rs"),
+            signals::tantivy_fuzzy_file_signal(root, "src/shared/signals.rs"),
+            signals::tantivy_kind_context_signal(root, "src/shared/signals.rs"),
+            signals::tantivy_crate_origin_signal(root, "src/shared/signals.rs"),
+            signals::tantivy_fuzzy_symbol_signal(root, "src/shared/signals.rs"),
         ];
 
         for case in cases {
@@ -77,14 +112,16 @@ mod tests {
     /// Short paths (< 3 chars) must not cause panics.
     #[test]
     fn short_path_does_not_panic() {
-        let result = signals::tantivy_fuzzy_file_signal(None, "a.rs");
+        let root = project();
+        let result = signals::tantivy_fuzzy_file_signal(Some(root.path()), "a.rs");
         assert!(result.is_none()); // < 3 chars, fuzzy disabled
     }
 
     /// Empty path must not cause panic.
     #[test]
     fn empty_path_does_not_panic() {
-        let result = signals::tantivy_fuzzy_file_signal(None, "");
+        let root = project();
+        let result = signals::tantivy_fuzzy_file_signal(Some(root.path()), "");
         assert!(result.is_none());
     }
 
@@ -117,8 +154,8 @@ mod tests {
             .unwrap()
             .with_feature_flags();
 
-        // feature_flags may be empty (no Cargo.toml found) but no panic
-        assert!(meta.feature_flags.is_empty() || !meta.feature_flags.is_empty());
+        // No Cargo.toml above a bare tempdir: no feature flags.
+        assert!(meta.feature_flags.is_empty(), "{:?}", meta.feature_flags);
     }
 
     #[test]

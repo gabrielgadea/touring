@@ -87,7 +87,10 @@ fn routing_events_contribute_bytes_and_declare_no_tokens() {
         after.routed_bytes_in_total - before.routed_bytes_in_total,
         50_000
     );
-    assert_eq!(after.routed_bytes_out_total - before.routed_bytes_out_total, 420);
+    assert_eq!(
+        after.routed_bytes_out_total - before.routed_bytes_out_total,
+        420
+    );
     assert_eq!(after.savings_event_count - before.savings_event_count, 1);
     assert_eq!(
         after.token_measured_event_count, before.token_measured_event_count,

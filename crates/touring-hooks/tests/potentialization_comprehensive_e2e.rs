@@ -222,7 +222,7 @@ fn complexity_should_enrich_respects_cila_level() {
 }
 
 #[test]
-fn complexity_cognitive_score_in_knowledge() {
+fn complexity_quality_score_in_knowledge() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("test.db");
     let db = FileKnowledgeDB::new(&db_path).expect("db");
@@ -236,7 +236,7 @@ fn complexity_cognitive_score_in_knowledge() {
     };
     db.upsert(&knowledge).expect("upsert");
 
-    // Extended query should include cognitive_score
+    // Extended query should include quality_score
     let enriched = db.query_extended("src/lib.rs").expect("query_extended");
     assert!(enriched.is_some(), "extended query should return result");
 }

@@ -1,0 +1,331 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) 1.500% > 1% (9/600)",
+  "falso deny (arquivo) limite superior 95% 2.60% > 1% (9/600, taxa 1.500%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.13% > 1% (2/553, taxa 0.362%) — com n=553 o teto admite no máximo 1 falso(s)",
+  "p95 1028.3 ms > 1000.0 ms",
+  "falso deny (arquivo) piorou: 9 > base 6",
+  "falso deny (inline) piorou: 2 > base 1"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 9,
+   "n": 600,
+   "taxa": 0.015,
+   "limite_superior_95": 0.026029150283834505,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 2,
+   "n": 553,
+   "taxa": 0.003616636528028933,
+   "limite_superior_95": 0.011340659712822394,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.9230769230769231,
+  "inline": 0.8518518518518519
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   6,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   1,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "0e48b5ce9591",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/b6_sizing.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "touring",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f7bd1c497347",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/medir_telefone_rodape.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_ler_texto",
+     "linha": 36,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.gate_pii_acervo` não tem atributo `_ler_texto`",
+     "reais": [
+      "Achado",
+      "DOMINIOS_NEUTROS",
+      "ISENCOES",
+      "RAIZ",
+      "RX_CPF",
+      "RX_EMAIL",
+      "TEXTO",
+      "achados_de"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "RX_TELEFONE",
+     "linha": 37,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.gate_pii_acervo` não tem atributo `RX_TELEFONE`",
+     "reais": [
+      "Achado",
+      "DOMINIOS_NEUTROS",
+      "ISENCOES",
+      "RAIZ",
+      "RX_CPF",
+      "RX_EMAIL",
+      "TEXTO",
+      "achados_de"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "4ea3ea29072a",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_l6.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "pytest",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "pytest",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Arquivo",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "ddc0a56fb49f",
+   "balde": "arquivo",
+   "path": "/home/gabrielgadea/projects/analise/docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/tentativas_dirigidas_sem_rota.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "error",
+     "linha": 60,
+     "severidade": "deny",
+     "sugestao": "\"error\" is not a known attribute of module \"urllib\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "056b54167b0b",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/sonda_nota_metodologica.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "error",
+     "linha": 53,
+     "severidade": "deny",
+     "sugestao": "\"error\" is not a known attribute of module \"urllib\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e4833baaf33f",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/sonda_registro_2022.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "datetime",
+     "linha": 52,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "60225beed834",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/projects-analise-medir.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "x",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "4c61e165b27a",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l9/chamadas_run.py",
+   "achados": [
+    {
+     "classe": "membro",
+     "nome": "value",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "Cannot access attribute \"value\" for class \"expr\"\n  Attribute \"value\" is unknown",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f17e1a2c9a95",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/commits_executar.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "pii_do_commit",
+     "linha": 163,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "94a5472efe4c",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "LANCZOS",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "\"LANCZOS\" is not a known attribute of module \"PIL.Image\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "53e17c15ddbc",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "módulo `typesafe_sdk` não tem atributo `__file__`",
+     "reais": [
+      "Answer",
+      "AsyncModels",
+      "AsyncTypeSafeClient",
+      "Choice",
+      "ChoiceAnswer",
+      "ChoiceModel",
+      "JSONContent",
+      "JSONValue"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 553
+ },
+ "avisos_em_negativos": 49,
+ "defeito_de_corpus": [],
+ "p95_ms": 1028.263726,
+ "chamadas": 1217,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}

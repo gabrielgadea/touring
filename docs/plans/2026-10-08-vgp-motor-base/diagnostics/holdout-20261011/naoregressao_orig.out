@@ -1,0 +1,5 @@
+hw-slot: aguardando — temp 90C > 88C
+recall de símbolo · arquivo 11/13 · inline 20/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 58 | p95 144.3 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+veredito: PRONTO
+[instrumentado] 762 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261011/naoregressao_orig.porid.json
+rc=0

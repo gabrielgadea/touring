@@ -1,3 +1,5 @@
+# touring-quality:allow-attack-fixture — F2.1/CWE-89 FP: o identificador interpolado vem do catálogo do PRÓPRIO SQLite
+# (sqlite_master) — nunca de input externo; e há guard de higiene (isalnum).
 """cli-anything-touring: CLI harness for Touring intelligence system v0.4.0.
 
 Tier 1 (SQLite, <10ms): index, ast, memory, evolution, gotcha, flywheel, incremental
@@ -20,6 +22,7 @@ Flywheel commands (v6.0.0):
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 
 import typer
@@ -55,10 +58,14 @@ def _check_database_health(db_name: str, label: str) -> dict[str, object]:
             table_names = [t["name"] for t in tables if t["name"] != "sqlite_sequence"]
             counts = {}
             for tn in table_names:
+                # Identificador vem do catálogo do próprio SQLite; a higiene da
+                # forma é a whitelist (F2.1/CWE-89 exige validação explícita).
+                if not tn.replace("_", "").isalnum():
+                    continue
                 row = conn.execute(f"SELECT COUNT(*) FROM [{tn}]").fetchone()
                 counts[tn] = row[0]
         return {"status": "ok", "path": str(path), "tables": counts}
-    except Exception as e:
+    except (sqlite3.Error, OSError) as e:  # OSError: get_db_path raises FileNotFoundError for a missing DB
         return {"status": "error", "error": str(e)}
 
 
@@ -494,7 +501,7 @@ def _mcp_call(fn: object, *args: object, **kwargs: object) -> object:
         return {"error": "MCP not installed: pip install mcp"}
     except FileNotFoundError as e:
         return {"error": f"Binary not found: {e}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — boundary: any bridge failure is reported as JSON, never a CLI crash
         return {"error": f"MCP bridge error: {e}"}
 
 
@@ -579,6 +586,11 @@ def gotcha_add(
         typer.echo(f"Added gotcha #{result['id']}: [{severity}] {pattern} — {text[:60]}")
 
 
+def _or_not_measured(value: object) -> str:
+    """A prevented count the store does not measure prints as such, never as the column's default 0."""
+    return "não medido" if value is None else str(value)
+
+
 @gotcha_app.command("list")
 def gotcha_list(
     n: int = typer.Option(20, "-n", "--limit", help="Max results."),
@@ -594,7 +606,7 @@ def gotcha_list(
             sym = f" ({g['symbol_name']})" if g.get("symbol_name") else ""
             typer.echo(
                 f"  #{g['id']:3d} [{g['severity']:8s}] {g['pattern']:20s}{sym}"
-                f"  hits={g['hit_count']} prevented={g['prevented_errors']}"
+                f"  hits={g['hit_count']} prevented={_or_not_measured(g['prevented_errors'])}"
             )
             typer.echo(f"       {g['gotcha'][:80]}")
 
@@ -628,7 +640,7 @@ def gotcha_stats(
     else:
         typer.echo(f"Total: {data['total']} gotchas")
         typer.echo(f"Total hits: {data['total_hits']}")
-        typer.echo(f"Errors prevented: {data['total_prevented']}")
+        typer.echo(f"Errors prevented: {_or_not_measured(data['total_prevented'])}")
         typer.echo("\nBy severity:")
         for sev, cnt in data.get("by_severity", {}).items():
             typer.echo(f"  {sev}: {cnt}")

@@ -131,6 +131,17 @@ pub(crate) fn persist_qtable_batched(runtime: &HookRuntime) -> u32 {
                 tracing::debug!("Failed to persist QTable to graph.db: {e}");
             }
         }
+        // P1 retenção (29/08/2026): the engine's lifetime identity rides the
+        // same batch cadence — without it, update_count/EMA restart at zero
+        // on every daemon deploy and the meter measures uptime, not learning.
+        if let Some(ref engine) = runtime.learning.online_rl
+            && let Ok(json) = serde_json::to_string(&engine.export_stats())
+        {
+            let stats_path = runtime
+                .project_root
+                .join(".claude/data/online_rl_state.json");
+            let _ = std::fs::write(&stats_path, json);
+        }
         let _ = std::fs::write(&counter_path, "0");
     } else {
         let _ = std::fs::write(&counter_path, new_count.to_string());
@@ -180,6 +191,10 @@ pub fn run(
     runtime: &mut HookRuntime,
     input: &serde_json::Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    // S-11 / D1: the tool-channel trio is measured at emission. Recorded BEFORE the RL
+    // schema check so a payload the RL path rejects is still counted (matcher `*`: every
+    // tool lands here). In-memory and fail-open.
+    touring_hooks_shared::tool_trio::record_completed_call(input, false);
     // D9: Validate payload with typed schema — skip on failure (non-blocking RL).
     if validate_payload::<crate::schemas::PostToolRlPayload>(input).is_err() {
         return Ok(());
@@ -263,6 +278,43 @@ pub fn run(
                 "__meta__",
                 "__action_sig_lesson_injected__",
                 String::new(),
+            );
+        }
+    }
+
+    // P2 (autoresearch 2026-08-25) — a apresentação code-mode vira um BRAÇO vivo.
+    //
+    // O T3 entrega ao modelo uma rota já escrita. Até aqui os contadores
+    // (`t3_turn_fused`, `t3_turn_first_passed`) diziam com que frequência isso
+    // acontecia e NADA sobre se funcionava: telemetria sem consumidor de
+    // aprendizado. O veredito é o comando seguinte — rodar o programa é a rota
+    // tomada, prefixar um token de relaxamento é a rota recusada — e este é o
+    // primeiro hook depois do deny com runtime mutável, logo o lugar certo.
+    //
+    // Fail-open em cada passo: sem oferta pendente, sem comando legível ou com
+    // desfecho desconhecido, não se deposita nada. Desconhecido não é zero.
+    {
+        let cmd = input
+            .pointer("/tool_input/command")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if let Some((offer, value)) =
+            touring_cli::cli_suggester::claim_route_reward(&runtime.project_root, input, cmd)
+        {
+            let seguida = value > 0.0;
+            runtime.learning.inject_reward(
+                &format!("code_mode:{}", offer.mode),
+                value,
+                if seguida {
+                    "t3_route_followed"
+                } else {
+                    "t3_route_bypassed"
+                },
+            );
+            tracing::debug!(
+                arm = %offer.mode,
+                followed = seguida,
+                "P2: code-mode route outcome rewarded"
             );
         }
     }

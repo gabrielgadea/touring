@@ -1,0 +1,21 @@
+# Fragment `diagnose-pack` — evidence map for a symptom, before hypothesising.
+[fragment]
+description = "Build an evidence map for a symptom (investigate + blast radius)"
+inputs = ["symptom", "target"]
+entry = "investigate"
+
+[node.investigate]
+type = "code"
+command = ["bash", "-c", "touring investigate --brief \"$1\" 2>/dev/null | head -c 1800; true", "--", "{{inputs.symptom}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "blast"
+on_fail = "blast"
+
+[node.blast]
+type = "code"
+command = ["bash", "-c", "touring blast \"$1\" 2>&1 | head -c 1200; true", "--", "{{inputs.target}}"]
+timeout_ms = 120000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit__"

@@ -1,0 +1,45 @@
+{
+  "phase": "S-10",
+  "entities": [
+    {
+      "entity_id": "phase:S-10",
+      "type": "phase",
+      "description": "Uncertain como outcome de 1a classe (self-consistency cookbook): UNCERTAIN_BAND (0.4,0.6) + outcome_of() em pre_review_triage.py; fast path so com todas 'no'; outcomes no payload; docstring das 3 bandas em g2_calibration. Prova viva: HEAD concurrency 0.48 -> 'uncertain' (antes binario for\u00e7ado). 8 testes verdes."
+    },
+    {
+      "entity_id": "memory:loop:task_1790895761205640116:S-10:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790895761205640116",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790895761205640116",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-10|produces|memory:loop:task_1790895761205640116:S-10:done",
+      "source": "phase:S-10",
+      "type": "produces",
+      "target": "memory:loop:task_1790895761205640116:S-10:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-10:done|generated-by|loop:loop:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-10:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790895761205640116"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-10:done|generated-by|dag:decomp:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-10:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790895761205640116"
+    }
+  ]
+}

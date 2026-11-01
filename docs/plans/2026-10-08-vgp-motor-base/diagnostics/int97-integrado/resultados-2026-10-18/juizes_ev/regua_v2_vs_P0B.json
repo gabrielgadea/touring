@@ -1,0 +1,66 @@
+{
+ "resumo": {
+  "comparados": 738,
+  "so_base": 0,
+  "so_novo": 0,
+  "R1_divergencias": 4,
+  "R2_divergencias_findings_inteiros": 5,
+  "R2_sem_R1_so_em": {
+   "findings.sugestao": 1
+  }
+ },
+ "ids_R1": [
+  "34511b9ac100",
+  "6fb90b5d7502",
+  "8b7a3476e024",
+  "fbd4d99c3ec2"
+ ],
+ "ids_R2": [
+  "34511b9ac100",
+  "6fb90b5d7502",
+  "74463888050f",
+  "8b7a3476e024",
+  "fbd4d99c3ec2"
+ ],
+ "detalhe": [
+  {
+   "id": "34511b9ac100",
+   "r1_difere": true,
+   "campos": [
+    "findings.severidade",
+    "verdict"
+   ]
+  },
+  {
+   "id": "6fb90b5d7502",
+   "r1_difere": true,
+   "campos": [
+    "findings.severidade",
+    "verdict"
+   ]
+  },
+  {
+   "id": "74463888050f",
+   "r1_difere": false,
+   "campos": [
+    "findings.sugestao"
+   ]
+  },
+  {
+   "id": "8b7a3476e024",
+   "r1_difere": true,
+   "campos": [
+    "findings.severidade",
+    "verdict"
+   ]
+  },
+  {
+   "id": "fbd4d99c3ec2",
+   "r1_difere": true,
+   "campos": [
+    "findings.severidade",
+    "verdict"
+   ]
+  }
+ ]
+}

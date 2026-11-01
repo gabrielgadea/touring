@@ -1,0 +1,14 @@
+  MORTO  m1 so o __init__ (sem o submodulo do from-import): ['test_from_pacote_import_submodulo_o_caso_real', 'test_from_pacote_import_subpacote', 'test_from_pontilhado_import_submodulo']
+  MORTO  m2 sem os pacotes ancestrais: ['test_from_pacote_import_submodulo_o_caso_real', 'test_import_pontilhado_traz_os_pacotes_ancestrais', 'test_import_pontilhado_com_alias']
+  MORTO  m3 relativo sem o __init__ do pacote corrente: ['test_relativos']
+  MORTO  m4 estado_completo ignora a falta: ['test_incompleta_quando_o_submodulo_nao_reconstroi', 'test_incompleta_quando_o_init_nao_reconstroi']
+  MORTO  m5 overlays_e_faltas esconde a falta: ['test_overlays_e_faltas_nomeia_o_que_faltou']
+  MORTO  m6 sem a 2a base (dir do script): ['test_irmao_do_script_segue_resolvendo']
+  MORTO  m7 aceita modulo fora da raiz: ['test_modulo_fora_da_raiz_do_projeto_nao_entra']
+  MORTO  m8 volta a regra antiga: ['test_from_pacote_import_submodulo_o_caso_real', 'test_import_pontilhado_traz_os_pacotes_ancestrais', 'test_import_pontilhado_com_alias']
+  MORTO  m9 overlay grava o arquivo de HOJE: ['test_overlay_carrega_o_instante_nao_o_hoje', 'test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto']
+  MORTO  m10 profundidade 2 ignora o que ja esta coberto: ['test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto', 'test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada']
+  MORTO  m11 profundidade 2 conta a propria entrada como lacuna: ['test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada']
+controle sem mutacao: passou (25 passed in 0.06s) | sha do original igual antes/depois: True
+11/11 mutantes mortos
+rc=0

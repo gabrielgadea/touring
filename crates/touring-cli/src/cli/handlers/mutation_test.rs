@@ -46,7 +46,9 @@ use crate::runtime::HookRuntime;
 /// - `timeout_secs`: u32 — per-mutant timeout (default 60)
 /// - `jobs`: u32 — parallel jobs (default = physical cores via lib)
 /// - `workspace`: string — workspace path override (default = HookRuntime project root)
-/// - `force`: bool — bypass cache and re-run (default false)
+/// - `force`: bool — bypass cache and re-run (default false). REQUIRED for a
+///   workspace-wide run (no `package`): hours of CPU must be asked for by name
+///   — a bare payload is refused with `kind: workspace_requires_force`.
 /// - `cache_only`: bool — return cached report or `{cached: false, ok: false}` (no run)
 pub fn cli_mutation_test(rt: &mut HookRuntime, payload: &Value) -> String {
     let request = parse_payload(payload, &rt.project_root);
@@ -62,7 +64,35 @@ pub fn cli_mutation_test(rt: &mut HookRuntime, payload: &Value) -> String {
         return cache_miss_envelope(&cache_root, request.package.as_deref());
     }
 
+    // A bare payload (no package) means "mutate the WHOLE workspace" — hours
+    // of CPU at full parallelism. On 2026-08-28 an unwitting caller (a unit
+    // test reaching the live daemon) fired exactly that the day cargo-mutants
+    // landed on the daemon's PATH (jobs=24, load 26). A run this expensive
+    // must be asked for by name; serving a fresh cache above stays free.
+    if workspace_run_needs_force(request.package.as_deref(), request.force) {
+        return workspace_requires_force_envelope();
+    }
+
     execute_and_cache(&request, &cache_root)
+}
+
+/// True when the request would start a workspace-wide mutation run that was
+/// not explicitly forced. Package-scoped runs never need force; `force:true`
+/// is the deliberate opt-in for the whole-workspace run.
+fn workspace_run_needs_force(package: Option<&str>, force: bool) -> bool {
+    package.is_none() && !force
+}
+
+fn workspace_requires_force_envelope() -> String {
+    json!({
+        "ok": false,
+        "cached": false,
+        "kind": "workspace_requires_force",
+        "error": "a workspace-wide mutation run takes hours at full parallelism; \
+                  pass package:\"<crate>\" for a scoped run, or force:true to \
+                  deliberately mutate the whole workspace",
+    })
+    .to_string()
 }
 
 /// Resolved payload — flat struct keeps `cli_mutation_test` linear.
@@ -186,6 +216,8 @@ fn failure_envelope(e: &MutationError) -> String {
         MutationError::OutcomesMissing(_) => "outcomes_missing",
         MutationError::OutcomesParse { .. } => "outcomes_parse",
         MutationError::Io(_) => "io",
+        // A run that measured nothing must never leave here as ok:true.
+        MutationError::NoViableMutants { .. } => "no_viable_mutants",
     };
     json!({
         "ok": false,
@@ -198,6 +230,28 @@ fn failure_envelope(e: &MutationError) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The envelope for "nothing was measured" must be a FAILURE.
+    ///
+    /// Origin 2026-08-20: a dead baseline produced `total_mutants: 0` and this
+    /// handler answered `ok: true, kill_rate: 0.0` — a shape no caller could
+    /// tell apart from a suite that killed nothing. `repo-score` consumed it.
+    #[test]
+    fn no_viable_mutants_is_reported_as_a_failure() {
+        let s = failure_envelope(&MutationError::NoViableMutants {
+            path: std::path::PathBuf::from("/tmp/outcomes.json"),
+            total: 0,
+            unviable: 0,
+        });
+        let v: Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["ok"], false, "a run that measured nothing is not ok");
+        assert_eq!(v["kind"], "no_viable_mutants");
+        assert!(
+            v["error"].as_str().unwrap().contains("no viable mutants"),
+            "the message must name the cause: {}",
+            v["error"]
+        );
+    }
 
     #[test]
     fn failure_envelope_binary_not_found_shape() {
@@ -250,5 +304,40 @@ mod tests {
         let v: Value = serde_json::from_str(&s).unwrap();
         assert_eq!(v["cached"], true);
         assert!(v["package"].is_null());
+    }
+
+    /// Truth table for the workspace-run gate: only the (no package, no force)
+    /// corner is refused — a scoped run never needs force, and force is the
+    /// deliberate opt-in for the whole-workspace run.
+    #[test]
+    fn workspace_run_needs_force_truth_table() {
+        assert!(
+            workspace_run_needs_force(None, false),
+            "bare payload refused"
+        );
+        assert!(
+            !workspace_run_needs_force(None, true),
+            "forced workspace runs"
+        );
+        assert!(!workspace_run_needs_force(Some("touring-identity"), false));
+        assert!(!workspace_run_needs_force(Some("touring-identity"), true));
+    }
+
+    /// The refusal envelope is a talking error (A5): it names both remedies.
+    /// Origin 2026-08-28: a unit test reaching the live daemon with a bare
+    /// payload fired an hours-long workspace mutation run (jobs=24, load 26)
+    /// the day cargo-mutants landed on the daemon's PATH.
+    #[test]
+    fn workspace_requires_force_envelope_teaches_both_remedies() {
+        let s = workspace_requires_force_envelope();
+        let v: Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["ok"], false);
+        assert_eq!(v["kind"], "workspace_requires_force");
+        let msg = v["error"].as_str().unwrap_or("");
+        assert!(msg.contains("package"), "must teach the scoped-run remedy");
+        assert!(
+            msg.contains("force:true"),
+            "must teach the deliberate opt-in"
+        );
     }
 }

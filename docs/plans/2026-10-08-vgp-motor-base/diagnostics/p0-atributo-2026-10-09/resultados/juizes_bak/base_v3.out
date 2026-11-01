@@ -1,0 +1,6 @@
+recall de símbolo · arquivo 12/13 · inline 22/27 | forma (fora) {'arquivo': [1, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 60 | p95 1000.9 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+  falso deny (arquivo): 0/400 · taxa 0.000% · limite_superior_95 0.75% (teto 1%; o n=400 admite até 0 falso(s))
+  falso deny (inline): 0/300 · taxa 0.000% · limite_superior_95 0.99% (teto 1%; o n=300 admite até 0 falso(s))
+  PENDENTE: p95 1000.9 ms > 1000.0 ms
+veredito: NÃO PRONTO
+[instrumentado] 762 veredictos do motor gravados em /tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0/juizes_bak/base_v3.porid.json

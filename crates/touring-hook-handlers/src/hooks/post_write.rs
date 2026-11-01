@@ -22,97 +22,9 @@ use crate::shared::parser_cache_global::{global_cache, global_invalidate};
 // ResultExt trait needed in scope for .unwrap_or_debug() calls on deref
 use crate::shared::result_ext::{OptionExt, ResultExt};
 use crate::triad_hook;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use std::sync::OnceLock;
 use touring_code::ast::speculate_v2;
 use touring_foundation::truncate_str;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Antipattern Baseline Tracking (Phase 2.1: Semantic Provenance)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Regex to parse antipattern issue strings like "ANTIPATTERN [3x]: unwrap".
-/// Captures the count and the message.
-static RE_ANTIPATTERN_COUNT: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"ANTIPATTERN \[(\d+)x\]: (.+)").expect("antipattern regex is valid"));
-
-/// Parse antipattern issue strings to extract pattern → count mapping.
-fn parse_antipattern_counts(issues: &[String]) -> std::collections::HashMap<String, usize> {
-    let mut counts = std::collections::HashMap::new();
-    for issue in issues {
-        if let Some(caps) = RE_ANTIPATTERN_COUNT.captures(issue)
-            && let (Ok(count), Some(msg)) = (caps[1].parse::<usize>(), caps.get(2))
-        {
-            counts.insert(msg.as_str().to_string(), count);
-        }
-    }
-    counts
-}
-
-/// Get antipattern baseline from cache for a given file.
-fn get_antipattern_baseline(
-    cache: &super::aco_bridge::HookResultCache,
-    rel_path: &str,
-) -> std::collections::HashMap<String, usize> {
-    let key = format!("__antipattern_baseline__:{rel_path}");
-    cache
-        .get_result("post_write", &key)
-        .and_then(
-            |json: String| -> Option<std::collections::HashMap<String, usize>> {
-                serde_json::from_str(&json).ok()
-            },
-        )
-        .unwrap_or_default()
-}
-
-/// Store antipattern baseline in cache for a given file.
-fn set_antipattern_baseline(
-    cache: &super::aco_bridge::HookResultCache,
-    rel_path: &str,
-    baseline: &std::collections::HashMap<String, usize>,
-) {
-    let key = format!("__antipattern_baseline__:{rel_path}");
-    if let Ok(json) = serde_json::to_string(baseline) {
-        cache.cache_result("post_write", &key, json);
-    }
-}
-
-/// Compute antipattern delta and inject block signal if threshold exceeded.
-///
-/// Compares current antipattern counts against baseline to determine how many
-/// NEW antipatterns were introduced by this write. Only injects a block signal
-/// when the delta (sum of new occurrences across all patterns) >= threshold.
-fn compute_antipattern_delta_and_block(
-    cache: &super::aco_bridge::HookResultCache,
-    rel_path: &str,
-    issues: &mut Vec<String>,
-) {
-    let baseline = get_antipattern_baseline(cache, rel_path);
-    let current = parse_antipattern_counts(issues);
-
-    let mut total_delta = 0usize;
-    for (pattern, &curr_count) in &current {
-        let baseline_count = baseline.get(pattern).copied().unwrap_or(0);
-        if curr_count > baseline_count {
-            total_delta += curr_count - baseline_count;
-        }
-    }
-
-    // Update baseline with current counts (for next write's comparison)
-    set_antipattern_baseline(cache, rel_path, &current);
-
-    // Inject block signal if delta >= threshold
-    // Uses ANTIPATTERN_BLOCK prefix so check_block_gate counts it separately.
-    if total_delta >= BLOCK_ANTIPATTERN_THRESHOLD {
-        issues.push(format!(
-            "ANTIPATTERN_BLOCK [{total_delta}x new]: too many new anti-patterns introduced. \
-             Baseline had {} patterns, write added {} new occurrences.",
-            baseline.len(),
-            total_delta
-        ));
-    }
-}
 
 /// Process-lifetime dedup cache for post_write metadata.
 ///
@@ -124,18 +36,14 @@ static WRITE_DEDUP: OnceLock<MetadataDedup> = OnceLock::new();
 /// Flush the post_write dedup cache at session boundaries.
 ///
 /// Called from `run_session_stop` to drain stale mtime entries so the next
-/// session starts with a clean dedup state (no false-positive skips).
+/// session starts with a clean dedup state (no false-positive skips). Its only
+/// caller lives in `session_hooks`, so it exists under the same feature.
+#[cfg(feature = "session-hooks")]
 pub(crate) fn flush_dedup() {
     if let Some(dedup) = WRITE_DEDUP.get() {
         dedup.clear();
     }
 }
-
-/// Minimum number of anti-pattern issues to trigger a Block response.
-///
-/// Matches the threshold used in `post_edit.rs` — 4+ new anti-patterns
-/// means the write introduces too many quality regressions to proceed.
-const BLOCK_ANTIPATTERN_THRESHOLD: usize = 4;
 
 /// Persist call edges discovered in `source` as FileRelation records.
 ///
@@ -181,6 +89,26 @@ pub fn run(
 ///
 /// Used by the daemon to handle the hook without calling `process::exit`.
 pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
+    let result = run_returning_impl(runtime, input);
+    // F-A1 (01/09) — check-compile signal: spawn a debounced `cargo check`
+    // for the written file and deliver any pending verdict (P9 verify-after
+    // measured at 17% — the loop closes by affordance, not persuasion).
+    let file_path = input
+        .pointer("/tool_input/file_path")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    match super::check_compile::default_state_dir() {
+        Some(dir) if !file_path.is_empty() => super::check_compile::attach_check_signal(
+            file_path,
+            result,
+            &dir,
+            &triad_hook::session_of(input),
+        ),
+        _ => result,
+    }
+}
+
+fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
     // D9: Validate payload with typed schema — fail fast on malformed input.
     // Extract /tool_input first since payload schemas model the inner object.
     // Note: Empty file_path is a skip case (return Allow), not a validation error.
@@ -219,6 +147,15 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         .pointer("/tool_input/content")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
+
+    // F2 (hashtag library, 2026-08-11): re-harvest `#tags:` codetag anchors
+    // from the written content into snippet memories. The wrapper owns the
+    // skip decision — markerless content still syncs (to tombstone) when the
+    // file's last anchor was just removed (D1, cross-audit 2026-08-23); the
+    // sync is fail-open — a tagging hiccup never blocks a write.
+    if let Some(content) = input_content.as_deref() {
+        super::runtime::sync_codetag_anchors(&runtime.project_root, &rel_path, content);
+    }
 
     // Step 2: Re-index the file (symbols, imports, relations).
     // BLAKE3 early-exit: skip reindex_file if content matches stored hash.
@@ -267,16 +204,20 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         // Tantivy FTS: upsert the written file into the full-text index.
         // Runs only on BLAKE3 miss (content actually changed). Graceful — failure
         // is logged and never propagates to the hook caller.
+        // The file document is stored under the index key — project-relative or
+        // `@companion/<name>/<rel>` — and never for a path the walker refuses: a
+        // raw `make_relative` spelling left absolute-path documents no rebuild
+        // could retire (2026-09-13).
         #[cfg(feature = "tantivy-fts")]
-        {
+        if let Ok(key) = crate::shared::reindex::admission_refusal(runtime, &rel_path) {
             let doc = crate::tantivy_index::SymbolDoc {
-                symbol_name: rel_path.to_string(),
-                file_path: rel_path.to_string(),
+                symbol_name: key.clone(),
+                file_path: key.clone(),
                 symbol_kind: "file".to_string(),
                 module_path: None,
                 docstring: None,
                 line_number: 0,
-                language: crate::tantivy_index::extension_to_language(&rel_path),
+                language: crate::tantivy_index::extension_to_language(&key),
                 visibility: None,
                 crate_name: None,
                 blake3_hash: None,
@@ -297,7 +238,7 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
                 crate::tantivy_index::tantivy_for(Some(&runtime.project_root))
                 && let Err(e) = tantivy_idx.upsert_symbol(&doc)
             {
-                tracing::debug!("tantivy upsert failed for {rel_path}: {e}");
+                tracing::debug!("tantivy upsert failed for {key}: {e}");
             }
         }
     }
@@ -377,11 +318,16 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         persist_call_edges(&runtime.ctx.knowledge, &rel_path, source, lang);
     }
 
-    let mut all_issues =
-        collect_quality_issues(runtime, file_path, &rel_path, input_content.as_deref());
+    let mut feedback = super::post_feedback::Feedback {
+        issues: collect_quality_issues(runtime, file_path, &rel_path, input_content.as_deref()),
+        signals: Vec::new(),
+    };
 
     // ── Wave 18 (2026-04-18): Invalidate query cache for the written file ──
-    crate::shared::query_cache::invalidate_by_path(file_path);
+    // By the RELATIVE path: `ast meta` keys it relative, `ast overview` keys what
+    // the caller sent (often absolute) — the absolute path contains the relative
+    // one, the reverse is false, so only this form reaches both.
+    crate::shared::query_cache::invalidate_by_path(&rel_path);
 
     // ── Wave 12 (2026-04-18): Health-delta hint via cache cleanup ─────
     // Mirror of post_edit V7. The Write tool may fire pre_write
@@ -395,14 +341,26 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
     if let Some(content) = input_content.as_deref()
         && let Some(delta) = crate::health_delta::compute_signals_delta(file_path, content)
     {
-        all_issues.push(crate::health_delta::format_delta_hint(&delta));
+        let hint = crate::health_delta::format_delta_hint(&delta);
+        // A regression is a defect of this write; a first observation or a flat delta is
+        // information (S28 — it used to be counted as an issue).
+        if delta.is_regression() {
+            feedback.issues.push(hint);
+        } else {
+            feedback.signals.push(hint);
+        }
     }
 
     // Step 4: Cognitive enrichment (risk + gotchas) — parity with post_edit.
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            file_path,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if !enriched.is_empty() {
-            all_issues.push(enriched);
+            feedback.signals.push(enriched);
         }
     }
 
@@ -413,7 +371,7 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         let findings = runtime.ctx.pii_scanner.scan_text(content);
         if !findings.is_empty() {
             let pii_ctx = format_pii_findings_context_post(&findings);
-            all_issues.push(pii_ctx);
+            feedback.issues.push(pii_ctx);
         }
     }
 
@@ -424,32 +382,93 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         .get_result("__meta__", "__session_cila_level__")
         .and_then(|s| s.parse().ok())
         .unwrap_or_debug(2, "post_write: cila_level fallback");
-    apply_write_budget(&mut all_issues, cila_level);
+    // Issues first; signals get what the budget leaves. What is elided is declared (S28).
+    let budget = crate::shared::cila::cila_budget_write(cila_level);
+    let issue_count = feedback.issues.len();
+    let used = super::post_feedback::fit_budget(&mut feedback.issues, budget);
+    let elided = issue_count - feedback.issues.len();
+    super::post_feedback::fit_budget(&mut feedback.signals, budget.saturating_sub(used));
 
-    // Step 6: Return feedback if issues found (with block gate for excessive anti-patterns).
-    let response = build_response(all_issues, &rel_path);
+    // TRIAD (S12, D1-A): the S28 gate on NEW anti-patterns, plus the declared abstention.
+    apply_s28_gate(
+        input,
+        file_path,
+        &rel_path,
+        lang_str,
+        input_content.as_deref(),
+        &feedback,
+        elided,
+    )
+}
 
-    // TRIAD: Run post_write validation — commit snapshot on success, rollback on failure.
-    // Take the TriadState out of the RefCell so it is consumed (not double-used).
-    let triad_state = runtime.triad_state.borrow_mut().take();
-    if let Some(state) = triad_state {
-        // validation_passed = HookResponse::Allow means no block gate triggered.
-        let validation_passed = matches!(response, HookResponse::Allow);
-        let triad_response = triad_hook::run_post_write(&state, validation_passed, Some(runtime));
-        // If TRIAD requests a block or context (rollback triggered), surface it.
-        if !matches!(triad_response, HookResponse::Allow) {
-            tracing::debug!(
-                path = %rel_path,
-                triad_response = ?triad_response,
-                "TRIAD: post_write overriding response"
-            );
-            return triad_response;
-        }
+/// The S28 gate for `post_write`: count anti-patterns this write INTRODUCED (before × after),
+/// block past the threshold, and — when no baseline was available — declare the abstention
+/// instead of passing as if the check had run.
+///
+/// Split out of `run_returning_impl` (which was already at CC=44) so the gate's shape stays
+/// readable: it has exactly two outcomes, judged or declared.
+fn apply_s28_gate(
+    input: &serde_json::Value,
+    file_path: &str,
+    rel_path: &str,
+    lang_str: Option<&str>,
+    input_content: Option<&str>,
+    feedback: &super::post_feedback::Feedback,
+    elided: usize,
+) -> HookResponse {
+    // The baseline is read from this process's memory first and from the per-user on-disk
+    // record second, so a standalone pre-write still arms a daemon (or standalone)
+    // post-write — 17/10/2026, where the split silently disabled this gate under load.
+    let triad = triad_hook::take_lookup(&triad_hook::session_of(input), file_path);
+    // Match the LOOKUP, not `Option<&str>`: `before()` yields `None` both for
+    // `Baseline::Absent` (a new file — every occurrence IS new) and for a genuine
+    // abstention, and routing both through one arm made a new file count zero silently.
+    // `new_antipatterns` already encodes the right semantics for `None` ("the file did not
+    // exist, so everything counts"), so `Absent` must reach it, not the abstain arm.
+    let (new_antipatterns, abstention) = match (&triad.lookup, input_content) {
+        (triad_hook::TriadLookup::Found(baseline), Some(after)) => (
+            super::post_feedback::new_antipatterns(
+                baseline.as_before(),
+                after,
+                lang_str.unwrap_or(""),
+                file_path,
+            ),
+            None,
+        ),
+        // A baseline we hold but no content to compare against: abstain, never block blind.
+        (triad_hook::TriadLookup::Found(_), None) => (
+            0,
+            Some(super::post_feedback::EDIT_BASELINE_ABSTAINED.to_string()),
+        ),
+        (triad_hook::TriadLookup::Absent(reason), _) => (0, Some(reason.note())),
+    };
+
+    let response = build_response(feedback, elided, rel_path, new_antipatterns);
+
+    match abstention {
+        // An abstention is a MEASUREMENT THAT DID NOT HAPPEN and must be visible — silently
+        // passing is how 5 new antipatterns got written in under load. Declared as a signal,
+        // never an issue: it is a property of the hook, not of the file.
+        Some(note) => super::post_feedback::attach_signal(response, &note),
+        // Never restores the file — PostToolUse cannot undo; a Block gains the write's
+        // +/− summary. The baseline is enough for that (and survives the process boundary),
+        // so the note appears whether or not this process armed it.
+        None => match &triad.lookup {
+            triad_hook::TriadLookup::Found(baseline) => {
+                triad_hook::run_post_write(file_path, baseline, response)
+            }
+            // Unreachable: `Absent` always carries a reason, and every reason is declared
+            // above. Kept so a future variant cannot reintroduce a silent pass.
+            triad_hook::TriadLookup::Absent(reason) => {
+                tracing::warn!(
+                    path = %rel_path,
+                    reason = ?reason,
+                    "TRIAD: S28 absent without a declared abstention"
+                );
+                super::post_feedback::attach_signal(response, &reason.note())
+            }
+        },
     }
-
-    // D1.6: Emit activity event before returning response.
-
-    response
 }
 
 /// Layer7 prediction + ACO wiring deposits after a successful write.
@@ -548,25 +567,6 @@ fn format_pii_findings_context_post(findings: &[crate::pii::PIIFinding]) -> Stri
     format!("PII: {} finding(s) — {}", total, parts.join(", "))
 }
 
-/// Truncate `issues` in-place so the total serialised length stays within the
-/// CILA-aware write budget.
-///
-/// Each issue contributes `issue.len() + 3` bytes (for the ` | ` separator).
-/// Issues that would exceed the budget are dropped.
-fn apply_write_budget(issues: &mut Vec<String>, cila_level: u8) {
-    let budget = crate::shared::cila::cila_budget_write(cila_level);
-    let mut used = 0usize;
-    issues.retain(|s| {
-        let len = s.len() + 3; // " | " separator
-        if used + len <= budget {
-            used += len;
-            true
-        } else {
-            false
-        }
-    });
-}
-
 /// Record the write event in knowledge DB with full context.
 fn record_write_event(runtime: &HookRuntime, input: &serde_json::Value, rel_path: &str) {
     let content = input
@@ -631,10 +631,6 @@ fn collect_quality_issues(
     );
     all_issues.extend(spec_issues);
     all_issues.extend(ap_issues);
-
-    // Phase 2.1: Antipattern delta — compute NEW antipatterns vs baseline.
-    // Only blocks when delta >= BLOCK_ANTIPATTERN_THRESHOLD (not total count).
-    compute_antipattern_delta_and_block(&runtime.ctx.result_cache, rel_path, &mut all_issues);
 
     // FIX7: Compute quality snapshot ONCE from pre-loaded content, then derive
     // both complexity issues AND evolution tracking from the same result —
@@ -707,64 +703,43 @@ fn collect_quality_issues(
     all_issues
 }
 
-/// Check whether the write should be BLOCKED due to excessive new anti-patterns.
+/// Build the final `HookResponse` from the typed feedback (S28).
 ///
-/// Phase 2.1 (Semantic Provenance): Now uses delta-based blocking instead of total count.
-/// The `compute_antipattern_delta_and_block` function in `collect_quality_issues` computes
-/// the actual delta between current and baseline antipattern counts, and injects an
-/// "ANTIPATTERN_BLOCK" issue when delta >= BLOCK_ANTIPATTERN_THRESHOLD.
-///
-/// This function looks for that "ANTIPATTERN_BLOCK" marker to decide whether to block,
-/// rather than counting all "ANTIPATTERN" issues (which would incorrectly block on
-/// pre-existing antipatterns in the file).
-///
-/// Returns `Some(HookResponse::Block { .. })` when the write should be undone,
-/// or `None` to let it proceed with Context feedback.
-fn check_block_gate(issues: &[String], rel_path: &str) -> Option<HookResponse> {
-    // Look for ANTIPATTERN_BLOCK marker injected by compute_antipattern_delta_and_block.
-    // This indicates delta-based blocking was triggered (new antipatterns >= threshold).
-    for issue in issues {
-        if issue.contains("ANTIPATTERN_BLOCK") {
-            let reason = format!(
-                "Write blocked: too many new anti-patterns introduced in {}. \
-                 This write exceeds the regression threshold. \
-                 Please fix the anti-patterns before reapplying.",
-                rel_path,
-            );
-            let context = issues.join("\n");
-            return Some(HookResponse::Block {
-                reason,
-                context: Some(context),
-                event_name: Some("PostToolUse".to_string()),
-            });
-        }
+/// The shared block gate runs first, on the NEW antipattern occurrences this write
+/// introduced (before × after); otherwise the feedback renders with a header that counts
+/// issues only — signals follow the `ℹ` marker, and budget elision is declared.
+fn build_response(
+    feedback: &super::post_feedback::Feedback,
+    elided: usize,
+    rel_path: &str,
+    new_antipatterns: usize,
+) -> HookResponse {
+    use super::post_feedback::{Mutation, render_feedback};
+    if let Some(block) = super::post_feedback::check_block_gate(
+        new_antipatterns,
+        rel_path,
+        Mutation::Write,
+        feedback,
+    ) {
+        return block;
     }
-    None
-}
-
-/// Build the final `HookResponse` from collected issues.
-///
-/// Checks the block gate first — if 4+ anti-patterns are detected, the write
-/// is blocked entirely. Otherwise returns Context feedback.
-fn build_response(all_issues: Vec<String>, rel_path: &str) -> HookResponse {
-    if all_issues.is_empty() {
-        return HookResponse::Allow;
-    }
-
-    // Block gate: if too many anti-patterns, block the write.
-    if let Some(block_response) = check_block_gate(&all_issues, rel_path) {
-        return block_response;
-    }
-
-    let issues = all_issues
-        .iter()
-        .map(|s| truncate_str(s, 120))
-        .collect::<Vec<_>>()
-        .join(" | ");
-
-    HookResponse::Context {
-        context: format!("post-write: {} issue(s) | {}", all_issues.len(), issues),
-        event_name: Some("PostToolUse".to_string()),
+    let cap = |items: &[String]| -> Vec<String> {
+        items
+            .iter()
+            .map(|s| truncate_str(s, 120).to_string())
+            .collect()
+    };
+    match render_feedback(
+        "post-write",
+        &cap(&feedback.issues),
+        elided,
+        &cap(&feedback.signals),
+    ) {
+        Some(context) => HookResponse::Context {
+            context,
+            event_name: Some("PostToolUse".to_string()),
+        },
+        None => HookResponse::Allow,
     }
 }
 
@@ -847,7 +822,11 @@ fn verify_antipatterns(file_path: &str, lang_str: &str, content: Option<&str>) -
         };
         &owned
     };
-    crate::shared::antipatterns::detect_antipatterns(source, lang_str)
+    crate::shared::antipatterns::detect_antipatterns_at(
+        source,
+        lang_str,
+        std::path::Path::new(file_path),
+    )
 }
 
 /// V3: Complexity baseline — measure file quality and warn if CC > 10.
@@ -1142,15 +1121,19 @@ mod tests {
         let knowledge = FileKnowledge {
             file_path: "src/new_module.rs".into(),
             language: Some("rust".into()),
-            symbols_json: Some(
-                r#"[{"name":"NewService","kind":"struct","is_public":true}]"#.into(),
-            ),
+            symbols_json: None,
             imports_json: Some(r#"[]"#.into()),
             ..Default::default()
         };
         db.upsert(&knowledge).unwrap();
 
         // Registration must happen first (in production, reindex_file does this).
+        crate::wiring::refresh_file_producers(
+            &db,
+            "src/new_module.rs",
+            "rust",
+            "pub struct NewService;\n",
+        );
         crate::wiring::update_wiring_after_edit(&db, "src/new_module.rs");
         let issues = verify_wiring_status(&db, "src/new_module.rs");
         assert!(
@@ -1236,29 +1219,33 @@ mod tests {
         assert!(result.is_none());
     }
 
-    // ── apply_write_budget ───────────────────────────────────────────
+    // ── budget (S28: the shared post_feedback::fit_budget over cila_budget_write) ──
+
+    fn write_budget(items: &mut Vec<String>, level: u8) -> usize {
+        crate::post_feedback::fit_budget(items, crate::shared::cila::cila_budget_write(level))
+    }
 
     #[test]
-    fn test_apply_write_budget_retains_within_budget() {
+    fn test_write_budget_retains_within_budget() {
         let mut issues = vec!["short".to_string(), "also short".to_string()];
-        apply_write_budget(&mut issues, 3); // L3 → large budget
+        write_budget(&mut issues, 3); // L3 → large budget
         assert_eq!(issues.len(), 2, "both issues should fit in a large budget");
     }
 
     #[test]
-    fn test_apply_write_budget_drops_excess_at_low_level() {
+    fn test_write_budget_drops_excess_at_low_level() {
         // L0 budget is smallest — build a list that overflows it.
         let budget = crate::shared::cila::cila_budget_write(0);
         let big_issue = "x".repeat(budget + 10);
         let mut issues = vec![big_issue, "second".to_string()];
-        apply_write_budget(&mut issues, 0);
+        write_budget(&mut issues, 0);
         assert!(issues.len() < 2, "oversized issue should be dropped at L0");
     }
 
     #[test]
-    fn test_apply_write_budget_empty_list() {
+    fn test_write_budget_empty_list() {
         let mut issues: Vec<String> = vec![];
-        apply_write_budget(&mut issues, 2);
+        assert_eq!(write_budget(&mut issues, 2), 0);
         assert!(issues.is_empty());
     }
 
@@ -1314,32 +1301,45 @@ mod tests {
         assert!(issues[0].contains("d1") && issues[0].contains("d3"));
     }
 
-    // ── build_response ───────────────────────────────────────────────────────
+    // ── build_response (S28: typed feedback, the header counts issues only) ──
+
+    fn fb(issues: &[&str], signals: &[&str]) -> crate::post_feedback::Feedback {
+        crate::post_feedback::Feedback {
+            issues: issues.iter().map(|s| (*s).to_string()).collect(),
+            signals: signals.iter().map(|s| (*s).to_string()).collect(),
+        }
+    }
 
     #[test]
-    fn test_build_response_empty_issues_returns_allow() {
-        let response = build_response(vec![], "src/test.rs");
+    fn test_build_response_empty_feedback_returns_allow() {
+        let response = build_response(&fb(&[], &[]), 0, "src/test.rs", 0);
         assert!(
             matches!(response, HookResponse::Allow),
-            "empty issues should produce Allow"
+            "nothing to report: {response:?}"
         );
     }
 
     #[test]
-    fn test_build_response_with_issues_returns_context() {
-        let issues = vec!["issue A".to_string(), "issue B".to_string()];
-        let response = build_response(issues, "src/test.rs");
+    fn test_build_response_counts_issues_not_signals() {
+        let response = build_response(
+            &fb(
+                &["issue A", "issue B"],
+                &["⚙ health-delta: first-observation new=1.00"],
+            ),
+            0,
+            "src/test.rs",
+            0,
+        );
         match response {
             HookResponse::Context {
                 context,
                 event_name,
             } => {
                 assert!(
-                    context.contains("2 issue(s)"),
-                    "should include count: {context}"
+                    context.starts_with("post-write: 2 issue(s) | issue A | issue B"),
+                    "{context}"
                 );
-                assert!(context.contains("issue A"));
-                assert!(context.contains("issue B"));
+                assert!(context.contains("\u{2139} ⚙ health-delta"), "{context}");
                 assert_eq!(event_name.as_deref(), Some("PostToolUse"));
             }
             other => panic!("expected Context variant, got {other:?}"),
@@ -1347,13 +1347,25 @@ mod tests {
     }
 
     #[test]
-    fn test_build_response_truncates_long_issues() {
-        // Each issue is capped at 120 chars by truncate_str inside build_response.
-        let long_issue = "z".repeat(200);
-        let response = build_response(vec![long_issue], "src/test.rs");
-        match response {
+    fn test_build_response_signal_only_has_no_issue_count() {
+        match build_response(
+            &fb(&[], &["⚙ health-delta: first-observation new=1.00"]),
+            0,
+            "src/test.rs",
+            0,
+        ) {
             HookResponse::Context { context, .. } => {
-                // The context should not contain 200 z's verbatim.
+                assert!(!context.contains("issue(s)"), "{context}")
+            }
+            other => panic!("expected Context, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_build_response_truncates_long_issues() {
+        let long_issue = "z".repeat(200);
+        match build_response(&fb(&[long_issue.as_str()], &[]), 0, "src/test.rs", 0) {
+            HookResponse::Context { context, .. } => {
                 assert!(
                     !context.contains(&"z".repeat(200)),
                     "long issue should be truncated"
@@ -1364,12 +1376,13 @@ mod tests {
     }
 
     #[test]
-    fn test_build_response_single_issue_no_extra_separators() {
-        let response = build_response(vec!["only one".to_string()], "src/test.rs");
-        match response {
+    fn test_build_response_declares_elision() {
+        match build_response(&fb(&["kept"], &[]), 3, "src/test.rs", 0) {
             HookResponse::Context { context, .. } => {
-                assert!(context.contains("1 issue(s)"));
-                assert!(context.contains("only one"));
+                assert!(
+                    context.contains("4 issue(s)") && context.contains("+3 elided"),
+                    "{context}"
+                );
             }
             other => panic!("expected Context, got {other:?}"),
         }
@@ -1419,46 +1432,29 @@ mod tests {
         assert_eq!(issues.len(), 2, "one issue per failed layer");
     }
 
-    // ── check_block_gate ────────────────────────────────────────────────────
+    // ── block gate (S28: NEW occurrences, before × after, shared with post_edit) ──
 
     #[test]
-    fn test_check_block_gate_below_threshold_returns_none() {
-        let issues = vec![
-            "ANTIPATTERN [1x]: .unwrap()".to_string(),
-            "ANTIPATTERN [1x]: todo!()".to_string(),
-            "complexity: CC_max=12".to_string(),
-        ];
-        let result = check_block_gate(&issues, "src/lib.rs");
-        assert!(result.is_none(), "below threshold should not block");
-    }
-
-    #[test]
-    fn test_check_block_gate_at_threshold_returns_block() {
-        // Phase 2.1: Now uses ANTIPATTERN_BLOCK prefix (delta-based), not total count.
-        let issues = vec![
-            "ANTIPATTERN [1x]: .unwrap()".to_string(),
-            "ANTIPATTERN [1x]: todo!()".to_string(),
-            "ANTIPATTERN [1x]: panic!()".to_string(),
-            "ANTIPATTERN [1x]: .expect()".to_string(),
-            "ANTIPATTERN_BLOCK [4x new]: too many new anti-patterns introduced".to_string(),
-        ];
-        let result = check_block_gate(&issues, "src/bad.rs");
-        assert!(result.is_some(), "at threshold should block");
-        match result.expect("block response") {
+    fn test_build_response_blocks_on_new_antipatterns() {
+        match build_response(&fb(&["[rust] `.unwrap()` (4x)"], &[]), 0, "src/bad.rs", 4) {
             HookResponse::Block {
                 reason,
                 context,
                 event_name,
             } => {
                 assert!(
-                    reason.contains("too many new anti-patterns"),
-                    "reason: {reason}"
+                    reason.starts_with("Write blocked")
+                        && reason.contains("too many new anti-patterns"),
+                    "{reason}"
                 );
                 assert!(
                     reason.contains("src/bad.rs"),
                     "reason should contain path: {reason}"
                 );
-                assert!(context.is_some(), "should include context with all issues");
+                assert!(
+                    context.is_some_and(|c| c.contains("unwrap")),
+                    "the issues travel as context"
+                );
                 assert_eq!(event_name.as_deref(), Some("PostToolUse"));
             }
             other => panic!("expected Block variant, got {other:?}"),
@@ -1466,68 +1462,11 @@ mod tests {
     }
 
     #[test]
-    fn test_check_block_gate_above_threshold_returns_block() {
-        // Phase 2.1: Now uses ANTIPATTERN_BLOCK prefix (delta-based), not total count.
-        let mut issues: Vec<String> = (0..6)
-            .map(|i| format!("ANTIPATTERN [1x]: pattern_{i}"))
-            .collect();
-        issues
-            .push("ANTIPATTERN_BLOCK [6x new]: too many new anti-patterns introduced".to_string());
-        let result = check_block_gate(&issues, "src/messy.rs");
-        assert!(result.is_some(), "above threshold should block");
-        match result.expect("block response") {
-            HookResponse::Block { reason, .. } => {
-                assert!(
-                    reason.contains("too many new anti-patterns"),
-                    "reason: {reason}"
-                );
-            }
-            other => panic!("expected Block variant, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn test_check_block_gate_no_antipatterns_returns_none() {
-        let issues = vec![
-            "complexity: CC_max=15".to_string(),
-            "wiring(50%): 1 orphan".to_string(),
-        ];
-        let result = check_block_gate(&issues, "src/ok.rs");
-        assert!(result.is_none(), "non-antipattern issues should not block");
-    }
-
-    #[test]
-    fn test_check_block_gate_empty_issues_returns_none() {
-        let result = check_block_gate(&[], "src/clean.rs");
-        assert!(result.is_none(), "empty issues should not block");
-    }
-
-    #[test]
-    fn test_build_response_blocks_on_excessive_antipatterns() {
-        // Phase 2.1: build_response calls check_block_gate which now uses ANTIPATTERN_BLOCK.
-        // The delta is computed by compute_antipattern_delta_and_block before build_response.
-        let mut issues: Vec<String> = (0..5)
-            .map(|i| format!("ANTIPATTERN [1x]: bad_pattern_{i}"))
-            .collect();
-        issues
-            .push("ANTIPATTERN_BLOCK [5x new]: too many new anti-patterns introduced".to_string());
-        let response = build_response(issues, "src/bad.rs");
-        assert!(
-            matches!(response, HookResponse::Block { .. }),
-            "5 antipatterns should trigger Block, got {response:?}"
-        );
-    }
-
-    #[test]
-    fn test_build_response_context_when_below_block_threshold() {
-        let issues = vec![
-            "ANTIPATTERN [1x]: .unwrap()".to_string(),
-            "complexity: CC_max=12".to_string(),
-        ];
-        let response = build_response(issues, "src/ok.rs");
+    fn test_build_response_below_threshold_is_context() {
+        let response = build_response(&fb(&["[rust] `.unwrap()` (1x)"], &[]), 0, "src/ok.rs", 3);
         assert!(
             matches!(response, HookResponse::Context { .. }),
-            "below threshold should return Context, got {response:?}"
+            "3 new is below the threshold: {response:?}"
         );
     }
 }

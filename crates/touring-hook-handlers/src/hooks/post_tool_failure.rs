@@ -44,6 +44,9 @@ const RL_REWARD_PII_DENIAL: f64 = -1.0;
 /// for the affected file.
 #[tracing::instrument(skip(runtime, input), fields(hook = "post_tool_failure"))]
 pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
+    // S-11 / D1: a failed call is the `erro` leg of the tool-channel trio. Recorded before
+    // any early return below, so schema validation never hides a failure from the meter.
+    touring_hooks_shared::tool_trio::record_completed_call(input, true);
     // D9: Validate payload with typed schema — fail fast on malformed input.
     // PostToolFailure skips silently on malformed input (non-blocking, like post_read).
     let tool_input = match input.get("tool_input") {
@@ -68,7 +71,13 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     tracing::debug!("llm_judge: {}", judge_report.summary());
 
     // ── Record failure in knowledge DB + create gotcha ─────────────────────────
-    record_failure_outcome(runtime, tool_name, error_text, file_path);
+    record_failure_outcome(
+        runtime,
+        tool_name,
+        error_text,
+        file_path,
+        crate::shared::signals::payload_session(input),
+    );
 
     // ── Decompose bridge: track failure pattern, mark subtask failed, trigger MCTS replan ──
     let failure_pattern = format!("{}:{}", tool_name, truncate_str(error_text, 100));
@@ -98,7 +107,12 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     // On failure, surfacing cognitive context (risk score, recent bash failures, gotchas)
     // gives the LLM maximum signal for self-correction. Replicates post_edit.rs:675 pattern.
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            file_path,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if !enriched.is_empty() {
             return HookResponse::Context {
                 context: enriched,
@@ -147,6 +161,7 @@ fn record_failure_outcome(
     tool_name: &str,
     error_text: &str,
     file_path: &str,
+    session: Option<&str>,
 ) {
     let command_key = format!("{tool_name}:{file_path}");
     let error_head = truncate_str(error_text, 500);
@@ -166,7 +181,15 @@ fn record_failure_outcome(
         executed_at: chrono::Utc::now().to_rfc3339(),
     };
 
-    if let Err(e) = runtime.ctx.knowledge.record_bash_outcome(&outcome) {
+    // S22: a Bash failure is recorded by post-bash (same PostToolUseFailure event, real
+    // exit code); recording it here too counted every Bash failure twice.
+    if tool_name != "Bash"
+        && let Err(e) = runtime.ctx.knowledge.record_bash_outcome_with_origin(
+            &outcome,
+            session,
+            "PostToolUseFailure",
+        )
+    {
         tracing::debug!("post_tool_failure: failed to record outcome: {e}");
     }
 

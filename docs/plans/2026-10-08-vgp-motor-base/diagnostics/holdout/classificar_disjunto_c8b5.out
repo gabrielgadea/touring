@@ -1,0 +1,346 @@
+=== agregado do classificar_falsos_vgp.py (CORPUS = holdout)
+  59  ('inline', 'atributo', '-')
+        899464e659a4:3 `open` | im = Image.open("/tmp/claude-1000/-home-gabrielgadea/modelo-1.png").convert("RGB")
+        6907fdeae29b:7 `silhueta_svg` | svg=pi.silhueta_svg(g, tol)
+        bc64bd3c3d3e:6 `funcoes_puras` | js = nv.funcoes_puras() + """
+  54  ('inline', 'nome', 'except-as')
+        4253113aca75:29 `e` | except Exception as e:
+        4253113aca75:30 `e` | print("ERRO", p, e); continue
+        49ed67adee04:19 `e` | except Exception as e:
+  44  ('arquivo', 'atributo', '-')
+        17fb28bf43ba:54 `sob_contrato` | for nome in sorted(navegacao.sob_contrato()):
+        17fb28bf43ba:55 `ENTREGAVEIS` | html = (gc.ENTREGAVEIS / nome).read_text(encoding="utf-8", errors="replace")
+        625521f5c882:12 `SAIDA_HTML` | srv = _servidor_efemero(dt.SAIDA_HTML.parent)
+  31  ('arquivo', 'nome', 'import')
+        17fb28bf43ba:6 `annotations` | from __future__ import annotations
+        31aedc219d95:3 `annotations` | from __future__ import annotations
+        2f0e257f3dfa:10 `annotations` | from __future__ import annotations
+  26  ('inline', 'nome', 'with-as')
+        fa3608595a34:78 `z` | nomes = z.namelist()
+        83766c7d2442:11 `zf` | with zipfile.ZipFile(C/'prestacao_cand_2026.zip') as zf, zf.open('receitas_candidatos_2026_RS.csv') 
+        83766c7d2442:12 `b` | for r in csv.DictReader(io.TextIOWrapper(b,encoding='latin-1',newline=''),delimiter=';'):
+  23  ('arquivo', 'nome', 'with-as')
+        e7255aa75a8c:45 `fh` | line = fh.read().splitlines()[n - 1]
+        31aedc219d95:31 `pasta` | base = Path(pasta)
+        625521f5c882:15 `pw` | nav = pw.chromium.launch()
+   9  ('arquivo', 'nome', 'except-as')
+        6f1b6c846cbb:15 `exc` | except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        7a4ad8f765aa:24 `exc` | except Exception as exc:  # noqa: BLE001 — each failure is reported by name, the loop goes on
+        7a4ad8f765aa:25 `exc` | print(nome, "FALHOU", type(exc).__name__, str(exc)[:300])
+   9  ('inline', 'import', '-')
+        49ed67adee04:1 `requests` | from curl_cffi import requests as cr
+        04da7b374e0e:17 `slides` | from scripts.eleitoral.build_deck_senado import slides
+        ab71d1cf4726:2 `requests` | from curl_cffi import requests
+   8  ('arquivo', 'nome', 'parametro')
+        3a8596c3ad65:18 `dirs` | def grep(pat: str, *dirs: str, inc: str = "*.py") -> list[str]:
+        3a8596c3ad65:19 `dirs` | r = subprocess.run(["grep", "-rn", f"--include={inc}", pat, *[str(RAIZ / d) for d in dirs]], capture
+        cb305b52d196:11 `cmd` | def sh(*cmd: str) -> str:
+   5  ('arquivo', 'nome', 'atribuicao+atribuicao-anotada/aug')
+        eaf152e630d3:26 `comp` | inv = comp = 0
+        eaf152e630d3:29 `comp` | comp += celula.get("QT_COMPARECIMENTO", 0)
+        eaf152e630d3:30 `comp` | return inv, comp
+   5  ('arquivo', 'nome', 'nao-ligado-no-arquivo')
+        ddbb2cfb4afc:4 `Path` | def test_contexto_vazio_nao_tem_fonte_e_tem_confianca_baixa(tmp_path: Path) -> None:
+        ddbb2cfb4afc:12 `Path` | def test_contexto_pronto_declara_os_arquivos_que_leu(tmp_path: Path) -> None:
+        ddbb2cfb4afc:7 `ComputeProcessContext` | result = ComputeProcessContext().run(str(proc))
+   4  ('arquivo', 'import', '-')
+        7a0e29a86dcb:7 `adw_pipeline_harmonia` | from scripts.process_analysis import adw_pipeline_harmonia as h  # noqa: E402
+        e8b46a78ff77:7 `ElementTree` | from defusedxml import ElementTree as ET
+        11caf962ca53:16 `c01_c10` | from scripts.eleitoral.auditoria_cruzada import c01_c10 as cc  # noqa: E402
+   2  ('arquivo', 'nome', 'walrus')
+        c0dfc6b4a2d4:48 `bloco` | while bloco := f.read(1 << 22):
+        c0dfc6b4a2d4:49 `bloco` | h.update(bloco)
+   2  ('arquivo', 'nome', 'for-alvo+walrus')
+        67afb1b2a427:37 `m` | falhas = int(m.group(1)) if (m := re.search(r"(\d+) failed", fim)) else 0
+        67afb1b2a427:37 `m` | falhas = int(m.group(1)) if (m := re.search(r"(\d+) failed", fim)) else 0
+   2  ('inline', 'nome', 'compreensao-alvo+with-as')
+        bc64bd3c3d3e:20 `f` | for linha in f:
+        ca4413d5adbf:14 `d` | t.TestOQueRotular().test_aceitas_sem_rotulo_e_amostra_das_recusas_por_classe(pathlib.Path(d)); print
+   1  ('arquivo', 'nome', 'compreensao-alvo+except-as')
+        89547b1f5625:40 `e` | except SyntaxError as e:
+
+=== CADA falso deny: 156
+e7255aa75a8c arquivo atribuido suspeitos_f24.py | nome fh L45 | construto: with-as | line = fh.read().splitlines()[n - 1]
+6f1b6c846cbb arquivo atribuido diag_rodada2.py | nome exc L15 | construto: except-as | except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+17fb28bf43ba arquivo atribuido ponto_cego.py | nome annotations L6 | construto: import | from __future__ import annotations
+17fb28bf43ba arquivo atribuido ponto_cego.py | atributo sob_contrato L54 | construto: - | for nome in sorted(navegacao.sob_contrato()):
+17fb28bf43ba arquivo atribuido ponto_cego.py | atributo ENTREGAVEIS L55 | construto: - | html = (gc.ENTREGAVEIS / nome).read_text(encoding="utf-8", errors="replace")
+31aedc219d95 arquivo atribuido f13_antes_depois.py | nome annotations L3 | construto: import | from __future__ import annotations
+31aedc219d95 arquivo atribuido f13_antes_depois.py | nome pasta L31 | construto: with-as | base = Path(pasta)
+625521f5c882 arquivo atribuido medir_folhas.py | nome pw L15 | construto: with-as | nav = pw.chromium.launch()
+625521f5c882 arquivo atribuido medir_folhas.py | atributo SAIDA_HTML L12 | construto: - | srv = _servidor_efemero(dt.SAIDA_HTML.parent)
+625521f5c882 arquivo atribuido medir_folhas.py | atributo _TRANSBORDOS L20 | construto: - | sobras = aba.evaluate(d._TRANSBORDOS)
+7a0e29a86dcb arquivo atribuido medir_harmonia_regex.py | import adw_pipeline_harmonia L7 | construto: - | from scripts.process_analysis import adw_pipeline_harmonia as h  # noqa: E402
+7a0e29a86dcb arquivo atribuido medir_harmonia_regex.py | atributo values L11 | construto: - | nos = {n.node_id: n for ns in WORKFLOWS.values() for n in ns}
+7a0e29a86dcb arquivo atribuido medir_harmonia_regex.py | atributo _scripts_do_registry L16 | construto: - | lido = h._scripts_do_registry()
+a9f7768df724 arquivo atribuido repro_learning_startup.py | nome scratch L29 | construto: with-as | env["CLAUDE_PROJECT_DIR"] = scratch
+a9f7768df724 arquivo atribuido repro_learning_startup.py | nome scratch L38 | construto: with-as | [PY, "-c", WRAP], stdin=stdin, capture_output=True, text=True, cwd=scratch, env=
+d11496a72eaf arquivo atribuido deltas_novos.py | atributo DECISAO_DE_REFERENCIA L21 | construto: - | ref = mt.DECISAO_DE_REFERENCIA["deltas_pp"]
+d11496a72eaf arquivo atribuido deltas_novos.py | atributo LIMIAR_REABERTURA_PP L23 | construto: - | print(f"limiar de reabertura: {mt.LIMIAR_REABERTURA_PP} p.p.\n")
+d11496a72eaf arquivo atribuido deltas_novos.py | atributo sensibilidade_do_publicado L27 | construto: - | for s in mt.sensibilidade_do_publicado(DIA):
+2f0e257f3dfa arquivo atribuido aritmetica_do_corte.py | nome annotations L10 | construto: import | from __future__ import annotations
+2f0e257f3dfa arquivo atribuido aritmetica_do_corte.py | atributo INTENCAO_SENADO L26 | construto: - | STUDIO = {k: v["valor"] for k, v in r4.INTENCAO_SENADO["linhas"].items()}
+edb28aeb300d arquivo atribuido registro_das_cinzas.py | atributo dados_registrados L9 | construto: - | print(inspect.getsource(g.dados_registrados)[:1400])
+5b580d56570d arquivo atribuido foto_painel_carto.py | nome p L11 | construto: with-as | navegador = p.chromium.launch()
+70d906195042 arquivo atribuido gravar_methodus_gov.py | atributo validar_historica L151 | construto: - | violacoes = ri.validar_historica(doc)
+70d906195042 arquivo atribuido gravar_methodus_gov.py | atributo _share_da_pesquisa L161 | construto: - | shares = ri._share_da_pesquisa(ESTIMULADA)
+70d906195042 arquivo atribuido gravar_methodus_gov.py | atributo corrida_da_pesquisa L169 | construto: - | corrida = ri.corrida_da_pesquisa(doc)
+c0dfc6b4a2d4 arquivo atribuido soltos_contra_o_disco2.py | nome bloco L48 | construto: walrus | while bloco := f.read(1 << 22):
+c0dfc6b4a2d4 arquivo atribuido soltos_contra_o_disco2.py | nome f L48 | construto: with-as | while bloco := f.read(1 << 22):
+c0dfc6b4a2d4 arquivo atribuido soltos_contra_o_disco2.py | nome bloco L49 | construto: walrus | h.update(bloco)
+3a8596c3ad65 arquivo atribuido recon_bloco1b.py | nome annotations L3 | construto: import | from __future__ import annotations
+3a8596c3ad65 arquivo atribuido recon_bloco1b.py | nome dirs L18 | construto: parametro | def grep(pat: str, *dirs: str, inc: str = "*.py") -> list[str]:
+3a8596c3ad65 arquivo atribuido recon_bloco1b.py | nome dirs L19 | construto: parametro | r = subprocess.run(["grep", "-rn", f"--include={inc}", pat, *[str(RAIZ / d) for 
+c864dcf4d415 arquivo atribuido medir_capas.py | nome annotations L4 | construto: import | from __future__ import annotations
+c864dcf4d415 arquivo atribuido medir_capas.py | nome p L29 | construto: with-as | nav = p.chromium.launch()
+7a4ad8f765aa arquivo atribuido baixar_2010_2012.py | nome exc L24 | construto: except-as | except Exception as exc:  # noqa: BLE001 — each failure is reported by name, the
+7a4ad8f765aa arquivo atribuido baixar_2010_2012.py | nome exc L25 | construto: except-as | print(nome, "FALHOU", type(exc).__name__, str(exc)[:300])
+7a4ad8f765aa arquivo atribuido baixar_2010_2012.py | nome exc L25 | construto: except-as | print(nome, "FALHOU", type(exc).__name__, str(exc)[:300])
+34c2cee385d0 arquivo atribuido verificar_trechos.py | nome annotations L13 | construto: import | from __future__ import annotations
+f4189f4953e3 arquivo atribuido forense_agentes3.py | nome e L58 | construto: except-as | except json.JSONDecodeError as e:
+c04326890b25 arquivo atribuido juiz_argv.py | atributo WORKFLOWS L157 | construto: - | for no in (n for wf in wr.WORKFLOWS.values() for n in wf):
+67f785d34743 arquivo atribuido medir_escritores_cegos.py | nome annotations L22 | construto: import | from __future__ import annotations
+06ee050667c1 arquivo atribuido gravar_decisoes_2009.py | nome annotations L4 | construto: import | from __future__ import annotations
+06ee050667c1 arquivo atribuido gravar_decisoes_2009.py | atributo fatos L13 | construto: - | f = dd.fatos()
+9a9ecb68e563 arquivo atribuido verificar_artigos.py | nome annotations L11 | construto: import | from __future__ import annotations
+b5fa66fc737e arquivo atribuido otimizar_janelas.py | nome fh L233 | construto: with-as | for f, m in matrizes.items()}}, fh)
+090b6fe6fe49 arquivo atribuido junit_summary.py | nome fh L32 | construto: with-as | json.dump({"counts": dict(tot), "failing": bad}, fh, ensure_ascii=False, indent=
+b66b58737cdb arquivo atribuido o_gate_reprova_mesmo.py | nome annotations L14 | construto: import | from __future__ import annotations
+95c1bdba64b3 arquivo atribuido verificar_7532.py | nome exc L25 | construto: except-as | except Exception as exc:  # noqa: BLE001
+eaf152e630d3 arquivo atribuido calcular_posicoes.py | nome comp L26 | construto: atribuicao+atribuicao-anotada/aug | inv = comp = 0
+eaf152e630d3 arquivo atribuido calcular_posicoes.py | nome comp L29 | construto: atribuicao+atribuicao-anotada/aug | comp += celula.get("QT_COMPARECIMENTO", 0)
+eaf152e630d3 arquivo atribuido calcular_posicoes.py | nome comp L30 | construto: atribuicao+atribuicao-anotada/aug | return inv, comp
+e8b46a78ff77 arquivo atribuido falhas_conhecidas.py | import ElementTree L7 | construto: - | from defusedxml import ElementTree as ET
+e8b46a78ff77 arquivo atribuido falhas_conhecidas.py | atributo parse L12 | construto: - | raiz = ET.parse(V / f"{suite.replace('/', '__')}.xml").getroot()
+4e9ddab107f8 arquivo atribuido l4_vmsize.py | nome annotations L4 | construto: import | from __future__ import annotations
+4e9ddab107f8 arquivo atribuido l4_vmsize.py | nome fh L14 | construto: with-as | for linha in fh:
+11caf962ca53 arquivo atribuido c10_assimetria.py | import c01_c10 L16 | construto: - | from scripts.eleitoral.auditoria_cruzada import c01_c10 as cc  # noqa: E402
+11caf962ca53 arquivo atribuido c10_assimetria.py | atributo _marca_de_conteudo L30 | construto: - | marca_indice = cc._marca_de_conteudo(INDICE)
+df01a7516476 arquivo atribuido clk_deriva.py | atributo try_drift_detect L29 | construto: - | original = sim.try_drift_detect
+df01a7516476 arquivo atribuido clk_deriva.py | atributo simulate_impact L40 | construto: - | r = sim.simulate_impact(get_example_contributions()[0], get_baseline_parameters(
+e1d24250b3e7 arquivo atribuido medir_s1_uri.py | nome annotations L8 | construto: import | from __future__ import annotations
+e1d24250b3e7 arquivo atribuido medir_s1_uri.py | nome s3 L46 | construto: atribuicao+atribuicao-anotada/aug | s1 = s3 = 0
+e1d24250b3e7 arquivo atribuido medir_s1_uri.py | nome s3 L52 | construto: atribuicao+atribuicao-anotada/aug | s3 += 1
+67afb1b2a427 arquivo atribuido mutacao_ausencias.py | nome annotations L4 | construto: import | from __future__ import annotations
+67afb1b2a427 arquivo atribuido mutacao_ausencias.py | nome m L37 | construto: for-alvo+walrus | falhas = int(m.group(1)) if (m := re.search(r"(\d+) failed", fim)) else 0
+67afb1b2a427 arquivo atribuido mutacao_ausencias.py | nome m L37 | construto: for-alvo+walrus | falhas = int(m.group(1)) if (m := re.search(r"(\d+) failed", fim)) else 0
+f03090b5468b arquivo atribuido censo_pecas_incompletas.py | nome annotations L15 | construto: import | from __future__ import annotations
+6f7e0cb610ff arquivo atribuido onde_o_gate_age.py | nome annotations L15 | construto: import | from __future__ import annotations
+aae8b8426894 arquivo atribuido numeros_rastreio.py | nome annotations L13 | construto: import | from __future__ import annotations
+aae8b8426894 arquivo atribuido numeros_rastreio.py | nome zf L48 | construto: with-as | for nome in zf.namelist():
+aae8b8426894 arquivo atribuido numeros_rastreio.py | nome zf L49 | construto: with-as | _colher(zf.read(nome).decode("latin-1"), vals)
+22aa255b5a67 arquivo atribuido por_que_alvo_zero.py | atributo medir L16 | construto: - | m = da.medir()
+22aa255b5a67 arquivo atribuido por_que_alvo_zero.py | atributo calibrar L31 | construto: - | c = da.calibrar()
+41e21af1e0ac arquivo atribuido localizar_transcricoes.py | nome annotations L12 | construto: import | from __future__ import annotations
+e65989e9bff7 arquivo atribuido achar_convert_sei.py | nome annotations L8 | construto: import | from __future__ import annotations
+cb305b52d196 arquivo atribuido dx_dois_pontos.py | nome cmd L11 | construto: parametro | def sh(*cmd: str) -> str:
+cb305b52d196 arquivo atribuido dx_dois_pontos.py | nome cmd L12 | construto: parametro | return subprocess.run(cmd, cwd=RAIZ, capture_output=True, text=True, check=False
+6d0a764a6878 arquivo atribuido s81_levanta.py | nome paths L13 | construto: parametro | def grep(root: Path, pattern: str, *paths: str, limit: int = 12) -> None:
+6d0a764a6878 arquivo atribuido s81_levanta.py | nome paths L14 | construto: parametro | r = subprocess.run(["git", "-C", str(root), "grep", "-nE", pattern, "--", *paths
+ddbb2cfb4afc arquivo atribuido trecho_pctx.py | nome Path L4 | construto: nao-ligado-no-arquivo | def test_contexto_vazio_nao_tem_fonte_e_tem_confianca_baixa(tmp_path: Path) -> N
+ddbb2cfb4afc arquivo atribuido trecho_pctx.py | nome Path L12 | construto: nao-ligado-no-arquivo | def test_contexto_pronto_declara_os_arquivos_que_leu(tmp_path: Path) -> None:
+ddbb2cfb4afc arquivo atribuido trecho_pctx.py | nome ComputeProcessContext L7 | construto: nao-ligado-no-arquivo | result = ComputeProcessContext().run(str(proc))
+d34ee10959e6 arquivo atribuido ab_converted_dir.py | nome fh L16 | construto: with-as | sem = json.load(fh).get("semantico", {})
+d34ee10959e6 arquivo atribuido ab_converted_dir.py | nome fh L30 | construto: with-as | linhas = fh.read().splitlines()
+b34a2b305638 arquivo atribuido verificar_publicacao.py | nome tar L24 | construto: with-as | antes = json.load(tar.extractfile("data/processed/eleitoral/analise/agregado_pes
+b34a2b305638 arquivo atribuido verificar_publicacao.py | atributo estado_do_fluxo L15 | construto: - | print("estado do fluxo:", pn.estado_do_fluxo("RS-08358/2026"))
+b34a2b305638 arquivo atribuido verificar_publicacao.py | atributo ler_agregados L25 | construto: - | depois = ag.ler_agregados()
+bf2259af1078 arquivo atribuido portao_complemento.py | nome annotations L13 | construto: import | from __future__ import annotations
+30a0414609bc arquivo atribuido tirar_argumento_morto.py | nome annotations L11 | construto: import | from __future__ import annotations
+30a0414609bc arquivo atribuido tirar_argumento_morto.py | nome args L21 | construto: parametro | def rodar(*args: str) -> tuple[int, str, str]:
+30a0414609bc arquivo atribuido tirar_argumento_morto.py | nome args L22 | construto: parametro | proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+bb69126c6351 arquivo atribuido controle_e2e.py | nome p L24 | construto: with-as | b = p.chromium.launch()
+bb69126c6351 arquivo atribuido controle_e2e.py | atributo montar_site L18 | construto: - | pm.montar_site(raiz)
+bb69126c6351 arquivo atribuido controle_e2e.py | atributo _SemLog L19 | construto: - | srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(e2e._SemLog, directory=str(r
+74f04a24de12 arquivo atribuido retrieval_bench.py | nome WS L131 | construto: nao-ligado-no-arquivo | out = subprocess.run(["touring", "search", "fuzzy", q, "--limit", "10"], capture
+a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | nome zf L31 | construto: with-as | with zipfile.ZipFile("/home/gabrielgadea/projects/analise/data/raw/external_apis
+a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | nome fh L32 | construto: with-as | for r in csv.DictReader(io.TextIOWrapper(fh, encoding="latin-1", newline=""), de
+a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | atributo candidatos_do_ano L13 | construto: - | candidatos = vl.candidatos_do_ano(2022)
+c35d78e3eb25 arquivo atribuido s24_route_patch.py | nome WIRING L244 | construto: nao-ligado-no-arquivo | for old, new, label in WIRING:
+04bac2c9809a arquivo atribuido block_git_candidato.py | nome d L16 | construto: with-as | copia = Path(d) / "client" / "hooks"
+4072490ee778 arquivo atribuido e7_mapa_e_site.py | atributo Passo L19 | construto: - | prim.Passo("mapa", ("-m", "scripts.eleitoral.gerar_visualizador")),
+4072490ee778 arquivo atribuido e7_mapa_e_site.py | atributo publicacao_do_acervo L27 | construto: - | pub = dataclasses.replace(pn.publicacao_do_acervo(), nome="mapa-e-site", passos=
+4072490ee778 arquivo atribuido e7_mapa_e_site.py | atributo _plano L35 | construto: - | for linha in pn._plano(pub, RAIZ):
+e54b3aa6c73e arquivo atribuido le_correlacoes2.py | nome annotations L3 | construto: import | from __future__ import annotations
+f78d676216b5 arquivo atribuido miudos.py | atributo _blocos_de_texto L17 | construto: - | for b in ma._blocos_de_texto(pg):
+f78d676216b5 arquivo atribuido miudos.py | atributo PISO_PT L28 | construto: - | if 0 < round(s["size"], 1) < ma.PISO_PT and len(re.sub(r"\s+", "", t)) > 20 and 
+a49a312585d9 arquivo atribuido medir_uniao_universo_completo.py | atributo sob_contrato L25 | construto: - | PAGINAS = sorted(navegacao.sob_contrato())
+a49a312585d9 arquivo atribuido medir_uniao_universo_completo.py | atributo comparacoes L29 | construto: - | return sorted(set(cj.comparacoes(fonte)) | set(comparacoes_v4(fonte)))
+a49a312585d9 arquivo atribuido medir_uniao_universo_completo.py | atributo cobertura L58 | construto: - | antes = set(cj.cobertura()["cobertas"])
+fc4a4d65016c arquivo atribuido ensaio.py | nome e L31 | construto: except-as | except (cr.ColheitaFalhou, FileNotFoundError, KeyError) as e:
+fc4a4d65016c arquivo atribuido ensaio.py | atributo Lido L16 | construto: - | def leitor(url: str) -> cr.Lido:
+fc4a4d65016c arquivo atribuido ensaio.py | atributo e_pdf L19 | construto: - | if corpus.e_pdf(url):
+1e682b98370b arquivo atribuido tarifas_fontes.py | nome zf L38 | construto: with-as | for i in zf.infolist():
+89547b1f5625 arquivo atribuido mapa_da_cobertura.py | nome annotations L14 | construto: import | from __future__ import annotations
+89547b1f5625 arquivo atribuido mapa_da_cobertura.py | nome e L40 | construto: compreensao-alvo+except-as | except SyntaxError as e:
+968f80f58eb4 arquivo atribuido precheck_4_escritores.py | nome annotations L6 | construto: import | from __future__ import annotations
+1942ac408433 arquivo atribuido patch_r2e_criticos_vb.py | nome annotations L9 | construto: import | from __future__ import annotations
+bd4cfc7dd1e1 arquivo atribuido clk_prova_caminho.py | nome d L45 | construto: with-as | presente = resumo(gravar(Path(d)))
+bd4cfc7dd1e1 arquivo atribuido clk_prova_caminho.py | nome d L52 | construto: with-as | ausente = resumo(gravar(Path(d)))
+bd4cfc7dd1e1 arquivo atribuido clk_prova_caminho.py | atributo RUST_AVAILABLE L42 | construto: - | print("aco: RUST_AVAILABLE =", aco.RUST_AVAILABLE, "· _ESAA_RUST_AVAILABLE =", a
+249447daab1f arquivo atribuido gravar_f3b.py | nome annotations L3 | construto: import | from __future__ import annotations
+249447daab1f arquivo atribuido gravar_f3b.py | atributo fatos L12 | construto: - | f = estr.fatos()
+249447daab1f arquivo atribuido gravar_f3b.py | atributo capitulo_estrategia L13 | construto: - | folhas = estr.capitulo_estrategia(f)
+e7480b2a242b arquivo atribuido verificar_ancoras.py | nome annotations L11 | construto: import | from __future__ import annotations
+8948156306b0 arquivo atribuido combustivel.py | nome annotations L15 | construto: import | from __future__ import annotations
+8948156306b0 arquivo atribuido combustivel.py | atributo FUNIL_SENADO L23 | construto: - | FUNIL = r4.FUNIL_SENADO["linhas"]
+8948156306b0 arquivo atribuido combustivel.py | atributo INTENCAO_SENADO L24 | construto: - | INTENCAO = {k: v["valor"] for k, v in r4.INTENCAO_SENADO["linhas"].items()}
+eba3a9f14d0c arquivo atribuido correlacao_senado_rs.py | nome annotations L3 | construto: import | from __future__ import annotations
+16350fb8f4d1 arquivo atribuido compactar_resto.py | nome annotations L21 | construto: import | from __future__ import annotations
+7d3298be1b2a arquivo atribuido juiz_frescor.py | atributo _derivados L9 | construto: - | ds = gf._derivados()
+7d3298be1b2a arquivo atribuido juiz_frescor.py | atributo divergencias L10 | construto: - | dv = gf.divergencias(ds)
+74bc40ec09e6 arquivo atribuido mutacao.py | nome annotations L2 | construto: import | from __future__ import annotations
+33aa94490685 arquivo atribuido dou_sonda.py | nome erro L25 | construto: except-as | except Exception as erro:  # noqa: BLE001 — a sonda mostra o erro e segue
+33aa94490685 arquivo atribuido dou_sonda.py | nome erro L26 | construto: except-as | print(nome, url[-60:], "ERRO", str(erro)[:120])
+33aa94490685 arquivo atribuido dou_sonda.py | import requests L7 | construto: - | from curl_cffi import requests
+e4cf815f9634 arquivo atribuido patch_agenda.py | nome annotations L5 | construto: import | from __future__ import annotations
+4253113aca75 inline inline <stdin> | nome e L29 | construto: except-as | except Exception as e:
+4253113aca75 inline inline <stdin> | nome e L30 | construto: except-as | print("ERRO", p, e); continue
+899464e659a4 inline inline <stdin> | atributo open L3 | construto: - | im = Image.open("/tmp/claude-1000/-home-gabrielgadea/modelo-1.png").convert("RGB
+fa3608595a34 inline inline <stdin> | nome z L78 | construto: with-as | nomes = z.namelist()
+6907fdeae29b inline inline <stdin> | atributo silhueta_svg L7 | construto: - | svg=pi.silhueta_svg(g, tol)
+bc64bd3c3d3e inline inline <stdin> | nome f L20 | construto: compreensao-alvo+with-as | for linha in f:
+bc64bd3c3d3e inline inline <stdin> | atributo funcoes_puras L6 | construto: - | js = nv.funcoes_puras() + """
+bc64bd3c3d3e inline inline <stdin> | atributo items L32 | construto: - | print("C3 branco sobre niveis:", {k: cr("#FFFFFF", v) for k,v in CORES_NIVEL.ite
+900d50881f16 inline inline <stdin> | atributo construir L4 | construto: - | t0 = time.perf_counter(); g = mv.construir("urbano"); t1 = time.perf_counter()
+900d50881f16 inline inline <stdin> | atributo carregar_ranking L5 | construto: - | rk = rs.carregar_ranking("bairro")[:12]
+900d50881f16 inline inline <stdin> | atributo rota_entre L12 | construto: - | tr = mv.rota_entre(g, a, b); n += 1
+49ed67adee04 inline inline <stdin> | nome e L19 | construto: except-as | except Exception as e:
+49ed67adee04 inline inline <stdin> | import requests L1 | construto: - | from curl_cffi import requests as cr
+f2e79f792da7 inline inline <stdin> | atributo montar_zonas_rmpa L5 | construto: - | t, g = mz.montar_zonas_rmpa()
+f2e79f792da7 inline inline <stdin> | atributo aplicar_ambito_da_enchente L7 | construto: - | print("enchente", json.dumps(mz.aplicar_ambito_da_enchente(t), ensure_ascii=Fals
+25a80dddf49b inline inline <stdin> | nome e L11 | construto: except-as | except Exception as e: val=f"<nao-literal: {e}>"
+83766c7d2442 inline inline <string> | nome zf L11 | construto: with-as | with zipfile.ZipFile(C/'prestacao_cand_2026.zip') as zf, zf.open('receitas_candi
+83766c7d2442 inline inline <string> | nome b L12 | construto: with-as | for r in csv.DictReader(io.TextIOWrapper(b,encoding='latin-1',newline=''),delimi
+83766c7d2442 inline inline <string> | nome zf L17 | construto: with-as | with zipfile.ZipFile(C/'prestacao_cand_2026.zip') as zf, zf.open('receitas_candi
+15f8b61b8b43 inline inline <stdin> | nome p L8 | construto: with-as | nav = p.chromium.launch()
+f7c10d1c387b inline inline <string> | atributo barra_html L3 | construto: - | b = nv.barra_html('ONDE-AGIR.html')
+f7c10d1c387b inline inline <string> | atributo destinos L5 | construto: - | print('destinos:', nv.destinos())
+f7c10d1c387b inline inline <string> | atributo css L6 | construto: - | print('css fixa tem padding-top:', 'padding-top' in nv.css(fixa=True))
+04da7b374e0e inline inline <stdin> | import slides L17 | construto: - | from scripts.eleitoral.build_deck_senado import slides
+459660f32ed5 inline inline <string> | nome p L4 | construto: with-as | b = p.chromium.launch()
+d6a4aa49117b inline inline <string> | nome p L4 | construto: with-as | b = p.chromium.launch()
+949a7c1b6775 inline inline <string> | nome p L4 | construto: with-as | b = p.chromium.launch()
+c7705ea90956 inline inline <string> | nome f L4 | construto: with-as | lines = f.readlines()
+ab71d1cf4726 inline inline <string> | nome f L8 | construto: with-as | f.write(r.content)
+ab71d1cf4726 inline inline <string> | import requests L2 | construto: - | from curl_cffi import requests
+1b77b50cde2a inline inline <string> | nome f L8 | construto: with-as | f.write(r.content)
+1b77b50cde2a inline inline <string> | import requests L2 | construto: - | from curl_cffi import requests
+01a9e01f18b9 inline inline <stdin> | import requests L1 | construto: - | from curl_cffi import requests
+9657f05a6afe inline inline <stdin> | atributo METODO_PUBLICADO L3 | construto: - | p = m.METODO_PUBLICADO
+5ac04473cdbb inline inline <string> | nome e L4 | construto: except-as | except Exception as e:
+5ac04473cdbb inline inline <string> | nome e L5 | construto: except-as | print("não-JSON", e); sys.exit()
+13586cc35335 inline inline <stdin> | atributo ESQUEMA L6 | construto: - | e = cp.ESQUEMA
+60cfe99c0932 inline inline <stdin> | atributo PASTA L4 | construto: - | ordem = json.loads((cp.PASTA / cp.INDICE).read_text(encoding="utf-8"))["ordem"]
+60cfe99c0932 inline inline <stdin> | atributo INDICE L4 | construto: - | ordem = json.loads((cp.PASTA / cp.INDICE).read_text(encoding="utf-8"))["ordem"]
+60cfe99c0932 inline inline <stdin> | atributo ROTULO_REGUA L7 | construto: - | print("reguas_nos_dados", sorted(reguas), "fora_do_rotulo", sorted(reguas - set(
+1080fd768d77 inline inline <stdin> | nome e L8 | construto: except-as | except Exception as e: print(p.name, "ERR", e); continue
+1080fd768d77 inline inline <stdin> | nome e L8 | construto: except-as | except Exception as e: print(p.name, "ERR", e); continue
+ed665ad86c6f inline inline <string> | atributo esquema_historico L5 | construto: - | e = ri.esquema_historico()
+1ace9ba54e47 inline inline <string> | atributo SAIDA L5 | construto: - | gravado = json.loads(cr.SAIDA.read_text(encoding='utf-8'))
+1ace9ba54e47 inline inline <string> | atributo montar_mapa L6 | construto: - | novo = json.loads(json.dumps(cr.montar_mapa(), ensure_ascii=False, default=str))
+e9352e727f2c inline inline <string> | nome e L7 | construto: except-as | except Exception as e:
+e9352e727f2c inline inline <string> | atributo folhas L3 | construto: - | n = len(dd.folhas())
+e9352e727f2c inline inline <string> | atributo paginas_de_sumario L4 | construto: - | esperadas = 1 + dd.paginas_de_sumario(n) + n
+ca4413d5adbf inline inline <stdin> | nome d L14 | construto: compreensao-alvo+with-as | t.TestOQueRotular().test_aceitas_sem_rotulo_e_amostra_das_recusas_por_classe(pat
+ca4413d5adbf inline inline <stdin> | atributo COMANDO_DO_ROTULO L7 | construto: - | return [{"url": d["url"], "titulo": "", "escolha": d["escolha"], "comando": rs.C
+ca4413d5adbf inline inline <stdin> | atributo _para_rotular L10 | construto: - | orig = rs._para_rotular
+14ef7e842257 inline inline <string> | atributo gravar L4 | construto: - | print(cr.gravar([], NAO_COLHIDAS, verificado_em=VERIFICADO_EM))
+785f93459227 inline inline <stdin> | atributo registro_por_protocolo L4 | construto: - | r = cr.registro_por_protocolo()["RS-05216/2026"]
+785f93459227 inline inline <stdin> | atributo ler L8 | construto: - | t = cr.ler(url).colapsado()
+dc533294bdce inline inline <string> | atributo sob_contrato L1 | construto: - | from scripts.eleitoral import navegacao as n; print(len(n.sob_contrato()), sorte
+dc533294bdce inline inline <string> | atributo PAGINAS_INTERNAS L1 | construto: - | from scripts.eleitoral import navegacao as n; print(len(n.sob_contrato()), sorte
+3a2773620022 inline inline <stdin> | nome e L6 | construto: except-as | except Exception as e: print(f,e); continue
+3a2773620022 inline inline <stdin> | nome e L6 | construto: except-as | except Exception as e: print(f,e); continue
+8c69a6dbc66a inline inline <stdin> | import requests L1 | construto: - | from curl_cffi import requests
+0d12c679eae8 inline inline <stdin> | nome e L71 | construto: except-as | except AssertionError as e:
+77efc0bfd974 inline inline <stdin> | nome f L6 | construto: with-as | lines = f.readlines()
+77efc0bfd974 inline inline <stdin> | nome f L15 | construto: with-as | lines = f.readlines()
+77efc0bfd974 inline inline <stdin> | nome f L24 | construto: with-as | lines = f.readlines()
+5410a5f105c8 inline inline <stdin> | nome f L7 | construto: with-as | lines = f.readlines()
+5410a5f105c8 inline inline <stdin> | nome f L22 | construto: with-as | lines = f.readlines()
+5410a5f105c8 inline inline <stdin> | nome f L29 | construto: with-as | lines = f.readlines()
+f4e2b97060a1 inline inline <stdin> | nome f L10 | construto: with-as | lines = f.readlines()
+334df169a5dc inline inline <stdin> | nome e L10 | construto: except-as | except Exception as e: print("ERR",repr(e))
+334df169a5dc inline inline <stdin> | nome e L10 | construto: except-as | except Exception as e: print("ERR",repr(e))
+00f27dec9642 inline inline <stdin> | nome e L11 | construto: except-as | except Exception as e:
+00f27dec9642 inline inline <stdin> | nome e L12 | construto: except-as | print("FAIL(parse)",n,type(e).__name__,str(e)[:100])
+00f27dec9642 inline inline <stdin> | nome e L12 | construto: except-as | print("FAIL(parse)",n,type(e).__name__,str(e)[:100])
+adcadcf87d65 inline inline <string> | nome e L16 | construto: except-as | except Exception as e: print(f,'ERR',e); continue
+adcadcf87d65 inline inline <string> | nome e L16 | construto: except-as | except Exception as e: print(f,'ERR',e); continue
+9d0b2162d18d inline inline <stdin> | nome zf L9 | construto: with-as | with zipfile.ZipFile(C+"votacao_candidato_munzona_2020.zip") as zf, zf.open("vot
+9d0b2162d18d inline inline <stdin> | nome fh L10 | construto: with-as | r=csv.DictReader(io.TextIOWrapper(fh,encoding="latin-1",newline=""),delimiter=";
+9d0b2162d18d inline inline <stdin> | nome zf L5 | construto: with-as | with zipfile.ZipFile(C+z) as zf, zf.open(m) as fh:
+74819290096f inline inline <stdin> | nome e L29 | construto: except-as | except Exception as e:
+74819290096f inline inline <stdin> | nome e L30 | construto: except-as | rows.append({"file": name, "exists": True, "error": str(e)})
+d92fe5cc6070 inline inline <string> | atributo check L1 | construto: - | from PIL import features; features.check('webp_anim')
+d42b9256757b inline inline <string> | atributo open L3 | construto: - | im=Image.open('/tmp/m150/p-12.png'); w,h=im.size
+922195736c58 inline inline <string> | atributo open L6 | construto: - | im=Image.open(f).convert('L')
+922195736c58 inline inline <string> | atributo array L7 | construto: - | a=np.array(im)
+922195736c58 inline inline <string> | atributo where L11 | construto: - | rows=np.where(ink.any(axis=1))[0]
+2b634e341cb3 inline inline <string> | atributo render L5 | construto: - | h=doc.render()
+b799f0ca8893 inline inline <string> | atributo open L3 | construto: - | im=Image.open('pg-08.png'); W,H=im.size
+57aab09236dc inline inline <stdin> | nome fh L15 | construto: with-as | txt = io.TextIOWrapper(fh, encoding="latin-1", errors="replace", newline="")
+e33a1e2e4030 inline inline <string> | atributo open L4 | construto: - | ims=[Image.open(f) for f in fs]
+e33a1e2e4030 inline inline <string> | atributo new L6 | construto: - | out=Image.new('RGB',(w,h),'#bbbbbb'); x=0
+e33a1e2e4030 inline inline <string> | atributo LANCZOS L8 | construto: - | out.thumbnail((1900,1900),Image.LANCZOS)
+da6e860747c3 inline inline <string> | nome e L10 | construto: except-as | except Exception as e:
+589e72c713cb inline inline <string> | atributo sob_contrato L7 | construto: - | r = subprocess.run([sys.executable,'scripts/design_elite/gate_artefato.py',*[str
+e750d0f9fe49 inline inline <stdin> | nome e L10 | construto: except-as | except Exception as e:
+447a7d9e0d91 inline inline <stdin> | import cache L13 | construto: - | from dspy.clients import cache as dspy_cache
+c8c64e92546e inline inline <string> | nome e L7 | construto: except-as | except Exception as e:
+c8c64e92546e inline inline <string> | nome e L8 | construto: except-as | print('ckpt CORROMPIDO:', e)
+cb3723119806 inline inline <stdin> | nome e L9 | construto: except-as | except Exception as e:
+cb3723119806 inline inline <stdin> | nome e L10 | construto: except-as | print(nome, "ERRO:", e)
+9ada055805ab inline inline <stdin> | atributo carregar_enchimento L5 | construto: - | pool = d.carregar_enchimento(Path("data/normas"))
+9ada055805ab inline inline <stdin> | atributo gerar_b L6 | construto: - | dados = b.gerar_b(b.SEMENTE_B, b.TAMANHOS_B, pool)
+9ada055805ab inline inline <stdin> | atributo SEMENTE_B L6 | construto: - | dados = b.gerar_b(b.SEMENTE_B, b.TAMANHOS_B, pool)
+e778ba9bd7bf inline inline <stdin> | nome e L4 | construto: except-as | except Exception as e: print(p, "AUSENTE", e)
+e778ba9bd7bf inline inline <stdin> | nome e L4 | construto: except-as | except Exception as e: print(p, "AUSENTE", e)
+00f15cfa5c96 inline inline <stdin> | atributo texto_da_pagina L5 | construto: - | t = c.texto_da_pagina(c._baixar(u))
+00f15cfa5c96 inline inline <stdin> | atributo _baixar L5 | construto: - | t = c.texto_da_pagina(c._baixar(u))
+906a55561ff0 inline inline <string> | atributo calibrar L4 | construto: - | c = da.calibrar()
+8394717fdde9 inline inline <stdin> | nome fh L18 | construto: with-as | for line in fh:
+84687beb8f11 inline inline <string> | atributo REGISTRO_DE_ENVIOS L4 | construto: - | r=[json.loads(x) for x in at.REGISTRO_DE_ENVIOS.read_text(encoding='utf-8').spli
+7a75117146cd inline inline <stdin> | import requests L2 | construto: - | from curl_cffi import requests as cr
+2edc71dbe179 inline inline <string> | atributo baixar L4 | construto: - | e = fontes.baixar(nome, timeout=1800)
+398078264af4 inline inline <string> | atributo _camada_comparativa L3 | construto: - | d = gf._camada_comparativa()
+398078264af4 inline inline <string> | atributo divergencias L5 | construto: - | print('divergências:', gf.divergencias(d))
+c69238e1b5f9 inline inline <string> | atributo divergencias L4 | construto: - | d = gf.divergencias()
+c69238e1b5f9 inline inline <string> | atributo _derivados L6 | construto: - | for x in gf._derivados():
+dfd037975c65 inline inline <string> | nome e L9 | construto: except-as | except Exception as e: print('RAW',t[-1500:])
+d009b3e3ea6f inline inline <stdin> | nome e L5 | construto: except-as | except Exception as e:
+d009b3e3ea6f inline inline <stdin> | nome e L6 | construto: except-as | print("parse fail", e, open(p).read()[:300]); raise SystemExit
+9c8701683318 inline inline <stdin> | atributo montar L3 | construto: - | d = r.montar()
+9c8701683318 inline inline <stdin> | atributo ROTULOS L7 | construto: - | for c in r.ROTULOS:
+9c8701683318 inline inline <stdin> | atributo _conservacao_da_corrida L18 | construto: - | print("sem declaração:", c, r._conservacao_da_corrida(c, terr, d2["diagnostico"]
+5d2627f3a242 inline inline <string> | atributo BRUTOS L2 | construto: - | from scripts.eleitoral import apuracao_tse as at; print(at.BRUTOS)
+cd12bb9e4b25 inline inline <stdin> | import requests L2 | construto: - | from curl_cffi import requests
+892c4b5db459 inline inline <stdin> | nome e L16 | construto: except-as | except Exception as e: print("ld err", e)
+892c4b5db459 inline inline <stdin> | nome e L16 | construto: except-as | except Exception as e: print("ld err", e)
+e66991659484 inline inline <stdin> | nome f L7 | construto: with-as | h = io.TextIOWrapper(f, encoding="utf-8", errors="replace").readline()
+926a3871ad1c inline inline <string> | nome e L8 | construto: except-as | except Exception as e:
+926a3871ad1c inline inline <string> | nome e L9 | construto: except-as | print('ERR', e)
+93798915a54f inline inline <string> | atributo ANOS L3 | construto: - | for ano in cp.ANOS:
+93798915a54f inline inline <string> | atributo painel L4 | construto: - | p=cp.painel(ano); c=cp.candidatos(ano); s=cp.votos_no_estado(p,'senado_t1')
+93798915a54f inline inline <string> | atributo candidatos L4 | construto: - | p=cp.painel(ano); c=cp.candidatos(ano); s=cp.votos_no_estado(p,'senado_t1')
+c36b5918b7f1 inline inline <stdin> | nome e L8 | construto: except-as | except Exception as e:
+c36b5918b7f1 inline inline <stdin> | nome e L9 | construto: except-as | print(p,"ERR",e); continue
+d2646baa57a2 inline inline <stdin> | nome e L19 | construto: except-as | except Exception as e: print("ERR",f,e)
+d2646baa57a2 inline inline <stdin> | nome e L19 | construto: except-as | except Exception as e: print("ERR",f,e)
+3a7dc7022145 inline inline <stdin> | nome e L12 | construto: except-as | except Exception as e: rows.append((os.path.basename(f),"ERR")); continue
+35b604d5cf04 inline inline <stdin> | nome e L8 | construto: except-as | except Exception as e: print(p,e)
+35b604d5cf04 inline inline <stdin> | nome e L8 | construto: except-as | except Exception as e: print(p,e)
+a94b8867ca8e inline inline <stdin> | nome e L5 | construto: except-as | except Exception as e:
+a94b8867ca8e inline inline <stdin> | nome e L6 | construto: except-as | print("  nao-json:",type(e).__name__); raise SystemExit
+39e60bea6a5c inline inline <stdin> | nome e L25 | construto: except-as | except Exception as e: print('ERR',q,e); continue
+39e60bea6a5c inline inline <stdin> | nome e L25 | construto: except-as | except Exception as e: print('ERR',q,e); continue
+d1b3caffe7a6 inline inline <stdin> | nome e L10 | construto: except-as | except urllib.error.HTTPError as e:
+d1b3caffe7a6 inline inline <stdin> | nome e L12 | construto: except-as | except Exception as e:
+5fd349d331ff inline inline <stdin> | nome e L6 | construto: except-as | except Exception as e:
+5fd349d331ff inline inline <stdin> | nome e L7 | construto: except-as | print(url, "->", type(e).__name__, e); continue
+5fd349d331ff inline inline <stdin> | nome e L7 | construto: except-as | print(url, "->", type(e).__name__, e); continue
+f99b9e6ece20 inline inline <string> | nome e L5 | construto: except-as | except Exception as e: print("NAO-JSON",e,t[-1500:])
+f99b9e6ece20 inline inline <string> | nome e L5 | construto: except-as | except Exception as e: print("NAO-JSON",e,t[-1500:])
+112fa9f81fa7 inline inline <stdin> | nome fh L12 | construto: with-as | for l in csv.DictReader(fh, delimiter=";"):
+7a755153ff99 inline inline <stdin> | nome fh L10 | construto: with-as | print(f[-60:], os.path.getsize(f)//1024, 'KB |', fh.readline().strip()[:200])

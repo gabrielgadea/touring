@@ -33,9 +33,13 @@
 
 use std::collections::HashMap;
 
-use touring_simd::similarity::{JaccardComputer, JaccardSimilarity, MinHasher, Signature, band_keys};
+use touring_simd::similarity::{
+    JaccardComputer, JaccardSimilarity, MinHasher, Signature, band_keys,
+};
 
-use super::code_regions::{non_executable_regions, offset_suppressed};
+use super::code_regions::{
+    non_executable_regions, non_executable_regions_segmented, offset_suppressed,
+};
 
 /// Minimum consecutive meaningful lines that constitute a clone block. jscpd's
 /// default `min-lines` is 5; 6 is slightly more conservative to avoid trivial
@@ -79,11 +83,9 @@ pub struct DuplicationReport {
     pub near_pass_skipped: Option<&'static str>,
 }
 
-/// A meaningful production line: its normalized text and original 0-based index.
+/// A meaningful production line: its normalized text.
 struct Line {
     norm: String,
-    #[allow(dead_code)]
-    index: usize,
 }
 
 /// Collect meaningful production lines, tracking byte offsets correctly (so
@@ -91,7 +93,7 @@ struct Line {
 fn collect_meaningful_lines(source: &str, regions: &[(usize, usize)]) -> Vec<Line> {
     let mut out = Vec::new();
     let mut line_start = 0usize;
-    for (index, raw_line) in source.split_inclusive('\n').enumerate() {
+    for raw_line in source.split_inclusive('\n') {
         let content = raw_line.trim_end_matches('\n').trim_end_matches('\r');
         let trimmed = content.trim();
         let advance = raw_line.len();
@@ -110,7 +112,7 @@ fn collect_meaningful_lines(source: &str, regions: &[(usize, usize)]) -> Vec<Lin
         if keep {
             // Normalize: collapse internal whitespace runs to a single space.
             let norm = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
-            out.push(Line { norm, index });
+            out.push(Line { norm });
         }
         line_start += advance;
     }
@@ -124,7 +126,7 @@ fn collect_meaningful_lines(source: &str, regions: &[(usize, usize)]) -> Vec<Lin
 /// Chosen from the arithmetic, not from taste. With `SHINGLE_K = 4`, each
 /// changed token destroys up to 4 shingles on each side, so a window of `m`
 /// shingles with `d` destroyed has `J = (m - d) / (m + d)`. Over the
-/// [`NEAR_BLOCK_LINES`]-line window (~117 shingles) that puts the tolerated
+/// `NEAR_BLOCK_LINES`-line window (~117 shingles) that puts the tolerated
 /// edit at ~4 tokens: J = 0.934 at 1 token, 0.872 at 2, 0.708 at 5.
 ///
 /// The same 0.75 over a 6-line window would tolerate barely ONE token
@@ -180,13 +182,78 @@ const MAX_BUCKET_MEMBERS: usize = 64;
 /// keeping a word verbatim can only ever *reduce* the number of reported
 /// clones, so a Go keyword surviving in Rust costs recall, never precision.
 const KEYWORDS: &[&str] = &[
-    "as", "async", "await", "break", "case", "catch", "chan", "class", "const", "continue",
-    "def", "default", "defer", "del", "do", "elif", "else", "enum", "except", "extends", "false",
-    "final", "finally", "fn", "for", "from", "func", "function", "go", "if", "impl", "import",
-    "in", "interface", "is", "lambda", "let", "loop", "map", "match", "mod", "move", "mut", "new",
-    "nil", "none", "not", "or", "package", "pass", "pub", "range", "raise", "ref", "return",
-    "select", "self", "static", "struct", "super", "switch", "trait", "true", "try", "type",
-    "unsafe", "use", "var", "where", "while", "with", "yield",
+    "as",
+    "async",
+    "await",
+    "break",
+    "case",
+    "catch",
+    "chan",
+    "class",
+    "const",
+    "continue",
+    "def",
+    "default",
+    "defer",
+    "del",
+    "do",
+    "elif",
+    "else",
+    "enum",
+    "except",
+    "extends",
+    "false",
+    "final",
+    "finally",
+    "fn",
+    "for",
+    "from",
+    "func",
+    "function",
+    "go",
+    "if",
+    "impl",
+    "import",
+    "in",
+    "interface",
+    "is",
+    "lambda",
+    "let",
+    "loop",
+    "map",
+    "match",
+    "mod",
+    "move",
+    "mut",
+    "new",
+    "nil",
+    "none",
+    "not",
+    "or",
+    "package",
+    "pass",
+    "pub",
+    "range",
+    "raise",
+    "ref",
+    "return",
+    "select",
+    "self",
+    "static",
+    "struct",
+    "super",
+    "switch",
+    "trait",
+    "true",
+    "try",
+    "type",
+    "unsafe",
+    "use",
+    "var",
+    "where",
+    "while",
+    "with",
+    "yield",
 ];
 
 /// Rewrites one line into its Type-2 canonical token stream.
@@ -315,7 +382,11 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
     let n = lines.len();
     let mut covered = vec![false; n];
     if n < MIN_BLOCK_LINES {
-        return Type2Outcome { any: false, covered, skipped: None };
+        return Type2Outcome {
+            any: false,
+            covered,
+            skipped: None,
+        };
     }
 
     // Token-normalize once per line; windows reuse the slices.
@@ -382,7 +453,11 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
     // representative per distinct normalized form, since identical forms were
     // already settled by stage 1 and deduping is what keeps buckets small.
     if n < NEAR_BLOCK_LINES {
-        return Type2Outcome { any: found, covered, skipped: None };
+        return Type2Outcome {
+            any: found,
+            covered,
+            skipped: None,
+        };
     }
     let near_tokens = |start: usize| -> Vec<u32> {
         per_line
@@ -409,7 +484,9 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
         return Type2Outcome {
             any: found,
             covered,
-            skipped: Some("near-duplicate pass skipped: distinct windows exceed the 50k budget — score by crate for gapped-clone coverage"),
+            skipped: Some(
+                "near-duplicate pass skipped: distinct windows exceed the 50k budget — score by crate for gapped-clone coverage",
+            ),
         };
     }
 
@@ -490,8 +567,36 @@ fn analyze_type2(lines: &[Line]) -> Type2Outcome {
 /// for `code_regions` (`"rust"`, `"python"`, `"typescript"`, `"go"`, …).
 #[must_use]
 pub fn analyze_duplication(source: &str, lang: &str) -> DuplicationReport {
-    let regions = non_executable_regions(source, lang);
-    let lines = collect_meaningful_lines(source, &regions);
+    analyze_with_regions(source, &non_executable_regions(source, lang))
+}
+
+/// Como [`analyze_duplication`], mas para um corpus **concatenado de arquivos
+/// heterogêneos**: cada segmento é lexado com a SUA linguagem.
+///
+/// `segments` são `(offset, len, lang)` sobre `source`, um por arquivo. A detecção
+/// de clones continua correndo sobre o corpus inteiro — um bloco copiado entre N
+/// arquivos segue aparecendo como duplicação, que é a razão de o corpus ser
+/// concatenado. O que muda é só o lexer de comentários/strings, que deixa de
+/// vazar de um arquivo para o seguinte.
+///
+/// Motivação medida e teste mínimo: ver
+/// [`non_executable_regions_segmented`].
+#[must_use]
+pub fn analyze_duplication_segmented(
+    source: &str,
+    segments: &[(usize, usize, &str)],
+) -> DuplicationReport {
+    analyze_with_regions(source, &non_executable_regions_segmented(source, segments))
+}
+
+/// O núcleo partilhado pelas duas entradas: dadas as regiões não-executáveis já
+/// resolvidas, mede Type-1 e Type-2 sobre as linhas significativas restantes.
+///
+/// Extraído em 03/09/2026 para que a variante segmentada não fosse uma SEGUNDA
+/// cópia do algoritmo — dois caminhos quase iguais é exatamente onde a assimetria
+/// entre chamadores nasce (um lado ganha uma guarda e o outro esquece).
+fn analyze_with_regions(source: &str, regions: &[(usize, usize)]) -> DuplicationReport {
+    let lines = collect_meaningful_lines(source, regions);
     let n = lines.len();
     if n < MIN_BLOCK_LINES {
         return DuplicationReport {
@@ -698,7 +803,6 @@ mod tests {
         )
     }
 
-
     #[test]
     fn renamed_copy_paste_is_invisible_to_type1_and_caught_by_type2() {
         // The exact gap A1 exists to close: same block, every identifier
@@ -753,8 +857,12 @@ mod tests {
     fn literals_of_different_shape_still_normalize_together() {
         // Type-2 abstracts literals but keeps their KIND: two different numbers
         // are both `$N` and must match…
-        let a = varied_block("first").replace("* 3", "* 7").replace("> 4", "> 9");
-        let b = varied_block("second").replace("* 3", "* 11").replace("> 4", "> 2");
+        let a = varied_block("first")
+            .replace("* 3", "* 7")
+            .replace("> 4", "> 9");
+        let b = varied_block("second")
+            .replace("* 3", "* 11")
+            .replace("> 4", "> 2");
         let r = analyze_duplication(&format!("fn f() {{\n{a}}}\nfn g() {{\n{b}}}\n"), "rust");
         assert!(r.type2_clone_regions >= 1, "different numbers are both $N");
 
@@ -801,9 +909,15 @@ mod tests {
                    match spread { 0 => total, 1..=3 => total / spread, _ => total.saturating_sub(spread) }\n\
                    }\n";
         let r = analyze_duplication(src, "rust");
-        assert_eq!(r.type2_only_lines, 0, "varied code is not a clone of itself");
+        assert_eq!(
+            r.type2_only_lines, 0,
+            "varied code is not a clone of itself"
+        );
         assert_eq!(r.combined_ratio, 0.0);
-        assert!(r.near_pass_skipped.is_none(), "a small file must be fully measured");
+        assert!(
+            r.near_pass_skipped.is_none(),
+            "a small file must be fully measured"
+        );
     }
 
     #[test]
@@ -837,7 +951,10 @@ mod tests {
             "fn prod() {{ ok() }}\n#[cfg(test)]\nmod tests {{\nfn t1() {{\n{a}}}\nfn t2() {{\n{b}}}\n}}\n"
         );
         let r = analyze_duplication(&src, "rust");
-        assert_eq!(r.type2_only_lines, 0, "test-region clones are not production debt");
+        assert_eq!(
+            r.type2_only_lines, 0,
+            "test-region clones are not production debt"
+        );
     }
 
     #[test]
@@ -868,5 +985,70 @@ mod tests {
         let r = analyze_duplication(&src, "rust");
         assert!((0.0..=1.0).contains(&r.ratio));
         assert!(r.ratio > 0.0, "two identical 6-line blocks must register");
+    }
+
+    /// Dois arquivos Python concatenados: um `/*` de CSS dentro de uma string do
+    /// PRIMEIRO não pode apagar o SEGUNDO da medição.
+    ///
+    /// Este é o teste mínimo que reproduziu o defeito em 03/09/2026 (sessão
+    /// analise-c1, repositório `analise`): medindo o corpus inteiro com um único
+    /// `lang = "rust"` — o default de `lang_of` para um diretório, que não
+    /// tem extensão — o `/*` abre um comentário de bloco Rust (`PYTHON` tem
+    /// `block: None`, `RUST` tem `/* */`) que só fecha no próximo `*/`, e o
+    /// arquivo seguinte inteiro desaparece do denominador.
+    ///
+    /// A asserção é POSITIVA: o que se exige é que as linhas do segundo arquivo
+    /// SEJAM contadas. Um teste por ausência ("não caiu tanto assim") passaria
+    /// também numa implementação que apagasse metade.
+    #[test]
+    fn a_block_comment_delimiter_inside_one_file_cannot_erase_the_next() {
+        let com_css = "CSS = \"\"\"\n.classe { color: red } /* comentario css aberto\n\"\"\"\n";
+        let normal: String = (0..20)
+            .map(|i| format!("valor_{i} = calcula({i}, base={})\n", i * 2))
+            .collect();
+        let corpus = format!("{com_css}{normal}");
+        let segmentos = [
+            (0usize, com_css.len(), "python"),
+            (com_css.len(), normal.len(), "python"),
+        ];
+
+        let so_o_segundo = analyze_duplication(&normal, "python");
+        let segmentado = analyze_duplication_segmented(&corpus, &segmentos);
+
+        assert!(
+            segmentado.total_meaningful_lines >= so_o_segundo.total_meaningful_lines,
+            "o corpus segmentado ({}) tem de contar ao menos as {} linhas que o segundo \
+             arquivo conta sozinho — o lexer de um arquivo não pode vazar para o seguinte",
+            segmentado.total_meaningful_lines,
+            so_o_segundo.total_meaningful_lines
+        );
+
+        // Controle da própria premissa: sem segmentação e com a linguagem errada,
+        // o defeito REAPARECE. Se esta asserção falhar, ou o bug foi corrigido em
+        // outro lugar (e este teste virou redundante) ou o corpus de exemplo
+        // deixou de exercitá-lo — em qualquer dos casos, o teste precisa ser
+        // revisto, não silenciado.
+        let corpo_unico_lang_errada = analyze_duplication(&corpus, "rust");
+        assert!(
+            corpo_unico_lang_errada.total_meaningful_lines < segmentado.total_meaningful_lines,
+            "controle: o caminho não-segmentado com lang errada deveria suprimir \
+             linhas ({} vs {}) — se não suprime, este teste parou de medir o que promete",
+            corpo_unico_lang_errada.total_meaningful_lines,
+            segmentado.total_meaningful_lines
+        );
+    }
+
+    /// Sem `/*` em lugar nenhum, segmentar não muda nada: a correção é cirúrgica.
+    #[test]
+    fn segmenting_a_clean_corpus_matches_the_single_pass() {
+        let a: String = (0..10).map(|i| format!("alpha_{i} = f({i})\n")).collect();
+        let b: String = (0..10).map(|i| format!("beta_{i} = g({i})\n")).collect();
+        let corpus = format!("{a}{b}");
+        let segmentos = [(0usize, a.len(), "python"), (a.len(), b.len(), "python")];
+        assert_eq!(
+            analyze_duplication_segmented(&corpus, &segmentos).total_meaningful_lines,
+            analyze_duplication(&corpus, "python").total_meaningful_lines,
+            "sem delimitador vazando, os dois caminhos têm de coincidir"
+        );
     }
 }

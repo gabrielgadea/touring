@@ -1,0 +1,52 @@
+hw-slot: aguardando — temp 94C > 88C
+   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.88s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
+
+running 4 tests
+test vgp::modules::tests::dataclass_init_segue_a_ordem_de_declaracao ... FAILED
+test vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela ... FAILED
+test vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes ... FAILED
+test vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao ... FAILED
+
+failures:
+
+---- vgp::modules::tests::dataclass_init_segue_a_ordem_de_declaracao stdout ----
+
+thread 'vgp::modules::tests::dataclass_init_segue_a_ordem_de_declaracao' (1042424) panicked at crates/touring-code/src/vgp/modules.rs:775:13:
+assertion `left == right` failed
+  left: ["bravo", "mike", "zulu", "alfa"]
+ right: ["zulu", "alfa", "mike", "bravo"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela stdout ----
+
+thread 'vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela' (1042422) panicked at crates/touring-code/src/vgp/checks/tests.rs:1141:5:
+assertion `left == right` failed
+  left: ["lambda_", "alpha", "gamma", "eta", "mu", "__init__", "nome", "delta"]
+ right: ["alpha", "beta", "delta", "epsilon", "eta", "gamma", "iota", "kappa"]
+
+---- vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes stdout ----
+
+thread 'vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes' (1042421) panicked at crates/touring-code/src/vgp/checks/tests.rs:1116:13:
+assertion `left == right` failed: balde tmp: a chamada 2 difere da 1ª — ordem/conjunto de `reais` ou `sugestao` vazou de um conjunto sem ordem
+  left: "deny|[{\"classe\":\"membro\",\"nome\":\"betta\",\"linha\":4,\"severidade\":\"deny\",\"sugestao\":\"instância de `Config` não tem membro `betta`. Você quis dizer `beta`?\",\"reais\":[\"theta\",\"zeta\",\"beta\",\"iota\",\"gamma\",\"mu\",\"alpha\",\"eta\"]},{\"classe\":\"membro\",\"nome\":\"dos\",\"linha\":6,\"severidade\":\"deny\",\"sugestao\":\"instância de `Pequena` não tem membro `dos`. Você quis dizer `dois`?\",\"reais\":[\"tres\",\"dois\",\"um\"]},{\"classe\":\"kwarg\",\"nome\":\"uniforme\",\"linha\":7,\"severidade\":\"deny\",\"sugestao\":\"argumento-nome inexistente na assinatura\",\"reais\":[\"victor\",\"papa\",\"tango\",\"xray\",\"oscar\",\"quebec\",\"sierra\",\"romeo\",\"whiskey\",\"yankee\"]},{\"classe\":\"atributo\",\"nome\":\"f1\",\"linha\":8,\"severidade\":\"deny\",\"sugestao\":\"módulo `pkg.util` não tem atributo `f1`. Você quis dizer `f01`?\",\"reais\":[\"f01\",\"f02\",\"f03\",\"f04\",\"f05\",\"f06\",\"f07\",\"f08\"]}]"
+ right: "deny|[{\"classe\":\"membro\",\"nome\":\"betta\",\"linha\":4,\"severidade\":\"deny\",\"sugestao\":\"instância de `Config` não tem membro `betta`. Você quis dizer `beta`?\",\"reais\":[\"lambda_\",\"eta\",\"nu\",\"beta\",\"__init__\",\"mu\",\"iota\",\"epsilon\"]},{\"classe\":\"membro\",\"nome\":\"dos\",\"linha\":6,\"severidade\":\"deny\",\"sugestao\":\"instância de `Pequena` não tem membro `dos`. Você quis dizer `dois`?\",\"reais\":[\"dois\",\"tres\",\"um\"]},{\"classe\":\"kwarg\",\"nome\":\"uniforme\",\"linha\":7,\"severidade\":\"deny\",\"sugestao\":\"argumento-nome inexistente na assinatura. Você quis dizer `uniform`?\",\"reais\":[\"romeo\",\"xray\",\"quebec\",\"uniform\",\"zulu\",\"yankee\",\"tango\",\"whiskey\",\"victor\",\"sierra\"]},{\"classe\":\"atributo\",\"nome\":\"f1\",\"linha\":8,\"severidade\":\"deny\",\"sugestao\":\"módulo `pkg.util` não tem atributo `f1`. Você quis dizer `f01`?\",\"reais\":[\"f01\",\"f02\",\"f03\",\"f04\",\"f05\",\"f06\",\"f07\",\"f08\"]}]"
+
+---- vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao stdout ----
+
+thread 'vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao' (1042423) panicked at crates/touring-code/src/vgp/checks/tests.rs:1197:5:
+assertion `left == right` failed: a sugestão mudou com a ordem de entrada: o desempate não é total
+  left: [Some("asa"), Some("cada"), Some("casas"), Some("caso")]
+ right: [Some("asa")]
+
+
+failures:
+    vgp::checks::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes
+    vgp::checks::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela
+    vgp::checks::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao
+    vgp::modules::tests::dataclass_init_segue_a_ordem_de_declaracao
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 899 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p touring-code --lib`

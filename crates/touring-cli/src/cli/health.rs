@@ -260,6 +260,28 @@ pub fn cli_harness_metric(_rt: &mut HookRuntime, _payload: &serde_json::Value) -
         .unwrap_or_else(|e| format!("{{\"error\":\"serialize failed: {e}\"}}"))
 }
 
+/// `cli-code-mode-run` — contabiliza, NO DAEMON, uma execução de code mode.
+///
+/// `record_code_mode_run` incrementa um counter do PROCESSO. O executor
+/// (`ctx_execute_impl`) já o chama, mas o `touring run` é um CLI efêmero: o
+/// incremento morria com ele, enquanto o `journal_run` da linha seguinte —
+/// que escreve em disco — sobrevivia. Medido em 24/08/2026: 163 execuções no
+/// `run_journal.jsonl` contra `code_mode_runs_count = 0` no daemon, que é de
+/// onde o `gate-metrics` lê.
+///
+/// O adaptador CLI retransmite por aqui, espelhando o que a C2-W0 já fazia
+/// para as sub-chamadas do `--orchestrate` (contadas no daemon, em
+/// `daemon.rs`, quando chegam pelo socket). Fail-open no chamador: perder um
+/// counter nunca pode derrubar a execução do usuário.
+pub fn cli_code_mode_run(_rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let bytes_elided = payload
+        .get("bytes_elided")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    crate::shared::gate_metrics::record_code_mode_run(bytes_elided);
+    format!("{{\"recorded\":true,\"bytes_elided\":{bytes_elided}}}")
+}
+
 /// `cli-doctor` — health-check report mirroring the touring CLI `doctor` format.
 ///
 /// Returns a JSON array of `{name, status, detail}` rows so the web dashboard
@@ -291,24 +313,46 @@ pub fn cli_doctor(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
     // Knowledge_db component: instead of the legacy stub "connected", emit
     // a row census of wiring_map so operators see whether the orphan-count
     // diagnostic is built on clean data. Fields surface the three failure
-    // modes the 2026-05-11 audit identified: path pollution (non_rust_rows),
-    // race condition (kind_unknown_count), and pure orphan count.
+    // modes the 2026-05-11 audit identified: path pollution
+    // (non_wireable_rows), race condition (kind_unknown_count), and pure orphan
+    // count. Kept byte-for-byte in step with `touring-server`'s
+    // `check_wiring_diagnostic` — the handler operators actually reach. This
+    // one is dispatched as `cli-doctor` but invoked only by IPC tests, which is
+    // precisely how a field added here on 2026-08-19 (`root=`) shipped without
+    // ever appearing in anyone's output.
     let (kdb_status, kdb_detail) = match rt.ctx.knowledge.wiring_db_diagnostic() {
         Ok(diag) => {
+            // `root` first, because it is the field whose ABSENCE hid a bug for
+            // two months: the wiring paths of one project were being
+            // canonicalized against another project's root, and no diagnostic
+            // said which root was in force (2026-08-19). A census of rows is
+            // only meaningful once you know what the rows are relative to.
             let detail = format!(
-                "rows={} producers={} consumers={} pub={} distinct={} unknown_kind={} non_rust={}",
+                "root={} polyglot={} rows={} producers={} consumers={} pub={} distinct={} unknown_kind={} non_wireable={} unread={}",
+                rt.ctx
+                    .knowledge
+                    .workspace_root()
+                    .unwrap_or("<não derivável>"),
+                if rt.ctx.knowledge.polyglot() {
+                    "on"
+                } else {
+                    "off"
+                },
                 diag.total_rows,
                 diag.producer_rows,
                 diag.consumer_rows,
                 diag.pub_producers,
                 diag.distinct_pub_symbols,
                 diag.kind_unknown_count,
-                diag.non_rust_rows,
+                diag.non_wireable_rows,
+                diag.unread_rows,
             );
-            // Degrade to "warning" if the gate is leaking non-Rust rows or
-            // the schema race is contaminating kinds — those make orphan
-            // counts unreliable, even if the daemon answers fine.
-            let status = if diag.non_rust_rows > 0 || diag.kind_unknown_count > 0 {
+            // Degrade to "warning" only for rows NO read admits, or for the
+            // schema race contaminating kinds — those make orphan counts
+            // unreliable even when the daemon answers fine. `unread_rows` is
+            // deliberately absent from this condition: a Python source the
+            // current mode filters out is a mode setting, not a defect.
+            let status = if diag.non_wireable_rows > 0 || diag.kind_unknown_count > 0 {
                 "warning"
             } else {
                 "ok"
@@ -318,13 +362,29 @@ pub fn cli_doctor(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
         Err(e) => ("error", format!("wiring_db_diagnostic: {}", e)),
     };
 
+    // I16 (2026-09-13): the seal on the latest rebuild, in step with
+    // `touring-server`'s `check_index_generation` (the handler operators reach).
+    let (gen_status, gen_detail) = match rt.ctx.knowledge.index_generation_state(std::process::id())
+    {
+        Ok(state) => (
+            match state.state {
+                "complete" | "none" => "ok",
+                "building" => "building",
+                _ => "partial",
+            },
+            state.detail,
+        ),
+        Err(e) => ("error", format!("index_generation: {e}")),
+    };
+
     let checks = serde_json::json!(
         [{ "name" : "binary_version", "status" : "ok", "detail" : binary_version }, {
         "name" : "daemon_socket", "status" : socket_status, "detail" : socket_detail }, {
         "name" : "daemon_health", "status" : daemon_health_status, "detail" :
         daemon_health_detail }, { "name" : "circuit_breaker", "status" : circuit_status,
         "detail" : circuit_detail }, { "name" : "knowledge_db", "status" : kdb_status,
-        "detail" : kdb_detail }]
+        "detail" : kdb_detail }, { "name" : "index_generation", "status" : gen_status,
+        "detail" : gen_detail }]
     );
     serde_json::to_string(&checks).unwrap_or_else(|_| {
         r#"[{"name":"error","status":"error","detail":"serialization failed"}]"#.to_string()
@@ -371,11 +431,44 @@ pub fn cli_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
     );
     let composite_health_score =
         compute_composite_health_score(combined.as_object().expect("combined is a JSON object"));
+    // W7 S-7.3 (plano code-mode-total) — a régua de adoção no dashboard:
+    // runs / bash_calls (denominador vivo do W0) + resumo dos gate_events.
+    // Ausência de denominador = null, nunca 0 (Lei L2).
+    let gm = crate::shared::gate_metrics::global();
+    let runs = gm
+        .code_mode_runs_count
+        .load(std::sync::atomic::Ordering::Relaxed);
+    let bash_calls = gm
+        .bash_calls_total_count
+        .load(std::sync::atomic::Ordering::Relaxed);
+    let adoption_ratio = if bash_calls > 0 {
+        serde_json::json!(runs as f64 / bash_calls as f64)
+    } else {
+        serde_json::Value::Null
+    };
+    let gates: serde_json::Map<String, serde_json::Value> =
+        crate::shared::gate_metrics::GateId::all()
+            .iter()
+            .map(|g| {
+                let denied = gm.gate_events[*g as usize]
+                    [crate::shared::gate_metrics::GateEvent::Denied as usize]
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                let followed = gm.gate_events[*g as usize]
+                    [crate::shared::gate_metrics::GateEvent::Followed as usize]
+                    .load(std::sync::atomic::Ordering::Relaxed);
+                (
+                    g.label().to_string(),
+                    serde_json::json!({ "denied": denied, "followed": followed }),
+                )
+            })
+            .collect();
     let status = serde_json::json!(
         { "index" : { "symbol_count" : symbol_count, "file_count" : file_count,
         "initialized" : rt.infra.symbol_store.is_some() }, "wiring" : { "orphan_count" :
         orphan_count }, "learning" : { "ema_reward" : ema_reward }, "daemon_health" :
-        daemon_health, "composite_health_score" : composite_health_score }
+        daemon_health, "composite_health_score" : composite_health_score,
+        "code_mode" : { "runs" : runs, "bash_calls" : bash_calls,
+        "adoption_ratio" : adoption_ratio, "gates" : gates } }
     );
     serde_json::to_string(&status)
         .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())

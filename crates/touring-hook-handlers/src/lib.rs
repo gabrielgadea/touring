@@ -20,6 +20,9 @@
 
 // ── The hook handler modules (identical #[path] layout + cfg gates to the
 //    dispatch crate) ──────────────────────────────────────────────────────────
+#[cfg(feature = "post-hooks")]
+#[path = "hooks/check_compile.rs"]
+pub mod check_compile;
 #[path = "hooks/hooks_task_lifecycle.rs"]
 pub mod hooks_task_lifecycle;
 #[path = "hooks/instructions_loaded.rs"]
@@ -37,6 +40,9 @@ pub mod post_edit;
 #[cfg(feature = "post-hooks")]
 #[path = "hooks/post_edit_rule_engine.rs"]
 pub mod post_edit_rule_engine;
+#[cfg(feature = "post-hooks")]
+#[path = "hooks/post_feedback.rs"]
+pub mod post_feedback;
 #[cfg(feature = "post-hooks")]
 #[path = "hooks/post_read.rs"]
 pub mod post_read;
@@ -79,6 +85,14 @@ pub mod pre_tool_use;
 #[cfg(feature = "pre-hooks")]
 #[path = "hooks/pre_write.rs"]
 pub mod pre_write;
+/// Output Diet for large Bash results via PostToolUse `updatedToolOutput` (S-14 / B1).
+#[cfg(feature = "post-hooks")]
+#[path = "hooks/result_compactor.rs"]
+pub mod result_compactor;
+/// S28 gate acceptance tests (cross-process baseline + declared abstention).
+#[cfg(all(test, feature = "post-hooks"))]
+#[path = "hooks/s28_gate.rs"]
+mod s28_gate;
 #[cfg(feature = "session-hooks")]
 #[path = "hooks/session_hooks.rs"]
 pub mod session_hooks;
@@ -86,6 +100,12 @@ pub mod session_hooks;
 pub mod stop;
 #[path = "hooks/team_hooks.rs"]
 pub mod team_hooks;
+#[cfg(feature = "pre-hooks")]
+#[path = "hooks/vgp_execucao.rs"]
+pub mod vgp_execucao;
+#[cfg(feature = "pre-hooks")]
+#[path = "hooks/vgp_l2.rs"]
+pub mod vgp_l2;
 
 // Integration tests — post_tool_rl RL feedback loop
 #[cfg(all(test, feature = "post-hooks"))]
@@ -137,16 +157,28 @@ pub use touring_cli::{cli_handlers, cli_handlers_decompose};
 /// `signal_pipeline`) with re-exports of the runtime/leaf shared homes, so the
 /// historical `crate::shared::<submodule>` paths resolve byte-identically.
 pub mod shared {
+    // Only `pre_edit`/`pre_write` (feature `pre-hooks`) consume these three; compiled
+    // without that feature they were 23 dead-code errors under `clippy -D warnings`.
+    #[cfg(feature = "pre-hooks")]
+    pub mod api_cascade_preview;
+    #[cfg(feature = "pre-hooks")]
+    pub mod api_preview;
+    pub mod cross_caller;
     pub mod hook_helpers;
     pub mod metadata_collector;
+    pub mod missing_imports;
+    #[cfg(feature = "pre-hooks")]
+    pub mod quality_signal;
+    pub mod related_symbols;
+    pub mod secrets_signal;
     pub mod signal_pipeline;
     #[cfg(feature = "tantivy-fts")]
     pub use touring_hook_runtime::shared::tantivy_stream;
     pub use touring_hook_runtime::shared::{quality, reindex, session_context, signals};
     pub use touring_hooks_shared::{
         antipatterns, api_cascade_bridge, ast_grep_signal, bash_ast_validator, cila, command_hash,
-        detect_language, feature_flags, gate_metrics, job_registry, metadata_dedup, mpatch_preview,
-        parser_cache_global, patterns, query_cache, result_ext, risk_patterns, span_context,
-        thread_pool,
+        detect_language, doc_symbol_signal, feature_flags, gate_metrics, job_registry,
+        metadata_dedup, mpatch_preview, parser_cache_global, patterns, qa_syntax, query_cache,
+        result_ext, risk_patterns, span_context, thread_pool,
     };
 }

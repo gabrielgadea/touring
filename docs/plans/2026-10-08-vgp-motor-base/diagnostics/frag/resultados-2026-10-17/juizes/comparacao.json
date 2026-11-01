@@ -1,0 +1,347 @@
+[
+ {
+  "config": "vivo_v2 (frag)",
+  "pronto": [
+   true,
+   true
+  ],
+  "chaves_divergentes": [
+   "recall_deny_informativo"
+  ],
+  "base": {
+   "recall_deny_informativo": {
+    "arquivo": [
+     5,
+     13
+    ],
+    "inline": [
+     21,
+     27
+    ]
+   }
+  },
+  "frag": {
+   "recall_deny_informativo": {
+    "arquivo": [
+     1,
+     13
+    ],
+    "inline": [
+     21,
+     27
+    ]
+   }
+  },
+  "p95_ms": [
+   96.55090299999999,
+   105.873441
+  ],
+  "por_id": [
+   {
+    "id": "34511b9ac100",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "6fb90b5d7502",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "8b7a3476e024",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "fbd4d99c3ec2",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   }
+  ],
+  "erros": [
+   0,
+   0
+  ]
+ },
+ {
+  "config": "vivo_v3 (frag)",
+  "pronto": [
+   false,
+   false
+  ],
+  "chaves_divergentes": [
+   "avisos_em_negativos",
+   "recall_deny_informativo"
+  ],
+  "base": {
+   "avisos_em_negativos": 51,
+   "recall_deny_informativo": {
+    "arquivo": [
+     6,
+     13
+    ],
+    "inline": [
+     23,
+     27
+    ]
+   }
+  },
+  "frag": {
+   "avisos_em_negativos": 52,
+   "recall_deny_informativo": {
+    "arquivo": [
+     1,
+     13
+    ],
+    "inline": [
+     23,
+     27
+    ]
+   }
+  },
+  "p95_ms": [
+   1024.079046,
+   1051.637821
+  ],
+  "por_id": [
+   {
+    "id": "0893b1f5187f",
+    "rotulo": "negativo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/tse_zip.py",
+    "classe": "outra",
+    "detalhe": "allow->warn achados [] -> [(('membro', 'items'), 'warn'), (('membro', 'setdefault'), 'warn'), (('membro', 'values'), 'warn')]"
+   },
+   {
+    "id": "34511b9ac100",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "6fb90b5d7502",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "8b7a3476e024",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "d94f8090d150",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/eleitoral_probe/causa_raiz.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "fbd4d99c3ec2",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   }
+  ],
+  "erros": [
+   0,
+   0
+  ]
+ },
+ {
+  "config": "bak_v2 (frag)",
+  "pronto": [
+   true,
+   false
+  ],
+  "chaves_divergentes": [
+   "pronto",
+   "recall_deny_informativo"
+  ],
+  "base": {
+   "pronto": true,
+   "recall_deny_informativo": {
+    "arquivo": [
+     5,
+     13
+    ],
+    "inline": [
+     20,
+     27
+    ]
+   }
+  },
+  "frag": {
+   "pronto": false,
+   "recall_deny_informativo": {
+    "arquivo": [
+     1,
+     13
+    ],
+    "inline": [
+     20,
+     27
+    ]
+   }
+  },
+  "p95_ms": [
+   91.698478,
+   150.022345
+  ],
+  "por_id": [
+   {
+    "id": "34511b9ac100",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "6fb90b5d7502",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "8b7a3476e024",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "fbd4d99c3ec2",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   }
+  ],
+  "erros": [
+   0,
+   0
+  ]
+ },
+ {
+  "config": "bak_v3 (frag)",
+  "pronto": [
+   false,
+   false
+  ],
+  "chaves_divergentes": [
+   "avisos_em_negativos",
+   "recall_deny_informativo"
+  ],
+  "base": {
+   "avisos_em_negativos": 51,
+   "recall_deny_informativo": {
+    "arquivo": [
+     6,
+     13
+    ],
+    "inline": [
+     22,
+     27
+    ]
+   }
+  },
+  "frag": {
+   "avisos_em_negativos": 50,
+   "recall_deny_informativo": {
+    "arquivo": [
+     1,
+     13
+    ],
+    "inline": [
+     22,
+     27
+    ]
+   }
+  },
+  "p95_ms": [
+   1047.831484,
+   1006.512807
+  ],
+  "por_id": [
+   {
+    "id": "0893b1f5187f",
+    "rotulo": "negativo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/tse_zip.py",
+    "classe": "outra",
+    "detalhe": "warn->allow achados [(('membro', 'items'), 'warn'), (('membro', 'setdefault'), 'warn'), (('membro', 'values'), 'warn')] -> []"
+   },
+   {
+    "id": "34511b9ac100",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "6fb90b5d7502",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "8b7a3476e024",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "d94f8090d150",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/eleitoral_probe/causa_raiz.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   },
+   {
+    "id": "fbd4d99c3ec2",
+    "rotulo": "positivo",
+    "origem": "tmp",
+    "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py",
+    "classe": "esperado_rebaixa",
+    "detalhe": "deny->warn"
+   }
+  ],
+  "erros": [
+   0,
+   0
+  ]
+ }
+]

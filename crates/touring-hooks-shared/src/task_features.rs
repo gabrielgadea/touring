@@ -25,6 +25,7 @@
 //! LinUCB is robust to zero-padded dimensions — theta learns zero weights when no signal.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 use touring_intelligence::rl::bandit::linucb::FEATURE_DIM;
 
 // ── Keyword sets for routing signal extraction ──────────────────────────────
@@ -224,7 +225,7 @@ impl TaskRoutingDecision {
     /// The hint is prefixed with `[TOURING RL-ROUTER]` so Claude Code can
     /// visually distinguish it from static generator hints.
     pub fn hint(&self, subject: &str) -> Option<String> {
-        let subject_short = &subject[..subject.len().min(80)];
+        let subject_short = truncate_str(subject, 80);
         match self {
             Self::ManualEdit => None,
             Self::GeneratorStruct => Some(format!(

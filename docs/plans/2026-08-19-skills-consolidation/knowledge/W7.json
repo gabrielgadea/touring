@@ -1,0 +1,11 @@
+{
+  "phase": "W7",
+  "entities": [
+    {
+      "entity_id": "phase:W7",
+      "type": "phase",
+      "description": "loop-engineering: e a ENCARNACAO do P2, nao uma instancia derivada - quando outra skill diz 'o veredito e um exit code', e este exit code. Ligada ao canonico."
+    }
+  ],
+  "relations": []
+}

@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Regression: the path detectors see the REAL path alphabet (-, ., digits, uppercase).
+
+Origin (30/08/2026): every touring crate path carries a hyphen
+(crates/touring-ceg/…), and the old [a-z_0-9/] classes either matched NOTHING
+(_RE_FILE_LINE: a FACT-grade citation scored as INFERENCE) or captured a
+MUTILATED path ("ceg/src/…"), which fails any existence check downstream.
+Same family as the analise finding the peer session reported the same day:
+_PARECE_CAMINHO rejected [ ] and recognized 0 of 505 real acervo paths.
+The failure mode is silent by construction — the detector never errs, it
+never sees. Hence: every assertion here is POSITIVE (the full path is the
+match), never "no exception was raised".
+"""
+
+from __future__ import annotations
+
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from confidence_tagger import _RE_FILE_LINE, classify_block  # noqa: E402
+from gap_detector import _RE_FILE_CITATION  # noqa: E402
+from lib import _PATH_RE  # noqa: E402
+
+CITACAO = "veja `crates/touring-ceg/src/gateway/sandbox_executor.rs:530` para o root"
+
+
+class PathAlphabet(unittest.TestCase):
+    def test_file_line_sees_hyphenated_crate_paths(self):
+        self.assertTrue(_RE_FILE_LINE.search(CITACAO),
+                        "file:line citation with a hyphenated crate dir must match")
+
+    def test_fact_grade_is_not_downgraded_by_the_alphabet(self):
+        body = CITACAO + "\nverificado com touring ast blast"
+        level, score = classify_block(body)
+        self.assertEqual(level, "FACT", "file:line + touring cmd is the FACT contract")
+        self.assertEqual(score, 1.0)
+
+    def test_citation_captures_the_whole_path_never_a_mutilation(self):
+        m = _RE_FILE_CITATION.search(CITACAO)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "crates/touring-ceg/src/gateway/sandbox_executor.rs",
+                         "a partial capture (ceg/src/…) fails every existence check downstream")
+
+    def test_path_re_sees_uppercase_hyphen_and_digits(self):
+        intent = "config em Cargo.toml, manual em docs/code-mode.md, bundle docs/plans/2026-08-30-mundos-da-criacao/index.md"
+        achados = {m.group(0) for m in _PATH_RE.finditer(intent)}
+        self.assertIn("Cargo.toml", achados)
+        self.assertIn("docs/code-mode.md", achados,
+                      "the hyphen used to cut this down to 'mode.md'")
+        self.assertIn("docs/plans/2026-08-30-mundos-da-criacao/index.md", achados)
+
+    def test_path_re_sees_leading_dotdir_and_never_a_mid_path_prefix(self):
+        # 26 real tracked paths live under dot-dirs (.cargo/, .github/, .holon/)
+        # — found by the universe sweep, invisible to \b before ".".
+        m = _PATH_RE.search("veja .cargo/config.toml aqui")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(0), ".cargo/config.toml")
+        # The lookbehind must forbid a match starting mid-path (the mutilation).
+        m = _PATH_RE.search("veja crates/touring-ceg/src/lib.rs aqui")
+        self.assertEqual(m.group(0), "crates/touring-ceg/src/lib.rs")
+
+    def test_prose_still_does_not_match(self):
+        # The widening must not turn ordinary prose into paths.
+        for texto in ("isto é só prosa comum", "a versão 1.2 saiu ontem"):
+            self.assertIsNone(_PATH_RE.search(texto), texto)
+            self.assertIsNone(_RE_FILE_CITATION.search(texto), texto)
+
+    def test_name_extending_a_live_file_yields_absence_never_the_wrong_file(self):
+        # Peer measurement (analise, 30/08): 21 backups ".pre-*" whose prefix
+        # IS the live file — counting "captured != path" as mutilation nearly
+        # "fixed" the extractor toward the backup. Here the suffix guard makes
+        # citing such a name extract NOTHING (honest absence beats capturing
+        # the wrong real object).
+        self.assertIsNone(_PATH_RE.search("restaure de .cargo/config.toml.bak.p4"))
+        self.assertIsNone(_RE_FILE_CITATION.search("compare com `src/lib.rs.orig` antes"))
+        # A sentence-ending period after a real citation must still match.
+        m = _PATH_RE.search("veja docs/code-mode.md. Depois seguimos")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(0), "docs/code-mode.md")
+
+    def test_citation_never_reads_a_longer_extension_as_code(self):
+        # Measured 28/10/2026 on the analise portfolio plan: `manifest.json`,
+        # `portfolio_events.jsonl` and `settings.local.json` were captured as
+        # `*.js` — the suffix guard only refused a following DOT, not a letter —
+        # and gap_detector raised VAGUE_BLAST on subtasks that touch only data.
+        for texto in ("`data/eval/manifest.json`", "`.claude/data/portfolio_events.jsonl`",
+                      "registro em `settings.local.json`"):
+            self.assertIsNone(_RE_FILE_CITATION.search(texto), texto)
+        # The longer CODE extension must still win over its prefix.
+        m = _RE_FILE_CITATION.search("veja `web/src/App.tsx` agora")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "web/src/App.tsx")
+
+    def test_citation_keeps_the_leading_dotdir(self):
+        # Same mutilation _PATH_RE already fixed: `.claude/hooks/x.py` was
+        # captured as `claude/hooks/x.py`, which fails every existence check.
+        m = _RE_FILE_CITATION.search("hook em `.claude/hooks/portfolio/reuso_scripts.py`")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), ".claude/hooks/portfolio/reuso_scripts.py")
+        m = _RE_FILE_CITATION.search("veja crates/touring-ceg/src/lib.rs:12 aqui")
+        self.assertEqual(m.group(1), "crates/touring-ceg/src/lib.rs")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+def test_is_kebab_accepts_the_plan_ids_the_acervo_actually_uses():
+    """The alphabet is the acervo's, not intuition's — the same rule this file
+    already enforces for paths, which `is_kebab` had not inherited.
+
+    Measured 04/09/2026 over `docs/plans/`: 73 of 80 bundles are named
+    `YYYY-MM-DD-slug`, i.e. they START WITH A DIGIT. Requiring a leading letter
+    warned on 91% of the acervo — a warning nobody can act on, and therefore one
+    everybody learns to ignore, which is worse than no warning at all.
+    """
+    from lib import is_kebab
+
+    for real in (
+        "2026-09-04-economia-de-contexto",
+        "2026-08-31-code-mode-sinal",
+        "touring-productization-pln2",
+    ):
+        assert is_kebab(real), f"plan id from the acervo rejected: {real}"
+
+    # The predicate must still REFUSE what is genuinely not kebab-case, or the
+    # fix would have bought acceptance by blindness.
+    for bad in ("Economia-De-Contexto", "economia_de_contexto", "-leading", "trailing-", "com espaco"):
+        assert not is_kebab(bad), f"non-kebab accepted: {bad}"

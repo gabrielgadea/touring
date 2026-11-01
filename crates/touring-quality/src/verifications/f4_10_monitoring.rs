@@ -48,7 +48,7 @@ fn analyze_f4_10_monitoring_dim(target: &Path) -> Result<(f32, String)> {
         ));
     }
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_monitoring(&raw, lang);
     let value = score_monitoring(&r);
     let top = crate::verifications::top_finding(&r.findings);

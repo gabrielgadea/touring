@@ -7,19 +7,51 @@ Run from a project directory with .claude/data/ or .claude/touring/ databases.
 from __future__ import annotations
 
 import json
+import os
+import sqlite3
 import subprocess
 import sys
+import uuid
+from pathlib import Path
+
+HARNESS = Path(__file__).resolve().parents[1]
+PROJECT = HARNESS.parent  # the touring checkout: its `.claude/touring/` holds the real stores
+sys.path.insert(0, str(HARNESS))
 
 
-def run_cli(*args: str) -> tuple[int, str, str]:
-    """Run cli-anything-touring command and capture output."""
+def run_cli(*args: str, cwd: Path = PROJECT) -> tuple[int, str, str]:
+    """Run the harness CLI as a module of THIS checkout, from the project root.
+
+    It called the `cli-anything-touring` executable, which nothing installs: all 19 tests died with
+    FileNotFoundError, so the suite never ran and a regression from 02/10/2026 (`KeyError: 'v5'` in
+    `index status`) went unseen (cross-audit 04/10/2026, X3 and X15). The working directory is pinned
+    because the stores are found by walking up from it.
+    """
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(p for p in (str(HARNESS), os.environ.get("PYTHONPATH")) if p)}
     result = subprocess.run(
-        ["cli-anything-touring", *args],
+        [sys.executable, "-m", "cli_anything.touring.touring_cli", *args],
         capture_output=True,
         text=True,
         timeout=30,
+        cwd=cwd,
+        env=env,
     )
     return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def test_every_detected_schema_has_a_file_column(tmp_path: Path) -> None:
+    """The F2.1 whitelist knew `legacy` and `current`; the detector answers `legacy` or `v5`, so
+    `index status` raised `KeyError: 'v5'` on every current store (cross-audit 04/10/2026, X3)."""
+    from cli_anything.touring.core import index as ix
+
+    for ddl, expected in [
+        ("CREATE TABLE symbols (name, kind, file, line, language)", "file"),
+        ("CREATE TABLE symbols (name, file_path, line)", "file_path"),
+    ]:
+        conn = sqlite3.connect(tmp_path / f"{expected}.db")
+        conn.execute(ddl)
+        assert ix.FILE_COLUMN[ix._detect_schema(conn)] == expected
+        conn.close()
 
 
 def parse_json(stdout: str) -> dict | list:
@@ -113,24 +145,60 @@ def test_memory_list_json() -> None:
     assert len(data) <= 5
 
 
-def test_memory_store_and_recall() -> None:
-    # Store
-    code, out, _ = run_cli(
-        "memory", "store",
-        "test:cli-anything:e2e", "E2E test entry from cli-anything-touring",
-        "--tier", "ephemeral", "--type", "test", "-j",
-    )
-    assert code == 0
-    data = parse_json(out)
-    assert data["key"] == "test:cli-anything:e2e"
+def _scratch_project(tmp_path: Path) -> Path:
+    """A project of its own holding an EMPTY `memory_entries` with the live table's schema.
 
-    # Recall
-    code, out, _ = run_cli("memory", "recall", "cli-anything:e2e", "--tier", "all", "-n", "1", "-j")
-    assert code == 0
+    Once the suite ran (X15), this test wrote its row into the real `memory.db` of the checkout on
+    every run (blind review of the 04/10 fixes). The stores are found by walking up from the cwd to a
+    `CLAUDE.md`, so a scratch root with one is where the harness writes. Triggers stay out: they feed
+    the FTS tables, which the harness never reads.
+    """
+    live = sqlite3.connect(f"file:{PROJECT / '.claude' / 'touring' / 'memory.db'}?mode=ro", uri=True)
+    schema = [sql for (sql,) in live.execute(
+        "SELECT sql FROM sqlite_master WHERE tbl_name = 'memory_entries' "
+        "AND type IN ('table', 'index') AND sql IS NOT NULL ORDER BY type DESC")]
+    live.close()
+    (tmp_path / "CLAUDE.md").write_text("# scratch\n", encoding="utf-8")
+    store = tmp_path / ".claude" / "touring"
+    store.mkdir(parents=True)
+    with sqlite3.connect(store / "memory.db") as conn:
+        for sql in schema:
+            conn.execute(sql)
+    return tmp_path
+
+
+def _live_rows(key: str) -> int:
+    live = sqlite3.connect(f"file:{PROJECT / '.claude' / 'touring' / 'memory.db'}?mode=ro", uri=True)
+    try:
+        return live.execute("SELECT COUNT(*) FROM memory_entries WHERE key = ?", (key,)).fetchone()[0]
+    finally:
+        live.close()
+
+
+def test_memory_store_and_recall(tmp_path: Path) -> None:
+    # A key no run ever used: with a fixed key the live row an older run left made the guard below
+    # pass while this run wrote there again (an upsert keeps the count at 1).
+    key = f"test:cli-anything:e2e:{uuid.uuid4().hex}"
+    scratch = _scratch_project(tmp_path)
+    live_before = _live_rows(key)
+    assert live_before == 0
+
+    code, out, err = run_cli(
+        "memory", "store", key, "E2E test entry from cli-anything-touring",
+        "--tier", "ephemeral", "--type", "test", "-j", cwd=scratch,
+    )
+    assert code == 0, err
+    assert parse_json(out)["key"] == key
+
+    code, out, err = run_cli("memory", "recall", "cli-anything:e2e", "--tier", "all", "-n", "1", "-j",
+                             cwd=scratch)
+    assert code == 0, err
     data = parse_json(out)
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert "cli-anything" in data[0]["key"]
+    assert isinstance(data, list) and data and data[0]["key"] == key
+
+    with sqlite3.connect(scratch / ".claude" / "touring" / "memory.db") as conn:
+        assert conn.execute("SELECT COUNT(*) FROM memory_entries WHERE key = ?", (key,)).fetchone()[0] == 1
+    assert _live_rows(key) == live_before, "the test must never write into the checkout's live store"
 
 
 # ─── AST ──────────────────────────────────────────────────────

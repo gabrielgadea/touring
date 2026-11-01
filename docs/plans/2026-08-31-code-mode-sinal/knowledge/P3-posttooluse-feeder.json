@@ -1,0 +1,45 @@
+{
+  "phase": "P3-posttooluse-feeder",
+  "entities": [
+    {
+      "entity_id": "phase:P3-posttooluse-feeder",
+      "type": "phase",
+      "description": "P3 done: PostToolUse real alimenta o mirror. classify_bash_command (touring-code sdk.rs, precision-first: 7 shapes CLI, env-prefix e path de binario tolerados, falso positivo = None) + wiring no handler post_bash (touring-hook-handlers) via default_mirror_path + record_hook_call \u2014 o orfao record_hook_call ganhou consumidor real (REGRA #0). RED-GREEN: 3 testes classify falharam (E0425) antes e passam depois; touring-code 690/690, hook-handlers 103/103, clippy 0. Prova comportamental live fica para P4/P5 (exige deploy \u2014 daemon embute touring-cli estatico)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788291732701800956",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788291732701800956",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P3-posttooluse-feeder|produces|memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done",
+      "source": "phase:P3-posttooluse-feeder",
+      "type": "produces",
+      "target": "memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done|generated-by|loop:loop:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788291732701800956"
+    },
+    {
+      "relation_id": "memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done|generated-by|dag:decomp:task_1788291732701800956",
+      "source": "memory:loop:task_1788291732701800956:P3-posttooluse-feeder:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788291732701800956"
+    }
+  ]
+}

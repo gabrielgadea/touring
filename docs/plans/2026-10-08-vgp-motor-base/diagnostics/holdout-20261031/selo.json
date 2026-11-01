@@ -1,0 +1,18 @@
+{
+ "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261031b",
+ "sha_tree": "e8d8016f45bff2c5",
+ "arquivos": 2393,
+ "bytes": 15749853,
+ "holdout_meta_sha256": "f3ff82d85da19d167ab23033bf8a46c3188f0f2daac93e9dd6ac31440a7ff868",
+ "entradas_jsonl_sha256": "7491e9a14060cdbfedf85a84445e1edb404f084722f49754cd0cdbf1b790a2b8",
+ "entradas_inline_neg_jsonl_sha256": "ea62a78847b415d6d4abc077067e80cb2f9a0a178b1c123bc7ac21f62508babd",
+ "selado": "o motor e o juiz NAO rodaram neste corpus; abrir so depois do P0 e conferir o sha_tree antes (scripts/confere_selo.py)",
+ "adjudicador_sha256": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+ "estado_no_instante_sha256": "cc4516d0c008d3fad41659ed3d8a506417c19d0aa24f85454e3aad25e7d87891",
+ "congelados_json_sha256": "84d189f1cbc64e804206e2fa4fd9efe626fcd5c467ee82b37aa2e6ab109724ac",
+ "seed": "20261031",
+ "construtor_sha256": "a206a6d08f91970671346809daaad2decae3ff0265f0d275ac93d02a14cb4967",
+ "regra_de_estado_completo": "fecho transitivo: todo modulo do projeto alcancavel pelos imports, em qualquer profundidade, no conteudo do instante",
+ "substitui": "corpus_holdout_disjunto_20261031 (parcial abortado, sem selo)",
+ "correcao_timestamps_commits": "443564a3,1256b7f0"
+}

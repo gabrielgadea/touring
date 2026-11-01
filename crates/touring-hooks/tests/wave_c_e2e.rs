@@ -98,10 +98,19 @@ fn hook_registry_has_cascade_queue_handlers() {
     // ⚠ Sincronizar JUNTO com os outros quatro tripwires — a lista está no
     // doc de `test_hook_registry_counts_match_the_dispatch_registry`
     // (touring-hooks/tests/stringzilla_e2e.rs).
+    // 2026-08-18: +4 decompose verbs — claim, release (C2), ticket, frontier (C3).
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list}.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay.
+    // 2026-09-13 (I13): +1 cli-index-why.
+    // 2026-09-20: +1 cli-decompose-reconcile-stages — fecha estagio cujos
+    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera):
+    //   246->247 / 248->249.
+    // 2026-09-19: +1 cli-decompose-archive.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 249;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 247;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

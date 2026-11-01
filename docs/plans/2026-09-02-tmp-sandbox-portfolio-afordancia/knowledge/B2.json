@@ -1,0 +1,45 @@
+{
+  "phase": "B2",
+  "entities": [
+    {
+      "entity_id": "phase:B2",
+      "type": "phase",
+      "description": "run_journal v2: JournalEntry ganha source/file/harvest/brief/orchestrate/tmp_bytes (serde default, retrocompat\u00edvel); JournalAggregate soma file_runs/inline_runs/scratch_file_runs/harvested_runs/brief_runs/orchestrate_runs/total_tmp_bytes; RunTunables carrega RunSource+JournalMeta e CtxExecuteOutput exp\u00f5e tmp_bytes. touring-server 55/55 no subconjunto (journal_v2_tests, run_source_tests, cli::run)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:B2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B2|produces|memory:loop:task_1788340910617776382:B2:done",
+      "source": "phase:B2",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:B2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B2:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B2:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

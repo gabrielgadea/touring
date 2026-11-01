@@ -16,6 +16,9 @@ use tracing_attributes::instrument;
 /// Bump only when adding a new migration block to `touring-hooks::FileKnowledgeDB`.
 ///
 /// **v9 (S1, 2026-08-07)** — adds `wiring_unresolved`.
+/// **v11 (2026-09-13)** — adds `idx_wiring_consumer`: every `WHERE consumer_file =
+/// ?` on `wiring_map` was a full scan, and a large rebuild purging ~18k files spent
+/// most of an hour in them.
 /// **v10 (S1, 2026-08-07)** — adds `wiring_unresolved.class`: the first live
 /// measurement put 7.197 call sites under one "resolver debt" label, of which
 /// the top entries were `super` (1.298) and `serde` (531) — a scope keyword and
@@ -29,7 +32,8 @@ use tracing_attributes::instrument;
 /// their writes fail into `let _ =`, and the counter that reads them reports a
 /// perfectly innocent `0`. Verified live: the first S1 rebuild reported
 /// `name_only_candidates: 0` while `sqlite3` answered `no such table`.
-pub const SCHEMA_VERSION: u32 = 10;
+/// v12 (S22, 25/09/2026): `bash_outcomes.session_id` + `origin_event` (provenance).
+pub const SCHEMA_VERSION: u32 = 12;
 
 /// A single schema migration step.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -302,7 +306,8 @@ mod tests {
     /// never materialises on an existing DB.
     #[test]
     fn test_schema_version_10_is_current() {
-        assert_eq!(SCHEMA_VERSION, 10);
+        // v12 (S22, 25/09/2026): bash_outcomes provenance (session_id + origin_event).
+        assert_eq!(SCHEMA_VERSION, 12);
     }
 
     #[test]

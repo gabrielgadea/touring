@@ -104,7 +104,7 @@
 
 ### 3.2 touring-antt NLP Enrichment Decision — P2 MEDIUM
 
-**Tarefa**: Decidir se `nlp_enrichment` feature deve ser включен (enabled) no default bundle.
+**Tarefa**: Decidir se `nlp_enrichment` feature deve ser ativado (enabled) no default bundle.
 
 **Entregáveis**:
 - [ ] Avaliação de overhead: benchmark com/sem `nlp_enrichment` (latência de pre-edit hook)

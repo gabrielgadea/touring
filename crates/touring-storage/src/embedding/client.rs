@@ -843,20 +843,6 @@ impl Embedder for NullEmbedder {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Legacy type alias for backwards compatibility
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Legacy type alias — prefer `GpuEmbedder` for new code.
-///
-/// `EmbeddingClient` is the old name for the GPU embedder. It is not a trait
-/// object; use `dyn Embedder` for polymorphic embedding.
-#[deprecated(
-    since = "0.2.0",
-    note = "use GpuEmbedder (concrete) or dyn Embedder (trait object)"
-)]
-pub type EmbeddingClient = GpuEmbedder;
-
-// ─────────────────────────────────────────────────────────────────────────────
 // EmbeddingError
 // ─────────────────────────────────────────────────────────────────────────────
 

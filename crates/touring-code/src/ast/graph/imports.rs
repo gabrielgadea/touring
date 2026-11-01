@@ -104,7 +104,14 @@ fn extract_imports_treesitter(source: &str, lang: Lang) -> Option<Vec<ImportInfo
 
     let mut parser = Parser::new();
     parser.set_language(&lang.tree_sitter_language()).ok()?;
-    let tree = parser.parse(source, None)?;
+    let tree = crate::ast::parser::parse_bounded(&mut parser, source, None)?;
+
+    // Rust walks the `use` trees instead of querying them: a nested list
+    // (`use a::{b::C, d::{E, F}}`, rustfmt's everyday shape) needs the prefix of
+    // every enclosing level, which no flat query capture carries.
+    if matches!(lang, Lang::Rust) {
+        return Some(rust_use_imports(tree.root_node(), source.as_bytes()));
+    }
 
     let query_src = lang.import_query_file();
     let ts_lang = lang.tree_sitter_language();
@@ -177,6 +184,237 @@ fn extract_imports_treesitter(source: &str, lang: Lang) -> Option<Vec<ImportInfo
         .collect();
 
     Some(imports)
+}
+
+/// Every `use` declaration of a Rust tree, one [`ImportInfo`] per module path.
+///
+/// Until 15/09/2026 Rust never reached the tree: its import query named a
+/// TypeScript node (`default_import`), `Query::new` failed, and every file went
+/// to the line regex — which reads only lines that START with `use `, so each
+/// `pub use` / `pub(crate) use`, and each multi-line brace list, produced no
+/// import at all (cross-audit R2). The walk sees the declaration whatever its
+/// visibility and composes the full module path of every leaf.
+fn rust_use_imports(root: tree_sitter::Node, src: &[u8]) -> Vec<ImportInfo> {
+    let mut out: Vec<ImportInfo> = Vec::new();
+    let mut cursor = root.walk();
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "use_declaration" {
+            if let Some(argument) = node.child_by_field_name("argument") {
+                collect_rust_use(argument, "", src, &mut out);
+            }
+            continue;
+        }
+        stack.extend(node.named_children(&mut cursor));
+    }
+    out
+}
+
+/// The imports a Rust file RE-EXPORTS: every leaf of a `use` declaration that
+/// carries a visibility (`pub use`, `pub(crate) use`, …), in the shape
+/// [`extract_imports`] reports.
+///
+/// A re-export forwards a name to other modules; it is not a use of it
+/// (decision of 18/09/2026, Gabriel). The consumer passes subtract these, and a
+/// real consumer that reaches the symbol through the re-exported path is still
+/// credited to the definer, which follows the chain.
+#[must_use]
+pub fn rust_reexports(source: &str) -> Vec<ImportInfo> {
+    let mut parser = tree_sitter::Parser::new();
+    if parser
+        .set_language(&Lang::Rust.tree_sitter_language())
+        .is_err()
+    {
+        return Vec::new();
+    }
+    let Some(tree) = crate::ast::parser::parse_bounded(&mut parser, source, None) else {
+        return Vec::new();
+    };
+    let src = source.as_bytes();
+    let mut out: Vec<ImportInfo> = Vec::new();
+    let mut cursor = tree.root_node().walk();
+    let mut stack = vec![tree.root_node()];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "use_declaration" {
+            if is_reexport_declaration(node)
+                && let Some(argument) = node.child_by_field_name("argument")
+            {
+                collect_rust_use(argument, "", src, &mut out);
+            }
+            continue;
+        }
+        stack.extend(node.named_children(&mut cursor));
+    }
+    out
+}
+
+/// Identifiers a Rust file names OUTSIDE its `use` declarations (plain and type
+/// identifiers, macro arguments included).
+///
+/// It tells a pure re-export from one the file also uses: `handlers/mod.rs`
+/// re-exports `ADD_MISSING_MATCH_ARMS` and lists it in its own table —
+/// `("add_missing_match_arms", ADD_MISSING_MATCH_ARMS)` — which is a use. Eleven
+/// such assist handlers read as orphans the day re-exports stopped counting
+/// (18/09/2026), because no by-name pass sees a bare identifier in an expression.
+#[must_use]
+pub fn rust_names_used_outside_use(source: &str) -> std::collections::HashSet<String> {
+    let mut used = std::collections::HashSet::new();
+    let mut parser = tree_sitter::Parser::new();
+    if parser
+        .set_language(&Lang::Rust.tree_sitter_language())
+        .is_err()
+    {
+        return used;
+    }
+    let Some(tree) = crate::ast::parser::parse_bounded(&mut parser, source, None) else {
+        return used;
+    };
+    let src = source.as_bytes();
+    let mut stack = vec![tree.root_node()];
+    while let Some(node) = stack.pop() {
+        match node.kind() {
+            "use_declaration" => continue,
+            "identifier" | "type_identifier" => {
+                used.insert(node_text(node, src));
+            }
+            _ => {}
+        }
+        let mut cursor = node.walk();
+        stack.extend(node.children(&mut cursor));
+    }
+    used
+}
+
+/// A `use` declaration carrying a visibility (`pub use`, `pub(crate) use`, …):
+/// a re-export. The one reading of it, for [`rust_reexports`] and for the
+/// type-reference pass, so the two never disagree on what forwards a name.
+pub(crate) fn is_reexport_declaration(node: tree_sitter::Node<'_>) -> bool {
+    if node.kind() != "use_declaration" {
+        return false;
+    }
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .any(|c| c.kind() == "visibility_modifier")
+}
+
+#[cfg(test)]
+mod reexport_tests {
+    use super::rust_reexports;
+
+    #[test]
+    fn only_visible_use_declarations_are_reexports() {
+        let src = "use crate::private::Hidden;\n\
+                   pub use crate::a::Foo;\n\
+                   pub(crate) use crate::b::{Bar, Baz as Q};\n\
+                   pub(super) use sub::Up;\n\
+                   fn f() { use crate::inner::Local; }\n";
+        let mut pairs: Vec<(String, String)> = rust_reexports(src)
+            .into_iter()
+            .flat_map(|i| {
+                let m = i.module_path;
+                i.symbols.into_iter().map(move |s| (m.clone(), s))
+            })
+            .collect();
+        pairs.sort();
+        let pair = |m: &str, s: &str| (m.to_string(), s.to_string());
+        assert_eq!(
+            pairs,
+            [
+                pair("crate::a", "Foo"),
+                pair("crate::b", "Bar"),
+                pair("crate::b", "Baz"),
+                pair("sub", "Up"),
+            ]
+        );
+    }
+}
+
+fn collect_rust_use(node: tree_sitter::Node, prefix: &str, src: &[u8], out: &mut Vec<ImportInfo>) {
+    match node.kind() {
+        "scoped_identifier" => {
+            if let Some(name) = node.child_by_field_name("name") {
+                let module = extend_prefix(prefix, node.child_by_field_name("path"), src);
+                push_rust_import(out, module, Some(node_text(name, src)));
+            }
+        }
+        "identifier" | "crate" | "super" | "self" | "metavariable" => {
+            collect_rust_use_leaf(node, prefix, src, out);
+        }
+        "use_as_clause" => {
+            if let Some(path) = node.child_by_field_name("path") {
+                collect_rust_use(path, prefix, src, out);
+            }
+        }
+        "scoped_use_list" => {
+            let inner = extend_prefix(prefix, node.child_by_field_name("path"), src);
+            if let Some(list) = node.child_by_field_name("list") {
+                collect_rust_use(list, &inner, src, out);
+            }
+        }
+        "use_list" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_rust_use(child, prefix, src, out);
+            }
+        }
+        "use_wildcard" => {
+            let mut cursor = node.walk();
+            let module = extend_prefix(prefix, node.named_children(&mut cursor).next(), src);
+            if !module.is_empty() {
+                push_rust_import(out, module, None);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// A single-segment leaf: `use foo;` at the top, `B` / `self` inside a list.
+fn collect_rust_use_leaf(
+    node: tree_sitter::Node,
+    prefix: &str,
+    src: &[u8],
+    out: &mut Vec<ImportInfo>,
+) {
+    if prefix.is_empty() {
+        // `use foo;` — a module with no symbol, as the regex reports it.
+        push_rust_import(out, node_text(node, src), None);
+    } else if node.kind() == "self" {
+        // `use a::{self, B}` — the module itself.
+        push_rust_import(out, prefix.to_string(), None);
+    } else {
+        push_rust_import(out, prefix.to_string(), Some(node_text(node, src)));
+    }
+}
+
+/// `prefix::path`, or `prefix` alone when the level carries no path.
+fn extend_prefix(prefix: &str, path: Option<tree_sitter::Node>, src: &[u8]) -> String {
+    match path.map(|p| node_text(p, src)) {
+        Some(tail) if prefix.is_empty() => tail,
+        Some(tail) => format!("{prefix}::{tail}"),
+        None => prefix.to_string(),
+    }
+}
+
+fn node_text(node: tree_sitter::Node, src: &[u8]) -> String {
+    node.utf8_text(src).unwrap_or("").to_string()
+}
+
+fn push_rust_import(out: &mut Vec<ImportInfo>, module_path: String, symbol: Option<String>) {
+    let index = match out.iter().position(|i| i.module_path == module_path) {
+        Some(index) => index,
+        None => {
+            out.push(ImportInfo {
+                module_path,
+                symbols: Vec::new(),
+            });
+            out.len() - 1
+        }
+    };
+    if let Some(symbol) = symbol
+        && !out[index].symbols.contains(&symbol)
+    {
+        out[index].symbols.push(symbol);
+    }
 }
 
 /// Regex-based import extraction — fallback when tree-sitter query fails.
@@ -459,6 +697,31 @@ import type { User } from './types';
         );
     }
 
+    /// B5 (16/09/2026): the query captured only the `dotted_name`, so the leading
+    /// dots — which live in `import_prefix` — were dropped and `from .formato
+    /// import X` was resolved from the source root. 136 of the 231 residual false
+    /// orphans measured in the analise were exactly this.
+    #[test]
+    fn a_relative_python_import_keeps_its_dots() {
+        let source = "from .formato import PUB\nfrom ..pacote.mod import OUTRO\nfrom . import IRMAO\nfrom absoluto.mod import LONGE\n";
+        let imports = extract_imports(source, Lang::Python);
+        let module_of = |symbol: &str| {
+            imports
+                .iter()
+                .find(|i| i.symbols.iter().any(|s| s == symbol))
+                .map(|i| i.module_path.clone())
+                .unwrap_or_else(|| format!("{symbol} not extracted: {imports:?}"))
+        };
+        assert_eq!(module_of("PUB"), ".formato");
+        assert_eq!(module_of("OUTRO"), "..pacote.mod");
+        assert_eq!(module_of("IRMAO"), ".");
+        assert_eq!(
+            module_of("LONGE"),
+            "absoluto.mod",
+            "an absolute import is unchanged"
+        );
+    }
+
     #[test]
     fn test_extract_imports_treesitter_rust() {
         let source = "use std::collections::HashMap;\nuse serde::Deserialize;\n";
@@ -654,6 +917,88 @@ import type { User } from './types';
             !entry.symbols.iter().any(|s| s == "self"),
             "self must not become a wired symbol, got: {:?}",
             entry.symbols
+        );
+    }
+
+    /// Cross-audit R2 (15/09/2026): the import queries must COMPILE. When
+    /// `Query::new` fails, `extract_imports_treesitter` returns `None` for every
+    /// file of the language and the regex fallback runs instead — and the Rust
+    /// fallback skips every `pub use` / `pub(crate) use` line, so a symbol that a
+    /// file re-exports from another crate never got its consumer edge.
+    #[test]
+    fn every_import_query_compiles() {
+        for lang in [Lang::Rust, Lang::Python, Lang::TypeScript, Lang::JavaScript] {
+            let q = tree_sitter::Query::new(&lang.tree_sitter_language(), lang.import_query_file());
+            assert!(q.is_ok(), "{lang:?} import query: {:?}", q.err());
+        }
+    }
+
+    #[test]
+    fn the_rust_query_sees_uses_behind_a_visibility_modifier() {
+        let src =
+            "use a::b::C;\npub(crate) use touring_x::policy::MAX;\npub use crate::m::{D, e};\n";
+        let imports =
+            extract_imports_treesitter(src, Lang::Rust).expect("the Rust import query compiles");
+        let has = |m: &str, s: &str| {
+            imports
+                .iter()
+                .any(|i| i.module_path == m && i.symbols.iter().any(|x| x == s))
+        };
+        assert!(has("a::b", "C"), "{imports:?}");
+        assert!(has("touring_x::policy", "MAX"), "{imports:?}");
+        assert!(has("crate::m", "D") && has("crate::m", "e"), "{imports:?}");
+    }
+
+    /// The walk composes each leaf's full module path, whatever the nesting,
+    /// the line breaks or the visibility in front of `use`.
+    #[test]
+    fn rust_use_trees_yield_every_leaf_under_its_full_module_path() {
+        let src = concat!(
+            "use touring_foundation::{\n",
+            "    config::TouringConfig,\n",
+            "    gitignore::{GitIgnoreRules, IgnoredBy},\n",
+            "    self,\n",
+            "};\n",
+            "pub(crate) use touring_hooks_shared::index_policy::{self as policy, MAX_INDEXABLE_FILE_BYTES};\n",
+            "use super::{MAX, exceeds_index_size_ceiling};\n",
+            "use crate::shared::Runtime as Rt;\n",
+            "use std::io::*;\n",
+            "use serde;\n",
+            "mod inner { pub use super::helpers::Tool; }\n",
+        );
+        let imports = extract_imports(src, Lang::Rust);
+        let symbols = |m: &str| -> Vec<String> {
+            imports
+                .iter()
+                .find(|i| i.module_path == m)
+                .map(|i| i.symbols.clone())
+                .unwrap_or_else(|| panic!("no import of {m}: {imports:?}"))
+        };
+        assert_eq!(symbols("touring_foundation::config"), ["TouringConfig"]);
+        assert_eq!(
+            symbols("touring_foundation::gitignore"),
+            ["GitIgnoreRules", "IgnoredBy"]
+        );
+        assert!(
+            symbols("touring_foundation").is_empty(),
+            "`self` names the module"
+        );
+        assert_eq!(
+            symbols("touring_hooks_shared::index_policy"),
+            ["MAX_INDEXABLE_FILE_BYTES"]
+        );
+        assert_eq!(symbols("super"), ["MAX", "exceeds_index_size_ceiling"]);
+        assert_eq!(
+            symbols("crate::shared"),
+            ["Runtime"],
+            "the origin name, not the alias"
+        );
+        assert!(symbols("std::io").is_empty(), "a glob names no symbol");
+        assert!(symbols("serde").is_empty());
+        assert_eq!(
+            symbols("super::helpers"),
+            ["Tool"],
+            "a `use` nested in a module"
         );
     }
 }

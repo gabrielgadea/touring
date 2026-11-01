@@ -1,0 +1,165 @@
+{
+ "corte": "2026-10-09T18:14:31.894Z",
+ "saida": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011",
+ "vivo_sha_tree_antes": "b06b89113c869097",
+ "temporal_sha_tree_antes": "6f5fc46410884fd2",
+ "parametros": {
+  "seed": 20261011,
+  "n_arquivo": 600,
+  "n_inline_por_estrato": 200,
+  "n_tmp": 100,
+  "teto": 0.03,
+  "teto_por_arquivo": 18,
+  "teto_por_sessao": 18,
+  "cotas_projeto": {
+   "touring": 72,
+   "analise": 518,
+   "simulador-urna-rs-2026": 4,
+   ".claude": 6
+  },
+  "mistura_do_vivo": {
+   "touring": 36,
+   "analise": 259,
+   "simulador-urna-rs-2026": 2,
+   ".claude": 3
+  },
+  "transcripts": "todos, sem truncar (so edicoes com ts <= corte entram)"
+ },
+ "exclusoes_tamanho": {
+  "ids": 2257,
+  "tool_use_ids": 1281,
+  "shas": 2270,
+  "comandos": 1312
+ },
+ "pool_inline": {
+  "universo_total": 12024,
+  "apos_filtros_de_id": 10649,
+  "excluidos_monta": {
+   "envelope sem \"success\": true": 473,
+   "touring run sem envelope legivel": 2337,
+   "traceback": 212,
+   "is_error": 1059,
+   "shell misturada no programa": 134,
+   "envelope sem exit_code 0": 2,
+   "heredoc: programa nao compila": 3,
+   "c: programa nao compila": 9,
+   "tmp_escrito_e_executado: programa nao compila": 1
+  },
+  "excluidos_por_chave": {
+   "tool_use_id ja no vivo/temporal": 1015,
+   "tool_use_id duplicado (pai/subagente)": 67,
+   "depois do corte": 293,
+   "conteudo ja no vivo/temporal": 17
+  },
+  "pool_por_estrato": {
+   "c": 2575,
+   "heredoc": 2831,
+   "touring_run": 995,
+   "tmp_escrito_e_executado": 1
+  }
+ },
+ "arquivo": {
+  "universo": {
+   "vistos": 4555,
+   "candidatos": 13447,
+   "candidatos_de_toda_a_historia": 13447,
+   "candidatos_ate_o_corte": 13266,
+   "corte": "2026-10-09T18:14:31.894Z"
+  },
+  "pool_registrado": 13266,
+  "sorteados": 600,
+  "no_corpus": 600,
+  "podas": {
+   "podados": 4624,
+   "rodadas": 1
+  },
+  "selecao": {
+   "aceitos": 600,
+   "n": 600,
+   "por_projeto": {
+    "touring": 72,
+    "analise": 518,
+    "simulador-urna-rs-2026": 4,
+    ".claude": 6
+   },
+   "cotas": {
+    "touring": 72,
+    "analise": 518,
+    "simulador-urna-rs-2026": 4,
+    ".claude": 6
+   },
+   "rejeicoes": {
+    "id ja no vivo/temporal": 365,
+    "conteudo nao reconstroi": 339,
+    "conteudo ja visto (vivo/temporal/amostra)": 18,
+    "cota do projeto cheia (ou projeto sem cota)": 3902
+   },
+   "max_por_arquivo": 5,
+   "arquivos_distintos": 542,
+   "candidatos_no_universo": 13266
+  }
+ },
+ "inline": {
+  "selecao": {
+   "c": {
+    "quota": 200,
+    "aceitos": 200,
+    "pool": 2575,
+    "rejeitados": {
+     "teto por sessao": 21
+    },
+    "faltou": 0
+   },
+   "heredoc": {
+    "quota": 200,
+    "aceitos": 200,
+    "pool": 2831,
+    "rejeitados": {
+     "teto por sessao": 165
+    },
+    "faltou": 0
+   },
+   "touring_run": {
+    "quota": 200,
+    "aceitos": 200,
+    "pool": 995,
+    "rejeitados": {
+     "teto por sessao": 379
+    },
+    "faltou": 0
+   },
+   "tmp_escrito_e_executado": {
+    "quota": 100,
+    "aceitos": 0,
+    "pool": 1,
+    "rejeitados": {
+     "teto por sessao": 1
+    },
+    "faltou": 100
+   }
+  },
+  "gravados": 600,
+  "snaps_que_nao_compilam": 0
+ },
+ "estado_no_instante": {
+  "entradas": 1200,
+  "motivos": {
+   "o arquivo nasceu nesta edição (antes = vazio)": 294,
+   "ok": 306,
+   "inline: o programa inteiro é novo (sem delta)": 600
+  },
+  "overlays": 272
+ },
+ "vivo_sha_tree_depois": "b06b89113c869097",
+ "temporal_sha_tree_depois": "6f5fc46410884fd2",
+ "vivo_e_temporal_intocados": true,
+ "corpus_excluidos_alem_do_vivo_e_temporal": {
+  "antes": {
+   "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto": "c448c37dfd7ef053"
+  },
+  "depois": {
+   "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto": "c448c37dfd7ef053"
+  }
+ },
+ "wall_s": 366.8
+}

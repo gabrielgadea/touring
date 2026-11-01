@@ -74,7 +74,7 @@ OPP5: "ACO pheromone loop incompleto — conectar AcoPheromone ao MetacognitiveP
   SÃO HOMÔNIMOS com module_paths DIFERENTES
 
 VERDICT: BLOCKED_HOMONYMIA — touring-simd::AcoPheromone ≠ touring-hooks::ACO
-São sistemas INDEPENDENTES. A связывание propuesta não faz sentido arquiteturalmente.
+São sistemas INDEPENDENTES. A ligação proposta não faz sentido arquiteturalmente.
 FALSE POSITIVE AVOIDED
 ```
 

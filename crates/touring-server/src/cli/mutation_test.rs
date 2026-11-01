@@ -8,8 +8,8 @@
 //! # Usage
 //!
 //! ```bash
-//! touring mutation-test                                  # whole workspace, defaults
-//! touring mutation-test --package touring-ast            # single crate
+//! touring mutation-test --package touring-identity       # single crate (the normal run)
+//! touring mutation-test --force                          # whole workspace — hours; force required
 //! touring mutation-test --threshold 70 --timeout 120     # tune gate
 //! touring mutation-test --jobs 8                         # parallelism override
 //! touring mutation-test --force                          # bypass cache
@@ -56,6 +56,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     if args.iter().any(|a| a == "--force") {
         payload.insert("force".into(), serde_json::Value::Bool(true));
     }
+    // A real run is ~19 min for one crate (134 mutants measured); under the 120s
+    // default read timeout the client abandoned a run the daemon was still
+    // executing (observed 2026-08-28). `cli-mutation-test` is a heavy hook, so
+    // `daemon_query` waits past its budget; an explicit `--timeout` still wins.
     if args.iter().any(|a| a == "--cache-only") {
         payload.insert("cache_only".into(), serde_json::Value::Bool(true));
     }
@@ -75,7 +79,14 @@ mod tests {
 
     #[test]
     fn no_args_routes_to_daemon_without_panicking() {
-        let args = s(&["touring", "mutation-test"]);
+        // `--cache-only` is load-bearing, not incidental: this test reaches
+        // the REAL daemon when one is up. Bare `mutation-test` means "run the
+        // whole workspace", and on 2026-08-28 — the day cargo-mutants landed
+        // on the daemon's PATH — every execution of this test fired an
+        // hours-long workspace mutation run (jobs=24, load 26) and then hung
+        // the suite waiting on the heavy read floor. cache_only exercises the
+        // same parsing and transport but structurally cannot start a run.
+        let args = s(&["touring", "mutation-test", "--cache-only"]);
         // Don't assert success — daemon may be down in unit tests; assert no
         // arg-parsing panic / no Usage message.
         let result = run(&args);

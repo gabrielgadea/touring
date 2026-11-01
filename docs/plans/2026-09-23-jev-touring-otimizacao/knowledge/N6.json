@@ -1,0 +1,45 @@
+{
+  "phase": "N6",
+  "entities": [
+    {
+      "entity_id": "phase:N6",
+      "type": "phase",
+      "description": "N6 entregue nas 4 frentes: (1) journal ganha campo hint (top match da escada por run, no funil ctx_execute_impl \u2014 CLI+MCP; computado ANTES do move de code, no c\u00f3digo do USU\u00c1RIO); (2) KPI code_mode_reuse ganha hinted_runs/hint_coverage \u2014 o denominador que separa DESCOBERTA de AUS\u00caNCIA (reuse baixo \u00d7 cobertura alta = oferta ignorada); (3) os 3 denies de rajada (G1, G10, burst T3-B) entregam o snippet trusted similar por campos estruturados + 3 testes (mem\u00f3ria in-memory; silent sem match/db); (4) harvest_candidates no phase_close (provisional \u22653 exec @\u226590%, comando exato; 3 testes). Medida de hoje que o desenho ataca: ladder 390 enrolled \u00d7 10 reused, --harvest 0 usos na vida. Gates: 784 code + 576 cli + 1636 server + journal_v2/reuse/snippet_hint/harvest suites, clippy limpo nos 3 crates."
+    },
+    {
+      "entity_id": "memory:loop:task_1790203324709596117:N6:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790203324709596117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790203324709596117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:N6|produces|memory:loop:task_1790203324709596117:N6:done",
+      "source": "phase:N6",
+      "type": "produces",
+      "target": "memory:loop:task_1790203324709596117:N6:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790203324709596117:N6:done|generated-by|loop:loop:task_1790203324709596117",
+      "source": "memory:loop:task_1790203324709596117:N6:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790203324709596117"
+    },
+    {
+      "relation_id": "memory:loop:task_1790203324709596117:N6:done|generated-by|dag:decomp:task_1790203324709596117",
+      "source": "memory:loop:task_1790203324709596117:N6:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790203324709596117"
+    }
+  ]
+}

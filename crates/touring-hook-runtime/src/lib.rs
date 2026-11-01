@@ -28,6 +28,12 @@
 // future bare unwrap in non-test code.
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
+/// Re-export: the turn injection budget lives in `touring-hooks-shared`, and the
+/// `touring-hook` binary cannot depend on it directly — `touring-hooks-shared`
+/// already depends on `touring-hooks`, so a direct edge would close a cycle.
+pub use touring_hooks_shared::turn_budget;
+
+pub mod actor_yield;
 pub mod auto_save_hook;
 // Wave H inversion (2026-06-10): 4 shared modules moved down from the dispatch
 // crate — each had consumers on BOTH sides of the hooks/ carve (dispatch-rest
@@ -43,9 +49,11 @@ pub mod gotcha_loader;
 pub mod hook_memory;
 pub mod hook_runtime;
 pub mod hook_runtime_ext;
+pub mod hook_trace;
 pub mod inferlets;
 #[cfg(feature = "inferlets-wasm")]
 pub mod inferlets_assets;
+pub mod scip_ingest;
 // Wave C2 inversion (2026-06-10): ACP shim layer moved down from the dispatch
 // crate so cli/acp.rs (touring-cli) and daemon.rs (dispatch) both reach it.
 #[cfg(feature = "acp-protocol")]
@@ -54,12 +62,16 @@ pub mod protocol;
 // the dispatch crate (was hooks/prompt_enhance.rs) — consumed by both the
 // dispatch hook_registry (UserPromptSubmit) and cli/health.rs (touring-cli).
 pub mod prompt_enhance;
+// r3 shadow (2026-10-02): the observe-only event emitter shared by touring-cli
+// (A2 offer lifecycle, S-8) and — once its blast radius is redesigned — hook_runtime (A1).
+pub mod r3_shadow;
 pub mod runtime;
 pub mod schemas;
 pub mod shared;
 pub mod suggesters;
 pub mod task_digest;
 pub mod triad_hook;
+pub mod verdict;
 pub mod wiring;
 
 // ── Re-exports so the moved modules' historical `crate::X` paths resolve ──
@@ -67,7 +79,7 @@ pub use classifier::{
     CILALevel, CILAResult, CachedIntentClassifier, CognitiveTechnique, IntentClassifier,
 };
 pub use pii::{PIIFinding, PIIScanner, PIIType};
-pub use runtime::{HookResponse, HookRuntime, HookTimer, make_relative};
+pub use runtime::{HookResponse, HookRuntime, HookTimer, make_relative, sync_codetag_anchors};
 pub use touring_ceg::capability; // Wave H: ceg_adapter consumes crate::capability
 pub use touring_ceg::gateway;
 pub use touring_hooks_core::aco_bridge;
@@ -89,6 +101,7 @@ pub use touring_hooks_core::knowledge::{
     BashOutcome, EditEvent, FileKnowledge, FileKnowledgeDB, FileKnowledgeEnriched, FileRelation,
     Gotcha, KnowledgeStats, ThreadSafeKnowledgeDB, WeightedErrorPattern,
 };
+pub use touring_hooks_core::knowledge_index_generation;
 pub use touring_hooks_core::knowledge_symbol_bridge;
 pub use touring_hooks_core::knowledge_wiring;
 pub use touring_hooks_core::pre_tool_validator;

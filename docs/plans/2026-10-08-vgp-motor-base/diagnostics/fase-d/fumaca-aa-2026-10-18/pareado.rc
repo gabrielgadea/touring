@@ -1,0 +1,4 @@
+pareado aa rc=0 2026-10-18T02:00:09-03:00 temp=+76.0°C
+veredito aa rc=0 PROTOCOLO_OK regua=instr
+pareado ab rc=0 2026-10-18T02:00:33-03:00 temp=+88.0°C
+veredito ab rc=0 SEM_REGRESSAO regua=instr

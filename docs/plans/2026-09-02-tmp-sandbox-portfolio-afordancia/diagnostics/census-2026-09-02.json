@@ -1,0 +1,567 @@
+{
+ "A_tmp": {
+  "mount": "tmpfs /tmp tmpfs rw,nosuid,nodev,nr_inodes=1048576,inode64,huge=advise,usrquota 0 0",
+  "df_mb": "tmpfs              32013   821     31192   3% /tmp",
+  "quota_raw": "[Errno 2] No such file or directory: 'quota'",
+  "by_class": {
+   "sockets": {
+    "entries": 4,
+    "mb": 0.0,
+    "files": 2
+   },
+   "other": {
+    "entries": 47,
+    "mb": 578.0,
+    "files": 13932
+   },
+   "claude_code_harness": {
+    "entries": 2,
+    "mb": 24.9,
+    "files": 1122
+   },
+   "libreoffice": {
+    "entries": 2,
+    "mb": 0.1,
+    "files": 8
+   },
+   "pytest_basetemp": {
+    "entries": 1,
+    "mb": 1.2,
+    "files": 279
+   },
+   "touring": {
+    "entries": 16,
+    "mb": 1.0,
+    "files": 79
+   },
+   "systemd_private": {
+    "entries": 8,
+    "mb": 0.0,
+    "files": 0
+   }
+  },
+  "top10": [
+   {
+    "mb": 566.1,
+    "files": 13256,
+    "class": "other",
+    "name": "open-design-research",
+    "age_h": 4.5
+   },
+   {
+    "mb": 24.9,
+    "files": 1121,
+    "class": "claude_code_harness",
+    "name": "claude-1000",
+    "age_h": 7.9
+   },
+   {
+    "mb": 8.7,
+    "files": 4,
+    "class": "other",
+    "name": "checkup-db-1000",
+    "age_h": 2.5
+   },
+   {
+    "mb": 3.1,
+    "files": 634,
+    "class": "other",
+    "name": "node-compile-cache",
+    "age_h": 8.4
+   },
+   {
+    "mb": 1.2,
+    "files": 279,
+    "class": "pytest_basetemp",
+    "name": "pytest-of-gabrielgadea",
+    "age_h": 0.2
+   },
+   {
+    "mb": 0.6,
+    "files": 1,
+    "class": "touring",
+    "name": "touring.log.2026-09-02",
+    "age_h": 0.0
+   },
+   {
+    "mb": 0.2,
+    "files": 61,
+    "class": "touring",
+    "name": "touring-hooks",
+    "age_h": 8.5
+   },
+   {
+    "mb": 0.1,
+    "files": 4,
+    "class": "libreoffice",
+    "name": "lu1674427b7o66.tmp",
+    "age_h": 3.4
+   },
+   {
+    "mb": 0.1,
+    "files": 4,
+    "class": "libreoffice",
+    "name": "lu1618222ay3nj.tmp",
+    "age_h": 3.5
+   },
+   {
+    "mb": 0.0,
+    "files": 2,
+    "class": "other",
+    "name": "pptx_smoke",
+    "age_h": 3.2
+   }
+  ]
+ },
+ "A_harness_scratch": {
+  "root": "/tmp/claude-1000",
+  "projects": {
+   "-home-gabrielgadea": {
+    "sessions": 1,
+    "mb": 0.0,
+    "files": 0
+   },
+   "-home-gabrielgadea-projects-analise": {
+    "sessions": 2,
+    "mb": 4.8,
+    "files": 987
+   },
+   "-home-gabrielgadea-projects-touring": {
+    "sessions": 2,
+    "mb": 20.1,
+    "files": 134
+   }
+  },
+  "sessions_total": 5,
+  "sessions_older_1d": 0,
+  "sessions_older_7d": 0,
+  "task_output_capture_mb": 19.9,
+  "effective_tempdir_in_sandbox": "/tmp"
+ },
+ "B_scratch_scripts": {
+  "count": 105,
+  "loc_total": 5954,
+  "with_codetag_tags": 1,
+  "identical_across_sessions": 0,
+  "sessions_with_scripts": 2,
+  "max_scripts_one_session": 85,
+  "top_name_clusters": [
+   [
+    "gravar",
+    12
+   ],
+   [
+    "probe",
+    8
+   ],
+   [
+    "recon",
+    7
+   ],
+   [
+    "medir",
+    6
+   ],
+   [
+    "canvas",
+    6
+   ],
+   [
+    "patch",
+    6
+   ],
+   [
+    "analisar",
+    5
+   ],
+   [
+    "ler",
+    4
+   ],
+   [
+    "onde",
+    2
+   ],
+   [
+    "controle",
+    2
+   ],
+   [
+    "fechar",
+    2
+   ],
+   [
+    "cid",
+    2
+   ],
+   [
+    "achar",
+    2
+   ],
+   [
+    "journal",
+    2
+   ]
+  ]
+ },
+ "B_library": {
+  "snippets": {
+   "raw_lines": 1,
+   "rc": 0,
+   "err": ""
+  },
+  "scripts": {
+   "raw_lines": 1,
+   "rc": 0,
+   "err": ""
+  },
+  "portfolio_subcommands": [],
+  "touring_run_flags": [
+   "brief",
+   "file",
+   "harvest",
+   "orchestrate",
+   "timeout-ms"
+  ]
+ },
+ "B_db": {
+  "~/.claude/touring/knowledge.db": {
+   "tables": {
+    "bash_outcomes": 196
+   },
+   "rows_with_tmp_paths": {
+    "file_knowledge": 134,
+    "file_access_log": 185,
+    "edit_history": 16,
+    "module_ecosystem": 125,
+    "file_blake3_registry": 9,
+    "session_file_summary": 2,
+    "symbol_events_log": 16,
+    "cognitive_enrichment": 1
+   }
+  },
+  "~/.claude/touring/symbols.db": {
+   "tables": {},
+   "rows_with_tmp_paths": {
+    "symbols": 376,
+    "symbols_fts": 376
+   }
+  },
+  "~/.claude/touring/graph.db": {
+   "tables": {},
+   "rows_with_tmp_paths": {
+    "symbols": 376,
+    "symbols_fts": 376
+   }
+  },
+  "ea/.claude/touring/cross_agent_events.db": {
+   "_err": "attempt to write a readonly database"
+  },
+  "gabrielgadea/.claude/touring/semantic.db": {
+   "_err": "attempt to write a readonly database"
+  },
+  ".claude/touring/graph.db": {
+   "tables": {},
+   "rows_with_tmp_paths": {
+    "symbols": 1915,
+    "symbols_fts": 1915
+   }
+  },
+  ".claude/touring/knowledge.db": {
+   "tables": {
+    "bash_outcomes": 3789
+   },
+   "rows_with_tmp_paths": {
+    "file_knowledge": 249,
+    "file_access_log": 237,
+    "edit_history": 142,
+    "module_ecosystem": 138,
+    "file_blake3_registry": 111,
+    "session_file_summary": 9,
+    "symbol_events_log": 145,
+    "cognitive_enrichment": 7,
+    "functional_signatures": 138
+   }
+  },
+  ".claude/touring/memory.db": {
+   "tables": {
+    "snippet_stats": 15
+   },
+   "rows_with_tmp_paths": {
+    "memory_entries": 1
+   }
+  },
+  ".claude/touring/symbols.db": {
+   "tables": {},
+   "rows_with_tmp_paths": {
+    "symbols": 925,
+    "symbols_fts": 925
+   }
+  }
+ },
+ "C_kpi": {
+  "code_mode_adherence.success_rate": 0.9179614667495338,
+  "code_mode_adherence.wasted_attempts_retry_pairs": 329,
+  "hooks_complement.dispatched.ceg-observe": 11
+ },
+ "C_gate_metrics": {
+  "ceg_captured_count": 11,
+  "ceg_fast_path_count": 11,
+  "code_mode_bytes_elided_total": 2354,
+  "code_mode_runs_count": 5,
+  "hook_dispatch_by_name.ceg-observe": 11,
+  "pillar_induction_emitted_count": 1
+ },
+ "C_run_journal": {
+  "path": "~/.claude/touring/run_journal.jsonl",
+  "exists": true,
+  "runs": 6435,
+  "keys_top": [
+   "bytes_elided",
+   "code_hash_stdout_bytes",
+   "duration_ms",
+   "exit_code",
+   "failure_kind",
+   "language",
+   "ts",
+   "run_id"
+  ],
+  "by_lang": {
+   "bash": 3287,
+   "python": 3031,
+   "shell": 52,
+   "js": 44,
+   "ts": 7
+  },
+  "outcome": {
+   "0": 5908,
+   "1": 341,
+   "-2": 103,
+   "2": 25,
+   "3": 20
+  },
+  "source": {
+   "inline": 6435
+  },
+  "file_roots": {},
+  "harvest_flagged": 0,
+  "brief": 0,
+  "orchestrate": 0,
+  "last7days": {
+   "1788332711": 4,
+   "1788332744": 1,
+   "1788333103": 1,
+   "1788333216": 1,
+   "1788333285": 1,
+   "1788333717": 1,
+   "1788333741": 1
+  }
+ },
+ "D_touring_temp": {
+  "per_crate": {
+   "touring-ceg": {
+    "landlock": 147,
+    "literal_/tmp": 51,
+    "setrlimit": 34,
+    "seccomp": 19,
+    "temp_dir()": 1,
+    "tempfile_crate": 67,
+    "TMPDIR": 4
+   },
+   "touring-quality": {
+    "landlock": 3,
+    "tempfile_crate": 279,
+    "literal_/tmp": 2,
+    "temp_dir()": 10
+   },
+   "touring-server": {
+    "tempfile_crate": 139,
+    "temp_dir()": 20,
+    "literal_/tmp": 86,
+    "landlock": 18,
+    "TMPDIR": 5,
+    "setrlimit": 1
+   },
+   "touring-intelligence": {
+    "tempfile_crate": 137,
+    "literal_/tmp": 39
+   },
+   "touring-hooks-core": {
+    "tempfile_crate": 93,
+    "literal_/tmp": 28,
+    "temp_dir()": 8
+   },
+   "touring-foundation": {
+    "temp_dir()": 17,
+    "tempfile_crate": 27,
+    "literal_/tmp": 37
+   },
+   "touring-cli": {
+    "temp_dir()": 18,
+    "tempfile_crate": 24,
+    "literal_/tmp": 6
+   },
+   "touring-hook-handlers": {
+    "tempfile_crate": 35,
+    "literal_/tmp": 7,
+    "temp_dir()": 1
+   },
+   "touring-storage": {
+    "tempfile_crate": 30,
+    "literal_/tmp": 13
+   },
+   "touring-cortex": {
+    "tempfile_crate": 22,
+    "literal_/tmp": 16,
+    "temp_dir()": 2
+   }
+  },
+  "rlimit_kinds": {
+   "RLIMIT_CPU": 3,
+   "RLIMIT_AS": 5,
+   "RLIMIT_NOFILE": 4,
+   "RLIMIT_NPROC": 3,
+   "RLIMIT_FSIZE": 2
+  },
+  "ceg_tmp_rule_lines": [
+   "crates/touring-ceg/src/capability/scope.rs:188: let s = PathScope::new(\"/tmp/x\");",
+   "crates/touring-ceg/src/capability/scope.rs:189: assert_eq!(s.root(), Path::new(\"/tmp/x\"));",
+   "crates/touring-ceg/src/gateway/pre_exec.rs:912: .contains(&AccessPath::Path(\"/tmp/shared_target.rs\".to_owned())),",
+   "crates/touring-ceg/src/gateway/staging.rs:74: .unwrap_or_else(|| PathBuf::from(\"/tmp/touring-staging\"))",
+   "crates/touring-ceg/src/gateway/staging_classify.rs:17: //! turn N:    cat > /tmp/x.sh <<EOF ... EOF      # the gate sees a write",
+   "crates/touring-ceg/src/gateway/staging_classify.rs:18: //! turn N+M:  bash /tmp/x.sh                     # the gate sees only \"bash <path>\"",
+   "crates/touring-ceg/src/gateway/staging_classify.rs:225: path: PathBuf::from(\"/tmp/x.sh\")",
+   "crates/touring-ceg/src/gateway/staging_classify.rs:235: path: PathBuf::from(\"/tmp/gen.py\")"
+  ]
+ },
+ "E_analise_soffice": {
+  "spawn_sites": [
+   {
+    "file": "~/projects/analise/.claude/plans/pln2-migracao-plugins-kimi/crates/kimi_nlp_core/venv/lib/python3.12/site-packages/pip/_internal/exceptions.py",
+    "line": 253,
+    "timeout_kw": false,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/.claude/plans/pln2-migracao-plugins-kimi/crates/kimi_nlp_core/venv/lib/python3.12/site-packages/pip/_internal/locations/_sysconfig.py",
+    "line": 7,
+    "timeout_kw": false,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/apps/api/.venv-test/lib/python3.12/site-packages/pip/_internal/exceptions.py",
+    "line": 253,
+    "timeout_kw": false,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/apps/api/.venv-test/lib/python3.12/site-packages/pip/_internal/locations/_sysconfig.py",
+    "line": 7,
+    "timeout_kw": false,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/apps/orchestrator/.venv-test/lib/python3.12/site-packages/pip/_internal/exceptions.py",
+    "line": 253,
+    "timeout_kw": false,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/apps/orchestrator/.venv-test/lib/python3.12/site-packages/pip/_internal/locations/_sysconfig.py",
+    "line": 7,
+    "timeout_kw": false,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/docs/plans/2026-08-29-rota-portuaria-do-sul/numerar_minuta.py",
+    "line": 58,
+    "timeout_kw": true,
+    "cleanup": false
+   },
+   {
+    "file": "~/projects/analise/packages/antt-process-analysis/src/antt_process_analysis/assets/_canonical.py",
+    "line": 1166,
+    "timeout_kw": true,
+    "cleanup": false
+   }
+  ],
+  "pytest_cfg": {
+   "pyproject.toml": {
+    "basetemp": false,
+    "tmp_path_retention": false,
+    "timeout": true
+   }
+  }
+ },
+ "E2_lo_numeracao": [
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:9: 02/09/2026). O render do LibreOffice (``soffice --headless --convert-to txt``) materializa a",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:143: def localizar_soffice() -> str | None:",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:144: return shutil.which(\"soffice\") or shutil.which(\"libreoffice\")",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:164: proc.wait(timeout=10)",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:167: def renderizar_texto(file_path: Path, soffice: str, *, timeout: float = 60.0) -> list[str]:",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:170: O LibreOffice é um LANÇADOR que gera ``soffice.bin``; ``subprocess.run(timeout=…)`` mata só o",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:171: lançador e o filho sobrevive — em 02/09/2026 um ``soffice.bin`` órfão segurou um temporário",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:173: no timeout, o GRUPO inteiro recebe SIGKILL; o perfil e a saída ficam num diretório descartável.",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:175: with tempfile.TemporaryDirectory(prefix=\"lo-numeracao-\") as tmp:",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:178: soffice,",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:199: if time.monotonic() - inicio > timeout:",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:201: raise subprocess.TimeoutExpired(proc.args, timeout)",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:218: soffice: Any = _AUTO,",
+  "~/projects/analise/packages/kazuba-converters/src/kazuba_converters/core/extractors/docx_numeracao.py:219: timeout: float = 240.0,"
+ ],
+ "G_bash_classes": {
+  ".claude/touring/knowledge.db": {
+   "rows": 3789,
+   "by_class": {
+    "other": 1193,
+    "cargo": 594,
+    "inspection_cat_head_tail_sed": 576,
+    "inspection_grep_rg": 445,
+    "python_heredoc": 371,
+    "python_inline_-c": 257,
+    "python_project_script": 156,
+    "touring_cli_other": 91,
+    "touring_run": 79,
+    "python_scratch_tmp": 24,
+    "git": 3
+   },
+   "cols": [
+    "id",
+    "command",
+    "command_short",
+    "exit_code",
+    "success",
+    "error_pattern",
+    "file_context",
+    "executed_at"
+   ]
+  },
+  "~/.claude/touring/knowledge.db": {
+   "rows": 196,
+   "by_class": {
+    "other": 58,
+    "inspection_cat_head_tail_sed": 40,
+    "inspection_grep_rg": 30,
+    "cargo": 26,
+    "python_inline_-c": 21,
+    "python_heredoc": 12,
+    "python_project_script": 5,
+    "touring_run": 3,
+    "touring_cli_other": 1
+   },
+   "cols": [
+    "id",
+    "command",
+    "command_short",
+    "exit_code",
+    "success",
+    "error_pattern",
+    "file_context",
+    "executed_at"
+   ]
+  }
+ },
+ "F_cc_settings": {
+  "_err": "[Errno 13] Permission denied: '/home/gabrielgadea/.claude/settings.json'"
+ }
+}

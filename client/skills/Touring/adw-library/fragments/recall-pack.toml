@@ -1,0 +1,14 @@
+# Fragment `recall-pack` — institutional memory + known pitfalls, before any work.
+# The ACO pheromone: what past runs learned about this topic enters the flow first.
+[fragment]
+description = "Recall institutional memory and gotchas for a topic before work starts"
+inputs = ["topic", "area"]
+entry = "memory"
+
+[node.memory]
+type = "code"
+command = ["bash", "-c", "touring memory recall \"$1\" 2>/dev/null | head -c 1500; echo; touring gotcha match \"$2\" 2>/dev/null | head -c 500; true", "--", "{{inputs.topic}}", "{{inputs.area}}"]
+timeout_ms = 30000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit__"

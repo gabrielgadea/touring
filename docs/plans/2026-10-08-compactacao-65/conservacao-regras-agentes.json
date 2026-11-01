@@ -1,0 +1,247 @@
+{
+ "regras": [
+  {
+   "item": "git-safety-protocol",
+   "linhas_conteudo": 53,
+   "conservadas": 53,
+   "excecoes": 14,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/git-safety-protocol.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/git-safety-protocol.md"
+   ]
+  },
+  {
+   "item": "touring-process-hygiene",
+   "linhas_conteudo": 100,
+   "conservadas": 100,
+   "excecoes": 34,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/touring-process-hygiene.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-process-hygiene.md"
+   ]
+  },
+  {
+   "item": "touring-per-project",
+   "linhas_conteudo": 62,
+   "conservadas": 62,
+   "excecoes": 22,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/touring-per-project.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-per-project.md"
+   ]
+  },
+  {
+   "item": "touring-elite",
+   "linhas_conteudo": 56,
+   "conservadas": 56,
+   "excecoes": 24,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/touring-elite.md",
+    "/home/gabrielgadea/.claude/skills/touring-elite/references/auto-load-rule.md"
+   ]
+  },
+  {
+   "item": "touring-cli-index",
+   "linhas_conteudo": 112,
+   "conservadas": 112,
+   "excecoes": 38,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/touring-cli-index.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-index-tiers-2-3.md"
+   ]
+  },
+  {
+   "item": "touring-4-pillars",
+   "linhas_conteudo": 74,
+   "conservadas": 74,
+   "excecoes": 29,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/touring-4-pillars.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-4-pillars-provenance.md"
+   ]
+  },
+  {
+   "item": "disk-hygiene",
+   "linhas_conteudo": 55,
+   "conservadas": 55,
+   "excecoes": 34,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/rules/disk-hygiene.md"
+   ]
+  },
+  {
+   "item": "vgp-protocol",
+   "linhas_conteudo": 89,
+   "conservadas": 89,
+   "excecoes": 38,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/rules/vgp-protocol.md"
+   ]
+  },
+  {
+   "item": "00-core-governance",
+   "linhas_conteudo": 154,
+   "conservadas": 154,
+   "excecoes": 50,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/rules/00-core-governance.md",
+    "/home/gabrielgadea/projects/analise/.claude/docs/rules-provenance/00-core-governance-restauracao.md"
+   ]
+  }
+ ],
+ "agentes": [
+  {
+   "item": "touring-architect",
+   "linhas_conteudo": 620,
+   "conservadas": 620,
+   "excecoes": 172,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-architect.md",
+    "/home/gabrielgadea/.claude/agents/touring-architect.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-auditor",
+   "linhas_conteudo": 623,
+   "conservadas": 623,
+   "excecoes": 210,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-auditor.md",
+    "/home/gabrielgadea/.claude/agents/touring-auditor.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-engineer",
+   "linhas_conteudo": 623,
+   "conservadas": 623,
+   "excecoes": 195,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-engineer.md",
+    "/home/gabrielgadea/.claude/agents/touring-engineer.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-scouter",
+   "linhas_conteudo": 650,
+   "conservadas": 650,
+   "excecoes": 195,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-scouter.md",
+    "/home/gabrielgadea/.claude/agents/touring-scouter.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-scriber",
+   "linhas_conteudo": 550,
+   "conservadas": 550,
+   "excecoes": 195,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-scriber.md",
+    "/home/gabrielgadea/.claude/agents/touring-scriber.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "antt-vote-drafter",
+   "linhas_conteudo": 475,
+   "conservadas": 475,
+   "excecoes": 245,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/agents/antt-vote-drafter.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "erickson-paradox-reformulator",
+   "linhas_conteudo": 79,
+   "conservadas": 79,
+   "excecoes": 19,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/agents/erickson-paradox-reformulator.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "transformational-narrative-architect",
+   "linhas_conteudo": 81,
+   "conservadas": 81,
+   "excecoes": 32,
+   "perdidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/agents/transformational-narrative-architect.md"
+   ],
+   "copias_divergentes": []
+  }
+ ]
+}

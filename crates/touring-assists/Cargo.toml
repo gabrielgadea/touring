@@ -1,6 +1,7 @@
 [package]
 name = "touring-assists"
 version = "0.1.0"
+rust-version.workspace = true
 edition = "2024"
 description = "Refactor-as-CLI framework with assist handlers for Touring"
 authors = ["Gabriel Gadea"]

@@ -60,7 +60,14 @@ rustflags = [
     # gcc only resolves this symbol if pyo3 is actually in the link graph, so
     # crates without pyo3 are unaffected. Baseline issue surfaced during W0
     # of harness-consolidation-master-plan-v3.
-    "-C", "link-arg=-lpython3.12",
+    #
+    # ⚠ NÃO-PORTÁVEL ENTRE DISTROS (2026-08-23, migração Pop!_OS → Omarchy/Arch):
+    # esta flag entra em TODO link do target, inclusive build scripts que não
+    # tocam pyo3 (crossbeam-epoch, zerocopy, thiserror, getrandom...). Se a
+    # versão não bater com a libpython instalada, o workspace INTEIRO falha em
+    # ~15s com `cannot find -lpython3.X`. Pop!_OS 24.04 = 3.12; Arch = 3.14.
+    # Conferir com: ls /usr/lib/libpython3*.so
+    "-C", "link-arg=-lpython3.14",
 ]
 
 # wasm32 uses rust-lld which doesn't understand -fuse-ld=gold
@@ -68,6 +75,17 @@ rustflags = [
 rustflags = [
     "--cfg", "tokio_unstable",
 ]
+[env]
+# GPU embeddings (15/09/2026): `ort-sys` downloads a prebuilt ONNX Runtime whose
+# CUDA provider links against ONE CUDA major. Without this pin
+# `ort-sys-2.0.0-rc.12/build/download/resolve.rs` guesses: cu13 only when
+# CUDA_HOME contains "v13."/"-13." or `nvcc --version` says cuda_13, otherwise
+# cu12 — the choice would depend on the environment of whoever runs cargo.
+# The machine runs Arch `cuda` 13.x + `cudnn` 9.x, where a cu12 provider cannot
+# load its libraries and the embedder falls back to CPU.
+# Bumping CUDA to a new major means changing this value AND rebuilding.
+ORT_CUDA_VERSION = "13"
+
 [alias]
 # Run all tests via nextest using the CI profile.
 test-ci = "nextest run --profile ci --workspace"

@@ -1,0 +1,45 @@
+{
+  "phase": "N2",
+  "entities": [
+    {
+      "entity_id": "phase:N2",
+      "type": "phase",
+      "description": "N2 entregue com a hip\u00f3tese INVERTIDA pela data: corte de lente seca economizaria 1 rodada em 174 ledgers (morta); open_qs>0 em 0/63 ledgers longos. O defeito real era o KPI: explore_rounds_to_dry media rounds.len() (vida do ledger, re-explora\u00e7\u00f5es) \u2014 mean 8.09 vs 2.33 por epis\u00f3dio (p90 6). Fix: last_episode_len (cauda ap\u00f3s \u00faltimo par seco) + fallback lifetime fail-closed + YAML threshold 8\u21926 com rationale nova + lens_yield_totals no payload do explore (findings/new_this_run por lente). Testes: su\u00edte kpi 56/56 (RED\u2192GREEN), explore 19/19 (RED\u2192GREEN). Deploy via rebuild no fim da wave."
+    },
+    {
+      "entity_id": "memory:loop:task_1790203324709596117:N2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790203324709596117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790203324709596117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:N2|produces|memory:loop:task_1790203324709596117:N2:done",
+      "source": "phase:N2",
+      "type": "produces",
+      "target": "memory:loop:task_1790203324709596117:N2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790203324709596117:N2:done|generated-by|loop:loop:task_1790203324709596117",
+      "source": "memory:loop:task_1790203324709596117:N2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790203324709596117"
+    },
+    {
+      "relation_id": "memory:loop:task_1790203324709596117:N2:done|generated-by|dag:decomp:task_1790203324709596117",
+      "source": "memory:loop:task_1790203324709596117:N2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790203324709596117"
+    }
+  ]
+}

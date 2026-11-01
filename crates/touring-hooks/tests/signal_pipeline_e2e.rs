@@ -746,14 +746,19 @@ fn layer_metrics_contains_timing_info() {
     let layer = StaticSignalLayer::new("timed", vec![(1.0, "timed_signal".to_string())]);
 
     let ctx = SignalContext::new("test.rs", "");
-    let start = std::time::Instant::now();
-    let signals = layer.enrich(&ctx);
-    let elapsed = start.elapsed().as_micros() as u64;
+    // Cross-audit 04/09/2026 — este teste levava o nome de `layer_metrics` e
+    // reimplementava a cronometragem a mao: era a QUINTA copia da mesma medicao no
+    // workspace (as duas funcoes livres, o laco do `execute`, o do gemeo e esta).
+    // Agora exercita o metodo default do trait, que e' o que o nome sempre
+    // prometeu — e qualquer camada, nao so as duas que tinham a versao a mao.
+    let m = layer.metrics(&ctx);
 
-    assert_eq!(signals.len(), 1);
+    assert_eq!(m.name, "timed");
+    assert_eq!(m.signal_count, 1);
     assert!(
-        elapsed < 1_000_000,
-        "enrich should complete quickly for static layer"
+        m.duration_us < 1_000_000,
+        "enrich should complete quickly for static layer, got {}us",
+        m.duration_us
     );
 }
 

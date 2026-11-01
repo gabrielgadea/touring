@@ -19,6 +19,7 @@
 //! Includes R169: RL -0.1 penalty + hint when DAG reveals a failed subtask.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 
@@ -40,7 +41,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     let dag_payload = serde_json::json!({"task_id": task_id});
     let dag_state = crate::cli_handlers::cli_decompose_get(rt, &dag_payload);
     let dag_context = if dag_state.contains("\"status\"") {
-        format!(" [live: {}]", &dag_state[..dag_state.len().min(180)])
+        format!(" [live: {}]", truncate_str(&dag_state, 180))
     } else {
         String::new()
     };
@@ -137,7 +138,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     // Enables future sessions to see this task's last-known DAG state without re-querying.
     // Only stores when dag_state contains a real status field — avoids persisting empty/error responses.
     if dag_state.contains("\"status\"") {
-        let dag_snippet = &dag_state[..dag_state.len().min(300)];
+        let dag_snippet = truncate_str(&dag_state, 300);
         let _ = crate::cli_handlers::cli_memory_store(
             rt,
             &serde_json::json!({
@@ -155,7 +156,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     // `touring wiring chains` reveals how modules are connected across the codebase,
     // guiding the engineer to the right files before implementing the task.
     let wiring_chains_hint = if dag_state.contains("\"subtasks\"") {
-        let task_stem = &task_id[..task_id.len().min(30)];
+        let task_stem = truncate_str(task_id, 30);
         format!(
             " | chains: run `touring wiring chains` to map functional chains relevant to task {task_stem}"
         )
@@ -173,7 +174,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     let plan_recall_get_hint = if dag_state.contains("\"status\":\"in_progress\"")
         || dag_state.contains("\"status\":\"pending\"")
     {
-        let task_stem = &task_id[..task_id.len().min(40)];
+        let task_stem = truncate_str(task_id, 40);
         format!(
             " | plan-recall: run `touring generate plan-recall --query \"task:{task_stem}\"` \
             to find historical GeneratorPlans for this task"
@@ -189,10 +190,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     if dag_state.contains("\"status\":\"in_progress\"")
         || dag_state.contains("\"status\":\"pending\"")
     {
-        let context = format!(
-            "task_get:active_monitoring:{}",
-            &task_id[..task_id.len().min(30)]
-        );
+        let context = format!("task_get:active_monitoring:{}", truncate_str(task_id, 30));
         let _ = crate::cli_handlers::cli_learning_reward(
             rt,
             &serde_json::json!({
@@ -214,7 +212,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
             &serde_json::json!({
                 "tool_name": "orchestrate",
                 "reward_value": 0.2,
-                "context": format!("task_get:dag_complete:{}", &task_id[..task_id.len().min(30)]),
+                "context": format!("task_get:dag_complete:{}", truncate_str(task_id, 30)),
             }),
         );
     }
@@ -230,7 +228,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
             &serde_json::json!({
                 "tool_name": "orchestrate",
                 "reward_value": -0.1,
-                "context": format!("task_get:failed_dag:{}", &task_id[..task_id.len().min(30)]),
+                "context": format!("task_get:failed_dag:{}", truncate_str(task_id, 30)),
             }),
         );
         format!(

@@ -1,0 +1,11 @@
+{
+  "phase": "P1a1",
+  "entities": [
+    {
+      "entity_id": "phase:P1a1",
+      "type": "phase",
+      "description": "S-4 do generator commit: rebuild --dir por diret\u00f3rio (fire-and-forget, N paralelos) \u2192 uma task sequencial de index ingest por arquivo, dedup + teto 64 + timeout 10s/chamada; helper puro ingest_targets com 3 testes (arquivos n\u00e3o diret\u00f3rios, dedup/ordem/blank, cap)"
+    }
+  ],
+  "relations": []
+}

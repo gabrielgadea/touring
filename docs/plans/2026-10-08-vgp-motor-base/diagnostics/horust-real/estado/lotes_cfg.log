@@ -1,0 +1,21 @@
+hw-slot: aguardando — temp 96C > 88C
+estrato cfg: 80 tentativas no plano, 80 pendentes
+  9 lotes (camadas); rodando todos
+  lote 2/lib/R (2 pacotes): 15 tentativas, 14 válidas, descartes {'outro_erro_no_arquivo': 1}, 8 s
+  lote 6/lib/R (1 pacotes): 1 tentativas, 1 válidas, descartes {}, 9 s
+  lote 0/lib/R (1 pacotes): 1 tentativas, 1 válidas, descartes {}, 2 s
+  lote 5/lib/R (1 pacotes): 11 tentativas, 10 válidas, descartes {'outro_erro_no_arquivo': 1}, 6 s
+  lote 3/lib/R (2 pacotes): 16 tentativas, 6 válidas, descartes {'sem_erro': 10}, 4 s
+  lote 4/lib/R (1 pacotes): 2 tentativas, 1 válidas, descartes {'sem_erro': 1}, 7 s
+  lote 1/lib/R (1 pacotes): 17 tentativas, 16 válidas, descartes {'outro_erro_no_arquivo': 1}, 5 s
+  lote 7/lib/R (1 pacotes): 16 tentativas, 16 válidas, descartes {}, 19 s
+  lote 0/bins/R (1 pacotes): 1 tentativas, 1 válidas, descartes {}, 3 s
+rc_lotes_cfg=0
+  cfg e598b72ec1c7: ok
+  cfg 4085688c2d7d: ok
+  cfg 61847b449eee: ok
+  cfg 7fe1b72ff959: ok
+  cfg 1fb2bd814628: ok
+  cfg aa9d9827d81d: ok
+  cfg 1e57c707bc9c: ok
+rc_reconf_cfg=0

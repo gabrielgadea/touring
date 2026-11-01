@@ -19,6 +19,7 @@ use crate::hook_decompose_bridge::bridge_idle_gate_queue_state;
 use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 use serde_yaml;
+use touring_foundation::truncate_str;
 
 /// Result from gate hooks that control teammate behavior.
 /// `context`: additionalContext to inject (empty = none).
@@ -641,7 +642,7 @@ pub fn run_task_created(
     let cmd = format!(
         "task_created:{}:{}",
         task_id,
-        &task_subject[..task_subject.len().min(100)]
+        truncate_str(task_subject, 100)
     );
     let _ = runtime
         .ctx
@@ -830,11 +831,7 @@ pub fn run_task_completed(
             .ctx
             .knowledge
             .record_bash_outcome(&crate::knowledge::BashOutcome {
-                command: format!(
-                    "task_completion:{}:{}",
-                    task_id,
-                    &summary[..summary.len().min(200)]
-                ),
+                command: format!("task_completion:{}:{}", task_id, truncate_str(summary, 200)),
                 command_short: "task_completion".to_string(),
                 exit_code: if success { 0 } else { 1 },
                 success,

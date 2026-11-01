@@ -1,0 +1,136 @@
+{
+ "candidatos_baratos_total": 653,
+ "recusados_nos_filtros_baratos": {
+  "nenhum cargo verificável, em 30 min, compilou o crate da edição": 857,
+  "outra edição do mesmo arquivo antes do cargo": 717,
+  "o cargo seguinte terminou com erro": 233,
+  "caminho fora do projeto": 40
+ },
+ "A_todas": {
+  "candidatos_baratos": 631,
+  "materializaveis_pelo_gerador_atual": 377,
+  "com_crate_completo (usaveis)": 342,
+  "incompletos_por_projeto": {
+   "touring": 24,
+   "analise": 11
+  },
+  "incompletos_por_motivo": {
+   "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 35
+  },
+  "recusados_na_materializacao": {
+   "arquivo reescrito por Bash (patch que a dobra não reproduz) antes do cargo": 100,
+   "arquivo fora da árvore de módulos (nenhum `mod` o declara)": 60,
+   "arquivo não reconstruído": 44,
+   "o cargo seguinte compila só um alvo (--lib/--bin/--test/--example) que não inclui o arquivo": 20,
+   "código só de teste e o cargo seguinte não compila testes": 15,
+   "edição sem efeito (negada ou nula)": 10,
+   "módulo sob `cfg` de feature/alvo que o cargo seguinte não liga": 5
+  },
+  "por_projeto (usaveis)": {
+   "touring": 175,
+   "analise": 167
+  }
+ },
+ "A_sem_VGP": {
+  "candidatos_baratos": 543,
+  "materializaveis_pelo_gerador_atual": 316,
+  "com_crate_completo (usaveis)": 283,
+  "incompletos_por_projeto": {
+   "touring": 24,
+   "analise": 9
+  },
+  "incompletos_por_motivo": {
+   "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 33
+  },
+  "recusados_na_materializacao": {
+   "arquivo reescrito por Bash (patch que a dobra não reproduz) antes do cargo": 85,
+   "arquivo fora da árvore de módulos (nenhum `mod` o declara)": 52,
+   "arquivo não reconstruído": 43,
+   "o cargo seguinte compila só um alvo (--lib/--bin/--test/--example) que não inclui o arquivo": 18,
+   "código só de teste e o cargo seguinte não compila testes": 14,
+   "edição sem efeito (negada ou nula)": 10,
+   "módulo sob `cfg` de feature/alvo que o cargo seguinte não liga": 5
+  },
+  "por_projeto (usaveis)": {
+   "touring": 175,
+   "analise": 108
+  }
+ },
+ "N_todas (novo)": {
+  "candidatos_baratos": 8,
+  "materializaveis_pelo_gerador_atual": 2,
+  "com_crate_completo (usaveis)": 1,
+  "incompletos_por_projeto": {
+   "touring": 1
+  },
+  "incompletos_por_motivo": {
+   "estado incompleto: módulo declarado sem arquivo no instante (nem commit nem Write o criam)": 1
+  },
+  "recusados_na_materializacao": {
+   "arquivo reescrito por Bash (patch que a dobra não reproduz) antes do cargo": 3,
+   "arquivo fora da árvore de módulos (nenhum `mod` o declara)": 3
+  },
+  "por_projeto (usaveis)": {
+   "touring": 1
+  }
+ },
+ "N_sem_VGP (novo)": {
+  "candidatos_baratos": 0,
+  "materializaveis_pelo_gerador_atual": 0,
+  "com_crate_completo (usaveis)": 0,
+  "incompletos_por_projeto": {},
+  "incompletos_por_motivo": {},
+  "recusados_na_materializacao": {},
+  "por_projeto (usaveis)": {}
+ },
+ "FORA_DO_DEV_sem_VGP (qualquer data)": {
+  "candidatos_baratos": 267,
+  "materializaveis_pelo_gerador_atual": 40,
+  "com_crate_completo (usaveis)": 37,
+  "incompletos_por_projeto": {
+   "touring": 3
+  },
+  "incompletos_por_motivo": {
+   "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 3
+  },
+  "recusados_na_materializacao": {
+   "arquivo reescrito por Bash (patch que a dobra não reproduz) antes do cargo": 85,
+   "arquivo fora da árvore de módulos (nenhum `mod` o declara)": 52,
+   "arquivo não reconstruído": 43,
+   "o cargo seguinte compila só um alvo (--lib/--bin/--test/--example) que não inclui o arquivo": 18,
+   "código só de teste e o cargo seguinte não compila testes": 14,
+   "edição sem efeito (negada ou nula)": 10,
+   "módulo sob `cfg` de feature/alvo que o cargo seguinte não liga": 5
+  },
+  "por_projeto (usaveis)": {
+   "touring": 24,
+   "analise": 13
+  }
+ },
+ "FORA_DO_DEV_todas (qualquer data)": {
+  "candidatos_baratos": 348,
+  "materializaveis_pelo_gerador_atual": 78,
+  "com_crate_completo (usaveis)": 70,
+  "incompletos_por_projeto": {
+   "touring": 8
+  },
+  "incompletos_por_motivo": {
+   "estado incompleto: arquivo da entrada fora da árvore de módulos reconstruída": 4,
+   "estado incompleto: módulo do crate com história irreconstruível no instante (a dobra não casa)": 3,
+   "estado incompleto: módulo declarado sem arquivo no instante (nem commit nem Write o criam)": 1
+  },
+  "recusados_na_materializacao": {
+   "arquivo reescrito por Bash (patch que a dobra não reproduz) antes do cargo": 103,
+   "arquivo fora da árvore de módulos (nenhum `mod` o declara)": 63,
+   "arquivo não reconstruído": 44,
+   "código só de teste e o cargo seguinte não compila testes": 25,
+   "o cargo seguinte compila só um alvo (--lib/--bin/--test/--example) que não inclui o arquivo": 20,
+   "edição sem efeito (negada ou nula)": 10,
+   "módulo sob `cfg` de feature/alvo que o cargo seguinte não liga": 5
+  },
+  "por_projeto (usaveis)": {
+   "touring": 25,
+   "analise": 45
+  }
+ }
+}

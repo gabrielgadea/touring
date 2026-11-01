@@ -1,0 +1,199 @@
+{
+ "split_hash": "74c035469d9d1455732e6f537810e1557faf75dab16c9dc905410ae4a6c7409d",
+ "tasks": {
+  "prompt_intent": {
+   "n_test": 120,
+   "backends": {
+    "current": {
+     "n": 97,
+     "skipped": false,
+     "accuracy": 0.5361,
+     "ece": null,
+     "p50_ms": 13.5,
+     "p99_ms": 15.4,
+     "input_tokens": null
+    },
+    "jev": {
+     "n": 120,
+     "skipped": false,
+     "accuracy": 0.5333,
+     "ece": 0.1161,
+     "p50_ms": 370.3,
+     "p99_ms": 476.2,
+     "input_tokens": null
+    },
+    "professor": {
+     "n": 23,
+     "skipped": false,
+     "accuracy": 0.6957,
+     "ece": null,
+     "p50_ms": 26909.8,
+     "p99_ms": 57843.8,
+     "input_tokens": null
+    },
+    "laya": {
+     "n": 0,
+     "skipped": true,
+     "accuracy": null,
+     "ece": null,
+     "p50_ms": null,
+     "p99_ms": null,
+     "input_tokens": null
+    }
+   }
+  },
+  "memory_kind": {
+   "n_test": 73,
+   "backends": {
+    "current": {
+     "n": 73,
+     "skipped": false,
+     "accuracy": 0.5753,
+     "ece": null,
+     "p50_ms": 0.0,
+     "p99_ms": 0.0,
+     "input_tokens": null
+    },
+    "jev": {
+     "n": 73,
+     "skipped": false,
+     "accuracy": 0.6986,
+     "ece": 0.1127,
+     "p50_ms": 379.4,
+     "p99_ms": 656.5,
+     "input_tokens": null
+    },
+    "professor": {
+     "n": 20,
+     "skipped": false,
+     "accuracy": 0.7,
+     "ece": null,
+     "p50_ms": 22095.6,
+     "p99_ms": 30952.8,
+     "input_tokens": null
+    },
+    "laya": {
+     "n": 0,
+     "skipped": true,
+     "accuracy": null,
+     "ece": null,
+     "p50_ms": null,
+     "p99_ms": null,
+     "input_tokens": null
+    }
+   }
+  },
+  "recall_relevance": {
+   "n_test": 45,
+   "backends": {
+    "current": {
+     "n": 0,
+     "skipped": true,
+     "accuracy": null,
+     "ece": null,
+     "p50_ms": null,
+     "p99_ms": null,
+     "input_tokens": null
+    },
+    "jev": {
+     "n": 45,
+     "skipped": false,
+     "accuracy": 0.8667,
+     "ece": 0.7089,
+     "p50_ms": 369.4,
+     "p99_ms": 589.9,
+     "input_tokens": null
+    },
+    "professor": {
+     "n": 0,
+     "skipped": true,
+     "accuracy": null,
+     "ece": null,
+     "p50_ms": null,
+     "p99_ms": null,
+     "input_tokens": null
+    },
+    "laya": {
+     "n": 0,
+     "skipped": true,
+     "accuracy": null,
+     "ece": null,
+     "p50_ms": null,
+     "p99_ms": null,
+     "input_tokens": null
+    }
+   }
+  }
+ },
+ "notes": {
+  "current_prompt_intent": "re-medido em 01/10 após corrigir o parser do instrumento (header MODE; a 1ª leitura pegava o campo action= de outra enum — 7,5% era defeito de instrumento, não do keyword)",
+  "current_prompt_intent_v3": "3ª medição: contra o classificador de PRODUÇÃO (shim prompt-enhance). n=118 vs 120: 2 itens são payloads de máquina (cross-session) que o G0 corretamente recusa — a recusa é comportamento correto, não erro. Jev responde os 120 (sem filtro)."
+ },
+ "split_sha256": "deb107937948021a6ce33caffc10ea14b722f6ae72f69b041401f6c9d75bf3f1",
+ "threshold_recommended": {
+  "prompt_intent": {
+   "tau": null,
+   "reason": "trilha professor→aluno (veredito S-2.2 §2.3) — Jev não é o decisor deste ponto"
+  },
+  "memory_kind": {
+   "tau": 0.8,
+   "reason": "faixa [0.8, 1.0]: acc=0.9, support=0.274",
+   "calibration_curve": [
+    {
+     "range": [
+      0.0,
+      0.2
+     ],
+     "n": 1,
+     "support": 0.0137,
+     "accuracy": 0.0,
+     "mean_conf": 0.19
+    },
+    {
+     "range": [
+      0.2,
+      0.4
+     ],
+     "n": 13,
+     "support": 0.1781,
+     "accuracy": 0.3846,
+     "mean_conf": 0.2931
+    },
+    {
+     "range": [
+      0.4,
+      0.6
+     ],
+     "n": 26,
+     "support": 0.3562,
+     "accuracy": 0.7308,
+     "mean_conf": 0.4969
+    },
+    {
+     "range": [
+      0.6,
+      0.8
+     ],
+     "n": 13,
+     "support": 0.1781,
+     "accuracy": 0.6923,
+     "mean_conf": 0.6662
+    },
+    {
+     "range": [
+      0.8,
+      1.0
+     ],
+     "n": 20,
+     "support": 0.274,
+     "accuracy": 0.9,
+     "mean_conf": 0.9055
+    }
+   ]
+  },
+  "recall_relevance": {
+   "tau": null,
+   "reason": "ECE 0,709 medido no G2 — Noul proibido como τ (veredito S-2.2 §2.2); usar só ranking/corte binário"
+  }
+ }
+}

@@ -61,7 +61,9 @@ def parse_frontmatter(text):
             continue
         if ":" in line:
             k, v = line.split(":", 1)
-            fm[k.strip()] = v.strip()
+            # o valor YAML pode vir citado: sem tirar as aspas, `plan_id: "x"` e `plan_id: x` viram
+            # dois valores diferentes e o lint acusa contradição entre strings idênticas (16/08/2026)
+            fm[k.strip()] = v.strip().strip("\"'")
     return fm
 
 
@@ -100,6 +102,40 @@ def check_doc(md, bundle, index_text, root_plan_id, report):
     if md.name != "index.md" and not _referenced(md, bundle, rel, index_text):
         report["orphan_docs"].append(rel)
 
+    _check_world_rites(fm, text, rel, report)
+
+
+# F2 Δ-Yetzirah (Mundos da Criação, gate humano 30/08/2026): a operação
+# "estruturar" é cobrada nos artefatos — advisory por padrão, blocking sob
+# --strict (a escada: nasce advisory, endurece por medição). O elo só conta
+# em ITEM DE LISTA (achado A2 do cross-audit 30/08: sem a âncora, a prosa
+# "esta regra se aplica ... então" inflava a contagem — FP a favor de passar).
+_ELO_RE = re.compile(
+    r"(?im)^\s*(?:[-*]|\d+[.)])\s.*?\bse\b.{3,200}?(→|->|ent[aã]o)")
+_MIN_ELOS = 5
+
+
+def _check_world_rites(fm, text, rel, report):
+    """Strategy docs owe a causal chain (≥5 se→então links); Plan docs owe the
+    three named levels — a link to the strategy doc and the DAG they render."""
+    doc_type = str(fm.get("type", "")).strip()
+    if doc_type == "Strategy":
+        elos = len(_ELO_RE.findall(text))
+        if elos < _MIN_ELOS:
+            report["world_rites"].append(
+                f"{rel}: Strategy com {elos} elo(s) se→então — Yetzirah exige "
+                f"cadeia causal de ≥{_MIN_ELOS} (adicione a seção '## Cadeia causal')"
+            )
+    elif doc_type == "Plan":
+        if "strategy-" not in text:
+            report["world_rites"].append(
+                f"{rel}: Plan sem referência ao nível estratégico (strategy-*.md)"
+            )
+        if not re.search(r"task_\d+", text):
+            report["world_rites"].append(
+                f"{rel}: Plan sem o nível operacional (nenhuma DAG task_… citada)"
+            )
+
 
 def validate_bundle(bundle: Path, strict):
     mds = sorted(bundle.rglob("*.md"))
@@ -115,13 +151,15 @@ def validate_bundle(bundle: Path, strict):
         "broken_links": [],
         "orphan_docs": [],
         "contradictions": [],
+        "world_rites": [],
     }
     for md in mds:
         check_doc(md, bundle, index_text, root_plan_id, report)
 
     blocking = report["missing_type"] + report["missing_plan_id"] + report["broken_links"]
     if strict:
-        blocking = blocking + report["orphan_docs"] + report["contradictions"]
+        blocking = blocking + report["orphan_docs"] + report["contradictions"] \
+            + report["world_rites"]
     report["ok"] = not blocking
     return report
 
@@ -152,7 +190,7 @@ def main(argv=None):
     elif not args.quiet:
         state = "✅ CLEAN" if report["ok"] else "❌ ISSUES"
         print(f"{state}  bundle={report['bundle']}  docs={report['docs_checked']}")
-        for key in ("missing_type", "missing_plan_id", "broken_links", "orphan_docs", "contradictions"):
+        for key in ("missing_type", "missing_plan_id", "broken_links", "orphan_docs", "contradictions", "world_rites"):
             items = report[key]
             if items:
                 glyph = "❌" if key in ("missing_type", "missing_plan_id", "broken_links") else "⚠ "

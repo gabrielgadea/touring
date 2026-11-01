@@ -28,6 +28,7 @@
 //!   --daemon-health (direct socket probe, bypasses circuit breaker)
 
 use std::process;
+use touring_foundation::truncate_str;
 
 use serde_json::Value;
 use touring_hooks::ipc::{DaemonRequest, DaemonResponse, daemon_socket_path};
@@ -59,10 +60,31 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let subcommand = args.get(1).map(String::as_str).unwrap_or("help");
 
+    // F0.3a (2026-09-01): one trace line per invocation when
+    // TOURING_HOOK_TRACE_FILE is set — flushed from an atexit handler so every
+    // `process::exit` below (and inside handlers) is covered.
+    touring_hook_runtime::hook_trace::install(subcommand);
+
     // Help does not need stdin
     if matches!(subcommand, "help" | "--help" | "-h") {
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("help");
         print_help();
         process::exit(0);
+    }
+
+    // S-4p (26/10/2026) — ponte de dedupe para os hooks Python. Eles são
+    // processos separados que nunca passam pelo `run_hook_command` do daemon,
+    // então a dedupe por época da S8 não os alcançava — e o corpus mediu as
+    // famílias deles no topo da repetição (evidence-guard 96,2%). Este
+    // subcomando aplica a MESMA `dedup_hook_output` do daemon ao JSON de SAÍDA
+    // do hook lido em stdin; o estado é o arquivo por sessão, compartilhado
+    // entre os dois caminhos (a 1ª cópia emitida por qualquer um protege a
+    // repetição em ambos). Stateless: não sobe daemon, não inicia HookRuntime.
+    if subcommand == "dedup-stdin" {
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("dedup-stdin");
+        run_dedup_stdin(&args);
     }
 
     // Sprint 4 PD-3 (2026-05-23, REGRA #19): the legacy polymorphic
@@ -97,15 +119,33 @@ fn main() {
         process::exit(0);
     }
 
-    // Read stdin JSON (shared across all subcommands)
-    let input: serde_json::Value = match HookRuntime::read_stdin() {
-        Ok(v) => v,
-        Err(e) => {
+    // Read stdin JSON (shared across all subcommands).
+    //
+    // C4 (2026-10-17): a GUARD (a hook that can deny) that could not read its input
+    // fails CLOSED — it denies with the cause named and the way out, because a `{}` standing
+    // in for the payload makes it "inspect" an empty command and allow. An ADVISORY keeps
+    // failing open (below). Every state other than `ok` stays visible in the hook trace
+    // (`stdin_state`, plus `exit_reason = stdin-unreadable-deny` for the deny).
+    let read = HookRuntime::read_stdin_detailed();
+    deny_if_guard_cannot_read(subcommand, &read);
+    let input: serde_json::Value = match read.error {
+        None => read.value,
+        Some(e) => {
+            touring_hook_runtime::hook_trace::set_reason("stdin-error");
             eprintln!("[touring-hook] stdin error: {e}");
-            // Fail open — don't block Claude Code
+            // Advisory: fail open — don't block Claude Code
             process::exit(0);
         }
     };
+    // F0.3a: attribution for EVERY route (the daemon block below is skipped
+    // under TOURING_NO_DAEMON and for non-daemon subcommands).
+    touring_hook_runtime::hook_trace::set_session_id(
+        input.get("session_id").and_then(|v| v.as_str()),
+    );
+    note_injection_session(&input);
+    // S214: this process answers as the event that invoked it — every standalone
+    // serialization is stamped from here (the daemon path is stamped below).
+    touring_hook_runtime::hook_response::set_invoking_event(&input);
 
     // ── Daemon fast-path ─────────────────────────────────────────────────
     // Pre-hooks and post-hooks that the daemon handles are attempted via socket
@@ -117,7 +157,9 @@ fn main() {
     if touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES.contains(&subcommand)
         && std::env::var("TOURING_NO_DAEMON").is_err()
     {
-        let project_root = HookRuntime::detect_project_root()
+        // HOOKCWD (30.4.97): o `cwd` do payload é quem está perguntando — vem antes de uma env
+        // global e da subida estrutural (ver `HookRuntime::detect_project_root_for`).
+        let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref())
             .to_string_lossy()
             .into_owned();
 
@@ -129,11 +171,18 @@ fn main() {
             .map(|s| s.to_string());
 
         let req = DaemonRequest {
+            peer_pid: None,
             hook: subcommand.to_string(),
             payload: input.clone(),
             project_root,
             session_id,
             priority: 128,
+            origin: None,
+            injection_level: Some(
+                touring_foundation::injection_policy::level_from_env()
+                    .as_str()
+                    .to_string(),
+            ),
         };
 
         if let Some(resp) = try_daemon_request(&req) {
@@ -146,43 +195,73 @@ fn main() {
             // contamination, mixed prose+JSON) is silently swallowed and we
             // fall back to the canonical "{}" Allow shape — preserving the
             // "hooks never block CC" invariant.
-            if resp.output.is_empty() {
-                process::exit(0);
-            }
-            let trimmed = resp.output.trim();
-            if serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
-                println!("{}", resp.output);
-            } else {
-                eprintln!(
-                    "[touring-hook] daemon returned non-JSON output ({} bytes), \
-                     emitting canonical {{}} Allow instead",
-                    resp.output.len()
-                );
-                println!("{{}}");
-            }
+            touring_hook_runtime::hook_trace::set_route("daemon");
+            forward_daemon_output(&resp.output, resp.success);
             process::exit(0);
         }
         // Daemon unavailable — fall through to standalone execution below.
+        touring_hook_runtime::hook_trace::set_reason("daemon-unavailable");
         tracing::debug!(hook = subcommand, "daemon unavailable, running standalone");
     }
 
     // Stateless subcommands — no HookRuntime needed.
     // These diverge (call process::exit internally) so we match and never fall through.
     match subcommand {
-        "prompt-enhance" => run_prompt_enhance(&input),
+        "prompt-enhance" => {
+            touring_hook_runtime::hook_trace::set_route("stateless");
+            touring_hook_runtime::hook_trace::set_reason("prompt-enhance");
+            run_prompt_enhance(&input)
+        }
         #[cfg(feature = "utilities")]
-        "qa-syntax" => run_qa_syntax(&input),
+        "qa-syntax" => {
+            touring_hook_runtime::hook_trace::set_route("stateless");
+            touring_hook_runtime::hook_trace::set_reason("qa-syntax");
+            run_qa_syntax(&input)
+        }
         _ => {}
     }
 
-    // Detect project root
-    let project_root = HookRuntime::detect_project_root();
+    // F0.3a: from here on the hook executes STANDALONE — daemon skipped
+    // (`TOURING_NO_DAEMON`), unavailable, or a subcommand the daemon never
+    // handles. The exit reason is refined at each exit below.
+    touring_hook_runtime::hook_trace::set_route("standalone");
+    if std::env::var("TOURING_NO_DAEMON").is_ok() {
+        touring_hook_runtime::hook_trace::set_reason("no-daemon-env");
+    }
+
+    // Detect project root (HOOKCWD: o `cwd` do payload entra na cadeia, como no caminho do daemon)
+    let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref());
+
+    // S-4p (26/10/2026): a rota standalone dedupa como o daemon. O escopo
+    // (raiz, sessão) é gravado AQUI — depois do fast-path do daemon, antes de
+    // qualquer handler — e lido pelo `HookResponse::emit`, o funil por onde
+    // todo handler standalone imprime. A raiz passa pela MESMA normalização
+    // do daemon (daemon.rs:1929) e do `dedup-stdin`, para que o arquivo de
+    // estado por sessão seja um só nas três rotas. Na rota daemon este ponto
+    // nunca é alcançado (o `process::exit(0)` do fast-path), logo o daemon
+    // nunca é dedupado duas vezes.
+    if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
+        touring_hook_runtime::hook_runtime::set_dedup_scope(
+            touring_foundation::TouringConfig::normalize_project_root(&project_root),
+            session,
+        );
+    }
 
     // Initialize HookRuntime (shared state: SQLite, classifier, PII scanner)
-    #[allow(unused_mut)] // mut needed only when session-hooks feature is enabled
+    // `&mut runtime` is taken only by feature-gated arms (pre/post/session hooks):
+    // the allow applies exactly when none of them is compiled in.
+    #[cfg_attr(
+        not(any(
+            feature = "pre-hooks",
+            feature = "post-hooks",
+            feature = "session-hooks"
+        )),
+        allow(unused_mut)
+    )]
     let mut runtime = match HookRuntime::new(&project_root) {
         Ok(rt) => rt,
         Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("runtime-init-err");
             eprintln!("[touring-hook] runtime init error: {e}");
             // Fail open
             process::exit(0);
@@ -279,8 +358,7 @@ fn main() {
         // Agent Teams hooks — dedicated handlers (not simple lifecycle passthrough)
         "teammate-idle" => touring_hooks::team_hooks::run_teammate_idle(&mut runtime, &input)
             .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
-        "task-completed" => touring_hooks::team_hooks::run_task_completed(&mut runtime, &input)
-            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
+        "task-completed" => run_task_completed_standalone(&mut runtime, &input),
         "task-created" => touring_hooks::team_hooks::run_task_created(&mut runtime, &input)
             .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
         "subagent-stop" => {
@@ -296,7 +374,7 @@ fn main() {
             match resp.to_json().is_empty() {
                 true => Ok(()),
                 false => {
-                    println!("{}", resp.to_json());
+                    print_standalone(&resp.to_json());
                     Ok(())
                 }
             }
@@ -305,6 +383,7 @@ fn main() {
         // Utility subcommands
         "classify" => run_classify(&runtime, &input),
         "pii-scan" => run_pii_scan(&runtime, &input),
+        #[cfg(feature = "utilities")]
         "session-audit" => run_session_audit(&input),
         "metrics" => run_metrics(&runtime),
         #[cfg(feature = "session-hooks")]
@@ -314,6 +393,7 @@ fn main() {
         "decompose-event" => run_decompose_event(&mut runtime, &input),
 
         unknown => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-unknown");
             eprintln!("[touring-hook] unknown subcommand: {unknown}");
             eprintln!("Run `touring-hook help` for usage.");
             // Fail open — never block Claude Code, even for unknown hooks.
@@ -324,8 +404,12 @@ fn main() {
 
     // Handle result — post-hooks return Ok(()), pre-hooks exit internally
     match result {
-        Ok(()) => process::exit(0),
+        Ok(()) => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-ok");
+            process::exit(0)
+        }
         Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-err");
             eprintln!("[touring-hook] error in {subcommand}: {e}");
             // Fail open — never block Claude Code
             process::exit(0);
@@ -350,8 +434,18 @@ fn run_prompt_enhance(input: &Value) -> ! {
         process::exit(0);
     }
 
+    // P3/S-3.3 (2026-09-04) — a fronteira do turno. Este é o ÚNICO evento que
+    // significa "o humano falou de novo", então é aqui que o orçamento de
+    // injeção do turno recomeça. Funciona atravessando processos porque o
+    // estado vive em disco (ver `turn_budget::turn_file`): este binário é
+    // efêmero e o suggester vive no daemon.
+    if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
+        let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        touring_hook_runtime::turn_budget::reset_turn(&root, session);
+    }
+
     let output = touring_hooks::prompt_enhance::compose_json(prompt);
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    print_standalone(&serde_json::to_string(&output).unwrap_or_default());
     process::exit(0);
 }
 
@@ -379,11 +473,10 @@ fn run_classify(
     runtime: &HookRuntime,
     input: &Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let text = input
-        .get("text")
-        .or_else(|| input.get("input"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    // One source for the field name (`prompt_from_input`) — this entry point used to
+    // accept only "text"/"input" while every other consumer sent "userMessage"/"prompt",
+    // so it answered L0 with an empty pattern for every realistic payload.
+    let text = touring_hooks::classifier::prompt_from_input(input);
 
     let cila = runtime.ctx.classifier.classify(text);
     let techniques: Vec<touring_hooks::classifier::CognitiveTechnique> =
@@ -424,7 +517,9 @@ fn run_pii_scan(
     Ok(())
 }
 
-/// Session audit — hash CLAUDE.md and .claude/rules/ and report drift.
+/// Session audit — hash CLAUDE.md and .claude/rules/ and report drift. Gated
+/// like `touring_hooks_core::audit`, the module it drives.
+#[cfg(feature = "utilities")]
 fn run_session_audit(
     input: &Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
@@ -581,7 +676,7 @@ fn run_lifecycle_event(
             .ctx
             .knowledge
             .record_bash_outcome(&touring_hooks::knowledge::BashOutcome {
-                command: format!("{}:{}", event_name, &summary[..summary.len().min(200)]),
+                command: format!("{}:{}", event_name, truncate_str(summary, 200)),
                 command_short: event_name.to_string(),
                 exit_code: 0,
                 success: true,
@@ -594,6 +689,201 @@ fn run_lifecycle_event(
 
     tracing::debug!(event = event_name, "Lifecycle event recorded");
     Ok(())
+}
+
+/// Forward the daemon's answer to Claude Code.
+///
+/// Defense-in-depth: `output` must be empty OR a parseable JSON object before it
+/// reaches Claude Code's strict hook-output schema validator. Anything else
+/// (partial response from a crashed daemon, stdout contamination, mixed
+/// prose+JSON) falls back to the canonical `{}` Allow — preserving the "hooks
+/// never block CC" invariant. S214: the daemon answers many events and names
+/// them by hand; this process knows which one invoked it, so it stamps the name.
+/// S224: for the same reason it conforms the answer to that event's contract —
+/// what the platform does not admit on stdout (the `task-completed` receipt's 14
+/// keys) goes to stderr, the diagnostics channel, instead of reaching no one.
+fn forward_daemon_output(output: &str, success: bool) {
+    // HOOKCWD (30.4.97): a recusa do daemon (`success: false` — o pin, o orçamento estourado…) é
+    // JSON bem-formado como qualquer sucesso, e gravava `daemon-json`, IGUAL ao sucesso. Medir
+    // recusa e sucesso com o mesmo rótulo é o instrumento que mente: o trace distingue.
+    touring_hook_runtime::hook_trace::set_reason(daemon_exit_reason(output, success));
+    if !success {
+        // O stdout segue como sempre (o CC engole o JSON de erro por não ser do seu schema); o
+        // stderr é o canal de diagnóstico — aqui o erro deixa de ser calado.
+        eprintln!(
+            "[touring-hook] daemon refused the request: {}",
+            output.trim()
+        );
+    }
+    if output.is_empty() {
+        return;
+    }
+    // S-2 (27/10/2026): the policy level is the CLIENT's — this process inherits
+    // the Claude Code environment, the daemon only its boot one.
+    let (level, sink) = touring_foundation::injection_policy::current();
+    match conform_daemon_output(output, level, sink.as_deref()) {
+        Some((text, diagnostics)) => {
+            if let Some(diagnostics) = &diagnostics {
+                eprintln!("{diagnostics}");
+            }
+            println!("{text}");
+        }
+        None => {
+            eprintln!(
+                "[touring-hook] daemon returned non-JSON output ({} bytes), \
+                 emitting canonical {{}} Allow instead",
+                output.len()
+            );
+            println!("{{}}");
+        }
+    }
+}
+
+/// What `forward_daemon_output` prints for a daemon answer, and what it sends to
+/// stderr: `None` when `output` is not JSON (the caller falls back to `{}`).
+///
+/// Order: stamp the invoking event, split off the contract violations, THEN the
+/// injection policy ([`touring_foundation::injection_policy`], S-2) — so the
+/// policy judges the very bytes that would reach Claude Code. With the policy at
+/// `full` the text is `output` untouched (or the re-stamped value), as before.
+fn conform_daemon_output(
+    output: &str,
+    level: touring_foundation::injection_policy::InjectionLevel,
+    sink: Option<&std::path::Path>,
+) -> Option<(String, Option<Value>)> {
+    use touring_hook_runtime::hook_response;
+    let mut value = serde_json::from_str::<Value>(output.trim()).ok()?;
+    let stamped = hook_response::stamp_invoking_event(&mut value);
+    let removed = hook_response::split_off_invoking_event_violations(&mut value);
+    let text = if stamped || removed.is_some() {
+        value.to_string()
+    } else {
+        output.to_string()
+    };
+    let text = touring_foundation::injection_policy::apply_at(
+        level,
+        touring_foundation::injection_policy::SITE_DAEMON_FORWARD,
+        &text,
+        sink,
+    )
+    .into_owned();
+    Some((text, removed))
+}
+
+/// Tell the injection journal which session this process answers (S-3), so
+/// `touring kpi` can scope the cuts to a project's transcripts.
+fn note_injection_session(input: &Value) {
+    if let Some(session) = input.get("session_id").and_then(Value::as_str) {
+        touring_foundation::injection_journal::set_session(session);
+    }
+}
+
+/// Print a standalone hook answer that does not travel as a `HookResponse`
+/// (`prompt-enhance`, `task-validation`) through the injection policy.
+fn print_standalone(json: &str) {
+    println!(
+        "{}",
+        touring_foundation::injection_policy::apply(
+            touring_foundation::injection_policy::SITE_STANDALONE,
+            json,
+        )
+    );
+}
+
+/// O `exit_reason` do trace para uma resposta do daemon. `success: false` vence o formato da
+/// saída: uma recusa não é um «JSON de sucesso» só porque o erro vem em JSON.
+fn daemon_exit_reason(output: &str, success: bool) -> &'static str {
+    if !success {
+        "daemon-error"
+    } else if output.is_empty() {
+        "daemon-empty"
+    } else if serde_json::from_str::<serde_json::Value>(output.trim()).is_ok() {
+        "daemon-json"
+    } else {
+        "daemon-nonjson"
+    }
+}
+
+/// C4 (2026-10-17): a GUARD whose stdin was unreadable denies and exits; anything else
+/// returns and the caller proceeds (an advisory runs on the `{}` it got — fail-open).
+///
+/// Diverges (`emit` exits 0 after printing the deny) only when the hook is a guard
+/// ([`touring_hooks::hook_registry::is_guard_hook`]), the read is unreadable
+/// ([`touring_hook_runtime::hook_runtime_ext::StdinReadState::is_unreadable`]) and the human
+/// switch `TOURING_HOOK_STDIN_GUARD_DISABLED=1` is not set.
+fn deny_if_guard_cannot_read(
+    subcommand: &str,
+    read: &touring_hook_runtime::hook_runtime_ext::StdinRead,
+) {
+    if read.state.is_unreadable()
+        && touring_hooks::hook_registry::is_guard_hook(subcommand)
+        && !touring_hook_runtime::hook_runtime_ext::stdin_guard_disabled()
+    {
+        // Not `.emit()`: it stamps the exit reason `emit-json`, which would erase the label
+        // the fraction is measured by. Print the same wire bytes, then name the reason.
+        println!(
+            "{}",
+            HookRuntime::build_stdin_unreadable_deny(subcommand, read).to_json()
+        );
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("stdin-unreadable-deny");
+        process::exit(0);
+    }
+}
+
+/// O `cwd` que o Claude Code põe em todo payload de hook: a pasta da sessão que está perguntando.
+fn payload_cwd(input: &serde_json::Value) -> Option<std::path::PathBuf> {
+    input
+        .get("cwd")
+        .and_then(serde_json::Value::as_str)
+        .filter(|c| !c.is_empty())
+        .map(std::path::PathBuf::from)
+}
+
+/// S-4p (26/10/2026) — corpo do `dedup-stdin`: lê o JSON de SAÍDA de um hook
+/// Python em stdin, aplica a dedupe por época com a MESMA chave (root, sessão)
+/// do caminho do daemon e imprime o resultado em stdout. Fail-open em toda
+/// falha: sem sessão, stdin inválido ou I/O quebrado, o input sai intacto —
+/// um hook nunca perde a saída por causa da dedupe.
+fn run_dedup_stdin(args: &[String]) -> ! {
+    use std::io::Read;
+    let mut raw = String::new();
+    let _ = std::io::stdin().read_to_string(&mut raw);
+    let out = dedup_stdin_apply(args, &raw).unwrap_or_else(|| raw.clone());
+    print!("{out}");
+    process::exit(0);
+}
+
+/// A decisão pura do `dedup-stdin` (testável sem stdin): `None` = o caller
+/// devolve o input intacto. A raiz é resolvida pela MESMA cadeia do cliente
+/// daemon (`detect_project_root_for` → `normalize_project_root`), para que o
+/// arquivo de estado por sessão seja o mesmo das duas pontas.
+fn dedup_stdin_apply(args: &[String], raw: &str) -> Option<String> {
+    if raw.trim().is_empty() {
+        return Some(String::new());
+    }
+    let session = arg_value(args, "--session")?;
+    if session.is_empty() {
+        return None;
+    }
+    let cwd = arg_value(args, "--cwd");
+    let cwd = cwd
+        .as_deref()
+        .filter(|c| !c.is_empty())
+        .map(std::path::Path::new);
+    let root = touring_foundation::TouringConfig::normalize_project_root(
+        &HookRuntime::detect_project_root_for(cwd),
+    );
+    Some(touring_hooks_shared::injection_dedup::dedup_hook_output(
+        &root,
+        &session,
+        raw.trim_end(),
+    ))
+}
+
+/// O valor de `--nome <valor>` em argv, se presente.
+fn arg_value(args: &[String], name: &str) -> Option<String> {
+    args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone())
 }
 
 /// Attempt to send a hook request to the running daemon via Unix socket.
@@ -616,6 +906,7 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
     }
 
     let req = DaemonRequest {
+        peer_pid: None,
         hook: "__health__".to_string(),
         payload: serde_json::Value::Null,
         project_root: std::env::current_dir()
@@ -623,6 +914,12 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
             .to_string_lossy()
             .into_owned(),
         session_id: None,
+        origin: None,
+        injection_level: Some(
+            touring_foundation::injection_policy::level_from_env()
+                .as_str()
+                .to_string(),
+        ),
         priority: 0,
     };
 
@@ -652,6 +949,32 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
 /// Returns `Some(DaemonResponse)` on success, `None` if the daemon is
 /// unavailable or the request times out. The caller falls back to standalone
 /// execution on `None` — the invariant "hooks never block Claude Code" is preserved.
+/// S219 (25/09/2026): standalone `task-completed` runs the SAME handler the daemon runs.
+/// A cold daemon past the client's 3 s read timeout lands in the standalone path, whose
+/// arm ran only the knowledge/ACO recording — no DAG finalize, no RL reward, no lesson,
+/// and a 0-byte receipt. Same dispatch table, same forwarding: parity by construction.
+fn run_task_completed_standalone(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let table = touring_hooks::hook_registry::build_dispatch_table();
+    if let Some(handler) = table.get("task-completed") {
+        // O handler local não tem como «recusar» como o daemon: a saída é de sucesso.
+        // S-4p (26/10/2026): a saída standalone passa pela MESMA dedupe de época
+        // do daemon — o escopo foi gravado na entrada da rota standalone
+        // (sem escopo, os bytes saem intactos: fail-open).
+        let out = handler(runtime, input);
+        let out = match touring_hook_runtime::hook_runtime::dedup_scope() {
+            Some((root, session)) => {
+                touring_hooks_shared::injection_dedup::dedup_hook_output(root, session, &out)
+            }
+            None => out,
+        };
+        forward_daemon_output(&out, true);
+    }
+    Ok(())
+}
+
 fn try_daemon_request(req: &DaemonRequest) -> Option<DaemonResponse> {
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::net::UnixStream;
@@ -836,7 +1159,6 @@ fn cleanup_orphan_daemon_state() {
 
 unsafe extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
-    fn setsid() -> i32;
 }
 
 #[inline]
@@ -910,50 +1232,52 @@ fn try_autostart_daemon() {
         .or(sibling)
         .unwrap_or_else(|| std::path::PathBuf::from("touring-daemon"));
 
-    // Daemon lifetime fix (2026-07-01) — mirrors touring-server
-    // `cli/daemon_ctl.rs::spawn_daemon`; keep both call-sites in sync (C08).
-    // The old comment here PROMISED detachment but no code implemented it:
-    // the daemon inherited the spawner's process group/session and could die
-    // with the invoking Claude Code session's cleanup (observed 2026-07-01 —
-    // alive at session end, Connection refused when the next session began).
-    // setsid(2) gives it a fresh session; stdout/stderr append to
-    // ~/.claude/touring/daemon.stderr.log so daemon tracing + exit markers
-    // stop being discarded.
-    let (stdout_io, stderr_io) = daemon_spawn_log_stdio();
-    let mut cmd = std::process::Command::new(daemon_bin);
-    cmd.env("TOURING_DAEMON_SOCKET", &socket_path)
-        .stdin(std::process::Stdio::null())
-        .stdout(stdout_io)
-        .stderr(stderr_io);
+    // Daemon lifetime fix (2026-07-01): the old comment here PROMISED
+    // detachment but no code implemented it — the daemon inherited the
+    // spawner's process group/session and could die with the invoking Claude
+    // Code session's cleanup (alive at session end, Connection refused when the
+    // next session began). Stdout/stderr append to
+    // ~/.claude/touring/daemon.stderr.log so daemon tracing + exit markers stop
+    // being discarded.
     // PILOT finding (2026-07-25, 3rd spawn-site): a per-project daemon must
     // resolve ITS OWN root — derived from the socket, never inherited from
     // the invoker's env. Mirrors daemon_ctl::project_root_for_socket (C08:
     // keep all spawn sites in sync). Without this, a hook running with a
     // foreign CLAUDE_PROJECT_DIR/TOURING_PROJECT_ROOT would seed the wrong
     // data root (cross-contamination).
-    if let Some(root) = socket_path
+    let project_root = socket_path
         .parent()
         .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
         .and_then(|d| d.parent())
-    {
-        cmd.env("CLAUDE_PROJECT_DIR", root);
-        cmd.env("TOURING_PROJECT_ROOT", root);
-        cmd.current_dir(root);
-    }
-    // SAFETY: pre_exec runs in the forked child before exec; setsid(2) is
-    // async-signal-safe and cannot fail with EPERM there — the freshly forked
-    // child is never a process-group leader.
-    unsafe {
-        use std::os::unix::process::CommandExt;
-        cmd.pre_exec(|| {
-            // Direct syscall, no memory access; covered by the SAFETY note above.
-            if setsid() == -1 {
-                return Err(std::io::Error::last_os_error());
+        .map(std::path::Path::to_path_buf);
+    // Session (setsid) AND cgroup (decision 2-A, 14/09/2026): a hook run by a
+    // oneshot systemd service used to start a daemon inside that service's
+    // cgroup, and the service's end killed it. The launcher is shared with
+    // `daemon_ctl::spawn_daemon_with_bin`, so the detachment has one copy.
+    let description = format!("touring-daemon {}", socket_path.display());
+    // A hook answers the harness: a slow user manager may hold it a quarter
+    // second, not the 2 s the operator's `daemon-ctl` accepts (C8).
+    let _ = touring_foundation::daemon_spawn::spawn_daemon_detached_within(
+        &daemon_bin,
+        &description,
+        std::time::Duration::from_millis(250),
+        &|cmd| {
+            let (stdout_io, stderr_io) = daemon_spawn_log_stdio();
+            cmd.env("TOURING_DAEMON_SOCKET", &socket_path)
+                .stdin(std::process::Stdio::null())
+                .stdout(stdout_io)
+                .stderr(stderr_io);
+            if let Some(root) = &project_root {
+                cmd.env("CLAUDE_PROJECT_DIR", root);
+                cmd.env("TOURING_PROJECT_ROOT", root);
+                // C08 — mirrors daemon_ctl::spawn_daemon_with_bin:
+                // `TOURING_WORKSPACE_ROOT` is NOT pinned, because it names the
+                // touring source tree (asset lookups), not this daemon's project.
+                // See the long note there.
+                cmd.current_dir(root);
             }
-            Ok(())
-        });
-    }
-    let _ = cmd.spawn();
+        },
+    );
 }
 
 /// Append-mode logfile stdio for the spawned daemon, prefixed with a
@@ -1054,6 +1378,8 @@ SUBCOMMANDS:
         metrics               Export consolidated runtime metrics
         session-insights      Session trend analysis
         session-audit         CLAUDE.md hash drift detection
+        dedup-stdin           Dedupe por época da saída JSON de um hook
+                              (ponte para os hooks Python; args: --session --cwd)
 
     Other:
         help                  Show this help message
@@ -1066,4 +1392,232 @@ PERFORMANCE:
     Startup: <1ms | Runtime init: <10ms | Hook execution: <5ms
     Compare: Python hooks ~40ms startup, Node.js hooks ~300ms"
     );
+}
+
+/// HOOKCWD (30.4.97) — a recusa do daemon tem `exit_reason` PRÓPRIO no trace; o sucesso continua
+/// `daemon-json` (controle positivo). Medido no smoke do `analise` (10/10/2026): o daemon pinado
+/// recusou em 0 ms com `{"error":"this daemon is pinned to …"}` e o trace gravou `daemon-json`.
+#[cfg(test)]
+mod hookcwd_tests {
+    use super::{daemon_exit_reason, payload_cwd};
+    use serde_json::json;
+
+    const RECUSA_REAL: &str = r#"{"error":"this daemon is pinned to /home/u/projects/analise (derived from its own socket); the request names /home/u/projects/touring, outside that tree — run it with the cwd inside the pinned root, or against the global daemon"}"#;
+
+    #[test]
+    fn a_recusa_do_daemon_pinado_tem_exit_reason_proprio() {
+        assert_eq!(daemon_exit_reason(RECUSA_REAL, false), "daemon-error");
+    }
+
+    /// Controle positivo: o MESMO formato de saída, com `success: true`, segue `daemon-json`.
+    #[test]
+    fn o_sucesso_continua_daemon_json() {
+        assert_eq!(daemon_exit_reason("{}", true), "daemon-json");
+        assert_eq!(
+            daemon_exit_reason(r#"{"hookSpecificOutput":{"additionalContext":"x"}}"#, true),
+            "daemon-json"
+        );
+        assert_ne!(
+            daemon_exit_reason(RECUSA_REAL, true),
+            daemon_exit_reason(RECUSA_REAL, false),
+            "a flag, não o formato, separa recusa de sucesso"
+        );
+    }
+
+    #[test]
+    fn os_outros_rotulos_seguem_como_antes() {
+        assert_eq!(daemon_exit_reason("", true), "daemon-empty");
+        assert_eq!(daemon_exit_reason("não é json", true), "daemon-nonjson");
+        assert_eq!(daemon_exit_reason("", false), "daemon-error");
+        assert_eq!(daemon_exit_reason("não é json", false), "daemon-error");
+    }
+
+    #[test]
+    fn o_cwd_do_payload_so_vale_quando_e_texto_nao_vazio() {
+        let cwd = |v: serde_json::Value| payload_cwd(&v);
+        assert_eq!(
+            cwd(json!({"cwd": "/home/u/projects/analise"})),
+            Some(std::path::PathBuf::from("/home/u/projects/analise"))
+        );
+        assert_eq!(cwd(json!({"cwd": ""})), None);
+        assert_eq!(cwd(json!({"cwd": 7})), None);
+        assert_eq!(cwd(json!({})), None);
+    }
+}
+
+/// S-4p (26/10/2026) — a ponte `dedup-stdin`: fail-open por construção e a
+/// MESMA dedupe por época do daemon, chaveada pela mesma (raiz, sessão).
+#[cfg(test)]
+mod dedup_stdin_tests {
+    use super::{arg_value, dedup_stdin_apply};
+
+    fn args(pairs: &[(&str, &str)]) -> Vec<String> {
+        let mut v = vec!["touring-hook".to_string(), "dedup-stdin".to_string()];
+        for (k, val) in pairs {
+            v.push((*k).to_string());
+            v.push((*val).to_string());
+        }
+        v
+    }
+
+    #[test]
+    fn sem_sessao_devolve_none_e_o_caller_passa_o_input_intacto() {
+        let raw = r#"{"hookSpecificOutput":{"additionalContext":"qualquer prosa suficientemente longa para o dedup"}}"#;
+        assert_eq!(dedup_stdin_apply(&args(&[]), raw), None);
+        assert_eq!(dedup_stdin_apply(&args(&[("--session", "")]), raw), None);
+    }
+
+    #[test]
+    fn stdin_vazio_produz_saida_vazia() {
+        assert_eq!(
+            dedup_stdin_apply(&args(&[("--session", "s")]), "  \n"),
+            Some(String::new())
+        );
+    }
+
+    #[test]
+    fn arg_value_le_pares_e_ignora_o_resto() {
+        let a = args(&[("--session", "abc"), ("--cwd", "/tmp")]);
+        assert_eq!(arg_value(&a, "--session"), Some("abc".to_string()));
+        assert_eq!(arg_value(&a, "--cwd"), Some("/tmp".to_string()));
+        assert_eq!(arg_value(&a, "--outro"), None);
+    }
+
+    /// O roundtrip real: a 1ª emissão passa intacta, a 2ª idêntica na mesma
+    /// sessão perde o additionalContext — o mesmo comportamento do daemon.
+    /// O tempdir carrega um marcador `.git/` para o `normalize_project_root`
+    /// resolver a raiz para ELE (sem marcador, o walk-up cai no store global
+    /// `~/.claude/touring/` e cada run deixaria um arquivo de estado lá —
+    /// medido 26/10). A sessão é única por run por precaução.
+    #[test]
+    fn roundtrip_dedupa_a_repeticao_na_mesma_sessao() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let sess = format!("sess-s4p-{}-{nanos}", std::process::id());
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("marcador de projeto");
+        let a = args(&[
+            ("--session", &sess),
+            ("--cwd", dir.path().to_str().expect("utf8")),
+        ]);
+        let ctx =
+            "  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence) prosa longa de verdade";
+        let raw = serde_json::json!({
+            "hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": ctx}
+        })
+        .to_string();
+        let o1 = dedup_stdin_apply(&a, &raw).expect("com sessão há saída");
+        assert!(o1.contains("cached 300s"), "primeira passa: {o1}");
+        let o2 = dedup_stdin_apply(&a, &raw).expect("com sessão há saída");
+        assert!(
+            !o2.contains("cached 300s"),
+            "repetição na mesma sessão é omitida: {o2}"
+        );
+        // e uma sessão NOVA nunca herda o estado da outra
+        let a2 = args(&[
+            ("--session", &format!("{sess}-outra")),
+            ("--cwd", dir.path().to_str().expect("utf8")),
+        ]);
+        let o3 = dedup_stdin_apply(&a2, &raw).expect("com sessão há saída");
+        assert!(
+            o3.contains("cached 300s"),
+            "outra sessão passa intacta: {o3}"
+        );
+    }
+}
+
+/// S-2 (27/10/2026) — a política de injeção no repasse da resposta do daemon.
+/// `conform_daemon_output` é o miolo puro de `forward_daemon_output`: o nível e
+/// o diário entram como argumento, nenhum teste toca o ambiente do processo.
+#[cfg(test)]
+mod injection_policy_tests {
+    use super::conform_daemon_output;
+    use serde_json::{Value, json};
+    use touring_foundation::injection_policy::InjectionLevel;
+
+    const SERMON: &str =
+        "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+
+    fn daemon_deny() -> String {
+        json!({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": "G2: pipe sem pipefail",
+            "additionalContext": SERMON,
+        }})
+        .to_string()
+    }
+
+    /// O contrato C13 no repasse do daemon: o sermão sai, a decisão fica, e o
+    /// corte é registrado com o sítio `daemon-forward`.
+    #[test]
+    fn test_no_advisory_drops_sermon_keeps_decision() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sink = touring_foundation::injection_journal::journal_path_in(dir.path());
+        let (text, diagnostics) =
+            conform_daemon_output(&daemon_deny(), InjectionLevel::NoAdvisory, Some(&sink))
+                .expect("é JSON");
+        assert!(diagnostics.is_none());
+        let v: Value = serde_json::from_str(&text).expect("a saída continua JSON");
+        let hso = &v["hookSpecificOutput"];
+        assert!(
+            hso.get("additionalContext").is_none(),
+            "o sermão sai: {text}"
+        );
+        assert_eq!(hso["permissionDecision"], "deny");
+        assert_eq!(hso["permissionDecisionReason"], "G2: pipe sem pipefail");
+
+        let journal = std::fs::read_to_string(&sink).expect("diário");
+        let line: Value = serde_json::from_str(journal.trim()).expect("uma linha JSON");
+        assert_eq!(line["site"], "daemon-forward");
+        assert_eq!(line["level"], "no-advisory");
+        assert_eq!(line["cuts"][0]["family"], "touring-suggest");
+    }
+
+    /// Sem env (`Full`) a saída é a do daemon, byte a byte — mesmo quando a
+    /// ordem das chaves ou os espaços não são os do `serde_json`.
+    #[test]
+    fn test_full_forwards_the_daemon_bytes_untouched() {
+        let odd = format!(
+            r#"{{ "hookSpecificOutput" : {{ "additionalContext" : {} }} , "systemMessage":"m" }}"#,
+            json!(SERMON)
+        );
+        let (text, _) = conform_daemon_output(&odd, InjectionLevel::Full, None).expect("é JSON");
+        assert_eq!(text, odd);
+    }
+
+    /// `off`: o envelope cujo único conteúdo era contexto chega como `{}` e a
+    /// resposta de um daemon que não é JSON continua sendo o `None` do `{}` de
+    /// emergência — o nível não muda o fail-open.
+    #[test]
+    fn test_off_empties_a_context_only_answer_and_non_json_still_falls_back() {
+        let ctx_only = json!({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": SERMON,
+        }})
+        .to_string();
+        let (text, _) =
+            conform_daemon_output(&ctx_only, InjectionLevel::Off, None).expect("é JSON");
+        assert_eq!(text, "{}");
+        assert!(conform_daemon_output("não é json", InjectionLevel::Off, None).is_none());
+    }
+
+    /// O `systemMessage` da raiz é contexto (C13): sai em `off` e a decisão
+    /// `block` ao lado dele atravessa.
+    #[test]
+    fn test_off_drops_system_message_and_keeps_block_decision() {
+        let answer = json!({
+            "decision": "block",
+            "reason": "gate falhou",
+            "systemMessage": "Contexto em 63% — a autocompactação dispara aos 65%.",
+        })
+        .to_string();
+        let (text, _) = conform_daemon_output(&answer, InjectionLevel::Off, None).expect("JSON");
+        let v: Value = serde_json::from_str(&text).expect("JSON");
+        assert!(v.get("systemMessage").is_none(), "{text}");
+        assert_eq!(v["decision"], "block");
+        assert_eq!(v["reason"], "gate falhou");
+    }
 }

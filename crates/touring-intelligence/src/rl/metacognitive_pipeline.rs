@@ -91,32 +91,6 @@ pub enum ExplorationAction {
     ForceParallel,
 }
 
-/// Source of evidence contributing to the decision.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum EvidenceSource {
-    /// CUSUM latency drift detector.
-    Cusum,
-    /// ACO pheromone feedback.
-    AcoPheromone,
-    /// Actor-Critic RL agent.
-    ActorCritic,
-}
-
-/// Metadata about how the decision was reached.
-#[derive(Debug, Clone)]
-pub struct DecisionMetadata {
-    /// Which sources contributed to the decision.
-    pub sources: Vec<EvidenceSource>,
-    /// CUSUM drift signal at time of decision.
-    pub drift_signal: DriftSignal,
-    /// ACO pheromone confidence (0-1).
-    pub pheromone_confidence: f64,
-    /// Actor-Critic action selection.
-    pub action_selection: Option<ActionSelection>,
-    /// Whether this is a corrective action.
-    pub is_corrective: bool,
-}
-
 // ── Pipeline Context ───────────────────────────────────────────────────────────
 
 /// Input context for the metacognitive pipeline.

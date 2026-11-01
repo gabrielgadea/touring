@@ -77,6 +77,22 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
     // basta.
     let scan_overflow = crate::verifications::dir_scan_overflow(&scope.root);
 
+    // The security corpus: the scope's files plus its vendored code, weighed the
+    // same way (cross-audit 14/09/2026, D3 — `third_party/` had left F2.1/F2.4).
+    let security_loc_pairs: Vec<(PathBuf, usize)> = if scope.vendored_files.is_empty() {
+        file_loc_pairs.clone()
+    } else {
+        let mut pairs = file_loc_pairs.clone();
+        pairs.extend(
+            scope
+                .vendored_files
+                .par_iter()
+                .map(|f| (f.clone(), file_loc(f)))
+                .collect::<Vec<_>>(),
+        );
+        pairs
+    };
+
     // Each dim: ScopeNative → once on the root; otherwise score-per-file → roll up.
     let dimensions: BTreeMap<DimId, DimScore> = dims_to_score
         .par_iter()
@@ -84,6 +100,7 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
             let score = match dim.agg_kind() {
                 AggKind::ScopeNative => score_scope_native(dim, scope, scan_overflow),
                 AggKind::PerCrateNative => score_per_crate_native(dim, scope),
+                kind if reads_vendored_code(dim) => score_rolled_up(dim, kind, &security_loc_pairs),
                 kind => score_rolled_up(dim, kind, &file_loc_pairs),
             };
             (dim, score)
@@ -91,6 +108,12 @@ pub fn score_scope(scope: &Scope, dims: &[DimId]) -> Result<ScopeReport> {
         .collect();
 
     Ok(build_report(scope, dimensions))
+}
+
+/// Whether `dim` scores vendored code: the per-file security dims. F2.6 is
+/// scope-native and reads its own security corpus (`enumerate_security_files`).
+fn reads_vendored_code(dim: DimId) -> bool {
+    matches!(dim, DimId::F2_1 | DimId::F2_4)
 }
 
 /// ScopeNative dim: run the verifier **once** on the scope root. At sub-repo
@@ -132,6 +155,7 @@ fn crate_roots(root: &std::path::Path) -> Vec<PathBuf> {
         return vec![root.to_path_buf()];
     }
     let mut found = Vec::new();
+    let git = touring_foundation::gitignore::GitIgnoreRules::for_path(root);
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -139,13 +163,16 @@ fn crate_roots(root: &std::path::Path) -> Vec<PathBuf> {
         };
         for entry in rd.flatten() {
             let p = entry.path();
-            if !p.is_dir() {
+            if !p.is_dir() || git.ignored_abs(&p, true).is_some() {
                 continue;
             }
+            // The same predicate file enumeration reads (`SKIP_DIRS` + dot-dirs):
+            // a private copy here kept `third_party/` and `vendor/` crates in the
+            // workspace score after enumeration had dropped them.
             let skip = p
                 .file_name()
                 .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with('.') || n == "target" || n == "node_modules");
+                .is_some_and(crate::verifications::is_skipped_dir_name);
             if skip {
                 continue;
             }
@@ -232,20 +259,45 @@ fn score_per_crate_native(dim: DimId, scope: &Scope) -> DimScore {
     )
 }
 
-/// Non-ScopeNative dim: score each file (parallel) then aggregate by `kind`.
+/// Non-ScopeNative dim: score each file then aggregate by `kind`.
 fn score_rolled_up(dim: DimId, kind: AggKind, files: &[(PathBuf, usize)]) -> DimScore {
-    let per_file: Vec<(PathBuf, f32, usize)> = files
+    let scored: Vec<(PathBuf, Result<DimScore>, usize)> = files
         .iter()
-        .map(|(path, loc)| {
-            let v = run_verification(dim, path).map(|s| s.value).unwrap_or(0.0);
-            (path.clone(), v, *loc)
+        .map(|(path, loc)| (path.clone(), run_verification(dim, path), *loc))
+        .collect();
+    roll_up(kind, &scored)
+}
+
+/// Fold per-file verifier results into one scope-level score.
+///
+/// A file the verifier reports as `NotApplicable` is left out (Canvas D,
+/// 15/09/2026): keeping only its value turned the `[N/A]` into a 1.0 Pass
+/// inside the LOC-weighted mean, so every inapplicable file inflated the scope.
+/// When no file applies, the dimension does not apply either. An engine error
+/// still weighs 0.0 — fail-closed, never skipped.
+fn roll_up(kind: AggKind, scored: &[(PathBuf, Result<DimScore>, usize)]) -> DimScore {
+    let applicable: Vec<FileScore<'_>> = scored
+        .iter()
+        .filter_map(|(path, result, loc)| match result {
+            Ok(s) if s.status == DimStatus::NotApplicable => None,
+            Ok(s) => Some((path.as_path(), s.value, *loc)),
+            Err(_) => Some((path.as_path(), 0.0, *loc)),
         })
         .collect();
-    let refs: Vec<FileScore<'_>> = per_file
-        .iter()
-        .map(|(p, v, l)| (p.as_path(), *v, *l))
-        .collect();
-    aggregate(kind, &refs)
+    let inapplicable = scored.len() - applicable.len();
+    if applicable.is_empty() && inapplicable > 0 {
+        return DimScore::not_applicable(format!(
+            "[N/A] none of the {inapplicable} file(s) in scope applies to this dimension \
+             (excluded from composite)"
+        ));
+    }
+    let mut score = aggregate(kind, &applicable);
+    if inapplicable > 0 {
+        score
+            .evidence
+            .push_str(&format!(" · {inapplicable} inapplicable file(s) left out"));
+    }
+    score
 }
 
 fn build_report(scope: &Scope, dimensions: BTreeMap<DimId, DimScore>) -> ScopeReport {
@@ -320,6 +372,34 @@ mod tests {
     use super::*;
     use crate::ScopeKind;
 
+    /// Crate discovery skips what file enumeration skips (14/09/2026): the
+    /// vendored `third_party/tree-sitter-md` (140k LOC, F1.3 0.100) stayed a
+    /// crate of the workspace score because this walk kept its own skip list
+    /// while `enumerate_source_files` read `SKIP_DIRS`, and it pulled the
+    /// LOC-weighted F1.3 from 0.536 to 0.470.
+    #[test]
+    fn crate_roots_skip_the_directories_file_enumeration_skips() {
+        let manifest = "[package]\nname = \"x\"\n";
+        let root = fixture(
+            "tq_crate_roots_skip_dirs",
+            &[
+                ("crates/a/Cargo.toml", manifest),
+                ("crates/a/src/lib.rs", "fn a() {}\n"),
+                ("crates/b/Cargo.toml", manifest),
+                ("crates/b/src/lib.rs", "fn b() {}\n"),
+                ("third_party/tree-sitter-md/Cargo.toml", manifest),
+                ("third_party/tree-sitter-md/src/lib.rs", "fn v() {}\n"),
+                ("vendor/dep/Cargo.toml", manifest),
+                ("vendor/dep/src/lib.rs", "fn d() {}\n"),
+            ],
+        );
+        assert_eq!(
+            crate_roots(&root),
+            vec![root.join("crates/a"), root.join("crates/b")]
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     /// Build a small fixture tree and return its root.
     fn fixture(name: &str, files: &[(&str, &str)]) -> PathBuf {
         let dir = std::env::temp_dir().join(name);
@@ -386,14 +466,188 @@ mod tests {
         let ds = Scope::resolve(&dirty, Some(ScopeKind::Path), &[], &[]).unwrap();
         let cr = score_scope(&cs, &[DimId::F2_4]).unwrap();
         let dr = score_scope(&ds, &[DimId::F2_4]).unwrap();
-        let clean_f24 = cr.dimensions[&DimId::F2_4].value;
-        let dirty_f24 = dr.dimensions[&DimId::F2_4].value;
+        let clean_f24 = &cr.dimensions[&DimId::F2_4];
+        let dirty_f24 = &dr.dimensions[&DimId::F2_4];
+        // This test only asserted `dirty <= clean` — which the LOC-weighted mean
+        // satisfied while scoring the secret tree Warn, with no blocker
+        // (cross-audit 14/09/2026, D2). A BLOCK dim must FAIL the scope.
+        assert_eq!(
+            clean_f24.status,
+            crate::DimStatus::Pass,
+            "{}",
+            clean_f24.evidence
+        );
+        assert_eq!(
+            dirty_f24.status,
+            crate::DimStatus::Fail,
+            "one hardcoded token fails the scope: {}",
+            dirty_f24.evidence
+        );
         assert!(
-            dirty_f24 <= clean_f24,
-            "secret tree F2.4 ({dirty_f24}) must not exceed clean ({clean_f24})"
+            dr.blockers.contains(&DimId::F2_4),
+            "F2.4 blocks: {:?}",
+            dr.blockers
         );
         let _ = std::fs::remove_dir_all(&clean);
         let _ = std::fs::remove_dir_all(&dirty);
+    }
+
+    /// Cross-audit 14/09/2026, D3: `third_party/` left the security corpus with the
+    /// style one, so a secret in `src/third_party/` scored Pass. Vendored code is
+    /// skipped by the style dims and scanned by the security dims.
+    #[test]
+    fn a_secret_in_vendored_code_fails_the_security_dims_but_not_the_style_corpus() {
+        let dir = fixture(
+            "tq_sr_vendored_secret",
+            &[
+                ("src/lib.rs", "pub fn a() {}\n"),
+                (
+                    "src/third_party/keys.rs",
+                    "pub const TOKEN: &str = \"ghp_0123456789abcdef0123456789abcdef0123\";\n",
+                ),
+                ("vendor/dep/lib.rs", "pub fn upstream() {}\n"),
+            ],
+        );
+        let scope = Scope::resolve(&dir, Some(ScopeKind::Path), &[], &[]).unwrap();
+        assert_eq!(scope.files.len(), 1, "style corpus: {:?}", scope.files);
+        assert_eq!(
+            scope.vendored_files.len(),
+            2,
+            "vendored corpus: {:?}",
+            scope.vendored_files
+        );
+        let report = score_scope(&scope, &[DimId::F2_4]).unwrap();
+        let f24 = &report.dimensions[&DimId::F2_4];
+        assert_eq!(f24.status, crate::DimStatus::Fail, "{}", f24.evidence);
+        assert!(f24.evidence.contains("keys.rs"), "{}", f24.evidence);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn verdicts(
+        rows: Vec<(&str, Result<DimScore>, usize)>,
+    ) -> Vec<(PathBuf, Result<DimScore>, usize)> {
+        rows.into_iter()
+            .map(|(p, r, loc)| (PathBuf::from(p), r, loc))
+            .collect()
+    }
+
+    /// Canvas D (15/09/2026): the roll-up kept only `.value`, so a large
+    /// inapplicable file weighed in as a 1.0 Pass and lifted a failing scope.
+    #[test]
+    fn an_inapplicable_file_is_left_out_of_the_roll_up_not_counted_as_a_pass() {
+        let scored = verdicts(vec![
+            (
+                "src/a.rs",
+                Ok(DimScore::from_value(0.4, "real finding")),
+                10,
+            ),
+            (
+                "scripts/big.sh",
+                Ok(DimScore::not_applicable("[N/A] shell")),
+                1000,
+            ),
+        ]);
+        let s = roll_up(AggKind::WeightedLoc, &scored);
+        assert!((s.value - 0.4).abs() < 1e-6, "{}", s.evidence);
+        assert_eq!(s.status, DimStatus::Fail, "{}", s.evidence);
+        assert!(
+            s.evidence.contains("1 inapplicable file(s) left out"),
+            "{}",
+            s.evidence
+        );
+        // The same file applicable and clean is weighed as before.
+        let applicable = verdicts(vec![
+            (
+                "src/a.rs",
+                Ok(DimScore::from_value(0.4, "real finding")),
+                10,
+            ),
+            (
+                "scripts/big.sh",
+                Ok(DimScore::from_value(1.0, "clean")),
+                1000,
+            ),
+        ]);
+        assert!(roll_up(AggKind::WeightedLoc, &applicable).value > 0.99);
+    }
+
+    #[test]
+    fn a_dimension_that_applies_to_no_file_is_not_applicable() {
+        let scored = verdicts(vec![
+            ("a.sh", Ok(DimScore::not_applicable("[N/A] shell")), 5),
+            ("b.sh", Ok(DimScore::not_applicable("[N/A] shell")), 7),
+        ]);
+        let s = roll_up(AggKind::FailClosedLoc, &scored);
+        assert_eq!(s.status, DimStatus::NotApplicable, "{}", s.evidence);
+        assert!(
+            s.evidence.starts_with("[N/A] none of the 2 file(s)"),
+            "{}",
+            s.evidence
+        );
+    }
+
+    #[test]
+    fn an_engine_error_still_fails_closed_beside_inapplicable_files() {
+        let scored = verdicts(vec![
+            ("a.sh", Ok(DimScore::not_applicable("[N/A] shell")), 5),
+            ("b.rs", Err(anyhow::anyhow!("engine exploded")), 7),
+        ]);
+        let s = roll_up(AggKind::WorstOf, &scored);
+        assert_eq!(s.value, 0.0, "{}", s.evidence);
+        assert_eq!(s.status, DimStatus::Fail, "{}", s.evidence);
+    }
+
+    /// Canvas D (15/09/2026): a directory the collector reads nothing from
+    /// scored `Pass 1.0 "vacuously satisfied"` on every per-file dimension, so a
+    /// P0 `check` answered Diamond having read no file.
+    #[test]
+    fn a_scope_with_no_source_file_is_not_applicable_on_the_per_file_dims() {
+        let dir = fixture("tq_sr_no_source", &[("README.md", "# nothing to score\n")]);
+        let scope = Scope::resolve(&dir, Some(ScopeKind::Path), &[], &[]).unwrap();
+        assert!(scope.files.is_empty(), "{:?}", scope.files);
+        let report = score_scope(&scope, &[DimId::F1_1, DimId::F2_1, DimId::F2_4]).unwrap();
+        for dim in [DimId::F1_1, DimId::F2_1, DimId::F2_4] {
+            let s = &report.dimensions[&dim];
+            assert_eq!(
+                s.status,
+                DimStatus::NotApplicable,
+                "{dim:?}: {}",
+                s.evidence
+            );
+            assert_eq!(s.evidence, crate::aggregate::EMPTY_SCOPE_EVIDENCE);
+        }
+        assert!(report.blockers.is_empty(), "{:?}", report.blockers);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Canvas D (15/09/2026): a token in a shell script never reached the P0 gate
+    /// of a directory score, and the script took no part in any other dimension.
+    #[test]
+    fn a_token_in_a_shell_script_fails_the_directory_and_style_dims_leave_the_script_out() {
+        let dir = fixture(
+            "tq_sr_shell_corpus",
+            &[
+                ("src/lib.rs", "pub fn a() -> i32 { 1 }\n"),
+                (
+                    "scripts/deploy.sh",
+                    "#!/bin/bash\nTOKEN=\"ghp_0123456789abcdef0123456789abcdef0123\"\ncurl -H \"Authorization: $TOKEN\" x\n",
+                ),
+            ],
+        );
+        let scope = Scope::resolve(&dir, Some(ScopeKind::Path), &[], &[]).unwrap();
+        assert_eq!(scope.files.len(), 2, "{:?}", scope.files);
+        let report = score_scope(&scope, &[DimId::F2_4, DimId::F1_9]).unwrap();
+        let f24 = &report.dimensions[&DimId::F2_4];
+        assert_eq!(f24.status, DimStatus::Fail, "{}", f24.evidence);
+        assert!(f24.evidence.contains("deploy.sh"), "{}", f24.evidence);
+        let f19 = &report.dimensions[&DimId::F1_9];
+        assert_ne!(f19.status, DimStatus::NotApplicable, "{}", f19.evidence);
+        assert!(
+            f19.evidence.contains("1 inapplicable file(s) left out"),
+            "{}",
+            f19.evidence
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

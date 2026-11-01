@@ -271,7 +271,7 @@ Esforço (CRC):L1=1, L2=2, L3=3, L4=4, L5=5
 ### Wave 3 — "Tubos de Pensamento" (3-4 semanas)
 **Objetivo**: Eliminar SerDe overhead na comunicação hook↔daemon.
 7. **rkyv IPC** (#6) — ⚠️ **JÁ PARCIAL** (rkyv-ipc default desde 2026-04-14). Completar migração para todos os 138 hooks
-8. **cognate-llm** (#8) — ❌ **NÃO ENCONTRADO**. Remover do ranking ou avaliar替代品
+8. **cognate-llm** (#8) — ❌ **NÃO ENCONTRADO**. Remover do ranking ou avaliar substitutos
 9. **rust-mcp-sdk schema** (#9) — ❌ **NÃO ENCONTRADO**. rmcp já implementado — despriorizar
 
 ### Wave 4 — "Latência Sub-Atômica" (opcional, alto risco)

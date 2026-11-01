@@ -1,0 +1,1266 @@
+//! touring-hook — Native Rust binary for Claude Code hooks.
+//!
+//! Single binary, multiple subcommands. Replaces Python/Bash hook scripts.
+//! Startup: <1ms (vs ~40ms Python). Shared HookRuntime initialization.
+//! main() CC=51 (lifecycle dispatch via alternation pattern, v29.5).
+//!
+//! Usage: touring-hook \<subcommand\>
+//!
+//! Subcommands (pre/post hooks):
+//!   pre-read, post-read, pre-bash, post-bash,
+//!   pre-edit, post-edit, post-tool-rl, pre-edit-prevention, pre-write, post-write
+//!
+//! Session & stateless:
+//!   session-start, session-stop, prompt-enhance, qa-syntax,
+//!   classify, pii-scan, session-audit, session-insights
+//!
+//! Agent Teams hooks:
+//!   teammate-idle, task-completed, task-created
+//!
+//! Lifecycle passthrough (hyphen→underscore event name, all share run_lifecycle_event):
+//!   post-tool-failure, subagent-start, subagent-stop, pre-compact, post-compact,
+//!   session-end, config-change, permission-request, instructions-loaded,
+//!   worktree-create, worktree-remove, notification, setup, elicitation,
+//!   elicitation-result, cwd-changed, file-changed, stop-failure
+//!
+//! Daemon management:
+//!   --start-daemon  (runs daemon in-process via run_daemon_async)
+//!   --daemon-health (direct socket probe, bypasses circuit breaker)
+
+use std::process;
+use touring_foundation::truncate_str;
+
+use serde_json::Value;
+use touring_hooks::ipc::{DaemonRequest, DaemonResponse, daemon_socket_path};
+use touring_hooks::runtime::HookRuntime;
+
+fn main() {
+    // Sprint 3 PC-1 (REGRA #19): set kernel-visible comm BEFORE tracing init.
+    // We do an early peek at argv[1] to pick the right identity: the legacy
+    // `--start-daemon` path runs the in-process daemon, every other
+    // invocation is an ephemeral hook handler (pre-edit, post-bash, etc.).
+    {
+        let early_args: Vec<String> = std::env::args().collect();
+        let early_subcmd = early_args.get(1).map(String::as_str).unwrap_or("");
+        let comm = if early_subcmd == "--start-daemon" {
+            "touring-daemon"
+        } else {
+            "touring-hook"
+        };
+        touring_hooks::proc_identity::set_process_name(comm);
+    }
+
+    // Initialize tracing subscriber — sink to stderr, controlled by TOURING_LOG env var.
+    // Without this, all #[tracing::instrument] spans produce zero output.
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_env_filter(tracing_subscriber::EnvFilter::from_env("TOURING_LOG"))
+        .init();
+
+    let args: Vec<String> = std::env::args().collect();
+    let subcommand = args.get(1).map(String::as_str).unwrap_or("help");
+
+    // F0.3a (2026-09-01): one trace line per invocation when
+    // TOURING_HOOK_TRACE_FILE is set — flushed from an atexit handler so every
+    // `process::exit` below (and inside handlers) is covered.
+    touring_hook_runtime::hook_trace::install(subcommand);
+
+    // Help does not need stdin
+    if matches!(subcommand, "help" | "--help" | "-h") {
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("help");
+        print_help();
+        process::exit(0);
+    }
+
+    // Sprint 4 PD-3 (2026-05-23, REGRA #19): the legacy polymorphic
+    // `touring-hook --start-daemon` daemon path is DEPRECATED. The
+    // dedicated `touring-daemon` binary (touring-hooks/src/daemon_main.rs)
+    // is the canonical daemon since PD-1 (update-touring spawn) +
+    // PD-2 (cli/daemon_ctl spawn). This branch now refuses with a
+    // clear migration message rather than silently spawning a daemon
+    // under the wrong identity (would defeat REGRA #19 process census).
+    if subcommand == "--start-daemon" {
+        eprintln!(
+            "[touring-hook] error: --start-daemon is DEPRECATED (Sprint 4 PD-3, REGRA #19).\n\
+             Use the dedicated `touring-daemon` binary directly:\n  \
+               $HOME/.local/bin/touring-daemon\n\
+             Or via the canonical helper:\n  \
+               touring daemon-ctl restart"
+        );
+        process::exit(2);
+    }
+
+    // S9: Health check — query daemon status without reading stdin.
+    // Uses try_daemon_health_direct() which bypasses the circuit breaker:
+    // health checks are diagnostic tools and must not be blocked by, or
+    // contribute to, circuit state (a down daemon ≠ a reason to block diagnosis).
+    if matches!(subcommand, "--daemon-health" | "daemon-health") {
+        if let Some(resp) = try_daemon_health_direct() {
+            println!("{}", resp.output);
+        } else {
+            eprintln!("Daemon not available");
+            process::exit(1);
+        }
+        process::exit(0);
+    }
+
+    // Read stdin JSON (shared across all subcommands)
+    let input: serde_json::Value = match HookRuntime::read_stdin() {
+        Ok(v) => v,
+        Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("stdin-error");
+            eprintln!("[touring-hook] stdin error: {e}");
+            // Fail open — don't block Claude Code
+            process::exit(0);
+        }
+    };
+    // F0.3a: attribution for EVERY route (the daemon block below is skipped
+    // under TOURING_NO_DAEMON and for non-daemon subcommands).
+    touring_hook_runtime::hook_trace::set_session_id(
+        input.get("session_id").and_then(|v| v.as_str()),
+    );
+    // S214: this process answers as the event that invoked it — every standalone
+    // serialization is stamped from here (the daemon path is stamped below).
+    touring_hook_runtime::hook_response::set_invoking_event(&input);
+
+    // ── Daemon fast-path ─────────────────────────────────────────────────
+    // Pre-hooks and post-hooks that the daemon handles are attempted via socket
+    // first. If the daemon is unavailable (not started, crashed, timeout),
+    // we fall through to the standalone path below — no blocking, always exit 0.
+    //
+    // S10: Single source of truth — hook_registry::ALL_DAEMON_HOOK_NAMES.
+    // Stateless subcommands (prompt-enhance, qa-syntax, classify, …) always run standalone.
+    if touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES.contains(&subcommand)
+        && std::env::var("TOURING_NO_DAEMON").is_err()
+    {
+        // HOOKCWD (30.4.97): o `cwd` do payload é quem está perguntando — vem antes de uma env
+        // global e da subida estrutural (ver `HookRuntime::detect_project_root_for`).
+        let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref())
+            .to_string_lossy()
+            .into_owned();
+
+        // Extract session_id from Claude Code hook JSON input.
+        // Previously hardcoded to None, making session-level circuit breaker dead code.
+        let session_id = input
+            .get("session_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        let req = DaemonRequest {
+            peer_pid: None,
+            hook: subcommand.to_string(),
+            payload: input.clone(),
+            project_root,
+            session_id,
+            priority: 128,
+            origin: None,
+        };
+
+        if let Some(resp) = try_daemon_request(&req) {
+            // Daemon handled the request — print output (if any) and exit.
+            //
+            // Defense-in-depth: validate that `resp.output` is either empty
+            // OR a parseable JSON object before forwarding to Claude Code's
+            // strict hook-output schema validator. Anything else (partial
+            // response from a crashed daemon, accidental stdout
+            // contamination, mixed prose+JSON) is silently swallowed and we
+            // fall back to the canonical "{}" Allow shape — preserving the
+            // "hooks never block CC" invariant.
+            touring_hook_runtime::hook_trace::set_route("daemon");
+            forward_daemon_output(&resp.output, resp.success);
+            process::exit(0);
+        }
+        // Daemon unavailable — fall through to standalone execution below.
+        touring_hook_runtime::hook_trace::set_reason("daemon-unavailable");
+        tracing::debug!(hook = subcommand, "daemon unavailable, running standalone");
+    }
+
+    // Stateless subcommands — no HookRuntime needed.
+    // These diverge (call process::exit internally) so we match and never fall through.
+    match subcommand {
+        "prompt-enhance" => {
+            touring_hook_runtime::hook_trace::set_route("stateless");
+            touring_hook_runtime::hook_trace::set_reason("prompt-enhance");
+            run_prompt_enhance(&input)
+        }
+        #[cfg(feature = "utilities")]
+        "qa-syntax" => {
+            touring_hook_runtime::hook_trace::set_route("stateless");
+            touring_hook_runtime::hook_trace::set_reason("qa-syntax");
+            run_qa_syntax(&input)
+        }
+        _ => {}
+    }
+
+    // F0.3a: from here on the hook executes STANDALONE — daemon skipped
+    // (`TOURING_NO_DAEMON`), unavailable, or a subcommand the daemon never
+    // handles. The exit reason is refined at each exit below.
+    touring_hook_runtime::hook_trace::set_route("standalone");
+    if std::env::var("TOURING_NO_DAEMON").is_ok() {
+        touring_hook_runtime::hook_trace::set_reason("no-daemon-env");
+    }
+
+    // Detect project root (HOOKCWD: o `cwd` do payload entra na cadeia, como no caminho do daemon)
+    let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref());
+
+    // Initialize HookRuntime (shared state: SQLite, classifier, PII scanner)
+    // `&mut runtime` is taken only by feature-gated arms (pre/post/session hooks):
+    // the allow applies exactly when none of them is compiled in.
+    #[cfg_attr(
+        not(any(
+            feature = "pre-hooks",
+            feature = "post-hooks",
+            feature = "session-hooks"
+        )),
+        allow(unused_mut)
+    )]
+    let mut runtime = match HookRuntime::new(&project_root) {
+        Ok(rt) => rt,
+        Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("runtime-init-err");
+            eprintln!("[touring-hook] runtime init error: {e}");
+            // Fail open
+            process::exit(0);
+        }
+    };
+
+    // Dispatch to the appropriate hook module
+    let result = match subcommand {
+        // Pre-hooks (inject context before tool execution)
+        #[cfg(feature = "pre-hooks")]
+        "pre-read" => touring_hooks::pre_read::run(&runtime, &input),
+        #[cfg(feature = "pre-hooks")]
+        "pre-bash" => touring_hooks::pre_bash::run(&runtime, &input),
+        #[cfg(feature = "pre-hooks")]
+        "pre-edit" => touring_hooks::pre_edit::run(&runtime, &input),
+        #[cfg(feature = "pre-hooks")]
+        "pre-edit-prevention" => touring_hooks::pre_edit_prevention::run(&runtime, &input),
+        #[cfg(feature = "pre-hooks")]
+        "pre-grep" => touring_hooks::pre_grep::run(&runtime, &input),
+        #[cfg(feature = "pre-hooks")]
+        "pre-glob" => touring_hooks::pre_glob::run(&runtime, &input),
+        // CEG Pln2 P3.7 — the Code Execution Gateway pre-exec hook. Advisory by
+        // default (observe mode); `CEG_ENFORCE=1` opts into hard deny.
+        #[cfg(feature = "pre-hooks")]
+        "pre-exec" => touring_hooks::ceg_adapter::run(&mut runtime, &input),
+        // S-01 (elite-harness 2026-05-29) — the universal CEG observability
+        // hook. Wired in settings.json against *every* Bash; routes the action
+        // through X0..X7 for `ceg_*` counter side-effects only, fail-open, and
+        // never alters the response. Makes `touring gate-metrics -j` reflect
+        // the whole action stream, not just `touring exec`.
+        #[cfg(feature = "pre-hooks")]
+        "ceg-observe" => touring_hooks::ceg_adapter::run_observe_only(&input).emit(),
+        #[cfg(feature = "pre-hooks")]
+        "pre-write" => touring_hooks::pre_write::run(&mut runtime, &input),
+        // PreToolUse classifier: suggests the best Touring CLI command(s) for
+        // (tool_name, tool_input). Runs as a `pre-*` event from settings.json
+        // wired on Bash|Grep|Glob|Read|Edit|Write.
+        #[cfg(feature = "pre-hooks")]
+        "cli-suggest" => {
+            let _ = touring_hooks::cli_suggester::run(&runtime, &input);
+            Ok(())
+        }
+
+        // Post-hooks (capture outcomes after tool execution)
+        #[cfg(feature = "post-hooks")]
+        "post-read" => touring_hooks::post_read::run(&runtime, &input),
+        #[cfg(feature = "post-hooks")]
+        "post-bash" => touring_hooks::post_bash::run(&mut runtime, &input),
+        #[cfg(feature = "post-hooks")]
+        "post-edit" => touring_hooks::post_edit::run(&mut runtime, &input),
+        #[cfg(feature = "post-hooks")]
+        "post-write" => touring_hooks::post_write::run(&runtime, &input),
+        #[cfg(feature = "post-hooks")]
+        "post-tool-batch" => {
+            touring_hooks::post_tool_batch::run_post_tool_batch(&mut runtime, &input).emit()
+        }
+        #[cfg(feature = "post-hooks")]
+        "post-tool-rl" => touring_hooks::post_tool_rl::run(&mut runtime, &input),
+
+        // Session lifecycle
+        #[cfg(feature = "session-hooks")]
+        "session-start" => touring_hooks::session_hooks::run_session_start(&mut runtime, &input)
+            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
+        #[cfg(feature = "session-hooks")]
+        "session-stop" => touring_hooks::session_hooks::run_session_stop(&mut runtime, &input)
+            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
+
+        // Permission-request hook — VGP auto-approve for low-risk tool invocations.
+        "permission-request" => touring_hooks::permission_request::run(&runtime, &input),
+
+        // Lifecycle passthrough subcommands — record events in knowledge DB.
+        // All share the same handler; event name is normalized (hyphens → underscores).
+        // Adding a new lifecycle event = one line in this pattern, zero new branches.
+        "post-tool-failure"
+        | "subagent-start"
+        | "post-compact"
+        | "session-end"
+        | "config-change"
+        | "instructions-loaded"
+        | "worktree-create"
+        | "worktree-remove"
+        | "notification"
+        | "setup"
+        | "elicitation"
+        | "elicitation-result"
+        | "cwd-changed"
+        | "file-changed"
+        | "stop-failure" => {
+            // Normalize hyphen-separated subcommand name → underscore DB event key.
+            let event_name = subcommand.replace('-', "_");
+            run_lifecycle_event(&runtime, &input, &event_name)
+        }
+
+        // Agent Teams hooks — dedicated handlers (not simple lifecycle passthrough)
+        "teammate-idle" => touring_hooks::team_hooks::run_teammate_idle(&mut runtime, &input)
+            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
+        "task-completed" => run_task_completed_standalone(&mut runtime, &input),
+        "task-created" => touring_hooks::team_hooks::run_task_created(&mut runtime, &input)
+            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
+        "subagent-stop" => {
+            let result = touring_hooks::team_hooks::run_subagent_stop_gate(&mut runtime, &input);
+            if !result.feedback.is_empty() {
+                eprintln!("{}", result.feedback);
+            }
+            process::exit(result.exit_code as i32);
+        }
+        "task-validation" => {
+            let resp =
+                touring_hooks::hooks_task_lifecycle::run_task_validation(&mut runtime, &input);
+            match resp.to_json().is_empty() {
+                true => Ok(()),
+                false => {
+                    println!("{}", resp.to_json());
+                    Ok(())
+                }
+            }
+        }
+
+        // Utility subcommands
+        "classify" => run_classify(&runtime, &input),
+        "pii-scan" => run_pii_scan(&runtime, &input),
+        #[cfg(feature = "utilities")]
+        "session-audit" => run_session_audit(&input),
+        "metrics" => run_metrics(&runtime),
+        #[cfg(feature = "session-hooks")]
+        "session-insights" => run_session_insights(&runtime, &input),
+
+        // S-3: Decompose-event subcommand — session-scoped task lifecycle
+        "decompose-event" => run_decompose_event(&mut runtime, &input),
+
+        unknown => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-unknown");
+            eprintln!("[touring-hook] unknown subcommand: {unknown}");
+            eprintln!("Run `touring-hook help` for usage.");
+            // Fail open — never block Claude Code, even for unknown hooks.
+            // Claude Code may register new hook events before we add handlers.
+            process::exit(0);
+        }
+    };
+
+    // Handle result — post-hooks return Ok(()), pre-hooks exit internally
+    match result {
+        Ok(()) => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-ok");
+            process::exit(0)
+        }
+        Err(e) => {
+            touring_hook_runtime::hook_trace::set_reason("standalone-err");
+            eprintln!("[touring-hook] error in {subcommand}: {e}");
+            // Fail open — never block Claude Code
+            process::exit(0);
+        }
+    }
+}
+
+/// Prompt enhancement — stateless, no HookRuntime needed.
+/// Diverges: prints JSON to stdout and exits.
+fn run_prompt_enhance(input: &Value) -> ! {
+    // UserPromptSubmit sends {"prompt": "...", "session_id": "..."} at root level.
+    // Fallback: nested format {"input": {"message": "..."}} used by some older integrations.
+    let prompt = input
+        .get("prompt")
+        .or_else(|| input.pointer("/input/message"))
+        .or_else(|| input.get("input"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if prompt.is_empty() {
+        // No prompt to enhance — pass through
+        process::exit(0);
+    }
+
+    // P3/S-3.3 (2026-09-04) — a fronteira do turno. Este é o ÚNICO evento que
+    // significa "o humano falou de novo", então é aqui que o orçamento de
+    // injeção do turno recomeça. Funciona atravessando processos porque o
+    // estado vive em disco (ver `turn_budget::turn_file`): este binário é
+    // efêmero e o suggester vive no daemon.
+    if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
+        let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        touring_hook_runtime::turn_budget::reset_turn(&root, session);
+    }
+
+    let output = touring_hooks::prompt_enhance::compose_json(prompt);
+    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    process::exit(0);
+}
+
+/// Python syntax validation — stateless.
+/// Diverges: prints JSON to stdout and exits.
+#[cfg(feature = "utilities")]
+fn run_qa_syntax(input: &Value) -> ! {
+    let source = input
+        .pointer("/tool_input/content")
+        .or_else(|| input.get("source"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let result = touring_hooks::qa_syntax::validate_python_syntax(source);
+    let output = serde_json::json!({
+        "valid": result.valid,
+        "error": result.error,
+    });
+    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    process::exit(0);
+}
+
+/// Intent classification utility.
+fn run_classify(
+    runtime: &HookRuntime,
+    input: &Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    // One source for the field name (`prompt_from_input`) — this entry point used to
+    // accept only "text"/"input" while every other consumer sent "userMessage"/"prompt",
+    // so it answered L0 with an empty pattern for every realistic payload.
+    let text = touring_hooks::classifier::prompt_from_input(input);
+
+    let cila = runtime.ctx.classifier.classify(text);
+    let techniques: Vec<touring_hooks::classifier::CognitiveTechnique> =
+        touring_hooks::classifier::IntentClassifier::get_techniques(cila.level);
+    let output = serde_json::json!({
+        "level": cila.level,
+        "level_name": cila.level_name,
+        "routing_strategy": cila.routing_strategy,
+        "requires_pipeline": cila.requires_pipeline,
+        "requires_code_first": cila.requires_code_first,
+        "matched_pattern": cila.matched_pattern,
+        "techniques": techniques.iter().map(|t| t.hint()).collect::<Vec<_>>(),
+    });
+    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    Ok(())
+}
+
+/// PII scanning utility.
+fn run_pii_scan(
+    runtime: &HookRuntime,
+    input: &Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let content = input.get("content").and_then(|v| v.as_str()).unwrap_or("");
+
+    let findings = runtime.ctx.pii_scanner.scan_text(content);
+    let output = serde_json::json!({
+        "pii_detected": !findings.is_empty(),
+        "count": findings.len(),
+        "findings": findings.iter().map(|f| serde_json::json!({
+            "pattern_name": f.pattern_name,
+            "line_number": f.line_number,
+            "matched_text": f.matched_text,
+            "column": f.column,
+            "severity": f.severity,
+        })).collect::<Vec<_>>(),
+    });
+    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    Ok(())
+}
+
+/// Session audit — hash CLAUDE.md and .claude/rules/ and report drift. Gated
+/// like `touring_hooks_core::audit`, the module it drives.
+#[cfg(feature = "utilities")]
+fn run_session_audit(
+    input: &Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    use std::path::PathBuf;
+    use touring_hooks::audit;
+
+    let session_id = input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let agent_type = input
+        .get("agent_type")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+
+    // Canonical instruction files to audit
+    let home = std::env::var("HOME").unwrap_or_default();
+    let claude_dir = PathBuf::from(&home).join(".claude");
+    let mut files: Vec<PathBuf> = vec![
+        claude_dir.join("CLAUDE.md"),
+        claude_dir.join("rules").join("00-core-governance.md"),
+        claude_dir.join("rules").join("taco-identity.md"),
+    ];
+
+    // Include any .md files in .claude/rules/ that exist
+    if let Ok(entries) = std::fs::read_dir(claude_dir.join("rules")) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension().and_then(|e| e.to_str()) == Some("md") && !files.contains(&p) {
+                files.push(p);
+            }
+        }
+    }
+    files.sort();
+
+    let event = audit::build_event(&files, session_id, agent_type);
+    let file_hashes: Vec<serde_json::Value> = event
+        .files
+        .iter()
+        .map(|fh| {
+            serde_json::json!({
+                "path": fh.path.display().to_string(),
+                "hash": fh.hash,
+            })
+        })
+        .collect();
+
+    let output = serde_json::json!({
+        "timestamp": event.timestamp,
+        "session_id": event.session_id,
+        "agent_type": event.agent_type,
+        "composite_hash": event.composite_hash,
+        "files": file_hashes,
+        "files_audited": event.files.len(),
+    });
+    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    Ok(())
+}
+
+/// S-3: Decompose-event handler for standalone binary invocation.
+/// Bridges to cli_decompose_event handler via HookRuntime state.
+/// Input: {event_type, session_id, task_data}
+fn run_decompose_event(
+    runtime: &mut HookRuntime,
+    input: &Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let output = touring_hooks::cli_handlers::cli_decompose_event(runtime, input);
+    println!("{}", output);
+    Ok(())
+}
+
+/// R19: Export consolidated runtime metrics as JSON.
+fn run_metrics(
+    runtime: &HookRuntime,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let metrics = runtime.export_metrics(None);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&metrics).unwrap_or_default()
+    );
+    Ok(())
+}
+
+/// Session insights utility.
+#[cfg(feature = "session-hooks")]
+fn run_session_insights(
+    runtime: &HookRuntime,
+    input: &Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let session_id = input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("current");
+
+    let insights = touring_hooks::session_insights::extract_session_insights(
+        &runtime.ctx.knowledge,
+        session_id,
+    );
+    let output = serde_json::json!({
+        "session_id": insights.session_id,
+        "timestamp": insights.timestamp,
+        "total_edits": insights.total_edits,
+        "total_bash_commands": insights.total_bash_commands,
+        "success_rate": insights.success_rate,
+        "top_gotchas": insights.top_gotchas.iter().map(|g| serde_json::json!({
+            "pattern": g.pattern,
+            "gotcha": g.gotcha,
+            "hit_count": g.hit_count,
+        })).collect::<Vec<Value>>(),
+        "top_error_patterns": insights.top_error_patterns.iter().map(|e| serde_json::json!({
+            "pattern": e.pattern,
+            "occurrences": e.occurrences,
+        })).collect::<Vec<Value>>(),
+        "top_edited_files": insights.top_edited_files.iter().map(|f| serde_json::json!({
+            "file_path": f.file_path,
+            "edit_count": f.edit_count,
+        })).collect::<Vec<Value>>(),
+    });
+    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    Ok(())
+}
+
+/// Lifecycle event passthrough — records the event in the knowledge DB.
+///
+/// For events that have full Cortex handlers in touring-server, this provides
+/// a lightweight persistence path via the touring-hook binary. It records the
+/// event type and key metadata into the knowledge DB for session analytics.
+fn run_lifecycle_event(
+    runtime: &touring_hooks::runtime::HookRuntime,
+    input: &Value,
+    event_name: &str,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    // Record the lifecycle event in knowledge DB
+    let session_id = input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let _ = runtime
+        .ctx
+        .knowledge
+        .record_access(&format!("__{}__", event_name), session_id);
+
+    // Extract and log any summary information
+    let summary = input
+        .get("message")
+        .or_else(|| input.get("description"))
+        .or_else(|| input.get("result_summary"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if !summary.is_empty() {
+        let _ = runtime
+            .ctx
+            .knowledge
+            .record_bash_outcome(&touring_hooks::knowledge::BashOutcome {
+                command: format!("{}:{}", event_name, truncate_str(summary, 200)),
+                command_short: event_name.to_string(),
+                exit_code: 0,
+                success: true,
+                error_pattern: None,
+                file_context: None,
+                command_hash: String::new(),
+                executed_at: String::new(),
+            });
+    }
+
+    tracing::debug!(event = event_name, "Lifecycle event recorded");
+    Ok(())
+}
+
+/// Forward the daemon's answer to Claude Code.
+///
+/// Defense-in-depth: `output` must be empty OR a parseable JSON object before it
+/// reaches Claude Code's strict hook-output schema validator. Anything else
+/// (partial response from a crashed daemon, stdout contamination, mixed
+/// prose+JSON) falls back to the canonical `{}` Allow — preserving the "hooks
+/// never block CC" invariant. S214: the daemon answers many events and names
+/// them by hand; this process knows which one invoked it, so it stamps the name.
+/// S224: for the same reason it conforms the answer to that event's contract —
+/// what the platform does not admit on stdout (the `task-completed` receipt's 14
+/// keys) goes to stderr, the diagnostics channel, instead of reaching no one.
+fn forward_daemon_output(output: &str, success: bool) {
+    use touring_hook_runtime::hook_response;
+    // HOOKCWD (30.4.97): a recusa do daemon (`success: false` — o pin, o orçamento estourado…) é
+    // JSON bem-formado como qualquer sucesso, e gravava `daemon-json`, IGUAL ao sucesso. Medir
+    // recusa e sucesso com o mesmo rótulo é o instrumento que mente: o trace distingue.
+    touring_hook_runtime::hook_trace::set_reason(daemon_exit_reason(output, success));
+    if !success {
+        // O stdout segue como sempre (o CC engole o JSON de erro por não ser do seu schema); o
+        // stderr é o canal de diagnóstico — aqui o erro deixa de ser calado.
+        eprintln!(
+            "[touring-hook] daemon refused the request: {}",
+            output.trim()
+        );
+    }
+    if output.is_empty() {
+        return;
+    }
+    match serde_json::from_str::<serde_json::Value>(output.trim()) {
+        Ok(mut value) => {
+            let stamped = hook_response::stamp_invoking_event(&mut value);
+            let removed = hook_response::split_off_invoking_event_violations(&mut value);
+            if let Some(diagnostics) = &removed {
+                eprintln!("{diagnostics}");
+            }
+            if stamped || removed.is_some() {
+                println!("{value}");
+            } else {
+                println!("{output}");
+            }
+        }
+        Err(_) => {
+            eprintln!(
+                "[touring-hook] daemon returned non-JSON output ({} bytes), \
+                 emitting canonical {{}} Allow instead",
+                output.len()
+            );
+            println!("{{}}");
+        }
+    }
+}
+
+/// O `exit_reason` do trace para uma resposta do daemon. `success: false` vence o formato da
+/// saída: uma recusa não é um «JSON de sucesso» só porque o erro vem em JSON.
+fn daemon_exit_reason(output: &str, success: bool) -> &'static str {
+    if !success {
+        "daemon-error"
+    } else if output.is_empty() {
+        "daemon-empty"
+    } else if serde_json::from_str::<serde_json::Value>(output.trim()).is_ok() {
+        "daemon-json"
+    } else {
+        "daemon-nonjson"
+    }
+}
+
+/// O `cwd` que o Claude Code põe em todo payload de hook: a pasta da sessão que está perguntando.
+fn payload_cwd(input: &serde_json::Value) -> Option<std::path::PathBuf> {
+    input
+        .get("cwd")
+        .and_then(serde_json::Value::as_str)
+        .filter(|c| !c.is_empty())
+        .map(std::path::PathBuf::from)
+}
+
+/// Attempt to send a hook request to the running daemon via Unix socket.
+///
+/// Health-check variant that bypasses the circuit breaker entirely.
+///
+/// Health checks are diagnostic tools — they must report the real daemon state
+/// regardless of circuit state, and must NOT contribute failures to the circuit.
+/// A daemon being down is exactly the condition health checks exist to detect.
+fn try_daemon_health_direct() -> Option<DaemonResponse> {
+    use std::io::{BufRead, BufReader, Write};
+    use std::os::unix::net::UnixStream;
+
+    let socket_path = daemon_socket_path();
+
+    // Ensure the daemon socket is ready; health probes wait up to 300ms for
+    // initial autostart (same as the orphan-restart branch).
+    if !ensure_daemon_socket(&socket_path, 300) {
+        return None;
+    }
+
+    let req = DaemonRequest {
+        peer_pid: None,
+        hook: "__health__".to_string(),
+        payload: serde_json::Value::Null,
+        project_root: std::env::current_dir()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        session_id: None,
+        origin: None,
+        priority: 0,
+    };
+
+    let stream = UnixStream::connect(&socket_path).ok()?;
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_millis(2000)))
+        .ok()?;
+    stream
+        .set_write_timeout(Some(std::time::Duration::from_millis(2000)))
+        .ok()?;
+
+    let mut writer = stream.try_clone().ok()?;
+    let reader_stream = stream;
+
+    let req_json = serde_json::to_string(&req).ok()?;
+    if writer.write_all(req_json.as_bytes()).is_err() || writer.write_all(b"\n").is_err() {
+        return None;
+    }
+
+    let mut reader = BufReader::new(reader_stream);
+    let mut line = String::new();
+    reader.read_line(&mut line).ok()?;
+    // No record_failure / record_success — health checks must not pollute circuit state.
+    serde_json::from_str::<DaemonResponse>(line.trim()).ok()
+}
+
+/// Returns `Some(DaemonResponse)` on success, `None` if the daemon is
+/// unavailable or the request times out. The caller falls back to standalone
+/// execution on `None` — the invariant "hooks never block Claude Code" is preserved.
+/// S219 (25/09/2026): standalone `task-completed` runs the SAME handler the daemon runs.
+/// A cold daemon past the client's 3 s read timeout lands in the standalone path, whose
+/// arm ran only the knowledge/ACO recording — no DAG finalize, no RL reward, no lesson,
+/// and a 0-byte receipt. Same dispatch table, same forwarding: parity by construction.
+fn run_task_completed_standalone(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let table = touring_hooks::hook_registry::build_dispatch_table();
+    if let Some(handler) = table.get("task-completed") {
+        // O handler local não tem como «recusar» como o daemon: a saída é de sucesso.
+        forward_daemon_output(&handler(runtime, input), true);
+    }
+    Ok(())
+}
+
+fn try_daemon_request(req: &DaemonRequest) -> Option<DaemonResponse> {
+    use std::io::{BufRead, BufReader, Write};
+    use std::os::unix::net::UnixStream;
+
+    // S14: Circuit breaker — hierarchical multi-dimensional check.
+    // Uses check() instead of is_open() to leverage per-hook, per-project,
+    // and per-session circuit dimensions (is_open() was a flat global check).
+    let circuit = touring_hooks::circuit_breaker::check(
+        &req.hook,
+        Some(&req.project_root),
+        req.session_id.as_deref(),
+    );
+    if circuit.skip {
+        tracing::debug!(
+            hook = %req.hook,
+            circuit = circuit.circuit,
+            reason = %circuit.reason,
+            retry_after = circuit.retry_after_secs,
+            "circuit breaker open — skipping daemon"
+        );
+        return None;
+    }
+
+    let socket_path = daemon_socket_path();
+
+    // Ensure the daemon socket is ready; regular requests give 200ms for initial
+    // autostart (tighter than health probes — fallback to standalone is fast).
+    if !ensure_daemon_socket(&socket_path, 200) {
+        return None;
+    }
+
+    // Connect with a 100ms timeout
+    let stream = match UnixStream::connect(&socket_path) {
+        Ok(s) => s,
+        Err(_) => {
+            touring_hooks::circuit_breaker::record_failure(
+                &req.hook,
+                Some(&req.project_root),
+                req.session_id.as_deref(),
+                false,
+            );
+            return None;
+        }
+    };
+    // 3s timeout — session-start and post-tool-rl can take up to ~500ms on first
+    // call; 100ms was too tight and caused spurious standalone fallbacks that
+    // raced with the daemon's in-progress SQLite write (reviewer issue I3).
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_millis(3000)))
+        .ok()?;
+    stream
+        .set_write_timeout(Some(std::time::Duration::from_millis(3000)))
+        .ok()?;
+
+    let mut writer = stream.try_clone().ok()?;
+    let reader_stream = stream;
+
+    // Send request as newline-delimited JSON
+    let req_json = serde_json::to_string(req).ok()?;
+    if writer.write_all(req_json.as_bytes()).is_err() || writer.write_all(b"\n").is_err() {
+        touring_hooks::circuit_breaker::record_failure(
+            &req.hook,
+            Some(&req.project_root),
+            req.session_id.as_deref(),
+            false,
+        );
+        return None;
+    }
+
+    // Read response line
+    let mut reader = BufReader::new(reader_stream);
+    let mut line = String::new();
+    if reader.read_line(&mut line).is_err() {
+        touring_hooks::circuit_breaker::record_failure(
+            &req.hook,
+            Some(&req.project_root),
+            req.session_id.as_deref(),
+            false,
+        );
+        return None;
+    }
+
+    match serde_json::from_str::<DaemonResponse>(line.trim()) {
+        Ok(resp) => {
+            touring_hooks::circuit_breaker::record_success(
+                &req.hook,
+                Some(&req.project_root),
+                req.session_id.as_deref(),
+            );
+            Some(resp)
+        }
+        Err(_) => {
+            touring_hooks::circuit_breaker::record_failure(
+                &req.hook,
+                Some(&req.project_root),
+                req.session_id.as_deref(),
+                false,
+            );
+            None
+        }
+    }
+}
+
+/// Check if the daemon socket is responsive (connect succeeds).
+/// Returns false if socket exists but daemon is dead (orphan socket).
+fn socket_is_responsive(socket_path: &std::path::Path) -> bool {
+    use std::os::unix::net::UnixStream;
+    // Quick connect-only probe — 50ms timeout is enough to detect a dead socket.
+    match UnixStream::connect(socket_path) {
+        Ok(stream) => {
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(50)));
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Ensure the daemon socket is ready to accept connections.
+///
+/// Two cases:
+/// - Socket absent: spawns daemon and waits up to `initial_wait_ms` for it to bind.
+/// - Socket present but unresponsive (orphan crash): cleans up stale state,
+///   respawns, and waits up to 300 ms (the standard restart budget).
+///
+/// Returns `true` if the socket exists and is connectable after the above
+/// remediation, `false` if the daemon failed to start in time (caller should
+/// fall back to standalone execution — "hooks never block CC" invariant).
+fn ensure_daemon_socket(socket_path: &std::path::Path, initial_wait_ms: u64) -> bool {
+    if !socket_path.exists() {
+        try_autostart_daemon();
+        let deadline =
+            std::time::Instant::now() + std::time::Duration::from_millis(initial_wait_ms);
+        while !socket_path.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        if !socket_path.exists() {
+            return false;
+        }
+    } else if !socket_is_responsive(socket_path) {
+        // Socket exists but daemon is dead — orphan socket from a crash.
+        // Clean up stale state and try to restart the daemon.
+        cleanup_orphan_daemon_state();
+        try_autostart_daemon();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(300);
+        while !socket_path.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        if !socket_path.exists() {
+            return false;
+        }
+    }
+    true
+}
+
+/// Clean up orphan socket and stale lock/circuit state left by a crashed daemon.
+/// Called when the socket exists but the daemon process is dead.
+fn cleanup_orphan_daemon_state() {
+    let socket_path = daemon_socket_path();
+    // W12.5 (cross-audit fix 2026-07-24): the lock must be the one DERIVED
+    // from the socket being cleaned — the old uid-global name mismatched a
+    // per-project socket, so this cleanup could touch the GLOBAL daemon's
+    // lock while leaving the crashed project daemon's lock behind.
+    let lock_path = touring_hooks::ipc::daemon_lock_path_for(&socket_path);
+
+    tracing::debug!("cleaning up orphan daemon state");
+
+    // Remove the orphan socket so a new daemon can bind
+    let _ = std::fs::remove_file(&socket_path);
+    // Remove stale lock file (if the PID inside is dead)
+    if let Ok(contents) = std::fs::read_to_string(&lock_path)
+        && let Ok(pid) = contents.trim().parse::<u32>()
+    {
+        // kill(pid, 0) checks if process exists without sending a signal
+        let alive = unsafe { libc_kill(pid as i32, 0) } == 0;
+        if !alive {
+            let _ = std::fs::remove_file(&lock_path);
+        }
+    }
+    // Reset circuit breaker — failures from the dead daemon are stale
+    touring_hooks::circuit_breaker::reset();
+}
+
+unsafe extern "C" {
+    fn kill(pid: i32, sig: i32) -> i32;
+}
+
+#[inline]
+unsafe fn libc_kill(pid: i32, sig: i32) -> i32 {
+    // SAFETY: caller guarantees `pid`/`sig` are a valid PID + signal number; `kill(2)`
+    // has no memory-safety preconditions beyond that (it merely returns -1/EINVAL on
+    // a bad signal). Explicit block per `unsafe_op_in_unsafe_fn`.
+    unsafe { kill(pid, sig) }
+}
+
+/// Spawn the daemon in the background if it isn't running.
+///
+/// # W12.5 hardening (2026-05-24) — per-project deployment + Sprint 4 PD-3
+///
+/// Two issues had to be solved at once:
+///
+/// 1. **`--start-daemon` mode deprecated**: Sprint 4 PD-3 (2026-05-23) deprecated
+///    `touring-hook --start-daemon` — invoking it now only prints a deprecation
+///    notice and exits without starting any daemon. The previous implementation
+///    here silently failed for every autostart attempt. We now resolve the
+///    sibling `touring-daemon` binary in the same `target/release/` (or
+///    `~/.local/bin/`) directory as the current executable and spawn it
+///    directly.
+///
+/// 2. **Per-project socket path consistency**: `ipc::daemon_socket_path()`
+///    resolves the socket via a 4-layer chain (env → env-legacy → per-project
+///    walk-up → global fallback). The client computes this path BEFORE spawn.
+///    Without explicitly passing it to the daemon via `TOURING_DAEMON_SOCKET`,
+///    a daemon spawned with a different inherited cwd/env could bind a
+///    different path — the client would then poll forever on the wrong socket.
+///    We resolve the path here and pass it via env so client and daemon bind
+///    the same Unix socket regardless of inherited context.
+///
+/// Fire-and-forget: we don't wait for it — `try_daemon_request` polls the
+/// socket until it accepts connections.
+fn try_autostart_daemon() {
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+
+    // W12.5: resolve socket path on the client side and pass it explicitly,
+    // so the daemon binds the same path the client is about to poll.
+    let socket_path = daemon_socket_path();
+
+    // Cross-audit F-NEW-2 (2026-07-25): the daemon CHANNEL must be
+    // deterministic per socket, never "whoever spawned last". Blind sibling
+    // resolution made the GLOBAL daemon oscillate between the dev channel
+    // (update-touring restarts) and the default toolchain (autospawn by a
+    // toolchain-delivered hook). Contract, mirroring daemon_ctl::
+    // spawn_daemon_with_bin (C08 — keep both spawn sites in sync):
+    //   per-project socket → the project's PINNED `.touring/bin/touring-daemon`
+    //   any other socket   → TOURING_DAEMON_BIN env > ~/.local/bin (dev
+    //                        channel owns the global) > sibling > PATH.
+    let project_daemon = socket_path
+        .parent()
+        .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
+        .map(|d| d.join("bin").join("touring-daemon"))
+        .filter(|p| p.exists());
+    let sibling = exe
+        .parent()
+        .map(|d| d.join("touring-daemon"))
+        .filter(|p| p.exists());
+    let daemon_bin = project_daemon
+        .or_else(|| std::env::var_os("TOURING_DAEMON_BIN").map(std::path::PathBuf::from))
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|h| std::path::PathBuf::from(h).join(".local/bin/touring-daemon"))
+                .filter(|p| p.exists())
+        })
+        .or(sibling)
+        .unwrap_or_else(|| std::path::PathBuf::from("touring-daemon"));
+
+    // Daemon lifetime fix (2026-07-01): the old comment here PROMISED
+    // detachment but no code implemented it — the daemon inherited the
+    // spawner's process group/session and could die with the invoking Claude
+    // Code session's cleanup (alive at session end, Connection refused when the
+    // next session began). Stdout/stderr append to
+    // ~/.claude/touring/daemon.stderr.log so daemon tracing + exit markers stop
+    // being discarded.
+    // PILOT finding (2026-07-25, 3rd spawn-site): a per-project daemon must
+    // resolve ITS OWN root — derived from the socket, never inherited from
+    // the invoker's env. Mirrors daemon_ctl::project_root_for_socket (C08:
+    // keep all spawn sites in sync). Without this, a hook running with a
+    // foreign CLAUDE_PROJECT_DIR/TOURING_PROJECT_ROOT would seed the wrong
+    // data root (cross-contamination).
+    let project_root = socket_path
+        .parent()
+        .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
+        .and_then(|d| d.parent())
+        .map(std::path::Path::to_path_buf);
+    // Session (setsid) AND cgroup (decision 2-A, 14/09/2026): a hook run by a
+    // oneshot systemd service used to start a daemon inside that service's
+    // cgroup, and the service's end killed it. The launcher is shared with
+    // `daemon_ctl::spawn_daemon_with_bin`, so the detachment has one copy.
+    let description = format!("touring-daemon {}", socket_path.display());
+    // A hook answers the harness: a slow user manager may hold it a quarter
+    // second, not the 2 s the operator's `daemon-ctl` accepts (C8).
+    let _ = touring_foundation::daemon_spawn::spawn_daemon_detached_within(
+        &daemon_bin,
+        &description,
+        std::time::Duration::from_millis(250),
+        &|cmd| {
+            let (stdout_io, stderr_io) = daemon_spawn_log_stdio();
+            cmd.env("TOURING_DAEMON_SOCKET", &socket_path)
+                .stdin(std::process::Stdio::null())
+                .stdout(stdout_io)
+                .stderr(stderr_io);
+            if let Some(root) = &project_root {
+                cmd.env("CLAUDE_PROJECT_DIR", root);
+                cmd.env("TOURING_PROJECT_ROOT", root);
+                // C08 — mirrors daemon_ctl::spawn_daemon_with_bin:
+                // `TOURING_WORKSPACE_ROOT` is NOT pinned, because it names the
+                // touring source tree (asset lookups), not this daemon's project.
+                // See the long note there.
+                cmd.current_dir(root);
+            }
+        },
+    );
+}
+
+/// Append-mode logfile stdio for the spawned daemon, prefixed with a
+/// spawn-epoch header identifying this spawner. Mirrors touring-server
+/// `cli/daemon_ctl.rs::daemon_log_stdio`; keep both in sync (C08).
+/// Fail-open: degrades to `Stdio::null()` — logging must never block the
+/// spawn itself (REGRA #19).
+fn daemon_spawn_log_stdio() -> (std::process::Stdio, std::process::Stdio) {
+    use std::io::Write;
+    use std::process::Stdio;
+    let open = || -> Option<std::fs::File> {
+        let home = std::env::var("HOME").ok()?;
+        let dir = std::path::PathBuf::from(home)
+            .join(".claude")
+            .join("touring");
+        std::fs::create_dir_all(&dir).ok()?;
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join("daemon.stderr.log"))
+            .ok()
+    };
+    let Some(mut f) = open() else {
+        return (Stdio::null(), Stdio::null());
+    };
+    let epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let _ = writeln!(f, "=== touring-hook autostart spawn epoch={epoch} ===");
+    match f.try_clone() {
+        Ok(f2) => (Stdio::from(f2), Stdio::from(f)),
+        Err(_) => (Stdio::null(), Stdio::from(f)),
+    }
+}
+
+fn print_help() {
+    println!(
+        "\
+touring-hook — Native Rust binary for Claude Code hooks (v11.0 — full 24-event coverage)
+
+USAGE:
+    touring-hook <SUBCOMMAND>
+
+SUBCOMMANDS:
+    Tool hooks (stdin: Claude Code hook JSON):
+        pre-read              Inject context before file read
+        post-read             Capture knowledge after file read
+        pre-bash              Recall command outcomes before bash
+        post-bash             Learn command outcomes after bash
+        pre-edit              Inject context before file edit
+        post-edit             Track edit outcomes after edit
+        post-tool-rl          RL reward processing after tool use
+        pre-edit-prevention   Complexity gating before edit
+        pre-grep              Symbol enrichment before Grep (D43)
+        pre-glob              Symbol enrichment before Glob (D43)
+        prompt-enhance        Classify and enhance user prompts
+
+    Session lifecycle:
+        session-start         Initialize session (quality tracking, knowledge)
+        session-stop          Finalize session (report, persist)
+        session-end           Final persistence checkpoint
+        setup                 Repo setup initialization
+
+    Agent lifecycle:
+        subagent-start        Subagent context injection
+        subagent-stop         Subagent outcome recording
+        teammate-idle         Teammate quality gate
+        task-completed        Task outcome tracking
+        task-created          Task creation recording
+
+    Context management:
+        pre-compact           Pre-compaction context crystal
+        post-compact          Post-compaction recovery injection
+        config-change         Config file change detection
+        instructions-loaded   Instructions enrichment
+
+    File & directory:
+        worktree-create       Worktree setup
+        worktree-remove       Worktree cleanup
+        cwd-changed           Working directory change
+        file-changed          Watched file change
+
+    Error handling:
+        post-tool-failure     Tool failure RL signal
+        stop-failure          API/system error recording
+        notification          Notification recording
+
+    MCP interaction:
+        elicitation           MCP elicitation recording
+        elicitation-result    MCP elicitation result recording
+        permission-request    Permission request audit
+
+    Utilities (stdin: JSON with relevant fields):
+        classify              CILA intent classification
+        pii-scan              PII detection and redaction
+        qa-syntax             Python syntax validation
+        metrics               Export consolidated runtime metrics
+        session-insights      Session trend analysis
+        session-audit         CLAUDE.md hash drift detection
+
+    Other:
+        help                  Show this help message
+
+ENVIRONMENT:
+    CLAUDE_PROJECT_DIR    Project root (default: cwd)
+    TOURING_LOG           Log level (default: off)
+
+PERFORMANCE:
+    Startup: <1ms | Runtime init: <10ms | Hook execution: <5ms
+    Compare: Python hooks ~40ms startup, Node.js hooks ~300ms"
+    );
+}
+
+/// HOOKCWD (30.4.97) — a recusa do daemon tem `exit_reason` PRÓPRIO no trace; o sucesso continua
+/// `daemon-json` (controle positivo). Medido no smoke do `analise` (10/10/2026): o daemon pinado
+/// recusou em 0 ms com `{"error":"this daemon is pinned to …"}` e o trace gravou `daemon-json`.
+#[cfg(test)]
+mod hookcwd_tests {
+    use super::{daemon_exit_reason, payload_cwd};
+    use serde_json::json;
+
+    const RECUSA_REAL: &str = r#"{"error":"this daemon is pinned to /home/u/projects/analise (derived from its own socket); the request names /home/u/projects/touring, outside that tree — run it with the cwd inside the pinned root, or against the global daemon"}"#;
+
+    #[test]
+    fn a_recusa_do_daemon_pinado_tem_exit_reason_proprio() {
+        assert_eq!(daemon_exit_reason(RECUSA_REAL, false), "daemon-error");
+    }
+
+    /// Controle positivo: o MESMO formato de saída, com `success: true`, segue `daemon-json`.
+    #[test]
+    fn o_sucesso_continua_daemon_json() {
+        assert_eq!(daemon_exit_reason("{}", true), "daemon-json");
+        assert_eq!(
+            daemon_exit_reason(r#"{"hookSpecificOutput":{"additionalContext":"x"}}"#, true),
+            "daemon-json"
+        );
+        assert_ne!(
+            daemon_exit_reason(RECUSA_REAL, true),
+            daemon_exit_reason(RECUSA_REAL, false),
+            "a flag, não o formato, separa recusa de sucesso"
+        );
+    }
+
+    #[test]
+    fn os_outros_rotulos_seguem_como_antes() {
+        assert_eq!(daemon_exit_reason("", true), "daemon-empty");
+        assert_eq!(daemon_exit_reason("não é json", true), "daemon-nonjson");
+        assert_eq!(daemon_exit_reason("", false), "daemon-error");
+        assert_eq!(daemon_exit_reason("não é json", false), "daemon-error");
+    }
+
+    #[test]
+    fn o_cwd_do_payload_so_vale_quando_e_texto_nao_vazio() {
+        let cwd = |v: serde_json::Value| payload_cwd(&v);
+        assert_eq!(
+            cwd(json!({"cwd": "/home/u/projects/analise"})),
+            Some(std::path::PathBuf::from("/home/u/projects/analise"))
+        );
+        assert_eq!(cwd(json!({"cwd": ""})), None);
+        assert_eq!(cwd(json!({"cwd": 7})), None);
+        assert_eq!(cwd(json!({})), None);
+    }
+}

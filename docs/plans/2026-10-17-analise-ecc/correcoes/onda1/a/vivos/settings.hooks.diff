@@ -1,0 +1,50 @@
+--- ~/.claude/settings.json (hooks, atual)
++++ ~/.claude/settings.json (hooks, proposto)
+@@ -717,6 +717,16 @@
+           "timeout": 5
+         }
+       ]
++    },
++    {
++      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
++      "hooks": [
++        {
++          "type": "command",
++          "command": "python3 $HOME/.claude/hooks/config_protection.py",
++          "timeout": 5
++        }
++      ]
+     }
+   ],
+   "PostToolUse": [
+@@ -1243,30 +1253,6 @@
+           "async": true
+         }
+       ]
+-    }
+-  ],
+-  "WorktreeCreate": [
+-    {
+-      "hooks": [
+-        {
+-          "type": "command",
+-          "command": "$HOME/.claude/hooks/touring-hook worktree-create",
+-          "timeout": 30,
+-          "statusMessage": "TACO: initializing worktree index..."
+-        }
+-      ]
+-    }
+-  ],
+-  "WorktreeRemove": [
+-    {
+-      "hooks": [
+-        {
+-          "type": "command",
+-          "command": "$HOME/.claude/hooks/touring-hook worktree-remove",
+-          "timeout": 10,
+-          "async": true
+-        }
+-      ]
+     }
+   ],
+   "StopFailure": [

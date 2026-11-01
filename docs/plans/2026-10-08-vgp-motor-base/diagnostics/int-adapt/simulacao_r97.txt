@@ -1,0 +1,34 @@
+p0b:  7 files changed, 764 insertions(+), 30 deletions(-)
+    crates/touring-code/src/vgp/lang/python.rs
+    crates/touring-code/src/vgp/lang/python/modules.rs
+    crates/touring-code/src/vgp/lang/python/tests.rs
+    crates/touring-code/src/vgp/sombra.rs
+    crates/touring-pyright/src/achado.rs
+    crates/touring-pyright/src/pyright.rs
+    crates/touring-pyright/tests/pyright_real.rs
+frag:  14 files changed, 1693 insertions(+), 88 deletions(-)
+    crates/touring-code/src/vgp/lang/mod.rs
+    crates/touring-code/src/vgp/lang/python/tests.rs
+    crates/touring-code/src/vgp/mod.rs
+    crates/touring-code/src/vgp/politica.rs
+    crates/touring-code/src/vgp/sombra.rs
+    crates/touring-hook-handlers/src/hooks/pre_bash.rs
+    crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs
+    crates/touring-hook-handlers/src/hooks/pre_write.rs
+    crates/touring-hook-handlers/src/hooks/vgp_execucao.rs
+    crates/touring-hook-handlers/src/hooks/vgp_l2.rs
+    crates/touring-hook-handlers/src/lib.rs
+    crates/touring-hooks-core/src/hooks/pre_tool_validator.rs
+    crates/touring-pyright/src/achado.rs
+    crates/touring-pyright/src/pyright.rs
+SIM int97 + p0b: APLICA
+SIM int97 + frag: FALHA
+    Falling back to direct application...
+    U crates/touring-code/src/vgp/sombra.rs
+arvore int97 simulada=crates/touring-code/src/vgp/sombra.rs: unmerged (039ecab8759e565ed6c04dcb3ee293ade5fbecfb)
+SIM adapt + p0b: APLICA
+SIM adapt + frag: FALHA
+    Falling back to direct application...
+    U crates/touring-code/src/vgp/sombra.rs
+arvore adapt simulada=crates/touring-code/src/vgp/sombra.rs: unmerged (039ecab8759e565ed6c04dcb3ee293ade5fbecfb)
+FIM

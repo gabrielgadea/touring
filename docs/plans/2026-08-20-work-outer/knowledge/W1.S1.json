@@ -1,0 +1,11 @@
+{
+  "phase": "W1.S1",
+  "entities": [
+    {
+      "entity_id": "phase:W1.S1",
+      "type": "phase",
+      "description": "W1.S1 snapshot pre-W1: 5 arquivos copiados para archive/2026-08-20-doc-rewriting/W1-orig/ preservando mtime via cp --preserve=timestamps. Validacao: todos os 5 SHA256 batem contra a proveniencia W1-before.json (size, lines, mtime). Nenhuma regressao possivel a partir daqui sem afetar o archive."
+    }
+  ],
+  "relations": []
+}

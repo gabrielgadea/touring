@@ -1,0 +1,9 @@
+recall de símbolo · arquivo 8/13 · inline 10/27 | forma (fora) {'arquivo': [0, 9], 'inline': [0, 11]} | falsos deny 83 em {'arquivo': 369, 'inline': 275} | avisos em negativos 175 | p95 532.4 ms | chamadas 704 | não classificados 0 | defeito de corpus (snap não compila) 3
+  PENDENTE: 58 chamada(s) do motor falharam (falha fechada) — 1ª: {'id': '923da8f9c557', 'erro': 'rc -6, stdout não-JSON: \'\' · stderr: "\\nthread \'main\' (1370066) has overflowed its stack\\nfatal runtime error: stack overflow, aborting\\n"'}
+  PENDENTE: recall de símbolo (arquivo) 0.615 < 0.7 (8/13)
+  PENDENTE: recall de símbolo (inline) 0.370 < 0.7 (10/27)
+  PENDENTE: falso deny (arquivo) 11.111% > 1% (41/369)
+  PENDENTE: falso deny (inline) 15.273% > 1% (42/275)
+  PENDENTE: p95 532.4 ms > 150.0 ms
+veredito: NÃO PRONTO
+rc=1

@@ -266,7 +266,10 @@ impl ConsolidationMigration {
                 // file_risk_scores: may or may not exist in legacy
                 total += insert_from_attached(conn, "file_risk_scores", "file_risk_scores", "IGNORE")?;
 
-                // wiring_map: v8 schema matches legacy — copy directly preserving all columns
+                // wiring_map: v8 schema matches legacy — copy directly preserving all columns.
+                // The copy bypasses the wiring write gate (this crate cannot see it);
+                // `FileKnowledgeDB::migrate_evict_ungated_rows` runs on the next open
+                // and removes what the gate refuses, companion consumers included.
                 // Both: (id, module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
                 if mig_src_table_exists(conn, "wiring_map") {
                     let n = conn.execute(

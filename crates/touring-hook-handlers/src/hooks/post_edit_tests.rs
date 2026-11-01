@@ -451,15 +451,13 @@ fn test_reindex_file_updates_wiring_map() {
     let knowledge = crate::knowledge::FileKnowledge {
         file_path: "src/analyzer.rs".into(),
         language: Some("rust".into()),
-        symbols_json: Some(
-            r#"[{"name":"Analyzer","kind":"struct","is_public":true},
-                    {"name":"helper","kind":"function","is_public":false}]"#
-                .into(),
-        ),
+        symbols_json: None,
         imports_json: Some(r#"["crate::core::Config"]"#.into()),
         ..Default::default()
     };
     db.upsert(&knowledge).unwrap();
+    let content = "pub struct Analyzer;\nfn helper() {}\n";
+    crate::wiring::refresh_file_producers(&db, "src/analyzer.rs", "rust", content);
     crate::wiring::update_wiring_after_edit(&db, "src/analyzer.rs");
     let status = db.module_wiring_status("src/analyzer.rs").unwrap();
     assert_eq!(status.total_pub_symbols, 1, "only 1 pub symbol");
@@ -528,7 +526,12 @@ fn test_parse_source_and_lang_preloaded() {
 }
 #[test]
 fn test_compute_antipattern_issues_skips_test_files() {
-    let issues = compute_antipattern_issues("fn helper() { panic!(\"oops\") }", "rust", true);
+    let issues = compute_antipattern_issues(
+        "fn helper() { panic!(\"oops\") }",
+        "rust",
+        true,
+        "tests/helper.rs",
+    );
     assert!(
         issues.is_empty(),
         "test files should produce no antipattern issues"
@@ -536,12 +539,12 @@ fn test_compute_antipattern_issues_skips_test_files() {
 }
 #[test]
 fn test_compute_antipattern_issues_empty_source() {
-    let issues = compute_antipattern_issues("", "rust", false);
+    let issues = compute_antipattern_issues("", "rust", false, "src/lib.rs");
     let _ = issues;
 }
 #[test]
 fn test_compute_antipattern_issues_non_test_runs_detection() {
-    let issues = compute_antipattern_issues("fn ok() {}", "rust", false);
+    let issues = compute_antipattern_issues("fn ok() {}", "rust", false, "src/lib.rs");
     let _ = issues;
 }
 #[test]
@@ -658,13 +661,23 @@ fn test_normalize_error_fallback_collapses_spaces() {
 }
 #[test]
 fn test_compose_post_edit_feedback_no_issues() {
-    let result = compose_post_edit_feedback(vec![], 0);
-    assert!(result.contains("0 issue(s)"));
+    let result = compose_post_edit_feedback(only_issues(vec![]), 0);
+    assert!(
+        result.is_empty(),
+        "nothing to report renders nothing — never '0 issue(s)': {result}"
+    );
+}
+/// S28 helper: findings with issues only.
+fn only_issues(issues: Vec<String>) -> crate::post_feedback::Feedback {
+    crate::post_feedback::Feedback {
+        issues,
+        signals: Vec::new(),
+    }
 }
 #[test]
 fn test_compose_post_edit_feedback_single_issue() {
     let issues = vec!["SYNTAX: unexpected token".to_string()];
-    let result = compose_post_edit_feedback(issues, 3);
+    let result = compose_post_edit_feedback(only_issues(issues), 3);
     assert!(result.contains("1 issue(s)"));
     assert!(result.contains("SYNTAX: unexpected token"));
 }
@@ -672,14 +685,18 @@ fn test_compose_post_edit_feedback_single_issue() {
 fn test_compose_post_edit_feedback_budget_drops_excess() {
     let big = "x".repeat(700);
     let issues = vec![big.clone(), big.clone(), big.clone()];
-    let result = compose_post_edit_feedback(issues, 0);
+    let result = compose_post_edit_feedback(only_issues(issues), 0);
     let count: usize = result.split(" | ").count().saturating_sub(1);
-    assert!(count < 3, "budget should have dropped at least 1 issue");
+    assert!(count < 4, "budget should have dropped at least 1 issue");
+    assert!(
+        result.contains("3 issue(s)") && result.contains("elided by the budget"),
+        "elision is declared: {result}"
+    );
 }
 #[test]
 fn test_compose_post_edit_feedback_format() {
     let issues = vec!["A".to_string(), "B".to_string()];
-    let result = compose_post_edit_feedback(issues, 3);
+    let result = compose_post_edit_feedback(only_issues(issues), 3);
     assert!(result.starts_with("post-edit verification:"));
     assert!(result.contains(" | "));
 }
@@ -722,7 +739,7 @@ fn test_compose_post_edit_feedback_priority_sort_order() {
         "WIRING: 2 orphan pub symbol(s)".to_string(),
         "SYNTAX: unexpected token at line 42".to_string(),
     ];
-    let result = compose_post_edit_feedback(issues, 3);
+    let result = compose_post_edit_feedback(only_issues(issues), 3);
     let syntax_pos = result.find("SYNTAX").expect("SYNTAX should be present");
     let wiring_pos = result.find("WIRING").expect("WIRING should be present");
     assert!(
@@ -736,7 +753,7 @@ fn test_compose_post_edit_feedback_priority_survives_budget() {
     let wiring_big = format!("WIRING: {}", "x".repeat(1100));
     let feature_issue = "feature-gated [foo]: check --all-features".to_string();
     let issues = vec![wiring_big, feature_issue, syntax_issue];
-    let result = compose_post_edit_feedback(issues, 0);
+    let result = compose_post_edit_feedback(only_issues(issues), 0);
     assert!(
         result.contains("SYNTAX"),
         "high-priority SYNTAX issue should survive budget truncation"
@@ -944,32 +961,36 @@ fn test_build_edit_summary_unknown_tool_returns_none() {
     assert!(result.is_none(), "unknown tool name should return None");
 }
 #[test]
-fn check_block_gate_returns_block_on_antipattern_marker() {
-    let issues = vec![
-        "ANTIPATTERN_BLOCK: delta=5 threshold=4".to_string(),
-        "ANTIPATTERN [5x]: unwrap".to_string(),
-    ];
-    let result = check_block_gate(&issues, "src/lib.rs");
-    assert!(
-        result.is_some(),
-        "ANTIPATTERN_BLOCK marker must trigger block gate"
+fn edit_gate_blocks_on_new_antipatterns_from_the_rebuilt_before() {
+    // S28: the gate counts what THIS edit added, from the pre-edit content rebuilt out of
+    // the tool input — never a disk read in PostToolUse (that is the new content).
+    let after = "fn a() {\n    x.unwrap();\n    y.unwrap();\n    z.unwrap();\n    w.unwrap();\n}\n";
+    let edit = serde_json::json!({
+        "old_string": "    // body",
+        "new_string": "    x.unwrap();\n    y.unwrap();\n    z.unwrap();\n    w.unwrap();"
+    });
+    let before = crate::post_feedback::content_before_edit(after, &edit).expect("reversible edit");
+    assert_eq!(before, "fn a() {\n    // body\n}\n");
+    let n = crate::post_feedback::new_antipatterns(Some(&before), after, "rust", "src/lib.rs");
+    assert_eq!(n, 4);
+    let block = crate::post_feedback::check_block_gate(
+        n,
+        "src/lib.rs",
+        crate::post_feedback::Mutation::Edit,
+        &crate::post_feedback::Feedback::default(),
     );
-    let response = result.unwrap();
-    match response {
-        HookResponse::Block { reason, .. } => {
+    match block {
+        Some(HookResponse::Block { reason, .. }) => {
             assert!(
-                reason.contains("src/lib.rs"),
-                "block reason must name the file"
+                reason.starts_with("Edit blocked") && reason.contains("src/lib.rs"),
+                "{reason}"
             );
         }
         other => panic!("expected HookResponse::Block, got {other:?}"),
     }
-}
-#[test]
-fn check_block_gate_returns_none_without_marker() {
-    let issues = vec!["ANTIPATTERN [2x]: unwrap".to_string()];
-    assert!(
-        check_block_gate(&issues, "src/lib.rs").is_none(),
-        "normal antipattern issues without BLOCK marker must not block"
+    assert_eq!(
+        crate::post_feedback::new_antipatterns(Some(after), after, "rust", "src/lib.rs"),
+        0,
+        "an edit that adds nothing never blocks, however many the file already had"
     );
 }

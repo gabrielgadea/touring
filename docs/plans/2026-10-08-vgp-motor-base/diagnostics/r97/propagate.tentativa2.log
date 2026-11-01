@@ -1,0 +1,30 @@
+[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m versão    : 30.4.97
+
+[1m── 1/6 GATES — cargo check + clippy + espelho client/ + referência + rito + testes dos crates tocados ──[0m
+  base: commit de release dfe0fd1e (release 30.4.95: V0e5 (S3 avisa, /proc ptrace, nota de teste)
+  2882 arquivo(s) tocados desde o release (commits + árvore de trabalho); 2622 fora de qualquer pacote
+  AVISO: .cargo/mutants.toml, Cargo.lock, Cargo.toml mudou - a raiz não pertence a pacote algum e NÃO é mapeada pelo gate
+    Checking touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.11s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+    Checking touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.68s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+✅ CLEAN  377 arquivos espelhados, nenhum divergente
+espelho no HEAD íntegro (377 arquivos conferidos)
+DRIFT: modules.md out of sync - run docs/gen_reference.py
+[31m[propagate] ERRO[0m referência docs/ fora de sincronia (drift hooks/módulos) — rode: python3 docs/gen_reference.py
+propagate rc=1

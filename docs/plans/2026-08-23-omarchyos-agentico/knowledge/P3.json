@@ -1,0 +1,11 @@
+{
+  "phase": "P3",
+  "entities": [
+    {
+      "entity_id": "phase:P3",
+      "type": "phase",
+      "description": "P3 AGENT HARNESS concluido - gate validate_p3.sh 6/6 RC=0. Kit stage A restaurado com .agents antes de .claude/skills (ordem exigida pelo plano) e sem --delete, preservando a sessao viva: 177 skills, 11 agents, 0 symlink quebrado. Lacuna real do S-0.2 corrigida NA ORIGEM: migration_kit.sh nao incluia .claude/scripts/ (18 entradas, 2.4M no Pop) e settings.stageA.json referencia $HOME/.claude/scripts/rl_warmup.sh, quebrando hooks_runnable; item 'scripts' adicionado ao loop do gerador + restaurado do Pop no destino. ~/.claude.json restaurado (600) - e ele que carrega mcpServers.touring. D7 resolvido com correcao de premissa: o clone de gabrielgadea/analise falha porque o repo se chama antt-processos-analise ('analise' e so o diretorio local), nao por ser privado; repo tem 130G no Pop, trazidas apenas as .claude/skills (7.1M, 36 skills). Fallback resolved/analise-skills do kit tem aninhamento duplicado; dev-de-sloppify e diretorio vazio na origem. Pendencia explicita: instalador nativo do Claude (curl|bash) nao executado - trocar binario sob sessao viva e risco sem ganho."
+    }
+  ],
+  "relations": []
+}

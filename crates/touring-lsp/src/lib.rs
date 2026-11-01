@@ -10,6 +10,10 @@
 //!   - `server` (feature `lsp-bridge`): the async `tower_lsp::LanguageServer`
 //!     impl. Gated so a default workspace build does NOT pull `tower-lsp`.
 //!   - [`error`] / [`types`]: typed errors and shared data types.
+//!   - [`client`] / [`pyright`] / [`pool`]: VGP layer 2 (a synchronous stdio LSP client, the
+//!     pyright-langserver session built on it, and the warm per-root session pool). They live in the
+//!     `touring-pyright` crate — so the hook crates can use them without a package cycle through this
+//!     crate's optional `touring-hooks` edge — and are re-exported here unchanged.
 //!
 //! ## Reachability
 //! Built with `--features lsp-bridge`, an editor launches the server over stdio
@@ -25,6 +29,9 @@
 pub mod error;
 pub mod mapping;
 pub mod types;
+
+// VGP layer 2 moved to `touring-pyright`; the old paths (`touring_lsp::pool::checar`, …) still resolve.
+pub use touring_pyright::{client, pool, pyright};
 
 #[cfg(feature = "lsp-bridge")]
 pub mod server;

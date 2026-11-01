@@ -1,0 +1,35 @@
+-- bindings.skills.lua — Skills deck keybind for ~/.config/hypr/bindings.lua
+--
+-- Pattern copied from default/hypr/bindings/utilities.lua (basecamp/omarchy@quattro):
+--   o.bind("MODIFIER + KEY", "Description", "shell command")
+-- Signature verified in /usr/share/omarchy/default/hypr/helpers.lua:81 —
+--   o.bind(keys, description, dispatcher, options)
+-- and `description` is what surfaces in `hyprctl binds`, so the gate can see it.
+--
+-- INSTALL — copy this file to ~/.config/hypr/bindings.skills.lua and append to
+-- ~/.config/hypr/bindings.lua:
+--   dofile((os.getenv("XDG_CONFIG_HOME") or os.getenv("HOME") .. "/.config") .. "/hypr/bindings.skills.lua")
+-- The Omarchy helper globals (`o`, `hl`) come from default/hypr/bootstrap.lua,
+-- which hyprland.lua runs before the personal files, so they ARE in scope inside
+-- a dofile'd chunk. Precedent on this machine: hyprmoncfg-monitors.lua is loaded
+-- exactly this way and calls hl.monitor() with no local setup.
+--
+-- KEY CHOICE — measured 2026-08-23 on the metal, not assumed:
+--   SUPER + CTRL + S is taken by "Share"       (hyprctl binds -> modmask=68 key=S).
+--   SUPER + SHIFT + CTRL + S is free (modmask=69): of the 228 active binds that
+--   modmask holds only code:20, code:21, SPACE, R, A and G.
+--
+-- QUICKSHELL IPC — MEASURED AND REJECTED (2026-08-23, S-5.5). The earlier note
+-- here proposed qs.ipc.call(...) / `omarchy-shell shell toggle gabriel.skills-deck`
+-- at INFERENCE 0.75. Two measurements kill it:
+--   1. gabriel.skills-deck declares only entryPoints.barWidget — there is no
+--      panel or overlay for `toggle` to act on (Panel.qml sits beside the widget
+--      but is deliberately not wired; see the P0V note in BarWidget.qml). The
+--      widget's own left click runs the very command below, so keybind and click
+--      stay one single behaviour.
+--   2. `omarchy-shell` exits 0 UNCONDITIONALLY: a bogus plugin id returns 0, and
+--      an unknown method prints "Function not found." and still returns 0. Its
+--      exit status can never be evidence that anything happened.
+-- Keep the spawned command — it is observable, and it is what the bar does.
+
+o.bind("SUPER + SHIFT + CTRL + S", "Skills deck", "omarchy-menu summon skills")

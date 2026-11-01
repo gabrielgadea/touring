@@ -1,0 +1,12 @@
+## 2026-10-09T11:11:17-03:00
+pidfile global: 211554
+daemon pid=18187 exe=/home/gabrielgadea/.touring/toolchains/30.4.93/bin/touring-daemon start=Fri Oct  9 10:36:58 2026
+daemon pid=211554 exe=/home/gabrielgadea/projects/touring/target/release/touring-daemon start=Fri Oct  9 11:10:52 2026
+PATH: touring 30.4.94
+toolchain: touring 30.4.94
+analise: touring 30.4.93
+default: 30.4.94 (default) 
+touring -> /home/gabrielgadea/projects/touring/target/release/touring mtime=2026-10-09 11:10:51
+touring-hook -> /home/gabrielgadea/projects/touring/target/release/touring-hook mtime=2026-10-09 11:08:21
+touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon mtime=2026-10-09 11:09:00
+daemon-ctl: Touring daemon status   socket:     /home/gabrielgadea/projects/analise/.touring/daemon.sock (alive)   daemon PID: 18187   exe:        /home/gabrielgadea/.touring/toolchains/30.4.93/bin/touring-daemon   siblings:   mcp_bridges=0, hook_handlers=0, cli_clients=1 

@@ -1,0 +1,35 @@
+{
+  "aceite": "A2 — antes→depois em corpus reproduzível N≥200, queda ≥40% sem perder nenhum MUST na 1ª emissão",
+  "veredito": "VERDE",
+  "corpus": {
+    "arquivo": "corpus_a2.jsonl",
+    "manifesto": "corpus_a2_manifest.json",
+    "criterio": "12 maiores transcripts do projeto analise com mtime > 2h (sessões encerradas; janela FIXA — a 1ª extração por mtime-recente era janela móvel e não reproduzível, defeito corrigido e registrado)",
+    "payloads": 79253,
+    "sessoes": 12,
+    "compact_boundaries": 252,
+    "turn_boundaries": 2531,
+    "bytes_antes": 35447735,
+    "composicao": {"touring_hook_pct": 91.7, "nao_touring_pct": 8.3}
+  },
+  "modos": {
+    "A_total_dedupe_sobre_tudo": {"bytes_depois": 20389036, "queda": 0.4248},
+    "B_deploy_fiel_so_touring_dedupa": {"bytes_depois": 22102107, "queda": 0.3765},
+    "C_combinado_binario_novo": {"bytes_depois": 20488054, "queda": 0.4220}
+  },
+  "aceite_formal_sobre": "C-combinado = deploy real (dedupe + TURN_BUDGET 2000 + session-start:compact fora [settings da 6b])",
+  "controle_positivo": {
+    "primeiro_payload_de_cada_sessao_intacto": true,
+    "nenhuma_diretiva_MUST_perdida_na_1a_emissao": true,
+    "prova": "cargo test -p touring-hooks-shared --test s8_corpus_ab → test result: ok (os asserts rodam dentro do teste; falha = panic)"
+  },
+  "evolucao_da_politica": [
+    {"politica": "dedupe linha exata + referência curta (1ª versão)", "queda": 0.194, "corpus": "janela móvel 12 recentes (n=15538, NÃO reproduzível)"},
+    {"politica": "+ molde por linha (bug: '/' virava 'P' mas o path ficava)", "queda": 0.230, "corpus": "janela móvel"},
+    {"politica": "+ molde token-based + camada 1 por molde", "queda": 0.289, "corpus": "janela móvel"},
+    {"politica": "+ omissão total da repetição de bloco (brief: 'omitida ou referência curta quando menor')", "queda": 0.354, "corpus": "janela móvel"},
+    {"politica": "mesma, corpus FIXO 12 maiores encerrados", "queda": 0.4248, "corpus": "fixo (n=79253)"},
+    {"politica": "MIN_LINE 24→12", "queda_delta": 0.0004, "decisao": "revertido — ganho nulo, proteção estrutural vale mais"}
+  ],
+  "nota_honestidade": "a queda depende do mix de sessões: sessões curtas recentes (janela móvel) davam ~35%; as 12 maiores encerradas (sessões longas de trabalho real, o modo dominante do projeto) dão 42,5%. O juiz ao vivo da 6b mede o mix real."
+}

@@ -1,0 +1,523 @@
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-generator)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 35s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_generator-d7a4386ac080c986)
+
+running 177 tests
+test core::adapters::concolic_pre_tool_adapter::tests::test_closures_are_send_sync ... ok
+test core::context::llm_http_tests::ollama_response_errors_on_missing_content ... ok
+test core::context::llm_http_tests::content_to_outputs_handles_both_shapes ... ok
+test core::context::llm_http_tests::openai_response_errors_on_missing_content ... ok
+test core::context::llm_http_tests::ollama_response_parses_message_content ... ok
+test core::context::llm_http_tests::openai_response_parses_json_object_content ... ok
+test core::context::llm_http_tests::openai_response_wraps_non_json_content ... ok
+test core::context::llm_http_tests::provider_names_and_token_estimate ... ok
+test core::adapters::concolic_pre_tool_adapter::tests::test_analyze_returns_result ... ok
+test core::adapters::concolic_pre_tool_adapter::tests::test_adapter_creation ... ok
+test core::context::quality_gate_multilang_tests::average_score_fuses_semantic_for_rust ... ok
+test core::context::quality_gate_multilang_tests::average_score_aggregates_across_languages ... ok
+test core::context::quality_gate_multilang_tests::check_rejects_go_panic ... ok
+test core::context::quality_gate_multilang_tests::check_rejects_java_broad_catch ... ok
+test core::context::quality_gate_multilang_tests::check_accepts_clean_python ... ok
+test core::context::quality_gate_multilang_tests::check_rejects_javascript_var ... ok
+test core::context::quality_gate_multilang_tests::average_score_ignores_semantic_for_non_rust ... ok
+test core::context::quality_gate_multilang_tests::check_accepts_clean_typescript ... ok
+test core::context::quality_gate_multilang_tests::check_skips_unknown_extension_silently ... ok
+test core::context::quality_gate_multilang_tests::detect_language_covers_all_eight_supported ... ok
+test core::context::quality_gate_multilang_tests::detect_language_is_case_insensitive ... ok
+test core::context::quality_gate_multilang_tests::detect_language_returns_none_for_unsupported ... ok
+test core::context::quality_gate_multilang_tests::extract_inputs_empty_for_non_code_only ... ok
+test core::context::quality_gate_multilang_tests::extract_inputs_filters_unsupported_files ... ok
+test core::context::quality_gate_multilang_tests::check_rejects_python_bare_except ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_accepts_clean_python ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_accepts_clean_rust ... ok
+test core::context::quality_gate_multilang_tests::check_rejects_tsx_console_log ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_default_is_disabled ... ok
+test core::context::quality_gate_multilang_tests::check_rejects_typescript_any_cast ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_tolerates_unparseable_rust ... ok
+test core::context_fuzzy::fuzzy_tests::adapter_confidence_decreases_with_distance ... ok
+test core::context_fuzzy::fuzzy_tests::adapter_len_reflects_seed_count ... ok
+test core::context_fuzzy::fuzzy_tests::adapter_seed_replaces_tree ... ok
+test core::context_fuzzy::fuzzy_tests::adapter_top_k_respects_k_limit_with_bktree ... ok
+test core::context_fuzzy::fuzzy_tests::adapter_top_k_sorted_by_distance ... ok
+test core::context_fuzzy::fuzzy_tests::bktree_empty_returns_empty ... ok
+test core::context_fuzzy::fuzzy_tests::bktree_exact_match_distance_zero ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_rejects_unsafe_rust ... ok
+test core::context_fuzzy::fuzzy_tests::bktree_fuzzy_match_one_deletion ... ok
+test core::context_fuzzy::fuzzy_tests::bktree_no_match_within_max_dist ... ok
+test core::context_fuzzy::fuzzy_tests::bktree_single_symbol_root_only ... ok
+test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_confidence_inversely_proportional_to_distance ... ok
+test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_exact_match_has_zero_distance ... ok
+test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_explicit_seed_takes_priority_over_lazy_seed ... ok
+test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_top_k_respects_limit ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_accepts_clean_typescript ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_classic_kitten_sitting ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_empty_strings ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_empty_vs_nonempty ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_identical ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_insertion_deletion ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_single_char ... ok
+test core::context_fuzzy::fuzzy_tests::levenshtein_substitution_only ... ok
+test core::context_fuzzy::fuzzy_tests::parse_cli_json_empty_results ... ok
+test core::context_fuzzy::fuzzy_tests::parse_cli_json_invalid_json_returns_empty ... ok
+test core::context_fuzzy::fuzzy_tests::parse_cli_json_plain_array_shape ... ok
+test core::context_fuzzy::fuzzy_tests::parse_cli_json_standard_results_shape ... ok
+test core::context::quality_gate_multilang_tests::semantic_threshold_rejects_dynamic_python ... ok
+test error::diagnostic_tests::all_g_codes_pass_validation ... ok
+test error::diagnostic_tests::diagnostic_carries_help ... ok
+test error::diagnostic_tests::internal_variants_have_no_code ... ok
+test error::diagnostic_tests::json_round_trip_preserves_code ... ok
+test error::diagnostic_tests::speculate_below_threshold_maps_to_g401 ... ok
+test error::diagnostic_tests::speculate_passed_emits_g410_info ... ok
+test error::diagnostic_tests::template_error_maps_to_g420 ... ok
+test error::diagnostic_tests::vgp_failed_maps_to_g400 ... ok
+test executor::typestate::cycle_gate_tests::tarjan_scc_detects_mutual_recursion ... ok
+test executor::typestate::cycle_gate_tests::tarjan_scc_no_cycles_for_linear_code ... ok
+test executor::typestate::security_gate_tests::security_gate_auto_cure_sqli_neutralizes_all_spans ... ok
+test executor::typestate::security_gate_tests::security_gate_clean_code_passes ... ok
+test executor::typestate::security_gate_tests::security_gate_neutralize_span_degenerate_returns_original ... ok
+test executor::typestate::security_gate_tests::security_gate_neutralize_span_oob_returns_original ... ok
+test executor::typestate::security_gate_tests::security_gate_neutralize_span_replaces_bytes ... ok
+test executor::typestate::security_gate_tests::security_gate_sqli_pattern_detected ... ok
+test plan::schema::tests::a_plan_of_another_major_or_no_version_is_rejected_naming_both ... ok
+test plan::schema::tests::a_plan_of_the_engines_major_version_is_accepted ... ok
+test plan::schema::tests::minimal_plan_json_deserializes_with_defaults ... ok
+test plan::schema::tests::skeleton_roundtrips_through_serde ... ok
+test plan::schema::tests::unknown_fields_still_rejected ... ok
+test shape::tests::budget_creates_child ... ok
+test shape::tests::default_shape_is_100_width ... ok
+test shape::tests::fits_check ... ok
+test shape::tests::indent_by_increases_indent ... ok
+test shape::tests::new_line_resets_offset ... ok
+test shape::tests::remaining_calculation ... ok
+test shape::tests::saturating_arithmetic_under_overflow ... ok
+test shape::tests::would_overflow ... ok
+test shape::tests::would_overflow_is_fits_folded_over_lines ... ok
+test skip::parser::tests::block_comment_single_line ... ok
+test skip::parser::tests::clear_and_reparse ... ok
+test skip::parser::tests::line_comment_region ... ok
+test skip::parser::tests::no_overlap_empty ... ok
+test skip::parser::tests::rust_attribute ... ok
+test source_change::applier::tests::apply_result_display ... ok
+test source_change::applier::tests::commit_applies_text_edits ... ok
+test source_change::applier::tests::commit_empty_change ... ok
+test source_change::applier::tests::shadow_validate_accepts_valid_change ... ok
+test source_change::applier::tests::shadow_validate_rejects_missing_parent ... ok
+test source_change::fs_edit::tests::create_file_is_creation ... ok
+test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_top_k_without_explicit_seed_is_graceful ... ok
+test source_change::fs_edit::tests::delete_file_is_deletion ... ok
+test source_change::fs_edit::tests::file_system_edit_display ... ok
+test source_change::fs_edit::tests::move_file_is_move ... ok
+test source_change::snippet::tests::snippet_display ... ok
+test source_change::snippet::tests::snippet_empty_template ... ok
+test source_change::snippet::tests::snippet_is_simple ... ok
+test source_change::snippet::tests::snippet_multiple_tab_stops ... ok
+test source_change::snippet::tests::snippet_no_cursor ... ok
+test source_change::snippet::tests::snippet_simple_cursor ... ok
+test source_change::snippet::tests::snippet_with_default_text ... ok
+test source_change::snippet::tests::snippet_with_tab_stop ... ok
+test source_change::tests::source_change_builder ... ok
+test core::context_fuzzy::fuzzy_tests::seed_attempted_flag_is_set_after_first_top_k ... ok
+test source_change::tests::source_change_display ... ok
+test source_change::tests::source_change_empty ... ok
+test source_change::text_edit::tests::apply_all_delete_range ... ok
+test source_change::text_edit::tests::apply_all_empty_text ... ok
+test source_change::text_edit::tests::apply_all_insertion_at_start ... ok
+test source_change::text_edit::tests::apply_all_insertion_in_middle ... ok
+test source_change::text_edit::tests::apply_all_multiple_indels ... ok
+test source_change::text_edit::tests::apply_all_empty_insert ... ok
+test source_change::text_edit::tests::apply_all_replace ... ok
+test source_change::text_edit::tests::indel_is_deletion ... ok
+test source_change::text_edit::tests::indel_is_insertion ... ok
+test source_change::text_edit::tests::invalid_range_error ... ok
+test source_change::text_edit::tests::non_overlap_error_detected ... ok
+test source_change::text_edit::tests::text_edit_display ... ok
+test source_change::text_edit::tests::text_edit_from_indels_builder ... ok
+test source_change::text_edit::tests::unsorted_error_detected ... ok
+test validate::boundary::tests::default_boundary_task_kind_coverage ... ok
+test validate::boundary::tests::audit_warn_only_enforcement ... ok
+test validate::boundary::tests::fail_closed_blocks_violation ... ok
+test validate::boundary::tests::impl_write_allowed_for_crate_file ... ok
+test validate::boundary::tests::layer_result_from_valid_result ... ok
+test validate::boundary::tests::layer_result_from_violations ... ok
+test validate::boundary::tests::glob_meta_chars ... ok
+test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_empty_pool_returns_empty ... ok
+test validate::boundary::tests::prefix_match_semantics_crates ... ok
+test validate::boundary::tests::spec_forbidden_for_crate_file ... ok
+test validate::pipeline::tests::all_layers_pass_empty_context ... ok
+test validate::pipeline::tests::committed_history_contains ... ok
+test validate::boundary::tests::warn_only_enforcement_no_block ... ok
+test validate::pipeline::tests::l3_allows_matching_kind ... ok
+test validate::pipeline::tests::l3_blocks_unknown_kind ... ok
+test validate::pipeline::tests::l5_passes_without_contracts ... ok
+test validate::pipeline::tests::l6_allows_new_path ... ok
+test validate::pipeline::tests::l5_failclosed_blocks_impl_write_to_docs ... ok
+test validate::pipeline::tests::l6_detects_committed_path ... ok
+test validate::pipeline::tests::l7_fails_below_085 ... ok
+test validate::pipeline::tests::l7_passes_above_085 ... ok
+test validate::pipeline::tests::l7_passes_at_085_exactly ... ok
+test validate::pipeline::tests::layer_result_order_preserved ... ok
+test validate::pipeline::tests::observer_called_on_each_layer ... ok
+test validate::pipeline::tests::observer_called_on_layer_failure ... ok
+test validate::pipeline::tests::validation_context_builder ... ok
+test validate::pipeline::tests::validation_error_layer_roundtrip ... ok
+test validate::pipeline::tests::validation_layer_all_ordered ... ok
+test validate::polyglot::tests::flags_empty_tree_python ... ok
+test validate::polyglot::tests::skips_rust_silently ... ok
+test validate::polyglot::tests::skips_unknown_extensions ... ok
+test vgp::engine::vgp_engine_tests::test_symbol_key_equality_reflexive ... ok
+test validate::polyglot::tests::passes_on_valid_python ... ok
+test vgp::engine::vgp_engine_tests::test_symbol_key_from_symbol_ref_no_crate ... ok
+test validate::polyglot::tests::passes_on_valid_typescript ... ok
+test vgp::engine::vgp_engine_tests::test_symbol_key_from_symbol_ref_with_crate ... ok
+test vgp::engine::vgp_engine_tests::test_symbol_key_inequality_by_crate ... ok
+test vgp::engine::vgp_engine_tests::test_vgp_engine_invalidate_all_does_not_panic ... ok
+test vgp::engine::vgp_engine_tests::test_verify_batch_empty_contracts_does_not_increment_counters ... ok
+test vgp::engine::vgp_engine_tests::test_verify_batch_empty_contracts_returns_all_passed ... ok
+test vgp::engine::vgp_engine_tests::test_verify_batch_concurrent_no_deadlock ... ok
+test vgp::fuzzy::tests::levenshtein_empty ... ok
+test vgp::fuzzy::tests::levenshtein_one_char_diff ... ok
+test vgp::fuzzy::tests::levenshtein_identical ... ok
+test vgp::engine::vgp_engine_tests::test_vgp_engine_reset_counters_zeroes_atomics ... ok
+test vgp::engine::vgp_engine_tests::test_vgp_engine_new_counters_start_at_zero ... ok
+test vgp::fuzzy::tests::noop_fuzzy_searcher_fail_open ... ok
+
+test result: ok. 177 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/bktree_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bktree_e2e-c2aeb70eb0f20cad)
+
+running 10 tests
+test bktree_e2e::test_bktree_confidence_decreases_with_distance ... ok
+test bktree_e2e::test_bktree_exact_match_confidence_is_one ... ok
+test bktree_e2e::test_bktree_exact_match_distance_zero ... ok
+test bktree_e2e::test_bktree_reseed_replaces_old_pool ... ok
+test bktree_e2e::test_bktree_k_zero_returns_empty ... ok
+test bktree_e2e::test_bktree_len_after_seed ... ok
+test bktree_e2e::test_bktree_top_k_fuzzy_format ... ok
+test bktree_e2e::test_bktree_top_k_results_ordered_by_distance ... ok
+test bktree_e2e::test_bktree_top_k_respects_k_limit ... ok
+test bktree_e2e::test_bktree_empty_query_returns_empty ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/e2e_cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_cross_audit-809eaa2ec79dbe17)
+
+running 41 tests
+test capacity_limits_default_max_iterations_is_5 ... ok
+test all_cila_levels_have_nonzero_budget ... ok
+test capacity_limits_default_speculate_threshold_is_0_8 ... ok
+test cila_level_l0_l1_char_budget_is_1200 ... ok
+test cila_level_l2_l3_char_budget_is_3000 ... ok
+test cila_level_l4_l5_char_budget_is_6000 ... ok
+test generator_plan_json_schema_is_object ... ok
+test generator_plan_json_schema_contains_key_fields ... ok
+test plan_priority_default_is_normal ... ok
+test plan_priority_ordering_low_normal_high_critical ... ok
+test plan_registry_concurrent_registration_no_data_race ... ok
+test concurrent_pipeline_five_plans_no_deadlock ... ok
+test replan_request_at_max_returns_rejected_plan ... ok
+test pipeline_closure_counter_incremented_by_verify_and_render ... ok
+test rkyv_snapshot_tests::snapshot_restore_count_without_data_returns_error ... ok
+test rkyv_snapshot_tests::snapshot_restore_empty_list_round_trip ... ok
+test rkyv_snapshot_tests::snapshot_restore_single_file_round_trip ... ok
+test rkyv_snapshot_tests::snapshot_restore_three_files_round_trip ... ok
+test rkyv_snapshot_tests::snapshot_restore_truncated_buffer_returns_error ... ok
+test schema_registry_exact_version_is_compatible ... ok
+test schema_registry_multiple_migrations ... ok
+test schema_registry_registered_migration_is_compatible ... ok
+test schema_registry_unknown_version_is_not_compatible ... ok
+test replan_request_exceeds_max_returns_rejected ... ok
+test replan_request_below_max_returns_draft ... ok
+test syn_wiring_gate_tests::syn_gate_accepts_clean_rust_code ... ok
+test syn_wiring_gate_tests::syn_gate_into_closure_is_callable ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_allow_dead_code ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_invalid_rust_syntax ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_allow_unused ... ok
+test syn_wiring_gate_tests::syn_gate_skips_non_rs_files ... ok
+test template_engine_cli_handler_injects_command_name ... ok
+test template_engine_consumer_generator_injects_orphan_info ... ok
+test template_engine_has_exactly_30_templates ... ok
+test template_engine_rust_module_injects_module_name ... ok
+test template_engine_renders_all_29_kinds_with_populated_vars ... ok
+test wasm_sandbox_tests::wasm_sandbox_run_returns_ok_for_always_success ... ok
+test wasm_sandbox_tests::wasm_sandbox_run_empty_input_does_not_panic ... ok
+test wasm_sandbox_tests::wasm_sandbox_into_closure_produces_callable_fn ... ok
+test wasm_sandbox_tests::wasm_sandbox_with_default_wat_succeeds ... ok
+test pipeline_with_empty_contracts_completes_verify_step ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/e2e_diagnostic_rfc100.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-df57e21eed199544)
+
+running 3 tests
+test g400_emits_when_vgp_fails_for_missing_symbols ... ok
+test g401_path_responds_to_plan_speculate_command ... ok
+test generator_binary_wired_and_healthy ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.18s
+
+     Running tests/e2e_pipeline.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_pipeline-274373b04ec8639c)
+
+running 143 tests
+test all_generator_kinds_have_nonempty_template_names ... ok
+test analysis_gate_adapter_tests::analysis_gate_count_pub_declarations_basic ... ok
+test analysis_gate_adapter_tests::analysis_gate_count_pub_declarations_visibility_modifiers ... ok
+test analysis_gate_adapter_tests::analysis_gate_disabled_via_env_skips_check ... ok
+test analysis_gate_adapter_tests::analysis_gate_into_closure_round_trips_via_wiring_gate_fn ... ok
+test analysis_gate_adapter_tests::analysis_gate_open_fails_on_missing_db ... ok
+test analysis_gate_adapter_tests::analysis_gate_baseline_report_returns_score ... ok
+test analysis_gate_adapter_tests::analysis_gate_accepts_files_under_threshold ... ok
+test analysis_gate_adapter_tests::analysis_gate_open_with_env_default_when_no_env ... ok
+test analysis_gate_adapter_tests::analysis_gate_open_with_env_reads_overrides ... ok
+test analysis_gate_adapter_tests::analysis_gate_rejects_when_baseline_score_below_min ... ok
+test capacity_limits_default_threshold_is_0_8 ... ok
+test analysis_gate_adapter_tests::analysis_gate_skips_non_rust_files ... ok
+test analysis_gate_adapter_tests::analysis_gate_rejects_when_projected_orphan_delta_exceeds_max ... ok
+test closures_called_on_draft_to_verified_transition ... ok
+test closure_helpers_dispatch_to_injected_functions ... ok
+test closures_called_on_verified_to_rendered_transition ... ok
+test composite_wiring_gate_tests::composite_gate_accessors_return_both_inner_gates ... ok
+test composite_wiring_gate_tests::composite_gate_accepts_clean_rust ... ok
+test composite_wiring_gate_tests::composite_gate_open_succeeds_with_valid_db ... ok
+test composite_wiring_gate_tests::composite_gate_into_closure_round_trips_via_wiring_gate_fn ... ok
+test composite_wiring_gate_tests::composite_gate_rejects_unparseable_rust_at_syn_stage ... ok
+test contracts_default_is_empty ... ok
+test contracts_plan_id_is_nil ... ok
+test contracts_with_file_is_not_empty ... ok
+test contracts_with_symbol_is_not_empty ... ok
+test erased_generator_blanket_impl_routes_to_generator_trait ... ok
+test failure_report_escalation_flag_is_respected ... ok
+test failure_report_serde_round_trip ... ok
+test generate_error_display_contains_relevant_info ... ok
+test generate_error_internal_shows_message ... ok
+test generate_error_path_traversal_shows_path ... ok
+test generate_error_template_error_includes_message ... ok
+test composite_wiring_gate_tests::composite_gate_rejects_orphan_risk_at_analysis_stage ... ok
+test generator_context_for_testing_constructs_without_panic ... ok
+test generator_context_noop_memory_store_and_recall ... ok
+test generator_context_noopllm_estimates_tokens ... ok
+test generator_context_noop_rl_does_not_panic ... ok
+test generator_kind_display_matches_label ... ok
+test generator_kind_serde_all_variants ... ok
+test generator_plan_serde_round_trip ... ok
+test generator_context_speculate_threshold_defaults_to_0_8 ... ok
+test mcts_eval_adapter_tests::mcts_evaluate_empty_graph_returns_zero ... ok
+test mcts_eval_adapter_tests::mcts_evaporate_does_not_panic ... ok
+test mcts_eval_adapter_tests::mcts_hash_state_is_deterministic ... ok
+test mcts_eval_adapter_tests::mcts_into_closure_round_trips_via_mcts_eval_fn ... ok
+test mcts_eval_adapter_tests::mcts_evaluate_returns_score_with_populated_graph ... ok
+test mcts_eval_adapter_tests::mcts_with_config_honours_custom_config ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_cognitive_nexus_fn_empty_candidates_returns_none ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_handles_empty_candidates ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_into_cognitive_nexus_fn_scores_known_query ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_is_case_insensitive_by_default ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_ranks_matching_intent_highest ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_returns_zero_for_empty_query_tokens ... ok
+test nlp_plan_ranker_adapter_tests::nlp_ranker_with_config_respects_custom_matcher_config ... ok
+test normalized_score_clamped_above_one_gives_one ... ok
+test normalized_score_clamped_below_zero_gives_zero ... ok
+test normalized_score_clamped_midpoint ... ok
+test normalized_score_new_rejects_out_of_range ... ok
+test normalized_score_new_valid_range ... ok
+test normalized_score_one_is_one ... ok
+test normalized_score_serde_round_trip ... ok
+test normalized_score_zero_is_zero ... ok
+test pipeline_accepts_a_minor_revision_of_the_schema ... ok
+test pipeline_draft_to_verified_with_empty_contracts ... ok
+test closures_called_on_rendered_to_speculated_transition ... ok
+test pipeline_rejects_a_plan_of_another_major_schema_version ... ok
+test closures_called_on_full_draft_to_committed_pipeline ... ok
+test pipeline_verified_to_rendered_produces_nonempty_file ... ok
+test plan_registry_concurrent_register_20_plans ... ok
+test plan_registry_concurrent_update_status ... ok
+test plan_registry_default_is_empty ... ok
+test plan_registry_register_and_query_status ... ok
+test plan_registry_remove_returns_and_deletes ... ok
+test plan_registry_unknown_id_returns_none ... ok
+test plan_registry_update_status_transitions ... ok
+test rendered_file_new_stores_fields_correctly ... ok
+test rendered_file_sha256_changes_with_content ... ok
+test rendered_file_sha256_is_deterministic ... ok
+test rendered_file_sha256_is_valid_hex ... ok
+test rkyv_snapshot_adapter_tests::rkyv_restore_detects_trailing_garbage ... ok
+test rkyv_snapshot_adapter_tests::rkyv_restore_detects_truncated_buffer ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_adapter_default_constructs ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_empty_list_round_trips ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_large_batch_round_trips ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_multiple_files_round_trip ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_rkyv_produces_aligned_buffer ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_single_file_round_trips ... ok
+test rkyv_snapshot_adapter_tests::rkyv_snapshot_unicode_content_round_trips ... ok
+test semantic_graph_adapter_tests::cognitive_nexus_fn_returns_none_for_unknown_key ... ok
+test semantic_graph_adapter_tests::cognitive_nexus_fn_returns_score_after_linking ... ok
+test pipeline_full_draft_to_committed_writes_file ... ok
+test semantic_graph_adapter_tests::semantic_graph_adapter_records_plan_idempotently ... ok
+test semantic_graph_adapter_tests::semantic_graph_fn_returns_none_for_empty_contracts ... ok
+test semantic_graph_adapter_tests::semantic_graph_fn_returns_plan_symbols ... ok
+test semantic_graph_adapter_tests::semantic_graph_from_graph_constructor_works ... ok
+test semantic_graph_adapter_tests::semantic_graph_link_rejects_self_loop ... ok
+test shared_plan_registry_arc_clone_shares_state ... ok
+test symbol_ref_in_crate_sets_crate_name ... ok
+test symbol_ref_named_has_no_filters ... ok
+test syn_wiring_gate_tests::syn_gate_accepts_valid_rust_file ... ok
+test syn_wiring_gate_tests::syn_gate_allows_other_allow_attributes ... ok
+test semantic_graph_adapter_tests::semantic_graph_adapter_drives_full_pipeline_closures ... ok
+test syn_wiring_gate_tests::syn_gate_handles_uppercase_extension ... ok
+test syn_wiring_gate_tests::syn_gate_into_closure_round_trips_via_wiring_gate_fn ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_forbidden_dead_code_allow ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_forbidden_unused_allow ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_too_many_pub_items ... ok
+test syn_wiring_gate_tests::syn_gate_rejects_unparseable_rust_file ... ok
+test syn_wiring_gate_tests::syn_gate_skips_non_rust_files ... ok
+test syn_wiring_gate_tests::syn_gate_with_config_relaxes_thresholds ... ok
+test template_engine_accepts_valid_variable_keys ... ok
+test template_engine_registers_29_templates ... ok
+test template_engine_rejects_invalid_variable_key ... ok
+test template_engine_renders_all_29_kinds_with_empty_vars ... ok
+test template_engine_second_call_uses_precompiled_cache ... ok
+test template_engine_unknown_template_returns_template_error ... ok
+test tracing_telemetry_sink_tests::tracing_sink_captures_full_pipeline_transitions ... ok
+test tracing_telemetry_sink_tests::tracing_sink_increment_counter_adds_value ... ok
+test tracing_telemetry_sink_tests::tracing_sink_initial_counters_are_zero ... ok
+test tracing_telemetry_sink_tests::tracing_sink_record_histogram_counts_samples ... ok
+test tracing_telemetry_sink_tests::tracing_sink_records_lifecycle_transition_increments_counter ... ok
+test tracing_telemetry_sink_tests::tracing_sink_relaxed_ordering_is_thread_safe ... ok
+test mega_e2e_all_adapters::mega_e2e_full_pipeline_with_all_ten_adapters ... ok
+test vgp_engine_empty_contracts_returns_pass ... ok
+test vgp_engine_empty_pass_has_zero_cache_counters ... ok
+test pipeline_speculate_result_has_clamped_score ... ok
+test syn_wiring_gate_tests::syn_gate_blocks_commit_when_injected_via_with_closures ... ok
+test vgp_report_empty_pass_invariants ... ok
+test vgp_report_serde_round_trip ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_into_closure_round_trips_via_wasm_sandbox_fn ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_run_failure_module_returns_err ... ok
+test vgp_engine_nonexistent_symbol_produces_missing_entry ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_run_success_module_returns_ok ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_runner_accessor_returns_reference ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_with_custom_wat_success_module ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_with_invalid_wat_returns_error ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_with_wasm_bytes_from_valid_bytes ... ok
+test wasm_sandbox_adapter_tests::wasm_sandbox_with_default_wat_constructs ... ok
+test with_mcts_eval_builder_tests::with_mcts_eval_injects_closure_into_arc_context ... ok
+test vgp_engine_cache_counters_track_hits_and_misses ... ok
+test wiring_gate_rejection_blocks_commit ... ok
+test vgp_engine_invalidate_and_reset_counters ... ok
+
+test result: ok. 143 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/path_boundary_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/path_boundary_e2e-26f257fe22a0c8b5)
+
+running 16 tests
+test e2e_audit_warns_on_crate_write ... ok
+test e2e_audit_allows_docs_write ... ok
+test e2e_fail_closed_blocks_violation ... ok
+test e2e_fail_closed_passes_valid ... ok
+test e2e_impl_allows_crate_file ... ok
+test e2e_impl_allows_src_file ... ok
+test e2e_layer_result_from_valid ... ok
+test e2e_layer_result_from_violations ... ok
+test e2e_impl_allows_test_file ... ok
+test e2e_layer_result_from_warnings ... ok
+test e2e_multiple_artifacts_first_violation ... ok
+test e2e_multiple_artifacts_mixed_results ... ok
+test e2e_spec_blocks_crate_file ... ok
+test e2e_spec_blocks_src_file ... ok
+test e2e_warn_only_allows_code_write ... ok
+test e2e_warn_only_warns_not_violations ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/seven_layer_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/seven_layer_e2e-a912b04bee63253c)
+
+running 14 tests
+test e2e_l3_blocks_unknown_kind ... ok
+test e2e_failed_layer_has_score_zero ... ok
+test e2e_all_layers_pass_rust_module ... ok
+test e2e_l3_allows_matching_kind ... ok
+test e2e_l6_allows_new_path ... ok
+test e2e_l6_detects_committed_path ... ok
+test e2e_l5_spec_allows_docs_write ... ok
+test e2e_l7_fails_below_085 ... ok
+test e2e_l5_impl_blocks_docs_write ... ok
+test e2e_l7_passes_above_085 ... ok
+test e2e_l7_passes_at_085_exactly ... ok
+test e2e_layer_durations_ms_populated ... ok
+test e2e_passed_layer_has_score_one ... ok
+test e2e_layer_result_order_preserved ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/skip_regions.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/skip_regions-6e9b28a3958b9810)
+
+running 9 tests
+test javascript_line_comment_same_marker_works ... ok
+test python_hash_comment_marker_works ... ok
+test region_inside_string_literal_ignored ... ok
+test nested_regions_inner_wins ... ok
+test rust_attribute_marks_line_frozen ... ok
+test rust_block_comment_single_line_blocks_edit ... ok
+test rust_line_comment_region_blocks_edit ... ok
+test typescript_line_comment_same_marker_works ... ok
+test unclosed_region_extends_to_eof ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/snapshot_consumer_stub.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_consumer_stub-2c16d7065b466678)
+
+running 5 tests
+test consumer_stub_is_deterministic ... ok
+test consumer_stub_returns_empty_on_invalid_orphan_name ... ok
+test snapshot_consumer_stub_with_snake_crate ... ok
+test snapshot_consumer_stub_with_dashed_crate ... ok
+test snapshot_consumer_stub_without_crate ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/snapshot_public_api.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_public_api-5cc894660e067ea2)
+
+running 4 tests
+test snapshot_suggestion_source_variants ... ok
+test snapshot_generator_kinds_all_32_variants ... ok
+test snapshot_next_action_json_schema ... ok
+test snapshot_failure_reason_json_schema ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/source_change_tests.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/source_change_tests-150bd99e835875a0)
+
+running 11 tests
+test empty_source_change_commits ... ok
+test fs_edit_move_file ... ok
+test commit_with_disk_write_via_path_for ... ok
+test fs_edit_delete_file ... ok
+test fs_edit_create_file ... ok
+test fs_edit_overwrite_file ... ok
+test multi_file_edits_committed ... ok
+test shadow_validate_rejects_overwrite_nonexistent ... ok
+test shadow_validate_accepts_valid_fs_edits ... ok
+test rollback_on_fs_edit_failure ... ok
+test snippet_cursor_position ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests touring_generator
+
+running 6 tests
+test crates/touring-generator/src/core/context_exec.rs - core::context_exec::McctsEvalAdapter (line 325) ... ignored
+test crates/touring-generator/src/core/context_wiring.rs - core::context_wiring::SynWiringGateAdapter (line 74) ... ignored
+test crates/touring-generator/src/core/context_wiring.rs - core::context_wiring::SynWiringGateAdapter::suggest_consumer_stub (line 267) ... ignored
+test crates/touring-generator/src/source_change/applier.rs - source_change::applier::Applier::rollback (line 366) ... ignored
+test crates/touring-generator/src/validate/pipeline.rs - validate::pipeline::LayerFn (line 591) ... ignored
+test crates/touring-generator/src/vgp/engine.rs - vgp::engine::VgpEngine::with_index (line 144) ... ignored
+
+test result: ok. 0 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.46s; merged doctests compilation took 0.46s

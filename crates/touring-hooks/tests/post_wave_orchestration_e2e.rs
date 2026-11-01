@@ -97,13 +97,11 @@ fn audit_new2_failure_tee_persisted_only_on_nonzero() {
             .map(|d| d.as_nanos())
             .unwrap_or(0)
     ));
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("TOURING_TEE_DIR", &unique) };
 
     let hash = "a".repeat(64);
     let bytes = b"failure stderr trace\nrustc error: ...\n";
 
-    let path = touring_hooks::sandbox_executor::store_tee(&hash, bytes)
+    let path = touring_hooks::sandbox_executor::store_tee_in(&unique, &hash, bytes)
         .expect("store_tee must persist on the supplied bytes");
     assert!(path.exists(), "NEW-2: tee path must exist after store");
 
@@ -113,17 +111,15 @@ fn audit_new2_failure_tee_persisted_only_on_nonzero() {
         .expect("NEW-2: tee file must be readable from returned path");
     assert!(content.contains("rustc error"));
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("TOURING_TEE_DIR") };
     drop(tmp);
 }
 
 /// Audit NEW-2: tee storage redacts sample strings BEFORE persisting to disk —
 /// proves the safety invariant that even unredacted samples don't leak.
 ///
-/// Uses unique `TOURING_TEE_DIR` per test (timestamp ns) to avoid env-var
-/// race conditions when integration tests run in parallel — same pattern
-/// as `with_tee_dir` in `sandbox_executor::tests`.
+/// The directory is INJECTED, not exported: `TOURING_TEE_DIR` is
+/// process-global, so a unique value per test never removed the race —
+/// the last writer won for every reader (see `store_tee_in`).
 #[test]
 fn audit_new2_tee_redacts_provided_samples() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
@@ -134,12 +130,11 @@ fn audit_new2_tee_redacts_provided_samples() {
             .map(|d| d.as_nanos())
             .unwrap_or(0)
     ));
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("TOURING_TEE_DIR", &unique) };
 
     let hash = "b".repeat(64);
     let raw = b"GH_TOKEN=gxZ_AbCdEf1234567890\nERROR: auth failed\n";
-    let path = touring_hooks::sandbox_executor::store_tee(&hash, raw).expect("store_tee");
+    let path =
+        touring_hooks::sandbox_executor::store_tee_in(&unique, &hash, raw).expect("store_tee");
 
     // Read directly from the path returned by store_tee — bypasses env-var race.
     let read = std::fs::read_to_string(&path).expect("read tee from returned path");
@@ -152,8 +147,6 @@ fn audit_new2_tee_redacts_provided_samples() {
         "NEW-2: tee MUST preserve the meaningful error context"
     );
 
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("TOURING_TEE_DIR") };
     drop(tmp);
 }
 
@@ -387,19 +380,16 @@ fn audit_full_pipeline_5_new_orchestration() {
             .map(|d| d.as_nanos())
             .unwrap_or(0)
     ));
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var("TOURING_TEE_DIR", &unique) };
     let failure_hash = "f".repeat(64);
     let failure_bytes = b"GH_TOKEN=gxZ_secret\nstack trace\n";
-    let tee_path = touring_hooks::sandbox_executor::store_tee(&failure_hash, failure_bytes)
-        .expect("store_tee");
+    let tee_path =
+        touring_hooks::sandbox_executor::store_tee_in(&unique, &failure_hash, failure_bytes)
+            .expect("store_tee");
     let teed = std::fs::read_to_string(&tee_path).expect("read tee from path");
     assert!(
         !teed.contains("gxZ_secret"),
         "sample values stripped before disk"
     );
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("TOURING_TEE_DIR") };
     drop(tmp);
 
     // ── Stage 4: ctx_gain (NEW-3) — surface metrics to LLM ───────────────

@@ -26,20 +26,6 @@ use rustc_hash::FxHasher;
 
 use crate::observation_masker::ObservationMasker;
 
-/// Priority levels for context fields during compaction.
-/// P0 fields are NEVER truncated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ContextPriority {
-    /// Critical -- never truncated (objective, errors, active plan)
-    P0 = 0,
-    /// Important -- compress last (blast radius, gotchas, co-edit predictions)
-    P1 = 1,
-    /// Standard -- compress early (session history, evolution insights)
-    P2 = 2,
-    /// Optional -- first to drop (memory recall, graph context)
-    P3 = 3,
-}
-
 /// Structured summary of context for compaction.
 /// Preserves critical fields (P0) while allowing compression of lower-priority content.
 #[derive(Debug, Clone, Default)]

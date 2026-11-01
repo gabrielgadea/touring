@@ -1972,7 +1972,7 @@ pub struct CtxExecuteParams {
     /// Optional JSON array of arguments (exposed as `sys.argv` / `process.argv`).
     #[serde(default)]
     pub args: Option<serde_json::Value>,
-    /// Timeout in milliseconds (default: 30000, max: 120000).
+    /// Timeout in milliseconds (default: 30000, max: 600000 — QW-3, 28/08).
     #[serde(default)]
     pub timeout_ms: Option<u64>,
     /// Working directory for execution (default: project root).
@@ -2117,6 +2117,12 @@ pub(crate) struct QualitySignalDiffParams {
     /// Trend epsilon on the 0..=10000 Sentrux scale (default 50).
     #[serde(default)]
     pub trend_epsilon: Option<i32>,
+    /// Optional `MetricRuleSet` TOML path. When given, the rules are evaluated
+    /// against BOTH snapshots and the response carries `violations_diff`: which
+    /// rules were resolved, which were introduced, which persist. The signal
+    /// delta says the workspace got better or worse; this says WHICH rule moved.
+    #[serde(default)]
+    pub rules_path: Option<String>,
     /// Output verbosity: minimal, standard (default), full.
     #[serde(default)]
     pub detail_level: Option<DetailLevel>,
@@ -2176,14 +2182,42 @@ pub(crate) const HIDDEN_ALIAS_FIELDS: &[(&str, &str, &str)] = &[
     // Rare, action-specific fields of touring_decompose. `action`, `taskId` and
     // `description` stay typed at the tool level because every call uses them;
     // these eight are each used by one action and cost bytes in every session.
-    ("DecomposeParams", "taskType", "for action=create: refactor|debug|feature|analysis|pipeline"),
+    (
+        "DecomposeParams",
+        "taskType",
+        "for action=create: refactor|debug|feature|analysis|pipeline",
+    ),
     ("DecomposeParams", "subtaskId", "for action=update_status"),
-    ("DecomposeParams", "dependsOn", "for action=add_subtask: string[] of subtask ids"),
-    ("DecomposeParams", "priority", "for action=add_subtask: 0-255"),
-    ("DecomposeParams", "status", "for action=update_status: pending|in_progress|completed|blocked"),
-    ("DecomposeParams", "cilaLevel", "for action=create: 0-6, default 3"),
-    ("DecomposeParams", "qualityThreshold", "for validate_completion|finalize: 0.0-1.0"),
-    ("DecomposeParams", "autoDecompose", "for action=create at L3+: scaffold subtasks from the bandit hint"),
+    (
+        "DecomposeParams",
+        "dependsOn",
+        "for action=add_subtask: string[] of subtask ids",
+    ),
+    (
+        "DecomposeParams",
+        "priority",
+        "for action=add_subtask: 0-255",
+    ),
+    (
+        "DecomposeParams",
+        "status",
+        "for action=update_status: pending|in_progress|completed|blocked",
+    ),
+    (
+        "DecomposeParams",
+        "cilaLevel",
+        "for action=create: 0-6, default 3",
+    ),
+    (
+        "DecomposeParams",
+        "qualityThreshold",
+        "for validate_completion|finalize: 0.0-1.0",
+    ),
+    (
+        "DecomposeParams",
+        "autoDecompose",
+        "for action=create at L3+: scaffold subtasks from the bandit hint",
+    ),
 ];
 
 /// Render the hidden-alias registry as JSON for `touring mcp-capabilities`.
@@ -2268,8 +2302,8 @@ mod hidden_alias_tests {
     /// byte saving is the point.
     #[test]
     fn hidden_aliases_are_absent_from_the_schema() {
-        let schema = serde_json::to_value(schemars::schema_for!(super::MemoryStoreParams))
-            .expect("schema");
+        let schema =
+            serde_json::to_value(schemars::schema_for!(super::MemoryStoreParams)).expect("schema");
         // Look inside `properties` only. `title` is also a JSON-Schema keyword,
         // so a whole-document substring search reports a hit that has nothing
         // to do with the field — the homonymy trap VP-Scout chain 4 names.

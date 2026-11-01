@@ -52,15 +52,63 @@ def find_clones(path: str) -> list[tuple[str, list[int]]]:
                   key=lambda x: -len(x[1]))
 
 
-def main(paths: list[str]) -> None:
+USAGE = """usage: clone_blocks.py [--all | --limit N] [--help] <file.rs> [file.rs ...]
+
+Find Type-1 block clones (6+ consecutive identical production lines), mirroring
+the touring-quality F1_3 signal so each block can be classified as an
+extractable-logic clone (REAL) or inherent structural repetition (FALSE
+POSITIVE, where dedup would be gaming — REGRA #0).
+
+options:
+  --limit N   show at most N distinct blocks per file (default: 6)
+  --all       show every distinct block — what the reporting contract requires
+              for a full audit; --limit 6 is only a preview
+  --help      show this message and exit
+"""
+
+
+def parse_args(argv: list[str]) -> tuple[int | None, list[str]]:
+    """Split `argv` into `(limit, paths)`; `limit is None` means "show all"."""
+    limit: int | None = 6  # a preview — the contract's full audit needs --all
+    paths: list[str] = []
+    rest = list(argv)
+    while rest:
+        arg = rest.pop(0)
+        if arg == "--all":
+            limit = None
+        elif arg == "--limit" or arg.startswith("--limit="):
+            value = arg.split("=", 1)[1] if "=" in arg else (rest.pop(0) if rest else "")
+            if not value.isdigit():
+                print("error: --limit needs a non-negative integer", file=sys.stderr)
+                raise SystemExit(2)
+            limit = int(value)
+        elif arg.startswith("-"):
+            print(f"error: unknown option {arg!r}\n\n{USAGE}", file=sys.stderr)
+            raise SystemExit(2)
+        else:
+            paths.append(arg)
+    return limit, paths
+
+
+def main(argv: list[str]) -> None:
     """Print the dup-block digest for each path given on the command line."""
+    if "--help" in argv or "-h" in argv:
+        print(USAGE)
+        return
+    limit, paths = parse_args(argv)
     for path in paths:
+        if not Path(path).is_file():
+            print(f"\n{'='*78}\n{path}  — SKIPPED (not a readable file)", file=sys.stderr)
+            continue
         clones = find_clones(path)
         total_dup = sum(len(ls) - 1 for _, ls in clones)
+        shown = clones if limit is None else clones[:limit]
         print(f"\n{'='*78}\n{path}  — {len(clones)} distinct 6-line dup blocks, ~{total_dup} redundant instances")
-        for block, locs in clones[:6]:
+        for block, locs in shown:
             first = block.split("\n")[0][:70]
             print(f"  ×{len(locs)} @ lines {locs[:8]}  first: {first}")
+        if limit is not None and len(clones) > limit:
+            print(f"  … {len(clones) - limit} more block(s) hidden — re-run with --all for the full audit")
     if paths:  # no input → no diagnostic → no contract (a zero-path run stays a no-op)
         print_contract(
             "(stdout only — re-run per file for the full block list)",

@@ -1,0 +1,5 @@
+
+=== 8 tests, 3 failures ===
+  FAIL scan --check stale total: expected 391, got 392
+  FAIL sum(C1+C3+C4+C5+C6): expected 391, got 392
+  FAIL C1 versions: expected 82, got 83

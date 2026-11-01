@@ -1,0 +1,14 @@
+test_driver_horust.py:116: AttributeError
+=========================== short test summary info ============================
+FAILED test_driver_horust.py::test_rodada_1_tenta_todas_as_classes_e_as_seguintes_so_as_abaixo_de_20
+FAILED test_driver_horust.py::test_pendentes_so_olham_as_rodadas_anteriores_para_o_plano_nao_mudar_na_retomada
+FAILED test_driver_horust.py::test_classe_com_exatamente_20_validos_nao_e_retentada
+FAILED test_driver_horust.py::test_plano_da_rodada_retomado_e_o_mesmo_menos_o_que_ja_foi_feito
+FAILED test_driver_horust.py::test_plano_da_rodada_2_nao_reusa_arquivo_da_rodada_1
+5 failed, 19 passed in 0.07s
+
+=========================== short test summary info ============================
+FAILED test_driver_horust.py::test_lotes_so_roda_dentro_do_slot - AttributeEr...
+FAILED test_driver_horust.py::test_primeiros_n_lotes_pendentes_em_ordem_e_n_zero_ou_none_sao_todos
+2 failed, 24 passed in 0.11s
+

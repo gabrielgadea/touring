@@ -1,0 +1,39 @@
+rodada 1: 288 tentativas em 56 lotes
+Traceback (most recent call last):
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/construir_horust_real.py", line 298, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/construir_horust_real.py", line 288, in main
+    return cmd_rodar(int(sys.argv[2]))
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/construir_horust_real.py", line 185, in cmd_rodar
+    res = ch.executar(grupo, RAIZ, TARGET, via_slot=True, diags_out=diags, camadas=camadas)
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/construtor_horust.py", line 236, in executar
+    res = oc.rodada([t.inj for t in lote], runner)
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/oraculo_cargo_json.py", line 143, in rodada
+    resultado, sem_dono = atribuir(injecoes, runner(injecoes))
+                                             ~~~~~~^^^^^^^^^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/construtor_horust.py", line 231, in runner
+    diags = base(injs)
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/oraculo_cargo_json.py", line 213, in run
+    return cargo_check(raiz, target, pacotes, alvo, via_slot=via_slot, offline=offline).diags
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/horust-real/oraculo_cargo_json.py", line 196, in cargo_check
+    r = chama_oraculo.chama_oraculo("cargo_json", cmd, cwd=raiz, timeout=timeout, env=env)
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/chama_oraculo.py", line 185, in chama_oraculo
+    p = subprocess.run(
+        list(cmd),
+    ...<6 lines>...
+        env=env,
+    )
+  File "/usr/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/subprocess.py", line 2153, in _communicate
+    ready = selector.select(timeout)
+  File "/usr/lib/python3.14/selectors.py", line 398, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt
+rc=130

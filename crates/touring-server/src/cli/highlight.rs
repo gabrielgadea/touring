@@ -273,7 +273,9 @@ struct HighlightCli {
 ///
 /// Errors with [`anyhow::Error`] when the file is missing or unreadable.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match HighlightCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<HighlightCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(c) => c,
         Err(e) => e.exit(),
     };
@@ -284,7 +286,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     }
     let file_path = &cli.file_path;
     let code = std::fs::read_to_string(file_path)
-        .map_err(|e| anyhow::anyhow!("failed to read {file_path}: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("failed to read {file_path} — run `ls -la {file_path}` to check existence and permissions: {e}"))?;
     let lang = cli
         .lang
         .unwrap_or_else(|| detect_lang_from_path(file_path).to_string());
@@ -400,6 +402,9 @@ mod tests {
 
     #[test]
     fn is_terminal_color_enabled_respects_no_color_env_var() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // Save current state
         let prev = std::env::var_os("NO_COLOR");
         // SAFETY: tests in the same process may race. This test asserts

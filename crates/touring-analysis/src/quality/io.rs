@@ -171,8 +171,56 @@ pub fn analyze_io(source: &str, lang: &str) -> IoReport {
         unbuffered_read_loop(bytes, &regions),
         0.7,
     );
+    // Python-specific detectors.
+    if lang == "python" || lang == "py" {
+        report.push(
+            "open() call inside loop body (N+1 file I/O — Python)",
+            py_open_in_loop(bytes, &regions),
+            0.9,
+        );
+        report.push(
+            "time.sleep() inside loop body (busy-wait — Python)",
+            py_sleep_in_loop(bytes, &regions),
+            0.7,
+        );
+    }
     report.findings.sort_by_key(|f| std::cmp::Reverse(f.1));
     report
+}
+
+/// Python Detector A — `open(` call on an indented line when the file has a
+/// `for` loop. Heuristic: indentation implies the call is inside a loop body.
+/// Counts the number of indented `open(` occurrences.
+fn py_open_in_loop(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+    // Only trigger when the file actually contains a for-loop.
+    let has_for = memmem::find_iter(bytes, b"for ").any(|off| !offset_suppressed(off, regions));
+    if !has_for {
+        return 0;
+    }
+    // Count `open(` calls that are on a line starting with whitespace
+    // (i.e. inside a block, likely a loop body).
+    memmem::find_iter(bytes, b"open(")
+        .filter(|&off| !offset_suppressed(off, regions))
+        .filter(|&off| {
+            let line_start = bytes[..off]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(0, |p| p + 1);
+            matches!(bytes.get(line_start), Some(&b' ') | Some(&b'\t'))
+        })
+        .count()
+}
+
+/// Python Detector B — `time.sleep(` call when the file has a `for` loop.
+/// `time.sleep` inside a loop body is a busy-wait / throttle anti-pattern.
+fn py_sleep_in_loop(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+    let has_for = memmem::find_iter(bytes, b"for ").any(|off| !offset_suppressed(off, regions));
+    if !has_for {
+        return 0;
+    }
+    memmem::find_iter(bytes, b"time.sleep(")
+        .filter(|&off| !offset_suppressed(off, regions))
+        .count()
 }
 
 /// Score an [`IoReport`] as `1 - density·SCALE`, clamped to `[0,1]`.

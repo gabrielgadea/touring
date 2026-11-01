@@ -170,11 +170,27 @@ impl StagingRegistry {
     ) -> io::Result<RegistryEntry> {
         let staged_path = area.stage(file_name, body)?;
         let verdict = static_report.severity != StaticSeverity::Block && vgp_report.all_resolved();
+        // `origin` marks the turn/session that staged the script, and the AREA
+        // already knows the session it is bound to — it is partitioned by it.
+        // A caller that passes nothing used to produce an anonymous entry, and an
+        // anonymous entry is the one thing this registry cannot do its job with:
+        // with concurrent sessions, a staged script that cannot be attributed is
+        // the shared-log problem again (three false hypotheses for one unlabelled
+        // line, 13/09/2026). Fall back to the area's own session rather than
+        // record nothing.
+        let origin = {
+            let declared = origin.into();
+            if declared.trim().is_empty() {
+                area.session().to_string()
+            } else {
+                declared
+            }
+        };
         let entry = RegistryEntry {
             script: StagedScript {
                 path: staged_path,
                 content_hash: content_hash(body),
-                origin: origin.into(),
+                origin,
                 prior_verdict: Some(verdict),
             },
             static_report,
@@ -416,6 +432,47 @@ mod tests {
     }
 
     // ── register_staged — reuses StagingArea ──
+
+    #[test]
+    fn an_entry_staged_without_an_origin_is_attributed_to_the_area_s_session() {
+        // The registry exists to map a staged path back to WHO staged it. An
+        // empty origin used to store an anonymous entry; the area knows the
+        // session because it is partitioned by it.
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let area = StagingArea::with_root(tmp.path(), "sessao-que-atribui");
+        let mut registry = StagingRegistry::new();
+        let entry = registry
+            .register_staged(
+                &area,
+                "corpo.sh",
+                b"echo ok\n",
+                "",
+                clear_report(),
+                resolved_vgp(),
+            )
+            .expect("stage");
+        assert_eq!(entry.script.origin, "sessao-que-atribui");
+    }
+
+    #[test]
+    fn a_declared_origin_is_never_overwritten_by_the_session() {
+        // NEGATIVE CONTROL: the fallback must fire ONLY on an empty origin —
+        // otherwise it would erase the caller's own, finer marker (a turn id).
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let area = StagingArea::with_root(tmp.path(), "sessao");
+        let mut registry = StagingRegistry::new();
+        let entry = registry
+            .register_staged(
+                &area,
+                "corpo.sh",
+                b"echo ok\n",
+                "turno-42",
+                clear_report(),
+                resolved_vgp(),
+            )
+            .expect("stage");
+        assert_eq!(entry.script.origin, "turno-42");
+    }
 
     #[test]
     fn register_staged_writes_through_staging_area() {

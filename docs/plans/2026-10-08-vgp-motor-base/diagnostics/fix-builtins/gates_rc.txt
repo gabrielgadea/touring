@@ -1,0 +1,3 @@
+fmt_rc=1
+clippy_rc=0
+test_crate_rc=0

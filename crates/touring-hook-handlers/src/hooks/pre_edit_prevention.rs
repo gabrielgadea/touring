@@ -10,11 +10,15 @@
 //! 5. Injects the warning via `additionalContext` so Claude sees it BEFORE editing
 //!
 //! Enhancements (E5, E17):
-//! - Deduplicated speculate_v2: result passed through from collect_syntax_issues to Deny gate
-//! - Bayesian Deny gate: uses bayesian_score (not raw composite) for Block decision
+//! - Deny gate by DELTA on the applied file (S210, 25/09/2026): the Edit is replayed on the
+//!   real file and denied only when a file that parsed stops parsing; the `new_string`
+//!   fragment's own syntax signals are advisory and never deny
 //! - Jaccard near-duplicate detection (E17): old_string vs new_string similarity >0.85 warning
 //!
 //! Target latency: <10ms.
+
+use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+use touring_code::vgp::{CheckInput, lang_do_caminho};
 
 use std::collections::{HashMap, HashSet};
 
@@ -45,10 +49,6 @@ const COMPLEXITY_THRESHOLD: u16 = 10;
 /// Maximum number of scope shadow warnings to emit.
 const MAX_SHADOW_WARNINGS: usize = 3;
 
-/// Speculate composite score threshold below which an edit is DENIED.
-/// A score < 0.3 indicates critical syntax/structural breakage.
-const DENY_SCORE_THRESHOLD: f64 = 0.3;
-
 /// Run the pre-edit prevention hook (diverging version — for use by the CLI entry point).
 ///
 /// Intercepts Edit and Write tool calls, queries the knowledge DB for
@@ -66,6 +66,38 @@ pub fn run(
 ///
 /// Used by the daemon to handle the hook without calling `process::exit`.
 pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
+    run_returning_with(runtime, input, &vgp_sombra_de_edit)
+}
+
+/// The seam of the VGP verdict (production: [`vgp_sombra_de_edit`]). The VGP advisory no longer
+/// ends the chain: it is deposited in `avisos`, the deny gate still runs, and the most severe
+/// verdict wins with the advisory riding along ([`HookResponse::with_advisories`] — the one
+/// rule shared with `cli-suggest`).
+type VgpEditFn = dyn Fn(
+    &HookRuntime,
+    &serde_json::Value,
+    &str,
+    &str,
+    &str,
+    Option<&AppliedEdit>,
+) -> Option<HookResponse>;
+
+fn run_returning_with(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    vgp: &VgpEditFn,
+) -> HookResponse {
+    let mut avisos: Vec<String> = Vec::new();
+    let resposta = run_chain(runtime, input, vgp, &mut avisos);
+    resposta.with_advisories(avisos)
+}
+
+fn run_chain(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    vgp: &VgpEditFn,
+    avisos: &mut Vec<String>,
+) -> HookResponse {
     let file_path = input
         .pointer("/tool_input/file_path")
         .and_then(|v| v.as_str())
@@ -135,17 +167,42 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         all_warnings.push(sig);
     }
 
-    // ── DENY gate: critical syntax/structural breakage ──
-    // If the new content has a very low speculate score, DENY the edit.
-    // This prevents introducing broken code that will certainly fail to compile.
-    // Reuses the SpeculateResult from compose_content_warnings when available.
-    if let Some(deny_response) = check_deny_gate(
-        new_string,
+    // ── DENY gate (S210): the Edit is replayed on the real file and judged by delta ──
+    // A file that parses and would not after the edit is denied; the fragment's own syntax
+    // signals are advisory (dropped when the applied file is known, labelled otherwise).
+    let replace_all = input
+        .pointer("/tool_input/replace_all")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let applied = AppliedEdit::replay(file_path, old_string, new_string, replace_all);
+
+    // ── VGP sombra/ativo (V2, 09/10): o motor julga o conteúdo proposto e grava UMA linha em
+    // ~/.claude/touring/vgp/sombra.jsonl — em "sombra" (default) NADA muda na resposta; em
+    // "ativo" (só por [vgp] modo do projeto, V4) o deny vira `[VGP · deny] ` e o aviso,
+    // `[VGP · aviso] `. Fail-open: qualquer falha interna vira "unknown" e a chamada segue.
+    //
+    // 30.4.97 (ordem dos gates): o `[VGP · aviso]` NÃO encerra a cadeia — antes ele retornava
+    // aqui e o `check_deny_gate` (S210, delta de sintaxe) nunca era avaliado: uma edição que
+    // quebra um arquivo que parseia passava com um aviso. O aviso é depositado; um deny do VGP
+    // (ou qualquer outra decisão) segue encerrando.
+    if let Some(resposta_vgp) = vgp(
+        runtime,
+        input,
         file_path,
-        &rel_path,
-        &all_warnings,
-        spec_result.as_ref(),
+        old_string,
+        new_string,
+        applied.as_ref(),
     ) {
+        match resposta_vgp {
+            HookResponse::Context { context, .. } => avisos.push(context),
+            outra => return outra,
+        }
+    }
+
+    relabel_fragment_syntax(&mut all_warnings, spec_result.as_ref(), applied.is_some());
+    if let Some(deny_response) =
+        check_deny_gate(file_path, &rel_path, &all_warnings, applied.as_ref())
+    {
         return deny_response;
     }
 
@@ -399,99 +456,259 @@ pub fn compose_content_warnings(
     {
         warnings.push(s);
     }
+    // The related-docs signal is the only reader of the root.
+    #[cfg(not(feature = "tantivy-fts"))]
+    let _ = project_root;
 
     (warnings, Some(spec_result))
 }
 
-/// Check whether the edit should be DENIED due to critical syntax/structural breakage.
+/// Deny gate (S210, 25/09/2026): denies only when the edit BREAKS a file that parsed —
+/// tree-sitter error nodes in the applied file that the file did not have before.
 ///
-/// Uses a pre-computed [`SpeculateResult`] when available (from
-/// [`compose_content_warnings`]), falling back to a fresh `speculate_v2` call
-/// only when `cached_spec` is `None`. This avoids a redundant AST parse that
-/// previously doubled the CPU cost of the prevention hook (E5 optimization).
-///
-/// When `bayesian_score` is available (requires `simd-search` feature), it is
-/// preferred over `composite_score` for the deny decision because it provides
-/// confidence-weighted fusion across all validation layers.
-///
-/// Only denies when BOTH conditions are met:
-/// 1. The effective score is below [`DENY_SCORE_THRESHOLD`] (< 0.3)
-/// 2. There are actual syntax-level warnings detected (not just complexity/style)
-///
-/// Returns `Some(HookResponse::Deny { .. })` when the edit should be blocked,
-/// or `None` to let it proceed (possibly with Context warnings).
+/// The old gate speculated on the `new_string` fragment and denied valid edits whose
+/// fragment was unbalanced; a whole-file score threshold would have the opposite defect
+/// (syntax weighs 0.35 of the composite, so a broken file could still clear it). The delta
+/// is exact: a file already broken is never denied (the edit may be the fix), an unknown
+/// parse abstains, and with no applied content (the Edit would fail anyway) the gate abstains.
 fn check_deny_gate(
-    new_string: &str,
     file_path: &str,
     rel_path: &str,
     existing_warnings: &[String],
-    cached_spec: Option<&SpeculateResult>,
+    applied: Option<&AppliedEdit>,
 ) -> Option<HookResponse> {
-    if new_string.is_empty() {
-        return None;
-    }
-
+    let edit = applied?;
     let lang = detect_language(file_path)?.parse::<Lang>().ok()?;
-
-    // Reuse cached result when available; fall back to fresh computation otherwise
-    let owned_result;
-    let spec_result = match cached_spec {
-        Some(cached) => cached,
-        None => {
-            owned_result = speculate_v2(new_string, lang, None, None);
-            &owned_result
-        }
-    };
-
-    // Prefer bayesian_score (confidence-weighted fusion) when available;
-    // fall back to composite_score for non-simd builds.
-    let effective_score = spec_result
-        .bayesian_score
-        .unwrap_or(spec_result.composite_score);
-
-    // Only deny on critical breakage: low score AND syntax failures present
-    if effective_score >= DENY_SCORE_THRESHOLD || spec_result.all_passed {
+    if !matches!(parse_status(&edit.before, lang), Parse::Clean) {
         return None;
     }
-
-    // Require at least one SYNTAX-level warning to confirm this is a real breakage,
-    // not just symbol resolution or import issues which may resolve at build time.
-    let has_syntax_failures = spec_result.layers.iter().any(|layer| {
-        matches!(layer.layer, touring_code::ast::ValidationLayer::Syntax) && !layer.passed
-    });
-
-    if !has_syntax_failures {
+    let Parse::Broken(introduced) = parse_status(&edit.after, lang) else {
         return None;
-    }
-
-    // Collect syntax diagnostics for the denial reason
-    let syntax_diags: Vec<String> = spec_result
-        .layers
-        .iter()
-        .filter(|l| !l.passed)
-        .flat_map(|l| l.diagnostics.iter().take(3).cloned())
-        .collect();
-
-    let reason = format!(
-        "Edit denied: new content for {} has critical syntax errors (score: {:.2}). \
-         Fix the syntax before applying this edit.",
-        rel_path, effective_score,
-    );
-
-    let context = if existing_warnings.is_empty() && syntax_diags.is_empty() {
-        None
-    } else {
-        let mut ctx_parts = Vec::new();
-        ctx_parts.extend(syntax_diags.iter().map(|d| format!("SYNTAX: {d}")));
-        ctx_parts.extend(existing_warnings.iter().cloned());
-        Some(ctx_parts.join("\n"))
     };
-
+    let introduced: String = introduced.chars().take(400).collect();
+    let mut ctx_parts = vec![format!("SYNTAX (applied file): {introduced}")];
+    ctx_parts.extend(existing_warnings.iter().cloned());
     Some(HookResponse::Deny {
-        reason,
-        context,
+        reason: format!(
+            "Edit denied: {rel_path} parses today and would not after this edit. \
+             Fix the syntax of the replacement before applying it."
+        ),
+        context: Some(ctx_parts.join("\n")),
         event_name: Some("PreToolUse".to_string()),
     })
+}
+
+/// S210 — `body` with the Edit applied exactly as Claude Code would: `None` when the Edit
+/// itself would fail (empty or absent `old_string`, or several matches without `replace_all`).
+fn apply_edit(body: &str, old: &str, new: &str, replace_all: bool) -> Option<String> {
+    if old.is_empty() {
+        return None;
+    }
+    match body.matches(old).count() {
+        0 => None,
+        1 => Some(body.replacen(old, new, 1)),
+        _ if replace_all => Some(body.replace(old, new)),
+        _ => None,
+    }
+}
+
+/// S210 — the target file before and after the Edit.
+/// VGP sobre a edição (Edit e MultiEdit): devolve `Some(resposta)` só no modo "ativo" quando o
+/// motor nega ou avisa; em "sombra" e "off" devolve sempre None — a resposta do hook NUNCA muda.
+fn vgp_sombra_de_edit(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    file_path: &str,
+    _old_string: &str,
+    _new_string: &str,
+    applied: Option<&AppliedEdit>,
+) -> Option<HookResponse> {
+    let mode = vgp_mode(&runtime.project_root);
+    // VL0 §8.4: a linguagem sai do caminho (fonte única) — .py/.rs/.ts/.tsx/.js/.html/.css
+    // gravam a sombra com o `lang` certo; extensão desconhecida (.md, .json) fica de fora
+    let lang = lang_do_caminho(file_path)?;
+    if mode == VgpMode::Off {
+        return None;
+    }
+    // MultiEdit: /tool_input/edits é uma lista — a dobra sequencial sobre o disco (uma edição
+    // que não casa interrompe, e a entrada fica de fora, nunca com conteúdo errado)
+    let (hook, disco, proposto) = if input
+        .pointer("/tool_input/edits")
+        .and_then(|v| v.as_array())
+        .is_some()
+    {
+        let disco = applied
+            .map(|a| a.before.clone())
+            .or_else(|| std::fs::read_to_string(file_path).ok())
+            .unwrap_or_default();
+        let mut texto = disco.clone();
+        let mut ok = true;
+        for e in input
+            .pointer("/tool_input/edits")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+        {
+            let (o, n, all) = (
+                e.pointer("/old_string")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""),
+                e.pointer("/new_string")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""),
+                e.pointer("/replace_all")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
+            );
+            match apply_edit(&texto, o, n, all) {
+                Some(t) => texto = t,
+                None => {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        ("multiedit", disco, if ok { Some(texto) } else { None })
+    } else {
+        (
+            "pre-edit",
+            applied
+                .map(|a| a.before.clone())
+                .or_else(|| std::fs::read_to_string(file_path).ok())
+                .unwrap_or_default(),
+            applied.map(|a| a.after.clone()),
+        )
+    };
+    let proposto = proposto?;
+    let vgp_in = CheckInput {
+        path: file_path.to_string(),
+        content: proposto,
+        project_root: runtime.project_root.clone(),
+        disk: Some(disco),
+        overlays: std::collections::HashMap::new(),
+        lang: lang.to_string(),
+    };
+    let out = sombra_check(
+        hook,
+        &vgp_in,
+        input
+            .pointer("/session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        input
+            .pointer("/tool_use_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        mode,
+        crate::vgp_l2::extra(&vgp_in),
+    );
+    if mode != VgpMode::Ativo {
+        return None;
+    }
+    let resumo = out
+        .findings
+        .iter()
+        .map(|f| {
+            format!(
+                "{} `{}` ({}:{})",
+                f.classe,
+                f.nome,
+                rel_path_of(&runtime.project_root, file_path),
+                f.linha
+            )
+        })
+        .take(3)
+        .collect::<Vec<_>>()
+        .join(" · ");
+    match out.verdict.as_str() {
+        "deny" => Some(HookResponse::Deny {
+            reason: format!(
+                "[VGP · deny] {resumo}{}",
+                out.findings
+                    .first()
+                    .map(|f| format!(" — {}", f.sugestao))
+                    .unwrap_or_default()
+            ),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        "warn" => Some(HookResponse::Context {
+            context: format!("[VGP · aviso] {resumo}"),
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        _ => None,
+    }
+}
+
+fn rel_path_of(root: &std::path::Path, path: &str) -> String {
+    make_relative(path, root)
+}
+
+struct AppliedEdit {
+    before: String,
+    after: String,
+}
+
+impl AppliedEdit {
+    /// Replay the Edit on the real file; `None` when the file is unreadable or the Edit
+    /// itself would fail — then only the `new_string` fragment is known.
+    fn replay(file_path: &str, old: &str, new: &str, replace_all: bool) -> Option<Self> {
+        let before = std::fs::read_to_string(file_path).ok()?;
+        let after = apply_edit(&before, old, new, replace_all)?;
+        Some(Self { before, after })
+    }
+}
+
+/// S210 — parse status of a whole file (tree-sitter only, no other speculate layer).
+enum Parse {
+    /// No error node.
+    Clean,
+    /// Error nodes, with their located description.
+    Broken(String),
+    /// The parser could not run (grammar/ABI, bounded parse): no opinion.
+    Unknown,
+}
+
+fn parse_status(source: &str, lang: Lang) -> Parse {
+    use touring_code::ast::surgery::{SurgeryError, validate_syntax};
+    match validate_syntax(source, lang) {
+        Ok(_) => Parse::Clean,
+        Err(SurgeryError::SyntaxError(msg)) => Parse::Broken(msg),
+        Err(_) => Parse::Unknown,
+    }
+}
+
+/// S210 — the fragment's own syntax diagnostics are advisory: a valid edit's `new_string`
+/// is routinely unbalanced (a lone `}`). With the applied file known they are dropped (the
+/// deny gate judged the real file); without it they stay, labelled for what they are.
+/// Non-syntax layers (structural, complexity) are untouched.
+fn relabel_fragment_syntax(
+    warnings: &mut Vec<String>,
+    fragment: Option<&SpeculateResult>,
+    applied_known: bool,
+) {
+    let Some(spec) = fragment else {
+        return;
+    };
+    let syntax: HashSet<String> = spec
+        .layers
+        .iter()
+        .filter(|l| matches!(l.layer, touring_code::ast::ValidationLayer::Syntax) && !l.passed)
+        .flat_map(|l| l.diagnostics.iter().map(|d| format!("SYNTAX: {d}")))
+        .collect();
+    if applied_known {
+        warnings.retain(|w| !syntax.contains(w));
+        return;
+    }
+    for w in warnings.iter_mut() {
+        if syntax.contains(w.as_str()) {
+            *w = w.replacen(
+                "SYNTAX: ",
+                "SYNTAX (new_string fragment only, advisory): ",
+                1,
+            );
+        }
+    }
 }
 
 /// V1+V2: Syntax validity and cyclomatic complexity checks.
@@ -1472,5 +1689,424 @@ mod tests {
             result.is_none(),
             "Jaccard = 0.85 (at boundary, not above) → no warning"
         );
+    }
+}
+
+/// S210 (plan 2026-09-25) — the deny is decided on the file WITH the edit applied, by delta
+/// (the edit breaks a file that parsed), never on the `new_string` fragment alone.
+#[cfg(test)]
+mod s210_tests {
+    use super::*;
+
+    const RUST_FILE: &str = "fn a() {\n    if true {\n        x();\n    }\n}\n\nfn x() {}\n";
+
+    fn edit(dir: &tempfile::TempDir, body: &str, old: &str, new: &str) -> HookResponse {
+        let path = dir.path().join("prev.rs");
+        std::fs::write(&path, body).expect("write");
+        let rt = HookRuntime::new(dir.path()).expect("runtime");
+        let input = serde_json::json!({
+            "tool_name": "Edit",
+            "tool_input": {"file_path": path.to_str().expect("utf8"), "old_string": old, "new_string": new}
+        });
+        run_returning(&rt, &input)
+    }
+
+    fn denied(r: &HookResponse) -> bool {
+        matches!(r, HookResponse::Deny { .. })
+    }
+
+    fn context_of(r: &HookResponse) -> String {
+        match r {
+            HookResponse::Context { context, .. } => context.clone(),
+            HookResponse::Deny { context, .. } => context.clone().unwrap_or_default(),
+            _ => String::new(),
+        }
+    }
+
+    #[test]
+    fn lone_closing_brace_fragment_is_not_denied() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let r = edit(
+            &dir,
+            RUST_FILE,
+            "        x();\n    }",
+            "        x();\n        x();\n    }",
+        );
+        assert!(
+            !denied(&r),
+            "a valid edit was denied from its unbalanced fragment: {r:?}"
+        );
+        assert!(
+            !context_of(&r).contains("syntax error(s) detected"),
+            "the applied file parses — the fragment's syntax noise must not reach the model: {r:?}"
+        );
+    }
+
+    #[test]
+    fn syntax_breaking_edit_is_denied() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let r = edit(&dir, RUST_FILE, "        x();\n    }", "        x(;\n    }");
+        assert!(
+            denied(&r),
+            "an edit that breaks a parsing file must be denied: {r:?}"
+        );
+        assert!(
+            context_of(&r).contains("SYNTAX (applied file)"),
+            "the deny names the applied-file error: {r:?}"
+        );
+    }
+
+    #[test]
+    fn edit_to_an_already_broken_file_is_not_denied() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let broken = "fn a() {\n    x(;\n}\n";
+        let r = edit(&dir, broken, "    x(;", "    x(;\n    y(;");
+        assert!(
+            !denied(&r),
+            "the file did not parse before — the edit may be the fix: {r:?}"
+        );
+    }
+
+    #[test]
+    fn fragment_fallback_never_denies() {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let r = edit(
+            &dir,
+            RUST_FILE,
+            "this text is not in the file",
+            "fn broken( {",
+        );
+        assert!(
+            !denied(&r),
+            "without the applied file the fragment is advisory only: {r:?}"
+        );
+        assert!(
+            context_of(&r).lines().all(|l| !l.starts_with("SYNTAX: ")),
+            "fragment syntax lines must carry the advisory label: {r:?}"
+        );
+    }
+
+    #[test]
+    fn applied_content_respects_replace_all_and_uniqueness() {
+        let body = "a\nx\nb\nx\n";
+        assert_eq!(
+            apply_edit(body, "x", "y", true).as_deref(),
+            Some("a\ny\nb\ny\n")
+        );
+        assert_eq!(
+            apply_edit(body, "x", "y", false),
+            None,
+            "ambiguous old_string: the Edit itself would fail"
+        );
+        assert_eq!(
+            apply_edit(body, "a\n", "z\n", false).as_deref(),
+            Some("z\nx\nb\nx\n")
+        );
+        assert_eq!(apply_edit(body, "missing", "y", false), None);
+        assert_eq!(
+            apply_edit(body, "", "y", false),
+            None,
+            "empty old_string is not an Edit"
+        );
+    }
+
+    /// Parser control: this very file uses let-chains (`if let … && let …`); if the grammar
+    /// could not parse them, every let-chain edit would read as "breaks a parsing file".
+    #[test]
+    fn let_chains_parse_as_valid_rust() {
+        let own = include_str!("pre_edit_prevention.rs");
+        assert!(
+            own.contains("&& let Some("),
+            "control lost: the file no longer has a let-chain"
+        );
+        assert!(
+            matches!(parse_status(own, Lang::Rust), Parse::Clean),
+            "the grammar rejects let-chains — the delta gate would deny valid edits"
+        );
+    }
+}
+
+/// VL0 §8.4 — the hook derives `lang` from the path (`lang_do_caminho`) and writes the shadow with
+/// it, for Edit AND MultiEdit; an unknown extension writes no line at all.
+#[cfg(test)]
+mod vl0_lang_tests {
+    use super::*;
+    use touring_code::vgp::sombra::com_log_em;
+
+    /// Every language of VL0 §2, as the extension the hook sees.
+    const POR_EXTENSAO: &[(&str, &str)] = &[
+        ("a.py", "python"),
+        ("a.rs", "rust"),
+        ("a.ts", "typescript"),
+        ("a.tsx", "tsx"),
+        ("a.js", "javascript"),
+        ("a.html", "html"),
+        ("a.css", "css"),
+    ];
+
+    /// Runs `input` through the WHOLE pre-edit hook with the shadow redirected; returns its lines.
+    fn linhas_da_sombra(
+        dir: &tempfile::TempDir,
+        input: &serde_json::Value,
+    ) -> Vec<serde_json::Value> {
+        let log = dir.path().join("sombra.jsonl");
+        let rt = HookRuntime::new(dir.path()).expect("runtime");
+        com_log_em(&log, || {
+            let _ = run_returning(&rt, input);
+        });
+        std::fs::read_to_string(&log)
+            .unwrap_or_default()
+            .lines()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .collect()
+    }
+
+    fn arquivo(dir: &tempfile::TempDir, nome: &str) -> String {
+        let path = dir.path().join(nome);
+        std::fs::write(&path, "alfa\nbeta\n").expect("write");
+        path.to_str().expect("utf8").to_string()
+    }
+
+    #[test]
+    fn edit_grava_a_sombra_com_o_lang_do_caminho() {
+        for (nome, lang) in POR_EXTENSAO {
+            let dir = tempfile::TempDir::new().expect("tmp");
+            let input = serde_json::json!({
+                "tool_name": "Edit",
+                "tool_input": {
+                    "file_path": arquivo(&dir, nome),
+                    "old_string": "alfa",
+                    "new_string": "gama"
+                }
+            });
+            let linhas = linhas_da_sombra(&dir, &input);
+            assert_eq!(linhas.len(), 1, "{nome}: uma linha por edição: {linhas:?}");
+            assert_eq!(linhas[0]["lang"], *lang, "{nome}");
+            assert_eq!(linhas[0]["hook"], "pre-edit", "{nome}");
+        }
+    }
+
+    #[test]
+    fn multiedit_grava_a_sombra_com_o_lang_do_caminho() {
+        for (nome, lang) in POR_EXTENSAO {
+            let dir = tempfile::TempDir::new().expect("tmp");
+            let input = serde_json::json!({
+                "tool_name": "MultiEdit",
+                "tool_input": {
+                    "file_path": arquivo(&dir, nome),
+                    "edits": [
+                        {"old_string": "alfa", "new_string": "gama"},
+                        {"old_string": "beta", "new_string": "delta"}
+                    ]
+                }
+            });
+            let linhas = linhas_da_sombra(&dir, &input);
+            assert_eq!(linhas.len(), 1, "{nome}: {linhas:?}");
+            assert_eq!(linhas[0]["lang"], *lang, "{nome}");
+            assert_eq!(linhas[0]["hook"], "multiedit", "{nome}");
+        }
+    }
+
+    #[test]
+    fn extensao_desconhecida_nao_grava_sombra() {
+        for nome in ["a.md", "a.json", "Makefile"] {
+            let dir = tempfile::TempDir::new().expect("tmp");
+            let input = serde_json::json!({
+                "tool_name": "Edit",
+                "tool_input": {
+                    "file_path": arquivo(&dir, nome),
+                    "old_string": "alfa",
+                    "new_string": "gama"
+                }
+            });
+            assert!(
+                linhas_da_sombra(&dir, &input).is_empty(),
+                "{nome} não é linguagem do VGP"
+            );
+        }
+    }
+}
+
+/// Ordem dos gates (30.4.97): o deny aplicável (S210, delta de sintaxe) vence o `[VGP · aviso]`,
+/// qualquer que seja a ordem de registro. O veredito do VGP entra pela costura
+/// `run_returning_with`.
+#[cfg(test)]
+mod vgp_ordem_tests {
+    use super::*;
+    use touring_hook_runtime::verdict::ALSO_NON_BLOCKING;
+
+    const RUST_FILE: &str = "fn a() {\n    if true {\n        x();\n    }\n}\n\nfn x() {}\n";
+    const AVISO: &str = "[VGP · aviso] atributo `inexistente` (prev.rs:3)";
+
+    fn avisa(
+        _: &HookRuntime,
+        _: &serde_json::Value,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: Option<&AppliedEdit>,
+    ) -> Option<HookResponse> {
+        Some(HookResponse::Context {
+            context: AVISO.to_string(),
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    fn nada(
+        _: &HookRuntime,
+        _: &serde_json::Value,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: Option<&AppliedEdit>,
+    ) -> Option<HookResponse> {
+        None
+    }
+
+    fn nega(
+        _: &HookRuntime,
+        _: &serde_json::Value,
+        _: &str,
+        _: &str,
+        _: &str,
+        _: Option<&AppliedEdit>,
+    ) -> Option<HookResponse> {
+        Some(HookResponse::Deny {
+            reason: "[VGP · deny] import `x` inexistente".to_string(),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    fn edita(old: &str, new: &str, vgp: &VgpEditFn) -> HookResponse {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let path = dir.path().join("prev.rs");
+        std::fs::write(&path, RUST_FILE).expect("write");
+        let rt = HookRuntime::new(dir.path()).expect("runtime");
+        let input = serde_json::json!({
+            "tool_name": "Edit",
+            "tool_input": {"file_path": path.to_str().expect("utf8"), "old_string": old, "new_string": new}
+        });
+        run_returning_with(&rt, &input, vgp)
+    }
+
+    const QUEBRA: (&str, &str) = ("        x();\n    }", "        x(;\n    }");
+    const VALIDA: (&str, &str) = ("        x();\n    }", "        x();\n        x();\n    }");
+
+    /// O caso: um aviso do VGP E uma edição que quebra um arquivo que parseia. Antes, o aviso
+    /// retornava na hora e o `check_deny_gate` (S210) nunca era avaliado.
+    #[test]
+    fn aviso_do_vgp_nao_esconde_o_deny_de_sintaxe() {
+        match edita(QUEBRA.0, QUEBRA.1, &avisa) {
+            HookResponse::Deny {
+                reason, context, ..
+            } => {
+                assert!(
+                    reason.contains(AVISO),
+                    "o aviso vai junto no texto: {reason}"
+                );
+                assert!(reason.contains(ALSO_NON_BLOCKING), "{reason}");
+                assert!(
+                    context
+                        .unwrap_or_default()
+                        .contains("SYNTAX (applied file)"),
+                    "o deny é o do S210"
+                );
+            }
+            outra => panic!("o deny aplicável vence o aviso do VGP: {outra:?}"),
+        }
+    }
+
+    /// Controle positivo do caso acima: SEM aviso a mesma edição já é negada.
+    #[test]
+    fn sem_aviso_o_deny_de_sintaxe_segue_sem_texto_do_vgp() {
+        match edita(QUEBRA.0, QUEBRA.1, &nada) {
+            HookResponse::Deny { reason, .. } => assert!(!reason.contains("VGP"), "{reason}"),
+            outra => panic!("o S210 nega a edição que quebra o arquivo: {outra:?}"),
+        }
+    }
+
+    /// Controle: edição válida com aviso do VGP segue com o aviso (nunca deny).
+    #[test]
+    fn edicao_valida_com_aviso_do_vgp_segue_com_o_aviso() {
+        match edita(VALIDA.0, VALIDA.1, &avisa) {
+            HookResponse::Context { context, .. } => assert!(context.contains(AVISO), "{context}"),
+            HookResponse::Allow => panic!("o aviso do VGP não pode sumir"),
+            outra => panic!("só o aviso: {outra:?}"),
+        }
+    }
+
+    /// O deny do VGP continua encerrando a cadeia (é decisão, não aviso).
+    #[test]
+    fn deny_do_vgp_continua_encerrando_a_cadeia() {
+        match edita(VALIDA.0, VALIDA.1, &nega) {
+            HookResponse::Deny { reason, .. } => {
+                assert!(reason.contains("[VGP · deny]"), "{reason}");
+            }
+            outra => panic!("o deny do VGP segue deny: {outra:?}"),
+        }
+    }
+}
+
+/// FRAG (10/10/2026): a edição de um fragmento em `/tmp` também só avisa — o deny passa para a
+/// execução (`pre_bash`) —, enquanto o alvo EXTERNO inexistente (P1) segue negado na edição.
+#[cfg(test)]
+mod vgp_fragmento_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use touring_code::vgp::sombra::com_log_em;
+
+    /// Edita `frag.py` (já existente no scratch `/tmp`) de `antes` para `depois`, em modo ativo.
+    fn edita_em_tmp(antes: &str, depois: &str) -> Option<HookResponse> {
+        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
+        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
+        std::fs::write(
+            projeto.path().join(".touring/touring.toml"),
+            "[vgp]\nmodo = \"ativo\"\ncamada2_langs = []\n",
+        )
+        .expect("toml");
+        let scratch = TempDir::new_in("/tmp").expect("scratch");
+        let path = scratch.path().join("frag.py");
+        std::fs::write(&path, antes).expect("write");
+        let file_path = path.display().to_string();
+        let rt = HookRuntime::new(projeto.path()).expect("runtime");
+        let input = serde_json::json!({
+            "session_id": "frag-edit",
+            "tool_name": "Edit",
+            "tool_input": {"file_path": file_path, "old_string": antes, "new_string": depois}
+        });
+        let applied = AppliedEdit {
+            before: antes.to_string(),
+            after: depois.to_string(),
+        };
+        com_log_em(&scratch.path().join("sombra.jsonl"), || {
+            vgp_sombra_de_edit(&rt, &input, &file_path, antes, depois, Some(&applied))
+        })
+    }
+
+    #[test]
+    fn a_edicao_que_introduz_nome_do_projeto_em_tmp_so_avisa() {
+        match edita_em_tmp("x = 1\n", "x = 1\nprint(nome_do_projeto_inexistente)\n") {
+            Some(HookResponse::Context { context, .. }) => {
+                assert!(context.contains("[VGP · aviso]"), "{context}");
+            }
+            outra => panic!("consultivo na edição, nunca deny: {outra:?}"),
+        }
+    }
+
+    #[test]
+    fn a_edicao_que_introduz_alvo_externo_inexistente_em_tmp_segue_negada() {
+        match edita_em_tmp(
+            "import unicodedata\n",
+            "import unicodedata\nprint(unicodedata.combending('a'))\n",
+        ) {
+            Some(HookResponse::Deny { reason, .. }) => {
+                assert!(
+                    reason.contains("[VGP · deny]") && reason.contains("combending"),
+                    "{reason}"
+                );
+            }
+            outra => panic!("P1 nega em qualquer balde: {outra:?}"),
+        }
     }
 }

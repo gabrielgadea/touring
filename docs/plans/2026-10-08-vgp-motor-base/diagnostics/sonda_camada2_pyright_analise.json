@@ -1,0 +1,715 @@
+{
+ "entradas": 315,
+ "recall_arquivo": [
+  8,
+  15
+ ],
+ "recall_inline": [
+  20,
+  41
+ ],
+ "falso_deny": [
+  29,
+  259
+ ],
+ "regras_falsas": {
+  "reportUndefinedVariable": 13,
+  "reportAttributeAccessIssue": 85,
+  "reportCallIssue": 2
+ },
+ "p50_ms": 19.401870000365307,
+ "p95_ms": 110.88376400039124,
+ "falsos": [
+  {
+   "id": "74463888050f",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "PAGINA",
+     "\"PAGINA\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "a94611ee3b3c",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "PLANO_DE_ENVIO",
+     "\"PLANO_DE_ENVIO\" is not a known attribute of module \"scripts.eleitoral.publicar_mapa\""
+    ]
+   ]
+  },
+  {
+   "id": "1396d31675a6",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "bloco",
+     "\"bloco\" is not a known attribute of module \"scripts.eleitoral.comparativo_2026\""
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "somar",
+     "\"somar\" is not a known attribute of module \"scripts.eleitoral.comparativo_2026\""
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "somar",
+     "\"somar\" is not a known attribute of module \"scripts.eleitoral.comparativo_2026\""
+    ]
+   ]
+  },
+  {
+   "id": "921d01dfbdb2",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "pathlib",
+     "\"pathlib\" is not defined"
+    ],
+    [
+     "reportUndefinedVariable",
+     "pathlib",
+     "\"pathlib\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "dec72285ad04",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "CORTE_PREMIO_GRANDE",
+     "\"CORTE_PREMIO_GRANDE\" is not a known attribute of module \"scripts.eleitoral.indice_estrate"
+    ]
+   ]
+  },
+  {
+   "id": "1e0916c353ee",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "_razao_residual",
+     "\"_razao_residual\" is not a known attribute of module \"scripts.eleitoral.tendencia_moviment"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "_razao_residual",
+     "\"_razao_residual\" is not a known attribute of module \"scripts.eleitoral.tendencia_moviment"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "_razao_residual",
+     "\"_razao_residual\" is not a known attribute of module \"scripts.eleitoral.tendencia_moviment"
+    ]
+   ]
+  },
+  {
+   "id": "df1bf3c823dd",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "_falhas_da_coleta",
+     "\"_falhas_da_coleta\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "2463291faf76",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "rotas_de_som",
+     "Cannot access attribute \"rotas_de_som\" for class \"DadosDaPagina\"\n  Attribute \"rotas_de_som"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "rotas_de_som",
+     "Cannot access attribute \"rotas_de_som\" for class \"DadosDaPagina\"\n  Attribute \"rotas_de_som"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "rotas_de_som",
+     "Cannot access attribute \"rotas_de_som\" for class \"DadosDaPagina\"\n  Attribute \"rotas_de_som"
+    ]
+   ]
+  },
+  {
+   "id": "b7a63bd2d855",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "P_SIGNIFICATIVO",
+     "\"P_SIGNIFICATIVO\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "r_p_texto",
+     "\"r_p_texto\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "HERDA_PHI",
+     "\"HERDA_PHI\" is not a known attribute of module \"scripts.eleitoral.tendencia_movimento\""
+    ]
+   ]
+  },
+  {
+   "id": "6047b19b2500",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "terreno_favoravel",
+     "\"terreno_favoravel\" is not a known attribute of module \"scripts.eleitoral.indice_estrategi"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "terreno_favoravel",
+     "\"terreno_favoravel\" is not a known attribute of module \"scripts.eleitoral.indice_estrategi"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "terreno_favoravel",
+     "\"terreno_favoravel\" is not a known attribute of module \"scripts.eleitoral.indice_estrategi"
+    ]
+   ]
+  },
+  {
+   "id": "5ca21da52fe2",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "cortes_por_quantil",
+     "\"cortes_por_quantil\" is unknown import symbol"
+    ]
+   ]
+  },
+  {
+   "id": "e01d2209e66c",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "CONSTRUTORES_DE_VALOR",
+     "\"CONSTRUTORES_DE_VALOR\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "158cbb7178bb",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ]
+   ]
+  },
+  {
+   "id": "03bee5dc05bb",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ]
+   ]
+  },
+  {
+   "id": "6052e09d43ab",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "classes_alvo",
+     "Cannot access attribute \"classes_alvo\" for class \"Veiculo\"\n  Attribute \"classes_alvo\" is u"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "classes_alvo",
+     "Cannot access attribute \"classes_alvo\" for class \"Veiculo\"\n  Attribute \"classes_alvo\" is u"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "classes_alvo",
+     "Cannot access attribute \"classes_alvo\" for class \"Veiculo\"\n  Attribute \"classes_alvo\" is u"
+    ]
+   ]
+  },
+  {
+   "id": "16b7ac519f05",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "_avisar_rlm_ausente",
+     "\"_avisar_rlm_ausente\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "49e9529c8cf2",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "pairwise",
+     "\"pairwise\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "6174c84cf5e7",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "INTENCAO_SENADO",
+     "\"INTENCAO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\""
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "INTENCAO_TOTAL",
+     "\"INTENCAO_TOTAL\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\""
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "PRIMEIRO_VOTO_SENADO",
+     "\"PRIMEIRO_VOTO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_stud"
+    ]
+   ]
+  },
+  {
+   "id": "c357eb32987c",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "P_SIGNIFICATIVO",
+     "\"P_SIGNIFICATIVO\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "r_p_texto",
+     "\"r_p_texto\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "HERDA_PHI",
+     "\"HERDA_PHI\" is not a known attribute of module \"scripts.eleitoral.tendencia_movimento\""
+    ]
+   ]
+  },
+  {
+   "id": "32433734f13b",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "ComputeOperationalCompliance",
+     "\"ComputeOperationalCompliance\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "RiskAllocationScript",
+     "\"RiskAllocationScript\" is unknown import symbol"
+    ]
+   ]
+  },
+  {
+   "id": "566c3a8d07f8",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "P_SIGNIFICATIVO",
+     "\"P_SIGNIFICATIVO\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "r_p_texto",
+     "\"r_p_texto\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "HERDA_PHI",
+     "\"HERDA_PHI\" is not a known attribute of module \"scripts.eleitoral.tendencia_movimento\""
+    ]
+   ]
+  },
+  {
+   "id": "49762ec887b1",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "P_SIGNIFICATIVO",
+     "\"P_SIGNIFICATIVO\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "r_p_texto",
+     "\"r_p_texto\" is unknown import symbol"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "HERDA_PHI",
+     "\"HERDA_PHI\" is not a known attribute of module \"scripts.eleitoral.tendencia_movimento\""
+    ]
+   ]
+  },
+  {
+   "id": "69b0a5b6c8bc",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "r_p",
+     "\"r_p\" is not a known attribute of module \"scripts.eleitoral.documento_tendencia_folhas\""
+    ]
+   ]
+  },
+  {
+   "id": "bcf9156106ce",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ]
+   ]
+  },
+  {
+   "id": "92cdc6b8a441",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "get",
+     "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown"
+    ]
+   ]
+  },
+  {
+   "id": "6c30ee70ffea",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "modulo_pp",
+     "\"modulo_pp\" is not a known attribute of module \"scripts.eleitoral.documento_consolidado_fo"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "diferenca_em_diferencas",
+     "\"diferenca_em_diferencas\" is not a known attribute of module \"scripts.eleitoral.consolidad"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "diferenca_em_diferencas",
+     "\"diferenca_em_diferencas\" is not a known attribute of module \"scripts.eleitoral.consolidad"
+    ]
+   ]
+  },
+  {
+   "id": "38f133d4f4b6",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "math",
+     "\"math\" is not defined"
+    ],
+    [
+     "reportUndefinedVariable",
+     "math",
+     "\"math\" is not defined"
+    ],
+    [
+     "reportUndefinedVariable",
+     "math",
+     "\"math\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "2a78ac89aad8",
+   "negados": [
+    [
+     "reportUndefinedVariable",
+     "re",
+     "\"re\" is not defined"
+    ],
+    [
+     "reportUndefinedVariable",
+     "re",
+     "\"re\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "c05ef324374f",
+   "negados": [
+    [
+     "reportAttributeAccessIssue",
+     "P_SIGNIFICATIVO",
+     "\"P_SIGNIFICATIVO\" is not a known attribute of module \"scripts.eleitoral.documento_tendenci"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "P_SIGNIFICATIVO",
+     "\"P_SIGNIFICATIVO\" is not a known attribute of module \"scripts.eleitoral.documento_tendenci"
+    ],
+    [
+     "reportAttributeAccessIssue",
+     "metodo",
+     "\"metodo\" is not a known attribute of module \"scripts.eleitoral.documento_tendencia_textos\""
+    ]
+   ]
+  }
+ ],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "viu": []
+  },
+  {
+   "id": "6dce9f68d2da",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": [
+    [
+     "reportUndefinedVariable",
+     "echo",
+     "\"echo\" is not defined"
+    ],
+    [
+     "reportUndefinedVariable",
+     "EOF",
+     "\"EOF\" is not defined"
+    ]
+   ]
+  },
+  {
+   "id": "c72427be59bd",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "e88aaef633ba",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "4904697e31f3",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "glob",
+   "viu": [
+    [
+     "reportAttributeAccessIssue",
+     "PESQUISAS",
+     "\"PESQUISAS\" is not a known attribute of module \"scripts.eleitoral.corpus_pesquisas\""
+    ]
+   ]
+  },
+  {
+   "id": "873da3e17ad9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "keys",
+   "viu": []
+  },
+  {
+   "id": "ac6680ec4405",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "__file__",
+   "viu": []
+  },
+  {
+   "id": "071675618714",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "offset",
+   "viu": []
+  },
+  {
+   "id": "2f20ffbdfae9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "group",
+   "viu": []
+  },
+  {
+   "id": "d95dfaa342c1",
+   "origem": "atribuido",
+   "classe": "atributo",
+   "esperado": "parent",
+   "viu": []
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "viu": []
+  },
+  {
+   "id": "0b38a8bfc93f",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "005d357b8891",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "endswith",
+   "viu": []
+  },
+  {
+   "id": "fbaa53745fa3",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "items",
+   "viu": []
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "viu": []
+  },
+  {
+   "id": "6510dda1a8f0",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "091584efee91",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__version__",
+   "viu": []
+  },
+  {
+   "id": "d4f9e464b30e",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "viu": []
+  },
+  {
+   "id": "cececb4e5f55",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__name__",
+   "viu": []
+  },
+  {
+   "id": "bbd4170e32dc",
+   "origem": "atribuido",
+   "classe": "atributo",
+   "esperado": "__dict__",
+   "viu": []
+  },
+  {
+   "id": "b9942642a4be",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "items",
+   "viu": []
+  },
+  {
+   "id": "3254ad7d29e2",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "36a02adfd43c",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "__file__",
+   "viu": []
+  },
+  {
+   "id": "3a24eeb8723c",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "get",
+   "viu": []
+  },
+  {
+   "id": "f7c662df64b4",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "items",
+   "viu": []
+  },
+  {
+   "id": "a018b76ba8b9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "keys",
+   "viu": []
+  },
+  {
+   "id": "9c269d2c1bf5",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "__len__",
+   "viu": [
+    [
+     "reportUndefinedVariable",
+     "echo",
+     "\"echo\" is not defined"
+    ],
+    [
+     "reportUndefinedVariable",
+     "grep",
+     "\"grep\" is not defined"
+    ]
+   ]
+  }
+ ]
+}

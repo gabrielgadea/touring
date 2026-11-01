@@ -1,0 +1,77 @@
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.5971,
+    "symbols": 379166,
+    "orphans": 763
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.90119165,
+    "tier": "Unranked",
+    "blockers": [
+      "F2_1"
+    ],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_5"
+    ],
+    "file_count": 3836
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 763
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_stop_guard",
+      "create-script:loop_diagnose",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02",
+      "snippet:auto:a33bbc2e6519"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   43\n  files                    1827\n  LOC                      768835\n  pub_symbols (est.)       12080\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         95009  206    899    \n  touring-intelligence   83408  194    2129   \n  touring-cli            53910  79     426    \n  touring-code           46944  114    770    \n  touring-analysis       43820  113    605    \n  touring-dispatch       39423  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-17-work-outer/diagnostics/touring-20261017T200327.md"
+}
+NEW_FINDINGS=29
+
+========================================
+explore --until-dry — triad_hook.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 29
+  rounds                   12
+  new-per-round            25 → 4 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     0       auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)

@@ -1,0 +1,1028 @@
+{
+  "status": "DEGRADED",
+  "script": "ground_truth_collector",
+  "timestamp": "2026-08-28T13:11:59+00:00",
+  "intent": "tornar o xaudit-gates parametrizável por escopo (residual da wave ADW de 27/08)",
+  "duration_ms": 4270,
+  "daemon_degraded": true,
+  "extracted": {
+    "symbols": [],
+    "paths": []
+  },
+  "summary": {
+    "verified_symbols": 0,
+    "unverified_symbols": 0,
+    "gotchas_found": 0,
+    "lessons_applied": 0,
+    "orphan_count": 1,
+    "paths_inspected": 0
+  },
+  "doctor": {
+    "components": [
+      {
+        "name": "binary_version",
+        "status": "ok",
+        "detail": "touring 30.4.16"
+      },
+      {
+        "name": "daemon_socket",
+        "status": "ok",
+        "detail": "/tmp/touring-daemon-1000.sock"
+      },
+      {
+        "name": "daemon_health",
+        "status": "ok",
+        "detail": "status=healthy, projects=2"
+      },
+      {
+        "name": "circuit_breaker",
+        "status": "ok",
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+      },
+      {
+        "name": "project_db",
+        "status": "ok",
+        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (348950528 bytes)"
+      },
+      {
+        "name": "project_actor",
+        "status": "ok",
+        "detail": "responsive (0 ms)"
+      },
+      {
+        "name": "wiring_diagnostic",
+        "status": "warning",
+        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=202523 producers=23742 consumers=178781 pub=22227 kind_unknown=4 non_wireable=0 unread=0 abs_paths=0"
+      }
+    ]
+  },
+  "status_snapshot": {
+    "code_mode": {
+      "adoption_ratio": 0.0,
+      "bash_calls": 6,
+      "gates": {
+        "g10_exec_burst": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g1_burst": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g2_pipe_exit": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g3_edit_sem_read": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g9_sed_inline": {
+          "denied": 0,
+          "followed": 0
+        }
+      },
+      "runs": 0
+    },
+    "composite_health_score": 0.7101,
+    "daemon_health": {
+      "components": [
+        {
+          "name": "knowledge_db",
+          "note": "always initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "linucb_bandit",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "symbol_store",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "crdt_graph",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "predictor",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "cognitive_runtime",
+          "note": "initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "enrichment_pipeline",
+          "note": "auto-triggered at session-start",
+          "status": "active"
+        },
+        {
+          "name": "gotcha_db",
+          "note": "integrated in knowledge_db",
+          "status": "healthy"
+        }
+      ],
+      "healthy_count": 7,
+      "total_count": 8
+    },
+    "gate_metrics": {
+      "activity_instructions_loaded_count": 0,
+      "activity_post_edit_count": 0,
+      "activity_post_write_count": 1,
+      "activity_pre_compact_count": 0,
+      "activity_pre_edit_count": 0,
+      "actor_budget_timeout_count": 0,
+      "actor_queue_wait": {
+        "count": 85,
+        "max_us": 2512895,
+        "p50_us": 76,
+        "p90_us": 683519,
+        "p999_us": 2512895,
+        "p99_us": 2512895
+      },
+      "actor_send_timeout_count": 0,
+      "adoption_antipattern_count": 0,
+      "adoption_touring_count": 3,
+      "ann_search_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "antipattern_converted_count": 0,
+      "bash_calls_total_count": 6,
+      "blast_inject_count": 0,
+      "blast_mutation_count": 0,
+      "blast_timeout_count": 0,
+      "cargo_test_paused_count": 0,
+      "ceg_blocked_count": 0,
+      "ceg_captured_count": 6,
+      "ceg_fast_path_count": 6,
+      "ceg_sandboxed_count": 0,
+      "code_mode_arm_followed_both_count": 0,
+      "code_mode_arm_followed_code_count": 0,
+      "code_mode_arm_followed_native_count": 0,
+      "code_mode_arm_offered_both_count": 0,
+      "code_mode_arm_offered_code_count": 0,
+      "code_mode_arm_offered_native_count": 0,
+      "code_mode_bytes_elided_total": 0,
+      "code_mode_runs_count": 0,
+      "code_mode_subcall_bytes_total": 0,
+      "code_mode_subcalls_count": 0,
+      "compression_bytes_in_total": 0,
+      "compression_bytes_out_total": 0,
+      "compression_profile_applied_count": 0,
+      "core_pinning_e_count": 0,
+      "core_pinning_p_count": 0,
+      "ctx_batch_execute_count": 0,
+      "ctx_batch_item_count": 0,
+      "ctx_budget_alert_emitted_count": 0,
+      "ctx_budget_warning_emitted_count": 0,
+      "ctx_discover_opportunities_found": 0,
+      "ctx_discover_session_count": 0,
+      "ctx_doctor_call_count": 0,
+      "ctx_execute_file_count": 0,
+      "ctx_explain_count": 0,
+      "ctx_gain_graph_count": 0,
+      "ctx_purge_count": 0,
+      "ctx_replay_count": 0,
+      "ctx_session_adoption_query_count": 0,
+      "ctx_smart_count": 0,
+      "ctx_upgrade_count": 0,
+      "diagnostic_b302_emitted_count": 0,
+      "diagnostic_q220_nonidempotent_emitted_count": 0,
+      "diagnostic_tdg_emitted_count": 0,
+      "diagnostic_w115_skipped_region_written_count": 0,
+      "diagnostic_wiring_finding_emitted_count": 5479,
+      "e3_counterfactual_observed_count": 0,
+      "enrichment_context_bytes_total": 3929,
+      "enrichment_emit_count": 4,
+      "enrichment_mean_bytes_per_emit": 982.25,
+      "g1_inspect_burst_denied_count": 0,
+      "g1_inspect_first_passed_count": 0,
+      "g1_post_deny_other_count": 0,
+      "g1_post_deny_same_class_count": 0,
+      "g4_observed_count": 0,
+      "g5_observed_count": 0,
+      "gate_events": {
+        "g10_exec_burst": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g1_burst": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g2_pipe_exit": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g3_edit_sem_read": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g9_sed_inline": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        }
+      },
+      "gate_fatigue": {
+        "bypass_ratio": null,
+        "bypassed_total": 0,
+        "denied_total": 0,
+        "per_gate": [
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g1_burst"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g2_pipe_exit"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g3_edit_sem_read"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g6_redundant"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g7_reinspect"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g8_loop_rewrite"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g9_sed_inline"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g10_exec_burst"
+          }
+        ]
+      },
+      "gate_metrics_daily_flush_count": 0,
+      "health_delta_compute_count": 0,
+      "health_delta_improvement_count": 0,
+      "health_delta_outstanding": 0,
+      "health_delta_record_count": 0,
+      "health_delta_recovery_count": 0,
+      "health_delta_regression_count": 0,
+      "health_delta_streak_alert_count": 0,
+      "hook_dispatch_latency": {
+        "count": 84,
+        "max_us": 1439743,
+        "p50_us": 280,
+        "p90_us": 210175,
+        "p999_us": 1439743,
+        "p99_us": 1439743
+      },
+      "jdm_class_a_count": 0,
+      "jdm_class_b_count": 0,
+      "jdm_class_c_count": 0,
+      "jdm_class_d_count": 0,
+      "linucb_route_generator_count": 0,
+      "linucb_route_hint_count": 0,
+      "linucb_route_manual_count": 0,
+      "mcts_shadow_deadlock_detected_count": 0,
+      "mcts_shadow_run_count": 0,
+      "mcts_shadow_timeout_count": 0,
+      "measured_tokens_in_total": 0,
+      "measured_tokens_out_total": 0,
+      "memory_pressure_green_count": 0,
+      "memory_pressure_red_count": 0,
+      "memory_pressure_total_tick_count": 0,
+      "memory_pressure_yellow_count": 0,
+      "memory_rss_mb": 971.16796875,
+      "memory_virt_mb": 8260417.78515625,
+      "metadata_backpressure_dropped": 0,
+      "metadata_cache_hit": 0,
+      "native_injection_code_route_count": 0,
+      "native_injection_followed_count": 0,
+      "native_injection_resisted_count": 4,
+      "phrase_query_match_count": 0,
+      "pillar_induction_emitted_count": 0,
+      "pillar_induction_followed_count": 0,
+      "post_tool_l4_mandatory": 0,
+      "pre_edit_fast_path": 40,
+      "pre_edit_fast_ratio": 0.8,
+      "pre_edit_full": 10,
+      "pre_grep_enrichment_count": 0,
+      "pre_grep_zero_results_count": 0,
+      "pre_write_fast_path": 40,
+      "pre_write_fast_ratio": 0.8,
+      "pre_write_full": 10,
+      "prefetch_enqueued_count": 0,
+      "prefetch_warmed_count": 0,
+      "query_cache_hit_count": 2,
+      "query_cache_hit_ratio": 0.5,
+      "query_cache_invalidate_count": 0,
+      "query_cache_miss_count": 2,
+      "read_aggressive_chunked_count": 0,
+      "read_aggressive_passthrough_count": 0,
+      "reindex_failure_count": 0,
+      "rkyv_dispatch_bytes": 4248,
+      "rkyv_dispatch_count": 45,
+      "rkyv_dispatch_latency": {
+        "count": 44,
+        "max_us": 2521087,
+        "p50_us": 455,
+        "p90_us": 731647,
+        "p999_us": 2521087,
+        "p99_us": 2521087
+      },
+      "rkyv_mean_bytes": 94.4,
+      "rkyv_parse_error_count": 0,
+      "rkyv_response_count": 44,
+      "routed_bytes_in_total": 0,
+      "routed_bytes_out_total": 0,
+      "sandbox_tee_persisted_count": 0,
+      "sandbox_timeout_fallback_count": 0,
+      "savings_event_count": 0,
+      "suggestion_uptake_emitted_count": 4,
+      "suggestion_uptake_followed_count": 1,
+      "swap_thrashing_detected_count": 0,
+      "tantivy_commit_count": 1,
+      "tantivy_query_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "tantivy_query_latency_us": 0,
+      "tantivy_stream_backpressure_drop_count": 0,
+      "tantivy_stream_enqueued_count": 1,
+      "tantivy_stream_flush_count": 1,
+      "tantivy_stream_flush_docs_count": 1,
+      "tantivy_stream_index_unavailable_drop_count": 0,
+      "tantivy_trigram_query_count": 0,
+      "tantivy_upsert_count": 1,
+      "task_sync_create_count": 0,
+      "task_sync_deduped_count": 0,
+      "task_sync_update_propagated_count": 0,
+      "token_measured_event_count": 0,
+      "tokio_injection_queue_depth": 0,
+      "tokio_num_blocking_threads": 0,
+      "tokio_num_idle_threads": 0,
+      "tokio_num_workers": 0,
+      "tool_output_routed_count": 0,
+      "tool_outputs_cleanup_deleted_count": 0,
+      "tool_outputs_ttl_skip_count": 0,
+      "total_invocations": 100,
+      "touring_init_invocation_count": 0,
+      "wave3_t201_count": 0,
+      "wave3_t202_count": 0,
+      "wave3_t203_count": 0,
+      "wave3_t204_count": 0,
+      "wave3_t205_count": 0,
+      "wave3_t206_count": 0,
+      "wave3_t207_count": 0,
+      "wave3_t208_count": 0,
+      "wave3_t209_count": 0,
+      "wave3_t210_count": 0,
+      "wave3_t211_count": 0,
+      "wave3_t212_count": 0,
+      "wave3_t213_count": 0,
+      "wave3_t214_count": 0,
+      "wave3_t215_count": 0,
+      "wave3_t301_count": 0,
+      "wave3_t302_count": 0,
+      "wave3_t303_count": 0,
+      "wave3_t304_count": 0,
+      "wave3_t305_count": 0,
+      "wave3_t306_count": 0,
+      "wave3_t307_count": 0,
+      "wave3_t308_count": 0,
+      "wave3_t309_count": 0,
+      "wave3_t310_count": 0,
+      "workflow_advice_emitted_count": 4,
+      "workflow_antipattern_detected_count": 1
+    },
+    "health_delta": {
+      "alert_threshold": 3,
+      "compute_count": 0,
+      "improvement_count": 0,
+      "outstanding": 0,
+      "record_count": 0,
+      "recovery_count": 0,
+      "regression_count": 0,
+      "streak_alert_count": 0
+    },
+    "incremental": {
+      "backing_cache": "HookResultCache (moka, 5-min TTL)",
+      "cache_hit_rate": 0.0,
+      "file_count": 9267,
+      "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+      "symbol_count": 666641,
+      "total_accesses": 0
+    },
+    "index": {
+      "file_count": 59,
+      "initialized": true,
+      "symbol_count": 6449
+    },
+    "learning": {
+      "agentic_rl_state": {
+        "active": true,
+        "learning_phase_score": 0.9943674292568462,
+        "update_count": 6
+      },
+      "arm_count": 8,
+      "bandit_type": "linucb",
+      "ema_reward": 0.6730740855527648,
+      "last_td_error": 6.375503303756242,
+      "linucb_loaded": true,
+      "mean_td_error": 2.588,
+      "update_count": 16
+    },
+    "quality_signal": {
+      "bottleneck": "acyclicity",
+      "raw": {
+        "complexity_gini": 0.4851495623403595,
+        "cycle_count": 16,
+        "max_depth": 12,
+        "modularity_q": 0.169741220526802,
+        "redundancy_ratio": 0.0,
+        "total_edges": 2409,
+        "total_functions": 14413,
+        "total_nodes": 1347
+      },
+      "root": "/home/gabrielgadea/projects/touring",
+      "root_causes": {
+        "acyclicity": 0.058823529411764705,
+        "depth": 0.4,
+        "equality": 0.5148504376596406,
+        "modularity": 0.446494147017868,
+        "redundancy": 1.0
+      },
+      "signal_0_10000": 3521,
+      "signal_normalized": 0.35206397272022666
+    },
+    "resource_monitor": "",
+    "sessions": {
+      "count": 20,
+      "sessions": [
+        {
+          "created_at": "2026-08-25T18:31:40.065494625+00:00",
+          "objective": "",
+          "session_id": "8",
+          "task_type": "task",
+          "updated_at": "2026-08-28T01:03:03.497642466+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:11:14.236313802+00:00",
+          "objective": "",
+          "session_id": "6",
+          "task_type": "task",
+          "updated_at": "2026-08-28T00:36:18.186439068+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:11:27.874896257+00:00",
+          "objective": "HUMAN GATE: aprovação da estratégia e DAG",
+          "session_id": "7",
+          "task_type": "task",
+          "updated_at": "2026-08-28T00:29:51.761200648+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:40.455318494+00:00",
+          "objective": "",
+          "session_id": "4",
+          "task_type": "task",
+          "updated_at": "2026-08-28T00:09:28.230295569+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:09:53.594473086+00:00",
+          "objective": "",
+          "session_id": "1",
+          "task_type": "task",
+          "updated_at": "2026-08-27T23:32:01.126992460+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:26.254762708+00:00",
+          "objective": "",
+          "session_id": "3",
+          "task_type": "task",
+          "updated_at": "2026-08-27T23:18:50.520559315+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:54.946235859+00:00",
+          "objective": "E2E PROOF + REPORT: cross-audit-2026-08-27.md",
+          "session_id": "5",
+          "task_type": "task",
+          "updated_at": "2026-08-27T23:17:45.744742876+00:00"
+        },
+        {
+          "created_at": "2026-08-07T15:10:07.620175666+00:00",
+          "objective": "SANDBOX-RESEARCH: inventário + deepseek + Context7",
+          "session_id": "2",
+          "task_type": "task",
+          "updated_at": "2026-08-27T23:16:40.112713461+00:00"
+        },
+        {
+          "created_at": "2026-05-07T03:03:17.996170012+00:00",
+          "objective": "",
+          "session_id": "wave24-test",
+          "task_type": "task",
+          "updated_at": "2026-08-27T17:16:13.158288161+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:15.396945095+00:00",
+          "objective": "HUMAN GATE: aprovar estratégia S1-S10 (code-mode afordância)",
+          "session_id": "11",
+          "task_type": "task",
+          "updated_at": "2026-08-26T21:12:43.117319398+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:03.713302237+00:00",
+          "objective": "",
+          "session_id": "10",
+          "task_type": "task",
+          "updated_at": "2026-08-26T20:46:57.068136692+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:31:52.089526756+00:00",
+          "objective": "",
+          "session_id": "9",
+          "task_type": "task",
+          "updated_at": "2026-08-26T19:58:56.785077965+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:19.702827263+00:00",
+          "objective": "",
+          "session_id": "24",
+          "task_type": "task",
+          "updated_at": "2026-08-25T21:36:34.441467118+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:36.791698024+00:00",
+          "objective": "Estratégia + strategy doc + apresentação (HUMAN GATE)",
+          "session_id": "25",
+          "task_type": "task",
+          "updated_at": "2026-08-25T21:31:36.791698024+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:02.038133072+00:00",
+          "objective": "Pesquisa externa profunda (web + Context7)",
+          "session_id": "23",
+          "task_type": "task",
+          "updated_at": "2026-08-25T21:31:02.038133072+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:30:47.910615451+00:00",
+          "objective": "Diagnóstico interno profundo (camadas 1-4)",
+          "session_id": "22",
+          "task_type": "task",
+          "updated_at": "2026-08-25T21:30:47.910615451+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:37.656923416+00:00",
+          "objective": "",
+          "session_id": "20",
+          "task_type": "task",
+          "updated_at": "2026-08-25T19:59:55.177971560+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:20.173475648+00:00",
+          "objective": "",
+          "session_id": "19",
+          "task_type": "task",
+          "updated_at": "2026-08-25T19:58:18.575597642+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:06.232865776+00:00",
+          "objective": "",
+          "session_id": "18",
+          "task_type": "task",
+          "updated_at": "2026-08-25T19:57:11.346793734+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:52.995482838+00:00",
+          "objective": "",
+          "session_id": "17",
+          "task_type": "task",
+          "updated_at": "2026-08-25T19:56:16.547712133+00:00"
+        }
+      ]
+    },
+    "wiring": {
+      "hypergraph_cycles": {
+        "count": 3386,
+        "detail": {
+          "_elided_array_len": 2131
+        }
+      },
+      "knowledge_activity": {
+        "access_count": 4888,
+        "bash_count": 3128,
+        "coedit_pairs": 5862,
+        "edit_count": 2120,
+        "gotcha_count": 13,
+        "relation_count": 16247,
+        "task_metrics_count": 272
+      },
+      "module_count": 2881,
+      "multi_import_hyperedges": {
+        "count": 0
+      },
+      "orphan_count": 5479,
+      "total_consumers": 6123,
+      "total_pub_symbols": 8535
+    }
+  },
+  "e2e": {
+    "version": "30.4.16",
+    "target": "/home/gabrielgadea/projects/touring",
+    "depth": "standard",
+    "timestamp": "1787922717",
+    "overall_score": 0.8420924504026749,
+    "overall_status": "pass",
+    "total_duration_ms": 1439,
+    "phases": [
+      {
+        "phase": "index",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 2.0,
+        "duration_ms": 388,
+        "metrics": {
+          "coverage_pct": "100.0",
+          "disk_files": 5519,
+          "indexed_files": 9267,
+          "knowledge_files": 4675,
+          "relation_count": 16247,
+          "symbol_count": 666641,
+          "symbols_per_file": 71.93708859393547,
+          "tantivy_commits": 1,
+          "tantivy_docs": 85186,
+          "tantivy_pending": 0,
+          "tantivy_size_bytes": 4898,
+          "tantivy_upserts": 1
+        },
+        "issues": [],
+        "tests_run": 5,
+        "tests_passed": 5
+      },
+      {
+        "phase": "wiring",
+        "status": "warn",
+        "score": 0.6671874553834658,
+        "weight": 2.0,
+        "duration_ms": 735,
+        "metrics": {
+          "avg_integration_score": 0.8108770510980766,
+          "broken_chains": 0,
+          "churn_pattern_count": 0,
+          "consumer_coverage_pct": "61.0",
+          "functional_chains": 8,
+          "modules_below_threshold": 59,
+          "orphan_count": 9386,
+          "orphan_rate_pct": "39.0",
+          "total_consumers": 178781,
+          "total_pub_symbols": 24055,
+          "wiring_score": 0.6671874553834658
+        },
+        "issues": [
+          "High orphan rate: 9386/24055 (39.0%)"
+        ],
+        "tests_run": 4,
+        "tests_passed": 3
+      },
+      {
+        "phase": "knowledge",
+        "status": "pass",
+        "score": 0.8999999999999999,
+        "weight": 1.0,
+        "duration_ms": 20,
+        "metrics": {
+          "access_count": 4888,
+          "active_gotchas": 0,
+          "avg_line_count": 897.4344385026737,
+          "avg_symbol_density": 0.08119378210876113,
+          "bash_outcome_count": 3128,
+          "coedit_pairs": 5862,
+          "edit_history_count": 2120,
+          "file_knowledge_count": 4675,
+          "gotcha_hit_rate_pct": "2957523.1",
+          "gotcha_prevented_errors": 0,
+          "gotcha_total": 13,
+          "hot_files": 101,
+          "import_graph_health": 1.0,
+          "knowledge_activity": {
+            "access_count": 4888,
+            "bash_count": 3128,
+            "coedit_pairs": 5862,
+            "edit_count": 2120,
+            "gotcha_count": 13,
+            "relation_count": 16247,
+            "task_metrics_count": 272
+          },
+          "knowledge_score": 0.9956791443850268,
+          "language_distribution": {
+            "css": 7,
+            "example": 1,
+            "html": 4,
+            "javascript": 1086,
+            "json": 243,
+            "jsonc": 1,
+            "markdown": 713,
+            "output": 44,
+            "python": 269,
+            "rust": 2081,
+            "scm": 1,
+            "service": 2,
+            "shell": 48,
+            "timer": 1,
+            "toml": 130,
+            "txt": 10,
+            "typescript": 3,
+            "unknown": 2,
+            "yaml": 29
+          },
+          "languages": 19,
+          "memory_entries": 9450
+        },
+        "issues": [
+          "101 hot file(s) edited 3+ times in 7d"
+        ],
+        "tests_run": 7,
+        "tests_passed": 6
+      },
+      {
+        "phase": "ast",
+        "status": "warn",
+        "score": 0.7757999999999999,
+        "weight": 2.0,
+        "duration_ms": 262,
+        "metrics": {
+          "blast_radius_sample": 1,
+          "files_parsed": 30,
+          "files_sampled": 30,
+          "high_complexity_files": 0,
+          "languages": {
+            "json": 2,
+            "markdown": 7,
+            "python": 3,
+            "rust": 5,
+            "shell": 5,
+            "toml": 3,
+            "yaml": 5
+          },
+          "parse_rate_pct": "100.0",
+          "total_symbols": 758
+        },
+        "issues": [],
+        "tests_run": 31,
+        "tests_passed": 31
+      },
+      {
+        "phase": "quality",
+        "status": "pass",
+        "score": 0.9,
+        "weight": 1.5,
+        "duration_ms": 26,
+        "metrics": {
+          "antipattern_rate_pct": "10.0",
+          "avg_error_coverage": "0.052",
+          "avg_quality_score": "0.946",
+          "files_analyzed": 30,
+          "files_with_antipatterns": 3,
+          "max_complexity": 64,
+          "top_offenders": [
+            {
+              "count": 1,
+              "file": "client/omarchy/bin/cidata_gen.py"
+            },
+            {
+              "count": 1,
+              "file": "client/omarchy/bin/cidata_iso.py"
+            },
+            {
+              "count": 1,
+              "file": "client/omarchy/bin/hooks_runnable.py"
+            }
+          ],
+          "total_antipatterns": 3,
+          "total_unwraps": 9
+        },
+        "issues": [
+          "client/omarchy/bin/cidata_gen.py: 1 antipattern(s)",
+          "client/omarchy/bin/cidata_iso.py: 1 antipattern(s)",
+          "client/omarchy/bin/hooks_runnable.py: 1 antipattern(s)"
+        ],
+        "tests_run": 30,
+        "tests_passed": 27
+      },
+      {
+        "phase": "learning",
+        "status": "pass",
+        "score": 0.8857142857142857,
+        "weight": 0.5,
+        "duration_ms": 3,
+        "metrics": {
+          "bandit_active": false,
+          "blast_connections": 0,
+          "cognitive_enriched": true,
+          "crdt_active": true,
+          "ema_reward": 0.6730740855527648,
+          "linucb_arms": 8,
+          "linucb_health_injected": true,
+          "predictor_active": true,
+          "update_count": 16
+        },
+        "issues": [],
+        "tests_run": 7,
+        "tests_passed": 6
+      }
+    ],
+    "summary": {
+      "total_phases": 6,
+      "phases_passed": 4,
+      "phases_warned": 2,
+      "phases_failed": 0,
+      "total_tests_run": 84,
+      "total_tests_passed": 78,
+      "total_issues": 5,
+      "top_issues": [
+        "[WIRING] High orphan rate: 9386/24055 (39.0%)",
+        "[KNOWLEDGE] 101 hot file(s) edited 3+ times in 7d",
+        "[QUALITY] client/omarchy/bin/cidata_gen.py: 1 antipattern(s)",
+        "[QUALITY] client/omarchy/bin/cidata_iso.py: 1 antipattern(s)",
+        "[QUALITY] client/omarchy/bin/hooks_runnable.py: 1 antipattern(s)"
+      ]
+    },
+    "cache_stats": {
+      "hook_result_cache": {
+        "entry_count": 1,
+        "hit_rate": 0.0,
+        "hits": 0,
+        "misses": 11
+      }
+    }
+  },
+  "wiring_audit": {
+    "cycles": {
+      "count": 143,
+      "detail": {
+        "cycle_count": 143,
+        "cycles": {
+          "_elided_array_len": 143
+        }
+      }
+    },
+    "low_score_modules": {
+      "_elided_array_len": 2084
+    },
+    "orphans": {
+      "dead_patterns": [],
+      "diagnostic_count": 5479,
+      "diagnostics": {
+        "_elided_array_len": 5479
+      },
+      "orphan_count": 5479,
+      "orphans": {
+        "_elided_array_len": 5479
+      },
+      "resolution": {
+        "heuristic_edges": 174371,
+        "name_only_candidates": 16037,
+        "origin_breakdown": [
+          {
+            "origin": "scip_resolved",
+            "rows": 89
+          },
+          {
+            "origin": "ast_declared",
+            "rows": 23742
+          },
+          {
+            "origin": "ast_read",
+            "rows": 406
+          },
+          {
+            "origin": "ast_resolved",
+            "rows": 3915
+          },
+          {
+            "origin": "ast_inferred",
+            "rows": 174371
+          }
+        ],
+        "top_unresolved_modules_debt_only": {
+          "_elided_array_len": 10
+        },
+        "unresolved_by_class": [
+          {
+            "call_sites": 10825,
+            "class": "external"
+          },
+          {
+            "call_sites": 4474,
+            "class": "scope_keyword"
+          },
+          {
+            "call_sites": 710,
+            "class": "workspace_unresolved"
+          },
+          {
+            "call_sites": 28,
+            "class": "ambiguous_alias"
+          }
+        ],
+        "unresolved_samples": {
+          "_elided_array_len": 5
+        }
+      }
+    },
+    "rfc100_diagnostics": {
+      "count": 5479,
+      "findings": {
+        "_elided_array_len": 5479
+      }
+    }
+  },
+  "wiring_orphans": [],
+  "evolution_drift": {},
+  "memory_lessons": [],
+  "gotcha_per_file": {},
+  "vgp_verifications": [],
+  "ast_overviews": {},
+  "ast_blasts": {}
+}

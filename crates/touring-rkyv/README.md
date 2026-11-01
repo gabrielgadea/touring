@@ -87,9 +87,11 @@ foreign-version archive fail loudly instead of being read as garbage.
 
 Some crates use raw rkyv instead of these templates for specific architectural reasons:
 
-### touring-cognitive (`snapshot.rs`)
+### touring-intelligence::reasoning (`snapshot.rs`)
 
-`GoTSnapshot` in touring-cognitive captures **complete GoT engine state** (max_depth, beam_width, pheromone_trails, created_at_secs) for session pause/resume. This is semantically different from the minimal `ArchivedGoTSnapshot` template which is a **cross-crate IPC format**. The two are not interchangeable.
+<!-- 26/08/2026: touring-cognitive fundido em touring-intelligence::reasoning;
+     struct GoTSnapshot verificada em crates/touring-intelligence/src/reasoning/snapshot.rs -->
+`GoTSnapshot` in touring-intelligence::reasoning captures **complete GoT engine state** (max_depth, beam_width, pheromone_trails, created_at_secs) for session pause/resume. This is semantically different from the minimal `ArchivedGoTSnapshot` template which is a **cross-crate IPC format**. The two are not interchangeable.
 
 ### touring-generator (`RkyvFileSnapshotAdapter`)
 
@@ -121,17 +123,21 @@ Used for **internal pipeline snapshots** (speculative validation, plan rollback)
 touring-rkyv (templates)
     ├── ArchivedHookEvent      ← touring-hooks (IPC)
     ├── ArchivedEventRecord    ← touring-hooks (RL event sourcing)
-    ├── ArchivedSymbol         ← touring-index (symbol snapshots)
+    ├── ArchivedSymbol         ← touring-intelligence::index (symbol snapshots)
     ├── ArchivedIndexSnapshot ← touring-hooks (dependency_cache refactored)
-    ├── ArchivedLearning*     ← touring-learning (RL persistence)
-    ├── ArchivedCrdt*         ← touring-learning (CRDT graph)
-    └── ArchivedGot*          ← touring-cognitive (GoT snapshots)
+    ├── ArchivedLearning*     ← touring-intelligence::rl (RL persistence)
+    ├── ArchivedCrdt*         ← touring-intelligence::rl (CRDT graph)
+    └── ArchivedGot*          ← touring-intelligence::reasoning (GoT snapshots)
 ```
+
+<!-- 26/08/2026: touring-index/-learning/-cognitive fundidos em touring-intelligence
+     (submódulos index/rl/reasoning) — mapa verificado em
+     docs/plans/2026-08-26-documentacao-touring/f1-inventario.json -->
 
 ## Duplication Risk
 
 **Important**: Several crates previously defined local types structurally identical to these templates:
 - `touring-hooks/src/dependency_cache.rs`: local `IndexSnapshot` → **Refactored to use template** ✅
-- `touring-cognitive/src/snapshot.rs`: local `GotNodeSnapshot` / `GoTSnapshot` → **Kept local** (different schema)
+- `touring-intelligence/src/reasoning/snapshot.rs`: local `GotNodeSnapshot` / `GoTSnapshot` → **Kept local** (different schema)
 
 Before adding a new template, check if a structurally identical type already exists locally in a consumer crate. If the schemas match and the crate already depends on touring-rkyv, refactor the local type to use the template.

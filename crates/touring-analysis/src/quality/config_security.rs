@@ -71,6 +71,29 @@ impl ConfigSecurityAnalyzer {
     /// or block comments (mirrors `SecurityAnalyzer::analyze`).
     #[must_use]
     pub fn analyze(&self, source: &str, lang: &str) -> ConfigReport {
+        let mut misconfigs = self.line_matches(source);
+        if lang == "python" && is_django_settings(source) {
+            misconfigs.extend(django_debug_true(source));
+        }
+        drop_non_executable(source, lang, &mut misconfigs);
+
+        let score = if misconfigs.is_empty() {
+            1.0
+        } else {
+            let sum: f32 = misconfigs.iter().map(|m| m.severity).sum();
+            (1.0 - sum / 10.0).clamp(0.0, 1.0)
+        };
+
+        ConfigReport {
+            lang: lang.to_string(),
+            misconfigs,
+            score,
+        }
+    }
+
+    /// Every rule hit, line by line (split out of `analyze` on 25/09/2026 when S53's
+    /// Django pass pushed its cyclomatic complexity to 16).
+    fn line_matches(&self, source: &str) -> Vec<VulnMatch> {
         let mut misconfigs: Vec<VulnMatch> = Vec::new();
         let mut offset = 0usize;
         for raw_line in source.lines() {
@@ -100,28 +123,19 @@ impl ConfigSecurityAnalyzer {
             // containment only.
             offset += raw_line.len() + 1;
         }
+        misconfigs
+    }
+}
 
-        // AST-aware precision pass (mirrors SecurityAnalyzer): drop a misconfig
-        // inside a comment or `#[cfg(test)]` corpus — doc/fixture, not a setting.
-        if !misconfigs.is_empty() {
-            let regions = super::code_regions::non_executable_regions(source, lang);
-            if !regions.is_empty() {
-                misconfigs.retain(|m| !super::code_regions::offset_suppressed(m.span.0, &regions));
-            }
-        }
-
-        let score = if misconfigs.is_empty() {
-            1.0
-        } else {
-            let sum: f32 = misconfigs.iter().map(|m| m.severity).sum();
-            (1.0 - sum / 10.0).clamp(0.0, 1.0)
-        };
-
-        ConfigReport {
-            lang: lang.to_string(),
-            misconfigs,
-            score,
-        }
+/// AST-aware precision pass (mirrors SecurityAnalyzer): drop a misconfig inside a
+/// comment or `#[cfg(test)]` corpus — doc/fixture, not a setting.
+fn drop_non_executable(source: &str, lang: &str, misconfigs: &mut Vec<VulnMatch>) {
+    if misconfigs.is_empty() {
+        return;
+    }
+    let regions = super::code_regions::non_executable_regions(source, lang);
+    if !regions.is_empty() {
+        misconfigs.retain(|m| !super::code_regions::offset_suppressed(m.span.0, &regions));
     }
 }
 
@@ -129,6 +143,37 @@ impl Default for ConfigSecurityAnalyzer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// A Django settings module: `DEBUG` there is the framework's switch, not a script
+/// flag. Markers are Django's own setting names (S53, 25/09/2026).
+fn is_django_settings(source: &str) -> bool {
+    ["INSTALLED_APPS", "ROOT_URLCONF", "ALLOWED_HOSTS"]
+        .iter()
+        .any(|marker| source.contains(marker))
+}
+
+/// CWE-489 — `DEBUG = True` assigned in a Django settings module. Context-scoped:
+/// the same line in a plain script is a CLI flag, and scoring it there would be the
+/// broad-keyword false positive this analyzer's precision rule forbids.
+fn django_debug_true(source: &str) -> Vec<VulnMatch> {
+    let mut offset = 0usize;
+    let mut found = Vec::new();
+    for raw_line in source.lines() {
+        let trimmed = raw_line.trim_start();
+        let assignment = trimmed.split('#').next().unwrap_or("").trim_end();
+        if assignment == "DEBUG = True" || assignment == "DEBUG=True" {
+            let start = offset + (raw_line.len() - trimmed.len());
+            found.push(VulnMatch::new(
+                "active_debug_production".to_string(),
+                (start, offset + raw_line.len()),
+                3.5,
+                489,
+            ));
+        }
+        offset += raw_line.len() + 1;
+    }
+    found
 }
 
 /// Built-in OWASP A05 misconfiguration catalog. Precision-tuned: each matcher
@@ -185,7 +230,22 @@ static RULES: &[ConfigRule] = &[
                 || (l.contains("allow_origin") && l.contains('*'))
                 || (l.contains("allowed_origins") && l.contains('*'))
                 || (l.contains("allow-origin") && l.contains('*'))
+                // S53 (25/09/2026): django-cors-headers and Flask-CORS settings names —
+                // specific enough to need no file context (each scored 1.000 alone).
+                || l.starts_with("cors_allow_all_origins = true")
+                || l.starts_with("cors_allow_all_origins=true")
+                || l.starts_with("cors_origin_allow_all = true")
+                || l.starts_with("cors_origin_allow_all=true")
+                || (l.starts_with("cors_origins") && l.contains('*'))
         },
+    },
+    // CWE-20 — Django `ALLOWED_HOSTS` wildcard: Host-header validation off (S53).
+    // The name is Django's own, so the assignment needs no file context.
+    ConfigRule {
+        name: "django_allowed_hosts_wildcard",
+        cwe_id: 20,
+        severity: 3.0,
+        matches: |l, _r| l.starts_with("allowed_hosts") && l.contains('*'),
     },
     // CWE-489 — active debug / verbose runtime in production. Framework-scoped
     // (Flask) to avoid the Cargo `[profile] debug = true` (debuginfo) false hit.
@@ -232,8 +292,7 @@ static RULES: &[ConfigRule] = &[
         cwe_id: 732,
         severity: 2.5,
         matches: |l, _r| {
-            l.contains("0o777")
-                || l.contains("0o666")
+            grants_world_writable_literal(l)
                 || l.contains("chmod 777")
                 || l.contains("chmod(0o777")
                 || l.contains("set_mode(0o777")
@@ -259,31 +318,91 @@ static RULES: &[ConfigRule] = &[
     // CWE-798 — hardcoded / default credentials in a config file. Precision-tuned
     // to well-known placeholder secrets to avoid overlap with F2.4 (which owns
     // high-entropy real secrets) and false hits on prose (W2 2026-07-02).
+    //
+    // 25/09/2026 (touring-36, the analise's backend judge): the value must be a
+    // WEAK LITERAL — quoted or bare, from the known-default list. The substring
+    // form matched weak tokens ANYWHERE in the line, so `: password` fired
+    // inside the type annotation `data: PasswordResetRequest` and `=password`
+    // inside the `password_hash=password_hash` kwarg — the whole backend's P0
+    // was false positive (the only real hits were the test fixtures, the dim's
+    // legitimate target). A type annotation, a bare identifier, an attribute, a
+    // call, or a `kwarg=variable` is READ, never a default credential.
     ConfigRule {
         name: "default_or_weak_credentials",
         cwe_id: 798,
         severity: 4.0,
-        matches: |l, _r| {
+        matches: |l, r| {
             let has_cred_key = l.contains("password")
                 || l.contains("passwd")
                 || l.contains("secret_key")
                 || l.contains("secret-key")
                 || l.contains("api_key")
                 || l.contains("api-key");
-            has_cred_key
-                && (l.contains("changeme")
-                    || l.contains("change_me")
-                    || l.contains("password123")
-                    || l.contains(": admin")
-                    || l.contains(":admin")
-                    || l.contains("\"admin\"")
-                    || l.contains("'admin'")
-                    || l.contains(": password")
-                    || l.contains("=password")
-                    || l.contains("= \"password\""))
+            has_cred_key && weak_literal_value(r)
         },
     },
 ];
+
+/// CWE-798's value side: the RHS (after `=` or `:`) must be a weak LITERAL —
+/// a quoted or bare token from the known-default list. The code-vs-literal
+/// judgment is the shared [`touring_foundation::security::is_code_expression`]
+/// — THE single source, the same predicate F2.4 secrets uses, never a second
+/// copy (touring-36, 25/09/2026).
+/// A world-writable mode literal (`0o777`/`0o666`) that SETS the mode — not one that masks or
+/// compares it. `st_mode & 0o777` reads the permission bits of a file under verification and
+/// `mode == 0o777` checks them (26/09/2026, analise `lifecycle/security/permissions.py:89`).
+fn grants_world_writable_literal(line: &str) -> bool {
+    ["0o777", "0o666"].iter().any(|lit| {
+        line.match_indices(lit).any(|(i, _)| {
+            let before = line[..i].trim_end();
+            !(before.ends_with('&') || before.ends_with("==") || before.ends_with("!="))
+        })
+    })
+}
+
+fn weak_literal_value(line: &str) -> bool {
+    let Some((_, rhs)) = line.split_once('=').or_else(|| line.split_once(':')) else {
+        return false;
+    };
+    let rhs = rhs.trim();
+    if touring_foundation::security::is_code_expression(rhs) {
+        return false;
+    }
+    // A QUOTED literal keeps its content verbatim (`"pa#ss"` is no comment); a
+    // BARE value ends at the first comment marker (`db_password: password123
+    // # rotation note` — the no-leak guard's planted line, which the
+    // comment-tail hid from the exact match).
+    let bare = if rhs.starts_with('"') || rhs.starts_with('\'') {
+        rhs.trim_end_matches([',', ';'])
+            .trim_matches(|c| c == '"' || c == '\'')
+            .to_ascii_lowercase()
+    } else {
+        rhs.split('#')
+            .next()
+            .unwrap_or(rhs)
+            .split("//")
+            .next()
+            .unwrap_or(rhs)
+            .trim_end()
+            .trim_end_matches([',', ';'])
+            .to_ascii_lowercase()
+    };
+    // Exact-match list (never substring): the weak defaults a scanner can own
+    // without entering F2.4's high-entropy territory. `root` is the postgres
+    // default (touring-36's positive list); `test`/`default` stay OUT — a bare
+    // identifier of that name would false-fire.
+    const WEAK: &[&str] = &[
+        "admin",
+        "password",
+        "changeme",
+        "change_me",
+        "password123",
+        "root",
+        "123456",
+        "12345678",
+    ];
+    WEAK.contains(&bare.as_str())
+}
 
 #[cfg(test)]
 mod tests {
@@ -351,6 +470,50 @@ mod tests {
     fn default_credentials_flagged() {
         let r = ConfigSecurityAnalyzer::new().analyze("db:\n  password: changeme\n", "yaml");
         assert!(r.misconfigs.iter().any(|m| m.cwe_id == 798));
+    }
+
+    /// touring-36 (25/09/2026): the value must be a WEAK LITERAL — a type
+    /// annotation, a bare identifier, an attribute, a call, or a
+    /// `kwarg=variable` is READ, never a default credential. The four
+    /// measured false-positive forms from the analise's backend judge on the
+    /// left; the controls that must keep failing on the right.
+    #[test]
+    fn cwe798_needs_a_weak_literal_value_not_a_password_word() {
+        // The 4 real flagged lines of the backend's P0 — all false positives,
+        // all this class.
+        for negative in [
+            "    data: PasswordResetRequest,",
+            "    data: PasswordResetConfirm,",
+            "    data: PasswordChangeRequest,",
+            "        password_hash=password_hash,",
+            // Same class, untested by the judge but the same shape:
+            "api_key = settings.API_KEY",
+            r#"secret = os.environ.get("APP_SECRET")"#,
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(negative, "python");
+            assert!(
+                !r.misconfigs.iter().any(|m| m.cwe_id == 798),
+                "no CWE-798 on a READ (no literal): {negative} → {:?}",
+                r.misconfigs
+            );
+        }
+        for positive in [
+            r#"password = "admin""#,
+            r#"DEFAULT_PASSWORD = "changeme""#,
+            r#"password="password123""#,
+            r#"db_password: str = "root""#,
+            // The yaml-bare form (no quotes) is still a literal — and a
+            // trailing COMMENT does not hide it (the no-leak guard's plant).
+            "db_password: password123  # rotation note",
+            "db_password: admin",
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(positive, "python");
+            assert!(
+                r.misconfigs.iter().any(|m| m.cwe_id == 798),
+                "CWE-798 on a weak literal: {positive} → {:?}",
+                r.misconfigs
+            );
+        }
     }
 
     #[test]
@@ -434,5 +597,37 @@ mod tests {
         let r = analyze_rust(src);
         assert!((0.0..=1.0).contains(&r.score));
         assert!(r.score < 0.5);
+    }
+
+    /// 2026-09-26, analise `lifecycle/security/permissions.py:89`: `st_mode & 0o777` READS the
+    /// permission bits of a file being verified, and `mode == 0o777` compares them — neither grants
+    /// a world-writable mode. Only a literal that sets the mode is CWE-732.
+    #[test]
+    fn masking_or_comparing_the_mode_is_not_granting_it() {
+        for check in [
+            "mode = path.stat().st_mode & 0o777\n",
+            "if mode == 0o777:\n    raise PermissionError(path)\n",
+            "assert (st.st_mode & 0o666) != 0o666\n",
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(check, "python");
+            assert!(r.misconfigs.is_empty(), "{check:?}: {:?}", r.misconfigs);
+        }
+    }
+
+    /// Controls: setting the mode stays CWE-732 in every shape.
+    #[test]
+    fn granting_a_world_writable_mode_still_flags() {
+        for grant in [
+            "os.chmod(path, 0o777)\n",
+            "os.makedirs(d, mode=0o777, exist_ok=True)\n",
+            "path.touch(mode=0o666)\n",
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(grant, "python");
+            assert!(
+                r.misconfigs.iter().any(|m| m.cwe_id == 732),
+                "{grant:?}: {:?}",
+                r.misconfigs
+            );
+        }
     }
 }

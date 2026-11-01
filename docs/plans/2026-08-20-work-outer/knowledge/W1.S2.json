@@ -1,0 +1,11 @@
+{
+  "phase": "W1.S2",
+  "entities": [
+    {
+      "entity_id": "phase:W1.S2",
+      "type": "phase",
+      "description": "W1.S2: ARCHITECTURE.md (v30, 781L, 43KB) consolidado como fonte canonica unica. ARCHITECTURE.v29.5.0.md renomeado via git mv para ARCHITECTURE-historical-v29.5.0.md (preserva historico como apendice sem perder conteudo). Link interno em ARCHITECTURE.md corrigido de 'Previous: [ARCHITECTURE.v29.5.0.md]' para apontar o novo nome. Gate doc-link mantem os mesmos 5 links quebrados do baseline pre-W1 - sem regressao. Nenhum conteudo excluido: 100% do v29.5.0 esta preservado no arquivo renomeado."
+    }
+  ],
+  "relations": []
+}

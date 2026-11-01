@@ -1,0 +1,45 @@
+{
+  "phase": "S-2",
+  "entities": [
+    {
+      "entity_id": "phase:S-2",
+      "type": "phase",
+      "description": "Extrator de ofertas A2 + B0 fiel (commit e79a4e9e). Oferta = tool_result is_error=true (20/200 candidatos eram cita\u00e7\u00e3o); texto sem truncagem; rota como shell-quoting (dois parsers independentes concordam em 180/180); invariante B0(guardado)==decis\u00e3o guardada. Refatorado e reverificado: reproduz as 180 ofertas congeladas sem diferen\u00e7a de campo. Custo do processo: 3 defeitos pr\u00e9-adjudica\u00e7\u00e3o achados pela coordena\u00e7\u00e3o, ver mem\u00f3ria r3-dataset-defeitos-antes-do-rotulo."
+    },
+    {
+      "entity_id": "memory:loop:task_1790956285165149342:S-2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790956285165149342",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790956285165149342",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-2|produces|memory:loop:task_1790956285165149342:S-2:done",
+      "source": "phase:S-2",
+      "type": "produces",
+      "target": "memory:loop:task_1790956285165149342:S-2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-2:done|generated-by|loop:loop:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790956285165149342"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-2:done|generated-by|dag:decomp:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790956285165149342"
+    }
+  ]
+}

@@ -14,7 +14,12 @@
 pub mod action_signature;
 pub mod errors;
 pub mod got_snapshot_store;
+pub mod hooks_complement_journal; // F6: instrumented emit counter for hooks-complement SignalLayers
 pub mod idempotency;
+// S8 (2026-10-08): dedupe por seção com validade = época de compactação —
+// estado em arquivo por sessão (mesma topologia do turn_budget).
+pub mod injection_dedup;
+pub mod turn_budget;
 // S-13 (2026-06-06) — IsolationMode policy enum relocated from touring-hooks
 // hook_runtime (leaf-safe, std-only). Re-exported by hook_runtime for compat.
 pub mod isolation_mode;
@@ -29,6 +34,10 @@ pub mod qa_syntax;
 pub mod query_dsl;
 pub mod reranked_context;
 pub mod rfc100_emission;
+// S-11 / D1 (27/10/2026): the tool-channel trio (erro/vazio/negado, retry, size,
+// deny -> next action) measured at emission; predicates ported from
+// `scripts/measure_tool_trio.py`, surfaced as `tool_trio` in `touring gate-metrics -j`.
+pub mod tool_trio;
 // S-13 (2026-06-06) — StaticSeverity relocated here (shared severity vocabulary
 // for the gateway X2 stage + workflow antipattern). Re-exported by gateway::static_stage.
 pub mod severity;
@@ -44,12 +53,23 @@ pub mod workflow;
 // every historical path keeps resolving.
 pub mod ast_grep_signal;
 pub mod bash_ast_validator;
+// S2 (2026-09-05, plano substrato-de-artefato do `analise`): símbolos documentais com
+// relevância por nó, via provedor Python do projeto consumidor (U10a) — sem crate cruzado.
+pub mod doc_symbol_signal;
+// I13/I16 (2026-09-13, Graft analysis): the index admission policy — the walker's
+// rule tables + the per-path verdict — hoisted from touring-cli so the hook
+// writers (touring-hook-runtime) and the rebuild sweep ask ONE predicate.
+pub mod index_policy;
 // gate_metrics relocated to touring-foundation (A5 Path-A step-2, 2026-06-16);
 // re-exported so `touring_hooks_shared::gate_metrics::*` resolves unchanged for all
 // ~73 consumers (incl. no-touch touring-cli + this crate's own query_cache, which
 // calls crate::gate_metrics::record_query_cache_*). Old src/gate_metrics.rs orphaned (git-rm).
 pub use touring_foundation::gate_metrics;
 pub mod hook_events;
+// injection_policy nasceu em touring-foundation (S-4, 26/10/2026): a taxonomia de
+// famílias (injection_family) é a régua canônica e a política a consome de lá;
+// re-exportado para que os hooks resolvam `touring_hooks_shared::injection_policy`.
+pub use touring_foundation::injection_policy;
 // memory_stats_probe relocated to touring-foundation (A5 Path-A step-1, 2026-06-16);
 // re-exported so `touring_hooks_shared::memory_stats_probe` resolves unchanged for all
 // consumers (incl. no-touch touring-cli). Old src/memory_stats_probe.rs orphaned (git-rm).

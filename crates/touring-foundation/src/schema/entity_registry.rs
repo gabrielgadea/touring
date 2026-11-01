@@ -32,23 +32,6 @@ pub struct EntityCode {
     pub description: Option<String>,
 }
 
-/// Disambiguation context for a symbol.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SymbolDisambiguation {
-    /// The symbol's actual name.
-    pub symbol_name: String,
-    /// Canonical entity code (e.g., "IDX" for Index in touring-index).
-    pub entity_code: String,
-    /// Full module path for anchoring.
-    pub module_path: String,
-    /// Semantic role (crate_root, internal, utility, trait, etc.).
-    pub role: String,
-    /// Usage frequency score (0.0-1.0).
-    pub usage_score: f64,
-    /// Last computed timestamp.
-    pub computed_at: String,
-}
-
 /// Resolution result with ranked candidates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisambiguationResult {

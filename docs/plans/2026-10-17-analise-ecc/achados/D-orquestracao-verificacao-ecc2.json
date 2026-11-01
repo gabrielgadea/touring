@@ -1,0 +1,246 @@
+{
+ "area": "D-orquestracao-verificacao-ecc2",
+ "ecc_resumo": "ECC 2.2.3 é um catálogo Node de commands/agents/skills mais scripts operacionais. O ecc2 é um alpha Rust (ratatui, SQLite, git2): sessões em worktrees, inbox de delegação, merge queue, incidentes de conflito, teto de orçamento e um gate de promoção de config pareado e determinístico (harness_eval.rs). A coordenação é quase toda declarada: labels de epic no GitHub, planos tmux/worktree com task/handoff/status e um aviso de proximidade estilo TCAS cujo hook é só design. 'Pronto' é um artefato de evidência (capsule/receipt, release-approval-gate, score do harness-audit). GAN = planner, generator e evaluator com Playwright e piso 7.0. Council = 4 vozes com anti-ancoragem. 'Taste' é pipeline de vídeo, sem relação com orquestração.",
+ "findings": [
+  {
+   "id": "D1",
+   "mecanismo": "skill-comply: compliance gerativa de regra/skill em 3 níveis de rigor do prompt",
+   "evidencia_ecc": "skills/skill-comply/SKILL.md:13 'decreasing prompt strictness (supportive → neutral → competing)'; prompts/scenario_generator.md:45-46 nível 3 'tests are optional'; scripts/grader.py:28 _check_temporal_order; SKILL.md:59 'hook promotion recommendations'",
+   "como_funciona": "Gera a spec de passos a partir do .md, cria a mesma tarefa em 3 prompts, roda claude -p, classifica o trace (LLM) e confere a ordem temporal por código. Passo com baixa aderência vira candidato a hook.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "grep 'supportive|competing|strictness|skill-comply' em ~/.claude/skills/Touring, loop-engineering, client, scripts, docs/plans: 0 arquivos. scripts/audit_session_code_mode.py:1-5 audita só sessão real, depois do fato. Memória protocol-adherence-diagnosis: nudges MUST ignorados.",
+   "licao_tipo": "complementar",
+   "proposta": "Sonda de aderência por regra: spec do contrato, 3 prompts, run headless num worktree, classificação determinística pelas classes do audit_session_code_mode e checagem de ordem. Saída: aderência por nível e lista de passos a promover a hook (afordância).",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Gasta franquia (3 runs por regra). O classificador LLM do ECC é ruidoso, então usar o determinístico. setup_commands gerados por LLM precisam do sandbox (ECC testa isso em tests/test_invariant_runner.py:49).",
+   "confianca": 0.8
+  },
+  {
+   "id": "D2",
+   "mecanismo": "Ablação pré-registrada e pareada do próprio hook sobre o desfecho",
+   "evidencia_ecc": "docs/gateguard/question-effectiveness.md:451-454 'gate 25 of 48 (52%), off 18 of 48 (38%)... McNemar p is 0.210... not confirmed'; :195 'The checks could not fail'; docker/gateguard-effectiveness/README.md:66 'arm-patch.js is included in frozen harness fingerprints'; skills/gan-style-harness/SKILL.md:218 'Every harness component encodes an assumption'",
+   "como_funciona": "Braços off/gate sobre tarefas com armadilha, 96 trials (US$12,42), teste exato pareado, resultado negativo publicado, e ablação congelada no manifesto de evidência. O GAN-doc manda retestar cada componente a cada modelo novo.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "touring kpi -j → ab.schema 'coupling-ab-v1' (só o acoplamento); 'touring learning experiment' só tem record/list; recall 'ablação de gates...' devolveu só outcome logs; grep 'assumption|ablat' em docs/economia e rules: vazio.",
+   "licao_tipo": "complementar",
+   "proposta": "Pré-registrar ablação de 1-2 hooks caros (nudge do cli_suggester, G10) com os kill switches existentes, tarefas pareadas e McNemar exato mais custo. Cada gate declara 'assume:' e 'retest_on: model_change'.",
+   "valor": "alto",
+   "custo": "G",
+   "risco": "Armadilhas do ECC: fato decisivo achável no repo, canal de pergunta desligado, checagem verdadeira por construção. Custa franquia.",
+   "confianca": 0.75
+  },
+  {
+   "id": "D3",
+   "mecanismo": "Pré-voo de juiz: reference=1, naive e decoys<1, e detecção de saturação",
+   "evidencia_ecc": "docker/gateguard-effectiveness/README.md:36-39 'score reference 1 and... naive trap and every decoy-* overlay below 1'; complex-eval/DESIGN.md:178 'The @1 run saturated: every arm scored 1.000'; :288 'naive recurring-incident scores 0.20 / 0.00 / 0.20'",
+   "como_funciona": "Nenhuma sessão é cobrada antes de o grader provar que discrimina. O decoy tem forma certa e conteúdo errado. Corpus saturado é revisado para discriminar.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "loop_converged.py:11-12 cláusula 1 judge_intact = graders iguais ao juiz de registro (integridade, não discriminação). grep 'saturat|non.discriminat' em loop_converged, judge_attest e SKILL: vazio. A prática existe só por projeto (lesson:vhtml:controle-negativo-limpo...).",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "judge_attest exige por gate um fixture reference (PASS) e um decoy (FAIL), e alerta o gate com 100% de aprovação nas últimas N rodadas. Gate de regressão em pass^k, não pass@k (eval-harness SKILL.md:292).",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Cria fixtures para cada gate. Os decoys exigem autoria independente do juiz.",
+   "confianca": 0.8
+  },
+  {
+   "id": "D4",
+   "mecanismo": "Cartão com acceptance e merge_gate rodáveis, mais escopo de escrita por subtarefa",
+   "evidencia_ecc": "skills/team-agent-orchestration/SKILL.md:53-59 campos 'acceptance', 'merge_gate', 'handoff'; lib/control-pane/work-item-mutations.js:71-88 checa owner e depois upsert (não atômico); docs/control-plane/TCAS-HOOK.md:68 'No lease is acquired'",
+   "como_funciona": "Cada card carrega aceite, gate de merge e arquivo de handoff, e a transição exige evidência. O claim do ECC é ler-e-gravar, com corrida admitida.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "'decompose claim --help': 'claims exclusively via a conditional write, with an expiring lease' (superior ao ECC). 'decompose add' só tem --priority --deadline --parallel-group --depends-on; 'update --status completed' é incondicional.",
+   "licao_tipo": "complementar",
+   "proposta": "decompose add --accept-cmd e --scope. update --status completed roda o accept-cmd e recusa nomeando o motivo (exceção só com --exempt registrado). claim recusa escopo sobreposto a claim vivo, via conflict-check.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Accept-cmd lento ou inseguro; rodar sob o sandbox do CEG.",
+   "confianca": 0.75
+  },
+  {
+   "id": "D5",
+   "mecanismo": "Risco de colisão multi-canal entre sessões vivas (TCAS)",
+   "evidencia_ecc": "lib/agent-proximity/distance.js:23 'R(a,b) = 1 − Π_i (1 − ω_i · r_i)'; :82 'thresholds: { ta: 0.35, ra: 0.7 }'; TCAS-HOOK.md:3 'Status: design only'; :69 'Fails open'",
+   "como_funciona": "Canais overlap de linhas, dependência de import e proximidade na árvore, combinados por noisy-OR. Aviso de tráfego e depois de resolução, com prioridade determinística para as duas sessões não escolherem a mesma manobra.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "'touring conflict-check' sem args: 'needs ≥1 entry: touring exec conflict-check <path>:<label>' (write-sets declarados). Memória coordenacao:achados-commit-propagacao: atribuição só depois do fato, por transcript.",
+   "licao_tipo": "complementar",
+   "proposta": "PreToolUse de Edit em modo sombra: lê o working set (git diff) de outras sessões e usa o grafo de blast do Touring como canal de dependência. Só avisa, com right-of-way determinístico, e mede antes de qualquer bloqueio.",
+   "valor": "medio",
+   "custo": "G",
+   "risco": "O ECC não implementou o hook. Falso positivo irrita. Começar em sombra com critério pré-registrado.",
+   "confianca": 0.6
+  },
+  {
+   "id": "D6",
+   "mecanismo": "Detector fora de banda de sessão travada",
+   "evidencia_ecc": "scripts/loop-status.js:9 'DEFAULT_BASH_TIMEOUT_SECONDS = 30 * 60'; :28 '--exit-code Exit 2 on attention signals'; commands/loop-status.md:17-19 'Bash tool calls that have no matching tool_result'",
+   "como_funciona": "Varre os JSONL de ~/.claude/projects, acusa Bash pendente há mais de 30 min e ScheduleWakeup vencido, e sai com 2 para uso em cron.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "grep 'ScheduleWakeup|tool_result' em ~/.claude/tools, Touring/scripts/hooks e client/hooks: só client/hooks/tests/test_agent_model_gate.py. ls ~/.claude/tools: sessoes_irmas.py, sem detector de travamento.",
+   "licao_tipo": "complementar",
+   "proposta": "Subcomando em sessoes_irmas.py que acusa tool_use sem tool_result acima de N min e wakeup vencido, exit 2, agendado. Útil com 6+ sessões e sessões irmãs sem supervisão.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Falso alarme em comando legitimamente longo (hw-slot, rebuild); limiar por classe de comando.",
+   "confianca": 0.7
+  },
+  {
+   "id": "D7",
+   "mecanismo": "Ledger de execuções por skill com 'sem medida ≠ saudável'",
+   "evidencia_ecc": "lib/skill-evolution/tracker.js:9-10 VALID_OUTCOMES success/failure/partial, VALID_FEEDBACK accepted/corrected/rejected; health.js:32 'A skill with no runs in the window is not healthy, it is unmeasured'",
+   "como_funciona": "Cada run de skill grava desfecho e feedback do humano. O health calcula taxa em janela e tendência, e separa 'não medido'. A lição saiu de um bug em que a falta do writer deixou o painel todo verde (#2463).",
+   "touring_estado": "ausente",
+   "touring_evidencia": "grep 'skill_run|skill-runs|skill_outcome|skill_health|declining' em Touring/scripts, client/hooks e crates: vazio. Chaves de touring kpi -j: ab, checks, code_mode_*, context_budget, daemon_availability, decision, hooks_complement, shadow, summary (sem bloco de skill).",
+   "licao_tipo": "complementar",
+   "proposta": "Ledger JSONL de skill/ADW com desfecho e correção do Gabriel, e bloco 'skills' no kpi com 'unmeasured' explícito. Mesma lei L2 (ausência ≠ zero), aplicada às skills.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Só vale se o writer for estrutural (hook), não opt-in.",
+   "confianca": 0.65
+  },
+  {
+   "id": "D8",
+   "mecanismo": "Teto de orçamento agregado entre sessões, aplicado no executor",
+   "evidencia_ecc": "ecc2/src/session/manager.rs:1192 'token_budget_exceeded: cfg.token_budget > 0 && total_tokens >= cfg.token_budget'; :1240 stop_session_recorded",
+   "como_funciona": "Soma tokens e custo de todas as sessões e para as ativas ao estourar, com teto extra por perfil. O valor 0 desliga o teto (falha aberta).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "rate_limits_snapshot.py grava five_hour/seven_day ('Ausência nunca vira zero'). agent_model_gate.py:393-411 só cita quota_line na recusa. grep 'used_percentage|threshold|seven_day' em agent_model_gate.py: vazio.",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "agent_model_gate recusa Agent não-haiku com seven_day acima de limiar pré-registrado, nomeando a rota de volta (D8: enforcement no executor). Sem leitura, fail-open declarado. Não parar sessões em curso.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Limiar arbitrário e dependência do payload da status line (só Pro/Max, depois da 1ª resposta).",
+   "confianca": 0.65
+  },
+  {
+   "id": "D9",
+   "mecanismo": "Semântica fail-closed do review: refutar exige confiança, lente que falhou torna o veredito incompleto",
+   "evidencia_ecc": "workflows/orch-review.workflow.js:260-263 'uncertainty must never demote a blocker', 'REFUTE_MIN_CONFIDENCE = 0.8'; :281-283 incompleto → CHANGES_REQUESTED; :87-92 HIGH/CRITICAL exigem 'proof' no schema",
+   "como_funciona": "Dedup por evidência normalizada antes de verificar, verificador adversarial por achado único, e bloqueio mantido quando o verificador falha ou hesita.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "'touring adw explain cross-audit': panel.correctness/security/reproducibility e panel.quorum (gate com verdict_contract). Semântica de lente que falha e limiar de confiança: não verificada.",
+   "licao_tipo": "refinar",
+   "proposta": "No panel.quorum: lente com erro vira ESCALATE (nunca omitida), rebaixar achado só com refutação acima de limiar, e schema que exige prova nos achados de alta severidade.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Mais ESCALATEs; calibrar o limiar com os rótulos já medidos.",
+   "confianca": 0.55
+  },
+  {
+   "id": "D10",
+   "mecanismo": "Classificador determinístico do ciclo de vida de worktree",
+   "evidencia_ecc": "lib/worktree-lifecycle/lifecycle.js:8-9 'dirty... never auto-GC'; :52-54 'a salvage candidate, never a blind delete'; :74 'Only run conflict prediction when it matters: a clean, ahead branch'",
+   "como_funciona": "Estados main/detached/dirty/conflict/merge-ready/merged/stale/idle derivados de fatos do git. Só 'merged' é seguro de limpar, e a predição de conflito só roda onde importa.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "'touring --help' filtrado por worktree|skill|session|ablat|bench|eval não lista comando de worktree; ~/.claude/tools/safe-clean.sh trata de target/, não de worktrees.",
+   "licao_tipo": "complementar",
+   "proposta": "scripts/worktree-report só de leitura, alinhado à REGRA #11: dirty nunca limpa, stale vira candidato a branch safety/ e só 'merged' sugere remoção, com predição via merge-tree.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Baixo; só lê.",
+   "confianca": 0.65
+  },
+  {
+   "id": "D11",
+   "mecanismo": "Journal com hash encadeado, receipts offline e não-afirmações explícitas",
+   "evidencia_ecc": "lib/eval-harness/capsule.js:7-9 'links to its predecessor by sha256 (parent_hash)'; :15-16 'does not stop an operator who replaces the whole log'; receipt.js:13 'Signatures prove who vouched for the bytes, not that the run was correct'",
+   "como_funciona": "verify falha na entrada exata em adulteração, truncamento ou reordenação, e uma escrita final parcial é reportada como truncamento. O receipt amarra digest do artefato e do gate.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "adw.py:38 journal.jsonl 'append-only... fsync'd'; grep de encadeamento no adw.py: só o comentário em :127. Sem verify-run.",
+   "licao_tipo": "refinar",
+   "proposta": "parent_hash em cada linha do journal e 'adw verify-run'. Receipt (digest da entrega mais veredito do gate) para entregas de sessão irmã. Cada artefato de juiz ganha um campo 'non_claims', como o gate.js:11-17.",
+   "valor": "baixo",
+   "custo": "P",
+   "risco": "Mesmo usuário e mesma máquina: detecta truncamento e crash, não adulteração dolosa.",
+   "confianca": 0.6
+  }
+ ],
+ "anti_licoes": [
+  "harness-audit.js:429-440 passa por existência/contagem ('At least 10 agent definitions exist') e o roadmap persegue '80/80' (GA-ROADMAP.md:1052): Goodhart de presença. O Touring mede comportamento.",
+  "agents/harness-optimizer.md:35 sugere 'git stash create' como snapshot: contradiz a REGRA #11 (stash banido; commit WIP em safety/).",
+  "skills/agent-self-evaluation e agents/agent-evaluator.md:21 usam nota LLM de 5 eixos como qualidade: o Touring veta veredito narrativo (L3). Só a regra 'nota abaixo de 5 cita evidência' é aproveitável.",
+  "release-approval-gate.js:327-340 trata as palavras 'pending'/'blocked' em prosa como bloqueio: gate em texto livre é frágil. Usar artefato estruturado.",
+  "tests/ci/code-reviewer-false-positive-guard.test.js:19-35 testa que o prompt contém certas frases: prova a redação, não o comportamento.",
+  "skills/council/SKILL.md:44-53,118-125 duplica critic-panel-as-skill e decision-canvas. Só vale importar 'escrever a própria posição ANTES de ler as vozes' (:76-83) e 'duas vozes contra a minha posição = sinal real'.",
+  "Convergência independente: health.js:32 'sem runs = não medido' é a lei L2 do Touring (ausência ≠ zero); confirma, não ensina."
+ ],
+ "claims_nao_verificados": [
+  "ecc2 compila e passa nos testes (cargo proibido nesta tarefa).",
+  "'80/80 harness audit' e '21/21 observability' do roadmap não foram executados.",
+  "Origem do GAN ('Anthropic March 2026 paper') e custo US$50-200 não verificados.",
+  "Não lidos: commands multi-*, orch-*, plan, feature-dev; agents gan-* e planner; autonomous-loops (612 linhas, 'retained for compatibility'); gan-harness.sh; ROADMAP:239-1047; dashboard.rs e corpo de main.rs.",
+  "As ausências do Touring vêm de grep em diretórios nomeados, sem varredura global.",
+  "A cláusula do juiz usa 8 itens (loop_converged.py:11-22), não os 6 do CLAUDE.md: drift de documentação."
+ ],
+ "symbol_verification": [
+  {
+   "simbolo_ou_caminho": "touring decompose claim/renew/ticket/frontier",
+   "categoria": "found",
+   "evidencia": "'decompose --help' e 'claim --help' (lease, conditional write)"
+  },
+  {
+   "simbolo_ou_caminho": "touring adw (list/explain/promote/test/race/campaign)",
+   "categoria": "found",
+   "evidencia": "'adw --help'; 25 specs em .touring/adw"
+  },
+  {
+   "simbolo_ou_caminho": "touring explore --until-dry (CCE)",
+   "categoria": "found",
+   "evidencia": "'explore --help' descreve o ledger e as lentes"
+  },
+  {
+   "simbolo_ou_caminho": "touring-quality list",
+   "categoria": "found",
+   "evidencia": "'50 dimensions', legenda BLOCK/WARN"
+  },
+  {
+   "simbolo_ou_caminho": "~/.claude/skills/loop-engineering/scripts/{loop_converged,judge_attest,loop_phase_close,variant_archive}.py",
+   "categoria": "found",
+   "evidencia": "ls dos scripts; docstring do loop_converged lida"
+  },
+  {
+   "simbolo_ou_caminho": "touring conflict-check",
+   "categoria": "found",
+   "evidencia": "exige <path>:<label>; só write-sets declarados"
+  },
+  {
+   "simbolo_ou_caminho": "scripts/hw-slot --status",
+   "categoria": "found",
+   "evidencia": "JSON direto no shell; PermissionError dentro do sandbox (artefato do Landlock)"
+  },
+  {
+   "simbolo_ou_caminho": "pass@k/pass^k, skill-comply, classificador de worktree, detector de wedge, telemetria por skill, encadeamento de hash no journal",
+   "categoria": "not_found",
+   "evidencia": "greps nos diretórios do Touring: vazios, ou só 1 doc para pass@k"
+  },
+  {
+   "simbolo_ou_caminho": "docs/elite_aggregate.py",
+   "categoria": "found",
+   "evidencia": "docstring: 17 gates, tiers Diamond a Unranked"
+  },
+  {
+   "simbolo_ou_caminho": "docs/plans/2026-10-08-vgp-motor-base/",
+   "categoria": "found",
+   "evidencia": "ls: PREREGISTRO-P95-PAREADO-2026-10-17.md, RELATORIO-*, RETOMADA*, V0d-spec.md (estrutura apenas)"
+  }
+ ],
+ "cobertura": {
+  "arquivos_lidos": 62,
+  "principais": [
+   "ecc2/README.md",
+   "ecc2/src/harness_eval.rs",
+   "ecc2/src/session/{store,manager}.rs",
+   "docs/ECC-2.0-REFERENCE-ARCHITECTURE.md",
+   "docs/control-plane/TCAS-HOOK.md",
+   "docs/gateguard/question-effectiveness.md",
+   "docker/context-profiles/complex-eval/DESIGN.md",
+   "scripts/lib/{agent-proximity/distance,eval-harness/*,worktree-lifecycle/lifecycle,skill-evolution/*}.js",
+   "workflows/orch-review.workflow.js",
+   "skills/{skill-comply,gan-style-harness,council,eval-harness,loop-design-check,team-agent-orchestration}/SKILL.md",
+   "scripts/{loop-status,harness-audit,release-approval-gate}.js"
+  ],
+  "nao_lidos": "Cerca de 20 outros arquivos só em outline. Os do item claims_nao_verificados não foram lidos."
+ }
+}

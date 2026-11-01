@@ -158,6 +158,36 @@ def test_main_detects_revision_reopens(tmp_path):
     assert pr.main(base) == 1
 
 
+# === topic/scope ledger derivation (N3, 2026-09-23) ==========================
+
+def test_topic_scope_derives_ledger_via_the_explorer_path(tmp_path):
+    """--topic/--scope must derive the ledger through the SAME ledger_path_for
+    the explorer uses (never a reimplemented slug) — the explore-plan node
+    called plan_refine with --topic for months and died on argparse, so the
+    only wired producer never produced (N3 root cause, measured 2026-09-23)."""
+    from explore_until_dry import ledger_path_for
+    scope = tmp_path
+    topic = "Tema Qualquer X"
+    lp = ledger_path_for(topic, scope, None)
+    lp.parent.mkdir(parents=True, exist_ok=True)
+    lp.write_text(json.dumps(ledger_with([
+        {"key": "crates/touring-ceg/src/gateway/pre_exec.rs:10", "depth": "D2",
+         "lens": "structural"},
+    ])), encoding="utf-8")
+    plan = tmp_path / "plan.md"
+    plan.write_text(PLAN_V1, encoding="utf-8")
+    rc = pr.main([str(plan), "--topic", topic, "--scope", str(scope), "--json", "--quiet"])
+    assert rc in (0, 1), f"scored or continues, never usage error, got {rc}"
+    assert plan.with_suffix(".refine.json").exists()
+
+
+def test_missing_topic_and_ledger_is_usage_error(tmp_path):
+    plan = tmp_path / "plan.md"
+    plan.write_text(PLAN_V1, encoding="utf-8")
+    rc = pr.main([str(plan), "--json", "--quiet"])
+    assert rc == 2, "neither --ledger nor --topic must stay a usage error"
+
+
 def test_main_missing_paths_exit_2(tmp_path):
     assert pr.main(["/no/plan.md", "--ledger", "/no/l.json", "--json"]) == 2
 

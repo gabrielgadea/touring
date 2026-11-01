@@ -61,19 +61,67 @@ const BR_DENY_MIN: usize = 16;
 
 // ── Public entry points ─────────────────────────────────────────────────────
 
-/// Run the permission-request hook (diverging entry point for CLI).
+/// Run the permission-request hook in its ONE-SHOT process (the `touring-hook` binary):
+/// print the verdict in the event's own schema and exit. `Ask` prints nothing, so Claude
+/// Code shows the user its permission prompt.
 #[tracing::instrument(skip(runtime, input), fields(hook = "permission_request"))]
 pub fn run(
     runtime: &HookRuntime,
     input: &serde_json::Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    run_returning(runtime, input).emit()
+    let json = run_returning(runtime, input).to_json();
+    if json.is_empty() {
+        // Ask: printing nothing is what makes Claude Code prompt the user.
+        HookResponse::Allow.emit()
+    }
+    println!("{json}");
+    touring_hook_runtime::hook_trace::set_reason("emit-json");
+    std::process::exit(0)
 }
 
-/// Run the permission-request hook, returning a [`HookResponse`] instead of diverging.
+/// Durable machine denials stop being resumed after this long (S26): a class denied once
+/// is re-evaluated weekly instead of forever.
+pub const DURABLE_DENIAL_TTL_SECS: i64 = 7 * 24 * 3600;
+
+/// The outcome of a PermissionRequest hook, in the event's OWN contract (S26, 25/09/2026).
 ///
-/// Used by tests and any future daemon-side invocations.
-pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookResponse {
+/// Claude Code reads `hookSpecificOutput.decision.behavior` for this event; the old code
+/// answered `permissionDecision` (the PreToolUse field, ignored here) and, inside a daemon,
+/// printed it to the daemon's own stdout — the auto-approval never reached anyone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PermissionVerdict {
+    /// Grant without prompting. `reason` goes to the trace/RL, not to the wire.
+    Allow {
+        /// Why the class was auto-allowed (logged).
+        reason: String,
+    },
+    /// Refuse; `message` is shown to the model.
+    Deny {
+        /// Why the class was refused.
+        message: String,
+    },
+    /// No opinion — Claude Code asks the user.
+    Ask,
+}
+
+impl PermissionVerdict {
+    /// The wire JSON (empty for `Ask`: silence is what makes Claude Code prompt).
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        let decision = match self {
+            Self::Allow { .. } => serde_json::json!({ "behavior": "allow" }),
+            Self::Deny { message } => serde_json::json!({ "behavior": "deny", "message": message }),
+            Self::Ask => return String::new(),
+        };
+        serde_json::json!({
+            "hookSpecificOutput": { "hookEventName": "PermissionRequest", "decision": decision }
+        })
+        .to_string()
+    }
+}
+
+/// Evaluate a PermissionRequest and return the verdict (tests, and any daemon-side use).
+pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> PermissionVerdict {
     let tool_name = input
         .get("tool_name")
         .and_then(|v| v.as_str())
@@ -81,86 +129,101 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
 
     let tool_input = input.get("tool_input").unwrap_or(&serde_json::Value::Null);
 
-    // S-15/R14: durable cross-session approval store (live wire). Resume a prior
-    // DENIAL for this action class without re-evaluating — a denied class stays
-    // denied across a daemon restart (the conservative, fail-safe direction).
-    // Allows are intentionally NOT short-circuited: re-evaluating each time keeps
-    // the risk score current (a file that just became risky must not ride a stale
-    // approval). All store access is fail-open.
-    let approval_key = crate::action_signature::ActionSignature::from_pre_tool(
-        tool_name, tool_input, None, 0, None, None,
-    )
-    .to_key();
-    if let Some(denied) = resume_durable_denial(runtime, &approval_key) {
+    // S-15/R14: a durable DENIAL of this action class is resumed — for DURABLE_DENIAL_TTL_SECS
+    // (S26); past that it is revoked and the class is re-evaluated. Allows are never resumed:
+    // re-evaluating keeps the risk score current. All store access is fail-open.
+    let approval_key = action_key(tool_name, tool_input);
+    if let Some(denied) = resume_durable_denial(runtime, &approval_key, now_secs()) {
         return denied;
     }
 
-    let decision = match tool_name {
+    let verdict = match tool_name {
         "Bash" => evaluate_bash(runtime, tool_input),
         "Edit" | "Write" => evaluate_edit_write(runtime, tool_input),
         _ => {
-            // Unknown tool — let Claude Code ask the user.
             tracing::debug!(tool = tool_name, "permission_request: no VGP rule — ask");
-            HookResponse::Allow
+            PermissionVerdict::Ask
         }
     };
 
-    // Persist the decision so the next session resumes it (durable HITL store).
-    persist_durable_decision(runtime, &approval_key, &decision);
-    decision
+    persist_durable_decision(runtime, &approval_key, &verdict);
+    verdict
 }
 
-/// S-15/R14 — resume a durable DENIAL for `action_key`, if one is recorded.
-///
-/// Returns `Some(Deny)` only when a prior `Denied` decision exists; `None`
-/// otherwise (including on any store error — fail-open). Approvals are
-/// deliberately not resumed here: an `Allow` is cheap to re-evaluate and
-/// re-evaluation keeps risk scoring live.
-fn resume_durable_denial(runtime: &HookRuntime, action_key: &str) -> Option<HookResponse> {
+/// The durable key of an action class (the same derivation the store has always used).
+pub fn action_key(tool_name: &str, tool_input: &serde_json::Value) -> String {
+    crate::action_signature::ActionSignature::from_pre_tool(
+        tool_name, tool_input, None, 0, None, None,
+    )
+    .to_key()
+}
+
+fn now_secs() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// S-15/R14 + S26 — resume a durable DENIAL for `action_key` while it is younger than
+/// [`DURABLE_DENIAL_TTL_SECS`]; an expired one is REVOKED (deleted) and `None` returned so
+/// the class is re-evaluated. Any store error → `None` (fail-open).
+fn resume_durable_denial(
+    runtime: &HookRuntime,
+    action_key: &str,
+    now: i64,
+) -> Option<PermissionVerdict> {
     let store = crate::approval_store::ApprovalStore::new(runtime.ctx.knowledge.conn_ref());
     if store.ensure_table().is_err() {
         return None;
     }
     match store.get(action_key) {
         Ok(Some(rec)) if rec.status == crate::approval_store::ApprovalStatus::Denied => {
+            if now - rec.updated_ts > DURABLE_DENIAL_TTL_SECS {
+                let _ = store.revoke(action_key);
+                tracing::info!(
+                    action_key,
+                    "permission_request: durable denial expired — revoked"
+                );
+                return None;
+            }
             tracing::debug!(action_key, "permission_request: resumed durable denial");
-            Some(HookResponse::Deny {
-                reason: format!(
-                    "Resumed a durable cross-session denial for this action class ({action_key})."
+            Some(PermissionVerdict::Deny {
+                message: format!(
+                    "Resumed a durable cross-session denial for this action class ({action_key}); \
+                     it expires {} days after it was recorded, or revoke it with \
+                     `touring calibrate-confidence --command <cmd> --revoke`.",
+                    DURABLE_DENIAL_TTL_SECS / 86_400
                 ),
-                context: None,
-                event_name: None,
             })
         }
         _ => None,
     }
 }
 
-/// S-15/R14 — persist `decision` under `action_key` so it survives a restart.
-///
-/// `Allow` → `Approved`, `Deny` → `Denied`; `Block`/`Halt` are not durable
-/// approval outcomes and are skipped. Fail-open: any store error is swallowed.
-fn persist_durable_decision(runtime: &HookRuntime, action_key: &str, decision: &HookResponse) {
-    let status = match decision {
-        HookResponse::Deny { .. } => crate::approval_store::ApprovalStatus::Denied,
-        HookResponse::Allow => crate::approval_store::ApprovalStatus::Approved,
-        _ => return,
-    };
+/// S-15/R14 + S26 — persist ONLY a machine denial. `Ask` is no decision at all, and a
+/// machine `Allow` is not a human approval — both were stored as `Approved`, which
+/// `cli-calibrate-confidence` reads as "a human already approved this class" (S26).
+fn persist_durable_decision(runtime: &HookRuntime, action_key: &str, verdict: &PermissionVerdict) {
+    if !matches!(verdict, PermissionVerdict::Deny { .. }) {
+        return;
+    }
     let store = crate::approval_store::ApprovalStore::new(runtime.ctx.knowledge.conn_ref());
     if store.ensure_table().is_err() {
         return;
     }
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    let _ = store.upsert(action_key, status, "permission_request decision", ts);
+    let _ = store.upsert(
+        action_key,
+        crate::approval_store::ApprovalStatus::Denied,
+        "auto: permission_request machine denial",
+        now_secs(),
+    );
 }
 
 // ── Evaluators ───────────────────────────────────────────────────────────────
 
 /// Evaluate a Bash tool permission request via AST-grep risk scoring.
-fn evaluate_bash(runtime: &HookRuntime, tool_input: &serde_json::Value) -> HookResponse {
+fn evaluate_bash(runtime: &HookRuntime, tool_input: &serde_json::Value) -> PermissionVerdict {
     let command = tool_input
         .get("command")
         .and_then(|v| v.as_str())
@@ -168,7 +231,7 @@ fn evaluate_bash(runtime: &HookRuntime, tool_input: &serde_json::Value) -> HookR
 
     if command.is_empty() {
         // Nothing to score — ask the user.
-        return HookResponse::Allow;
+        return PermissionVerdict::Ask;
     }
 
     // Try ast-grep risk patterns first (language-aware, most accurate).
@@ -198,20 +261,16 @@ fn evaluate_bash(runtime: &HookRuntime, tool_input: &serde_json::Value) -> HookR
             "VGP auto-allow: bash risk_score={risk_score:.2} < {BASH_ALLOW_THRESHOLD:.2} ({method})"
         );
         record_decision(&runtime.ctx.knowledge, "Bash", "allow");
-        build_allow_response(reason)
+        PermissionVerdict::Allow { reason }
     } else if risk_score >= BASH_DENY_THRESHOLD {
         let reason = format!(
             "VGP auto-deny: bash risk_score={risk_score:.2} >= {BASH_DENY_THRESHOLD:.2} ({method})"
         );
         record_decision(&runtime.ctx.knowledge, "Bash", "deny");
-        HookResponse::Deny {
-            reason,
-            context: None,
-            event_name: Some("PermissionRequest".to_string()),
-        }
+        PermissionVerdict::Deny { message: reason }
     } else {
         tracing::debug!(risk_score, "permission_request: bash middle-range — ask");
-        HookResponse::Allow
+        PermissionVerdict::Ask
     }
 }
 
@@ -258,14 +317,14 @@ fn bash_keyword_risk(command: &str) -> f32 {
 }
 
 /// Evaluate an Edit/Write tool permission request via blast-radius lookup.
-fn evaluate_edit_write(runtime: &HookRuntime, tool_input: &serde_json::Value) -> HookResponse {
+fn evaluate_edit_write(runtime: &HookRuntime, tool_input: &serde_json::Value) -> PermissionVerdict {
     let file_path = tool_input
         .get("file_path")
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
     if file_path.is_empty() {
-        return HookResponse::Allow;
+        return PermissionVerdict::Ask;
     }
 
     let rel_path = crate::hook_runtime::make_relative(file_path, &runtime.project_root);
@@ -283,46 +342,22 @@ fn evaluate_edit_write(runtime: &HookRuntime, tool_input: &serde_json::Value) ->
         let reason =
             format!("VGP auto-allow: blast_radius={blast_radius} < {BR_ALLOW_MAX} for {file_path}");
         record_decision(&runtime.ctx.knowledge, "Edit/Write", "allow");
-        build_allow_response(reason)
+        PermissionVerdict::Allow { reason }
     } else if blast_radius > BR_DENY_MIN {
         let reason =
             format!("VGP auto-deny: blast_radius={blast_radius} > {BR_DENY_MIN} for {file_path}");
         record_decision(&runtime.ctx.knowledge, "Edit/Write", "deny");
-        HookResponse::Deny {
-            reason,
-            context: None,
-            event_name: Some("PermissionRequest".to_string()),
-        }
+        PermissionVerdict::Deny { message: reason }
     } else {
         tracing::debug!(
             blast_radius,
             "permission_request: edit/write middle-range — ask"
         );
-        HookResponse::Allow
+        PermissionVerdict::Ask
     }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-/// Build an allow response that emits `permissionDecision: "allow"` JSON on stdout.
-///
-/// Note: `HookResponse::Allow` exits cleanly but produces no output. For
-/// PermissionRequest we need to emit the decision JSON before exit, so we
-/// serialize it inline here and return `Allow` (which calls `process::exit(0)`).
-fn build_allow_response(reason: String) -> HookResponse {
-    let output = serde_json::json!({
-        "hookSpecificOutput": {
-            "hookEventName": "PermissionRequest",
-            "permissionDecision": "allow",
-            "permissionDecisionReason": reason,
-        }
-    });
-    // Serialize; on failure emit nothing (still exits 0 — Claude Code will ask the user).
-    if let Ok(json) = serde_json::to_string(&output) {
-        println!("{json}");
-    }
-    HookResponse::Allow
-}
 
 /// Record the permission decision in the knowledge DB for RL learning.
 fn record_decision(knowledge: &crate::knowledge::FileKnowledgeDB, tool: &str, decision: &str) {
@@ -484,5 +519,123 @@ mod tests {
         let s = bash_keyword_risk("rm -rf /tmp/mydir");
         assert!(s >= BASH_ALLOW_THRESHOLD);
         assert!(s < BASH_DENY_THRESHOLD);
+    }
+}
+
+/// S26 (plan 2026-09-25) — the event's contract, and a durable store that means what it says.
+#[cfg(test)]
+mod s26_contract_tests {
+    use super::*;
+    use crate::approval_store::{ApprovalStatus, ApprovalStore};
+
+    fn runtime() -> (tempfile::TempDir, HookRuntime) {
+        let tmp = tempfile::TempDir::new().expect("tmp");
+        std::fs::create_dir_all(tmp.path().join(".claude/data")).expect("mkdir");
+        let rt = HookRuntime::new(tmp.path()).expect("runtime");
+        (tmp, rt)
+    }
+
+    fn at(json: &str, ptr: &str) -> Option<String> {
+        serde_json::from_str::<serde_json::Value>(json)
+            .ok()?
+            .pointer(ptr)?
+            .as_str()
+            .map(str::to_string)
+    }
+
+    #[test]
+    fn permission_request_emits_decision_behavior_schema() {
+        let allow = PermissionVerdict::Allow { reason: "r".into() }.to_json();
+        assert_eq!(
+            at(&allow, "/hookSpecificOutput/hookEventName").as_deref(),
+            Some("PermissionRequest")
+        );
+        assert_eq!(
+            at(&allow, "/hookSpecificOutput/decision/behavior").as_deref(),
+            Some("allow")
+        );
+        assert!(!allow.contains("permissionDecision"), "{allow}");
+        let deny = PermissionVerdict::Deny {
+            message: "m".into(),
+        }
+        .to_json();
+        assert_eq!(
+            at(&deny, "/hookSpecificOutput/decision/behavior").as_deref(),
+            Some("deny")
+        );
+        assert_eq!(
+            at(&deny, "/hookSpecificOutput/decision/message").as_deref(),
+            Some("m")
+        );
+        assert_eq!(
+            PermissionVerdict::Ask.to_json(),
+            "",
+            "ask is silence — Claude Code prompts"
+        );
+    }
+
+    #[test]
+    fn permission_ask_band_is_not_persisted_as_approved() {
+        let (_tmp, rt) = runtime();
+        let input = serde_json::json!({"tool_name": "Bash", "tool_input": {"command": "sudo apt install vim"}});
+        assert_eq!(run_returning(&rt, &input), PermissionVerdict::Ask);
+        let key = action_key("Bash", &input["tool_input"]);
+        let store = ApprovalStore::new(rt.ctx.knowledge.conn_ref());
+        store.ensure_table().expect("table");
+        assert!(
+            store.get(&key).expect("get").is_none(),
+            "ask must leave no durable row"
+        );
+    }
+
+    #[test]
+    fn machine_allow_is_not_recorded_as_human_approval() {
+        let (_tmp, rt) = runtime();
+        let input = serde_json::json!({"tool_name": "Bash", "tool_input": {"command": "ls -la"}});
+        assert!(matches!(
+            run_returning(&rt, &input),
+            PermissionVerdict::Allow { .. }
+        ));
+        let store = ApprovalStore::new(rt.ctx.knowledge.conn_ref());
+        store.ensure_table().expect("table");
+        assert!(
+            store
+                .get(&action_key("Bash", &input["tool_input"]))
+                .expect("get")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn durable_denial_expires_after_ttl() {
+        let (_tmp, rt) = runtime();
+        let input = serde_json::json!({"tool_name": "Bash", "tool_input": {"command": "ls -la"}});
+        let key = action_key("Bash", &input["tool_input"]);
+        let store = ApprovalStore::new(rt.ctx.knowledge.conn_ref());
+        store.ensure_table().expect("table");
+        let now = now_secs();
+        store
+            .upsert(&key, ApprovalStatus::Denied, "auto", now - 86_400)
+            .expect("fresh");
+        assert!(
+            matches!(run_returning(&rt, &input), PermissionVerdict::Deny { .. }),
+            "fresh denial resumed"
+        );
+        store
+            .upsert(
+                &key,
+                ApprovalStatus::Denied,
+                "auto",
+                now - DURABLE_DENIAL_TTL_SECS - 60,
+            )
+            .expect("old");
+        assert!(
+            matches!(run_returning(&rt, &input), PermissionVerdict::Allow { .. }),
+            "expired denial re-evaluated"
+        );
+        assert!(
+            store.get(&key).expect("get").is_none(),
+            "expired denial revoked"
+        );
     }
 }

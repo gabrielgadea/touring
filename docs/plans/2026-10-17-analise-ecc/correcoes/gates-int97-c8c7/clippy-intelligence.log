@@ -1,0 +1,63 @@
+    Checking tokio v1.52.3
+    Checking idna v1.1.0
+    Checking cranelift-codegen v0.123.14
+    Checking wasmtime-environ v36.0.14
+    Checking url v2.5.8
+    Checking tempfile v3.27.0
+    Checking naga v26.0.0
+    Checking ort v2.0.0-rc.12
+    Checking num_enum v0.7.6
+    Checking safetensors v0.8.0
+    Checking tokio-util v0.7.18
+    Checking tokio-rustls v0.26.4
+    Checking tower v0.5.3
+    Checking h2 v0.4.19
+    Checking tower-http v0.6.11
+    Checking salsa v0.18.0
+    Checking cargo-util-schemas v0.8.2
+    Checking wgpu-hal v26.0.6
+    Checking fastembed v5.17.2
+    Checking hyper v1.10.1
+    Checking deadpool-runtime v0.3.1
+    Checking zip v1.1.4
+    Checking hyper-util v0.1.20
+    Checking touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+    Checking hyper-rustls v0.27.9
+    Checking wgpu-core-deps-windows-linux-android v26.0.0
+    Checking wgpu-core v26.0.1
+    Checking cargo_metadata v0.21.0
+    Checking reqwest v0.12.28
+    Checking candle-core v0.8.4
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+    Checking notify-debouncer-mini v0.5.0
+    Checking wgpu v26.0.1
+    Checking cargo-lock v11.0.1
+    Checking cranelift-frontend v0.123.14
+    Checking cranelift-native v0.123.14
+    Checking wasmtime-internal-unwinder v36.0.14
+    Checking wasmtime-internal-cranelift v36.0.14
+    Checking rustsec v0.33.0
+    Checking candle-nn v0.8.4
+    Checking deadpool v0.13.1
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+    Checking touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Checking wasmtime v36.0.14
+    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+    Checking deadpool-sync v0.2.0
+    Checking wait-timeout v0.2.1
+    Checking rusty-fork v0.3.1
+    Checking candle-transformers v0.8.4
+    Checking deadpool-sqlite v0.14.0
+    Checking rand_xorshift v0.4.0
+    Checking criterion v0.5.1
+    Checking proptest v1.11.0
+    Checking rstest v0.26.1
+    Checking wasmtime-c-api-impl v36.0.12
+    Checking tree-sitter v0.26.9
+    Checking ast-grep-core v0.42.3
+    Checking tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+    Checking ast-grep-language v0.42.3
+    Checking touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+    Checking touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 01s

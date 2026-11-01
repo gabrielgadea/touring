@@ -1,0 +1,45 @@
+{
+  "phase": "B1",
+  "entities": [
+    {
+      "entity_id": "phase:B1",
+      "type": "phase",
+      "description": "CEG: tmp PRIVADO por run (RunTmp touring-run-*, TMPDIR apontado para ele, Landlock troca /tmp,/var/tmp pelo dir do run + /dev), limpeza medida em SandboxResult.tmp_bytes (TOURING_RUN_KEEP_TMP=1 preserva), SandboxConfig.extra_write_roots atravessa spawn_and_capture_in\u2192apply_landlock_to para que os write_roots da policy X8 sobrevivam aos rulesets empilhados (Landlock intersecta). touring-ceg 582/582 verdes; clippy -D warnings limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1788340910617776382:B1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788340910617776382",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788340910617776382",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B1|produces|memory:loop:task_1788340910617776382:B1:done",
+      "source": "phase:B1",
+      "type": "produces",
+      "target": "memory:loop:task_1788340910617776382:B1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B1:done|generated-by|loop:loop:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788340910617776382"
+    },
+    {
+      "relation_id": "memory:loop:task_1788340910617776382:B1:done|generated-by|dag:decomp:task_1788340910617776382",
+      "source": "memory:loop:task_1788340910617776382:B1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788340910617776382"
+    }
+  ]
+}

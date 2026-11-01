@@ -1,0 +1,45 @@
+{
+  "phase": "R3-4",
+  "entities": [
+    {
+      "entity_id": "phase:R3-4",
+      "type": "phase",
+      "description": "Robustez: 2 builds frios byte-id\u00eanticos (cards, wiring.json, ask-index); SIGKILL aos 4 s de 15 s \u2192 0 arquivos, ask 105 ms, check NO GRAPH; 4 asks concorrentes ap\u00f3s edi\u00e7\u00e3o: 1 refresh, sa\u00eddas id\u00eanticas, caches \u00edntegros (LOCK_WAIT_MS 2000); sem .git e vazio degradam sem erro; ACHADO: cards markdown n\u00e3o reprojetados pelo refresh incremental (wiring/ask-index/skeleton sabem, card n\u00e3o; s\u00f3 build reescreve) \u2014 n\u00e3o reportado upstream; teto 1 MB silencioso com mensagens enganosas em grep/skeleton; 105,7 s observado 1\u00d7 n\u00e3o reproduzido."
+    },
+    {
+      "entity_id": "memory:loop:task_1789261519392597087:R3-4:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789261519392597087",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789261519392597087",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R3-4|produces|memory:loop:task_1789261519392597087:R3-4:done",
+      "source": "phase:R3-4",
+      "type": "produces",
+      "target": "memory:loop:task_1789261519392597087:R3-4:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-4:done|generated-by|loop:loop:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-4:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789261519392597087"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-4:done|generated-by|dag:decomp:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-4:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789261519392597087"
+    }
+  ]
+}

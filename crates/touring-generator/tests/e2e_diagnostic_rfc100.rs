@@ -12,33 +12,12 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-/// Locate the touring binary across every target dir a run might use.
-///
-/// `cargo llvm-cov` redirects the build to `target/llvm-cov-target/`, so a
-/// binary produced by a plain `cargo build` is invisible from inside a coverage
-/// run — which is exactly how the CI coverage job failed on 2026-08-02. An
-/// explicit `CARGO_TARGET_DIR` is honoured first for the same reason.
-fn locate_binary(name: &str) -> Option<PathBuf> {
-    let workspace_target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| p.parent())
-        .map(|p| p.join("target"))?;
-
-    let roots = [
-        std::env::var_os("CARGO_TARGET_DIR").map(PathBuf::from),
-        Some(workspace_target.join("llvm-cov-target")),
-        Some(workspace_target),
-    ];
-    for root in roots.into_iter().flatten() {
-        for profile in ["release", "debug"] {
-            let candidate = root.join(profile).join(name);
-            if candidate.exists() {
-                return Some(candidate);
-            }
-        }
-    }
-    None
-}
+// 21/08/2026: every `touring` this file spawns talks to a daemon PRIVATE to this
+// test process (shared helper; see its header for why).
+#[path = "../../touring-hooks/tests/common/private_daemon.rs"]
+#[allow(dead_code)]
+mod private_daemon;
+use private_daemon::{locate_binary, private_daemon_env};
 
 /// Resolve the binary or SKIP the test — never panic with a "skipping" message.
 ///
@@ -55,8 +34,8 @@ fn touring_bin_or_skip() -> Option<PathBuf> {
         let test = std::thread::current().name().unwrap_or("test").to_string();
         eprintln!(
             "SKIP {test}: touring binary not built. Build it first: \
-             `cargo build -p touring-server` (looked in $CARGO_TARGET_DIR, \
-             target/llvm-cov-target/{{release,debug}} and target/{{release,debug}})."
+             `cargo build -p touring-server` (looked in $CARGO_TARGET_DIR, this test's own build root, \
+             target/ and target/llvm-cov-target/)."
         );
         None
     })
@@ -71,6 +50,7 @@ fn run_with_stdin(
 ) -> Option<(String, String, i32)> {
     let bin = locate_binary(bin_name)?;
     let mut child = Command::new(&bin)
+        .envs(private_daemon_env())
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -121,6 +101,7 @@ fn g400_emits_when_vgp_fails_for_missing_symbols() {
         return;
     };
     let out = Command::new(&bin)
+        .envs(private_daemon_env())
         .args([
             "generate",
             "plan-submit",
@@ -177,6 +158,7 @@ fn g401_path_responds_to_plan_speculate_command() {
     std::fs::write(tmp.path(), &plan_json).expect("write plan file");
 
     let out = Command::new(&bin)
+        .envs(private_daemon_env())
         .args([
             "generate",
             "plan-speculate",
@@ -216,6 +198,7 @@ fn generator_binary_wired_and_healthy() {
         return;
     };
     let out = Command::new(&bin)
+        .envs(private_daemon_env())
         .args(["doctor", "-j"])
         .output()
         .expect("spawn doctor");

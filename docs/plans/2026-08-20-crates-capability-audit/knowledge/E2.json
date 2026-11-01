@@ -1,0 +1,11 @@
+{
+  "phase": "E2",
+  "entities": [
+    {
+      "entity_id": "phase:E2",
+      "type": "phase",
+      "description": "E2: RECUSADA POR DECISAO HUMANA (Gabriel, 20/08/2026) - nenhum codigo alterado, settings.json intocado. A medicao permanece valida e fica documentada em vez de silenciada: touring-hook declara 40 eventos, o settings.json registra 33, e 7 nunca disparam - pii-scan, qa-syntax, session-audit, session-insights, session-end, classify, metrics. A consequencia concreta e que DETECCAO DE PII NAO RODA EM SESSAO ALGUMA neste ambiente. Eu propus registrar em modo observacao primeiro (medir taxa de acerto antes de deixar bloquear), porque o repositorio tem chaves de exemplo, hashes e fixtures e um guard que grita demais e um guard que se desliga. Gabriel optou por nao registrar e encerrar o DAG em 18/19 entregues. O portao humano da skill lista settings.json junto de deploy e git; a decisao e dele por construcao, nao por cautela minha. Lacuna registrada como ABERTA e CONHECIDA."
+    }
+  ],
+  "relations": []
+}

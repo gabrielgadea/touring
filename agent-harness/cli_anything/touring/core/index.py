@@ -1,3 +1,5 @@
+# touring-quality:allow-attack-fixture — F2.1/CWE-89 FP: a coluna interpolada vem de uma whitelist literal de 2 constantes
+# (FILE_COLUMN = {legacy: file, v5: file_path}); os valores são parametrizados (?, ?).
 """Symbol index operations against touring_symbols.db or touring/symbols.db.
 
 Supports both legacy schema (name, kind, file, line, language) and
@@ -22,6 +24,13 @@ def _detect_schema(conn: Any) -> str:
     if "kind" in columns and "file" in columns:
         return "legacy"
     return "v5"
+
+
+# The file-path column of each schema [`_detect_schema`] can answer — the ONE whitelist every query
+# that interpolates the column name reads (F2.1/CWE-89: the identifier never comes from outside it).
+# Its keys are the detector's answers: the first copy said `current` where the detector says `v5`, and
+# `index status` raised `KeyError: 'v5'` on every current store (cross-audit 04/10/2026, X3).
+FILE_COLUMN = {"legacy": "file", "v5": "file_path"}
 
 
 def search(query: str, *, limit: int = 10, kind: str | None = None) -> list[dict[str, Any]]:
@@ -110,7 +119,7 @@ def status() -> dict[str, Any]:
     with connect(SYMBOLS_DB) as conn:
         schema = _detect_schema(conn)
         total = conn.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
-        fcol = "file" if schema == "legacy" else "file_path"
+        fcol = FILE_COLUMN[schema]
         total_files = conn.execute(f"SELECT COUNT(DISTINCT {fcol}) FROM symbols").fetchone()[0]
         by_language: dict[str, int] = {}
         by_kind: dict[str, int] = {}
@@ -143,7 +152,7 @@ def files(pattern: str | None = None, *, limit: int = 20) -> list[dict[str, Any]
     """
     with connect(SYMBOLS_DB) as conn:
         schema = _detect_schema(conn)
-        fcol = "file" if schema == "legacy" else "file_path"
+        fcol = FILE_COLUMN[schema]
         lang_agg = ", GROUP_CONCAT(DISTINCT language) as languages" if schema == "legacy" else ""
 
         if pattern:
@@ -186,12 +195,11 @@ def file_overview(file_path: str) -> dict[str, Any]:
     """
     with connect(SYMBOLS_DB) as conn:
         schema = _detect_schema(conn)
+        fcol = FILE_COLUMN[schema]
         if schema == "legacy":
             cols = "name, kind, file, line, language"
-            fcol = "file"
         else:
             cols = "name, file_path as file, line"
-            fcol = "file_path"
 
         rows = conn.execute(
             f"""

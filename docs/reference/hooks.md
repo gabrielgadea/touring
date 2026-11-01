@@ -4,7 +4,7 @@
 
 Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 
-**Count: 219**
+**Count: 241**
 
 - `ceg-observe`
 - `cli-ast-blast`
@@ -34,15 +34,21 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-cascade-queue-drain`
 - `cli-cascade-queue-status`
 - `cli-change-contract`
+- `cli-code-mode-run`
 - `cli-cognitive-engines`
 - `cli-cognitive-metrics`
 - `cli-decompose-add`
+- `cli-decompose-claim`
 - `cli-decompose-create`
 - `cli-decompose-event`
 - `cli-decompose-finalize`
+- `cli-decompose-frontier`
 - `cli-decompose-get`
 - `cli-decompose-ready`
+- `cli-decompose-release`
+- `cli-decompose-renew`
 - `cli-decompose-status`
+- `cli-decompose-ticket`
 - `cli-decompose-update`
 - `cli-decompose-validate`
 - `cli-definitions-classify`
@@ -58,6 +64,8 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-evolution-drift`
 - `cli-evolution-insights`
 - `cli-evolution-tools`
+- `cli-experiment-list`
+- `cli-experiment-record`
 - `cli-file-knowledge-audit`
 - `cli-file-knowledge-extended`
 - `cli-file-knowledge-populate`
@@ -70,6 +78,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-gotcha-init`
 - `cli-gotcha-list`
 - `cli-gotcha-match`
+- `cli-gotcha-resolve`
 - `cli-gotcha-stats`
 - `cli-gotcha-sync`
 - `cli-granularity-hint`
@@ -89,6 +98,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-index-rebuild`
 - `cli-index-search`
 - `cli-index-status`
+- `cli-index-why`
 - `cli-inferlets-list`
 - `cli-inferlets-run`
 - `cli-jobs-drop`
@@ -96,15 +106,26 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-jobs-poll`
 - `cli-jobs-spawn`
 - `cli-kpi`
+- `cli-learning-replay`
 - `cli-learning-reward`
 - `cli-learning-status`
 - `cli-mcts-search`
+- `cli-memory-backfill-tags`
+- `cli-memory-communities`
 - `cli-memory-credit`
+- `cli-memory-link`
+- `cli-memory-links`
 - `cli-memory-list`
+- `cli-memory-moc`
+- `cli-memory-query`
 - `cli-memory-recall`
 - `cli-memory-reindex`
 - `cli-memory-stats`
 - `cli-memory-store`
+- `cli-memory-sync-tags`
+- `cli-memory-tag-add`
+- `cli-memory-tags`
+- `cli-memory-unlink`
 - `cli-metadata-backfill`
 - `cli-mpatch-preview`
 - `cli-mutation-test`
@@ -171,6 +192,7 @@ Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.
 - `cli-wiring-modules`
 - `cli-wiring-orphans`
 - `cli-wiring-purpose`
+- `cli-wiring-scip-ingest`
 - `cli-wiring-status`
 - `cli-wiring-suggest`
 - `cli-workflow-compare`

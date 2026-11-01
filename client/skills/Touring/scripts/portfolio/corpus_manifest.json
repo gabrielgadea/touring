@@ -1,0 +1,11 @@
+{
+  "arquivo": "~/.claude/touring/portfolio_eval/corpus-2026-10-28.jsonl.gz",
+  "sha256_conteudo": "2b7ae5630ab7768c91986ea6d647000fb58d43676b299a022e03b53e1128de55",
+  "itens": 3093,
+  "transcripts": 473,
+  "por_origem": {
+    "Bash.heredoc": 269,
+    "Write": 2824
+  },
+  "metodo": "unidades do minerador de 27/10 em que o predicado do hook instalado dispara, conteúdo não vazio"
+}

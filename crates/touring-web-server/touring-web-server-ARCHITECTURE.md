@@ -22,14 +22,14 @@ Axum-based HTTP server binary that serves the touring-web WASM frontend. Provide
 ## Responsibilities
 
 - Serves touring-web WASM bundle as static assets
-- Provides API endpoints for touring-core RPC
+- Provides API endpoints for touring-foundation (era touring-core) RPC
 - WebSocket handler for real-time streaming (health delta, progress updates)
 - Manages session snapshots for hot reload
 
 ## Integration Points
 
 - `touring-web`: WASM frontend served as static assets
-- `touring-core`: RPC API endpoints
+- `touring-foundation` (era touring-core): RPC API endpoints
 - touring daemon: WebSocket streaming for real-time updates
 
 ## Technology

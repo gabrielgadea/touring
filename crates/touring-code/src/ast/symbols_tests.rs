@@ -200,6 +200,36 @@ router = make_router()\n";
     );
 }
 
+/// 26/09/2026: `PRESIDENTE, GOVERNADOR, SENADOR, PREFEITO = "1", "3", "5", "11"` at
+/// module level (analise, `scripts/eleitoral/teto_campo_tse.py`) left all four names
+/// out of the symbol table — the query matched only `left: (identifier)` — so every
+/// `tse.SENADOR` consumer read as a phantom and kept the doctor's `kind_unknown` > 0.
+/// Each name of a tuple-unpacked module binding is its own symbol.
+#[test]
+fn test_module_tuple_unpacking_defines_every_name() {
+    let source = "PRESIDENTE, GOVERNADOR, SENADOR = \"1\", \"3\", \"5\"\n\
+(low, high) = 0, 9\n\
+PLAIN = 1\n\
+def f():\n    inner_a, inner_b = 1, 2\n    return inner_a + inner_b\n";
+    let symbols = extract_symbols(source, Lang::Python).unwrap();
+    let kind_of = |n: &str| {
+        symbols
+            .iter()
+            .find(|s| s.name == n)
+            .map(|s| s.kind.as_str().to_string())
+    };
+    let names: Vec<(&String, &str)> = symbols.iter().map(|s| (&s.name, s.kind.as_str())).collect();
+    for name in ["PRESIDENTE", "GOVERNADOR", "SENADOR"] {
+        assert_eq!(kind_of(name).as_deref(), Some("const"), "{name}: {names:?}");
+    }
+    assert_eq!(kind_of("low").as_deref(), Some("variable"), "{names:?}");
+    assert_eq!(kind_of("high").as_deref(), Some("variable"), "{names:?}");
+    // controls: the plain binding is unchanged; a function-local unpacking is not a
+    // module symbol
+    assert_eq!(kind_of("PLAIN").as_deref(), Some("const"), "{names:?}");
+    assert_eq!(kind_of("inner_a"), None, "{names:?}");
+}
+
 #[test]
 fn test_extract_typescript_namespace() {
     let source = "namespace Utils {\n  export function helper() {}\n}\n\nfunction main() {}";
@@ -736,4 +766,76 @@ fn symbol_kind_iter_works() {
     // iter() covers named variants — ensure Struct and Enum are present
     assert!(kinds.contains(&SymbolKind::Struct));
     assert!(kinds.contains(&SymbolKind::Enum));
+}
+
+/// S8/S9 (2026-09-02): in TS/JS the `export` keyword lives on the wrapping
+/// `export_statement` node, NOT on the declaration — `detect_visibility` read
+/// only the declaration text, so every exported function/class was reported
+/// as non-public (the hooks' API preview then saw an empty public surface).
+#[test]
+fn typescript_and_javascript_exported_declarations_are_public() {
+    let ts = "export function total(a: number, b: number): number {\n  return a + b;\n}\n\
+function hidden() {}\n\
+export class Calc {\n  add(a: number, b: number): number {\n    return a + b;\n  }\n}\n\
+export const scale = (x: number) => x * 2;\n";
+    let syms = extract_symbols(ts, Lang::TypeScript).expect("ts symbols");
+    let public: Vec<&str> = syms
+        .iter()
+        .filter(|s| s.is_public)
+        .map(|s| s.name.as_str())
+        .collect();
+    assert!(
+        public.contains(&"total"),
+        "exported function must be public: {public:?}"
+    );
+    assert!(
+        public.contains(&"Calc"),
+        "exported class must be public: {public:?}"
+    );
+    assert!(
+        !public.contains(&"hidden"),
+        "non-exported function stays module-private: {public:?}"
+    );
+    if syms.iter().any(|s| s.name == "scale") {
+        assert!(
+            public.contains(&"scale"),
+            "exported arrow const must be public: {public:?}"
+        );
+    }
+
+    let js = "export function total(a, b) {\n  return a + b;\n}\nfunction hidden() {}\n";
+    let syms = extract_symbols(js, Lang::JavaScript).expect("js symbols");
+    let total = syms
+        .iter()
+        .find(|s| s.name == "total")
+        .expect("total extracted");
+    assert!(total.is_public, "JS exported function must be public");
+    let hidden = syms
+        .iter()
+        .find(|s| s.name == "hidden")
+        .expect("hidden extracted");
+    assert!(!hidden.is_public);
+}
+
+/// B4 (15/09/2026): visibility read `def `/`class ` out of the node text, so a
+/// module-level binding had neither and fell through to public — `_FORMAS = {…}`
+/// entered the wiring graph as a public symbol, eligible to be an orphan.
+#[test]
+fn a_python_module_binding_takes_the_visibility_of_its_name() {
+    let py = "_FORMAS = {1: 'um'}\nNUMERAL = 2\n__MANGLED = 3\n__version__ = '1.0'\n\n\ndef _helper():\n    return _FORMAS\n\n\ndef helper():\n    return NUMERAL\n";
+    let syms = extract_symbols(py, Lang::Python).expect("python symbols");
+    let by = |name: &str| {
+        syms.iter()
+            .find(|s| s.name == name)
+            .unwrap_or_else(|| panic!("{name} extracted: {syms:?}"))
+    };
+    assert!(!by("_FORMAS").is_public, "{:?}", by("_FORMAS"));
+    assert_eq!(by("_FORMAS").visibility, Some(Visibility::Private));
+    assert!(!by("__MANGLED").is_public);
+    assert_eq!(by("__MANGLED").visibility, Some(Visibility::Protected));
+    // The public ones are untouched: a constant, a dunder and a function.
+    assert!(by("NUMERAL").is_public);
+    assert!(by("__version__").is_public, "a dunder is not private");
+    assert!(by("helper").is_public);
+    assert!(!by("_helper").is_public);
 }

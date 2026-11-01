@@ -96,6 +96,13 @@ pub trait KnowledgeSource: Send + Sync {
     fn file_relations(&self) -> Vec<FileRelation>;
     /// Retrieve recent bash outcomes for context enrichment.
     fn recent_bash_outcomes(&self, limit: usize) -> Vec<BashOutcomeRecord>;
+    /// S22: recent outcomes of ONE session that a hook event recorded (newest first) —
+    /// the source of the session's "last fail"; other sessions never leak into it.
+    fn recent_bash_outcomes_for_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Vec<BashOutcomeRecord>;
     /// Retrieve co-edit pairs for file prediction.
     fn coedit_pairs(&self) -> Vec<CoEditPair>;
     /// Retrieve gotchas matching a file path.

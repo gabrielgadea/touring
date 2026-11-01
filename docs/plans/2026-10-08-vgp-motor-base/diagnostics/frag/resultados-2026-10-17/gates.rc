@@ -1,0 +1,12 @@
+fmt rc=0 6s
+clippy --workspace --all-targets -D warnings rc=0 347s
+test touring-code rc=0 357s
+test touring-pyright rc=0 12s
+test touring-hook-handlers (features) rc=0 274s
+test touring-hooks-core rc=0 126s
+test touring-cli rc=0 86s
+build touring (debug) rc=0 384s
+build touring-daemon (debug) rc=0 110s
+test touring-server rc=0 114s
+FALHAS=0
+GATES_OK

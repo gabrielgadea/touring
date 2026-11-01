@@ -1,0 +1,27 @@
+### 02-red-live-mover :: cargo test -p touring-cortex --lib -- td_learning_loop_never_moves_an_entry_between_tiers --nocapture
+### start 2026-10-18T03:02:24-03:00
+   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-cortex)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.79s
+    Blocking waiting for file lock on package cache
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-tiers/debug/deps/touring_cortex-130db91194c7ae72)
+
+running 1 test
+
+thread 'handlers::learning::tests::td_learning_loop_never_moves_an_entry_between_tiers' (3410818) panicked at crates/touring-cortex/src/handlers/learning.rs:399:13:
+assertion `left == right` failed: tier-probe:ephemeral must still be found at its original address (ephemeral)
+  left: None
+ right: Some("tier probe value")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test handlers::learning::tests::td_learning_loop_never_moves_an_entry_between_tiers ... FAILED
+
+failures:
+
+failures:
+    handlers::learning::tests::td_learning_loop_never_moves_an_entry_between_tiers
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 863 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p touring-cortex --lib`
+### end 2026-10-18T03:02:49-03:00 rc=101

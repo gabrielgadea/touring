@@ -158,7 +158,9 @@ pub fn run(args: &[String]) -> Result<()> {
             if requested {
                 Ok(())
             } else {
-                Err(anyhow!("missing or unknown subcommand"))
+                Err(anyhow!(
+                    "missing or unknown subcommand — use `touring component --help` for available commands"
+                ))
             }
         }
     }
@@ -211,11 +213,23 @@ fn walk_up(start: &Path) -> Option<PathBuf> {
     }
 }
 
+/// A leftover copy kept next to a real binary, never a component: `touring.old`,
+/// `touring-quality.real.bak`, `touring-quality-score.bak-20260903`.
+///
+/// `update-touring` and manual swaps leave these in the very directories component
+/// discovery reads (`~/.local/bin` is the dev channel dir), so without the filter
+/// `component list` offered five backups as optional components. Only the listing
+/// skips them; the files are never touched.
+fn is_backup_artifact(name: &str) -> bool {
+    name.ends_with(".old") || name.ends_with(".bak") || name.contains(".bak-")
+}
+
 /// Enumerate core + optional components with their per-project status.
 ///
 /// Optional discovery: every non-core binary in the active toolchain's `bin/`
 /// plus `touring-*`-named binaries from the dev channel dir (curated by
-/// prefix — the dev dir holds unrelated user binaries too).
+/// prefix — the dev dir holds unrelated user binaries too). Backup copies
+/// ([`is_backup_artifact`]) are not components.
 pub(crate) fn list_components(
     dot_touring: &Path,
     touring_home: &Path,
@@ -229,6 +243,7 @@ pub(crate) fn list_components(
             for e in entries.flatten() {
                 if let Ok(name) = e.file_name().into_string()
                     && !PROJECT_BINARIES.contains(&name.as_str())
+                    && !is_backup_artifact(&name)
                 {
                     optional.push(name);
                 }
@@ -240,6 +255,7 @@ pub(crate) fn list_components(
             if let Ok(name) = e.file_name().into_string()
                 && name.starts_with("touring")
                 && !PROJECT_BINARIES.contains(&name.as_str())
+                && !is_backup_artifact(&name)
                 && !optional.contains(&name)
             {
                 optional.push(name);
@@ -281,7 +297,9 @@ pub(crate) fn add_component(
     dev_bin_dir: &Path,
 ) -> Result<()> {
     if name.trim().is_empty() {
-        return Err(anyhow!("component name cannot be empty"));
+        return Err(anyhow!(
+            "component name cannot be empty — use `touring component add <name>`"
+        ));
     }
     if PROJECT_BINARIES.contains(&name) {
         return Err(anyhow!(
@@ -292,18 +310,18 @@ pub(crate) fn add_component(
     let target = resolve_binary_target(name, channel.as_deref(), touring_home, dev_bin_dir)
         .ok_or_else(|| {
             anyhow!(
-                "component {name} not found in toolchain {:?} nor dev channel {} — is it installed?",
+                "component {name} not found in toolchain {:?} or channel {} — try `touring component list` to see available components",
                 channel.as_deref().unwrap_or("<unpinned>"),
                 dev_bin_dir.display()
             )
         })?;
     let bin_dir = dot_touring.join("bin");
     std::fs::create_dir_all(&bin_dir)
-        .map_err(|e| anyhow!("create_dir_all {}: {e}", bin_dir.display()))?;
+        .map_err(|e| anyhow!("failed to create {}: {e} — run `df -h .` to check disk space and directory permissions", bin_dir.display()))?;
     let link = bin_dir.join(name);
     let _ = std::fs::remove_file(&link);
     std::os::unix::fs::symlink(&target, &link)
-        .map_err(|e| anyhow!("symlink {} -> {}: {e}", link.display(), target.display()))?;
+        .map_err(|e| anyhow!("failed to symlink {} -> {}: {e} — run `ls -la` on both paths to verify target exists and permissions allow symlinking", link.display(), target.display()))?;
     Ok(())
 }
 
@@ -316,9 +334,16 @@ pub(crate) fn remove_component(dot_touring: &Path, name: &str) -> Result<()> {
     }
     let link = dot_touring.join("bin").join(name);
     if !link.is_symlink() && !link.exists() {
-        return Err(anyhow!("component {name} is not linked in this project"));
+        return Err(anyhow!(
+            "component {name} is not linked in this project — use `touring component list` to see installed components"
+        ));
     }
-    std::fs::remove_file(&link).map_err(|e| anyhow!("remove {}: {e}", link.display()))?;
+    std::fs::remove_file(&link).map_err(|e| {
+        anyhow!(
+            "failed to remove {}: {e} — run `ls -la` on the parent directory to check ownership",
+            link.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -462,5 +487,72 @@ mod tests {
         let dot = make_project(&tmp.path().join("proj"), "vA");
         let err = remove_component(&dot, "touring-quality").expect_err("must fail");
         assert!(format!("{err}").contains("not linked"), "{err}");
+    }
+
+    #[test]
+    fn backup_artifacts_are_not_components() {
+        // The five files the report found in ~/.local/bin, in both discovery dirs.
+        let backups = [
+            "touring-daemon.old",
+            "touring-hook.old",
+            "touring-quality-score.bak-20260903",
+            "touring-quality.real.bak",
+            "touring.old",
+        ];
+        let tmp = tempfile::tempdir().expect("tmp");
+        let th = tmp.path().join("th");
+        let tc_bin = th.join("toolchains/vA/bin");
+        let dev = tmp.path().join("dev-bin");
+        for b in PROJECT_BINARIES {
+            fake_bin(&tc_bin, b);
+        }
+        fake_bin(&tc_bin, "touring-quality");
+        fake_bin(&dev, "touring-sidecar");
+        for b in backups {
+            fake_bin(&tc_bin, b);
+            fake_bin(&dev, b);
+        }
+        let dot = make_project(&tmp.path().join("proj"), "vA");
+
+        let rows = list_components(&dot, &th, &dev);
+        let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
+        for b in backups {
+            assert!(!names.contains(&b), "{b} listed as a component: {names:?}");
+        }
+        // The real optionals of both directories are still there.
+        assert!(names.contains(&"touring-quality"), "{names:?}");
+        assert!(names.contains(&"touring-sidecar"), "{names:?}");
+        // ...and the backups were only hidden, not deleted.
+        for b in backups {
+            assert!(
+                tc_bin.join(b).exists() && dev.join(b).exists(),
+                "{b} removed"
+            );
+        }
+    }
+
+    #[test]
+    fn is_backup_artifact_matches_the_leftover_spellings_only() {
+        for yes in [
+            "touring.old",
+            "touring-daemon.old",
+            "x.bak",
+            "touring-quality.real.bak",
+            "touring-quality-score.bak-20260903",
+            "x.bak-1788131825",
+        ] {
+            assert!(is_backup_artifact(yes), "{yes}");
+        }
+        for no in [
+            "touring",
+            "touring-quality",
+            "touring-oldies",
+            "touring-bakery",
+            "touring.bak.sh",
+            "touring-old",
+            "olds",
+        ] {
+            assert!(!is_backup_artifact(no), "{no}");
+        }
     }
 }

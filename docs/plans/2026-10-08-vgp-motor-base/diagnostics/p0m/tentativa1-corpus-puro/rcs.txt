@@ -1,0 +1,7 @@
+selo_antes rc=0
+f55ec4b5 v2 rc=1
+f55ec4b5 V3 rc=1
+e935aaf1 v2 rc=1
+e935aaf1 V3 rc=1
+selo_depois rc=0
+FIM

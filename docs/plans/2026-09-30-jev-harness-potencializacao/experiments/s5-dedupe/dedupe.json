@@ -1,0 +1,496 @@
+{
+  "subtask": "S-5.5",
+  "db": "/home/gabrielgadea/projects/touring/.claude/touring/memory.db",
+  "similarity_floor": 0.85,
+  "min_length": 60,
+  "cap_entries_compared": 400,
+  "generated_at": "2026-10-08T17:03:09-0300",
+  "summary": {
+    "entries_scanned": 21016,
+    "groups": 73,
+    "entries_in_groups": 7886,
+    "excess_entries": 7813,
+    "groups_by_kind": {
+      "exact_normalized": 73
+    },
+    "redundant_key_groups": 3,
+    "redundant_key_excess": 5,
+    "near_pairs_found": 11,
+    "near_pairs_judged": 0,
+    "near_pairs_flagged_same_fact": 0,
+    "writes_performed": 0,
+    "deletions_performed": 0,
+    "note": "sinal, não verdade — nenhum par vira deleção aqui"
+  },
+  "groups": [
+    {
+      "signal_kind": "exact_normalized",
+      "count": 7679,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 7678,
+      "sample_key": "insight:cila_progression:1787517420",
+      "text": "insufficient compliance data for cila progression analysis",
+      "total_accesses": 11160
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 12,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 11,
+      "sample_key": "vgp:create:crates/touring-bindings/src/web/components/area_chart.rs:SPEC",
+      "text": "{\"symbol\":\"spec\",\"status\":\"verified\"}",
+      "total_accesses": 12
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 9,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 8,
+      "sample_key": "vgp:create-script:wiring_integrity_gate:CLI",
+      "text": "{\"symbol\":\"cli\",\"status\":\"verified\"}",
+      "total_accesses": 57
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 7,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 6,
+      "sample_key": "vgp:create-script:minimax_solver:API",
+      "text": "{\"symbol\":\"api\",\"status\":\"verified\"}",
+      "total_accesses": 50
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 6,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 5,
+      "sample_key": "vgp:create:crates/touring-hooks/src/gateway/deps.rs:CEG",
+      "text": "{\"symbol\":\"ceg\",\"status\":\"verified\"}",
+      "total_accesses": 144
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 5,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 4,
+      "sample_key": "stress-test-1",
+      "text": "validating no embedding error after fix",
+      "total_accesses": 5
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 5,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 4,
+      "sample_key": "vgp:create-crate:touring-dispatch:HookRuntime",
+      "text": "{\"symbol\":\"hookruntime\",\"status\":\"verified\"}",
+      "total_accesses": 18
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 5,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 4,
+      "sample_key": "vgp:create:crates/touring-bindings/src/web/routes/mcp.rs:MCP",
+      "text": "{\"symbol\":\"mcp\",\"status\":\"verified\"}",
+      "total_accesses": 10
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": true,
+      "key_stem": "e2e:hashtag-library:f1",
+      "excess": 3,
+      "sample_key": "e2e:hashtag-library:f1:1786494165",
+      "text": "render diorama map artifact with layered data_layers and zoom controls",
+      "total_accesses": 4
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "licao:filtro-teste-zero:2026-09-14",
+      "text": "ver ~/.claude/projects/-home-gabrielgadea-projects-touring/memory/ (cross-audit r2 14/09/2026, docs/audits/cross-audit-2026-09-14-r2.md)",
+      "total_accesses": 792
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "vgp:create-crate:touring-contracts:JSON",
+      "text": "{\"symbol\":\"json\",\"status\":\"verified\"}",
+      "total_accesses": 17
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "vgp:create-script:build_lite_bench:SWE",
+      "text": "{\"symbol\":\"swe\",\"status\":\"verified\"}",
+      "total_accesses": 10
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "vgp:create:/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/insights.rs:FileKnowledgeDB",
+      "text": "{\"symbol\":\"fileknowledgedb\",\"status\":\"verified\"}",
+      "total_accesses": 29
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "vgp:create:crates/touring-hooks-shared/src/forbidden_patterns.rs:REGRA",
+      "text": "{\"symbol\":\"regra\",\"status\":\"verified\"}",
+      "total_accesses": 60
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "vgp:create:crates/touring-hooks/src/drift_corrector.rs:HarnessQuality",
+      "text": "{\"symbol\":\"harnessquality\",\"status\":\"verified\"}",
+      "total_accesses": 17
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 4,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 3,
+      "sample_key": "vgp:create:crates/touring-hooks/src/gateway/drift_corrector.rs:INTO",
+      "text": "{\"symbol\":\"into\",\"status\":\"verified\"}",
+      "total_accesses": 38
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "Fechamento Jev x Touring (01/10): a familia decision esta VIVA na 30.4.89 e le producao de verdade. by_question no journal real mostra DEZ chamadores distintos que eu nao conhecia quando escrevi a regua: kind 1056, intent 121, relevant 45, c0 22, multi:2 12, multi:4 11, which_skill 3, same_fact 10 (o dedupe), multi:3 1, multi:7 1. Ou seja: seis perguntas com nome mais quatro chamadas multi-pergunta. A regua queStarted separando duas (kind + which_skill) ja estava separando DEZ — o campo nao custou nada e revelou a topologia real do wire. keyword_fallback_rate com flag_active=true e laya 1/keyword 2 (o W4.4 dela). recall_curated_share MEDIDO com 93 candidatos e 0 injetados — 0,0 e medido, nao ausente, e e o sinal que o recall computa sem consumidor. first_fallback_at qualifica o bug da linha 285 como JA CORRIGIDO (2026-10-01T09:02:50). Registro: o wire e um recurso compartilhado e o numero de chamadores cresce mais rapido que o numero de perguntas nomeadas — a metrica por pergunta era a unica forma de o ver.",
+      "text": "kind:lesson purpose:kpi scope:jev-w3 status:closed",
+      "total_accesses": 12
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "s9:d9.3:rfc-003:complete:path-boundaries-contract-written",
+      "text": "--tier semantic",
+      "total_accesses": 6
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create-crate:touring-contracts:LearnRuntime",
+      "text": "{\"symbol\":\"learnruntime\",\"status\":\"verified\"}",
+      "total_accesses": 15
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create-crate:touring-lsp:LSP",
+      "text": "{\"symbol\":\"lsp\",\"status\":\"verified\"}",
+      "total_accesses": 3
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create-crate:touring-resource-monitor-test2:gate_metrics",
+      "text": "{\"symbol\":\"gate_metrics\",\"status\":\"verified\"}",
+      "total_accesses": 56
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create-script:loop_diagnose:OKF",
+      "text": "{\"symbol\":\"okf\",\"status\":\"verified\"}",
+      "total_accesses": 45
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create:/home/gabrielgadea/.claude/rust/crates/touring-hooks/src/action_signature.rs:intent_class",
+      "text": "{\"symbol\":\"intent_class\",\"status\":\"verified\"}",
+      "total_accesses": 5
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create:/home/gabrielgadea/.claude/rust/crates/touring-hooks/src/action_signature.rs:tool_class",
+      "text": "{\"symbol\":\"tool_class\",\"status\":\"verified\"}",
+      "total_accesses": 13
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create:crates/touring-bindings/src/web/components/area_chart.rs:SVG",
+      "text": "{\"symbol\":\"svg\",\"status\":\"verified\"}",
+      "total_accesses": 3
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create:crates/touring-hooks-shared/src/forbidden_patterns.rs:forbidden_patterns",
+      "text": "{\"symbol\":\"forbidden_patterns\",\"status\":\"verified\"}",
+      "total_accesses": 42
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create:crates/touring-hooks-shared/src/forbidden_patterns.rs:result_ext",
+      "text": "{\"symbol\":\"result_ext\",\"status\":\"verified\"}",
+      "total_accesses": 3
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 3,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 2,
+      "sample_key": "vgp:create:crates/touring-hooks-shared/src/forbidden_patterns.rs:sandbox_language",
+      "text": "{\"symbol\":\"sandbox_language\",\"status\":\"verified\"}",
+      "total_accesses": 8
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "analise:trailhq-graft:rodada6",
+      "text": "okf: trailhq/graft — exploração exaustiva, pesquisa e análise detalhada — docs/plans/2026-09-12-graft-analysis/analysis.md",
+      "total_accesses": 33
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": true,
+      "key_stem": "e2e:f3:diorama-impl",
+      "excess": 1,
+      "sample_key": "e2e:f3:diorama-impl:1786496730",
+      "text": "diorama implementation of the map pattern with stacked svg layers",
+      "total_accesses": 2
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": true,
+      "key_stem": "e2e:f3:map-pattern",
+      "excess": 1,
+      "sample_key": "e2e:f3:map-pattern:1786496730",
+      "text": "map artifact pattern: layered data_layers + zoom controls + legend",
+      "total_accesses": 2
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-contracts:IoC",
+      "text": "{\"symbol\":\"ioc\",\"status\":\"verified\"}",
+      "total_accesses": 14
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-contracts:LEARN",
+      "text": "{\"symbol\":\"learn\",\"status\":\"verified\"}",
+      "total_accesses": 2
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-contracts:gotcha_add",
+      "text": "{\"symbol\":\"gotcha_add\",\"status\":\"verified\"}",
+      "total_accesses": 18
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-contracts:learning_reward",
+      "text": "{\"symbol\":\"learning_reward\",\"status\":\"verified\"}",
+      "total_accesses": 16
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-contracts:memory_store",
+      "text": "{\"symbol\":\"memory_store\",\"status\":\"verified\"}",
+      "total_accesses": 10
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-dispatch:hook_registry",
+      "text": "{\"symbol\":\"hook_registry\",\"status\":\"verified\"}",
+      "total_accesses": 2
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-hook-runtime:WASM",
+      "text": "{\"symbol\":\"wasm\",\"status\":\"verified\"}",
+      "total_accesses": 2
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-identity:SQLite",
+      "text": "{\"symbol\":\"sqlite\",\"status\":\"verified\"}",
+      "total_accesses": 24
+    },
+    {
+      "signal_kind": "exact_normalized",
+      "count": 2,
+      "redundant_key": false,
+      "key_stem": null,
+      "excess": 1,
+      "sample_key": "vgp:create-crate:touring-intelligence:MCTS",
+      "text": "{\"symbol\":\"mcts\",\"status\":\"verified\"}",
+      "total_accesses": 2
+    }
+  ],
+  "near_pairs": [
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9668,
+      "key_a": "artifact:66",
+      "key_b": "artifact:68"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9626,
+      "key_a": "artifact:67",
+      "key_b": "artifact:68"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9524,
+      "key_a": "CAUSA DO ECO 7.506 FECHADA (01/10, leitura pura). Cadeia completa: (1) touring-foundation/src/config.rs:221 -> rlm_db_path = ~/.claude/data/rlm_memory.db; config.rs:238 -> evolution_interval_s = default = 300; (2) touring-server/src/server/mod.rs:1143-1151 -> tokio::spawn de um loop com tokio::time::interval(300s), skipped no primeiro tick, que a cada tick abre RlmMemory e roda analyzer.analyze_all(); (3) analyzer.rs:271-273 -> analyze_cila_progression faz state.rlm.search('cila=L'); analyzer.rs:290-298 -> SE total==0 devolve Trend::Insufficient com evidence 'No compliance entries found'; (4) insights.rs:164-173 -> cila_insight converte Insufficient no texto FIXO 'Insufficient compliance data for CILA progression analysis'; (5) mod.rs:1196-1205 -> cada insight vira MemoryEntry com chave format!('insight:{}:{}', category, created_at) e entry_type 'insight', gravada no store. FATOR DECISIVO: a string 'cila=' nao existe em NENHUM .db do home (varri todos) e o rlm_memory.db esta congelado em 23/08 17:18. O produtor do dado nao existe: pre_write.rs:160 formata 'cila={cila_level}' mas num LOG de hook, nunca numa memoria. Logo: emitter sem produtor, tick 300s, memoria nova por tick, texto identico por definicao (constante), chave so com timestamp. Tres defeitos distintos e um deles (o produtor ausente) e a CAUSA; os outros dois sao o amplificador (300s) e o multiplicador (chave sem conteudo). Um insight que nao muda nada reemitido a cada 300s E a forma canonica de store sem politica de estado.",
+      "key_b": "Segundo writer CONFIRMADO INEXISTENTE (01/10, a7 provou, 02 confirmou): o touring-hook NAO pode rodar o loop de evolution. Tres elos: (1) touring-hook e bin do MESMO crate do daemon (crates/touring-hooks: main.rs = hook, daemon_main.rs = daemon); (2) cargo tree -p touring-hooks = ZERO touring-server, e o loop vive em touring-server/server/mod.rs — o hook fisicamente nao contem o codigo; (3) zero referencias a InsightEngine|evolution_engine|analyze_all em crates/touring-hooks/src/ (verifiquei no fonte). Prova empirica independente: a grade e de EXATAMENTE 1 linha/300s — se o hook disparasse (a cada evento CC) veríamos rajadas, nao uma grade limpa. Conclusao: writer unico = o MCP bridge 3274868 da sessao aa782be4 (touring-02), que nasceu 30/09 21:59 e carrega o inode de entao. Distincao final que generaliza: touring-hook -> toolchain 30.4.89; touring (CLI+MCP) -> dev ~/.local/bin. Dois artefatos, dois caminhos de resolucao, e o fix so precisa estar no que TEM o loop. Sequencing aceito pelas duas: PROOF no caminho dev -> 30.4.90 -> segunda prova no caminho toolchain. Cortar a release antes mudaria o alvo do shim no meio do experimento."
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9395,
+      "key_a": "artifact:66",
+      "key_b": "artifact:67"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.937,
+      "key_a": "cah-conformance:2026-05-29T21:11:46-0300",
+      "key_b": "cah-conformance:2026-05-29T22:00:19-0300"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.937,
+      "key_a": "cah-conformance:2026-05-29T22:00:19-0300",
+      "key_b": "cah-conformance:2026-05-29T22:01:08-0300"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9174,
+      "key_a": "artifact:66",
+      "key_b": "artifact:69"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9134,
+      "key_a": "cah-conformance:2026-05-29T21:11:46-0300",
+      "key_b": "cah-conformance:2026-05-29T22:01:08-0300"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.9124,
+      "key_a": "artifact:68",
+      "key_b": "artifact:69"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.8959,
+      "key_a": "artifact:67",
+      "key_b": "artifact:69"
+    },
+    {
+      "signal_kind": "near_duplicate",
+      "similarity": 0.8708,
+      "key_a": "artifact:48",
+      "key_b": "artifact:61"
+    }
+  ],
+  "judged": []
+}

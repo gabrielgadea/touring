@@ -14,30 +14,90 @@ name = "strategy-loop"
 description = "Deterministic OUTER of loop-engineering: marker + recall + diagnose + CCE explore + evidence report"
 entry = "arm_marker"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+intent = "Run the deterministic OUTER prefix of loop-engineering: arm the marker, recall, diagnose, explore until dry, report the evidence"
+class = "create"
+curation = "generic"
+when_to_use = [
+  "starting substantive work that owes a diagnostic doc and a CCE ledger on disk",
+  "you want the OUTER artifacts produced by code rather than by narration",
+]
+when_not_to_use = [
+  "as a substitute for the strategy synthesis — the doc is written by the session, and this run deliberately does not produce it",
+  "a conversational question, where the whole OUTER is overhead",
+]
+inputs = [
+  "topic",
+  "scope",
+  "bundle",
+]
+produces = [
+  "an armed outer marker",
+  "an OKF diagnostic",
+  "a CCE ledger",
+  "an evidence manifest",
+]
+tags = [
+  "#kind:flow",
+  "#domain:loop-engineering",
+  "#process:outer",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# O prefixo OUTER determinístico da loop-engineering. Não estende `explore-plan`:
+# aquele explora um tema, este arma o marcador e produz os artefatos que o Stop
+# hook cobra em disco.
+prior_art_verdict = "create_new"
+
 
 [node.arm_marker]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
+# `--flow-if-absent`, never `--flow`: this same ADW is BOTH the body of
+# `strategy-outer` AND the remedy `flow_manifests.json` prescribes for `work-outer`.
+# With a hard flow it rewrote the armed contract from 2 artifacts to 5 — measured
+# 03/09/2026, the Stop hook blocked as `[work-outer] 1/2`, the prescribed command ran,
+# and the next block came back `[strategy-outer] 3/5`. Obeying the gate raised the bar.
+command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write --task OUTER --status outer --flow-if-absent strategy-outer --scope \"$1\" --bundle \"$2\" --cwd \"$1\"", "--", "{{vars.scope}}", "{{vars.bundle}}"]
 timeout_ms = 30000
 idempotent = true
-on_pass = "recall"
-on_fail = "recall"          # marker write is best-effort; the flow still runs
+on_pass = "ground"
+on_fail = "ground"          # marker write is best-effort; the flow still runs
+
+# M2 (estratégia paralelização-agentes 29/08/2026) — recall e diagnose são
+# leituras INDEPENDENTES que rodavam em série (medido 18/08: recall 5,4s,
+# diagnose 30,2s — a série pagava a soma). O diamante read-only no flow de
+# maior frequência (23 runs/7d, armado pelo Stop hook) é a adoção POR
+# CONSTRUÇÃO do fan-out. Semântica de falha preservada: o ramo recall nunca
+# falha (`|| true`, como o antigo on_fail tolerante), então `all` fail-closed
+# equivale ao antigo `diagnose.on_fail = __fail__`.
+[node.ground]
+type = "parallel"
+branches = ["recall", "diagnose"]
+merge = "collect"
+on_branch_fail = "all"
+max_branches = 2
+on_pass = "explore_loop"
+on_fail = "__fail__"        # no diagnostic evidence -> the OUTER cannot proceed
 
 [node.recall]
 type = "code"
-command = ["bash", "-c", "touring memory recall \"$1\" 2>&1 | head -c 1800", "--", "{{vars.topic}}"]
+command = ["bash", "-c", "touring memory recall \"$1\" 2>&1 | head -c 1800; true", "--", "{{vars.topic}}"]
 timeout_ms = 120000
 idempotent = true
-on_pass = "diagnose"
-on_fail = "diagnose"        # empty recall is a valid result, never a blocker
 
+# ⚠ pipefail (23/08/2026): o comando termina em `| tail`, e sem pipefail o exit
+# era SEMPRE o do tail — o `on_fail` declarado ficou inalcançável por 105 runs
+# (medido por flow_redundancy.py: nenhum nó separou caso algum). O pipefail
+# devolve ao nó o veredito que o spec sempre prometeu; hoje quem o consome é a
+# política `all` do bloco `ground`.
 [node.diagnose]
 type = "code"
-command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
+command = ["bash", "-c", "set -o pipefail; python3 ~/.claude/skills/loop-engineering/scripts/loop_diagnose.py --scope \"$1\" --topic \"$2\" --bundle \"$3\" --json 2>&1 | tail -c 1800", "--", "{{vars.scope}}", "{{vars.topic}}", "{{vars.bundle}}"]
 timeout_ms = 900000
 idempotent = true
-on_pass = "explore_loop"
-on_fail = "__fail__"        # no diagnostic evidence -> the OUTER cannot proceed
 
 # `touring explore` loops-until-dry internally (CCE v2); the loop node re-drives
 # it so late findings still count — the runner, not the agent, decides dryness
@@ -53,7 +113,17 @@ on_fail = "__fail__"
 
 [node.explore_round]
 type = "code"
-command = ["bash", "-c", "touring explore \"$1\" --scope \"$2\" 2>&1 | tail -c 1800", "--", "{{vars.topic}}", "{{vars.scope}}"]
+# `touring explore` contract: exit 0 converged / 1 continue / 3 degraded.
+# Reading any non-zero as failure made this loop STRUCTURALLY unable to
+# iterate — every round that is not already dry exits 1, and the loop node
+# returns `on_fail` on a non-zero body (adw.py). Observed twice (2026-08-25).
+# `[ $rc -le 1 ]` lets a continuing round continue while a DEGRADED run (3)
+# still fails, which a bare `| tail` would have swallowed along with it.
+# The marker the runner reads is printed at the TOP; `tail -c` keeps the
+# BOTTOM. Measured 1457 B today (it fits) — but the size grows with the
+# ledger, and adw.py already carries the scar of a spec whose `tail -c`
+# ate the signal. Re-emitting the line makes survival independent of size.
+command = ["bash", "-c", "out=$(touring explore \"$1\" --scope \"$2\" 2>&1); rc=$?; echo \"$out\" | tail -c 1800; echo \"$out\" | grep -E '^NEW_FINDINGS=' | tail -1; [ \"$rc\" -le 1 ]", "--", "{{vars.topic}}", "{{vars.scope}}"]
 timeout_ms = 900000
 idempotent = true
 
@@ -63,6 +133,22 @@ type = "code"
 # strategy-doc is the orchestrator's synthesis deliverable, enforced at Stop.
 command = ["bash", "-c", "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_outer_gate.py --json --no-emit || true"]
 timeout_ms = 60000
+idempotent = true
+on_pass = "refine_strategy"
+on_fail = "refine_strategy"
+
+# N3 (2026-09-23): o motor de refine existe desde o F2, mas nenhum chamador o
+# alcançava a partir do flow que de fato produz planos — o explore-plan o
+# chamava com um argumento que o script nunca aceitou, e no disco só havia 1
+# ledger com 1 iteração (KPI plan_refine_iters travado em 1.0). Este nó marca
+# UMA iteração medida por re-run/remedy-run, somente quando a strategy doc do
+# orquestrador já existe no bundle; na primeira run o skip é visível, nunca
+# silencioso. plan_refine.py agora deriva o ledger de --topic/--scope pelo
+# mesmo ledger_path_for do explorador.
+[node.refine_strategy]
+type = "code"
+command = ["bash", "-c", "doc=$(ls -t \"$1\"/strategy-*.md 2>/dev/null | head -1); if [ -n \"$doc\" ]; then python3 ~/.claude/skills/Touring/scripts/plan_refine.py \"$doc\" --topic \"$2\" --scope \"$3\" --json 2>&1 | tail -c 1200; else echo \"skip: no strategy doc in $1 yet — the orchestrator synthesis lands after this run; a re-run scores the iteration\"; fi; true", "--", "{{vars.bundle}}", "{{vars.topic}}", "{{vars.scope}}"]
+timeout_ms = 120000
 idempotent = true
 on_pass = "__end__"
 on_fail = "__end__"

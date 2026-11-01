@@ -266,17 +266,6 @@ pub mod quick {
     }
 }
 
-/// E2E test result.
-#[derive(Debug)]
-pub struct E2EResult {
-    /// The generated sequence.
-    pub sequence: GeneratedSequence,
-    /// Execution outcome (simulated or real).
-    pub outcome: ExecutionOutcome,
-    /// Whether the pipeline succeeded end-to-end.
-    pub success: bool,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

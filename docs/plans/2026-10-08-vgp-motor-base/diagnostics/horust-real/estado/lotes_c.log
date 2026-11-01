@@ -1,0 +1,14 @@
+hw-slot: aguardando — temp 91C > 88C
+rodada 1: 288 tentativas pendentes em 56 lotes por pacote
+  29 lotes (camadas); rodando 10
+  lote 5/lib/T (4 pacotes): 20 tentativas, 17 válidas, descartes {'sem_erro': 1, 'cascata_cruzada': 1, 'outro_erro_no_arquivo': 1}, 236 s
+  lote 0/lib/T (6 pacotes): 21 tentativas, 17 válidas, descartes {'outro_erro_no_arquivo': 2, 'sem_erro': 1, 'codigo_inesperado': 1}, 8 s
+  lote 13/lib/T (1 pacotes): 5 tentativas, 2 válidas, descartes {'codigo_inesperado': 3}, 94 s
+  lote 4/lib/T (3 pacotes): 16 tentativas, 10 válidas, descartes {'codigo_inesperado': 1, 'sem_erro': 4, 'outro_erro_no_arquivo': 1}, 16 s
+  lote 9/lib/T (1 pacotes): 7 tentativas, 1 válidas, descartes {'sem_erro': 5, 'outro_erro_no_arquivo': 1}, 28 s
+  lote 1/lib/T (5 pacotes): 25 tentativas, 21 válidas, descartes {'sem_erro': 4}, 12 s
+  lote 3/lib/T (2 pacotes): 11 tentativas, 8 válidas, descartes {'sem_erro': 3}, 10 s
+  lote 7/lib/T (1 pacotes): 5 tentativas, 3 válidas, descartes {'sem_erro': 2}, 4 s
+  lote 10/lib/T (1 pacotes): 4 tentativas, 4 válidas, descartes {}, 26 s
+  lote 6/lib/T (2 pacotes): 13 tentativas, 11 válidas, descartes {'sem_erro': 2}, 13 s
+rc=0

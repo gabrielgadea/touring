@@ -35,15 +35,18 @@ touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "sim
 touring-code = { path = "../touring-code" }
 touring-intelligence = { path = "../touring-intelligence" }
 touring-foundation = { path = "../touring-foundation" }
+libc = { workspace = true } # F0.3a hook_trace: atexit + getppid
 touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
-touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed"] }
+touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed", "storage-emb-cuda"] }
 touring-bindings = { path = "../touring-bindings", features = ["bind-wasm"] }
 blake3 = { workspace = true }
+sha2 = { workspace = true } # r3_shadow: session_hash = sha256 hex[:12] (already in the lockfile — no new crate)
 chrono = { workspace = true }
 moka = { workspace = true }
 once_cell = { workspace = true }
 petgraph = { workspace = true }
 rusqlite = { workspace = true }
+prost = { workspace = true }  # H2: SCIP ingest (scip_ingest.rs) — wire-compatible decode of `rust-analyzer scip`
 rustc-hash = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

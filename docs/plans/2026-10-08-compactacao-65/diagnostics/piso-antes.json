@@ -1,0 +1,63 @@
+{
+ "instruction_chars": 149479,
+ "instruction_files": 24,
+ "rules_always_loaded": [
+  "~/.claude/rules/TACO-subagent.md",
+  "~/.claude/rules/VP-Scout.md",
+  "~/.claude/rules/code-elaboration-directives.md",
+  "~/.claude/rules/code-execution-gateway.md",
+  "~/.claude/rules/disk-hygiene.md",
+  "~/.claude/rules/elite-50-quality.md",
+  "~/.claude/rules/entity-identity.md",
+  "~/.claude/rules/file-metadata-first.md",
+  "~/.claude/rules/git-safety-protocol.md",
+  "~/.claude/rules/tool-combination-patterns.md",
+  "~/.claude/rules/touring-4-pillars.md",
+  "~/.claude/rules/touring-cli-index.md",
+  "~/.claude/rules/touring-decision-matrix.md",
+  "~/.claude/rules/touring-elite.md",
+  "~/.claude/rules/touring-per-project.md",
+  "~/.claude/rules/touring-process-hygiene.md",
+  "~/.claude/rules/touring-rebuild.md",
+  "~/projects/analise/.claude/rules/00-core-governance.md",
+  "~/projects/analise/.claude/rules/taco-identity.md",
+  "~/projects/analise/.claude/rules/vgp-protocol.md"
+ ],
+ "agent_description_chars": 18293,
+ "agents": 26,
+ "agent_description_top": [
+  [
+   2497,
+   "antt-vote-drafter.md"
+  ],
+  [
+   1976,
+   "touring-engineer.md"
+  ],
+  [
+   1749,
+   "touring-auditor.md"
+  ],
+  [
+   1641,
+   "touring-architect.md"
+  ],
+  [
+   1564,
+   "touring-scriber.md"
+  ],
+  [
+   1549,
+   "touring-scouter.md"
+  ]
+ ],
+ "plugin_mcp_disabled": [
+  "plugin:figma:figma-desktop",
+  "plugin:github:github",
+  "plugin:playwright:playwright",
+  "plugin:render:render",
+  "plugin:serena:serena",
+  "plugin:stripe:stripe",
+  "plugin:vercel:vercel"
+ ]
+}

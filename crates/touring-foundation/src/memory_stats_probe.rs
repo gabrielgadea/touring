@@ -35,6 +35,42 @@ pub struct MemorySnapshot {
     pub physical_mb: f64,
     /// Virtual-address-space size — includes mapped-but-unresident pages.
     pub virtual_mb: f64,
+    /// Anonymous resident memory (heap, stacks, shared-anonymous): what an
+    /// out-of-memory kill weighs. `physical_mb` also counts file-backed pages
+    /// — mapped index segments — that the kernel reclaims before any OOM; a
+    /// full rebuild's tantivy merges put 1,1 GB of those in its RSS (measured
+    /// 13/09/2026). 0 when the host does not expose it (non-Linux).
+    #[serde(default)]
+    pub anon_mb: f64,
+}
+
+impl MemorySnapshot {
+    /// The memory a pressure guard should compare against a budget: anonymous
+    /// memory where the host exposes it, total resident memory otherwise.
+    #[must_use]
+    pub fn pressure_mb(&self) -> f64 {
+        if self.anon_mb > 0.0 {
+            self.anon_mb
+        } else {
+            self.physical_mb
+        }
+    }
+}
+
+/// `RssAnon` + `RssShmem` from a `/proc/<pid>/status` text, in kB; `None` when
+/// neither line is present.
+fn anon_kb_from_status(status: &str) -> Option<u64> {
+    let field = |name: &str| {
+        status
+            .lines()
+            .find_map(|l| l.strip_prefix(name))
+            .and_then(|rest| rest.split_whitespace().next())
+            .and_then(|kb| kb.parse::<u64>().ok())
+    };
+    match (field("RssAnon:"), field("RssShmem:")) {
+        (None, None) => None,
+        (anon, shmem) => Some(anon.unwrap_or(0) + shmem.unwrap_or(0)),
+    }
 }
 
 impl Default for MemorySnapshot {
@@ -42,6 +78,7 @@ impl Default for MemorySnapshot {
         Self {
             physical_mb: 0.0,
             virtual_mb: 0.0,
+            anon_mb: 0.0,
         }
     }
 }
@@ -54,10 +91,15 @@ const BYTES_PER_MB: f64 = 1_048_576.0;
 /// `memory-stats` call reports no data — see module-level docs.
 #[must_use]
 pub fn snapshot() -> MemorySnapshot {
+    let anon_mb = std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| anon_kb_from_status(&s))
+        .map_or(0.0, |kb| kb as f64 / 1024.0);
     match memory_stats() {
         Some(stats) => MemorySnapshot {
             physical_mb: stats.physical_mem as f64 / BYTES_PER_MB,
             virtual_mb: stats.virtual_mem as f64 / BYTES_PER_MB,
+            anon_mb,
         },
         None => MemorySnapshot::default(),
     }
@@ -66,6 +108,61 @@ pub fn snapshot() -> MemorySnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What `/proc` says about this process right now, for a failure message.
+    ///
+    /// This test failed exactly once, under the full workspace run (16/09/2026),
+    /// and then passed 5/5 in isolation and in every later run. The verdict kept
+    /// only the test's NAME, so the panic said `got 0` with nothing to explain
+    /// whether `memory_stats()` returned `None` (probe unsupported/denied) or
+    /// returned a zeroed reading. The next occurrence should not cost another
+    /// investigation: whoever reads it gets the raw kernel numbers beside ours.
+    fn proc_evidence() -> String {
+        let statm =
+            std::fs::read_to_string("/proc/self/statm").unwrap_or_else(|e| format!("<{e}>"));
+        let status = std::fs::read_to_string("/proc/self/status")
+            .map(|s| {
+                s.lines()
+                    .filter(|l| {
+                        l.starts_with("VmRSS:")
+                            || l.starts_with("VmSize:")
+                            || l.starts_with("RssAnon:")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            })
+            .unwrap_or_else(|e| format!("<{e}>"));
+        let direct = memory_stats().map_or_else(
+            || "memory_stats() -> None".to_string(),
+            |m| {
+                format!(
+                    "memory_stats() -> physical={} virtual={}",
+                    m.physical_mem, m.virtual_mem
+                )
+            },
+        );
+        format!("statm=[{}] status=[{status}] {direct}", statm.trim())
+    }
+
+    #[test]
+    fn the_failure_message_carries_the_kernel_numbers_beside_ours() {
+        // The diagnosis is only prepared if the evidence is actually produced —
+        // an instrumentation nobody exercises is a promise, not a capability.
+        // Assert the three parts a reader needs to tell "probe returned None"
+        // from "probe returned zeros" from "the kernel itself says zero".
+        let evidence = proc_evidence();
+        assert!(evidence.contains("statm=["), "sem statm: {evidence}");
+        assert!(
+            evidence.contains("VmRSS:"),
+            "sem VmRSS do /proc/self/status: {evidence}"
+        );
+        assert!(
+            evidence.contains("memory_stats() ->"),
+            "sem a leitura direta da crate: {evidence}"
+        );
+        // And the numbers must be real on this host, not an error placeholder.
+        assert!(!evidence.contains("statm=[<"), "statm ilegível: {evidence}");
+    }
 
     #[test]
     fn snapshot_returns_nonzero_in_test_process() {
@@ -76,15 +173,53 @@ mod tests {
         let s = snapshot();
         assert!(
             s.physical_mb > 0.0,
-            "physical_mb should be > 0 in test process, got {}",
-            s.physical_mb
+            "physical_mb should be > 0 in test process, got {} — {}",
+            s.physical_mb,
+            proc_evidence()
         );
         assert!(
             s.virtual_mb >= s.physical_mb,
-            "virtual ({}) >= physical ({})",
+            "virtual ({}) >= physical ({}) — {}",
             s.virtual_mb,
-            s.physical_mb
+            s.physical_mb,
+            proc_evidence()
         );
+    }
+
+    #[test]
+    fn anonymous_memory_is_parsed_and_preferred_by_the_pressure_guard() {
+        let status = "Name:\tx\nVmRSS:\t 3000000 kB\nRssAnon:\t 2000000 kB\nRssFile:\t 900000 kB\nRssShmem:\t 24 kB\n";
+        assert_eq!(anon_kb_from_status(status), Some(2_000_024));
+        assert_eq!(anon_kb_from_status("VmRSS:\t10 kB\n"), None);
+        let with_anon = MemorySnapshot {
+            physical_mb: 2900.0,
+            virtual_mb: 9000.0,
+            anon_mb: 1950.0,
+        };
+        assert_eq!(
+            with_anon.pressure_mb(),
+            1950.0,
+            "file pages do not count as pressure"
+        );
+        let without = MemorySnapshot {
+            physical_mb: 2900.0,
+            virtual_mb: 9000.0,
+            anon_mb: 0.0,
+        };
+        assert_eq!(
+            without.pressure_mb(),
+            2900.0,
+            "falls back to total resident memory"
+        );
+        // Wire compatibility: a snapshot serialized before the field existed.
+        let old: MemorySnapshot =
+            serde_json::from_str(r#"{"physical_mb":1.0,"virtual_mb":2.0}"#).expect("old shape");
+        assert_eq!(old.anon_mb, 0.0);
+        #[cfg(target_os = "linux")]
+        {
+            let live = snapshot();
+            assert!(live.anon_mb > 0.0, "Linux exposes RssAnon: {live:?}");
+        }
     }
 
     #[test]
@@ -101,6 +236,7 @@ mod tests {
         let s = MemorySnapshot {
             physical_mb: 42.5,
             virtual_mb: 128.25,
+            anon_mb: 30.0,
         };
         let json = serde_json::to_string(&s).expect("serialize");
         let back: MemorySnapshot = serde_json::from_str(&json).expect("deserialize");

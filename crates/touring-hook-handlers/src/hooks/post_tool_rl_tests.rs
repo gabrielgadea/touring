@@ -8,6 +8,8 @@
 //! - Markov transition is recorded for tool sequences
 
 #[cfg(test)]
+static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+#[cfg(test)]
 mod tests {
     use crate::post_tool_rl::run as post_tool_rl_run;
     use crate::runtime::HookRuntime;
@@ -60,6 +62,7 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_ema_reward_changes_from_zero() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         // HookRuntime::new() always injects a warmup reward (inject_warmup_reward()),
@@ -72,9 +75,9 @@ mod tests {
         );
 
         // Set environment for the hook
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "15") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // Run post-tool-rl with a successful Edit
@@ -94,9 +97,9 @@ mod tests {
             new_ema
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -104,13 +107,14 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_increments_update_count() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         let initial_count = rt.learning.online_rl.as_ref().unwrap().update_count();
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "10") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // Process first tool
@@ -139,9 +143,9 @@ mod tests {
             count_after_second
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -149,6 +153,7 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_qtable_gets_entries() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         // Ensure qtable_cache is initialized
@@ -158,9 +163,9 @@ mod tests {
 
         let initial_len = rt.learning.qtable_cache.as_ref().unwrap().len();
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "12") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // Process a tool
@@ -178,9 +183,9 @@ mod tests {
             rt.learning.online_rl.as_ref().unwrap().update_count()
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -188,11 +193,12 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_linucb_arm_updated() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "8") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // Process a tool — this initializes LinUCB if it was None
@@ -214,9 +220,9 @@ mod tests {
             new_total_pulls
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -224,6 +230,7 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_markov_transition_recorded() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         // Initial transition count should be 0
@@ -233,9 +240,9 @@ mod tests {
             "Initial transition count should be 0"
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "10") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // First tool — no transition yet (no previous tool)
@@ -273,9 +280,9 @@ mod tests {
             after_third
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -283,6 +290,7 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_full_rl_feedback_loop() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         // Ensure qtable_cache is initialized
@@ -290,9 +298,9 @@ mod tests {
             rt.learning.qtable_cache = Some(touring_intelligence::rl::QTable::new());
         }
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "20") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "3") };
 
         // Seed last_tool_name so Markov can record a transition on first call
@@ -374,9 +382,9 @@ mod tests {
             new_markov
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -384,13 +392,14 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_error_tool_triggers_update() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         let initial_count = rt.learning.online_rl.as_ref().unwrap().update_count();
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "100") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // Run with an error payload
@@ -410,9 +419,9 @@ mod tests {
             new_count
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 
@@ -420,15 +429,16 @@ mod tests {
 
     #[test]
     fn test_post_tool_rl_multiple_tools_accumulate_qtable() {
+        let _env = super::ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let (_tmp, mut rt) = make_runtime();
 
         if rt.learning.qtable_cache.is_none() {
             rt.learning.qtable_cache = Some(touring_intelligence::rl::QTable::new());
         }
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("HOOK_ELAPSED_MS", "10") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("CILA_LEVEL", "2") };
 
         // Process multiple different tools
@@ -461,9 +471,9 @@ mod tests {
             count
         );
 
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("HOOK_ELAPSED_MS") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("CILA_LEVEL") };
     }
 }

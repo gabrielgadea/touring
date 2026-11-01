@@ -1,21 +1,912 @@
-//! WriteTriadHook — TRIAD pattern (execute + validate + rollback) for Write operations.
+//! WriteTriadHook — TRIAD pattern (snapshot + validate + describe) for Write operations.
 //!
-//! Implements the TRIAD pattern from ACO `generator_engine.py`:
-//! 1. **pre_write**: snapshot files via BranchFs before writing
-//! 2. **post_write**: validate written content; rollback on failure
-//! 3. **rollback**: restore snapshots if validation fails
+//! 1. **pre_write**: snapshot the target via BranchFs and ARM it keyed by
+//!    `(session_id, canonical path)` — [`arm`].
+//! 2. **post_write**: TAKE the pair's own baseline — [`take`] — and let the validation
+//!    verdict through; on `Block` the verdict gains a `+N −M lines` summary of the write.
 //!
-//! This hook runs alongside the existing `pre_write` and `post_write` hooks.
-//! The TRIAD logic is additive — it enhances, not replaces, existing validation.
+//! **D1-A (approved 25/09/2026): the hook path never restores a file.** Claude Code's
+//! PostToolUse "can't undo actions"; rolling back behind the model broke the next Edit's
+//! `old_string`, and the audit reproduced a CLEAN write reverted (v1 → v2 → v1) because an
+//! advisory context counted as a failure. [`TriadState::rollback`] stays for explicit,
+//! human-invoked tooling only.
+//!
+//! **Why a keyed store**: the previous single `RefCell` slot on `HookRuntime` was shared by
+//! every session served by the daemon — the post-write of file A consumed (and rolled back)
+//! the snapshot of file B. The key makes a post-write see only its own pre-write.
+//!
+//! **The baseline crosses the process boundary (17/10/2026)**. The in-memory store lives in
+//! ONE process, but pre-write and post-write do not always share one: the client falls back
+//! to the standalone binary when the daemon misses its 3 s budget (and with
+//! `TOURING_NO_DAEMON=1`), and under load that fallback is common — measured 7/8 lost
+//! baselines with 16 concurrent loops, 0/10 unloaded. A lost baseline silently disabled the
+//! S28 gate (`before = None` abstained as `_ => 0`), so antipatterns already in the file
+//! became indistinguishable from ones the write introduced. So [`arm`] ALSO persists the
+//! baseline to a per-user directory and [`take`] falls back to it; a genuinely absent
+//! baseline is [`TriadLookup::Absent`] — a REASON the caller must declare, never a silent zero.
 
 use crate::branch_fs::BranchFs;
 use crate::errors::Result;
-use crate::runtime::{HookResponse, HookRuntime};
-use std::path::Path;
+use crate::runtime::HookResponse;
+use std::collections::HashMap;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
-/// TRIAD state stored in HookRuntime for the duration of a write operation.
+/// Snapshots older than this are dropped (their TempDir is cleaned); a post-write without
+/// its pair is a plain pass-through.
+pub const TRIAD_TTL: Duration = Duration::from_secs(600);
+/// Upper bound on concurrently armed snapshots (all sessions of one daemon).
+pub const TRIAD_MAX_ARMED: u64 = 4_096;
+/// Files larger than this get no line summary (the snapshot still exists).
+const DIFF_SUMMARY_MAX_BYTES: usize = 2 * 1024 * 1024;
+/// A baseline bigger than this is NOT persisted across processes — an 8 MiB copy of user
+/// source per write is not worth the gate; [`TriadAbsent::Oversized`] declares it instead.
+pub const TRIAD_DISK_MAX_BYTES: usize = 8 * 1024 * 1024;
+/// On-disk record version; a reader that does not know it declares, never guesses.
+const DISK_VERSION: u32 = 1;
+/// Extension of a persisted baseline record.
+const DISK_SUFFIX: &str = "tbase";
+
+/// Key of an armed snapshot: `(session_id, canonical path)`.
+pub type TriadKey = (String, PathBuf);
+
+fn triad_store() -> &'static moka::sync::Cache<TriadKey, Arc<TriadState>> {
+    static STORE: OnceLock<moka::sync::Cache<TriadKey, Arc<TriadState>>> = OnceLock::new();
+    STORE.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(TRIAD_MAX_ARMED)
+            .time_to_live(TRIAD_TTL)
+            .build()
+    })
+}
+
+/// Session id from a hook payload; a payload without one gets its own `"anon"` key,
+/// never another session's.
+pub fn session_of(input: &serde_json::Value) -> String {
+    input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("anon")
+        .to_string()
+}
+
+/// Canonical key path: absolute, with the PARENT canonicalized (the file itself may not
+/// exist yet at pre-write), so `rel/x.py`, `/abs/x.py` and a symlinked parent agree.
+pub fn canonical_path(file_path: &str) -> PathBuf {
+    let raw = Path::new(file_path);
+    let abs = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(raw))
+            .unwrap_or_else(|_| raw.to_path_buf())
+    };
+    match (abs.parent(), abs.file_name()) {
+        (Some(parent), Some(name)) => std::fs::canonicalize(parent)
+            .map(|p| p.join(name))
+            .unwrap_or(abs.clone()),
+        _ => abs,
+    }
+}
+
+/// Snapshot `file_path` and arm it for `session_id`. Returns false (and arms nothing)
+/// when the snapshot cannot be taken — the write proceeds unprotected, never blocked.
+/// A second pre-write of the same (session, path) replaces the first (last pre wins).
+pub fn arm(session_id: &str, file_path: &str) -> bool {
+    match run_pre_write(file_path) {
+        Some(state) => {
+            let key = (session_id.to_string(), canonical_path(file_path));
+            // The BranchFs snapshot is process-local and dies with it; the S28 baseline is a
+            // plain string, so it survives. A failure here is not fatal — the in-memory copy
+            // still serves a same-process post-write.
+            persist_baseline(&key, &state.baseline());
+            triad_store().insert(key, Arc::new(state));
+            true
+        }
+        None => false,
+    }
+}
+
+/// What the file held before a write — the S28 gate's "before" side.
 ///
-/// One instance per write call — cleared after post_write completes.
+/// `Absent` = the file did not exist (every occurrence in it is new); `Content` = its text;
+/// `Unknown` = it could not be read, and a consumer MUST abstain rather than count it as
+/// absent (that conflation is what made the gate silently useless).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Baseline {
+    /// The file did not exist when the baseline was taken.
+    Absent,
+    /// The file held this text.
+    Content(String),
+    /// The pre-write content could not be read — unknown, not empty.
+    Unknown,
+}
+
+impl Baseline {
+    /// The "before" text handed to the antipattern gate: `None` means the file did not
+    /// exist, so every occurrence counted is genuinely new.
+    pub fn as_before(&self) -> Option<&str> {
+        match self {
+            Self::Absent => None,
+            Self::Content(text) => Some(text),
+            Self::Unknown => None,
+        }
+    }
+
+    /// Whether this baseline is usable for a before × after comparison.
+    pub fn is_known(&self) -> bool {
+        !matches!(self, Self::Unknown)
+    }
+}
+
+/// Why no baseline was available at post-write — declared, never swallowed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TriadAbsent {
+    /// No pre-write armed this (session, path) in any process.
+    NeverArmed,
+    /// A baseline was armed but its [`TRIAD_TTL`] elapsed.
+    Expired,
+    /// The baseline exceeded [`TRIAD_DISK_MAX_BYTES`] and was never persisted.
+    Oversized,
+    /// The persisted record could not be read (foreign version, truncated, corrupt).
+    Unreadable(String),
+    /// The per-user state directory could not be used.
+    Unavailable(String),
+}
+
+impl TriadAbsent {
+    /// One line the post hook injects so the model knows the gate did not judge this write.
+    pub fn note(&self) -> String {
+        let why = match self {
+            Self::NeverArmed => "no pre-write armed this file in any process",
+            Self::Expired => "the pre-write baseline expired",
+            Self::Oversized => "the baseline exceeded TRIAD_DISK_MAX_BYTES and was not persisted",
+            Self::Unreadable(why) => return format!("S28 abstained: baseline unreadable ({why})"),
+            Self::Unavailable(why) => {
+                return format!("S28 abstained: baseline store unavailable ({why})");
+            }
+        };
+        format!(
+            "S28 abstained: {why} — NEW anti-patterns were not counted for this write \
+             (pre-existing ones are indistinguishable from introduced ones)."
+        )
+    }
+}
+
+/// The result of taking a baseline: found (with content) or absent (with a reason).
+#[derive(Debug)]
+pub enum TriadLookup {
+    /// A baseline is available.
+    Found(Baseline),
+    /// None is available — the caller MUST surface [`TriadAbsent::note`].
+    Absent(TriadAbsent),
+}
+
+impl TriadLookup {
+    /// The before-text for the S28 gate, or `None` when the gate must abstain.
+    pub fn before(&self) -> Option<&str> {
+        match self {
+            Self::Found(b) if b.is_known() => b.as_before(),
+            _ => None,
+        }
+    }
+
+    /// Whether a usable baseline was found.
+    pub fn is_found(&self) -> bool {
+        matches!(self, Self::Found(b) if b.is_known())
+    }
+}
+
+/// What [`take_lookup`] resolved.
+#[derive(Debug)]
+pub struct TriadTake {
+    /// The baseline for this (session, path), if any.
+    pub lookup: TriadLookup,
+    /// The armed state, when the SAME process armed it (only then is the `BranchFs`
+    /// snapshot available, and only then can `describe_write` print a `+N −M` summary).
+    pub state: Option<Arc<TriadState>>,
+}
+
+/// Take the baseline for `(session_id, file_path)`, preferring this process's memory and
+/// falling back to the per-user on-disk record. Never returns a silent "nothing" — an
+/// unavailable baseline comes back as [`TriadLookup::Absent`] carrying its reason.
+pub fn take_lookup(session_id: &str, file_path: &str) -> TriadTake {
+    let key = (session_id.to_string(), canonical_path(file_path));
+    let state = triad_store().remove(&key);
+    // The same-process snapshot is AUTHORITATIVE when it exists: it is the real pre-write
+    // state, while the disk holds a copy that may be missing, expired or unreadable.
+    // Consulting the disk first would drop a good in-memory baseline whenever the disk merely
+    // had no record — which is every NEW file (nothing to persist) and every write whose
+    // persistence was skipped. That regressed the gate on exactly the case where it must run.
+    if let Some(armed) = state.clone() {
+        let baseline = armed.baseline();
+        if baseline.is_known() {
+            // Consume any record this write also left, so it cannot answer a later post-write.
+            let _ = load_baseline(&key);
+            return TriadTake {
+                lookup: TriadLookup::Found(baseline),
+                state: Some(armed),
+            };
+        }
+    }
+    let lookup = match load_baseline(&key) {
+        Ok(Some(baseline)) if baseline.is_known() => TriadLookup::Found(baseline),
+        // No record, or one that decodes to `Unknown` — which must not pass as a known
+        // baseline, or the gate would count against a fiction.
+        Ok(Some(_)) | Ok(None) => TriadLookup::Absent(TriadAbsent::NeverArmed),
+        Err(reason) => TriadLookup::Absent(reason),
+    };
+    TriadTake { lookup, state }
+}
+
+// ── Cross-process baseline store ──────────────────────────────────────────
+//
+// The gate only needs the "before" TEXT, not the `BranchFs` snapshot, so the on-disk record
+// is a small header plus that text — cheap enough to write on every pre-write, and it is
+// what lets a standalone pre-write arm a baseline a daemon post-write can read.
+
+/// What the base directory is: ours to create, safe to use, or not ours to touch.
+#[cfg(unix)]
+enum BaseState {
+    /// Absent — we may create it, because a name we chose under a verified parent is ours by
+    /// construction once it exists with our uid and a private mode.
+    Missing,
+    /// A real directory we may write beneath, unmodified.
+    Usable,
+    /// Someone else's, a symlink, or writable through: never adopted, never changed.
+    Unusable(&'static str),
+}
+
+/// Resolve the base: create it when missing, adopt it when it is already exclusively ours,
+/// refuse it otherwise.
+///
+/// **The absence of the base is not a failure.** `<tmp>/touring-<uid>` normally does not exist
+/// until the first write — treating "absent" as "unusable" would leave the cross-process gate
+/// permanently dark on every host without `XDG_RUNTIME_DIR`, which is exactly the path this
+/// whole change exists to fix. Absent is conflated with attacker-owned only when the two are
+/// indistinguishable, and here they are not: the name is uid-derived, and creation is followed
+/// by the same verification an adoption goes through.
+///
+/// Its own ANCESTORS are validated too (without being modified): a base reachable only through
+/// a symlinked or world-writable parent is not a place to keep source text.
+#[cfg(unix)]
+fn resolve_base(base: &Path) -> BaseState {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+
+    // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
+    let uid = unsafe { libc::getuid() };
+
+    match std::fs::symlink_metadata(base) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Every ancestor must already be safe, or we would be creating inside somewhere a
+            // local user controls.
+            if !ancestors_safe(base, uid) {
+                return BaseState::Unusable("an ancestor of the state dir is not private");
+            }
+            if std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(base)
+                .is_err()
+            {
+                return BaseState::Unusable("the state dir base could not be created");
+            }
+            // Re-read: the umask may have widened what we asked for.
+            match std::fs::symlink_metadata(base) {
+                Ok(meta)
+                    if !meta.file_type().is_symlink()
+                        && meta.is_dir()
+                        && meta.uid() == uid
+                        && meta.mode() & 0o077 == 0 => {}
+                _ => return BaseState::Unusable("the created base is not private"),
+            }
+            BaseState::Missing
+        }
+        Ok(meta) => {
+            if !ancestors_safe(base, uid) {
+                return BaseState::Unusable("an ancestor of the state dir is not private");
+            }
+            if meta.file_type().is_symlink() {
+                return BaseState::Unusable("the state dir base is a symlink");
+            }
+            if !meta.is_dir() {
+                return BaseState::Unusable("the state dir base is not a directory");
+            }
+            if meta.uid() == 0 {
+                // Root-owned: fine when not group/other writable, or sticky (`/tmp`, 1777 —
+                // entries cannot be renamed out from under their owner).
+                if meta.mode() & 0o022 != 0 && meta.mode() & 0o1000 == 0 {
+                    return BaseState::Unusable("the state dir base is writable by others");
+                }
+            } else if meta.uid() != uid || meta.mode() & 0o077 != 0 {
+                return BaseState::Unusable("the state dir base is not exclusively ours");
+            }
+            BaseState::Usable
+        }
+        Err(_) => BaseState::Unusable("the state dir base cannot be read"),
+    }
+}
+
+/// Whether every component ABOVE `path` is a real directory nobody can write through.
+///
+/// Never chmod-ed: these are `/`, `/run`, `/run/user`, `/tmp` — not ours to re-permission. Root
+/// components are acceptable when not group/other writable or sticky; a non-root component must
+/// be ours and private.
+#[cfg(unix)]
+fn ancestors_safe(path: &Path, uid: u32) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let mut cursor = path.parent();
+    while let Some(component) = cursor {
+        let Ok(meta) = std::fs::symlink_metadata(component) else {
+            return false;
+        };
+        if meta.file_type().is_symlink() || !meta.is_dir() {
+            return false;
+        }
+        if meta.uid() == 0 {
+            if meta.mode() & 0o022 != 0 && meta.mode() & 0o1000 == 0 {
+                return false;
+            }
+        } else if meta.uid() != uid || meta.mode() & 0o077 != 0 {
+            return false;
+        }
+        match component.parent() {
+            Some(parent) if parent != component => cursor = Some(parent),
+            _ => break,
+        }
+    }
+    true
+}
+
+/// Without unix metadata there is nothing to verify, so the base is used as-is.
+#[cfg(not(unix))]
+enum BaseState {
+    Missing,
+    Usable,
+    Unusable(&'static str),
+}
+
+#[cfg(not(unix))]
+fn resolve_base(base: &Path) -> BaseState {
+    if base.is_dir() {
+        BaseState::Usable
+    } else if std::fs::create_dir_all(base).is_ok() {
+        BaseState::Missing
+    } else {
+        BaseState::Unusable("the state dir base is not usable")
+    }
+}
+
+/// The store's own directory must be OURS before its mode is touched. This is the single
+/// directory whose mode this module may set — and only to make it stricter. A leaf we did not
+/// create and do not own is refused, never chmod-ed.
+#[cfg(unix)]
+fn tighten_leaf(dir: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(meta) = std::fs::symlink_metadata(dir) else {
+        return false;
+    };
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return false;
+    }
+    // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
+    if meta.uid() != unsafe { libc::getuid() } {
+        return false;
+    }
+    set_mode(dir, 0o700)
+}
+
+#[cfg(not(unix))]
+fn tighten_leaf(dir: &Path) -> bool {
+    set_mode(dir, 0o700)
+}
+
+/// Per-user directory for persisted baselines, with a 0700 mode.
+///
+/// Resolution, in order:
+/// 1. `TOURING_TRIAD_DIR` — an explicit override. Used by the tests to get a private dir per
+///    case (env vars are process-global, so those tests are `#[serial]`), and available as a
+///    human override for a session that must not share the usual state.
+/// 2. `$XDG_RUNTIME_DIR/touring/triad` when absolute (it is per-user and wiped at logout).
+/// 3. `touring-<uid>/touring/triad` under the temp dir.
+///
+/// Returns `None` when none is usable — the caller then DECLARES the abstention rather than
+/// losing it quietly.
+fn triad_state_dir() -> Option<PathBuf> {
+    // Two shapes, kept explicit rather than merged:
+    //
+    // * no override — the BASE is the last directory not ours (`$XDG_RUNTIME_DIR`, or
+    //   `<tmp>/touring-<uid>`), and the store is `base/touring/triad`. The base is checked but
+    //   NEVER chmod-ed: `/run/user/1000` and `/tmp` are not ours to re-permission, and walking
+    //   above it is how a mis-set path ends up touching something unrelated.
+    // * an override — the caller names the store directory itself; it must be ours, and there
+    //   is no base to check.
+    let (base, dir): (Option<PathBuf>, PathBuf) = match std::env::var_os("TOURING_TRIAD_DIR")
+        .map(PathBuf::from)
+    {
+        Some(explicit) => {
+            // The override names the store directory; its PARENT is the base — the last
+            // directory this function may not assume it owns (`/tmp`, `/run/user/1000`, a
+            // test's scratch dir). The chain then only covers what lies below it.
+            let base = explicit.parent().map(Path::to_path_buf);
+            (base, explicit)
+        }
+        None => {
+            let base = std::env::var_os("XDG_RUNTIME_DIR")
+                .map(PathBuf::from)
+                .filter(|p| p.is_absolute())
+                .unwrap_or_else(|| std::env::temp_dir().join(format!("touring-{}", current_uid())));
+            let dir = base.join("touring").join("triad");
+            (Some(base), dir)
+        }
+    };
+
+    if let Some(base) = base.as_deref()
+        && let BaseState::Unusable(why) = resolve_base(base)
+    {
+        tracing::warn!(
+            base = %base.display(),
+            why,
+            "TRIAD: state-dir base is unusable — cross-process baseline off"
+        );
+        return None;
+    }
+
+    // Create the store's own directories (only ever the ones missing, always 0700) and refuse
+    // any that already exists and is not exclusively ours.
+    if !create_private_chain(&dir, base.as_deref()) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "TRIAD: could not create a private directory chain — cross-process baseline off"
+        );
+        return None;
+    }
+    // The leaf is the one directory whose mode this module may set, and only to make it
+    // stricter. `create_private_chain` has already refused anything here that is not ours.
+    if !tighten_leaf(&dir) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "TRIAD: could not restrict the state dir to 0700 — cross-process baseline off"
+        );
+        return None;
+    }
+    Some(dir)
+}
+
+/// Create the store's own directories, 0700, refusing anything that already exists and is not
+/// exclusively ours.
+///
+/// **No existing directory is ever chmod-ed here.** An earlier version tightened a pre-existing
+/// ancestor to 0700; that is a destructive permission change on a path this function did not
+/// create — and with `TOURING_TRIAD_DIR` mis-set, "the ancestor" could be an ordinary directory
+/// whose permissions other software depends on. Only directories this call CREATES get their
+/// mode set, and only to 0700.
+///
+/// Two attacks are closed: a pre-planted **symlink** at any component (which would redirect
+/// every write) and a pre-planted **directory owned by someone else** — both are refused rather
+/// than adopted. Verifying by path is not race-free, but the store never writes into a
+/// directory it did not create, and `O_NOFOLLOW|O_EXCL` covers the final open.
+#[cfg(unix)]
+fn create_private_chain(dir: &Path, base: Option<&Path>) -> bool {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+
+    // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
+    let uid = unsafe { libc::getuid() };
+    // Only the components the STORE creates — those strictly BELOW `base`. The base is
+    // validated separately by `base_is_usable` and is never chmod-ed; nothing above it is
+    // examined at all, so `/` (root-owned 0755) and `/run/user` (root-owned 0755) are never
+    // judged by a rule meant for the store's own directories.
+    let mut chain: Vec<&Path> = Vec::new();
+    let mut cursor = dir;
+    loop {
+        chain.push(cursor);
+        match cursor.parent() {
+            Some(parent) if parent != cursor => cursor = parent,
+            _ => break,
+        }
+    }
+    chain.reverse();
+    if let Some(base) = base {
+        chain.retain(|c| c.starts_with(base) && *c != base);
+    }
+    // `/` is nobody's store directory, under any configuration.
+    chain.retain(|c| c.parent().is_some());
+
+    for component in chain {
+        match std::fs::symlink_metadata(component) {
+            Ok(meta) => {
+                // Already there: adopt it only if it is a real directory we exclusively own.
+                // Not writable by anyone else, and not world-readable either — this store holds
+                // source text, and a group-readable ancestor would expose every record under it.
+                // No chmod: see the doc comment.
+                if meta.file_type().is_symlink()
+                    || !meta.is_dir()
+                    || meta.uid() != uid
+                    || meta.mode() & 0o077 != 0
+                {
+                    // `warn`, not `debug`: this is the gate going dark on a real machine.
+                    // A component that is OURS but merely group/other-READABLE is the common
+                    // case after an older release created it with `create_dir_all`, and the
+                    // store must not refuse it silently — an operator would see the gate stop
+                    // working with nothing in the logs.
+                    tracing::warn!(
+                        path = %component.display(),
+                        mode = format!("{:o}", meta.mode() & 0o7777),
+                        uid = meta.uid(),
+                        "TRIAD: refusing a state-dir component that is not exclusively ours \
+                         — remove it (it holds only baselines) to restore the cross-process gate"
+                    );
+                    return false;
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                if let Err(e) = std::fs::DirBuilder::new()
+                    .recursive(true)
+                    .mode(0o700)
+                    .create(component)
+                {
+                    tracing::debug!(error = %e, path = %component.display(), "TRIAD: state-dir create failed");
+                    return false;
+                }
+                // Re-read: the umask may have widened the mode we asked for, and a directory
+                // that ended up readable by others must not be adopted.
+                let Ok(meta) = std::fs::symlink_metadata(component) else {
+                    return false;
+                };
+                if meta.file_type().is_symlink()
+                    || !meta.is_dir()
+                    || meta.uid() != uid
+                    || meta.mode() & 0o077 != 0
+                {
+                    return false;
+                }
+            }
+            Err(_) => return false,
+        }
+    }
+    true
+}
+
+/// Without unix metadata there is no ownership to check, so only "every component is a real
+/// directory" can be verified.
+#[cfg(not(unix))]
+fn create_private_chain(dir: &Path, _base: Option<&Path>) -> bool {
+    std::fs::create_dir_all(dir).is_ok()
+}
+
+/// This process's real uid: `$UID` when the environment carries it, `getuid()` otherwise.
+///
+/// `$UID` is a bash builtin export — it is NOT inherited by a systemd unit, a cron job or a
+/// scrubbed hook environment (measured: absent in a plain non-bash child). Falling back to
+/// `0` there would put every baseline in `/tmp/touring-0`, a world-predictable path another
+/// local user can pre-create and then read our source text out of. `getuid()` cannot be
+/// spoofed by the environment, so it is the authority and `$UID` is only a shortcut.
+///
+/// Read once: a uid changes only across a login.
+fn current_uid() -> u32 {
+    static UID: OnceLock<u32> = OnceLock::new();
+    *UID.get_or_init(|| {
+        // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access;
+        // it cannot fail and has no invariants to uphold.
+        let real = unsafe { libc::getuid() };
+        if real != 0 {
+            return real;
+        }
+        // Genuinely root: there is no other local user to confuse us with, but keep the
+        // env value only when it agrees with the syscall.
+        std::env::var("UID")
+            .ok()
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(0)
+    })
+}
+
+/// `chmod` `path`, reporting whether the mode now holds.
+///
+/// Returning the outcome matters: this store holds source text, and a caller that ignores a
+/// failed `chmod` proceeds to write private data into a directory that is still readable by
+/// other users.
+fn set_mode(path: &Path, mode: u32) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).is_ok()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (path, mode);
+        false
+    }
+}
+
+/// Record file for `key`: a BLAKE3 of the session and canonical path — the same inputs the
+/// in-memory key derives from, so a hash collision is not a realistic way to read another
+/// session's baseline, and the filename itself never leaks either input.
+fn record_path(dir: &Path, session_id: &str, path: &Path) -> PathBuf {
+    let digest = blake3::hash(format!("{session_id}\u{0}{}", path.display()).as_bytes());
+    dir.join(format!("{}.{DISK_SUFFIX}", digest.to_hex()))
+}
+
+/// Distinct temp name per write, so two concurrent arms of the SAME key cannot interleave
+/// into one file (the loser's rename is simply overwritten — the record is idempotent).
+static WRITE_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Upper bound on files the opportunistic sweeper inspects in one call. Bounded because it
+/// runs on the pre-write path, which every write pays.
+const SWEEP_MAX_SCAN: usize = 64;
+/// Sweep budget: how many directories-sweeps happen per process before we stop trying.
+const SWEEP_MAX_CALLS: u32 = 8;
+
+/// Delete records whose TTL has elapsed and that no take has claimed.
+///
+/// Without this the store grows without bound: every pre-write whose post-write never arrives
+/// (crashed tool call, aborted edit, or the very daemon/standalone split that motivated the
+/// on-disk baseline) leaves up to 8 MiB of source text behind forever. `load_baseline` only
+/// deletes what it READS, and `check_header` refuses an expired record without removing it.
+///
+/// Opportunistic and bounded — not a background task — and a failure here is silent by
+/// design: a stale record is refused by TTL anyway, so skipping the sweep costs disk, never
+/// correctness.
+fn sweep_expired(dir: &Path) {
+    static CALLS: AtomicU32 = AtomicU32::new(0);
+    if CALLS.fetch_add(1, Ordering::Relaxed) >= SWEEP_MAX_CALLS {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let now = unix_now();
+    for entry in entries.flatten().take(SWEEP_MAX_SCAN) {
+        let path = entry.path();
+        if path.extension().is_none_or(|e| e != DISK_SUFFIX) {
+            // Never touch a `.tmp` that another process may still be writing.
+            continue;
+        }
+        let Ok(raw) = std::fs::read(&path) else {
+            continue;
+        };
+        let Some(nl) = raw.iter().position(|b| *b == b'\n') else {
+            continue;
+        };
+        let Ok(header) = serde_json::from_slice::<serde_json::Value>(&raw[..nl]) else {
+            // Unparseable: it can never be used, so it is pure litter.
+            let _ = std::fs::remove_file(&path);
+            continue;
+        };
+        let age = header
+            .get("at")
+            .and_then(serde_json::Value::as_u64)
+            .map_or(TRIAD_TTL.as_secs() + 1, |at| now.saturating_sub(at));
+        if age > TRIAD_TTL.as_secs() {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+}
+
+/// Persist `baseline` for `key`. Failure is logged and swallowed: the in-memory copy still
+/// serves a same-process post-write, and losing the cross-process copy is a degradation,
+/// never a block.
+fn persist_baseline(key: &TriadKey, baseline: &Baseline) {
+    // `Unknown` is not a baseline worth persisting: writing nothing keeps "unknown" honest
+    // across the boundary too. `Absent` IS persisted, as a zero-length record — a NEW file's
+    // baseline is exactly as decisive as an existing one's (every occurrence in it is new),
+    // and dropping it would abstain on the very writes the gate exists to catch.
+    let text = match baseline {
+        Baseline::Content(text) => text.as_str(),
+        Baseline::Absent => "",
+        Baseline::Unknown => return,
+    };
+    if text.len() > TRIAD_DISK_MAX_BYTES {
+        tracing::debug!(
+            path = %key.1.display(),
+            bytes = text.len(),
+            "TRIAD: baseline above TRIAD_DISK_MAX_BYTES — not persisted"
+        );
+        return;
+    }
+    let Some(dir) = triad_state_dir() else {
+        tracing::debug!("TRIAD: no usable state dir — baseline not persisted");
+        return;
+    };
+    sweep_expired(&dir);
+    let final_path = record_path(&dir, &key.0, &key.1);
+    let seq = WRITE_SEQ.fetch_add(1, Ordering::Relaxed);
+    // The temp name carries process id, a counter and 64 bits of OS entropy: a name another
+    // user cannot guess is a name they cannot pre-plant. `O_EXCL` above is the backstop that
+    // makes a collision a failure rather than a clobber.
+    let tmp = final_path.with_extension(format!(
+        "{DISK_SUFFIX}.{}.{seq}.{:016x}.tmp",
+        std::process::id(),
+        random_suffix()
+    ));
+    let header = serde_json::json!({
+        "v": DISK_VERSION,
+        "at": unix_now(),
+        "path": key.1.display().to_string(),
+        "session": key.0,
+        "len": text.len(),
+    });
+    let write = || -> std::io::Result<()> {
+        let mut f = create_private(&tmp)?;
+        f.write_all(serde_json::to_string(&header)?.as_bytes())?;
+        f.write_all(b"\n")?;
+        f.write_all(text.as_bytes())?;
+        f.sync_all()
+    };
+    if let Err(e) = write() {
+        tracing::debug!(error = %e, "TRIAD: baseline write failed — cross-process copy lost");
+        let _ = std::fs::remove_file(&tmp);
+        return;
+    }
+    set_mode(&tmp, 0o600);
+    if let Err(e) = std::fs::rename(&tmp, &final_path) {
+        tracing::debug!(error = %e, "TRIAD: baseline rename failed — cross-process copy lost");
+        let _ = std::fs::remove_file(&tmp);
+    }
+}
+
+/// Create `path` for writing with mode 0600 from the start (never briefly world-readable),
+/// refusing to follow a symlink planted at that name.
+///
+/// `O_NOFOLLOW` matters because the temp name is `{hash}.tbase.{seq}.tmp` with `seq` starting
+/// at 0 per process — fully predictable to anyone who can write the state dir. Without it, a
+/// pre-planted symlink turns this open into an arbitrary-file overwrite of the victim's own
+/// files. (`rename`, which produces the FINAL record, replaces a symlink rather than
+/// following it, so that step was never the exposure.)
+fn create_private(path: &Path) -> std::io::Result<std::fs::File> {
+    use std::io::Write as _;
+    let mut opts = std::fs::OpenOptions::new();
+    // O_EXCL: fail if the name already exists, rather than following or truncating whatever
+    // is there. Combined with `create`, this is the atomic "create a new file" that cannot be
+    // redirected by a pre-planted symlink.
+    opts.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+        // SAFETY: `custom_flags` is passed straight to `open(2)`. Both flags are plain
+        // kernel-level file-creation semantics with no memory-safety implication.
+        opts.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    let mut f = opts.open(path)?;
+    f.flush()?;
+    Ok(f)
+}
+
+/// 64 bits of entropy from the OS, for temp-file names.
+///
+/// Reads exactly 8 bytes: `fs::read` on `/dev/urandom` would read the whole (endless) stream
+/// and exhaust memory, so the file is opened and a single fixed read is issued.
+///
+/// Falls back to clock⊕pid when `/dev/urandom` cannot be read: weaker, but `O_EXCL` still
+/// refuses to overwrite, so a guess costs an error, never a clobbered file.
+fn random_suffix() -> u64 {
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
+        use std::io::Read as _;
+        let mut buf = [0u8; 8];
+        if f.read_exact(&mut buf).is_ok() {
+            return u64::from_le_bytes(buf);
+        }
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    now ^ (std::process::id() as u64).rotate_left(17)
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Read (and REMOVE) the persisted baseline for `key`. The record is consumed by the take,
+/// so a stale one can never answer a later post-write.
+fn load_baseline(key: &TriadKey) -> BaselineRead {
+    let Some(dir) = triad_state_dir() else {
+        return Err(TriadAbsent::Unavailable(
+            "no per-user state directory".to_string(),
+        ));
+    };
+    let path = record_path(&dir, &key.0, &key.1);
+    let Ok(raw) = std::fs::read(&path) else {
+        return Ok(None);
+    };
+    let _ = std::fs::remove_file(&path);
+    parse_baseline(&raw, &key.1, &key.0)
+}
+
+/// `Ok(None)` = no record; `Err` = a record existed but could not be used, and the reason
+/// must reach the caller as a declared abstention.
+///
+/// Spelled out rather than `Result`: this module imports `Result` from [`crate::errors`],
+/// which is the crate's one-parameter alias for `core::result::Result<T, TouringError>`.
+type BaselineRead = std::result::Result<Option<Baseline>, TriadAbsent>;
+
+/// Parse a record: header line of JSON, then exactly the declared number of text bytes.
+/// Anything unexpected is [`TriadAbsent::Unreadable`] — an unreadable baseline must abstain,
+/// never degrade into "the file did not exist" (which would count every hit as new).
+fn parse_baseline(raw: &[u8], expect_path: &Path, expect_session: &str) -> BaselineRead {
+    let Some(nl) = raw.iter().position(|b| *b == b'\n') else {
+        return Err(TriadAbsent::Unreadable("no header".into()));
+    };
+    let header: serde_json::Value = serde_json::from_slice(&raw[..nl])
+        .map_err(|e| TriadAbsent::Unreadable(format!("bad header: {e}")))?;
+    check_header(&header, expect_path, expect_session)?;
+    let len = header
+        .get("len")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| TriadAbsent::Unreadable("no length".into()))? as usize;
+    if len > TRIAD_DISK_MAX_BYTES {
+        return Err(TriadAbsent::Oversized);
+    }
+    let body = raw
+        .get(nl + 1..)
+        .ok_or_else(|| TriadAbsent::Unreadable("truncated body".into()))?;
+    if body.len() != len {
+        return Err(TriadAbsent::Unreadable(format!(
+            "body {} bytes, header says {len}",
+            body.len()
+        )));
+    }
+    // A zero-length body is how `Absent` is persisted: the record's existence is the signal,
+    // and an empty file is a legitimate pre-state (a file that existed and held nothing).
+    if body.is_empty() {
+        return Ok(Some(Baseline::Absent));
+    }
+    Ok(Some(Baseline::Content(
+        String::from_utf8_lossy(body).into_owned(),
+    )))
+}
+
+/// Version, age and path checks — every one of them a way a record can be refused instead of
+/// trusted. The stored path makes a truncated or foreign file recognizable rather than
+/// silently readable as this file's baseline.
+fn check_header(
+    header: &serde_json::Value,
+    expect_path: &Path,
+    expect_session: &str,
+) -> std::result::Result<(), TriadAbsent> {
+    if header.get("v").and_then(serde_json::Value::as_u64) != Some(DISK_VERSION as u64) {
+        return Err(TriadAbsent::Unreadable(format!(
+            "record version {:?}",
+            header.get("v")
+        )));
+    }
+    if let Some(at) = header.get("at").and_then(serde_json::Value::as_u64)
+        && unix_now().saturating_sub(at) > TRIAD_TTL.as_secs()
+    {
+        return Err(TriadAbsent::Expired);
+    }
+    let stored = header
+        .get("path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if Path::new(stored) != expect_path {
+        return Err(TriadAbsent::Unreadable("path mismatch".into()));
+    }
+    // The session is verified too, not just the path: the record name is a hash of BOTH, and
+    // anyone who can read the directory can compute it, so a record is only ours if its
+    // contents claim our session. Without this a forged record for the same path — from
+    // another session, or from another user who got write access — would be accepted, and
+    // the gate would compare this write against an attacker's "before".
+    let stored_session = header
+        .get("session")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if stored_session != expect_session {
+        return Err(TriadAbsent::Unreadable("session mismatch".into()));
+    }
+    Ok(())
+}
+
+/// TRIAD state for one write operation (one armed snapshot).
 #[derive(Debug)]
 pub struct TriadState {
     /// Snapshot of files before the write operation.
@@ -52,6 +943,29 @@ impl TriadState {
         self.snapshot.commit();
     }
 
+    /// What the file held before the write, as a persistable [`Baseline`].
+    ///
+    /// The three-way split is the point: an unreadable snapshot is [`Baseline::Unknown`],
+    /// never [`Baseline::Absent`] — conflating them is what let a lost baseline look like a
+    /// clean file and made every antipattern count as new.
+    pub fn baseline(&self) -> Baseline {
+        match self
+            .snapshot
+            .snapshot_content(Path::new(&self.written_path))
+        {
+            Ok(Some(bytes)) => Baseline::Content(String::from_utf8_lossy(&bytes).into_owned()),
+            Ok(None) => Baseline::Absent,
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    path = %self.written_path,
+                    "TRIAD: baseline unreadable — the gate will abstain, not assume absence"
+                );
+                Baseline::Unknown
+            }
+        }
+    }
+
     /// Rollback the write operation.
     ///
     /// Restores the file to its pre-write state.
@@ -86,53 +1000,80 @@ pub fn run_pre_write(file_path: &str) -> Option<TriadState> {
     }
 }
 
-/// Run the TRIAD post-write validation and commit/rollback.
+/// TRIAD post-write: pass the validation verdict through WITHOUT touching the disk (D1-A).
 ///
-/// Call after post_write validation. If `validation_passed` is true, commits
-/// the snapshot (success). If false, rolls back to the pre-write state.
+/// `Allow` and advisory `Context` are returned unchanged — an advisory note is not a
+/// failure. On `Block` the verdict is kept and gains a one-line description of what the
+/// write changed (`+N −M lines vs pre-write baseline`), so the model fixes forward knowing
+/// the content IS on disk. The event name is always the real one, `PostToolUse`.
+///
+/// Takes the written path and its [`Baseline`] rather than a [`TriadState`], because the
+/// baseline is the only part that has to be here — it survives the process boundary, while
+/// the `BranchFs` snapshot does not. Passing the state would have made the "kept on disk"
+/// note disappear exactly when the write was blocked from another process.
 pub fn run_post_write(
-    state: &TriadState,
-    validation_passed: bool,
-    _runtime: Option<&HookRuntime>,
+    written_path: &str,
+    baseline: &Baseline,
+    response: HookResponse,
 ) -> HookResponse {
-    if validation_passed {
-        tracing::debug!(
-            path = %state.written_path,
-            branch_id = %state.snapshot.metadata().branch_id,
-            "TRIAD: post_write validation passed"
-        );
-        // Success: do nothing. Dropping TriadState drops BranchFs without restore.
-        HookResponse::Allow
-    } else {
-        tracing::warn!(
-            path = %state.written_path,
-            branch_id = %state.snapshot.metadata().branch_id,
-            "TRIAD: post_write validation failed — rolling back"
-        );
-        match state.rollback() {
-            Ok(()) => {
-                let msg = format!(
-                    "TRIAD rollback: file restored to pre-write state: {}",
-                    state.written_path
-                );
-                HookResponse::Context {
-                    context: msg,
-                    event_name: Some("TriadRollback".to_string()),
-                }
-            }
-            Err(e) => {
-                let msg = format!(
-                    "TRIAD rollback FAILED: {} — manual intervention may be required for {}",
-                    e, state.written_path
-                );
-                tracing::error!(error = %e, path = %state.written_path, "TRIAD: rollback failed");
-                HookResponse::Context {
-                    context: msg,
-                    event_name: Some("TriadRollbackFailed".to_string()),
-                }
+    match response {
+        HookResponse::Block {
+            reason, context, ..
+        } => {
+            let note = describe_write(written_path, baseline);
+            tracing::info!(path = %written_path, %note, "TRIAD: blocked write kept on disk");
+            let context = Some(match context {
+                Some(c) if !c.is_empty() => format!("{c}\n{note}"),
+                _ => note,
+            });
+            HookResponse::Block {
+                reason,
+                context,
+                event_name: Some("PostToolUse".to_string()),
             }
         }
+        other => other,
     }
+}
+
+/// `TRIAD: write kept on disk … +N −M lines vs pre-write baseline` (never panics).
+///
+/// The head is emitted even when the line delta cannot be computed: "the content is already
+/// written and the model must fix forward" is true regardless, and dropping it would leave
+/// the model guessing whether to retry.
+pub fn describe_write(written_path: &str, baseline: &Baseline) -> String {
+    let head = "TRIAD: write kept on disk (PostToolUse cannot undo; fix forward)";
+    let Baseline::Content(before) = baseline else {
+        return format!("{head} — no line summary (file was absent before the write)");
+    };
+    let after = match std::fs::read(written_path) {
+        Ok(a) => a,
+        Err(e) => return format!("{head} — line summary unavailable ({e})"),
+    };
+    if before.len().max(after.len()) > DIFF_SUMMARY_MAX_BYTES {
+        return format!("{head} — file above {DIFF_SUMMARY_MAX_BYTES} bytes, no line summary");
+    }
+    let (added, removed) = line_delta(before, &String::from_utf8_lossy(&after));
+    format!("{head} — +{added} −{removed} lines vs pre-write baseline")
+}
+
+/// Multiset line delta: how many lines the new text has beyond the old (added) and the
+/// old beyond the new (removed). O(n + m); exact counts, not an edit script.
+pub fn line_delta(before: &str, after: &str) -> (usize, usize) {
+    let mut balance: HashMap<&str, isize> = HashMap::new();
+    for line in before.lines() {
+        *balance.entry(line).or_insert(0) -= 1;
+    }
+    for line in after.lines() {
+        *balance.entry(line).or_insert(0) += 1;
+    }
+    balance.values().fold((0, 0), |(add, rem), &v| {
+        if v > 0 {
+            (add + v.unsigned_abs(), rem)
+        } else {
+            (add, rem + v.unsigned_abs())
+        }
+    })
 }
 
 /// Check if a file has drifted since the TRIAD snapshot was taken.
@@ -147,6 +1088,7 @@ pub fn check_drift(state: &TriadState) -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::fs;
     use tempfile::tempdir;
 
@@ -262,6 +1204,187 @@ mod tests {
         assert!(result.is_none());
     }
 
+    /// S12 / D1-A (25/09/2026): PostToolUse cannot undo a tool call (Claude Code docs), so the
+    /// TRIAD never touches the disk. The audit reproduced v1 → v2 → **v1** on a CLEAN write
+    /// because an advisory post-write context counted as "validation failed".
+    #[test]
+    fn post_write_advisory_context_never_touches_disk() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("clean.py");
+        fs::write(&file, b"v1\n").expect("write v1");
+        let state = TriadState::pre_write(file.to_str().unwrap()).expect("pre_write");
+        fs::write(&file, b"v2\n").expect("write v2");
+        let advisory = HookResponse::Context {
+            context: "post-write: 2 issue(s)".into(),
+            event_name: None,
+        };
+        let _ = run_post_write(file.to_str().expect("utf8"), &state.baseline(), advisory);
+        assert_eq!(
+            fs::read(&file).expect("read"),
+            b"v2\n",
+            "a post-write verdict must never revert the file"
+        );
+        let block = HookResponse::Block {
+            reason: "4 new anti-patterns".into(),
+            context: None,
+            event_name: None,
+        };
+        let _ = run_post_write(file.to_str().expect("utf8"), &state.baseline(), block);
+        assert_eq!(
+            fs::read(&file).expect("read"),
+            b"v2\n",
+            "not even a Block reverts the file"
+        );
+    }
+
+    #[test]
+    fn advisory_context_passes_through_unchanged() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("ctx.py");
+        fs::write(&file, b"a\n").expect("write");
+        let state = TriadState::pre_write(file.to_str().expect("utf8")).expect("pre_write");
+        let out = run_post_write(
+            file.to_str().expect("utf8"),
+            &state.baseline(),
+            HookResponse::Context {
+                context: "note".into(),
+                event_name: None,
+            },
+        );
+        match out {
+            HookResponse::Context {
+                context,
+                event_name,
+            } => {
+                assert_eq!(context, "note");
+                assert_eq!(event_name, None);
+            }
+            other => panic!("expected the advisory Context back, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn triad_response_uses_posttooluse_event_name() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("blocked.py");
+        fs::write(&file, b"keep\nold\n").expect("write v1");
+        let state = TriadState::pre_write(file.to_str().expect("utf8")).expect("pre_write");
+        fs::write(&file, b"keep\nnew1\nnew2\n").expect("write v2");
+        let out = run_post_write(
+            file.to_str().expect("utf8"),
+            &state.baseline(),
+            HookResponse::Block {
+                reason: "r".into(),
+                context: None,
+                event_name: None,
+            },
+        );
+        let HookResponse::Block {
+            reason,
+            context,
+            event_name,
+        } = out
+        else {
+            panic!("a Block verdict must stay a Block");
+        };
+        assert_eq!(reason, "r");
+        assert_eq!(event_name.as_deref(), Some("PostToolUse"));
+        let note = context.expect("the block gains the write description");
+        assert!(note.contains("+2 −1 lines"), "{note}");
+        assert!(
+            !note.contains("Triad") && !note.contains("rollback"),
+            "{note}"
+        );
+    }
+
+    #[test]
+    #[serial(triad_state)]
+    fn triad_state_is_keyed_by_session_and_path() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("shared.py");
+        fs::write(&file, b"x\n").expect("write");
+        let path = file.to_str().expect("utf8");
+        assert!(arm("keyed-s1", path));
+        assert!(arm("keyed-s2", path));
+        assert!(
+            triad_store()
+                .remove(&("keyed-s1".to_string(), canonical_path(path)))
+                .is_some(),
+            "session 1 finds its own snapshot"
+        );
+        assert!(
+            triad_store()
+                .remove(&("keyed-s1".to_string(), canonical_path(path)))
+                .is_none(),
+            "taking consumes it"
+        );
+        assert!(
+            triad_store()
+                .remove(&("keyed-s2".to_string(), canonical_path(path)))
+                .is_some(),
+            "session 2's snapshot survived session 1's post-write"
+        );
+    }
+
+    #[test]
+    #[serial(triad_state)]
+    fn post_write_of_a_never_consumes_snapshot_of_b() {
+        let dir = tempdir().expect("tempdir");
+        let a = dir.path().join("a.py");
+        let b = dir.path().join("b.py");
+        fs::write(&a, b"a\n").expect("write a");
+        fs::write(&b, b"b\n").expect("write b");
+        assert!(arm("ab-sess", a.to_str().expect("utf8")));
+        assert!(arm("ab-sess", b.to_str().expect("utf8")));
+        let got = triad_store()
+            .remove(&(
+                "ab-sess".to_string(),
+                canonical_path(a.to_str().expect("utf8")),
+            ))
+            .expect("a armed");
+        assert_eq!(got.written_path, a.to_str().expect("utf8"));
+        assert!(
+            triad_store()
+                .remove(&(
+                    "ab-sess".to_string(),
+                    canonical_path(b.to_str().expect("utf8"))
+                ))
+                .is_some(),
+            "b is still armed"
+        );
+    }
+
+    #[test]
+    #[serial(triad_state)]
+    fn relative_and_absolute_paths_share_one_key() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("rel.py");
+        fs::write(&file, b"r\n").expect("write");
+        let abs = file.to_str().expect("utf8").to_string();
+        let dotted = format!("{}/./rel.py", dir.path().display());
+        assert!(arm("rel-sess", &dotted));
+        assert!(
+            triad_store()
+                .remove(&("rel-sess".to_string(), canonical_path(&abs)))
+                .is_some(),
+            "`dir/./rel.py` and `dir/rel.py` must meet"
+        );
+    }
+
+    #[test]
+    fn missing_session_id_gets_its_own_anon_key() {
+        assert_eq!(session_of(&serde_json::json!({})), "anon");
+        assert_eq!(session_of(&serde_json::json!({"session_id": ""})), "anon");
+        assert_eq!(session_of(&serde_json::json!({"session_id": "s-9"})), "s-9");
+    }
+
+    #[test]
+    fn line_delta_counts_added_and_removed_lines() {
+        assert_eq!(line_delta("a\nb\nc\n", "a\nc\nd\ne\n"), (2, 1));
+        assert_eq!(line_delta("", "x\n"), (1, 0));
+        assert_eq!(line_delta("same\n", "same\n"), (0, 0));
+    }
+
     #[test]
     fn test_run_post_write_allow_on_success() {
         let dir = tempdir().expect("tempdir");
@@ -270,8 +1393,12 @@ mod tests {
 
         let state = TriadState::pre_write(file.to_str().unwrap()).expect("pre_write");
 
-        // Success path: run_post_write returns HookResponse::Allow without using runtime
-        let response = run_post_write(&state, true, None);
+        // Success path: an Allow verdict passes through as Allow
+        let response = run_post_write(
+            file.to_str().expect("utf8"),
+            &state.baseline(),
+            HookResponse::Allow,
+        );
         match response {
             HookResponse::Allow => {}
             other => panic!("expected Allow, got {:?}", other),
@@ -279,5 +1406,1002 @@ mod tests {
 
         // Commit the snapshot
         let _ = state.snapshot.commit();
+    }
+}
+
+/// Scratch directory for a test, plus the helper that points the store at a private one.
+///
+/// Shared by the test modules below: env vars are process-global and `cargo test` runs a
+/// process' tests on parallel threads, so every test that touches the store is `#[serial]`
+/// and gets its own directory.
+#[cfg(test)]
+fn scratch(tag: &str) -> std::path::PathBuf {
+    use std::os::unix::fs::DirBuilderExt;
+    let dir = std::env::temp_dir().join(format!("touring-triad-test-{}-{tag}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    // 0700, because the store now requires every component it writes into to be private —
+    // and these ARE the components it writes into.
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&dir)
+        .expect("scratch dir");
+    dir
+}
+
+#[cfg(test)]
+fn use_state_dir(tag: &str) -> std::path::PathBuf {
+    let dir = scratch(&format!("state-{tag}"));
+    // SAFETY: every test that sets this is `#[serial]`, so no other thread in this process
+    // reads it concurrently.
+    unsafe { std::env::set_var("TOURING_TRIAD_DIR", &dir) };
+    dir
+}
+
+/// S28 cross-process baseline (17/10/2026) — the acceptance tests for the defect the `analise`
+/// session measured: pre-write and post-write in DIFFERENT processes, and an abstention that
+/// is always DECLARED.
+///
+/// These are unit-level proofs of the two contracts. The end-to-end proof that the Block still
+/// arrives with `kept on disk` lives in `touring-hook-handlers` (`s28_gate.rs`), which drives
+/// the real `pre_write`/`post_write` handlers.
+#[cfg(test)]
+mod s28_cross_process_tests {
+    use super::*;
+    use serial_test::serial;
+    use std::fs;
+
+    fn file_with(dir: &Path, name: &str, body: &str) -> PathBuf {
+        let p = dir.join(name);
+        fs::write(&p, body).expect("write");
+        p
+    }
+
+    /// The record a given (session, path) maps to, inside `state`.
+    fn record(state: &Path, session: &str, path: &Path) -> PathBuf {
+        record_path(state, session, path)
+    }
+
+    /// (a) A baseline armed by process A is read by process B.
+    ///
+    /// The defect: `arm` wrote only to a process-local `moka` cache, so when the client fell
+    /// back to the standalone binary (daemon slow, or `TOURING_NO_DAEMON=1`) the post-write
+    /// found nothing and the gate abstained as `0` — silently. This test writes the record the
+    /// way process A would and reads it the way process B would, with a FRESH in-memory store,
+    /// so it fails if the disk fallback stops existing.
+    #[test]
+    #[serial(triad_state)]
+    fn baseline_crosses_a_process_boundary() {
+        let state = use_state_dir("xproc");
+        let work = scratch("xproc-work");
+        let file = file_with(&work, "t.py", "x = 1\n");
+        let key = (
+            "sess-a".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+
+        // Process A arms.
+        persist_baseline(&key, &Baseline::Content("x = 1\n".to_string()));
+        assert!(
+            record(&state, "sess-a", &key.1).exists(),
+            "the arm must leave a record for the other process"
+        );
+
+        // Process B takes. `triad_store()` here holds nothing for this key.
+        let got = load_baseline(&key).expect("readable");
+        assert_eq!(
+            got,
+            Some(Baseline::Content("x = 1\n".to_string())),
+            "the baseline armed in another process must be readable"
+        );
+
+        // Consumed on take: a second read finds nothing, so a stale record can never answer
+        // a later post-write.
+        assert_eq!(
+            load_baseline(&key).expect("readable"),
+            None,
+            "the record is consumed by the take"
+        );
+    }
+
+    /// The disk fallback is keyed by (session, canonical path): another session's baseline is
+    /// not reachable, and the same path under a different session is a different record.
+    #[test]
+    #[serial(triad_state)]
+    fn records_are_keyed_by_session_and_canonical_path() {
+        let state = use_state_dir("keyed");
+        let work = scratch("keyed-work");
+        let file = file_with(&work, "k.py", "a\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let mine = ("sess-1".to_string(), path.clone());
+        let theirs = ("sess-2".to_string(), path.clone());
+
+        persist_baseline(&mine, &Baseline::Content("mine\n".into()));
+        persist_baseline(&theirs, &Baseline::Content("theirs\n".into()));
+
+        assert_ne!(
+            record(&state, "sess-1", &path),
+            record(&state, "sess-2", &path),
+            "two sessions on one path must not share a record"
+        );
+        assert_eq!(
+            load_baseline(&mine).expect("readable"),
+            Some(Baseline::Content("mine\n".into()))
+        );
+        assert_eq!(
+            load_baseline(&theirs).expect("readable"),
+            Some(Baseline::Content("theirs\n".into()))
+        );
+    }
+
+    /// `Baseline::Absent` (the file did not exist) must NOT be persisted as an empty string:
+    /// an empty body would read back as "the file held nothing", and the S28 gate counts
+    /// differently for "absent" (every occurrence is new) than for "empty" (none is new).
+    #[test]
+    #[serial(triad_state)]
+    fn an_absent_baseline_survives_and_stays_distinct_from_empty() {
+        let state = use_state_dir("absent");
+        let work = scratch("absent-work");
+        let fresh = work.join("never-written.py");
+        let path = canonical_path(fresh.to_str().expect("utf8"));
+        let key = ("sess-absent".to_string(), path.clone());
+
+        // `Absent` IS persisted: for a NEW file every occurrence is new, so dropping the
+        // baseline would abstain on exactly the writes the gate must catch.
+        persist_baseline(&key, &Baseline::Absent);
+        assert!(
+            record(&state, "sess-absent", &path).exists(),
+            "Absent must leave a record — its existence is the signal"
+        );
+        assert_eq!(
+            load_baseline(&key).expect("readable"),
+            Some(Baseline::Absent),
+            "and it must decode back as Absent, not as empty content"
+        );
+
+        // `Unknown` is the opposite: it must leave nothing, so it stays unknown across the
+        // boundary instead of turning into "the file did not exist".
+        persist_baseline(&key, &Baseline::Unknown);
+        assert!(
+            !record(&state, "sess-absent", &path).exists(),
+            "Unknown must leave no record"
+        );
+        assert_eq!(load_baseline(&key).expect("readable"), None);
+    }
+
+    /// A new file written in ONE process keeps its baseline: the in-memory state is
+    /// authoritative, and nothing is persisted for a file that did not exist. Regression
+    /// guard — reading only the disk here abstained on every new file.
+    #[test]
+    #[serial(triad_state)]
+    fn a_new_file_keeps_its_baseline_in_a_single_process() {
+        let _state = use_state_dir("new-file");
+        let work = scratch("new-file-work");
+        let file = work.join("brand_new.py");
+        // The file does NOT exist yet: this is the pre-write.
+        assert!(arm("new-file-sess", file.to_str().expect("utf8")));
+        std::fs::write(&file, "x = 1\n").expect("create");
+
+        let taken = take_lookup("new-file-sess", file.to_str().expect("utf8"));
+        assert!(
+            taken.lookup.is_found(),
+            "a new file's baseline must be found — every occurrence in it is new"
+        );
+        assert!(
+            matches!(&taken.lookup, TriadLookup::Found(Baseline::Absent)),
+            "and it must be Absent, not empty content: {:?}",
+            taken.lookup
+        );
+        assert_eq!(taken.lookup.before(), None, "Absent means 'did not exist'");
+    }
+
+    /// (b) No pre-write at all → the gate DECLARES, it does not pass as clean.
+    #[test]
+    #[serial(triad_state)]
+    fn a_missing_baseline_declares_its_reason() {
+        let _state = use_state_dir("missing");
+        let work = scratch("missing-work");
+        let file = file_with(&work, "m.py", "z\n");
+        let path = file.to_str().expect("utf8");
+
+        let taken = take_lookup("never-armed", path);
+        assert!(
+            !taken.lookup.is_found(),
+            "nothing armed this pair — there is no baseline to judge with"
+        );
+        assert!(taken.state.is_none(), "and no same-process snapshot either");
+        let note = match &taken.lookup {
+            TriadLookup::Absent(reason) => reason.note(),
+            other => panic!("expected an Absent lookup, got {other:?}"),
+        };
+        assert!(
+            note.contains("S28 abstained") && note.contains("NEW anti-patterns were not counted"),
+            "the abstention must say the gate did not run: {note}"
+        );
+    }
+
+    /// `take_lookup` prefers the same-process snapshot but still reports the baseline, so the
+    /// caller gates correctly even when armed and judged in one process.
+    #[test]
+    #[serial(triad_state)]
+    fn a_same_process_take_reports_both_lookup_and_state() {
+        let _state = use_state_dir("same");
+        let work = scratch("same-work");
+        let file = file_with(&work, "s.py", "before\n");
+        let path = file.to_str().expect("utf8");
+
+        assert!(arm("same-proc", path));
+        // Simulate the write.
+        fs::write(&file, "after\n").expect("write");
+
+        let taken = take_lookup("same-proc", path);
+        assert!(taken.lookup.is_found(), "the in-memory baseline is found");
+        assert!(
+            taken.state.is_some(),
+            "and it carries the BranchFs snapshot, which only this process has"
+        );
+        assert_eq!(taken.lookup.before(), Some("before\n"));
+
+        // A different session on the same path finds nothing — the key is (session, path).
+        let other = take_lookup("other-proc", path);
+        assert!(
+            !other.lookup.is_found(),
+            "a different session gets no baseline"
+        );
+    }
+
+    /// (c) An expired record declares `Expired` rather than silently reading as absent.
+    ///
+    /// The record is written by hand with a timestamp past [`TRIAD_TTL`], because sleeping 600 s
+    /// is not a test.
+    #[test]
+    #[serial(triad_state)]
+    fn an_expired_record_declares_expiry() {
+        let state = use_state_dir("expired");
+        let work = scratch("expired-work");
+        let file = file_with(&work, "e.py", "old\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let key = ("sess-exp".to_string(), path.clone());
+
+        let header = serde_json::json!({
+            "v": DISK_VERSION,
+            "at": unix_now().saturating_sub(TRIAD_TTL.as_secs() + 1),
+            "path": path.display().to_string(),
+            "session": "sess-exp",
+            "len": 4,
+        });
+        let rec = record(&state, "sess-exp", &path);
+        let mut body = serde_json::to_string(&header).expect("json");
+        body.push('\n');
+        body.push_str("old\n");
+        fs::write(&rec, body).expect("write record");
+
+        let err = load_baseline(&key).expect_err("an expired record must not be used");
+        assert_eq!(err, TriadAbsent::Expired);
+        assert!(
+            err.note().contains("expired"),
+            "the abstention names the reason: {}",
+            err.note()
+        );
+    }
+
+    /// (c) A record above [`TRIAD_DISK_MAX_BYTES`] declares `Oversized`.
+    #[test]
+    #[serial(triad_state)]
+    fn a_record_above_the_cap_declares_oversized() {
+        let state = use_state_dir("oversize");
+        let work = scratch("oversize-work");
+        let file = file_with(&work, "big.py", "x\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let key = ("sess-big".to_string(), path.clone());
+
+        // A header that claims more than the cap: the record is refused on the header alone,
+        // without allocating the claimed bytes.
+        let header = serde_json::json!({
+            "v": DISK_VERSION,
+            "at": unix_now(),
+            "path": path.display().to_string(),
+            "session": "sess-big",
+            "len": TRIAD_DISK_MAX_BYTES + 1,
+        });
+        let rec = record(&state, "sess-big", &path);
+        let mut body = serde_json::to_string(&header).expect("json");
+        body.push('\n');
+        fs::write(&rec, body).expect("write record");
+
+        let err = load_baseline(&key).expect_err("an oversized record must not be used");
+        assert_eq!(err, TriadAbsent::Oversized);
+        assert!(
+            err.note().contains("TRIAD_DISK_MAX_BYTES"),
+            "the abstention names the cap: {}",
+            err.note()
+        );
+    }
+
+    /// The writer refuses to persist an oversized baseline in the first place.
+    #[test]
+    #[serial(triad_state)]
+    fn an_oversized_baseline_is_never_written() {
+        let state = use_state_dir("no-write-big");
+        let work = scratch("no-write-big-work");
+        let file = file_with(&work, "huge.py", "x\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let key = ("sess-huge".to_string(), path.clone());
+
+        let big = "a".repeat(TRIAD_DISK_MAX_BYTES + 1);
+        persist_baseline(&key, &Baseline::Content(big));
+
+        assert!(
+            !record(&state, "sess-huge", &path).exists(),
+            "a baseline above the cap must leave no record at all"
+        );
+        assert_eq!(load_baseline(&key).expect("readable"), None);
+    }
+
+    /// A record is written 0600 under a 0700 directory: it holds source text, so it must not be
+    /// readable by anyone else on the machine.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn the_record_is_private_to_its_user() {
+        use std::os::unix::fs::PermissionsExt;
+        let state = use_state_dir("perms");
+        let work = scratch("perms-work");
+        let file = file_with(&work, "p.py", "secret\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let key = ("sess-perm".to_string(), path.clone());
+
+        persist_baseline(&key, &Baseline::Content("secret\n".into()));
+
+        let dir_mode = fs::metadata(&state).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(
+            dir_mode, 0o700,
+            "the state dir must be 0700, got {dir_mode:o}"
+        );
+        let file_mode = fs::metadata(record(&state, "sess-perm", &path))
+            .expect("stat")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(
+            file_mode, 0o600,
+            "the record must be 0600, got {file_mode:o}"
+        );
+    }
+
+    /// A corrupt or foreign record abstains with a reason; it never reads back as content, and
+    /// never degrades into "the file did not exist" (which would make every hit count as new).
+    #[test]
+    #[serial(triad_state)]
+    fn a_corrupt_record_declines_instead_of_guessing() {
+        let state = use_state_dir("corrupt");
+        let work = scratch("corrupt-work");
+        let file = file_with(&work, "c.py", "body\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let cases: Vec<(&str, Vec<u8>, &str)> = vec![
+            ("no header", b"just text".to_vec(), "no header"),
+            ("bad json", b"{not json}\nbody".to_vec(), "bad header"),
+            (
+                "path mismatch",
+                format!(
+                    "{{\"v\":{DISK_VERSION},\"at\":{at},\"path\":\"/somewhere/else.py\",\
+                     \"session\":\"s\",\"len\":4}}\nbody",
+                    at = unix_now()
+                )
+                .into_bytes(),
+                "path mismatch",
+            ),
+            (
+                "truncated body",
+                format!(
+                    "{{\"v\":{DISK_VERSION},\"at\":{at},\"path\":\"{p}\",\
+                     \"session\":\"s\",\"len\":99}}\nbody",
+                    at = unix_now(),
+                    p = path.display()
+                )
+                .into_bytes(),
+                "body 4 bytes",
+            ),
+        ];
+        for (tag, body, expect) in cases {
+            let rec = record(&state, "s", &path);
+            fs::write(&rec, &body).expect("write record");
+            let err = load_baseline(&("s".to_string(), path.clone()))
+                .expect_err("a corrupt record must not be used");
+            assert!(
+                matches!(&err, TriadAbsent::Unreadable(m) if m.contains(expect)),
+                "{tag}: expected an Unreadable mentioning {expect:?}, got {err:?}"
+            );
+        }
+    }
+
+    /// A record from a FUTURE version of the format is refused, not guessed at.
+    #[test]
+    #[serial(triad_state)]
+    fn a_foreign_record_version_is_refused() {
+        let state = use_state_dir("version");
+        let work = scratch("version-work");
+        let file = file_with(&work, "v.py", "body\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let rec = record(&state, "s", &path);
+        let header = serde_json::json!({
+            "v": DISK_VERSION + 99,
+            "at": unix_now(),
+            "path": path.display().to_string(),
+            "session": "s",
+            "len": 4,
+        });
+        let mut body = serde_json::to_string(&header).expect("json");
+        body.push('\n');
+        body.push_str("body");
+        fs::write(&rec, body).expect("write record");
+
+        let err = load_baseline(&("s".to_string(), path)).expect_err("refused");
+        assert!(matches!(&err, TriadAbsent::Unreadable(m) if m.contains("version")));
+    }
+
+    /// Content with newlines and non-UTF-8 bytes round-trips: the header length, not a
+    /// delimiter, is what separates metadata from text.
+    #[test]
+    #[serial(triad_state)]
+    fn content_with_newlines_and_invalid_utf8_round_trips() {
+        let _state = use_state_dir("bytes");
+        let work = scratch("bytes-work");
+        let file = file_with(&work, "b.bin", "old\n");
+        let path = canonical_path(file.to_str().expect("utf8"));
+        let key = ("sess-bytes".to_string(), path.clone());
+        // A line that ends in a lone continuation byte: invalid UTF-8, and it contains no '\n'.
+        let text = "line one\nline two \u{80} tail";
+        persist_baseline(&key, &Baseline::Content(text.to_string()));
+
+        let got = load_baseline(&key).expect("readable");
+        match got {
+            // The record stores text; invalid sequences survive as U+FFFD via lossy conversion,
+            // which is the same guarantee `before_content` already gave.
+            Some(Baseline::Content(back)) => {
+                assert!(back.starts_with("line one\nline two "), "got {back:?}");
+                assert!(back.ends_with(" tail"), "got {back:?}");
+            }
+            other => panic!("expected the baseline back, got {other:?}"),
+        }
+    }
+
+    /// The state dir is per-user and reusable: a second call yields the same directory.
+    #[test]
+    #[serial(triad_state)]
+    fn the_state_dir_is_stable_and_private() {
+        // Deliberately NOT an isolated dir: this exercises the real resolution chain, so the
+        // override must be cleared first (serial, so no other thread reads it meanwhile).
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::remove_var("TOURING_TRIAD_DIR") };
+        let a = triad_state_dir().expect("state dir");
+        let b = triad_state_dir().expect("state dir");
+        assert_eq!(a, b, "the dir must be stable within a process");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&a).expect("stat").permissions().mode() & 0o777;
+            assert_eq!(mode, 0o700, "got {mode:o}");
+        }
+    }
+
+    /// `take_lookup` still works when the state directory cannot be used at all — it reports the
+    /// degradation rather than panicking, and the same-process snapshot still gates.
+    #[test]
+    #[serial(triad_state)]
+    fn an_unusable_state_dir_degrades_without_panicking() {
+        let _state = use_state_dir("nodir");
+        let work = scratch("nodir-work");
+        let file = file_with(&work, "n.py", "before\n");
+        let path = file.to_str().expect("utf8");
+
+        // Point the store at a path that cannot be a directory: a regular FILE where a
+        // directory is required. `create_dir_all` then fails and the store is unavailable.
+        let blocker = work.join("blocked");
+        fs::write(&blocker, "not a directory").expect("write");
+        // SAFETY: `#[serial]` guarantees no other thread reads the env meanwhile.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &blocker) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a file where a directory belongs must be reported, not worked around"
+        );
+
+        assert!(arm("nodir-proc", path));
+        fs::write(&file, "after\n").expect("write");
+
+        let taken = take_lookup("nodir-proc", path);
+        assert!(
+            taken.lookup.is_found(),
+            "the in-memory baseline still serves — losing the disk copy degrades, never blocks"
+        );
+        assert!(taken.state.is_some());
+    }
+}
+
+/// Security controls on the baseline store (security review, 17/10/2026).
+///
+/// Each test here fails if its control is removed — they are not coverage for its own sake:
+/// every one of them guards a way to read or clobber the user's source text through a
+/// directory the hook chose, and the store is only ever consulted by the post-write hook.
+#[cfg(test)]
+mod s28_store_security_tests {
+    use super::*;
+    use serial_test::serial;
+    use std::fs;
+
+    fn state_and_scratch(tag: &str) -> (PathBuf, PathBuf) {
+        let state = use_state_dir(tag);
+        let work = scratch(&format!("{tag}-work"));
+        (state, work)
+    }
+
+    /// A symlink standing where the state directory should be is REFUSED. `create_dir_all`
+    /// succeeds through a symlink, so without this check every baseline — the user's source
+    /// text — would be written wherever the link points.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_symlinked_state_dir_is_refused() {
+        let _state = use_state_dir("sec-symlink");
+        let work = scratch("symlink-work");
+        let target = work.join("elsewhere");
+        fs::create_dir_all(&target).expect("target dir");
+        let link = work.join("link");
+        std::os::unix::fs::symlink(&target, &link).expect("symlink");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &link) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a symlink where the state dir belongs must be refused, not followed"
+        );
+        assert!(
+            fs::read_dir(&target).expect("read").next().is_none(),
+            "nothing may be written through the link"
+        );
+    }
+
+    /// A regular file where the directory should be is refused (it is neither a dir nor ours
+    /// as one), and the store degrades to abstaining instead of writing somewhere else.
+    #[test]
+    #[serial(triad_state)]
+    fn a_state_dir_that_is_a_file_is_refused() {
+        let _state = use_state_dir("sec-notadir");
+        let work = scratch("notadir-work");
+        let file = work.join("plain");
+        fs::write(&file, "not a directory").expect("write");
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &file) };
+        assert!(triad_state_dir().is_none());
+    }
+
+    /// A symlink planted at an ANCESTOR of the state dir is refused, not just at the leaf.
+    ///
+    /// Checking only the leaf was a real gap: `create_dir_all` succeeds through a symlink, so
+    /// `…/touring/triad` being a pristine 0700 directory of ours says nothing about `…/touring`
+    /// pointing somewhere a local user chose. The whole chain is verified.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_symlinked_ancestor_is_refused() {
+        let _state = use_state_dir("sec-ancestor");
+        let work = scratch("sec-ancestor-work");
+        let elsewhere = work.join("attacker");
+        fs::create_dir_all(&elsewhere).expect("attacker dir");
+        let link = work.join("touring");
+        std::os::unix::fs::symlink(&elsewhere, &link).expect("symlink");
+        let leaf = link.join("triad");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a symlinked ancestor must be refused even when the leaf is ours"
+        );
+        assert!(
+            fs::read_dir(&elsewhere).expect("read").next().is_none(),
+            "nothing may be written through the ancestor link"
+        );
+    }
+
+    /// An ancestor owned by someone else and writable by them is refused outright — the store
+    /// never adopts a directory it did not create.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_world_writable_ancestor_is_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let _state = use_state_dir("sec-ww");
+        let work = scratch("sec-ww-work");
+        let loose = work.join("loose");
+        fs::create_dir_all(&loose).expect("loose dir");
+        // Group/other writable: someone else could drop a component in here.
+        fs::set_permissions(&loose, std::fs::Permissions::from_mode(0o777)).expect("chmod");
+        let leaf = loose.join("triad");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a world-writable ancestor must not be adopted"
+        );
+    }
+
+    /// A pre-existing ancestor is REFUSED, never chmod-ed — and its mode is left as it was.
+    ///
+    /// An earlier version tightened a directory it had not created. That is a destructive
+    /// permission change on a path outside the store's remit: with `TOURING_TRIAD_DIR` mis-set,
+    /// "the ancestor" can be an ordinary directory other software depends on. The store now
+    /// creates 0700 what it creates, refuses the rest, and changes nothing it did not make.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_pre_existing_ancestor_is_refused_and_left_untouched() {
+        use std::os::unix::fs::PermissionsExt;
+        let _state = use_state_dir("sec-untouched");
+        let work = scratch("sec-untouched-work");
+        let ancestor = work.join("open");
+        fs::create_dir_all(&ancestor).expect("ancestor");
+        fs::set_permissions(&ancestor, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let leaf = ancestor.join("triad");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a pre-existing, not-private ancestor must be refused"
+        );
+        let mode = fs::metadata(&ancestor).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(
+            mode, 0o755,
+            "and its mode must be untouched — we did not create it: got {mode:o}"
+        );
+    }
+
+    /// The DEFAULT resolution works: with no `TOURING_TRIAD_DIR` and no `XDG_RUNTIME_DIR`, a
+    /// baseline lands under `<tmp>/touring-<uid>/touring/triad` and is read back.
+    ///
+    /// This is the regression guard for the dead zone the previous version introduced. The base
+    /// `<tmp>/touring-<uid>` normally does not exist until the first write, and treating
+    /// "absent" as "unusable" left the cross-process gate permanently dark on every host that
+    /// does not export `XDG_RUNTIME_DIR` — which is most hooks spawned by a daemon.
+    #[test]
+    #[serial(triad_state)]
+    fn the_default_resolution_creates_its_base_and_works() {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        let _state = use_state_dir("sec-default-warm");
+        let work = scratch("sec-default-warm-work");
+        // Stand in for a private, per-user temp root so the test does not depend on the
+        // machine's real TMPDIR layout.
+        let fake_tmp = work.join("tmp");
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&fake_tmp)
+            .expect("fake tmp");
+        let uid = current_uid();
+        let base = fake_tmp.join(format!("touring-{uid}"));
+        assert!(
+            !base.exists(),
+            "the base must start absent — that is the case under test"
+        );
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe {
+            std::env::remove_var("TOURING_TRIAD_DIR");
+            std::env::remove_var("XDG_RUNTIME_DIR");
+            std::env::set_var("TMPDIR", &fake_tmp);
+        }
+
+        let dir = triad_state_dir().expect("an absent base must be created, not refused");
+        assert!(
+            dir.starts_with(&base),
+            "must live under the uid-derived base: {dir:?}"
+        );
+        assert_eq!(
+            fs::metadata(&base).expect("stat").permissions().mode() & 0o777,
+            0o700,
+            "the created base must be private"
+        );
+
+        // And it really persists and reads back.
+        let file = work.join("d.py");
+        fs::write(&file, "before\n").expect("write");
+        let key = (
+            "sess-default".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+        persist_baseline(&key, &Baseline::Content("before\n".into()));
+        assert_eq!(
+            load_baseline(&key).expect("readable"),
+            Some(Baseline::Content("before\n".into())),
+            "the default path must round-trip a baseline"
+        );
+    }
+
+    /// The state directory is 0700 and every record 0600 — the store holds source text, so
+    /// this is the difference between a private copy and a disclosure.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn the_store_is_private_after_a_write() {
+        use std::os::unix::fs::PermissionsExt;
+        let (state, work) = state_and_scratch("sec-perms");
+        let file = work.join("secret.py");
+        let key = (
+            "sess-perm2".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+        persist_baseline(&key, &Baseline::Content("api_key = \'real\'\n".into()));
+
+        let dir_mode = fs::metadata(&state).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700, "state dir must be 0700, got {dir_mode:o}");
+        let rec = record_path(&state, "sess-perm2", &key.1);
+        let rec_mode = fs::metadata(&rec).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(rec_mode, 0o600, "record must be 0600, got {rec_mode:o}");
+        // And no temp file is left behind to be mistaken for a record.
+        let leftovers: Vec<_> = fs::read_dir(&state)
+            .expect("read")
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".tmp"))
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "temp files left behind: {leftovers:?}"
+        );
+    }
+
+    /// `create_private` never clobbers an existing file — the `O_EXCL` control. A
+    /// pre-planted name must produce an ERROR, not a truncation.
+    #[test]
+    #[serial(triad_state)]
+    fn the_temp_open_refuses_an_existing_name() {
+        let _state = use_state_dir("sec-excl");
+        let work = scratch("excl-work");
+        let victim = work.join("precious.txt");
+        fs::write(&victim, "do not lose me").expect("write");
+
+        let err = create_private(&victim);
+        assert!(
+            err.is_err(),
+            "O_EXCL must refuse a name that already exists: {err:?}"
+        );
+        assert_eq!(
+            fs::read_to_string(&victim).expect("read"),
+            "do not lose me",
+            "the existing file must be untouched"
+        );
+    }
+
+    /// A symlink at the temp path is refused rather than followed (`O_NOFOLLOW`).
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn the_temp_open_refuses_to_follow_a_symlink() {
+        let _state = use_state_dir("sec-nofollow");
+        let work = scratch("nofollow-work");
+        let victim = work.join("target.txt");
+        fs::write(&victim, "original").expect("write");
+        let link = work.join("link.txt");
+        std::os::unix::fs::symlink(&victim, &link).expect("symlink");
+
+        assert!(
+            create_private(&link).is_err(),
+            "O_NOFOLLOW must refuse a symlink at the temp path"
+        );
+        assert_eq!(fs::read_to_string(&victim).expect("read"), "original");
+    }
+
+    /// A record whose `session` does not match is refused. The record name is a hash of
+    /// (session, path) and BLAKE3 is unkeyed, so anyone who can read the directory can
+    /// compute it — only the contents prove the record is ours.
+    #[test]
+    #[serial(triad_state)]
+    fn a_record_from_another_session_is_refused() {
+        let state = use_state_dir("sec-forge");
+        let work = scratch("forge-work");
+        let file = work.join("f.py");
+        let path = canonical_path(file.to_str().expect("utf8"));
+
+        // A well-formed record for the RIGHT path but the WRONG session, sitting at the
+        // name OUR key hashes to.
+        let header = serde_json::json!({
+            "v": DISK_VERSION,
+            "at": unix_now(),
+            "path": path.display().to_string(),
+            "session": "someone-else",
+            "len": 8,
+        });
+        let mut body = serde_json::to_string(&header).expect("json");
+        body.push('\n');
+        body.push_str("forged!\n");
+        fs::write(record_path(&state, "sess-forge", &path), body).expect("write");
+
+        let err = load_baseline(&("sess-forge".to_string(), path)).expect_err("must refuse");
+        assert!(
+            matches!(&err, TriadAbsent::Unreadable(m) if m.contains("session mismatch")),
+            "a foreign session must be refused, got {err:?}"
+        );
+    }
+
+    /// The uid fallback is `getuid()`, never 0: with `$UID` absent (systemd, cron) a zero
+    /// fallback would put every baseline in the world-predictable `/tmp/touring-0`.
+    #[test]
+    fn the_uid_is_never_a_hardcoded_zero() {
+        let uid = current_uid();
+        // SAFETY: `getuid()` is a pure syscall with no preconditions.
+        assert_eq!(
+            uid,
+            unsafe { libc::getuid() },
+            "uid must come from the syscall"
+        );
+    }
+
+    /// Two consecutive records for the same key get DIFFERENT temp names, so two writers in
+    /// one process cannot interleave into one file.
+    #[test]
+    #[serial(triad_state)]
+    fn consecutive_records_use_distinct_temp_names() {
+        let _state = use_state_dir("sec-seq");
+        let work = scratch("seq-work");
+        let file = work.join("s.py");
+        let key = (
+            "sess-seq".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+        let dir = triad_state_dir().expect("state dir");
+        let final_path = record_path(&dir, &key.0, &key.1);
+
+        persist_baseline(&key, &Baseline::Content("one".into()));
+        persist_baseline(&key, &Baseline::Content("two".into()));
+
+        // Whatever the temp names were, the record must hold the LAST write, whole.
+        let got = load_baseline(&key).expect("readable");
+        assert_eq!(
+            got,
+            Some(Baseline::Content("two".into())),
+            "the final record must be the last write, not a mixture"
+        );
+        let _ = final_path;
+    }
+}
+
+/// S28 — `Baseline` distinguishes a new file (nothing before) from a rewritten one, and keeps
+/// "could not read" (`Unknown`) distinct from both.
+#[cfg(test)]
+mod s28_before_tests {
+    use super::*;
+
+    #[test]
+    fn baseline_distinguishes_new_file_from_existing() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let existing = dir.path().join("a.rs");
+        std::fs::write(&existing, "old body\n").expect("write");
+        let state = TriadState::pre_write(existing.to_str().expect("utf8")).expect("snapshot");
+        std::fs::write(&existing, "new body\n").expect("rewrite");
+        assert_eq!(
+            state.baseline(),
+            Baseline::Content("old body\n".to_string()),
+            "a rewritten file carries its old text"
+        );
+
+        let fresh = dir.path().join("new.rs");
+        let state = TriadState::pre_write(fresh.to_str().expect("utf8")).expect("snapshot");
+        std::fs::write(&fresh, "x").expect("create");
+        assert_eq!(
+            state.baseline(),
+            Baseline::Absent,
+            "a new file had no content before"
+        );
+    }
+
+    /// The three-way split is load-bearing: `Absent` means "did not exist" (every occurrence
+    /// is new) and `Unknown` means "could not read" (the gate must abstain). Collapsing
+    /// either into the other is how a lost baseline looked like a clean file.
+    #[test]
+    fn absent_and_unknown_are_not_the_same_answer() {
+        assert_eq!(Baseline::Absent.as_before(), None);
+        assert!(Baseline::Absent.is_known(), "Absent is a KNOWN pre-state");
+        assert_eq!(Baseline::Unknown.as_before(), None);
+        assert!(
+            !Baseline::Unknown.is_known(),
+            "Unknown is NOT a known pre-state — it must abstain"
+        );
+        assert_eq!(Baseline::Content("a\n".into()).as_before(), Some("a\n"));
+    }
+}
+
+/// PT3 (plan 2026-09-25) — TRIAD advisory (D1-A) with two sessions writing in parallel:
+/// crossings = 0, reversions = 0, cost measured. Emits one `PT3 {json}` line (run with
+/// `--nocapture` to record it in the plan's data/pt3.json).
+#[cfg(test)]
+mod pt3_tests {
+    use super::*;
+    use serial_test::serial;
+    use std::time::Instant;
+
+    const N: usize = 200;
+
+    fn pct(sorted: &[u128], p: f64) -> u128 {
+        sorted[((sorted.len() - 1) as f64 * p).round() as usize]
+    }
+
+    /// One session's loop: its own file (reversion check) and a file SHARED with the other
+    /// session (crossing check — the old single slot let one session consume the other's
+    /// snapshot, so its own `take` came back empty).
+    fn session_loop(session: &str, dir: &Path) -> (usize, usize, Vec<u128>, Vec<u128>) {
+        let (mut crossed, mut reverted) = (0usize, 0usize);
+        let (mut arm_us, mut take_us) = (Vec::with_capacity(N), Vec::with_capacity(N));
+        let shared = dir.join("shared.txt");
+        let shared = shared.to_str().expect("utf8");
+        for i in 0..N {
+            let own = dir.join(format!("{session}-{}.txt", i % 8));
+            let own = own.to_str().expect("utf8");
+            let t = Instant::now();
+            arm(session, own);
+            arm_us.push(t.elapsed().as_micros());
+            let written = format!("{session} write {i}\n");
+            std::fs::write(own, &written).expect("write own");
+            let t = Instant::now();
+            let state = triad_store().remove(&(session.to_string(), canonical_path(own)));
+            take_us.push(t.elapsed().as_micros());
+            match state {
+                Some(s) if s.written_path == own => {
+                    let block = HookResponse::Block {
+                        reason: "pt3".to_string(),
+                        context: None,
+                        event_name: None,
+                    };
+                    let _ = run_post_write(own, &s.baseline(), block);
+                    if std::fs::read_to_string(own).expect("read own") != written {
+                        reverted += 1;
+                    }
+                }
+                _ => crossed += 1,
+            }
+            arm(session, shared);
+            std::fs::write(shared, format!("{session} {i}\n")).expect("write shared");
+            if triad_store()
+                .remove(&(session.to_string(), canonical_path(shared)))
+                .is_none_or(|s| s.written_path != shared)
+            {
+                crossed += 1;
+            }
+        }
+        (crossed, reverted, arm_us, take_us)
+    }
+
+    // `#[serial]`: `arm` now persists a baseline to disk, so this test writes into the
+    // shared state dir. Its own two threads are intentional and unaffected; what must not
+    // overlap is another TEST inspecting that directory at the same moment.
+    #[test]
+    #[serial(triad_state)]
+    fn pt3_two_sessions_parallel_writes_never_cross_or_revert() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let (a, b) = std::thread::scope(|s| {
+            let ha = s.spawn(|| session_loop("pt3-session-A", dir.path()));
+            let hb = s.spawn(|| session_loop("pt3-session-B", dir.path()));
+            (ha.join().expect("A"), hb.join().expect("B"))
+        });
+        let crossed = a.0 + b.0;
+        let reverted = a.1 + b.1;
+        let mut arm_us: Vec<u128> = a.2.into_iter().chain(b.2).collect();
+        let mut take_us: Vec<u128> = a.3.into_iter().chain(b.3).collect();
+        arm_us.sort_unstable();
+        take_us.sort_unstable();
+        println!(
+            "PT3 {}",
+            serde_json::json!({
+                "sessions": 2, "writes_per_session": N, "crossed": crossed, "reverted": reverted,
+                "arm_us": {"p50": pct(&arm_us, 0.5), "p99": pct(&arm_us, 0.99), "max": arm_us[arm_us.len() - 1]},
+                "take_us": {"p50": pct(&take_us, 0.5), "p99": pct(&take_us, 0.99), "max": take_us[take_us.len() - 1]},
+            })
+        );
+        assert_eq!(
+            crossed, 0,
+            "a session's take must always find its OWN snapshot"
+        );
+        assert_eq!(reverted, 0, "a Block must never restore the file (D1-A)");
     }
 }

@@ -72,8 +72,8 @@ impl PersistedAnnMemoryRecall {
             )));
         }
         let mut out = Vec::with_capacity(bytes.len() / std::mem::size_of::<f32>());
-        for chunk in bytes.chunks_exact(std::mem::size_of::<f32>()) {
-            out.push(f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+        for &arr in bytes.as_chunks::<4>().0 {
+            out.push(f32::from_le_bytes(arr));
         }
         Ok(out)
     }

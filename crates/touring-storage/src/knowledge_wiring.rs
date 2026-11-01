@@ -10,60 +10,82 @@
 
 use std::borrow::Cow;
 
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 
 use crate::knowledge::FileKnowledgeDB;
 
-/// Workspace root marker — the substring stripped from absolute paths to
-/// produce canonical relative paths in the wiring_map.
+/// Producer kinds that can be CALLED (the F9 method-dispatch pass filter).
+const CALLABLE_KINDS: &[&str] = &["method", "function", "async_function"];
+
+/// Producer kinds usable as a type or const reference (the G3 pass filter —
+/// 2026-08-12). `module` stays out: a module path match is provenance noise,
+/// not a use of a named symbol.
+const TYPE_KINDS: &[&str] = &[
+    "struct",
+    "enum",
+    "const",
+    "static",
+    "type_alias",
+    "trait",
+    "union",
+];
+
+/// The root this database's paths are canonical against, **derived from the
+/// database's own location** — never from the process environment.
 ///
-/// Centralizing this constant prevents path-homonimia: the same file MUST
-/// have exactly one canonical representation across producer and consumer
-/// rows, otherwise orphan detection produces 100% false positives for that
-/// row (producer at path A, consumer at path B → no JOIN match).
+/// Centralizing the root prevents path-homonimia: the same file MUST have
+/// exactly one canonical representation across producer and consumer rows,
+/// otherwise orphan detection produces 100% false positives for that row
+/// (producer at path A, consumer at path B → no JOIN match).
 ///
-/// Resolution: `TOURING_WORKSPACE_ROOT` env override (Productization Fase 0 —
-/// lets the canonical workspace live anywhere, e.g. `~/projects/touring`) →
-/// compiled default (the historical global workspace). Always ends with `/`
-/// so `strip_prefix` yields a clean relative path. Cached per process.
-pub(crate) fn workspace_root_marker() -> &'static str {
-    static MARKER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    MARKER.get_or_init(|| {
-        let mut root = std::env::var("TOURING_WORKSPACE_ROOT")
-            .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring".to_string());
-        if !root.ends_with('/') {
-            root.push('/');
-        }
-        root
-    })
+/// # Why the location and not the environment
+///
+/// A per-process constant is the wrong SHAPE for this value. One daemon serves
+/// the project whose socket it was spawned on, and the global daemon can hold
+/// several projects at once — so the root that makes a path canonical is a
+/// property of the DATABASE being written, never of whoever started the
+/// process. Until 2026-08-19 it was `TOURING_WORKSPACE_ROOT` with a personal
+/// path compiled in as the fallback, and both halves misfired:
+///
+/// - every per-project daemon **inherits** that variable from the session that
+///   spawned it (`~/.claude/settings.json` exports it), so `analise`'s daemon
+///   normalized `analise`'s paths against `touring`'s root. Nothing matched:
+///   4.306 rows in `analise` and 7.893 in `konverter` stayed absolute, **none
+///   of them under their own root** — every single one a foreign project's
+///   file, which is what `doctor`'s `abs_paths` warning had been reporting;
+/// - `migrate_canonicalize_paths` runs on every DB open and DELETEs rows that
+///   start with the marker. Pointed at another project's root, that is a
+///   deletion primitive aimed at the wrong data.
+///
+/// The canonical layout is `<root>/.claude/touring/<name>.db`, so the root is
+/// three components up — and the two directory names are checked rather than
+/// assumed, because stripping three components off an arbitrary path yields
+/// `/` and would make every absolute path "relative". `$HOME` is refused:
+/// `~/.claude/touring/knowledge.db` is the GLOBAL store, whose rows span
+/// projects and therefore have no single root to strip.
+///
+/// Returns `None` when no root can be derived (in-memory DBs, non-canonical
+/// layouts). `None` disables canonicalization — paths are stored as given,
+/// which is exactly the previous behaviour for a non-matching prefix.
+#[must_use]
+pub(crate) fn derive_workspace_root(db_path: &std::path::Path) -> Option<String> {
+    // Single source of truth: the inverse of `knowledge_db_canonical`, living
+    // beside it so the layout cannot be changed on one side only.
+    touring_foundation::config::TouringConfig::project_root_for_db(db_path)
 }
 
-/// Polyglot-wiring opt-in — reads `TOURING_POLYGLOT_WIRING` once per process.
+/// Legacy resolution for databases with no derivable location (`:memory:`).
 ///
-/// Default **OFF** (unset or `"0"`): the wiring graph is Rust-only, byte-identical
-/// to pre-polyglot behavior — `non_rust` diagnostic rows stay 0 and the 258
-/// historical false-positive orphans from `docs/*.py` / `scripts/*.py` never
-/// resurface. Set to `"1"` (or `"true"`) to let per-language sources (PoC scope:
-/// Python) populate producer/consumer rows via the already-polyglot indexing
-/// feeder (`cli_index_rebuild` → `extract_file_imports` →
-/// `resolve_import_path_with_source` → `record_consumer`).
-///
-/// Cached in a `OnceLock` because the wiring gate is on the hot indexing path
-/// (`register_pub_symbol` / `record_consumer` run once per symbol / import).
-///
-/// `pub` so the polyglot feeders (e.g. the Go package-aware pass in
-/// `cli_index_rebuild`, P-H) can early-return when the flag is off and skip the
-/// extraction work entirely — the single source of truth for the opt-in, shared
-/// via the same process `OnceLock`.
-///
-/// See `docs/2026-07-03-polyglot-parity-plan.md` §5 (keystone P-A).
+/// Kept as a fallback ONLY: it reads the environment, which is precisely what
+/// cannot be trusted once more than one project is in play. There is no
+/// compiled-in path — a developer's home directory is not a default.
 #[must_use]
-pub fn polyglot_wiring_enabled() -> bool {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ENABLED.get_or_init(|| {
-        std::env::var("TOURING_POLYGLOT_WIRING")
-            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-            .unwrap_or(false)
+pub(crate) fn env_workspace_root() -> Option<String> {
+    std::env::var("TOURING_WORKSPACE_ROOT").ok().map(|mut r| {
+        if !r.ends_with('/') {
+            r.push('/');
+        }
+        r
     })
 }
 
@@ -118,6 +140,75 @@ fn wireable_ext_sql(col: &str, polyglot: bool) -> String {
     }
 }
 
+/// Language families whose files can wire to each other. An import or a call
+/// in one never names an item of another, so the by-name inference must never
+/// join across them.
+const LANGUAGE_FAMILIES: &[(&str, &[&str])] = &[
+    ("rust", &[".rs"]),
+    ("python", &[".py", ".pyi"]),
+    (
+        "js",
+        &[".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"],
+    ),
+    ("java", &[".java"]),
+    ("go", &[".go"]),
+];
+
+/// The language family of a wiring path (a file, or a `go:<import-path>`
+/// package key); `None` outside every family (docs, configs, dispatch rows).
+#[must_use]
+pub fn language_family(path: &str) -> Option<&'static str> {
+    if path.starts_with("go:") {
+        return Some("go");
+    }
+    LANGUAGE_FAMILIES
+        .iter()
+        .find(|(_, exts)| exts.iter().any(|ext| path.ends_with(ext)))
+        .map(|(family, _)| *family)
+}
+
+/// SQL expression: the language family of `col`, NULL outside every family —
+/// the same table as [`language_family`]. The extensions are compile-time
+/// constants, so the interpolation carries no injection surface.
+#[must_use]
+pub fn language_family_sql(col: &str) -> String {
+    let arms: String = LANGUAGE_FAMILIES
+        .iter()
+        .map(|(family, exts)| {
+            let test = exts
+                .iter()
+                .map(|ext| format!("{col} LIKE '%{ext}'"))
+                .collect::<Vec<_>>()
+                .join(" OR ");
+            format!(" WHEN {test} THEN '{family}'")
+        })
+        .collect();
+    format!("(CASE WHEN {col} LIKE 'go:%' THEN 'go'{arms} END)")
+}
+
+/// SQL predicate over `wiring_map`: consumer and producer are both in a
+/// language family, and not the same one — an edge no import or call makes.
+///
+/// 18/09/2026 (analise): 18.035 such rows, `.rs` consumers of Python and
+/// TypeScript producers. 15.758 came from the by-name inference below (a bare
+/// `cosine_similarity(…)` in a `.rs` file matched the Python function), the
+/// rest from `touring wiring repair`; together they hid ~1.488 orphans.
+#[must_use]
+pub fn cross_language_edge_sql() -> String {
+    let consumer = language_family_sql("consumer_file");
+    let module = language_family_sql("module_file");
+    format!("({consumer} IS NOT NULL AND {module} IS NOT NULL AND {consumer} != {module})")
+}
+
+/// ` AND <family of module_file> = '<family of the consumer>'`, or nothing
+/// when the consumer is outside every family.
+fn same_family_sql(consumer_hint: Option<&str>) -> String {
+    consumer_hint
+        .and_then(language_family)
+        .map(|family| format!(" AND {} = '{family}'", language_family_sql("module_file")))
+        .unwrap_or_default()
+}
+
 /// Non-wireable polyglot paths — the per-language analogue of the benches/tests
 /// exclusion. Blocks the exact trees that produced the 258 historical
 /// false-positive orphans (`docs/*.py`, `scripts/*.py`) plus vendored/generated
@@ -125,10 +216,83 @@ fn wireable_ext_sql(col: &str, polyglot: bool) -> String {
 /// per-language test files, so a polyglot opt-in never re-pollutes the orphan
 /// diagnostic.
 #[must_use]
-fn is_non_rust_non_wireable(module_file: &str) -> bool {
+fn is_non_rust_non_wireable(module_file: &str, source_packages: &[String]) -> bool {
     // Vendored / generated trees (Python venv/site-packages; JS/TS
     // node_modules + build output).
-    let vendored = module_file.contains("/site-packages/")
+    is_vendored_or_generated(module_file) || is_first_party_non_source(module_file, source_packages)
+}
+
+/// The directories whose names mark non-source trees (`docs/`, `scripts/`).
+const NON_SOURCE_DIRS: [&str; 2] = ["docs", "scripts"];
+
+/// The top-level `docs/` and `scripts/` of `root` that are Python PACKAGES
+/// (`__init__.py` present): source, not tooling. The analise project keeps its
+/// main code in `scripts/` and imports it as `scripts.memoria`; the touring
+/// workspace's `scripts/` has no `__init__.py` and stays out (14/09/2026).
+#[must_use]
+pub fn python_source_packages(root: Option<&std::path::Path>) -> Vec<String> {
+    let Some(root) = root else {
+        return Vec::new();
+    };
+    NON_SOURCE_DIRS
+        .iter()
+        .filter(|dir| root.join(dir).join("__init__.py").is_file())
+        .map(|dir| (*dir).to_string())
+        .collect()
+}
+
+/// The SQL form of the `docs/`/`scripts/` exclusion over `col`, leaving out the
+/// directories that are source packages — the orphan queries must refuse exactly
+/// what the write gate refuses.
+#[must_use]
+fn non_source_sql(col: &str, source_packages: &[String]) -> String {
+    NON_SOURCE_DIRS
+        .iter()
+        .filter(|dir| !source_packages.iter().any(|p| p == *dir))
+        .map(|dir| format!("AND {col} NOT LIKE '{dir}/%'"))
+        .collect::<Vec<_>>()
+        .join("\n               ")
+}
+
+/// The producer rows both orphan-shaped queries start from: a public symbol's
+/// placeholder row, with every path and name filter already applied.
+///
+/// One source for [`KnowledgeGraph::orphan_symbols_with_trust`] and
+/// [`KnowledgeGraph::internal_only_symbols`]: the two differ only in what they
+/// say about the symbol's consumers, and a filter added to one of them by hand
+/// would silently not apply to the other (B4, 15/09/2026).
+#[must_use]
+fn public_producer_rows_sql(ext_pred: &str, non_source: &str) -> String {
+    format!(
+        "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
+                    w.consumer_file, w.import_line, w.contract_source
+             FROM wiring_map w
+             WHERE w.consumer_file IS NULL AND w.visibility = 'public'
+               AND {ext_pred}
+               AND w.module_file NOT LIKE 'benches/%'
+               AND w.module_file NOT LIKE 'tests/%'
+               {non_source}
+               AND w.module_file NOT LIKE '%/benches/%'
+               AND w.module_file NOT LIKE '%/tests/%'
+               AND w.symbol_kind != 'module'
+               AND w.symbol_name NOT IN ('fmt','hash','eq','partial_cmp','cmp','drop','clone','default')
+               AND w.symbol_name NOT LIKE '\\_\\_%\\_\\_' ESCAPE '\\'"
+    )
+}
+
+/// Third-party or machine-generated trees — never first-party source, in ANY
+/// language.
+///
+/// Split out of [`is_non_rust_non_wireable`] on 2026-08-19 because the two
+/// halves answer different questions and only this one is safe on the CONSUMER
+/// side of an edge. A consumer inside `node_modules/` or `target/doc/` is an
+/// artifact and its edge is noise; a consumer inside `tests/` is the project
+/// using its own code, which is exactly what a wiring graph is for. Judging
+/// both halves on the consumer removed 13.621 legitimate edges from this
+/// workspace before the count gave it away.
+#[must_use]
+fn is_vendored_or_generated(module_file: &str) -> bool {
+    module_file.contains("/site-packages/")
         || module_file.contains("/node_modules/")
         || module_file.starts_with("node_modules/")
         || module_file.contains("/__pycache__/")
@@ -139,13 +303,46 @@ fn is_non_rust_non_wireable(module_file: &str) -> bool {
         || module_file.contains("/dist/")
         || module_file.starts_with("dist/")
         || module_file.contains("/.next/")
-        || module_file.contains("/coverage/");
+        || module_file.contains("/coverage/")
+        // Build OUTPUT (2026-08-19). The list above covered dependency trees
+        // and one build dir (`dist/`) but not the compiler's own. Measured
+        // before turning the polyglot opt-in on for this very workspace:
+        // 1.087 of the 1.128 files that would have entered the graph were
+        // `target/doc/**.js` — rustdoc's JavaScript. A generated artifact is
+        // not a producer, and wiring it is how a feature earns a bad name on
+        // the day it is switched on.
+        || module_file.starts_with("target/")
+        || module_file.contains("/target/")
+        || module_file.starts_with("build/")
+        || module_file.contains("/build/")
+        || module_file.starts_with("out/")
+        || module_file.contains("/out/")
+        || module_file.contains("/.gradle/")
+        || module_file.contains("/.tox/")
+        || module_file.contains("/.mypy_cache/")
+        || module_file.contains("/.pytest_cache/")
+        || module_file.contains("/htmlcov/")
+}
+
+/// First-party paths that are not the project's own API surface: docs,
+/// scripts and tests. They must not be PRODUCERS (the 258 historical false
+/// positives were `docs/*.py` and `scripts/*.py` registering as public
+/// symbols), but they are perfectly good CONSUMERS.
+#[must_use]
+fn is_first_party_non_source(module_file: &str, source_packages: &[String]) -> bool {
     // Non-source subtrees — the exact source of the 258 historical false
-    // positives (docs/*.py, scripts/*.py).
-    let non_source = module_file.starts_with("docs/")
-        || module_file.contains("/docs/")
-        || module_file.starts_with("scripts/")
-        || module_file.contains("/scripts/");
+    // positives (docs/*.py, scripts/*.py) — unless the top-level directory is a
+    // Python package (`python_source_packages`).
+    let in_package = source_packages.iter().any(|p| {
+        module_file
+            .strip_prefix(p.as_str())
+            .is_some_and(|rest| rest.starts_with('/'))
+    });
+    let non_source = !in_package
+        && (module_file.starts_with("docs/")
+            || module_file.contains("/docs/")
+            || module_file.starts_with("scripts/")
+            || module_file.contains("/scripts/"));
     let base = module_file.rsplit('/').next().unwrap_or(module_file);
     // pytest/unittest conventions.
     let py_test = base == "conftest.py" || base.starts_with("test_") || base.ends_with("_test.py");
@@ -159,7 +356,7 @@ fn is_non_rust_non_wireable(module_file: &str) -> bool {
     let java_test = base.ends_with("Test.java")
         || base.ends_with("Tests.java")
         || module_file.contains("/src/test/");
-    vendored || non_source || py_test || js_test || java_test
+    non_source || py_test || js_test || java_test
 }
 
 /// Whether a Go package-aware key (`"go:<import-path>"`) is eligible for wiring.
@@ -186,9 +383,13 @@ fn is_go_package_wireable(go_key: &str) -> bool {
 /// tests/ subtree, and (for polyglot files) not a vendored / docs / scripts /
 /// test path.
 ///
-/// Used as the gate for `register_pub_symbol` / `record_consumer`. Default mode
-/// is Rust-only; `TOURING_POLYGLOT_WIRING=1` also admits Python (see
-/// [`polyglot_wiring_enabled`]).
+/// The policy core of the write gate
+/// ([`FileKnowledgeDB::is_indexable_module_file`]), taking `polyglot`
+/// explicitly so both modes are unit-testable and so the caller supplies the
+/// PROJECT's answer instead of a process-global one. Default mode is Rust-only;
+/// a project opts in via `polyglot_wiring` in `.touring/touring.toml` (or the
+/// `TOURING_POLYGLOT_WIRING` override), which also admits Python, TS/JS, Java
+/// and Go package keys.
 ///
 /// # Audit reference
 ///
@@ -197,16 +398,29 @@ fn is_go_package_wireable(go_key: &str) -> bool {
 ///   `LIKE '%/benches/%'` did not match leading `benches/` (no slash prefix).
 /// - 258 false positives from `docs/*.py` and `scripts/*.py` because
 ///   `register_pub_symbol` accepted any extension. Under the polyglot opt-in
-///   these stay blocked via [`is_python_non_wireable`].
-#[must_use]
-pub(crate) fn is_indexable_module_file(module_file: &str) -> bool {
-    is_indexable_module_file_polyglot(module_file, polyglot_wiring_enabled())
-}
-
-/// Pure policy core of [`is_indexable_module_file`], split out so the gate can
-/// be unit-tested in both modes without touching the process-global env flag.
+///   these stay blocked via [`is_non_rust_non_wireable`].
+///
+/// Test vocabulary only since 14/09/2026: production asks
+/// [`is_indexable_module_file_with`] with the project's source packages.
+#[cfg(test)]
 #[must_use]
 fn is_indexable_module_file_polyglot(module_file: &str, polyglot: bool) -> bool {
+    is_indexable_module_file_with(module_file, polyglot, &[])
+}
+
+/// Whether a module file is admissible to the wiring map, for a project whose
+/// top-level `source_packages` (see [`python_source_packages`]) are source.
+fn is_indexable_module_file_with(
+    module_file: &str,
+    polyglot: bool,
+    source_packages: &[String],
+) -> bool {
+    // Companion files (`@companion/<name>/…`, the ~/.claude skills, rules and
+    // memories every project indexes for search) are never wiring: decision
+    // 1-A, 14/09/2026 — see `touring_foundation::config::is_companion_key`.
+    if touring_foundation::config::is_companion_key(module_file) {
+        return false;
+    }
     // Go package-aware keys ("go:<import-path>") are synthetic PACKAGE
     // identifiers, not file paths — the extension gate does not apply. Admitted
     // only under the polyglot opt-in. A Go package participates via its
@@ -235,27 +449,96 @@ fn is_indexable_module_file_polyglot(module_file: &str, polyglot: bool) -> bool 
     }
     // Polyglot (non-Rust) files carry a language-specific non-wireable set (the
     // 258-FP defense for non-Rust): vendored trees, docs/scripts, test files.
-    if polyglot && !module_file.ends_with(".rs") && is_non_rust_non_wireable(module_file) {
+    if polyglot
+        && !module_file.ends_with(".rs")
+        && is_non_rust_non_wireable(module_file, source_packages)
+    {
         return false;
     }
     true
 }
 
-/// Canonicalize `module_file` to a workspace-relative path.
+/// The writer's admission vocabulary, exposed so a DIAGNOSTIC can CONSULT it
+/// instead of approximating it.
 ///
-/// If `module_file` starts with `workspace_root_marker()`, the prefix is
-/// stripped. Otherwise the path is returned unchanged (borrowed).
+/// `touring doctor`'s wiring census used to ask `module_file NOT LIKE '%.rs'`
+/// — a different question from the one the writer asks, and one that erred in
+/// both directions at once (measured 2026-08-19): it flagged 192.997 legitimate
+/// rows in a Python project as pollution while calling 102 rows of
+/// `benches/src/*.rs` clean, in the flagship workspace, because they end in
+/// `.rs`. A diagnostic that disagrees with the thing it diagnoses reports on a
+/// system that does not exist.
 ///
-/// This is the single source of truth for path normalization in
-/// wiring_map. Calling it on the producer and the consumer sides ensures
-/// the JOIN matches even when one side was reported via absolute path
-/// (`/home/...`) and the other via relative path (`crates/...`).
+/// Pass `polyglot = true` to ask the mode-INDEPENDENT question — "could any
+/// read admit this file?" — which is what "non-wireable" must mean: a vendored
+/// tree or a `.json` is not wiring under any mode, whereas a `.py` in a Python
+/// project is merely unread while the opt-in is off. `source_packages` are the
+/// project's top-level Python packages that count as source (see
+/// [`python_source_packages`]); the writer asks with the same list. One
+/// predicate: the variant without the list lost its last caller when the
+/// doctor started passing the packages (14/09/2026).
 #[must_use]
-pub(crate) fn canonicalize_module_path(module_file: &str) -> Cow<'_, str> {
-    if let Some(stripped) = module_file.strip_prefix(workspace_root_marker()) {
-        Cow::Borrowed(stripped)
-    } else {
-        Cow::Borrowed(module_file)
+pub fn is_wireable_source(module_file: &str, polyglot: bool, source_packages: &[String]) -> bool {
+    is_indexable_module_file_with(module_file, polyglot, source_packages)
+}
+
+impl FileKnowledgeDB {
+    /// The root this database's paths are canonical against, if one could be
+    /// derived. See `derive_workspace_root` for why it comes from the DB's
+    /// own location rather than the environment.
+    #[must_use]
+    pub fn workspace_root(&self) -> Option<&str> {
+        self.workspace_root_ref()
+    }
+
+    /// Whether NON-Rust source participates in THIS database's wiring graph.
+    ///
+    /// Resolved once per open from the project's own config, never from a
+    /// process-global: one daemon serves one project, the global daemon can
+    /// serve several, and whether Python counts as wiring is a property of the
+    /// project — the same argument as [`Self::workspace_root`].
+    #[must_use]
+    pub fn polyglot(&self) -> bool {
+        self.polyglot_ref()
+    }
+
+    /// Whether `module_file` may enter this database's `wiring_map`.
+    ///
+    /// The write gate and the read filters must agree on the vocabulary, or a
+    /// row is admitted that no query can ever see (or the reverse). Both now
+    /// read the same per-database flag.
+    #[must_use]
+    pub(crate) fn is_indexable_module_file(&self, module_file: &str) -> bool {
+        is_indexable_module_file_with(module_file, self.polyglot(), self.source_packages())
+    }
+
+    /// The top-level `docs/`/`scripts/` of this database's project that are
+    /// Python packages, resolved once at open (see [`python_source_packages`]).
+    #[must_use]
+    pub fn source_packages(&self) -> &[String] {
+        self.source_packages_ref()
+    }
+
+    /// Canonicalize `module_file` to a root-relative path.
+    ///
+    /// If `module_file` starts with this database's root, the prefix is
+    /// stripped; otherwise the path is returned unchanged (borrowed).
+    ///
+    /// This is the single source of truth for path normalization in
+    /// wiring_map. Calling it on the producer and the consumer sides ensures
+    /// the JOIN matches even when one side was reported via absolute path
+    /// (`/home/...`) and the other via relative path (`crates/...`).
+    #[must_use]
+    pub(crate) fn canonicalize_module_path<'a>(&self, module_file: &'a str) -> Cow<'a, str> {
+        let root_relative = self
+            .workspace_root_ref()
+            .and_then(|root| module_file.strip_prefix(root))
+            .unwrap_or(module_file);
+        // W (2026-09-02): `./crates/x` and `crates/x` are ONE key. Rows written
+        // before canonicalization existed carried the dot form; a rebuild that
+        // writes the plain form then saw its producers with no consumers under
+        // THEIR key — 78 false orphans, 115.986 edges one prefix away.
+        Cow::Borrowed(root_relative.strip_prefix("./").unwrap_or(root_relative))
     }
 }
 
@@ -286,6 +569,11 @@ pub enum WiringOrigin {
     AstResolved,
     /// A producer row: the symbol was read straight off the declaring AST.
     AstDeclared,
+    /// A consumer edge resolved by the compiler itself (`rust-analyzer scip`
+    /// ingest, H2 2026-08-12): rustc type resolution — method dispatch,
+    /// generics, re-export identity. The only origin carrying the
+    /// type-checker's own answer, so it ranks above every AST origin.
+    ScipResolved,
 }
 
 impl WiringOrigin {
@@ -297,6 +585,7 @@ impl WiringOrigin {
             Self::TextMatched => "text_matched",
             Self::AstResolved => "ast_resolved",
             Self::AstDeclared => "ast_declared",
+            Self::ScipResolved => "scip_resolved",
         }
     }
 
@@ -314,6 +603,7 @@ impl WiringOrigin {
             "ast_inferred" => Self::AstInferred,
             "text_matched" => Self::TextMatched,
             "ast_declared" => Self::AstDeclared,
+            "scip_resolved" => Self::ScipResolved,
             _ => Self::AstResolved,
         }
     }
@@ -326,13 +616,17 @@ impl WiringOrigin {
             Self::TextMatched => 0.6,
             Self::AstResolved => 0.9,
             Self::AstDeclared => 1.0,
+            Self::ScipResolved => 1.0,
         }
     }
 
     /// Whether the edge rests on a resolved path rather than a name guess.
     #[must_use]
     pub const fn is_resolved(self) -> bool {
-        matches!(self, Self::AstResolved | Self::AstDeclared)
+        matches!(
+            self,
+            Self::AstResolved | Self::AstDeclared | Self::ScipResolved
+        )
     }
 }
 
@@ -353,6 +647,58 @@ pub struct UnresolvedImport {
     pub import_line: Option<i64>,
     /// Source language of the consumer file.
     pub language: String,
+}
+
+/// Outcome of [`FileKnowledgeDB::resolve_consumer_kinds`]: consumer rows whose
+/// kind CHANGED (net), attributed to the pass that set the final kind.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ConsumerKindResolution {
+    /// Final kind set by the producers pass — a stale kind reset to `unknown`
+    /// over a partial walk counts here.
+    pub from_producers: usize,
+    /// Final kind set by the definers pass.
+    pub from_definers: usize,
+    /// Branded `extern` by the sealed-walk pass.
+    pub extern_marked: usize,
+    /// Consumer rows still `unknown` afterwards — what the doctor's
+    /// `kind_unknown` counts.
+    pub unknown_after: usize,
+}
+
+impl ConsumerKindResolution {
+    /// Attributes each row's NET change to the pass that set its final kind: a
+    /// row pass 1 resets and pass 2 restores did not change, so a rerun over the
+    /// same tables reports 0. `after_definers` is `None` when no `extern` pass ran.
+    fn attribute(
+        before: &std::collections::HashMap<i64, String>,
+        after_producers: &std::collections::HashMap<i64, String>,
+        after_definers: Option<&std::collections::HashMap<i64, String>>,
+        after: &std::collections::HashMap<i64, String>,
+    ) -> Self {
+        let mut out = Self::default();
+        for (id, kind) in after {
+            if kind == "unknown" {
+                out.unknown_after += 1;
+            }
+            if before.get(id) == Some(kind) {
+                continue;
+            }
+            if after_producers.get(id) == Some(kind) {
+                out.from_producers += 1;
+            } else if after_definers.is_none_or(|d| d.get(id) == Some(kind)) {
+                out.from_definers += 1;
+            } else {
+                out.extern_marked += 1;
+            }
+        }
+        out
+    }
+
+    /// Consumer rows whose kind changed, over the three passes.
+    #[must_use]
+    pub fn changed(&self) -> usize {
+        self.from_producers + self.from_definers + self.extern_marked
+    }
 }
 
 /// A pub symbol's wiring status.
@@ -459,8 +805,22 @@ pub struct WiringDbDiagnostic {
     pub distinct_pub_symbols: i64,
     /// Rows whose symbol kind could not be determined.
     pub kind_unknown_count: i64,
-    /// Rows referring to non-Rust source files.
-    pub non_rust_rows: i64,
+    /// Rows no read admits under ANY mode — vendored trees, `docs/`,
+    /// `scripts/`, `tests/`, `benches/`, test files, extensions outside the
+    /// vocabulary. This is the counter that JUDGES: non-zero means the census
+    /// beside it is biased.
+    ///
+    /// It replaced `non_rust_rows` on 2026-08-19. "Not Rust" was a different
+    /// question from "not wiring", and it answered wrong in both directions:
+    /// 192.997 legitimate Python rows flagged in `analise`, 102 rows of
+    /// `benches/src/*.rs` absolved in `touring` itself.
+    pub non_wireable_rows: i64,
+    /// Supported-language sources the CURRENT mode filters out of every query.
+    ///
+    /// Informative, never a defect: it is the answer to "why is my Python
+    /// project's wiring thin?" — turn on `polyglot_wiring` and these rows
+    /// become readable.
+    pub unread_rows: i64,
     /// Call sites the resolver could not map to any producer file (S1).
     ///
     /// Lives in `wiring_unresolved`, never summed into the counters above:
@@ -473,6 +833,40 @@ pub struct WiringDbDiagnostic {
     /// Edges wired by bare-name matching (`ast_inferred`) rather than by a
     /// resolved import path — the tier whose evidence is weakest.
     pub heuristic_edges: i64,
+}
+
+/// The verdict of the facade belt of
+/// [`FileKnowledgeDB::resolve_consumer_kinds_from_definers`].
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum FacadeVerdict {
+    /// A module dunder (`__file__`, `__name__`, …) — provided by Python itself
+    /// on every module; the attribute ALWAYS exists (measured by the runtime
+    /// oracle: `__file__` HAS on any module).
+    ModuleDunder,
+    /// `from <…>.<symbol> import …` (or `import <…>.<symbol>`) — importing the
+    /// submodule binds its name as an attribute of the package (measured by
+    /// the runtime oracle: `ontl` HAS on `scripts.external_apis`, whose facade
+    /// does `from scripts.external_apis.ontl import …`). Also: the submodule
+    /// EXISTS on disk beside a package's `__init__.py` — any import of it, by
+    /// any module in the chain, attaches the name to the package (the census
+    /// case: `antt/__init__.py` never mentions `ferrovias_govbr`, yet the
+    /// attribute exists at runtime because a sibling client imports it).
+    SubmoduleBound,
+    /// The definitor itself imports the name — `import time` (bare) or
+    /// `from pkg import name [as alias]` (the name in the import LIST, any
+    /// path). Importing binds the name as a module attribute (the census
+    /// cases: `time`, `asyncio`, `subprocess`, `re`; `navegacao` and
+    /// `ps` via `from scripts.eleitoral import … [as …]`).
+    ImportBound,
+    /// `from .x import *` followed statically and the name found in x's
+    /// `__all__` or top-level definitions — the name EXISTS at runtime.
+    ResolvedStar,
+    /// The facade has dynamic machinery (`__getattr__`, importlib, `_LAZY`,
+    /// `__all__ +=`) or an unresolvable star — the name MIGHT exist at
+    /// runtime; statics cannot say. Spared, visible.
+    Dynamic,
+    /// No dynamic machinery — the static instruments are the whole truth.
+    Nothing,
 }
 
 impl FileKnowledgeDB {
@@ -520,11 +914,32 @@ impl FileKnowledgeDB {
         visibility: &str,
         origin: WiringOrigin,
     ) -> Result<(), rusqlite::Error> {
-        let canonical = canonicalize_module_path(module_file);
-        if !is_indexable_module_file(&canonical) {
-            return Ok(());
+        self.register_pub_symbol_counted(module_file, symbol_name, symbol_kind, visibility, origin)
+            .map(|_| ())
+    }
+
+    /// [`Self::register_pub_symbol_with_origin`] that says whether a row was
+    /// written: `false` when the eligibility gate refused the file or the
+    /// producer row already existed. Callers that REPORT a count use this one —
+    /// counting every `Ok` inflated the rebuild's `wiring_entries` with rows the
+    /// gate refused (cross-audit 14/09/2026, B5).
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    pub fn register_pub_symbol_counted(
+        &self,
+        module_file: &str,
+        symbol_name: &str,
+        symbol_kind: &str,
+        visibility: &str,
+        origin: WiringOrigin,
+    ) -> Result<bool, rusqlite::Error> {
+        let canonical = self.canonicalize_module_path(module_file);
+        if !self.is_indexable_module_file(&canonical) {
+            return Ok(false);
         }
-        self.conn_ref().execute(
+        let written = self.conn_ref().execute(
             "INSERT OR IGNORE INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
@@ -537,7 +952,7 @@ impl FileKnowledgeDB {
         )?;
         // Invalidate aggregate cache — new pub symbol changes module totals.
         Self::invalidate_wiring_modules_cache();
-        Ok(())
+        Ok(written > 0)
     }
 
     /// Record that a consumer file imports a specific symbol from a module.
@@ -578,9 +993,14 @@ impl FileKnowledgeDB {
         import_line: Option<i64>,
         origin: WiringOrigin,
     ) -> Result<(), rusqlite::Error> {
-        let canonical_module = canonicalize_module_path(module_file);
-        let canonical_consumer = canonicalize_module_path(consumer_file);
-        if !is_indexable_module_file(&canonical_module) {
+        let canonical_module = self.canonicalize_module_path(module_file);
+        let canonical_consumer = self.canonicalize_module_path(consumer_file);
+        // A companion file consumes nothing either: its imports resolve to
+        // absolute paths under ~/.claude, rows the phantom-module sweep deleted
+        // on the next rebuild (three of them in the analise, 14/09/2026).
+        if !self.is_indexable_module_file(&canonical_module)
+            || touring_foundation::config::is_companion_key(&canonical_consumer)
+        {
             return Ok(());
         }
         // Wave H+1 (2026-06-11): normalize the import form before keying.
@@ -589,6 +1009,27 @@ impl FileKnowledgeDB {
         let symbol_name = symbol_name
             .split_once(" as ")
             .map_or(symbol_name, |(orig, _alias)| orig.trim());
+        // A weaker guess never overwrites stronger evidence for the same edge:
+        // `INSERT OR REPLACE` let an inferred name match demote a resolved import
+        // (cross-audit 14/09/2026, B8). Equal or stronger evidence replaces.
+        let existing: Option<String> = self
+            .conn_ref()
+            .query_row(
+                "SELECT contract_source FROM wiring_map
+                 WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file = ?3",
+                params![
+                    canonical_module.as_ref(),
+                    symbol_name,
+                    canonical_consumer.as_ref()
+                ],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if existing.is_some_and(|raw| {
+            WiringOrigin::from_contract_source(&raw).strength() > origin.strength()
+        }) {
+            return Ok(());
+        }
         // `use m::*` is module-level wiring, not a symbol: give it a dedicated
         // kind instead of polluting the 'unknown' (schema-degraded) bucket.
         if symbol_name == "*" {
@@ -682,7 +1123,11 @@ impl FileKnowledgeDB {
         language: &str,
         class: &str,
     ) -> Result<(), rusqlite::Error> {
-        let canonical_consumer = canonicalize_module_path(consumer_file);
+        let canonical_consumer = self.canonicalize_module_path(consumer_file);
+        // Resolver debt is project debt: a companion import is not counted.
+        if touring_foundation::config::is_companion_key(&canonical_consumer) {
+            return Ok(());
+        }
         self.conn_ref().execute(
             "INSERT OR IGNORE INTO wiring_unresolved
              (module_path, symbol_name, consumer_file, import_line, language, class)
@@ -795,7 +1240,7 @@ impl FileKnowledgeDB {
         &self,
         consumer_file: &str,
     ) -> Result<usize, rusqlite::Error> {
-        let canonical = canonicalize_module_path(consumer_file);
+        let canonical = self.canonicalize_module_path(consumer_file);
         self.conn_ref().execute(
             "DELETE FROM wiring_unresolved WHERE consumer_file = ?1",
             params![canonical.as_ref()],
@@ -864,52 +1309,540 @@ impl FileKnowledgeDB {
         Ok(rows)
     }
 
-    /// Re-resolve `symbol_kind = 'unknown'` consumer rows from known-kind
-    /// producer rows (Wave H+1, 2026-06-11 — closes the doctor
-    /// `wiring_diagnostic` pollution warning).
+    /// The single, deterministic resolution of every consumer row's kind from
+    /// the FINAL producer table — the pass that makes a cold rebuild equal a warm
+    /// one (I16, 2026-09-13).
     ///
-    /// Two pollution sources exist: (a) imports resolved to a facade mod.rs
-    /// (`pub use` re-export) where no producer row lives, and (b) consumers
-    /// indexed BEFORE their producer during a rebuild walk (the INSERT-time
-    /// COALESCE saw an empty table and froze 'unknown'). Both are fixable
-    /// after the fact: the kind of a symbol name is recoverable from any
-    /// producer row. Returns the number of rows repaired.
-    pub fn backfill_unknown_consumer_kinds(&self) -> Result<usize, rusqlite::Error> {
-        let n = self.conn_ref().execute(
-            "UPDATE wiring_map AS w
-             SET symbol_kind = (
-                 SELECT p.symbol_kind FROM wiring_map p
-                 WHERE p.symbol_name = w.symbol_name
-                   AND p.consumer_file IS NULL
-                   AND p.symbol_kind != 'unknown'
-                 LIMIT 1)
-             WHERE w.symbol_kind = 'unknown'
-               AND EXISTS (
-                 SELECT 1 FROM wiring_map p
-                 WHERE p.symbol_name = w.symbol_name
-                   AND p.consumer_file IS NULL
-                   AND p.symbol_kind != 'unknown')",
-            [],
-        )?;
-        // Second pass: rows whose symbol name has NO producer row anywhere in
-        // the index are wiring to symbols defined OUTSIDE the workspace (e.g.
-        // `pub use pretty_assertions::assert_eq` facades) — structurally
-        // unrecoverable, and not schema degradation. Mark them 'extern'.
-        let m = self.conn_ref().execute(
-            "UPDATE wiring_map AS w
-             SET symbol_kind = 'extern'
-             WHERE w.symbol_kind = 'unknown'
-               AND NOT EXISTS (
-                 SELECT 1 FROM wiring_map p
-                 WHERE p.symbol_name = w.symbol_name
-                   AND p.consumer_file IS NULL
-                   AND p.symbol_kind != 'unknown')",
-            [],
-        )?;
-        if n + m > 0 {
+    /// At record time a consumer row copies the kind of whatever producer row
+    /// happens to exist: on a warm rebuild that is the OLD row of a module not yet
+    /// re-walked, on a cold one it is nothing (`unknown`, later repaired by
+    /// the since-retired unknown-only backfill) through a `LIMIT 1` with no
+    /// order). Measured on the isolated per-project copy: `symbols` identical
+    /// between a cold and a warm rebuild, `wiring_map` different in 24 lines, every
+    /// one of them a consumer kind picked by that arbitrary homonym
+    /// (`extract_symbols` method↔function, `rewrite` function↔module). This pass
+    /// overwrites EVERY consumer kind from the producers as they stand after the
+    /// walk, with a total order on the fallback, so the result is a function of
+    /// the producer table alone and of nothing the walk order or the previous
+    /// index left behind:
+    ///
+    /// 1. the producer of the same name in the same module;
+    /// 2. else the homonym producer that sorts first by `(module_file, symbol_kind)`;
+    /// 3. else `unknown` — a name no producer carries is left to the definers
+    ///    pass, and only [`Self::resolve_consumer_kinds`] brands `extern`, AFTER
+    ///    that pass (S222: branded here, it overwrote every definer verdict).
+    ///
+    /// `glob_import` rows (`use m::*`) are module-level wiring, not a symbol, and
+    /// keep their kind. Returns the number of rows whose kind CHANGED, so a second
+    /// run over the same table reports 0 — the idempotence a test can assert.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    fn resolve_consumer_kinds_from_producers(&self) -> Result<usize, rusqlite::Error> {
+        // One expression for the resolved kind; repeated in the WHERE so only rows
+        // whose kind actually changes are counted (SQLite reports rows matched).
+        // The last arm is the verdict for a name NO producer carries: `unknown` —
+        // whatever kind the row held before (a stale copy of a producer that no
+        // longer exists) is never trusted, or a warm rebuild would keep it and a
+        // cold one would not.
+        const RESOLVED: &str = "COALESCE(
+                 (SELECT p.symbol_kind FROM wiring_map p
+                  WHERE p.module_file = w.module_file AND p.symbol_name = w.symbol_name
+                    AND p.consumer_file IS NULL AND p.symbol_kind != 'unknown'
+                  ORDER BY p.symbol_kind LIMIT 1),
+                 (SELECT p.symbol_kind FROM wiring_map p
+                  WHERE p.symbol_name = w.symbol_name
+                    AND p.consumer_file IS NULL AND p.symbol_kind != 'unknown'
+                  ORDER BY p.module_file, p.symbol_kind LIMIT 1),
+                 'unknown')";
+        let sql = format!(
+            "UPDATE wiring_map AS w SET symbol_kind = {RESOLVED}
+             WHERE w.consumer_file IS NOT NULL
+               AND w.symbol_kind != 'glob_import'
+               AND w.symbol_kind IS NOT {RESOLVED}"
+        );
+        let n = self.conn_ref().execute(&sql, [])?;
+        if n > 0 {
             Self::invalidate_wiring_modules_cache();
         }
-        Ok(n + m)
+        Ok(n)
+    }
+
+    /// The consumer-kind step of a sealed rebuild AND of `touring wiring repair
+    /// --resolve-kinds` — one function, so the two can never diverge (S222,
+    /// 2026-09-25). Three passes, in this order:
+    ///
+    /// 1. [`Self::resolve_consumer_kinds_from_producers`] — every kind rewritten
+    ///    from the final producer table; a name no producer carries becomes
+    ///    `unknown` (a stale copy is never trusted, I16);
+    /// 2. [`Self::resolve_consumer_kinds_from_definers`] — the `unknown` rows a
+    ///    definition resolves (symbol tables, reexports, the source and facade
+    ///    belts, I17);
+    /// 3. over a COMPLETE walk only (`mark_extern`), what is still `unknown`
+    ///    becomes `extern` — terminal, so a producer that was simply never read
+    ///    is never branded outside the workspace.
+    ///
+    /// `extern` used to be branded inside pass 1, BEFORE pass 2 could see the
+    /// rows: a sealed rebuild of the analise left 1.868 of its 2.395 `extern`
+    /// rows on names their own definitor declares, and a rerun flip-flopped
+    /// (reset, re-resolve). The counts are NET, attributed to the pass that set
+    /// each row's final kind — a row pass 1 resets and pass 2 restores did not
+    /// change, so a rerun over the same tables reports 0.
+    ///
+    /// # Errors
+    ///
+    /// The passes are ONE write ([`Self::consumer_kinds_atomically`]): pass 1
+    /// resets what pass 2 restores, so a failure between them — a concurrent
+    /// writer's lock, measured on the analise 26/09/2026 (`kind_unknown` 35 →
+    /// 241 under a repair that answered «database is locked») — must roll pass 1
+    /// back rather than leave its resets on disk.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure; nothing the passes wrote survives it.
+    pub fn resolve_consumer_kinds(
+        &self,
+        mark_extern: bool,
+    ) -> Result<ConsumerKindResolution, rusqlite::Error> {
+        self.consumer_kinds_atomically(|| self.resolve_consumer_kinds_passes(mark_extern))
+    }
+
+    /// Runs `unit` as one write. On an idle connection, `BEGIN IMMEDIATE` takes
+    /// the write lock up front — inside `busy_timeout`, before any pass runs —
+    /// so the passes never meet a concurrent writer halfway; inside a caller's
+    /// transaction (the dry-run preview's rolled-back savepoint, a rebuild) it
+    /// nests as a SAVEPOINT. Any error, including a failed COMMIT, rolls the
+    /// whole unit back.
+    fn consumer_kinds_atomically<T>(
+        &self,
+        unit: impl FnOnce() -> Result<T, rusqlite::Error>,
+    ) -> Result<T, rusqlite::Error> {
+        let conn = self.conn_ref();
+        let (begin, commit, rollback) = if conn.is_autocommit() {
+            ("BEGIN IMMEDIATE", "COMMIT", "ROLLBACK")
+        } else {
+            (
+                "SAVEPOINT consumer_kinds",
+                "RELEASE consumer_kinds",
+                "ROLLBACK TO consumer_kinds; RELEASE consumer_kinds",
+            )
+        };
+        conn.execute_batch(begin)?;
+        let outcome = unit().and_then(|value| conn.execute_batch(commit).map(|()| value));
+        if outcome.is_err()
+            && let Err(e) = conn.execute_batch(rollback)
+        {
+            tracing::warn!(error = %e, "consumer-kind resolution: rollback failed");
+        }
+        outcome
+    }
+
+    /// The three passes of [`Self::resolve_consumer_kinds`], unguarded — only
+    /// ever run inside [`Self::consumer_kinds_atomically`].
+    fn resolve_consumer_kinds_passes(
+        &self,
+        mark_extern: bool,
+    ) -> Result<ConsumerKindResolution, rusqlite::Error> {
+        let before = self.consumer_kind_snapshot()?;
+        self.resolve_consumer_kinds_from_producers()?;
+        let after_producers = self.consumer_kind_snapshot()?;
+        self.resolve_consumer_kinds_from_definers()?;
+        let after_definers = if mark_extern {
+            Some(self.brand_unresolved_consumers_extern()?)
+        } else {
+            None
+        };
+        let after = self.consumer_kind_snapshot()?;
+        Ok(ConsumerKindResolution::attribute(
+            &before,
+            &after_producers,
+            after_definers.as_ref(),
+            &after,
+        ))
+    }
+
+    /// Pass 3 over a sealed walk: every consumer row still `unknown` becomes
+    /// `extern`. Returns the frame taken just BEFORE branding, so the attribution
+    /// can tell the definers' verdicts from the brand.
+    fn brand_unresolved_consumers_extern(
+        &self,
+    ) -> Result<std::collections::HashMap<i64, String>, rusqlite::Error> {
+        let snapshot = self.consumer_kind_snapshot()?;
+        let n = self.conn_ref().execute(
+            "UPDATE wiring_map SET symbol_kind = 'extern'
+             WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
+            [],
+        )?;
+        if n > 0 {
+            Self::invalidate_wiring_modules_cache();
+        }
+        Ok(snapshot)
+    }
+
+    /// `id → symbol_kind` of every consumer row — the before/after frames
+    /// [`Self::resolve_consumer_kinds`] attributes its net changes from.
+    fn consumer_kind_snapshot(
+        &self,
+    ) -> Result<std::collections::HashMap<i64, String>, rusqlite::Error> {
+        let mut stmt = self
+            .conn_ref()
+            .prepare("SELECT id, symbol_kind FROM wiring_map WHERE consumer_file IS NOT NULL")?;
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect()
+    }
+
+    /// I17 (2026-09-25, touring-36): resolves the kind of consumer rows that NO
+    /// producer carries — the three legitimate classes the producers-only pass
+    /// leaves as `unknown` (and an `unknown`-keyed purge would delete, as the
+    /// stopped 30.4.68 dry-run measured: touring 27, analise 452):
+    ///
+    /// 1. the DEFINITOR file declares the name (`file_knowledge.symbols_json`) —
+    ///    a declared module (`pub mod x;` → `module`) or a private symbol with
+    ///    its real kind (`_INDICE` → `const`);
+    /// 2. the CONSUMER file itself declares the name — a self-reference the old
+    ///    `definer_module` fallback attributed to the crate root (the 14 lib.rs
+    ///    rows: private helpers of knowledge_wiring.rs / symbol_extractors.rs);
+    /// 3. the definitor IMPORTS the name from outside (`wiring_unresolved`
+    ///    records the per-name import) — an `external_reexport`
+    ///    (`_dagster_compat.py` reexporting dagster's `AssetCheckResult`).
+    ///
+    /// What stays `unknown` after this pass has no definition ANYWHERE — the
+    /// predicate the phantom purge requires (`wiring_repair`).
+    pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {
+        self.resolve_consumer_kinds_where(None, None)
+    }
+
+    /// S223 (2026-09-25): [`Self::resolve_consumer_kinds_from_definers`] scoped to the
+    /// rows ONE consumer file just recorded — the incremental hook path's half of I17.
+    /// Without it, a consumer of a private helper (no producer row) was born `unknown`
+    /// on every edit and stayed so until the next full rebuild: the doctor's
+    /// `kind_unknown` grew 108 in six days on the analise, and 2 s after a rebuild
+    /// sealed, the first new edge was already `unknown` again.
+    pub fn resolve_consumer_kinds_for_consumer(
+        &self,
+        consumer_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let consumer = self.canonicalize_module_path(consumer_file);
+        self.resolve_consumer_kinds_where(Some(consumer.as_ref()), None)
+    }
+
+    /// 27/09/2026: the other half — the rows that point AT `module_file`. A consumer
+    /// recorded before its definer exists (a RED test written before the function) is
+    /// born `unknown`, and [`Self::resolve_consumer_kinds_for_consumer`] only runs again
+    /// when that CONSUMER is refreshed; the definer's own refresh never re-typed it. Seen
+    /// on the analise: `extrair_rds`, test at 14:06, function at 14:42, doctor
+    /// `kind_unknown=1` until the next rebuild.
+    pub fn resolve_consumer_kinds_for_producer(
+        &self,
+        module_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let module = self.canonicalize_module_path(module_file);
+        self.resolve_consumer_kinds_where(None, Some(module.as_ref()))
+    }
+
+    fn resolve_consumer_kinds_where(
+        &self,
+        consumer: Option<&str>,
+        module: Option<&str>,
+    ) -> Result<usize, rusqlite::Error> {
+        let conn = self.conn_ref();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT module_file, symbol_name, consumer_file FROM wiring_map
+             WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL
+               AND (?1 IS NULL OR consumer_file = ?1)
+               AND (?2 IS NULL OR module_file = ?2)",
+        )?;
+        let candidates: Vec<(String, String, String)> = stmt
+            .query_map(params![consumer, module], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
+            .collect::<Result<_, _>>()?;
+        drop(stmt);
+        if candidates.is_empty() {
+            return Ok(0);
+        }
+
+        // The symbol tables of every involved file, parsed once — the
+        // definitor's AND the consumer's own (a self-reference's definition
+        // lives in the consumer's table; the old fallback pinned the crate
+        // root as the module).
+        let mut tables: std::collections::HashMap<
+            String,
+            std::collections::HashMap<String, String>,
+        > = std::collections::HashMap::new();
+        for (module, _, consumer) in &candidates {
+            for file in [module, consumer] {
+                if tables.contains_key(file) {
+                    continue;
+                }
+                let raw: Option<String> = conn
+                    .query_row(
+                        "SELECT symbols_json FROM file_knowledge WHERE file_path = ?1",
+                        params![file],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .optional()?
+                    .flatten();
+                let table = raw
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str::<Vec<serde_json::Value>>(s).ok())
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|v| {
+                        // Two shapes coexist in live databases (measured on the
+                        // analise's, 25/09/2026): the current extractor writes
+                        // `symbol_name`, another write path writes `name`. A
+                        // pass that reads only one misclassifies the other
+                        // file's every symbol as phantom (the 370 of 461).
+                        let name = v
+                            .get("symbol_name")
+                            .or_else(|| v.get("name"))?
+                            .as_str()?
+                            .to_string();
+                        Some((name, v.get("kind")?.as_str()?.to_string()))
+                    })
+                    .collect();
+                tables.insert(file.clone(), table);
+            }
+        }
+
+        let mut resolved = 0usize;
+        for (module, symbol, consumer) in &candidates {
+            let kind = tables
+                .get(module)
+                .and_then(|t| t.get(symbol))
+                .or_else(|| tables.get(consumer).and_then(|t| t.get(symbol)))
+                .cloned();
+            let kind = match kind {
+                Some(k) => Some(k),
+                None => {
+                    let imported: i64 = conn.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM wiring_unresolved
+                         WHERE consumer_file = ?1 AND symbol_name = ?2)",
+                        params![module, symbol],
+                        |row| row.get(0),
+                    )?;
+                    if imported == 1 {
+                        Some("external_reexport".to_string())
+                    } else if Self::source_declares(self.workspace_root(), module, symbol) {
+                        // The source belt (25/09/2026, measured on the analise
+                        // copy): 34 of 233 "phantoms" had a literal definition
+                        // in the definitor's SOURCE that the extractor never
+                        // recorded (module-level dicts, try-block assignments).
+                        // The index being blind is not the symbol being absent.
+                        Some("index_blind".to_string())
+                    } else {
+                        // Facades (25/09/2026, touring-36): 183 of the 200
+                        // purgeable rows in the analise were facade
+                        // `__init__.py` imports — a name arriving by
+                        // `from .x import *` or a module-level `__getattr__`
+                        // (lazy) has NO literal definition in the facade, yet
+                        // exists at runtime. Both static instruments say
+                        // ABSENT; the runtime says EXISTS. The star is
+                        // resolved statically first (`reexport_star`); when it
+                        // cannot be, the row is `dynamic_export` — spared and
+                        // visible, never phantom.
+                        match Self::facade_dynamic_export(self.workspace_root(), module, symbol) {
+                            FacadeVerdict::ModuleDunder => Some("module_dunder".to_string()),
+                            FacadeVerdict::SubmoduleBound => Some("reexport_submodule".to_string()),
+                            FacadeVerdict::ImportBound => Some("import_bound".to_string()),
+                            FacadeVerdict::ResolvedStar => Some("reexport_star".to_string()),
+                            FacadeVerdict::Dynamic => Some("dynamic_export".to_string()),
+                            FacadeVerdict::Nothing => None,
+                        }
+                    }
+                }
+            };
+            if let Some(k) = kind {
+                resolved += conn.execute(
+                    "UPDATE wiring_map SET symbol_kind = ?1
+                     WHERE symbol_kind = 'unknown' AND module_file = ?2
+                       AND symbol_name = ?3 AND consumer_file = ?4",
+                    params![k, module, symbol, consumer],
+                )?;
+            }
+        }
+        if resolved > 0 {
+            Self::invalidate_wiring_modules_cache();
+        }
+        Ok(resolved)
+    }
+
+    /// The source belt of [`FileKnowledgeDB::resolve_consumer_kinds_from_definers`]
+    /// (25/09/2026): reads the definitor's SOURCE on disk for a literal definition
+    /// the extractor never recorded. Covers Python (`def`/`class`/top-level
+    /// `X =`/`X:`) and Rust (`fn`/`struct`/`enum`/`const`/`static`/`mod`, with or
+    /// without `pub`). Unreadable/unparsed → no proof (`false`).
+    fn source_declares(root: Option<&str>, module: &str, symbol: &str) -> bool {
+        let Some(root) = root else { return false };
+        let Ok(content) = std::fs::read_to_string(std::path::Path::new(root).join(module)) else {
+            return false;
+        };
+        let escaped = regex::escape(symbol);
+        // 25/09 (censo do oráculo): o assignment ganhou `^\s*` — a feature-flag
+        // canônica `try: … except ImportError: X = False` é indentada, e o nome
+        // EXISTE como atributo do módulo (`RICH_AVAILABLE`, medido presente no
+        // runtime). O falso positivo possível (assignment LOCAL dentro de uma
+        // função) POUPA uma linha de mais, nunca apaga de mais — conservador por
+        // desenho, e o doctor a conta como index_blind, visível.
+        let pattern = format!(
+            r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^\s*{escaped}\s*[:=]"
+        );
+        regex::Regex::new(&pattern).is_ok_and(|re| re.is_match(&content))
+    }
+
+    /// The facade belt (25/09/2026, touring-36): a facade `__init__.py` can export
+    /// a name with NO literal definition — via `from .x import *` or a lazy
+    /// `__getattr__`. The static instruments (symbols_json + the literal grep)
+    /// say ABSENT while the runtime says EXISTS. The star is followed STATICALLY
+    /// to the target's `__all__`/top-level definitions first; when the name is
+    /// absent there too, the row is `Dynamic` (spared, visible), never phantom.
+    fn facade_dynamic_export(root: Option<&str>, module: &str, symbol: &str) -> FacadeVerdict {
+        // Module dunders are provided by Python itself — the attribute always
+        // exists, on any module, no content needed.
+        const MODULE_DUNDERS: &[&str] = &[
+            "__name__",
+            "__doc__",
+            "__package__",
+            "__loader__",
+            "__spec__",
+            "__file__",
+            "__cached__",
+            "__path__",
+            "__builtins__",
+        ];
+        if MODULE_DUNDERS.contains(&symbol) {
+            return FacadeVerdict::ModuleDunder;
+        }
+        let Some(root) = root else {
+            return FacadeVerdict::Nothing;
+        };
+        let base = std::path::Path::new(root);
+        let direct = base.join(module);
+        // D (censo 25/09): o índice pode registrar o `.py` de um módulo que virou
+        // pacote (rename arquivo→pasta) — o definidor real é o `__init__.py`
+        // irmão. Sem a queda, a leitura falha e a linha cai em fantasma com o
+        // símbolo existindo no pacote.
+        let (file, pkg_dir) = if direct.is_file() {
+            let pkg = if direct.file_name().is_some_and(|n| n == "__init__.py") {
+                direct.parent().map(std::path::Path::to_path_buf)
+            } else {
+                None
+            };
+            (direct, pkg)
+        } else {
+            let pkg_init = direct.with_extension("").join("__init__.py");
+            if pkg_init.is_file() {
+                let pkg = pkg_init.parent().map(std::path::Path::to_path_buf);
+                (pkg_init, pkg)
+            } else {
+                (direct, None)
+            }
+        };
+        // E (censo 25/09): o submódulo EXISTE no disco ao lado do `__init__.py` —
+        // qualquer import dele, por QUALQUER módulo da cadeia, anexa o nome ao
+        // pacote (o `antt/__init__.py` nunca menciona `ferrovias_govbr` e o
+        // atributo existe porque um cliente irmão o importa). Só vale para pacote.
+        if let Some(pkg) = &pkg_dir
+            && (pkg.join(format!("{symbol}.py")).is_file()
+                || pkg.join(symbol).join("__init__.py").is_file())
+        {
+            return FacadeVerdict::SubmoduleBound;
+        }
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            return FacadeVerdict::Nothing;
+        };
+        // O nome no CAMINHO do import: `from pkg.mod.frota import X` /
+        // `from .frota import (` / `import pkg.frota` — importar o submódulo liga
+        // o nome no pacote (as três formas medidas pelo oráculo, 25/09).
+        let esc = regex::escape(symbol);
+        let sub_re =
+            format!(r"(?m)^\s*(?:from\s+[\w.]*\.{esc}\s+import|import\s+[\w.]+\.{esc}\b)",);
+        if regex::Regex::new(&sub_re).is_ok_and(|re| re.is_match(&content)) {
+            return FacadeVerdict::SubmoduleBound;
+        }
+        // A/B (censo 25/09): o DEFINIDOR importa o nome — `import time` (nu) ou o
+        // nome na LISTA de um from-import, qualquer caminho, multi-linha, com ou
+        // sem `as` (`from scripts.eleitoral import navegacao`,
+        // `from . import frota`). Importar liga o nome como atributo do módulo.
+        // O alias esconde o nome original (`as ps` liga só `ps`) — casar os dois
+        // POUPA uma linha de mais, nunca apaga de mais: conservador por desenho.
+        let import_re = format!(
+            r"(?m)^\s*import\s+{esc}\b|^\s*from\s+[\w.]+\s+import\s+(?:\([^)]*\b{esc}\b[^)]*\)|[^(#\n]*\b{esc}\b)",
+        );
+        if regex::Regex::new(&import_re).is_ok_and(|re| re.is_match(&content)) {
+            return FacadeVerdict::ImportBound;
+        }
+        let lazy = content.contains("def __getattr__")
+            || content.contains("importlib")
+            || content.contains("_LAZY")
+            || content.contains("__all__ +=")
+            || content.contains("__all__+=");
+        let star_re =
+            regex::Regex::new(r"(?m)^\s*from\s+(\.[\w.]*)\s+import\s+\*").expect("static");
+        let stars: Vec<String> = star_re
+            .captures_iter(&content)
+            .map(|c| c[1].to_string())
+            .collect();
+        if !lazy && stars.is_empty() {
+            return FacadeVerdict::Nothing;
+        }
+        for target in &stars {
+            if let Some(names) = Self::star_target_names(root, module, target)
+                && names.iter().any(|n| n == symbol)
+            {
+                return FacadeVerdict::ResolvedStar;
+            }
+        }
+        FacadeVerdict::Dynamic
+    }
+
+    /// Resolve `from .x import *` in `module`: read x's source and return its
+    /// exported names (its literal `__all__`, else its top-level def/class/
+    /// assignments). None when unreadable — the star stays unresolved.
+    fn star_target_names(root: &str, module: &str, target: &str) -> Option<Vec<String>> {
+        let pkg_dir = std::path::Path::new(module).parent()?;
+        // `.x.y` → relative to the module's package dir; a bare `.` is the package.
+        let rel = target.trim_start_matches('.');
+        let base = std::path::Path::new(root).join(pkg_dir);
+        let candidates = if rel.is_empty() {
+            vec![base.join("__init__.py")]
+        } else {
+            let rel_path = rel.replace('.', "/");
+            vec![
+                base.join(format!("{rel_path}.py")),
+                base.join(&rel_path).join("__init__.py"),
+            ]
+        };
+        // Static patterns, compiled once (never inside the candidate loop).
+        let all_re = regex::Regex::new(r"(?s)__all__\s*=\s*\[(.*?)\]").expect("static");
+        let quoted_re = regex::Regex::new(r#""([^"]+)"|'([^']+)'"#).expect("static");
+        let def_re = regex::Regex::new(r"(?m)^(?:def\s+(\w+)|class\s+(\w+)|(\w+)\s*(?::[^=]*)?=)")
+            .expect("static");
+        for path in candidates {
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            // The literal `__all__ = [...]` first.
+            if let Some(cap) = all_re.captures(&content) {
+                let names = quoted_re
+                    .captures_iter(&cap[1])
+                    .filter_map(|c| c.get(1).or(c.get(2)))
+                    .map(|m| m.as_str().to_string())
+                    .collect();
+                return Some(names);
+            }
+            // Without `__all__`: the top-level def/class/assignment names.
+            let names: Vec<String> = def_re
+                .captures_iter(&content)
+                .filter_map(|c| c.get(1).or(c.get(2)).or(c.get(3)))
+                .filter(|m| !m.as_str().starts_with('_'))
+                .map(|m| m.as_str().to_string())
+                .collect();
+            return Some(names);
+        }
+        None
     }
 
     /// Find producer rows whose `symbol_name` matches any of the supplied
@@ -931,10 +1864,244 @@ impl FileKnowledgeDB {
     /// Performance: single SQL roundtrip via parameterized IN clause. Cost
     /// scales with the size of `names` (typical: 5-100 unique names per
     /// file) plus the number of producer rows returned (typical: 0-200).
+    /// Producers for qualified calls, one per `(qualifier, name)` pair.
+    ///
+    /// The qualifier is the module the call names (`super::backup::run()` →
+    /// `("backup", "run")`), so the producer is the public callable of that name
+    /// living in `…/backup.rs` or `…/backup/mod.rs`. That predicate is what makes
+    /// the match single-valued: resolving the bare name `run` faces 130 producers
+    /// in this workspace and the by-name path caps at 4 arbitrary ones (measured
+    /// 2026-09-02, which is why 94 dispatch handlers read as false orphans).
+    ///
+    /// Ties across crates are broken toward the consumer's own crate, then by
+    /// path, and only the FIRST row per pair is returned — an ambiguous qualifier
+    /// must never fan out into several edges.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure from statement preparation or query.
+    pub fn find_producer_modules_for_qualified(
+        &self,
+        pairs: &[(String, String)],
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if pairs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let kind_list = CALLABLE_KINDS
+            .iter()
+            .map(|k| format!("'{k}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let ext_pred = wireable_ext_sql("module_file", self.polyglot());
+        let family_pred = same_family_sql(consumer_hint);
+        let crate_prefix = consumer_hint
+            .and_then(|f| {
+                let mut it = f.split('/');
+                match (it.next(), it.next()) {
+                    (Some("crates"), Some(b)) => Some(format!("crates/{b}/%")),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
+        let sql = format!(
+            "SELECT module_file, symbol_name FROM wiring_map
+             WHERE consumer_file IS NULL
+               AND visibility = 'public'
+               AND symbol_kind IN ({kind_list})
+               AND {ext_pred}{family_pred}
+               AND symbol_name = ?1
+               AND (module_file LIKE '%/' || ?2 || '.rs'
+                 OR module_file LIKE '%/' || ?2 || '/mod.rs'
+                 OR module_file = ?2 || '.rs')
+             ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
+                            THEN 0 ELSE 1 END),
+                      module_file
+             LIMIT 1"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let mut out = Vec::new();
+        for (qualifier, name) in pairs {
+            let row = stmt
+                .query_map(rusqlite::params![name, qualifier], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                })?
+                .filter_map(Result::ok)
+                .next();
+            if let Some(pair) = row
+                && !out.contains(&pair)
+            {
+                out.push(pair);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Callable producers matched by BARE name, capped at `cap_per_name` each.
+    ///
+    /// The fallback path for calls that carry no qualifier. It cannot be exact:
+    /// `run` matches 130 producers in this workspace, so the cap decides which
+    /// four get the edge. Prefer
+    /// [`Self::find_producer_modules_for_qualified`] whenever the call names
+    /// its module.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure from the underlying query.
     pub fn find_producer_modules_for_methods(
         &self,
         names: &[String],
         cap_per_name: usize,
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        self.find_producer_modules_with_kinds(names, cap_per_name, CALLABLE_KINDS, consumer_hint)
+    }
+
+    /// Type/const producers (`struct`/`enum`/`const`/`static`/`type_alias`/
+    /// `trait`) — the lookup the G3 type/const-ref pass needs (2026-08-12):
+    /// a symbol used AS a type or const never appears in a call expression,
+    /// so the callable-only lookup above structurally cannot wire its
+    /// consumers and every such producer read as a false orphan.
+    pub fn find_producer_modules_for_types(
+        &self,
+        names: &[String],
+        cap_per_name: usize,
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        self.find_producer_modules_with_kinds(names, cap_per_name, TYPE_KINDS, consumer_hint)
+    }
+
+    /// W4 (2026-09-02) — the ONE inference step both the rebuild and the hook
+    /// path run: match the call names and type/const refs a consumer file uses
+    /// against the producer rows, cap 4 per name, record with
+    /// [`WiringOrigin::AstInferred`]. Returns the number of edges recorded.
+    ///
+    /// Measured before: `index rebuild` inferred (68.641 edges) while
+    /// `update_wiring_after_edit` only re-recorded `use` imports after
+    /// `clear_consumer_entries` — so every file EDITED after a rebuild lost its
+    /// inferred edges until the next rebuild, and its callees read as orphans
+    /// (`limits.rs::apply_resource_caps_to` right after `sandbox_executor.rs`
+    /// was edited). Two call sites deriving the same edge differently is the
+    /// C08 asymmetry; one method is what removes it.
+    pub fn record_inferred_consumers(
+        &self,
+        consumer_file: &str,
+        method_names: &[String],
+        type_refs: &[String],
+        qualified_calls: &[(String, String)],
+    ) -> usize {
+        let mut recorded = 0usize;
+        // D2 (2026-09-02) — the qualified pass runs FIRST and is exact: one
+        // producer per (module, name) pair. The by-name passes below stay as the
+        // fallback for calls that carry no qualifier.
+        if let Ok(producers) =
+            self.find_producer_modules_for_qualified(qualified_calls, Some(consumer_file))
+        {
+            for (module_file, symbol_name) in &producers {
+                if self
+                    .record_consumer_with_origin(
+                        module_file,
+                        symbol_name,
+                        consumer_file,
+                        None,
+                        WiringOrigin::AstInferred,
+                    )
+                    .is_ok()
+                {
+                    recorded += 1;
+                }
+            }
+        }
+        for (names, callable) in [(method_names, true), (type_refs, false)] {
+            if names.is_empty() {
+                continue;
+            }
+            let producers = if !callable {
+                self.find_producer_modules_for_types(names, 4, Some(consumer_file))
+            } else if language_family(consumer_file) == Some("python") {
+                self.find_python_method_producers(names, consumer_file)
+            } else {
+                self.find_producer_modules_for_methods(names, 4, Some(consumer_file))
+            };
+            let Ok(producers) = producers else {
+                continue;
+            };
+            for (module_file, symbol_name) in &producers {
+                if self
+                    .record_consumer_with_origin(
+                        module_file,
+                        symbol_name,
+                        consumer_file,
+                        None,
+                        WiringOrigin::AstInferred,
+                    )
+                    .is_ok()
+                {
+                    recorded += 1;
+                }
+            }
+        }
+        recorded
+    }
+
+    /// Python methods reached as `obj.metodo()` / `obj.atributo` (18/09/2026,
+    /// analise: `tags_cli` and `todas_as_arestas` read as orphans).
+    ///
+    /// The syntax names the method, never its class, so the guess is held by
+    /// two gates: only `method` producers, and only in a module the consumer
+    /// already has an edge to (an import, an `alias.Nome` use). A method edge
+    /// only ever lands in such a module, so one guess never opens the gate for
+    /// another. The consumer's own module is out: its uses of its own methods
+    /// belong to the self-reference pass.
+    pub fn find_python_method_producers(
+        &self,
+        names: &[String],
+        consumer_file: &str,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = (0..names.len())
+            .map(|i| format!("?{}", i + 2))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT DISTINCT p.module_file, p.symbol_name FROM wiring_map p
+             WHERE p.consumer_file IS NULL
+               AND p.visibility = 'public'
+               AND p.symbol_kind = 'method'
+               AND p.module_file != ?1
+               AND p.symbol_name IN ({placeholders})
+               AND p.module_file IN (
+                   SELECT i.module_file FROM wiring_map i
+                   WHERE i.consumer_file = ?1 AND i.module_file != ?1)
+             ORDER BY p.module_file, p.symbol_name"
+        );
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(names.len() + 1);
+        params.push(&consumer_file);
+        params.extend(names.iter().map(|s| s as &dyn rusqlite::ToSql));
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let rows = stmt
+            .query_map(params.as_slice(), |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Shared producer lookup: public producer rows whose `symbol_kind` is in
+    /// `kinds` and whose name is in `names`, capped per name.
+    ///
+    /// `consumer_hint` (the consuming file) ranks same-crate producers first
+    /// before the per-name cap (2026-08-12, G3): bare-name matching otherwise
+    /// wires a call to a same-named symbol in ANOTHER crate — the mechanism
+    /// behind the homonym-fork false cycles (foundation↔resilience
+    /// `meminfo.rs` linking to each other without any import) and behind
+    /// generic names (`new`, `as_str`) losing their real producer to the cap.
+    pub fn find_producer_modules_with_kinds(
+        &self,
+        names: &[String],
+        cap_per_name: usize,
+        kinds: &[&str],
+        consumer_hint: Option<&str>,
     ) -> Result<Vec<(String, String)>, rusqlite::Error> {
         if names.is_empty() {
             return Ok(Vec::new());
@@ -945,14 +2112,36 @@ impl FileKnowledgeDB {
             .map(|i| format!("?{}", i + 1))
             .collect::<Vec<_>>()
             .join(",");
-        let ext_pred = wireable_ext_sql("module_file", polyglot_wiring_enabled());
+        let kind_list = kinds
+            .iter()
+            .map(|k| format!("'{k}'"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let ext_pred = wireable_ext_sql("module_file", self.polyglot());
+        // A bare name is a guess, and a guess never crosses languages: a `.rs`
+        // call to `cosine_similarity` is not a use of the Python function of
+        // that name (18/09/2026, analise: 15.758 such edges).
+        let family_pred = same_family_sql(consumer_hint);
+        // Same-crate producers sort first: `crates/touring-x/…` prefix match.
+        let crate_prefix = consumer_hint
+            .and_then(|f| {
+                let mut it = f.split('/');
+                match (it.next(), it.next()) {
+                    (Some("crates"), Some(b)) => Some(format!("crates/{b}/%")),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
         let sql = format!(
             "SELECT DISTINCT module_file, symbol_name FROM wiring_map
              WHERE consumer_file IS NULL
                AND visibility = 'public'
-               AND symbol_kind IN ('method', 'function', 'async_function')
-               AND {ext_pred}
-               AND symbol_name IN ({placeholders})"
+               AND symbol_kind IN ({kind_list})
+               AND {ext_pred}{family_pred}
+               AND symbol_name IN ({placeholders})
+             ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
+                            THEN 0 ELSE 1 END),
+                      module_file"
         );
         let mut stmt = self.conn_ref().prepare(&sql)?;
         let params_vec: Vec<&dyn rusqlite::ToSql> =
@@ -987,8 +2176,8 @@ impl FileKnowledgeDB {
     ///
     /// Returns a row census so operators can spot pollution (e.g., many
     /// `kind_unknown` rows indicate consumer entries inserted before their
-    /// producer — race condition; many `non_rust_rows` indicate a regression
-    /// in the entry gate).
+    /// producer — race condition; many `non_wireable_rows` indicate a
+    /// regression in the entry gate).
     ///
     /// Fields:
     /// - `total_rows`: every row in wiring_map (producer + consumer mixed).
@@ -997,38 +2186,79 @@ impl FileKnowledgeDB {
     /// - `pub_producers`: producer rows with visibility='public'.
     /// - `distinct_pub_symbols`: deduped (module_file, symbol_name) producer count.
     /// - `kind_unknown_count`: rows with symbol_kind='unknown' (schema-degraded).
-    /// - `non_rust_rows`: rows whose module_file does NOT end in `.rs`. Should
-    ///   be 0 in the default (Rust-only) mode — a non-zero count there signals
-    ///   a regression in the entry gate. Under `TOURING_POLYGLOT_WIRING=1`
-    ///   (opt-in, [`polyglot_wiring_enabled`]) it is EXPECTED to be non-zero:
-    ///   Python producer/consumer rows are first-party wiring, not pollution.
+    /// - `non_wireable_rows`: rows inadmissible under the MAXIMUM vocabulary
+    ///   (`polyglot = true`) — the only counter here that judges. Mode-
+    ///   independent by design: a virtualenv or a `.json` is not wiring under
+    ///   any read.
+    /// - `unread_rows`: supported-language sources the CURRENT mode filters
+    ///   out. Expected to be large in a Python project with the opt-in off,
+    ///   and zero once `polyglot_wiring` is on — information, not a defect.
+    ///
+    /// The census fields above cover ONLY the rows the mode actually reads, so
+    /// they describe the graph the answers come from. Classification calls
+    /// [`is_wireable_source`], the writer's own vocabulary, so this diagnostic
+    /// cannot disagree with the thing it diagnoses.
     pub fn wiring_db_diagnostic(&self) -> Result<WiringDbDiagnostic, rusqlite::Error> {
-        let row = self.conn_ref().query_row(
+        // GROUP BY module_file, not a flat SUM: the classification is Rust
+        // logic (this crate's own write gate), which SQL cannot express.
+        // Grouping keeps the cost at O(distinct files) instead of O(rows), and
+        // because the group key IS `module_file`, per-group DISTINCT counts sum
+        // to the global DISTINCT without a second pass.
+        let polyglot = self.polyglot();
+        let mut stmt = self.conn_ref().prepare(
             "SELECT
-                COUNT(*) AS total_rows,
-                SUM(CASE WHEN consumer_file IS NULL THEN 1 ELSE 0 END) AS producer_rows,
-                SUM(CASE WHEN consumer_file IS NOT NULL THEN 1 ELSE 0 END) AS consumer_rows,
-                SUM(CASE WHEN consumer_file IS NULL AND visibility = 'public' THEN 1 ELSE 0 END) AS pub_producers,
+                module_file,
+                COUNT(*),
+                SUM(CASE WHEN consumer_file IS NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN consumer_file IS NOT NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN consumer_file IS NULL AND visibility = 'public' THEN 1 ELSE 0 END),
                 COUNT(DISTINCT CASE WHEN consumer_file IS NULL AND visibility = 'public'
-                                    THEN module_file || ':' || symbol_name END) AS distinct_pub_symbols,
-                SUM(CASE WHEN symbol_kind = 'unknown' THEN 1 ELSE 0 END) AS kind_unknown_count,
-                SUM(CASE WHEN module_file NOT LIKE '%.rs' THEN 1 ELSE 0 END) AS non_rust_rows
-             FROM wiring_map",
-            [],
-            |row| {
-                Ok(WiringDbDiagnostic {
-                    total_rows: row.get::<_, i64>(0).unwrap_or(0),
-                    producer_rows: row.get::<_, Option<i64>>(1)?.unwrap_or(0),
-                    consumer_rows: row.get::<_, Option<i64>>(2)?.unwrap_or(0),
-                    pub_producers: row.get::<_, Option<i64>>(3)?.unwrap_or(0),
-                    distinct_pub_symbols: row.get::<_, i64>(4).unwrap_or(0),
-                    kind_unknown_count: row.get::<_, Option<i64>>(5)?.unwrap_or(0),
-                    non_rust_rows: row.get::<_, Option<i64>>(6)?.unwrap_or(0),
-                    name_only_candidates: None,
-                    heuristic_edges: 0,
-                })
-            },
+                                    THEN symbol_name END),
+                SUM(CASE WHEN symbol_kind = 'unknown' THEN 1 ELSE 0 END)
+             FROM wiring_map
+             GROUP BY module_file",
         )?;
+        let mut row = WiringDbDiagnostic {
+            total_rows: 0,
+            producer_rows: 0,
+            consumer_rows: 0,
+            pub_producers: 0,
+            distinct_pub_symbols: 0,
+            kind_unknown_count: 0,
+            non_wireable_rows: 0,
+            unread_rows: 0,
+            name_only_candidates: None,
+            heuristic_edges: 0,
+        };
+        let groups = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, Option<String>>(0)?.unwrap_or_default(),
+                r.get::<_, i64>(1).unwrap_or(0),
+                r.get::<_, Option<i64>>(2)?.unwrap_or(0),
+                r.get::<_, Option<i64>>(3)?.unwrap_or(0),
+                r.get::<_, Option<i64>>(4)?.unwrap_or(0),
+                r.get::<_, i64>(5).unwrap_or(0),
+                r.get::<_, Option<i64>>(6)?.unwrap_or(0),
+            ))
+        })?;
+        for group in groups {
+            let (module_file, n, prod, cons, pubp, distinct_pub, unknown) = group?;
+            if !is_indexable_module_file_with(&module_file, true, self.source_packages()) {
+                row.non_wireable_rows += n;
+                continue;
+            }
+            if !is_indexable_module_file_with(&module_file, polyglot, self.source_packages()) {
+                row.unread_rows += n;
+                continue;
+            }
+            row.total_rows += n;
+            row.producer_rows += prod;
+            row.consumer_rows += cons;
+            row.pub_producers += pubp;
+            row.distinct_pub_symbols += distinct_pub;
+            row.kind_unknown_count += unknown;
+        }
+        drop(stmt);
         // Queried apart from the aggregate above, and deliberately so: these two
         // are the honesty counters. Folding them into the same SUM would put
         // "edges we are sure of" and "guesses / failures" in one number, which
@@ -1050,35 +2280,210 @@ impl FileKnowledgeDB {
     }
 
     /// One-shot migration that canonicalizes legacy absolute paths in
-    /// wiring_map to workspace-relative form. Idempotent: safe to run on
-    /// every daemon startup. Returns the number of rows updated.
+    /// wiring_map to root-relative form **and evicts rows that describe
+    /// another project's files**. Idempotent: safe to run on every daemon
+    /// startup. Returns the number of rows touched.
     ///
-    /// Without this migration, the same file recorded under both
+    /// Without the canonicalization, the same file recorded under both
     /// `crates/foo.rs` and `/home/.../crates/foo.rs` looks like two
     /// independent rows, causing every producer in the absolute form to
     /// appear orphan even when consumers under the relative form import it.
+    ///
+    /// The eviction closes a different hole. A wiring row whose file lives
+    /// outside this database's root is not this project's code, and it is not
+    /// harmless: it inflates the orphan count, and it manufactures dependency
+    /// cycles between modules that never met — the 136-module false-positive
+    /// SCC of 2026-06-02 was `analise` rows read through `konverter`'s graph.
+    /// The mitigation then was to filter cycles by `workspace_root`, a column
+    /// that is NULL on every row ever written, so it filtered nothing. Rows
+    /// from a foreign project are removed at the source instead. Measured on
+    /// the two projects that carried them: 4.306 rows in `analise`, 7.893 in
+    /// `konverter`, and **zero** absolute rows under their own root.
+    ///
+    /// Runs only when a root could be derived from the DB's own location. With
+    /// no root there is nothing to strip and, more importantly, nothing that
+    /// could tell a foreign row from a local one — so it does nothing at all
+    /// rather than guess with a deletion.
     pub fn migrate_canonicalize_paths(&self) -> Result<u64, rusqlite::Error> {
+        // W (2026-09-02): merge the legacy `./`-prefixed universe first. A `./`
+        // prefix has exactly one reading, so it needs no root to be safe;
+        // measured: 12.032 producer rows + 115.986 consumer edges under it,
+        // invisible to the plain-keyed producers the rebuild writes.
+        let has_unresolved: bool = self
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'wiring_unresolved'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .map(|n| n > 0)
+            .unwrap_or(false);
+        let mut dot_touched: u64 = 0;
+        let mut dot_targets = vec![
+            ("wiring_map", "module_file"),
+            ("wiring_map", "consumer_file"),
+        ];
+        if has_unresolved {
+            dot_targets.push(("wiring_unresolved", "consumer_file"));
+        }
+        for (table, col) in &dot_targets {
+            dot_touched += self.conn_ref().execute(
+                &format!(
+                    "UPDATE OR IGNORE {table} SET {col} = SUBSTR({col}, 3) WHERE {col} LIKE './%'"
+                ),
+                [],
+            )? as u64;
+        }
+        // Collisions (OR IGNORE): the plain row already exists — drop the dot one.
+        dot_touched += self.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE module_file LIKE './%' OR consumer_file LIKE './%'",
+            [],
+        )? as u64;
+        if has_unresolved {
+            dot_touched += self.conn_ref().execute(
+                "DELETE FROM wiring_unresolved WHERE consumer_file LIKE './%'",
+                [],
+            )? as u64;
+        }
+        let Some(root) = self.workspace_root_ref().map(str::to_owned) else {
+            return Ok(dot_touched);
+        };
         let updated_modules = self.conn_ref().execute(
             "UPDATE OR IGNORE wiring_map
              SET module_file = SUBSTR(module_file, LENGTH(?1) + 1)
              WHERE module_file LIKE ?1 || '%'",
-            params![workspace_root_marker()],
+            params![&root],
         )?;
         let updated_consumers = self.conn_ref().execute(
             "UPDATE OR IGNORE wiring_map
              SET consumer_file = SUBSTR(consumer_file, LENGTH(?1) + 1)
              WHERE consumer_file LIKE ?1 || '%'",
-            params![workspace_root_marker()],
+            params![&root],
         )?;
         // Collisions (OR IGNORE above) — delete rows that could not be merged.
         let deleted = self.conn_ref().execute(
             "DELETE FROM wiring_map WHERE module_file LIKE ?1 || '%'",
-            params![workspace_root_marker()],
+            params![&root],
         )?;
-        if updated_modules + updated_consumers + deleted > 0 {
+        // Foreign rows: an absolute path that is NOT under this root belongs to
+        // some other project. Only absolute paths are judged — a relative path
+        // is already root-relative by construction and has no other reading.
+        let foreign = self.conn_ref().execute(
+            "DELETE FROM wiring_map
+             WHERE (module_file LIKE '/%' AND module_file NOT LIKE ?1 || '%')
+                OR (consumer_file LIKE '/%' AND consumer_file NOT LIKE ?1 || '%')",
+            params![&root],
+        )?;
+        let touched =
+            updated_modules + updated_consumers + deleted + foreign + dot_touched as usize;
+        if touched > 0 {
             Self::invalidate_wiring_modules_cache();
         }
-        Ok((updated_modules + updated_consumers + deleted) as u64)
+        Ok(touched as u64)
+    }
+
+    /// Evict rows the write gate would refuse today.
+    ///
+    /// The read filters admit by EXTENSION; the write gate admits by extension
+    /// **and path** (vendored trees, `docs/`, `scripts/`, tests, build output).
+    /// The reader therefore disagrees with the writer, and any row written
+    /// before a gate rule existed stays readable forever. Turning the polyglot
+    /// opt-in on for `analise` made the gap unmissable: readable producers went
+    /// from 8.224 to 184.343, of which **72,4% were a virtualenv**
+    /// (`/site-packages/`), 13,3% tests and 4,9% docs — 4,9% first-party
+    /// source. An orphan report of 142.689 entries answers no question anyone
+    /// has.
+    ///
+    /// Running it on every open makes the gate an INVARIANT over the data
+    /// rather than a rule applied at one moment: a row written by an older
+    /// binary is removed at the next open, and the read filters stay a cheap
+    /// extension check instead of carrying twenty `NOT LIKE` clauses per query.
+    ///
+    /// Judged under the MAXIMAL vocabulary (`polyglot = true`), never the
+    /// project's current mode: a project that flips the opt-in later must find
+    /// its Python still there. Only what NO mode could ever read is removed.
+    ///
+    /// Returns the number of rows removed.
+    pub fn migrate_evict_ungated_rows(&self) -> Result<u64, rusqlite::Error> {
+        // BOTH columns. A path that appears only as a consumer is still a
+        // path the gate refuses, and reading only `module_file` let a
+        // virtualenv file keep an edge into first-party code — caught by
+        // `a_bogus_consumer_takes_only_its_own_edge`, which failed against the
+        // first version of this query.
+        // The two sides are judged by DIFFERENT rules, because the write gate
+        // judges only the producer (`record_consumer_with_origin` checks
+        // `canonical_module`, never `canonical_consumer`).
+        //
+        // Producer: the gate's own predicate — a row it would refuse to write.
+        // Consumer: only third-party or generated trees. A consumer inside
+        // `tests/` is the project using its own code, which is what the graph
+        // exists to record; evicting on the full predicate deleted 13.621 such
+        // edges from this workspace, and the orphan count moving from 4.232 to
+        // 2.498 is what gave it away.
+        let refused_producers: Vec<String> = {
+            let mut stmt = self
+                .conn_ref()
+                .prepare("SELECT DISTINCT module_file FROM wiring_map")?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            rows.filter_map(Result::ok)
+                .filter(|f| !is_indexable_module_file_with(f, true, self.source_packages()))
+                .collect()
+        };
+        let refused_consumers: Vec<String> = {
+            let mut stmt = self.conn_ref().prepare(
+                "SELECT DISTINCT consumer_file FROM wiring_map WHERE consumer_file IS NOT NULL",
+            )?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            // A companion consumer too (decision 1-A): the write gate refuses it,
+            // and a row written before the gate — or copied in by the legacy
+            // consolidation, which bypasses it — is removed here (B11).
+            rows.filter_map(Result::ok)
+                .filter(|f| {
+                    is_vendored_or_generated(f) || touring_foundation::config::is_companion_key(f)
+                })
+                .collect()
+        };
+        let files: Vec<String> = refused_producers;
+        if files.is_empty() && refused_consumers.is_empty() {
+            return Ok(0);
+        }
+        // A temp table instead of an `IN (?,?,…)` list: the refused set is
+        // thousands of paths on a real project, well past SQLite's parameter
+        // ceiling, and batching would make the DELETE non-atomic.
+        self.conn_ref().execute_batch(
+            "CREATE TEMP TABLE IF NOT EXISTS _ungated(f TEXT PRIMARY KEY);
+             DELETE FROM _ungated;",
+        )?;
+        self.conn_ref().execute_batch(
+            "CREATE TEMP TABLE IF NOT EXISTS _ungated_c(f TEXT PRIMARY KEY);
+             DELETE FROM _ungated_c;",
+        )?;
+        {
+            let mut ins = self
+                .conn_ref()
+                .prepare("INSERT OR IGNORE INTO _ungated(f) VALUES (?1)")?;
+            for f in &files {
+                ins.execute(params![f])?;
+            }
+            let mut ins_c = self
+                .conn_ref()
+                .prepare("INSERT OR IGNORE INTO _ungated_c(f) VALUES (?1)")?;
+            for f in &refused_consumers {
+                ins_c.execute(params![f])?;
+            }
+        }
+        let removed = self.conn_ref().execute(
+            "DELETE FROM wiring_map
+             WHERE module_file IN (SELECT f FROM _ungated)
+                OR consumer_file IN (SELECT f FROM _ungated_c)",
+            [],
+        )?;
+        self.conn_ref()
+            .execute_batch("DROP TABLE IF EXISTS _ungated; DROP TABLE IF EXISTS _ungated_c;")?;
+        if removed > 0 {
+            Self::invalidate_wiring_modules_cache();
+        }
+        Ok(removed as u64)
     }
 
     /// Get all orphan symbols (pub symbols with no consumer anywhere).
@@ -1108,26 +2513,77 @@ impl FileKnowledgeDB {
     /// `register_pub_symbol` blocks ineligible rows from entering, and
     /// this SQL guard masks any legacy rows that pre-date the gate.
     pub fn orphan_symbols(&self) -> Result<Vec<WiringEntry>, rusqlite::Error> {
-        let ext_pred = wireable_ext_sql("w.module_file", polyglot_wiring_enabled());
+        self.orphan_symbols_with_trust(false)
+    }
+
+    /// Public symbols whose only consumers live in the file that declares them.
+    ///
+    /// B4 (15/09/2026): a `X -> X` row satisfies the `NOT EXISTS` of
+    /// [`Self::orphan_symbols_with_trust`], so "used only by its own file" and
+    /// "used across the project" read identically — 6.191 such rows are live in
+    /// this workspace. This class stays **out** of the orphan list (the symbol is
+    /// consumed, and the judge's baseline does not move) and is reported beside
+    /// it: a public symbol nothing outside its file uses is either internal —
+    /// make it private — or public API waiting for its first consumer.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    pub fn internal_only_symbols(&self) -> Result<Vec<WiringEntry>, rusqlite::Error> {
+        let ext_pred = wireable_ext_sql("w.module_file", self.polyglot());
+        let non_source = non_source_sql("w.module_file", self.source_packages());
+        let producer_rows = public_producer_rows_sql(&ext_pred, &non_source);
         let sql = format!(
-            "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
-                    w.consumer_file, w.import_line, w.contract_source
-             FROM wiring_map w
-             WHERE w.consumer_file IS NULL AND w.visibility = 'public'
-               AND {ext_pred}
-               AND w.module_file NOT LIKE 'benches/%'
-               AND w.module_file NOT LIKE 'tests/%'
-               AND w.module_file NOT LIKE 'docs/%'
-               AND w.module_file NOT LIKE 'scripts/%'
-               AND w.module_file NOT LIKE '%/benches/%'
-               AND w.module_file NOT LIKE '%/tests/%'
-               AND w.symbol_kind != 'module'
-               AND w.symbol_name NOT IN ('fmt','hash','eq','partial_cmp','cmp','drop','clone','default')
+            "{producer_rows}
+               AND EXISTS (
+                   SELECT 1 FROM wiring_map w2
+                   WHERE w2.module_file = w.module_file
+                     AND w2.symbol_name = w.symbol_name
+                     AND w2.consumer_file IS NOT NULL
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM wiring_map w3
+                   WHERE w3.module_file = w.module_file
+                     AND w3.symbol_name = w.symbol_name
+                     AND w3.consumer_file IS NOT NULL
+                     AND w3.consumer_file != w.module_file
+               )
+             ORDER BY w.module_file, w.symbol_name"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let entries = stmt
+            .query_map([], row_to_wiring_entry)?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(entries)
+    }
+
+    /// Orphan symbols with an optional trust filter (H2, 2026-08-12).
+    ///
+    /// `trusted = true` counts a symbol as consumed only by a NON-heuristic
+    /// edge (`contract_source != 'ast_inferred'`): a symbol whose only
+    /// consumers come from bare-name matching reports as orphan in this mode,
+    /// which is the honest answer to "does anything provably use this?".
+    pub fn orphan_symbols_with_trust(
+        &self,
+        trusted: bool,
+    ) -> Result<Vec<WiringEntry>, rusqlite::Error> {
+        let ext_pred = wireable_ext_sql("w.module_file", self.polyglot());
+        let non_source = non_source_sql("w.module_file", self.source_packages());
+        let trust_pred = if trusted {
+            "AND w2.contract_source != 'ast_inferred'"
+        } else {
+            ""
+        };
+        let producer_rows = public_producer_rows_sql(&ext_pred, &non_source);
+        let sql = format!(
+            "{producer_rows}
                AND NOT EXISTS (
                    SELECT 1 FROM wiring_map w2
                    WHERE w2.module_file = w.module_file
                      AND w2.symbol_name = w.symbol_name
                      AND w2.consumer_file IS NOT NULL
+                     {trust_pred}
                )
              ORDER BY w.module_file, w.symbol_name"
         );
@@ -1179,8 +2635,9 @@ impl FileKnowledgeDB {
         &self,
         module_file: &str,
     ) -> Result<Vec<WiringEntry>, rusqlite::Error> {
-        let canonical = canonicalize_module_path(module_file);
-        let ext_pred = wireable_ext_sql("w.module_file", polyglot_wiring_enabled());
+        let canonical = self.canonicalize_module_path(module_file);
+        let ext_pred = wireable_ext_sql("w.module_file", self.polyglot());
+        let non_source = non_source_sql("w.module_file", self.source_packages());
         let sql = format!(
             "SELECT w.module_file, w.symbol_name, w.symbol_kind, w.visibility,
                     w.consumer_file, w.import_line, w.contract_source
@@ -1189,8 +2646,7 @@ impl FileKnowledgeDB {
                AND {ext_pred}
                AND w.module_file NOT LIKE 'benches/%'
                AND w.module_file NOT LIKE 'tests/%'
-               AND w.module_file NOT LIKE 'docs/%'
-               AND w.module_file NOT LIKE 'scripts/%'
+               {non_source}
                AND w.module_file NOT LIKE '%/benches/%'
                AND w.module_file NOT LIKE '%/tests/%'
                AND w.symbol_kind != 'module'
@@ -1209,6 +2665,63 @@ impl FileKnowledgeDB {
             .filter_map(|r| r.ok())
             .collect();
         Ok(entries)
+    }
+
+    /// Producer rows for exactly these `names` — the per-name form of
+    /// [`Self::all_pub_symbols`] (S3, 2026-09-02).
+    ///
+    /// Returns `(symbol_name, module_file)` pairs, same-crate producers first
+    /// when `consumer_hint` (the file about to import) is under `crates/<x>/`.
+    /// Unlike [`Self::find_producer_modules_for_types`] it is NOT limited to
+    /// type kinds and applies no cap: the caller already narrowed `names` to
+    /// the handful of unresolved identifiers in one file, so a full-table scan
+    /// per hook call (what `all_pub_symbols` costs on a 190k-row map) is
+    /// replaced by one indexed `IN` lookup.
+    ///
+    pub fn find_pub_symbols_by_name(
+        &self,
+        names: &[String],
+        consumer_hint: Option<&str>,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders: String = (0..names.len())
+            .map(|i| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(",");
+        // Same-crate producers sort first: `crates/touring-x/…` prefix match
+        // (the ranking `find_producer_modules_with_kinds` applies).
+        let crate_prefix = consumer_hint
+            .and_then(|f| {
+                let mut it = f.split('/');
+                match (it.next(), it.next()) {
+                    (Some("crates"), Some(b)) => Some(format!("crates/{b}/%")),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
+        // Same predicate as `all_pub_symbols` (producer rows = NULL consumer,
+        // public) so recall is identical — only the `IN` list is new.
+        let sql = format!(
+            "SELECT DISTINCT symbol_name, module_file FROM wiring_map
+             WHERE visibility = 'public'
+               AND consumer_file IS NULL
+               AND symbol_name IN ({placeholders})
+             ORDER BY (CASE WHEN '{crate_prefix}' != '' AND module_file LIKE '{crate_prefix}'
+                            THEN 0 ELSE 1 END),
+                      module_file, symbol_name"
+        );
+        let mut stmt = self.conn_ref().prepare(&sql)?;
+        let params_vec: Vec<&dyn rusqlite::ToSql> =
+            names.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let rows = stmt
+            .query_map(params_vec.as_slice(), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
     }
 
     /// Get ALL pub symbols (not just orphans) for import suggestion.
@@ -1293,15 +2806,14 @@ impl FileKnowledgeDB {
         Ok(rows)
     }
 
-    /// Invalidate the query cache entry for `cli_wiring_modules`.
+    /// Invalidate the query cache entries for `cli_wiring_modules`.
     ///
     /// Called by mutators (`register_pub_symbol`, `record_consumer`, `clear_wiring`)
-    /// so the next `cli_wiring_modules` call gets fresh data.
+    /// so the next `cli_wiring_modules` call gets fresh data. The store does not
+    /// know its project root, so every project's entry goes: a miss, never a
+    /// stale answer.
     pub fn invalidate_wiring_modules_cache() {
-        touring_foundation::query_cache::invalidate(&touring_foundation::query_cache::make_key(
-            "cli_wiring_modules",
-            "v1",
-        ));
+        touring_foundation::query_cache::invalidate_kind("cli_wiring_modules");
     }
 
     /// Remove all wiring entries for a module (used when module is re-scanned).
@@ -1320,7 +2832,7 @@ impl FileKnowledgeDB {
     pub fn clear_wiring(&self, module_file: &str) -> Result<(), rusqlite::Error> {
         self.conn_ref().execute(
             "DELETE FROM wiring_map WHERE module_file = ?1 AND consumer_file IS NULL",
-            params![module_file],
+            params![self.canonicalize_module_path(module_file).as_ref()],
         )?;
         // Wave 22 FASE 6 P0 fix: invalidate query cache so cli_wiring_modules
         // does not serve stale data. Doc at invalidate_wiring_modules_cache lists
@@ -1361,17 +2873,33 @@ impl FileKnowledgeDB {
     pub fn purge_module_rows(&self, module_file: &str) -> Result<usize, rusqlite::Error> {
         let n = self.conn_ref().execute(
             "DELETE FROM wiring_map WHERE module_file = ?1",
-            params![module_file],
+            params![self.canonicalize_module_path(module_file).as_ref()],
         )?;
         Self::invalidate_wiring_modules_cache();
         Ok(n)
+    }
+
+    /// Every distinct consumer file the map holds. The rebuild's sweep judges
+    /// each one by the walker's policy: its per-file sweep starts from files
+    /// holding symbols, so a consumer with none was never looked at (cross-audit
+    /// 14/09/2026, R2-6: 342 edges from May whose consumers were gone from disk
+    /// kept 72 producers wired).
+    ///
+    /// # Errors
+    /// Propagates the SQLite error of the query.
+    pub fn consumer_files(&self) -> Result<Vec<String>, rusqlite::Error> {
+        let mut stmt = self.conn_ref().prepare(
+            "SELECT DISTINCT consumer_file FROM wiring_map WHERE consumer_file IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        Ok(rows.filter_map(Result::ok).collect())
     }
 
     /// Remove consumer entries for a specific file (used when file is re-scanned).
     pub fn clear_consumer_entries(&self, consumer_file: &str) -> Result<(), rusqlite::Error> {
         self.conn_ref().execute(
             "DELETE FROM wiring_map WHERE consumer_file = ?1",
-            params![consumer_file],
+            params![self.canonicalize_module_path(consumer_file).as_ref()],
         )?;
         // Wave 22 FASE 6 P0 fix: invalidate query cache. If caller re-scans and
         // returns early before `record_consumer` runs, without this invalidation
@@ -1379,24 +2907,78 @@ impl FileKnowledgeDB {
         Self::invalidate_wiring_modules_cache();
         Ok(())
     }
+
+    /// The rebuild's per-file clear (I16, 2026-09-13): every consumer row of
+    /// `consumer_file` EXCEPT the [`WiringOrigin::AstInferred`] ones, which the
+    /// walk cannot re-derive until every producer row exists and are therefore
+    /// re-recorded only after the walk. Clearing them per file opened a window:
+    /// `kill -9` three seconds into a rebuild left 91 inferred edges of the
+    /// already re-walked files missing (measured on the isolated copy, per-file
+    /// transactions already in place). The inferred rows are replaced by
+    /// [`Self::clear_inferred_consumer_entries`] inside the post-walk transaction.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    pub fn clear_declared_consumer_entries(
+        &self,
+        consumer_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let n = self.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE consumer_file = ?1 AND contract_source != ?2",
+            params![
+                self.canonicalize_module_path(consumer_file).as_ref(),
+                WiringOrigin::AstInferred.as_str()
+            ],
+        )?;
+        Self::invalidate_wiring_modules_cache();
+        Ok(n)
+    }
+
+    /// The other half of [`Self::clear_declared_consumer_entries`]: only the
+    /// inferred consumer rows of `consumer_file`, cleared right before they are
+    /// re-derived, in the same transaction.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    pub fn clear_inferred_consumer_entries(
+        &self,
+        consumer_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let n = self.conn_ref().execute(
+            "DELETE FROM wiring_map WHERE consumer_file = ?1 AND contract_source = ?2",
+            params![
+                self.canonicalize_module_path(consumer_file).as_ref(),
+                WiringOrigin::AstInferred.as_str()
+            ],
+        )?;
+        Self::invalidate_wiring_modules_cache();
+        Ok(n)
+    }
 }
 
 #[cfg(test)]
 mod polyglot_gate_tests {
     use super::{
-        is_go_package_wireable, is_indexable_module_file, is_indexable_module_file_polyglot,
-        is_non_rust_non_wireable, wireable_ext_sql, wireable_extensions,
+        is_go_package_wireable, is_indexable_module_file_polyglot, is_non_rust_non_wireable,
+        wireable_ext_sql, wireable_extensions,
     };
 
     // ── Default mode (flag OFF) — byte-identical Rust-only behavior ─────────
 
     #[test]
     fn default_mode_is_rust_only() {
-        // The public gate reads TOURING_POLYGLOT_WIRING, unset in this test
-        // binary → OFF. Python/Markdown rejected; Rust accepted.
-        assert!(is_indexable_module_file("crates/a/src/foo.rs"));
-        assert!(!is_indexable_module_file("pkg/models.py"));
-        assert!(!is_indexable_module_file("docs/plan.md"));
+        // The gate is now asked with the PROJECT's answer rather than reading a
+        // process-global, so the default mode is expressed by passing `false`
+        // — which is also what makes this assertion independent of whatever
+        // `TOURING_POLYGLOT_WIRING` happens to hold in the runner's env.
+        assert!(is_indexable_module_file_polyglot(
+            "crates/a/src/foo.rs",
+            false
+        ));
+        assert!(!is_indexable_module_file_polyglot("pkg/models.py", false));
+        assert!(!is_indexable_module_file_polyglot("docs/plan.md", false));
     }
 
     #[test]
@@ -1546,25 +3128,29 @@ mod polyglot_gate_tests {
     #[test]
     fn non_rust_non_wireable_classifier() {
         // Python.
-        assert!(is_non_rust_non_wireable("docs/x.py"));
-        assert!(is_non_rust_non_wireable("scripts/x.py"));
-        assert!(is_non_rust_non_wireable("a/site-packages/b.py"));
-        assert!(is_non_rust_non_wireable("pkg/test_x.py"));
+        assert!(is_non_rust_non_wireable("docs/x.py", &[]));
+        assert!(is_non_rust_non_wireable("scripts/x.py", &[]));
+        assert!(is_non_rust_non_wireable("a/site-packages/b.py", &[]));
+        assert!(is_non_rust_non_wireable("pkg/test_x.py", &[]));
         // JS/TS.
-        assert!(is_non_rust_non_wireable("web/node_modules/x.js"));
-        assert!(is_non_rust_non_wireable("web/dist/bundle.js"));
-        assert!(is_non_rust_non_wireable("web/foo.test.ts"));
-        assert!(is_non_rust_non_wireable("web/foo.spec.js"));
-        assert!(is_non_rust_non_wireable("web/__tests__/x.ts"));
+        assert!(is_non_rust_non_wireable("web/node_modules/x.js", &[]));
+        assert!(is_non_rust_non_wireable("web/dist/bundle.js", &[]));
+        assert!(is_non_rust_non_wireable("web/foo.test.ts", &[]));
+        assert!(is_non_rust_non_wireable("web/foo.spec.js", &[]));
+        assert!(is_non_rust_non_wireable("web/__tests__/x.ts", &[]));
         // Java.
         assert!(is_non_rust_non_wireable(
-            "app/src/test/java/com/FooTest.java"
+            "app/src/test/java/com/FooTest.java",
+            &[]
         ));
-        assert!(is_non_rust_non_wireable("app/com/FooTests.java"));
+        assert!(is_non_rust_non_wireable("app/com/FooTests.java", &[]));
         // First-party source is wireable.
-        assert!(!is_non_rust_non_wireable("pkg/models.py"));
-        assert!(!is_non_rust_non_wireable("web/src/service.ts"));
-        assert!(!is_non_rust_non_wireable("src/main/java/com/foo/Bar.java"));
+        assert!(!is_non_rust_non_wireable("pkg/models.py", &[]));
+        assert!(!is_non_rust_non_wireable("web/src/service.ts", &[]));
+        assert!(!is_non_rust_non_wireable(
+            "src/main/java/com/foo/Bar.java",
+            &[]
+        ));
     }
 
     // ── P-G: Go package-aware key namespace ("go:<import-path>") ────────────
@@ -1634,6 +3220,942 @@ mod polyglot_gate_tests {
             off, "module_file LIKE '%.rs'",
             "OFF byte-identical, no go: clause"
         );
+    }
+}
+
+#[cfg(test)]
+mod s3_find_pub_symbols_by_name_tests {
+    use crate::knowledge::FileKnowledgeDB;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, FileKnowledgeDB) {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("s3.db")).expect("open db");
+        (tmp, db)
+    }
+
+    /// The per-name lookup must see a symbol that ALREADY has a consumer —
+    /// the recall `all_pub_symbols` was introduced for (pre_edit "B4 fix").
+    #[test]
+    fn finds_wired_and_orphan_producers_by_exact_name_only() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol(
+            "crates/a/src/tfidf.rs",
+            "TfIdfVectorizer",
+            "struct",
+            "public",
+        )
+        .expect("register");
+        db.record_consumer(
+            "crates/a/src/tfidf.rs",
+            "TfIdfVectorizer",
+            "crates/a/src/other.rs",
+            Some(3),
+        )
+        .expect("consumer");
+        db.register_pub_symbol("crates/a/src/bm25.rs", "Bm25Scorer", "struct", "public")
+            .expect("register");
+        db.register_pub_symbol("crates/a/src/secret.rs", "Hidden", "struct", "private")
+            .expect("register");
+
+        let names = [
+            "TfIdfVectorizer".to_string(),
+            "Hidden".to_string(),
+            "Nope".to_string(),
+        ];
+        let found = db.find_pub_symbols_by_name(&names, None).expect("query");
+        assert_eq!(
+            found,
+            vec![(
+                "TfIdfVectorizer".to_string(),
+                "crates/a/src/tfidf.rs".to_string()
+            )],
+            "exact name, public only, wired symbol still visible"
+        );
+        assert!(
+            db.find_pub_symbols_by_name(&[], None)
+                .expect("query")
+                .is_empty()
+        );
+    }
+
+    /// `consumer_hint` ranks the same-crate producer first — the homonym in
+    /// another crate is still returned, but never as the first suggestion.
+    #[test]
+    fn same_crate_producer_sorts_first_under_a_consumer_hint() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/zeta/src/cfg.rs", "Config", "struct", "public")
+            .expect("register");
+        db.register_pub_symbol("crates/alpha/src/cfg.rs", "Config", "struct", "public")
+            .expect("register");
+        let names = ["Config".to_string()];
+        let hinted = db
+            .find_pub_symbols_by_name(&names, Some("crates/zeta/src/main.rs"))
+            .expect("query");
+        assert_eq!(hinted.len(), 2);
+        assert_eq!(hinted[0].1, "crates/zeta/src/cfg.rs", "{hinted:?}");
+        let plain = db.find_pub_symbols_by_name(&names, None).expect("query");
+        assert_eq!(
+            plain[0].1, "crates/alpha/src/cfg.rs",
+            "no hint → module_file order"
+        );
+    }
+}
+
+#[cfg(test)]
+mod consumer_kind_resolution_tests {
+    //! I16: the kind of a consumer row is a function of the producer table
+    //! alone — never of walk order or of what the previous index held.
+    use crate::knowledge::FileKnowledgeDB;
+    use rusqlite::params;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, FileKnowledgeDB) {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("i16.db")).expect("open db");
+        (tmp, db)
+    }
+
+    fn kind_of(db: &FileKnowledgeDB, module: &str, name: &str, consumer: &str) -> String {
+        db.conn_ref()
+            .query_row(
+                "SELECT symbol_kind FROM wiring_map
+                 WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file = ?3",
+                params![module, name, consumer],
+                |r| r.get(0),
+            )
+            .expect("consumer row")
+    }
+
+    #[test]
+    fn every_consumer_kind_is_rewritten_from_the_final_producers_and_the_pass_is_idempotent() {
+        let (_tmp, db) = setup();
+        // Producers as they stand AFTER the walk.
+        db.register_pub_symbol(
+            "crates/a/src/symbols.rs",
+            "extract_symbols",
+            "function",
+            "public",
+        )
+        .expect("producer");
+        db.register_pub_symbol("crates/b/src/poly.rs", "rewrite", "module", "public")
+            .expect("producer");
+        db.register_pub_symbol("crates/c/src/other.rs", "rewrite", "function", "public")
+            .expect("producer");
+        // Consumers: one resolves to its own module's producer, one to a homonym
+        // (the module named by the import has no producer of that name), one
+        // whose name no producer carries anywhere, and one glob import.
+        db.record_consumer(
+            "crates/a/src/symbols.rs",
+            "extract_symbols",
+            "crates/x/src/u.rs",
+            Some(1),
+        )
+        .expect("consumer");
+        db.record_consumer(
+            "crates/z/src/facade.rs",
+            "rewrite",
+            "crates/x/src/v.rs",
+            Some(2),
+        )
+        .expect("consumer");
+        db.record_consumer(
+            "crates/a/src/symbols.rs",
+            "from_outside",
+            "crates/x/src/w.rs",
+            Some(3),
+        )
+        .expect("consumer");
+        db.record_consumer("crates/a/src/symbols.rs", "*", "crates/x/src/g.rs", Some(4))
+            .expect("glob");
+        // Simulate what a warm rebuild leaves behind: kinds copied at record
+        // time from rows that no longer describe the producers.
+        db.conn_ref()
+            .execute(
+                "UPDATE wiring_map SET symbol_kind = 'method' WHERE consumer_file IS NOT NULL AND symbol_name != '*'",
+                [],
+            )
+            .expect("corrupt");
+
+        let changed = db.resolve_consumer_kinds(true).expect("pass 1").changed();
+        assert_eq!(
+            changed, 3,
+            "the three symbol rows are rewritten; the glob is untouched"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/symbols.rs",
+                "extract_symbols",
+                "crates/x/src/u.rs"
+            ),
+            "function"
+        );
+        // Homonym fallback: (module_file, symbol_kind) order → crates/b's `module`
+        // beats crates/c's `function`, on every machine and every walk order.
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/z/src/facade.rs",
+                "rewrite",
+                "crates/x/src/v.rs"
+            ),
+            "module"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/symbols.rs",
+                "from_outside",
+                "crates/x/src/w.rs"
+            ),
+            "extern"
+        );
+        assert_eq!(
+            kind_of(&db, "crates/a/src/symbols.rs", "*", "crates/x/src/g.rs"),
+            "glob_import"
+        );
+
+        let again = db.resolve_consumer_kinds(true).expect("pass 2").changed();
+        assert_eq!(
+            again, 0,
+            "a second pass over the same producers changes nothing"
+        );
+    }
+
+    #[test]
+    fn extern_is_only_concluded_over_a_complete_walk() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "present", "struct", "public")
+            .expect("producer");
+        db.record_consumer(
+            "crates/a/src/lib.rs",
+            "absent",
+            "crates/x/src/u.rs",
+            Some(1),
+        )
+        .expect("consumer");
+        // Recorded with no producer anywhere → 'unknown' at INSERT time.
+        assert_eq!(
+            kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
+            "unknown"
+        );
+        db.resolve_consumer_kinds(false).expect("partial walk");
+        assert_eq!(
+            kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
+            "unknown",
+            "after a partial walk the row waits for a producer instead of being branded extern"
+        );
+        db.resolve_consumer_kinds(true).expect("complete walk");
+        assert_eq!(
+            kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
+            "extern"
+        );
+    }
+
+    /// 26/09/2026: the passes are ONE unit. The producers pass resets what the
+    /// definers pass restores, and each committed on its own (autocommit): when
+    /// the definers pass met a concurrent writer's lock, the resets stayed on
+    /// disk — the analise's `kind_unknown` went 35 → 241 under a `wiring repair
+    /// --resolve-kinds` that answered «database is locked». A failure anywhere
+    /// must leave every kind as it was.
+    #[test]
+    fn a_failure_after_the_producers_pass_leaves_no_kind_changed() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "present", "struct", "public")
+            .expect("producer");
+        db.record_consumer("crates/a/src/lib.rs", "gone", "crates/x/src/u.rs", Some(1))
+            .expect("consumer");
+        // A kind no producer carries — the producers pass resets it to `unknown`...
+        db.conn_ref()
+            .execute(
+                "UPDATE wiring_map SET symbol_kind = 'function' WHERE symbol_name = 'gone'",
+                [],
+            )
+            .expect("seed");
+        // ...and a definers pass that cannot read the symbol tables it needs.
+        db.conn_ref()
+            .execute_batch("ALTER TABLE file_knowledge RENAME TO file_knowledge_away")
+            .expect("break the definers pass");
+
+        assert!(
+            db.resolve_consumer_kinds(true).is_err(),
+            "the definers pass fails without file_knowledge"
+        );
+        assert_eq!(
+            kind_of(&db, "crates/a/src/lib.rs", "gone", "crates/x/src/u.rs"),
+            "function",
+            "the producers pass's reset is rolled back with the unit that failed"
+        );
+    }
+
+    /// S222 (25/09/2026): the producers pass distrusts every kind no producer
+    /// carries — right for a stale copy (I16), wrong for a kind the definers pass
+    /// derived (I17). With `extern` branded INSIDE the producers pass, a sealed
+    /// rebuild marked the definers' verdicts `extern` before the definers ever saw
+    /// them (1.868 of the analise's 2.395 `extern` rows were declared by their own
+    /// definitor — `_FallbackBreaker`, `_extract_keywords`), and a standalone rerun
+    /// flip-flopped (reset, then re-resolve: 1/1 every run). The orchestrator
+    /// brands `extern` LAST, over what no pass resolved, and counts NET changes.
+    #[test]
+    fn the_sealed_resolution_keeps_definer_kinds_and_brands_extern_last() {
+        let (_tmp, db) = setup();
+        seed_symbols(
+            &db,
+            "crates/a/src/lib.rs",
+            &[("_private_helper", "function")],
+        );
+        db.record_consumer(
+            "crates/a/src/lib.rs",
+            "_private_helper",
+            "crates/a/src/user.rs",
+            Some(1),
+        )
+        .expect("consumer of a private helper");
+        seed_symbols(&db, "crates/a/src/facade.rs", &[]);
+        db.record_consumer(
+            "crates/a/src/facade.rs",
+            "nowhere",
+            "crates/a/src/user.rs",
+            Some(2),
+        )
+        .expect("consumer of a name defined nowhere");
+        // A stale kind copied from a producer that no longer exists (I16).
+        db.conn_ref()
+            .execute(
+                "UPDATE wiring_map SET symbol_kind = 'method'
+                 WHERE symbol_name = 'nowhere' AND consumer_file IS NOT NULL",
+                [],
+            )
+            .expect("stale kind");
+
+        let partial = db.resolve_consumer_kinds(false).expect("partial walk");
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/lib.rs",
+                "_private_helper",
+                "crates/a/src/user.rs"
+            ),
+            "function"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/facade.rs",
+                "nowhere",
+                "crates/a/src/user.rs"
+            ),
+            "unknown",
+            "a stale kind is never trusted, and a partial walk brands nothing extern"
+        );
+        assert_eq!(
+            (
+                partial.from_producers,
+                partial.from_definers,
+                partial.extern_marked
+            ),
+            (1, 1, 0),
+            "{partial:?}"
+        );
+
+        let sealed = db.resolve_consumer_kinds(true).expect("sealed walk");
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/lib.rs",
+                "_private_helper",
+                "crates/a/src/user.rs"
+            ),
+            "function",
+            "a definer verdict is never branded extern"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/facade.rs",
+                "nowhere",
+                "crates/a/src/user.rs"
+            ),
+            "extern"
+        );
+        assert_eq!(
+            (
+                sealed.from_producers,
+                sealed.from_definers,
+                sealed.extern_marked
+            ),
+            (0, 0, 1),
+            "net: the helper was reset and restored inside the call — not a change. {sealed:?}"
+        );
+
+        let again = db.resolve_consumer_kinds(true).expect("again");
+        assert_eq!(again.changed(), 0, "idempotent: {again:?}");
+        assert_eq!(again.unknown_after, 0, "{again:?}");
+    }
+
+    // ── I17 (25/09/2026): the definer-side pass ─────────────────────────────
+
+    fn seed_symbols(db: &FileKnowledgeDB, file: &str, entries: &[(&str, &str)]) {
+        let json = serde_json::to_string(
+            &entries
+                .iter()
+                .map(|(name, kind)| serde_json::json!({"symbol_name": name, "kind": kind}))
+                .collect::<Vec<_>>(),
+        )
+        .expect("json");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES (?1, 0, 0, 0, ?2)",
+                params![file, json],
+            )
+            .expect("seed symbols");
+    }
+
+    #[test]
+    fn consumer_scoped_resolution_types_a_new_private_helper_consumer() {
+        // S223: the incremental path records a consumer of a private helper with no
+        // producer row as `unknown`; the scoped pass types it from the definer's
+        // symbol table — and touches no other consumer's row.
+        let tmp = TempDir::new().expect("tempdir");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("canonical layout");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        seed_symbols(&db, "src/registry.rs", &[("_to_snake_case", "function")]);
+        db.record_consumer(
+            "src/registry.rs",
+            "_to_snake_case",
+            "src/new_consumer.rs",
+            Some(1),
+        )
+        .expect("new consumer");
+        db.record_consumer("src/registry.rs", "_to_snake_case", "src/other.rs", Some(1))
+            .expect("other consumer");
+        let kind = |consumer: &str| -> String {
+            db.conn_ref()
+                .query_row(
+                    "SELECT symbol_kind FROM wiring_map WHERE module_file = 'src/registry.rs'
+                     AND symbol_name = '_to_snake_case' AND consumer_file = ?1",
+                    [consumer],
+                    |row| row.get(0),
+                )
+                .expect("row")
+        };
+        assert_eq!(
+            kind("src/new_consumer.rs"),
+            "unknown",
+            "control: record time leaves it unknown"
+        );
+        let resolved = db
+            .resolve_consumer_kinds_for_consumer("src/new_consumer.rs")
+            .expect("scoped resolve");
+        assert_eq!(resolved, 1);
+        assert_eq!(kind("src/new_consumer.rs"), "function");
+        assert_eq!(
+            kind("src/other.rs"),
+            "unknown",
+            "scope: another consumer stays untouched"
+        );
+    }
+
+    #[test]
+    fn producer_scoped_resolution_types_a_consumer_recorded_before_its_definer() {
+        // 27/09/2026 (analise doctor kind_unknown=1): a RED test imported `extrair_rds` at
+        // 14:06, the function landed in its module at 14:42, and the edge stayed `unknown` —
+        // the consumer-scoped pass only runs when the CONSUMER is refreshed. The producer-scoped
+        // pass types the rows that point AT the file just refreshed, and no other producer's.
+        let tmp = TempDir::new().expect("tempdir");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("canonical layout");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        // `.rs` paths: the real case was Python in a polyglot db, but the pass is
+        // language-agnostic and this db is not polyglot (it would not record `.py` rows).
+        db.record_consumer(
+            "src/conversao.rs",
+            "extrair_rds",
+            "tests/coleta.rs",
+            Some(1),
+        )
+        .expect("consumer before its definer");
+        db.record_consumer("src/other.rs", "later_helper", "tests/coleta.rs", Some(2))
+            .expect("another producer");
+        let kind = |module: &str| -> String {
+            db.conn_ref()
+                .query_row(
+                    "SELECT symbol_kind FROM wiring_map WHERE module_file = ?1
+                     AND consumer_file IS NOT NULL",
+                    [module],
+                    |row| row.get(0),
+                )
+                .expect("row")
+        };
+        assert_eq!(
+            db.resolve_consumer_kinds_for_consumer("tests/coleta.rs")
+                .expect("consumer pass"),
+            0,
+            "control: nothing defines either symbol yet"
+        );
+        seed_symbols(&db, "src/conversao.rs", &[("extrair_rds", "function")]);
+        seed_symbols(&db, "src/other.rs", &[("later_helper", "function")]);
+        let resolved = db
+            .resolve_consumer_kinds_for_producer("src/conversao.rs")
+            .expect("producer pass");
+        assert_eq!(resolved, 1);
+        assert_eq!(kind("src/conversao.rs"), "function");
+        assert_eq!(
+            kind("src/other.rs"),
+            "unknown",
+            "scope: another producer stays untouched"
+        );
+    }
+
+    #[test]
+    fn definer_kinds_resolve_module_private_self_reference_and_external_reexport() {
+        // O db no LAYOUT CANÔNICO (`.claude/touring/`): `project_root_for_db`
+        // deriva o root da localização do banco (a inversa de
+        // `knowledge_db_canonical`), e a cinta de source (`index_blind`) resolve
+        // `src/blind.rs` sob ele — sem isso o root cai no cwd do teste.
+        let tmp = TempDir::new().expect("tempdir");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("canonical layout");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        // Classe 1a: o definidor declara o MÓDULO (`pub mod a;`) → `module`.
+        seed_symbols(&db, "src/mod.rs", &[("a_bindings", "module")]);
+        db.record_consumer("src/mod.rs", "a_bindings", "src/mod.rs", Some(1))
+            .expect("self-module");
+        // Classe 1b: o definidor declara o símbolo PRIVADO (`_INDICE` → const).
+        // Classe 1b: o definidor declara o símbolo PRIVADO (`_INDICE` → const).
+        // (fixture .rs: o write gate recusa .py sem modo polyglot — a classe é
+        // a consulta ao symbols_json, não a linguagem)
+        seed_symbols(&db, "src/selo.rs", &[("_INDICE", "const")]);
+        db.record_consumer("src/selo.rs", "_INDICE", "tests/test_selo.rs", Some(2))
+            .expect("private");
+        // Classe 2: o CONSUMIDOR declara o próprio helper — a auto-referência
+        // que o fallback antigo atribuía ao crate root.
+        seed_symbols(
+            &db,
+            "src/knowledge_wiring.rs",
+            &[("non_source_sql", "function")],
+        );
+        db.record_consumer(
+            "src/lib.rs",
+            "non_source_sql",
+            "src/knowledge_wiring.rs",
+            Some(3),
+        )
+        .expect("self-ref");
+        // Classe 3: o definidor IMPORTA o nome de fora → `external_reexport`.
+        db.record_consumer(
+            "src/_compat.rs",
+            "AssetCheckResult",
+            "src/checks.rs",
+            Some(4),
+        )
+        .expect("reexport");
+        db.record_unresolved_import(
+            "dagster",
+            "AssetCheckResult",
+            "src/_compat.rs",
+            Some(1),
+            "rust",
+        )
+        .expect("unresolved");
+        // Classe 4: nada em lugar nenhum → segue `unknown` (o purge a tira).
+        // Via SQL cru: `record_consumer` RECUSA a palavra-chave de escopo hoje
+        // (30.4.68) — a linha fantasma é um legado de antes do recuso.
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('src/lib.rs', 'super', 'unknown', 'public', 'src/kpi.rs', 5, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("keyword junk (legacy row)");
+
+        // Classe 5: o definidor declara pelo esquema `name` (a outra forma de
+        // symbols_json que convive na base viva — medido no analise: as 370
+        // pseudo-fantasmas vinham da leitura só por `symbol_name`).
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES ('src/compat2.rs', 0, 0, 0, '[{\"name\": \"_FLAG\", \"kind\": \"variable\", \"is_public\": false}]')",
+                [],
+            )
+            .expect("seed name-shape symbols");
+        db.record_consumer("src/compat2.rs", "_FLAG", "src/consumer.rs", Some(6))
+            .expect("name-shape consumer");
+
+        // Classe 6: o definidor DECLARA no SOURCE em disco, mas o extrator não
+        // registrou (index_blind) — medido no analise 25/09: 34 de 233.
+        let blind_dir = tmp.path().join("src");
+        std::fs::create_dir_all(&blind_dir).expect("mkdir");
+        std::fs::write(
+            blind_dir.join("blind.rs"),
+            "pub const GRAFIAS: &[&str] = &[];\n",
+        )
+        .expect("source file");
+        seed_symbols(&db, "src/blind.rs", &[]); // lido pelo índice, nada registrado
+        db.record_consumer("src/blind.rs", "GRAFIAS", "src/consumer.rs", Some(7))
+            .expect("blind consumer");
+
+        // Classes 7a/7b (25/09, touring-36): fachadas `__init__.py`. Um nome que
+        // chega por `from .x import *` ou por `__getattr__` (lazy) NÃO tem
+        // definição literal na fachada, mas EXISTE em runtime.
+        let pkg = tmp.path().join("pkg");
+        std::fs::create_dir_all(&pkg).expect("pkg");
+        std::fs::write(pkg.join("__init__.py"), "from .impl import *\n").expect("facade star");
+        std::fs::write(pkg.join("impl.py"), "def the_thing():\n    pass\n").expect("impl");
+        seed_symbols(&db, "pkg/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg/__init__.py', 'the_thing', 'unknown', 'public', 'src/consumer.rs', 8, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("star consumer");
+        let pkg2 = tmp.path().join("pkg2");
+        std::fs::create_dir_all(&pkg2).expect("pkg2");
+        std::fs::write(
+            pkg2.join("__init__.py"),
+            "def __getattr__(name):\n    raise AttributeError(name)\n",
+        )
+        .expect("facade lazy");
+        seed_symbols(&db, "pkg2/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg2/__init__.py', 'lazy_name', 'unknown', 'public', 'src/consumer.rs', 9, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("lazy consumer");
+
+        // Classe 8a: dunder de módulo — o Python provê em TODO módulo (oráculo
+        // de runtime, 25/09: `__file__` HAS em qualquer um).
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg/__init__.py', '__file__', 'unknown', 'public', 'src/consumer.rs', 10, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("dunder row");
+        // Classe 8b: o nome é o SUBMÓDULO que a fachada importa — importar
+        // `pkg3.impl` liga o nome `impl` como atributo do pacote (oráculo:
+        // `ontl` HAS em `scripts.external_apis`).
+        let pkg3 = tmp.path().join("pkg3");
+        std::fs::create_dir_all(&pkg3).expect("pkg3");
+        std::fs::write(pkg3.join("__init__.py"), "from pkg3.impl import Client\n")
+            .expect("facade sub");
+        // NOTA (censo 25/09): nenhum `impl.py` no disco DE PROPÓSITO — a classe
+        // E (submódulo existe ao lado do pacote) casaria antes e o REGEX, que é
+        // o instrumento sob teste aqui, nunca seria exercitado (a mutação do
+        // regex passaria verde via E). 8g/8h são as fixtures de E/D.
+        seed_symbols(&db, "pkg3/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg3/__init__.py', 'impl', 'unknown', 'public', 'src/consumer.rs', 11, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("submodule row");
+        // Classe 8c: a forma RELATIVA de um ponto — `from .impl import (` — o
+        // measured miss do oráculo 25/09 (frota/slides/api_client/ipca_update
+        // runtime-PRESENTES que o regex antigo não via: `[\w.]+\.` exigia algo
+        // antes do ponto final).
+        let pkg4 = tmp.path().join("pkg4");
+        std::fs::create_dir_all(&pkg4).expect("pkg4");
+        std::fs::write(
+            pkg4.join("__init__.py"),
+            "from .impl import (\n    Client,\n)\n",
+        )
+        .expect("facade relative sub");
+        // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
+        seed_symbols(&db, "pkg4/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg4/__init__.py', 'impl', 'unknown', 'public', 'src/consumer.rs', 12, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("relative submodule row");
+        // Classe 8d: `from . import impl` — o nome na LISTA de importados.
+        let pkg5 = tmp.path().join("pkg5");
+        std::fs::create_dir_all(&pkg5).expect("pkg5");
+        std::fs::write(pkg5.join("__init__.py"), "from . import impl\n").expect("facade from-dot");
+        // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
+        seed_symbols(&db, "pkg5/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg5/__init__.py', 'impl', 'unknown', 'public', 'src/consumer.rs', 13, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("from-dot submodule row");
+
+        // Classes 8e-8h + C (CENSO do oráculo sobre os 171 apagados do ensaio,
+        // 25/09): 13 runtime-PRESENTES em 5 formas que a cinta não via.
+        // 8e: `import time` NU — o import liga o nome no módulo.
+        let pkg6 = tmp.path().join("pkg6");
+        std::fs::create_dir_all(&pkg6).expect("pkg6");
+        std::fs::write(pkg6.join("__init__.py"), "import time\nimport os\n")
+            .expect("facade bare import");
+        seed_symbols(&db, "pkg6/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg6/__init__.py', 'time', 'unknown', 'public', 'src/consumer.rs', 14, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("bare import row");
+        // 8f: o nome na LISTA de um from-import qualquer — `from pkg7 import impl`
+        // e, com alias, `from pkg7 import impl as apelido` (liga só `apelido`).
+        let pkg7 = tmp.path().join("pkg7");
+        std::fs::create_dir_all(&pkg7).expect("pkg7");
+        std::fs::write(
+            pkg7.join("__init__.py"),
+            // `impl` só tem a evidência da LISTA; o alias sai de OUTRO módulo
+            // (core) para não dar a `impl` a evidência do caminho — medido: a
+            // linha `from pkg7.impl import …` também liga `impl` (o submódulo
+            // importado), e a classe mais forte vence.
+            "from pkg7 import impl\nfrom pkg7.core import Client as apelido\n",
+        )
+        .expect("facade from-list");
+        // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
+        seed_symbols(&db, "pkg7/__init__.py", &[]);
+        for (symbol, line) in [("impl", 15), ("apelido", 16)] {
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                     VALUES ('pkg7/__init__.py', ?1, 'unknown', 'public', 'src/consumer.rs', ?2, 'ast_resolved', datetime('now'))",
+                    rusqlite::params![symbol, line],
+                )
+                .expect("from-list row");
+        }
+        // 8g (E): o `__init__.py` NUNCA menciona o nome, mas o submódulo
+        // EXISTE no disco — qualquer import dele na cadeia o anexa ao pacote.
+        let pkg8 = tmp.path().join("pkg8");
+        std::fs::create_dir_all(&pkg8).expect("pkg8");
+        std::fs::write(pkg8.join("__init__.py"), "# nunca menciona o irmão\n")
+            .expect("facade silent");
+        std::fs::write(pkg8.join("irmao.py"), "X = 1\n").expect("sibling");
+        seed_symbols(&db, "pkg8/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg8/__init__.py', 'irmao', 'unknown', 'public', 'src/consumer.rs', 17, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("sibling-on-disk row");
+        // 8h (D+E): o índice registrou `pkg9.py`, que MORREU e virou pacote
+        // (`pkg9/__init__.py`) — o definidor real é o pacote irmão.
+        let pkg9 = tmp.path().join("pkg9");
+        std::fs::create_dir_all(&pkg9).expect("pkg9");
+        std::fs::write(pkg9.join("__init__.py"), "# o pkg9.py morreu\n").expect("pkg9 init");
+        std::fs::write(pkg9.join("filho.py"), "X = 1\n").expect("pkg9 child");
+        seed_symbols(&db, "pkg9.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg9.py', 'filho', 'unknown', 'public', 'src/consumer.rs', 18, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("file-turned-package row");
+        // C: o assignment INDENTADO da feature-flag (`try:`/`except ImportError`)
+        // — o `^\s*` do source_declares (o `^` puro não via o RICH_AVAILABLE).
+        // Fixture .py: o braço `(const|fn|…) +nome` casaria um `const` Rust
+        // indentado mesmo sem o fix; só um assignment PYTHON puro morde.
+        let flag_dir = tmp.path().join("src");
+        std::fs::write(
+            flag_dir.join("flag.py"),
+            "try:\n    _FLAG_INDENT = True\nexcept ImportError:\n    _FLAG_INDENT = False\n",
+        )
+        .expect("flag source");
+        seed_symbols(&db, "src/flag.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('src/flag.py', '_FLAG_INDENT', 'unknown', 'public', 'src/consumer.rs', 19, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("indented assignment row");
+
+        let n = db.resolve_consumer_kinds_from_definers().expect("pass");
+        assert_eq!(
+            n, 18,
+            "as 18 linhas legítimas resolvem (a 8f são duas); a fantasma fica"
+        );
+        assert_eq!(
+            kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"),
+            "module"
+        );
+        assert_eq!(
+            kind_of(&db, "src/selo.rs", "_INDICE", "tests/test_selo.rs"),
+            "const"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "src/lib.rs",
+                "non_source_sql",
+                "src/knowledge_wiring.rs"
+            ),
+            "function"
+        );
+        assert_eq!(
+            kind_of(&db, "src/_compat.rs", "AssetCheckResult", "src/checks.rs"),
+            "external_reexport"
+        );
+        assert_eq!(
+            kind_of(&db, "src/compat2.rs", "_FLAG", "src/consumer.rs"),
+            "variable"
+        );
+        assert_eq!(
+            kind_of(&db, "src/blind.rs", "GRAFIAS", "src/consumer.rs"),
+            "index_blind"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg/__init__.py", "the_thing", "src/consumer.rs"),
+            "reexport_star",
+            "a estrela seguida estaticamente até o `def` do impl"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg2/__init__.py", "lazy_name", "src/consumer.rs"),
+            "dynamic_export",
+            "o `__getattr__` lazy — o estático não pode dizer; poupado e visível"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg/__init__.py", "__file__", "src/consumer.rs"),
+            "module_dunder",
+            "o Python provê o dunder em todo módulo"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg3/__init__.py", "impl", "src/consumer.rs"),
+            "reexport_submodule",
+            "importar o submódulo liga o nome no pacote"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg4/__init__.py", "impl", "src/consumer.rs"),
+            "reexport_submodule",
+            "a forma relativa de um ponto (`from .impl import (`) — o measured miss do oráculo"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg5/__init__.py", "impl", "src/consumer.rs"),
+            "import_bound",
+            "`from . import impl`: o caminho `.` não carrega o nome — a evidência é a lista do from-import (classe B), não a do submódulo"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg6/__init__.py", "time", "src/consumer.rs"),
+            "import_bound",
+            "o import NU liga o nome no módulo (classe A do censo)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg7/__init__.py", "impl", "src/consumer.rs"),
+            "import_bound",
+            "o nome na LISTA de um from-import qualquer (classe B)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg7/__init__.py", "apelido", "src/consumer.rs"),
+            "import_bound",
+            "o alias `as apelido` liga o apelido (classe B)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg8/__init__.py", "irmao", "src/consumer.rs"),
+            "reexport_submodule",
+            "o submódulo EXISTE no disco — importá-lo na cadeia o anexa ao pacote (classe E)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg9.py", "filho", "src/consumer.rs"),
+            "reexport_submodule",
+            "o `.py` morto virou pacote — o definidor é o `__init__.py` irmão (classes D+E)"
+        );
+        assert_eq!(
+            kind_of(&db, "src/flag.py", "_FLAG_INDENT", "src/consumer.rs"),
+            "index_blind",
+            "o assignment indentado da feature-flag (classe C)"
+        );
+        assert_eq!(kind_of(&db, "src/lib.rs", "super", "src/kpi.rs"), "unknown");
+        // Idempotente: a segunda passada não toca em nada.
+        assert_eq!(
+            db.resolve_consumer_kinds_from_definers().expect("pass 2"),
+            0
+        );
+    }
+}
+
+#[cfg(test)]
+mod consumer_clear_split_tests {
+    //! I16: the walk clears what it re-derives per file; the inferred edges,
+    //! derivable only after every producer exists, survive the walk and are
+    //! replaced in the post-walk transaction.
+    use super::WiringOrigin;
+    use crate::knowledge::FileKnowledgeDB;
+    use rusqlite::params;
+    use tempfile::TempDir;
+
+    fn consumer_rows(db: &FileKnowledgeDB, consumer: &str) -> Vec<String> {
+        let mut stmt = db
+            .conn_ref()
+            .prepare("SELECT contract_source FROM wiring_map WHERE consumer_file = ?1 ORDER BY 1")
+            .expect("prepare");
+        stmt.query_map(params![consumer], |r| r.get::<_, String>(0))
+            .expect("query")
+            .filter_map(Result::ok)
+            .collect()
+    }
+
+    #[test]
+    fn the_walk_clear_keeps_inferred_edges_and_the_post_walk_clear_takes_only_them() {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("split.db")).expect("open db");
+        db.register_pub_symbol("crates/a/src/lib.rs", "Widget", "struct", "public")
+            .expect("producer");
+        db.register_pub_symbol("crates/a/src/lib.rs", "render", "function", "public")
+            .expect("producer");
+        // One declared (`use`) edge and one inferred (bare-name) edge, same consumer.
+        db.record_consumer(
+            "crates/a/src/lib.rs",
+            "Widget",
+            "crates/x/src/u.rs",
+            Some(1),
+        )
+        .expect("declared");
+        db.record_consumer_with_origin(
+            "crates/a/src/lib.rs",
+            "render",
+            "crates/x/src/u.rs",
+            None,
+            WiringOrigin::AstInferred,
+        )
+        .expect("inferred");
+        assert_eq!(
+            consumer_rows(&db, "crates/x/src/u.rs"),
+            vec!["ast_inferred", "ast_resolved"]
+        );
+
+        let n = db
+            .clear_declared_consumer_entries("crates/x/src/u.rs")
+            .expect("walk clear");
+        assert_eq!(n, 1);
+        assert_eq!(
+            consumer_rows(&db, "crates/x/src/u.rs"),
+            vec!["ast_inferred"],
+            "the walk leaves the inferred edge in place — it is re-derived only after the walk"
+        );
+
+        let m = db
+            .clear_inferred_consumer_entries("crates/x/src/u.rs")
+            .expect("post-walk clear");
+        assert_eq!(m, 1);
+        assert!(consumer_rows(&db, "crates/x/src/u.rs").is_empty());
+        // Neither clear touches producer rows.
+        let producers: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map WHERE consumer_file IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(producers, 2);
     }
 }
 
@@ -1715,6 +4237,98 @@ mod phantom_module_tests {
 }
 
 #[cfg(test)]
+mod companion_key_tests {
+    //! Decision 1-A (14/09/2026): companion files (`@companion/<name>/…`) are
+    //! searchable and never wiring. The gate refuses them on every write path, in
+    //! both wiring modes, so no caller — rebuild, edit hook, file watcher — can
+    //! let one in.
+    use crate::knowledge::FileKnowledgeDB;
+    use tempfile::TempDir;
+
+    fn count(db: &FileKnowledgeDB, sql: &str) -> i64 {
+        db.conn_ref()
+            .query_row(sql, [], |r| r.get(0))
+            .expect("count")
+    }
+
+    #[test]
+    fn a_companion_file_never_produces_consumes_or_owes_an_import() {
+        let tmp = TempDir::new().expect("tmp");
+        let db = FileKnowledgeDB::new(&tmp.path().join("test.db")).expect("db");
+        for polyglot in [false, true] {
+            assert!(
+                !super::is_wireable_source("@companion/skills/x/scripts/y.py", polyglot, &[]),
+                "polyglot={polyglot}"
+            );
+            assert!(
+                !super::is_wireable_source("@companion/skills/x/src/lib.rs", polyglot, &[]),
+                "polyglot={polyglot}"
+            );
+        }
+        db.register_pub_symbol("@companion/skills/x/src/lib.rs", "Api", "fn", "public")
+            .expect("register");
+        db.register_pub_symbol("crates/a/src/lib.rs", "Api", "fn", "public")
+            .expect("register");
+        // A companion consuming a project producer, and a project file consuming
+        // a companion producer: neither edge is recorded.
+        db.record_consumer(
+            "crates/a/src/lib.rs",
+            "Api",
+            "@companion/skills/x/src/main.rs",
+            None,
+        )
+        .expect("consumer");
+        db.record_consumer(
+            "@companion/skills/x/src/lib.rs",
+            "Api",
+            "crates/b/src/uses.rs",
+            None,
+        )
+        .expect("consumer");
+        db.record_unresolved_import_classified(
+            "crate::missing",
+            "Gone",
+            "@companion/skills/x/src/main.rs",
+            None,
+            "rust",
+            "workspace_unresolved",
+        )
+        .expect("unresolved");
+        // A project file's unresolved import, so the table exists and the
+        // assertion below always runs (B10: it used to be skipped when the only
+        // write was the refused one).
+        db.record_unresolved_import_classified(
+            "crate::missing",
+            "Gone",
+            "crates/b/src/uses.rs",
+            None,
+            "rust",
+            "workspace_unresolved",
+        )
+        .expect("unresolved");
+
+        assert_eq!(
+            count(
+                &db,
+                "SELECT COUNT(*) FROM wiring_map WHERE module_file LIKE '@companion/%' OR consumer_file LIKE '@companion/%'"
+            ),
+            0
+        );
+        assert_eq!(
+            count(&db, "SELECT COUNT(*) FROM wiring_map"),
+            1,
+            "the project producer is the only row"
+        );
+        assert!(db.unresolved_table_present());
+        assert_eq!(
+            count(&db, "SELECT COUNT(*) FROM wiring_unresolved"),
+            1,
+            "only the project file owes an import"
+        );
+    }
+}
+
+#[cfg(test)]
 mod backfill_tests {
     use crate::knowledge::FileKnowledgeDB;
     use tempfile::TempDir;
@@ -1779,11 +4393,14 @@ mod backfill_tests {
         assert_eq!(kind_of(&db, "crates/a/src/engine.rs", "Engine"), "unknown");
         db.register_pub_symbol("crates/a/src/engine.rs", "Engine", "struct", "public")
             .unwrap();
-        let repaired = db.backfill_unknown_consumer_kinds().unwrap();
-        assert_eq!(repaired, 1, "exactly the frozen row must be repaired");
+        let repaired = db.resolve_consumer_kinds(true).unwrap();
+        assert_eq!(
+            repaired.from_producers, 1,
+            "exactly the frozen row must be repaired"
+        );
         assert_eq!(kind_of(&db, "crates/a/src/engine.rs", "Engine"), "struct");
         // Idempotent: a second pass has nothing left to do.
-        assert_eq!(db.backfill_unknown_consumer_kinds().unwrap(), 0);
+        assert_eq!(db.resolve_consumer_kinds(true).unwrap().changed(), 0);
     }
 
     // Wave H+1 normalization: `use m::{X as Y}` keys the row by the ORIGINAL
@@ -1810,8 +4427,40 @@ mod backfill_tests {
         assert_eq!(kind_of(&db, "crates/a/src/svc.rs", "*"), "glob_import");
     }
 
-    // Wave H+1 second backfill pass: a consumer of a symbol with NO producer
-    // anywhere (external-crate re-export) is 'extern', not schema degradation.
+    // Wave H+1 second pass (now the sealed-walk pass of `resolve_consumer_kinds`):
+    // a consumer of a symbol with NO definition anywhere (external-crate
+    // re-export) is 'extern', not schema degradation.
+    /// The behavioural half of the partial-walk guard: after an INCOMPLETE walk
+    /// the same row must stay `unknown`, because "no producer anywhere" is not a
+    /// conclusion a 62%-complete index is entitled to draw. `extern` is terminal
+    /// — nothing revisits it — so a wrong one is permanent.
+    #[test]
+    fn a_partial_walk_leaves_producerless_consumers_unknown_not_extern() {
+        let (_tmp, db) = setup();
+        db.record_consumer(
+            "crates/a/src/uses_unseen.rs",
+            "NotYetWalked", // its producer lives in the part of the tree never read
+            "crates/a/src/error.rs",
+            None,
+        )
+        .unwrap();
+
+        // mark_extern = false → no `extern` pass; nothing to inherit, so no change.
+        assert_eq!(db.resolve_consumer_kinds(false).unwrap().changed(), 0);
+        assert_eq!(
+            kind_of(&db, "crates/a/src/uses_unseen.rs", "NotYetWalked"),
+            "unknown",
+            "a partial walk must not brand an unseen producer as external"
+        );
+
+        // A later COMPLETE walk is still free to conclude `extern`.
+        assert_eq!(db.resolve_consumer_kinds(true).unwrap().extern_marked, 1);
+        assert_eq!(
+            kind_of(&db, "crates/a/src/uses_unseen.rs", "NotYetWalked"),
+            "extern"
+        );
+    }
+
     #[test]
     fn backfill_marks_external_reexport_consumers_as_extern() {
         let (_tmp, db) = setup();
@@ -1826,7 +4475,7 @@ mod backfill_tests {
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "unknown"
         );
-        assert_eq!(db.backfill_unknown_consumer_kinds().unwrap(), 1);
+        assert_eq!(db.resolve_consumer_kinds(true).unwrap().extern_marked, 1);
         assert_eq!(
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "extern"
@@ -1896,6 +4545,164 @@ mod provenance_tests {
             .collect();
         assert_eq!(before, after, "unresolved rows must not resolve any orphan");
         assert_eq!(db.name_only_candidates().expect("count"), 3);
+    }
+
+    /// W (2026-09-02): `./crates/…` and `crates/…` are ONE file. Measured after
+    /// a full rebuild: 12.032 producer rows and 115.986 consumer edges under the
+    /// dot form, the rebuild writing the plain form — 78 plain producers had all
+    /// their consumers one prefix away and read orphan.
+    #[test]
+    fn canonicalize_strips_a_leading_dot_slash() {
+        let (_tmp, db) = setup();
+        assert_eq!(
+            db.canonicalize_module_path("./crates/a/src/lib.rs")
+                .as_ref(),
+            "crates/a/src/lib.rs"
+        );
+    }
+
+    #[test]
+    fn migration_merges_the_dot_prefixed_universe_into_the_plain_one() {
+        let (_tmp, db) = setup();
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('./crates/a/src/lib.rs', 'Alpha', 'struct', 'public', NULL, 'ast_declared'),
+                        ('./crates/a/src/lib.rs', 'Alpha', 'struct', 'public', './crates/b/src/use.rs', 'ast_inferred')",
+                [],
+            )
+            .expect("legacy rows");
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("today's producer");
+
+        db.migrate_canonicalize_paths().expect("migration");
+
+        let dot: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map
+                 WHERE module_file LIKE './%' OR consumer_file LIKE './%'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(dot, 0, "no dot-prefixed key may survive the migration");
+        let merged: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map
+                 WHERE module_file = 'crates/a/src/lib.rs' AND symbol_name = 'Alpha'
+                   AND consumer_file = 'crates/b/src/use.rs'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(
+            merged, 1,
+            "the legacy consumer edge must now sit under the plain key"
+        );
+    }
+
+    /// W4 (2026-09-02): a bare call name and a type reference both reach their
+    /// producers through the shared inference step, recorded as `ast_inferred`
+    /// — the step the hook path lacked (edited files lost every inferred edge).
+    #[test]
+    fn record_inferred_consumers_wires_free_calls_and_type_refs() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/limits.rs", "apply_caps", "function", "public")
+            .expect("callable producer");
+        db.register_pub_symbol("crates/a/src/limits.rs", "Limits", "struct", "public")
+            .expect("type producer");
+        let n = db.record_inferred_consumers(
+            "crates/b/src/exec.rs",
+            &["apply_caps".to_string(), "no_such_fn".to_string()],
+            &["Limits".to_string()],
+            &[],
+        );
+        assert_eq!(n, 2, "one call edge + one type edge");
+        let rows: Vec<(String, String)> = db
+            .conn_ref()
+            .prepare(
+                "SELECT symbol_name, contract_source FROM wiring_map
+                 WHERE consumer_file = 'crates/b/src/exec.rs' ORDER BY symbol_name",
+            )
+            .and_then(|mut s| {
+                s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .map(|it| it.filter_map(Result::ok).collect())
+            })
+            .expect("rows");
+        assert_eq!(
+            rows,
+            vec![
+                ("Limits".to_string(), "ast_inferred".to_string()),
+                ("apply_caps".to_string(), "ast_inferred".to_string()),
+            ]
+        );
+        assert_eq!(
+            db.record_inferred_consumers("crates/b/src/exec.rs", &[], &[], &[]),
+            0
+        );
+    }
+
+    #[test]
+    fn a_qualified_pair_resolves_to_the_module_that_owns_the_name() {
+        let (_tmp, db) = setup();
+        for module in [
+            "crates/touring-server/src/cli/backup.rs",
+            "crates/touring-server/src/cli/cascade.rs",
+            "crates/touring-other/src/lib.rs",
+        ] {
+            db.register_pub_symbol(module, "run", "function", "public")
+                .expect("producer");
+        }
+        let got = db
+            .find_producer_modules_for_qualified(
+                &[("backup".to_string(), "run".to_string())],
+                Some("crates/touring-server/src/cli/command_table.rs"),
+            )
+            .expect("query");
+        assert_eq!(
+            got,
+            vec![(
+                "crates/touring-server/src/cli/backup.rs".to_string(),
+                "run".to_string()
+            )],
+            "esperava exatamente o produtor do módulo nomeado"
+        );
+    }
+
+    #[test]
+    fn an_unknown_qualifier_wires_nothing() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/cli/backup.rs", "run", "function", "public")
+            .expect("producer");
+        let got = db
+            .find_producer_modules_for_qualified(
+                &[("nao_existe".to_string(), "run".to_string())],
+                None,
+            )
+            .expect("query");
+        assert!(got.is_empty(), "{got:?}");
+    }
+
+    #[test]
+    fn each_pair_yields_at_most_one_edge() {
+        let (_tmp, db) = setup();
+        for module in ["crates/a/src/cli/backup.rs", "crates/a/src/cli/cascade.rs"] {
+            db.register_pub_symbol(module, "run", "function", "public")
+                .expect("producer");
+        }
+        let got = db
+            .find_producer_modules_for_qualified(
+                &[
+                    ("backup".to_string(), "run".to_string()),
+                    ("cascade".to_string(), "run".to_string()),
+                ],
+                None,
+            )
+            .expect("query");
+        assert_eq!(got.len(), 2, "{got:?}");
     }
 
     #[test]
@@ -1978,7 +4785,10 @@ mod provenance_tests {
         // The census counts only real rows — the unresolved one lives elsewhere
         // and is never folded into the totals.
         assert_eq!(diag.total_rows, 2);
-        assert_eq!(diag.non_rust_rows, 0, "unresolved must not pollute this");
+        assert_eq!(
+            diag.non_wireable_rows, 0,
+            "unresolved must not pollute this"
+        );
     }
 
     /// The defect this file's own author hit on 2026-08-07.
@@ -2147,5 +4957,708 @@ mod provenance_tests {
         .expect("serialize");
         assert_eq!(value["module_path"], "ghost::mod");
         assert_eq!(value["import_line"], 12);
+    }
+}
+
+#[cfg(test)]
+mod workspace_root_derivation_tests {
+    use super::derive_workspace_root;
+    use std::path::Path;
+
+    #[test]
+    fn derives_the_project_root_from_the_canonical_db_layout() {
+        assert_eq!(
+            derive_workspace_root(Path::new(
+                "/home/u/projects/app/.claude/touring/knowledge.db"
+            )),
+            Some("/home/u/projects/app/".to_string()),
+            "the root is three components up, with a trailing slash for strip_prefix"
+        );
+    }
+
+    #[test]
+    fn refuses_the_global_store_under_home() {
+        // `$HOME/.claude/touring/knowledge.db` is the GLOBAL store: its rows
+        // span every project the daemon has seen, so no prefix is canonical
+        // for all of them. Deriving `$HOME` here would make every path under
+        // the home directory "relative" — and hand the migration a DELETE
+        // whose predicate matches almost everything.
+        let home = std::env::var("HOME").expect("HOME set in test env");
+        let global = format!("{home}/.claude/touring/knowledge.db");
+        assert_eq!(derive_workspace_root(Path::new(&global)), None);
+    }
+
+    #[test]
+    fn resolves_a_relative_db_path_against_the_current_directory() {
+        // The daemon opens `.claude/touring/knowledge.db` with its cwd pinned
+        // to the project root. Refusing that shape is refusing the ONLY shape
+        // production actually uses: the first cut of this function rejected it
+        // (three components up from a relative path is the empty path), so the
+        // migration silently did nothing on every project it was meant to fix.
+        let cwd = std::env::current_dir().expect("cwd");
+        assert_eq!(
+            derive_workspace_root(Path::new(".claude/touring/knowledge.db")),
+            Some(format!("{}/", cwd.display())),
+        );
+    }
+
+    #[test]
+    fn refuses_a_layout_that_is_not_dot_claude_touring() {
+        // Three components up from an arbitrary path is meaningless — and for
+        // a shallow path it is `/`, which would strip the leading slash off
+        // every absolute path in the table.
+        assert_eq!(derive_workspace_root(Path::new("/tmp/scratch.db")), None);
+        assert_eq!(
+            derive_workspace_root(Path::new("/a/b/c/knowledge.db")),
+            None
+        );
+        assert_eq!(derive_workspace_root(Path::new(":memory:")), None);
+    }
+
+    #[test]
+    fn refuses_touring_dir_that_is_not_under_dot_claude() {
+        assert_eq!(
+            derive_workspace_root(Path::new("/home/u/app/config/touring/knowledge.db")),
+            None,
+            "the parent of `touring/` must be `.claude/` — not any directory"
+        );
+    }
+}
+
+#[cfg(test)]
+mod per_project_polyglot_tests {
+    use crate::knowledge::FileKnowledgeDB;
+
+    /// A project at the canonical layout, optionally opting into polyglot
+    /// wiring, with its knowledge DB open.
+    fn project(opt_in: bool) -> (tempfile::TempDir, FileKnowledgeDB) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let cfg_dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&cfg_dir).expect("mkdir .touring");
+        std::fs::write(
+            cfg_dir.join("touring.toml"),
+            format!("polyglot_wiring = {opt_in}\n"),
+        )
+        .expect("write toml");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("mkdir .claude/touring");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        (tmp, db)
+    }
+
+    /// An explicit env override outranks the project layer by design, so these
+    /// assertions state what holds under BOTH states of the variable rather
+    /// than mutating a process-global under a parallel runner.
+    fn env_forced() -> Option<bool> {
+        std::env::var("TOURING_POLYGLOT_WIRING")
+            .ok()
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+    }
+
+    #[test]
+    fn two_databases_in_one_process_hold_different_modes() {
+        let (_a, yes) = project(true);
+        let (_b, no) = project(false);
+        match env_forced() {
+            Some(f) => assert_eq!((yes.polyglot(), no.polyglot()), (f, f)),
+            None => assert!(
+                yes.polyglot() && !no.polyglot(),
+                "the whole point of the opt-in: one project says yes, its \
+                 neighbour says no, same process, same instant"
+            ),
+        }
+    }
+
+    #[test]
+    fn the_write_gate_follows_the_projects_answer() {
+        // Behaviour, not configuration: a first-party Python producer is
+        // admitted by the project that opted in and refused by the one that
+        // did not — the same call, in the same process.
+        let (_a, yes) = project(true);
+        let (_b, no) = project(false);
+        for db in [&yes, &no] {
+            db.register_pub_symbol("pkg/models.py", "Order", "class", "public")
+                .expect("call succeeds either way — the gate is silent");
+        }
+        let count = |db: &FileKnowledgeDB| -> i64 {
+            db.conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE module_file = 'pkg/models.py'",
+                    [],
+                    |r| r.get(0),
+                )
+                .expect("count")
+        };
+        match env_forced() {
+            Some(true) => assert_eq!((count(&yes), count(&no)), (1, 1)),
+            Some(false) => assert_eq!((count(&yes), count(&no)), (0, 0)),
+            None => {
+                assert_eq!(count(&yes), 1, "the opted-in project wires its Python");
+                assert_eq!(count(&no), 0, "the other stays Rust-only");
+            }
+        }
+    }
+
+    #[test]
+    fn rust_is_wired_in_both_modes() {
+        // The opt-in ADDS languages; it never takes Rust away.
+        let (_a, yes) = project(true);
+        let (_b, no) = project(false);
+        for db in [&yes, &no] {
+            db.register_pub_symbol("crates/a/src/lib.rs", "Thing", "struct", "public")
+                .expect("ok");
+            let n: i64 = db
+                .conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE module_file = 'crates/a/src/lib.rs'",
+                    [],
+                    |r| r.get(0),
+                )
+                .expect("count");
+            assert_eq!(n, 1);
+        }
+    }
+
+    #[test]
+    fn the_258_defence_survives_the_opt_in() {
+        // Opting in must not re-open the false-positive class the Rust-only
+        // default was protecting: docs/, scripts/, tests and vendored trees
+        // stay out even for a project that said yes.
+        let (_a, yes) = project(true);
+        for path in [
+            "docs/plan.py",
+            "scripts/build.py",
+            "pkg/test_models.py",
+            "app/.venv/lib/python3.12/site-packages/x.py",
+            "web/node_modules/left-pad/index.js",
+        ] {
+            yes.register_pub_symbol(path, "X", "class", "public")
+                .expect("ok");
+        }
+        let n: i64 = yes
+            .conn_ref()
+            .query_row("SELECT COUNT(*) FROM wiring_map", [], |r| r.get(0))
+            .expect("count");
+        assert_eq!(n, 0, "none of the 258-FP shapes may enter, opt-in or not");
+    }
+}
+
+#[cfg(test)]
+mod build_output_exclusion_tests {
+    use super::is_indexable_module_file_polyglot;
+
+    #[test]
+    fn rustdoc_javascript_is_not_wiring() {
+        // The evidence that motivated the rule: 1.087 of the 1.128 non-Rust
+        // files that would have entered THIS workspace's graph on the day the
+        // opt-in was switched on were rustdoc output.
+        for f in [
+            "target/doc/crates.js",
+            "target/doc/search.index/0036dee5f75b.js",
+            "holon-wasm-components/target/doc/crates.js",
+        ] {
+            assert!(!is_indexable_module_file_polyglot(f, true), "{f}");
+        }
+    }
+
+    #[test]
+    fn other_build_and_cache_trees_are_not_wiring_either() {
+        for f in [
+            "build/gen/app.js",
+            "web/build/bundle.js",
+            "out/index.js",
+            "svc/.tox/py312/lib/x.py",
+            "svc/.mypy_cache/3.12/x.py",
+            "svc/.pytest_cache/v/x.py",
+            "cov/htmlcov/index.js",
+            "app/.gradle/caches/X.java",
+        ] {
+            assert!(!is_indexable_module_file_polyglot(f, true), "{f}");
+        }
+    }
+
+    #[test]
+    fn first_party_source_still_passes() {
+        // The rule must exclude OUTPUT, not anything whose path happens to
+        // contain a word: a package named `outbound` or `building` is source.
+        for f in [
+            "packages/api/src/models.py",
+            "apps/web/src/outbound/client.ts",
+            "apps/web/src/building/plan.ts",
+            "services/target_practice/aim.py",
+        ] {
+            assert!(is_indexable_module_file_polyglot(f, true), "{f}");
+        }
+    }
+
+    #[test]
+    fn rust_source_under_no_circumstances_regresses() {
+        assert!(is_indexable_module_file_polyglot(
+            "crates/a/src/lib.rs",
+            false
+        ));
+        assert!(is_indexable_module_file_polyglot(
+            "crates/a/src/lib.rs",
+            true
+        ));
+    }
+}
+
+#[cfg(test)]
+mod ungated_eviction_tests {
+    use crate::knowledge::FileKnowledgeDB;
+
+    fn db_at_root() -> (tempfile::TempDir, FileKnowledgeDB) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let d = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&d).expect("mkdir");
+        let db = FileKnowledgeDB::new(&d.join("knowledge.db")).expect("open");
+        (tmp, db)
+    }
+
+    /// Rows are inserted RAW, bypassing the gate, because that is exactly how
+    /// they got there: written by a binary whose gate did not yet know the rule.
+    fn raw_producer(db: &FileKnowledgeDB, module: &str) {
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, contract_source)
+                 VALUES (?1, 'X', 'class', 'public', 'legacy')",
+                [module],
+            )
+            .expect("raw insert");
+    }
+
+    fn count(db: &FileKnowledgeDB) -> i64 {
+        db.conn_ref()
+            .query_row("SELECT COUNT(*) FROM wiring_map", [], |r| r.get(0))
+            .expect("count")
+    }
+
+    /// Cross-audit 14/09/2026 (B11): a companion consumer written before the gate
+    /// (or copied by the legacy consolidation) is evicted; the project producer it
+    /// pointed at stays.
+    #[test]
+    fn evicts_a_companion_consumer_and_keeps_the_producer() {
+        let (_t, db) = db_at_root();
+        raw_producer(&db, "crates/a/src/lib.rs");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('crates/a/src/lib.rs', 'X', 'class', 'public', '@companion/skills/x/main.rs', 'legacy')",
+                [],
+            )
+            .expect("raw consumer");
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 1);
+        assert_eq!(count(&db), 1, "the producer row stays");
+    }
+
+    #[test]
+    fn evicts_what_the_write_gate_would_refuse() {
+        let (_t, db) = db_at_root();
+        for f in [
+            "apps/api/.venv/lib/python3.12/site-packages/pytest/x.py",
+            "web/node_modules/left-pad/index.js",
+            "docs/plan.py",
+            "scripts/build.py",
+            "pkg/test_models.py",
+            "target/doc/crates.js",
+            "crates/a/tests/it.rs",
+            "benches/src/b.rs",
+            ".cipher/agent_outputs/out.json",
+        ] {
+            raw_producer(&db, f);
+        }
+        assert_eq!(count(&db), 9);
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 9);
+        assert_eq!(count(&db), 0);
+    }
+
+    #[test]
+    fn keeps_every_language_the_maximal_vocabulary_admits() {
+        // Judged under polyglot = true even though THIS project has not opted
+        // in: a project that flips the switch tomorrow must find its Python
+        // still there. Only what no mode could ever read is removed.
+        let (_t, db) = db_at_root();
+        assert!(!db.polyglot(), "this fixture project did not opt in");
+        for f in [
+            "crates/a/src/lib.rs",
+            "packages/api/models.py",
+            "apps/web/src/client.ts",
+            "apps/web/src/view.tsx",
+            "svc/Handler.java",
+        ] {
+            raw_producer(&db, f);
+        }
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 0);
+        assert_eq!(count(&db), 5);
+    }
+
+    #[test]
+    fn a_bogus_consumer_takes_only_its_own_edge() {
+        let (_t, db) = db_at_root();
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file)
+                 VALUES ('crates/a/src/lib.rs', 'Thing', 'struct', 'public', ?1)",
+                ["app/.venv/lib/python3.12/site-packages/x.py"],
+            )
+            .expect("insert");
+        raw_producer(&db, "crates/a/src/lib.rs");
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 1);
+        assert_eq!(
+            count(&db),
+            1,
+            "the producer row survives; only the bogus edge goes"
+        );
+    }
+
+    #[test]
+    fn a_test_file_consuming_first_party_code_keeps_its_edge() {
+        // The correction to the rule above. The write gate judges the PRODUCER
+        // only; a test consuming the crate's own API is real usage and the
+        // graph exists to record it. Judging the consumer by the full
+        // predicate deleted 13.621 of these from the touring workspace.
+        let (_t, db) = db_at_root();
+        for consumer in [
+            "crates/a/tests/it.rs",
+            "benches/src/bench.rs",
+            "docs/example.py",
+            "scripts/demo.py",
+        ] {
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file)
+                     VALUES ('crates/a/src/lib.rs', 'Thing', 'struct', 'public', ?1)",
+                    [consumer],
+                )
+                .expect("insert");
+        }
+        assert_eq!(db.migrate_evict_ungated_rows().expect("evict"), 0);
+        assert_eq!(count(&db), 4, "first-party consumers all survive");
+    }
+
+    #[test]
+    fn is_idempotent() {
+        let (_t, db) = db_at_root();
+        raw_producer(&db, "docs/plan.py");
+        assert_eq!(db.migrate_evict_ungated_rows().expect("first"), 1);
+        assert_eq!(db.migrate_evict_ungated_rows().expect("second"), 0);
+    }
+}
+
+/// A `scripts/` or `docs/` directory that is a Python PACKAGE (it holds
+/// `__init__.py`) is source: the analise project keeps its main code there and
+/// imports it as `scripts.memoria`, and 0 of its 90.662 wiring rows had a producer
+/// under `scripts/` (14/09/2026). A tool directory without `__init__.py` — the
+/// touring workspace's own `scripts/` — stays out, as the 258 historical false
+/// positives demand.
+#[cfg(test)]
+mod python_package_source_tests {
+    use super::{is_indexable_module_file_with, non_source_sql, python_source_packages};
+
+    #[test]
+    fn a_scripts_package_is_source_and_a_tools_directory_is_not() {
+        let packages = vec!["scripts".to_string()];
+        assert!(is_indexable_module_file_with(
+            "scripts/memoria/grafo.py",
+            true,
+            &packages
+        ));
+        assert!(!is_indexable_module_file_with(
+            "scripts/memoria/grafo.py",
+            true,
+            &[]
+        ));
+        assert!(!is_indexable_module_file_with(
+            "docs/gen.py",
+            true,
+            &packages
+        ));
+        assert!(
+            !is_indexable_module_file_with("scripts/memoria/test_grafo.py", true, &packages),
+            "test files stay out even inside a package"
+        );
+        assert!(!is_indexable_module_file_with(
+            "crates/x/scripts/tool.py",
+            true,
+            &packages
+        ));
+    }
+
+    #[test]
+    fn the_orphan_queries_exclude_exactly_what_the_write_gate_refuses() {
+        let none = non_source_sql("w.module_file", &[]);
+        assert!(none.contains("NOT LIKE 'scripts/%'") && none.contains("NOT LIKE 'docs/%'"));
+        let scripts = non_source_sql("w.module_file", &["scripts".to_string()]);
+        assert!(!scripts.contains("'scripts/%'"), "{scripts}");
+        assert!(scripts.contains("NOT LIKE 'docs/%'"), "{scripts}");
+    }
+
+    #[test]
+    fn packages_are_read_from_the_project_root() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("scripts")).expect("scripts");
+        std::fs::create_dir_all(dir.path().join("docs")).expect("docs");
+        assert!(python_source_packages(Some(dir.path())).is_empty());
+        std::fs::write(dir.path().join("scripts/__init__.py"), "").expect("init");
+        assert_eq!(
+            python_source_packages(Some(dir.path())),
+            vec!["scripts".to_string()]
+        );
+        assert!(python_source_packages(None).is_empty());
+    }
+}
+
+/// Cross-audit 14/09/2026: B4 (deletes key like inserts), B5 (counted writes)
+/// and B8 (provenance never demoted).
+#[cfg(test)]
+mod key_count_provenance_tests {
+    use super::WiringOrigin;
+    use crate::knowledge::FileKnowledgeDB;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, FileKnowledgeDB) {
+        let tmp = TempDir::new().expect("tempdir");
+        let db = FileKnowledgeDB::new(&tmp.path().join("k.db")).expect("open db");
+        (tmp, db)
+    }
+
+    fn count(db: &FileKnowledgeDB, sql: &str) -> i64 {
+        db.conn_ref()
+            .query_row(sql, [], |r| r.get(0))
+            .expect("count")
+    }
+
+    #[test]
+    fn every_delete_keys_the_path_the_way_the_insert_did() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("producer");
+        db.record_consumer("crates/a/src/lib.rs", "Alpha", "crates/b/src/use.rs", None)
+            .expect("consumer");
+        db.clear_consumer_entries("./crates/b/src/use.rs")
+            .expect("clear consumer");
+        assert_eq!(
+            count(
+                &db,
+                "SELECT COUNT(*) FROM wiring_map WHERE consumer_file IS NOT NULL"
+            ),
+            0
+        );
+        db.clear_wiring("./crates/a/src/lib.rs")
+            .expect("clear producer");
+        assert_eq!(count(&db, "SELECT COUNT(*) FROM wiring_map"), 0);
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("producer");
+        assert_eq!(
+            db.purge_module_rows("./crates/a/src/lib.rs")
+                .expect("purge"),
+            1
+        );
+    }
+
+    #[test]
+    fn the_counted_register_reports_only_rows_it_wrote() {
+        let (_tmp, db) = setup();
+        let reg = |file: &str| {
+            db.register_pub_symbol_counted(
+                file,
+                "Alpha",
+                "struct",
+                "public",
+                WiringOrigin::AstDeclared,
+            )
+            .expect("register")
+        };
+        assert!(reg("crates/a/src/lib.rs"), "a new producer row");
+        assert!(
+            !reg("crates/a/src/lib.rs"),
+            "the same row again writes nothing"
+        );
+        assert!(
+            !reg("@companion/rules/a.rs"),
+            "a refused file writes nothing"
+        );
+    }
+
+    #[test]
+    fn a_weaker_guess_never_demotes_a_stronger_edge() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "Alpha", "struct", "public")
+            .expect("producer");
+        let source = |db: &FileKnowledgeDB| -> String {
+            db.conn_ref()
+                .query_row(
+                    "SELECT contract_source FROM wiring_map WHERE consumer_file = 'crates/b/src/use.rs'",
+                    [],
+                    |r| r.get(0),
+                )
+                .expect("edge")
+        };
+        let record = |origin| {
+            db.record_consumer_with_origin(
+                "crates/a/src/lib.rs",
+                "Alpha",
+                "crates/b/src/use.rs",
+                None,
+                origin,
+            )
+            .expect("record");
+        };
+        record(WiringOrigin::AstInferred);
+        assert_eq!(source(&db), "ast_inferred");
+        record(WiringOrigin::AstResolved);
+        assert_eq!(source(&db), "ast_resolved", "stronger evidence upgrades");
+        record(WiringOrigin::AstInferred);
+        assert_eq!(source(&db), "ast_resolved", "a guess does not demote it");
+    }
+}
+
+#[cfg(test)]
+mod cross_language_inference_tests {
+    use super::{WiringOrigin, cross_language_edge_sql, language_family};
+    use crate::knowledge::FileKnowledgeDB;
+
+    /// A polyglot project at the canonical layout. `None` when the env forces
+    /// polyglot wiring off: it outranks the project layer, and with it off
+    /// there is no Python wiring to test.
+    fn polyglot_project() -> Option<(tempfile::TempDir, FileKnowledgeDB)> {
+        if std::env::var("TOURING_POLYGLOT_WIRING")
+            .is_ok_and(|v| v == "0" || v.eq_ignore_ascii_case("false"))
+        {
+            return None;
+        }
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join(".touring")).expect("mkdir .touring");
+        std::fs::write(
+            tmp.path().join(".touring/touring.toml"),
+            "polyglot_wiring = true\n",
+        )
+        .expect("write toml");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("mkdir .claude/touring");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        Some((tmp, db))
+    }
+
+    #[test]
+    fn families_follow_the_wireable_extensions() {
+        assert_eq!(language_family("benches/gpu_benchmark.rs"), Some("rust"));
+        assert_eq!(
+            language_family("scripts/memoria/grafo_modelo.py"),
+            Some("python")
+        );
+        assert_eq!(language_family("web/app.tsx"), Some("js"));
+        assert_eq!(language_family("web/lib.mjs"), Some("js"));
+        assert_eq!(language_family("go:example.com/pkg"), Some("go"));
+        assert_eq!(language_family("docs/README.md"), None);
+        assert_eq!(language_family("touring-daemon://dispatch"), None);
+    }
+
+    /// 18/09/2026 (analise): `no.tags_cli()` in a file that imports `No` from
+    /// `modelo.py` is a use of the method. The same name in a module the file
+    /// never imports from is not, and neither is a function of that name.
+    #[test]
+    fn a_python_method_is_credited_only_in_a_module_the_consumer_imports() {
+        let Some((_tmp, db)) = polyglot_project() else {
+            return;
+        };
+        for (module, symbol, kind) in [
+            ("memoria/modelo.py", "No", "class"),
+            ("memoria/modelo.py", "tags_cli", "method"),
+            ("outro/servico.py", "tags_cli", "method"),
+            ("memoria/modelo.py", "todas_as_arestas", "function"),
+        ] {
+            assert!(
+                db.register_pub_symbol_counted(
+                    module,
+                    symbol,
+                    kind,
+                    "public",
+                    WiringOrigin::AstDeclared
+                )
+                .expect("register"),
+                "{module}::{symbol}"
+            );
+        }
+        db.record_consumer("memoria/modelo.py", "No", "memoria/gravacao.py", None)
+            .expect("the import edge");
+        let names = vec!["tags_cli".to_string(), "todas_as_arestas".to_string()];
+
+        assert_eq!(
+            db.find_python_method_producers(&names, "memoria/gravacao.py")
+                .expect("lookup"),
+            [("memoria/modelo.py".to_string(), "tags_cli".to_string())],
+            "only the imported module, only a method"
+        );
+        assert!(
+            db.find_python_method_producers(&names, "artefato/solto.py")
+                .expect("lookup")
+                .is_empty(),
+            "no import, no gate"
+        );
+        assert_eq!(
+            db.record_inferred_consumers("memoria/gravacao.py", &names, &[], &[]),
+            1,
+            "the storage entry both paths call routes a Python consumer through the gate"
+        );
+    }
+
+    /// 18/09/2026 (analise): a bare `cosine_similarity(…)` in a `.rs` benchmark
+    /// was recorded as a use of the Python function of that name — 15.758 such
+    /// edges hid Python orphans. The inference matches only producers of the
+    /// consumer's own language family, in both directions.
+    #[test]
+    fn the_by_name_inference_never_crosses_languages() {
+        let Some((_tmp, db)) = polyglot_project() else {
+            return;
+        };
+        for module in ["src/sim.rs", "pkg/sim.py"] {
+            assert!(
+                db.register_pub_symbol_counted(
+                    module,
+                    "cosine_similarity",
+                    "function",
+                    "public",
+                    WiringOrigin::AstDeclared,
+                )
+                .expect("register"),
+                "{module} refused by the write gate"
+            );
+        }
+        let names = vec!["cosine_similarity".to_string()];
+        db.record_inferred_consumers("src/bench.rs", &names, &[], &[]);
+        db.record_inferred_consumers("pkg/app.py", &names, &[], &[]);
+
+        let edges: Vec<(String, String)> = db
+            .conn_ref()
+            .prepare(
+                "SELECT consumer_file, module_file FROM wiring_map
+                 WHERE consumer_file IS NOT NULL ORDER BY consumer_file",
+            )
+            .expect("prepare")
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows");
+        // A Python attribute name reaches only METHODS of modules the file
+        // imports from (`find_python_method_producers`): a bare function of that
+        // name is no use at all, in its own language or the other one.
+        assert_eq!(
+            edges,
+            [("src/bench.rs".to_string(), "src/sim.rs".to_string())]
+        );
+        let crossing: i64 = db
+            .conn_ref()
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM wiring_map WHERE {}",
+                    cross_language_edge_sql()
+                ),
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(crossing, 0);
     }
 }

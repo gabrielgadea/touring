@@ -1,0 +1,293 @@
+{
+ "M0-ORIGINAL": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_numpy_bloco_composto_liga_array_e_where_em_todo_balde",
+   "vgp::checks::tests::p0_numpy_from_import_do_composto_e_do_getattr_nao_nega_e_do_typo_nega",
+   "vgp::checks::tests::p0_numpy_nomes_dos_dois_mecanismos_dinamicos_fechados_existem",
+   "vgp::checks::tests::p0_pillow_import_de_nome_dinamico_nao_nega",
+   "vgp::checks::tests::p0_pillow_setattr_dinamico_abstem_com_a_mesma_resposta_nos_tres_baldes",
+   "vgp::checks::tests::p0_rust_bridge_nome_ligado_em_try_except_existe"
+  ],
+  "resumo": [
+   "test result: FAILED. 102 passed; 6 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M1-SEM-TRAVESSIA-DE-COMPOSTOS": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_numpy_bloco_composto_liga_array_e_where_em_todo_balde",
+   "vgp::checks::tests::p0_numpy_from_import_do_composto_e_do_getattr_nao_nega_e_do_typo_nega",
+   "vgp::checks::tests::p0_rust_bridge_nome_ligado_em_try_except_existe",
+   "vgp::namespace::tests::dunder_all_literal_em_composto_e_estendido_conta_como_nome",
+   "vgp::namespace::tests::if_elif_else_unem_as_ligacoes_de_todos_os_ramos",
+   "vgp::namespace::tests::imports_e_defs_dentro_de_compostos_ligam_o_nome",
+   "vgp::namespace::tests::numpy_composto_liga_array_where_e_fecha_o_namespace",
+   "vgp::namespace::tests::star_import_em_qualquer_ramo_marca_namespace_nao_enumeravel",
+   "vgp::namespace::tests::try_except_else_finally_unem_as_ligacoes",
+   "vgp::namespace::tests::walrus_e_atribuicao_encadeada_ligam",
+   "vgp::namespace::tests::with_for_while_match_ligam_alvos_e_corpos"
+  ],
+  "resumo": [
+   "test result: FAILED. 97 passed; 11 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M2-SEM-SINAL-DINAMICO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_pillow_import_de_nome_dinamico_nao_nega",
+   "vgp::checks::tests::p0_pillow_setattr_dinamico_abstem_com_a_mesma_resposta_nos_tres_baldes",
+   "vgp::namespace::tests::globals_com_chave_nao_literal_e_aberto",
+   "vgp::namespace::tests::laco_literal_nao_vaza_para_depois_do_for",
+   "vgp::namespace::tests::modulo_nomeado_por_literal_e_outro_modulo_e_variavel_pode_ser_este",
+   "vgp::namespace::tests::o_escopo_volta_ao_modulo_depois_de_um_def_ou_class",
+   "vgp::namespace::tests::pillow_setattr_sobre_o_modulo_com_nome_nao_literal_e_aberto"
+  ],
+  "resumo": [
+   "test result: FAILED. 101 passed; 7 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M3-SEVERIDADE-DIVERGENTE": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_pillow_import_de_nome_dinamico_nao_nega",
+   "vgp::checks::tests::p0_pillow_setattr_dinamico_abstem_com_a_mesma_resposta_nos_tres_baldes"
+  ],
+  "resumo": [
+   "test result: FAILED. 106 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M4-GETATTR-SEMPRE-ABERTO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_controle_numpy_typo_continua_negando_em_tmp_e_inline",
+   "vgp::checks::tests::p0_numpy_from_import_do_composto_e_do_getattr_nao_nega_e_do_typo_nega",
+   "vgp::namespace::tests::getattr_guarda_in_literal_and_or_e_condicao_nao_literal",
+   "vgp::namespace::tests::getattr_idioma_do_cpython_e_fechado",
+   "vgp::namespace::tests::getattr_so_com_raise_serve_nenhum_nome",
+   "vgp::namespace::tests::numpy_composto_liga_array_where_e_fecha_o_namespace"
+  ],
+  "resumo": [
+   "test result: FAILED. 102 passed; 6 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M5-LACO-LITERAL-NAO-FECHA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_controle_numpy_typo_continua_negando_em_tmp_e_inline",
+   "vgp::checks::tests::p0_numpy_from_import_do_composto_e_do_getattr_nao_nega_e_do_typo_nega",
+   "vgp::namespace::tests::laco_literal_nao_vaza_para_depois_do_for",
+   "vgp::namespace::tests::numpy_composto_liga_array_where_e_fecha_o_namespace",
+   "vgp::namespace::tests::setattr_e_globals_com_chave_literal_ou_laco_literal_sao_fechados"
+  ],
+  "resumo": [
+   "test result: FAILED. 103 passed; 5 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M6-SEM-RAISE-FINAL": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::getattr_sem_raise_final_devolve_none_e_e_aberto"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M7-ELSE-HERDA-GUARDA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::getattr_return_no_else_ou_depois_do_if_e_aberto"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M8-SEM-ALIAS-DE-MODULO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_pillow_import_de_nome_dinamico_nao_nega",
+   "vgp::checks::tests::p0_pillow_setattr_dinamico_abstem_com_a_mesma_resposta_nos_tres_baldes",
+   "vgp::namespace::tests::modulo_nomeado_por_literal_e_outro_modulo_e_variavel_pode_ser_este",
+   "vgp::namespace::tests::pillow_setattr_sobre_o_modulo_com_nome_nao_literal_e_aberto",
+   "vgp::namespace::tests::setattr_e_globals_com_chave_literal_ou_laco_literal_sao_fechados"
+  ],
+  "resumo": [
+   "test result: FAILED. 103 passed; 5 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M9-SETATTR-QUALQUER-OBJETO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::modulo_nomeado_por_literal_e_outro_modulo_e_variavel_pode_ser_este",
+   "vgp::namespace::tests::setattr_sobre_objeto_que_nao_e_o_modulo_nao_conta"
+  ],
+  "resumo": [
+   "test result: FAILED. 106 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M10-SEM-GLOBAL": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::global_em_funcao_declara_atributo_de_modulo"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M11-SEM-ENTREGA-DE-NAMESPACE": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::namespace_entregue_a_um_chamador_que_pode_ligar_nomes_e_aberto"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M12-SYS-MODULES-QUALQUER-CHAVE": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::sys_modules_de_outra_entrada_nao_substitui_este_modulo"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M13-MODULO-POR-LITERAL": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::modulo_nomeado_por_literal_e_outro_modulo_e_variavel_pode_ser_este"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M14-SEM-FUTURE-IMPORT": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::future_import_liga_annotations"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M15-SEM-CHAMADORES-SO-LEITURA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::namespace_entregue_a_um_chamador_que_pode_ligar_nomes_e_aberto",
+   "vgp::namespace::tests::setattr_e_globals_com_chave_literal_ou_laco_literal_sao_fechados"
+  ],
+  "resumo": [
+   "test result: FAILED. 106 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M16-SEM-TYPE-ALIAS": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::type_alias_liga_o_nome_simples_e_o_generico"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M17-EXEC-NUNCA-ABERTO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::modulo_substituido_por_objeto_exec_no_modulo_e_class_sao_abertos",
+   "vgp::namespace::tests::o_escopo_volta_ao_modulo_depois_de_um_def_ou_class"
+  ],
+  "resumo": [
+   "test result: FAILED. 106 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M18-OR-NAO-FECHA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::getattr_guarda_in_literal_and_or_e_condicao_nao_literal"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+  ],
+  "cauda": ""
+ },
+ "M19-SEM-EXTENSAO-COMPILADA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_submodulo_compilado_existe_e_a_ausencia_do_py_nao_o_nega"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M20-EXTENSAO-SEM-PONTO": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::checks::tests::p0_submodulo_compilado_existe_e_a_ausencia_do_py_nao_o_nega"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M21-PROFUNDIDADE-NAO-DESCE": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::o_escopo_volta_ao_modulo_depois_de_um_def_ou_class"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ },
+ "M22-LACO-NAO-DESEMPILHA": {
+  "rc": 101,
+  "morto": true,
+  "falhos": [
+   "vgp::namespace::tests::laco_literal_nao_vaza_para_depois_do_for"
+  ],
+  "resumo": [
+   "test result: FAILED. 107 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.01s"
+  ],
+  "cauda": ""
+ }
+}

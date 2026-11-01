@@ -1,0 +1,314 @@
+{
+ "area": "G2-operacao-observabilidade",
+ "linhas": [
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Painel de estado de sessões e filas (pull)",
+   "ecc": {
+    "como": "`status.js` consulta o SQLite de estado: sessões ativas, taxa de sucesso das skill runs, saúde da instalação, eventos de governança, work items. Resume em `readiness` com contagem de atenção; `--exit-code` devolve 2.",
+    "evidencia": "scripts/status.js:15-20,81-302"
+   },
+   "touring": {
+    "como": "`touring status -j` traz 12 chaves de topo (code_mode, daemon_health, index, learning, sessions, wiring…). O `composite_health_score` é 0,4939. A chave `resource_monitor` vem como string vazia. Não há veredito único com exit code.",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Falta um agregador `attention_count` com exit 2, que o Stop hook e o Gabriel possam ler. O score composto atual não diz o que fazer."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Números de saúde concorrentes",
+   "ecc": {
+    "como": "Um único `readiness.status` e `attentionCount` (sessões, skill runs falhas, instalações em aviso, governança pendente, work items bloqueados).",
+    "evidencia": "scripts/status.js:296-302"
+   },
+   "touring": {
+    "como": "Quatro medidas para a mesma palavra: status.composite 0,4939; e2e 0,8593 (pass); harness-metric 0,536; kpi 26 PASS, 13 ADVISORY, 7 STUB, 0 FAIL de 46. Nenhuma reconcilia as outras.",
+    "estado": "existe"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Um nome, grandezas diferentes (lição já registrada). Publicar uma linha só no painel, com as outras quatro como detalhe."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Detecção de loop travado a partir do transcript",
+   "ecc": {
+    "como": "`loop-status.js` lê os JSONL de transcript do Claude e sinaliza `schedule_wakeup_overdue`, `pending_bash_tool_result` (limite 1800 s) e `transcript_parse_errors`. Tem `--watch`, `--write-dir` e `--exit-code`.",
+    "evidencia": "scripts/loop-status.js:16-36,485-524"
+   },
+   "touring": {
+    "como": "O Stop hook recusa encerrar sem manifesto e o `loop_converged.py` é o juiz da convergência. Nenhum detector de tool call pendente ou stale foi encontrado. Não executei uma busca dedicada por ele.",
+    "estado": "nao_verificado"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Script `touring run` sobre ~/.claude/projects/*.jsonl cobre sessão irmã travada. É o único ponto de vigilância ativa que o ECC tem a mais."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "TUI multi-sessão",
+   "ecc": {
+    "como": "ecc2 em ratatui com painéis Sessions/Output/Metrics/Board/Log. Modos de saída: Timeline, ContextGraph, WorktreeDiff, ConflictProtocol, GitStatus. Lê tabelas SQLite como sessions, tool_log, messages e decision_log. O README o declara alpha.",
+    "evidencia": "ecc2/src/tui/dashboard.rs:204-221; ecc2/src/session/store.rs:221-490; ecc2/README.md:3-5"
+   },
+   "touring": {
+    "como": "Sem TUI. `sessoes_irmas.py --text` lista 2 linhas (backend, modelo, idle/busy, pid). `hw-slot --status` devolve JSON. O shim touring-web tem 11 linhas e `touring web` sai com 'Unknown subcommand'.",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Não precisa de TUI. Um painel de texto `ops` que junte sessões irmãs, hw-slot, cota, decompose e atenção resolve. Alpha de 15k linhas não é exemplo a copiar."
+  },
+  {
+   "dominio": "contexto-custo",
+   "funcionalidade": "Statusline: contexto, custo, cota",
+   "ecc": {
+    "como": "Padrão: modelo | tarefa | $custo, contagem de tools, arquivos e duração | dir | barra de contexto. Com `ECC_STATUSLINE_USAGE=1` mostra janelas 5h e 7d com contagem regressiva, % de cache, effort e linhas +/−. Custo vem do cost-tracker via ponte.",
+    "evidencia": "scripts/hooks/ecc-statusline.js:116-158,195-237; docs/STATUSLINE.md:3-6"
+   },
+   "touring": {
+    "como": "`status_monitor.sh` (190 linhas): barra de 20 células, tokens/janela, custo e modelo. Alerta SALVE em 55% e COMPACT em 65%, com marcador por sessão. A cota é gravada em rate_limits.json (`--show`: '5 h 32% · 7 d 16%'). Não confirmei que a barra a exiba.",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Levar 5h/7d e o countdown para a barra é barato: o dado já está em disco. O gatilho SALVE/COMPACT por marcador de sessão é melhor que o do ECC."
+  },
+  {
+   "dominio": "contexto-custo",
+   "funcionalidade": "Fonte do custo",
+   "ecc": {
+    "como": "Reconstrói o custo do transcript com tabela fixa de preço por 1M tokens. O próprio código admite que a tabela não representa o preço do Opus acima de 200K e que o acumulado quebra no `--resume`.",
+    "evidencia": "scripts/hooks/cost-tracker.js:7-36,77-78"
+   },
+   "touring": {
+    "como": "Usa `cost.total_cost_usd` do payload da statusline. O recurso medido é a franquia (5h e semanal), lida por `rate_limits_snapshot.py`, e o `agent_model_gate` a cita ao recusar fanout.",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Touring mede o recurso escasso, a franquia, não uma estimativa em USD. Não importar a tabela de preços."
+  },
+  {
+   "dominio": "contexto-custo",
+   "funcionalidade": "Orçamento por sessão com alerta",
+   "ecc": {
+    "como": "Config com `cost_budget_usd` 10,0, `token_budget` 500.000 e aviso em 0,75. Perfil de agente com `max_budget_usd`. Evento BudgetAlert dispara notificação.",
+    "evidencia": "ecc2/src/config/mod.rs:73-74,244-246,334"
+   },
+   "touring": {
+    "como": "Sem teto por sessão. `kpi.context_budget` mede bytes injetados por turno: duplicação 0,069 contra teto 0,05, e 3 itens em `failing`. O governor mostra 74 MB de 512, pressão 0,07.",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "USD por sessão não serve a assinatura. Adaptar para alerta de % da franquia semanal, com limiar 0,75 como no ECC."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Notificação externa e horário de silêncio",
+   "ecc": {
+    "como": "Desktop mais webhooks Slack/Discord. Eventos: sessão iniciada, concluída, falha, alerta de orçamento, pedido de aprovação. Há `QuietHoursConfig`.",
+    "evidencia": "ecc2/src/notifications.rs:10-15,20-28,56-59,152-163"
+   },
+   "touring": {
+    "como": "Hook Notification (idle_prompt|permission_prompt) chama `touring-hook notification`. A sessão irmã tem `notify_when_idle`. Não verifiquei entrega a celular, desktop ou webhook.",
+    "estado": "nao_verificado"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Útil para trabalho longo sem o Gabriel presente. Só o evento de aprovação e o de franquia próxima do fim; sem Slack/Discord."
+  },
+  {
+   "dominio": "seguranca",
+   "funcionalidade": "Risco por tool call",
+   "ecc": {
+    "como": "`compute_risk` soma risco base da tool, sensibilidade do arquivo, blast radius e irreversibilidade, e limita a [0,1]. Os limiares review/confirm/block gravam `risk_score` no `tool_log`. Aparece na TUI, sem executor de bloqueio verificado.",
+    "evidencia": "ecc2/src/observability/mod.rs:59-113"
+   },
+   "touring": {
+    "como": "O pre-edit usa score ≥0,8, blast e CEG X0..X9, com bloqueio no executor. `gate-metrics -j` expõe 196 contadores (ceg_blocked, ceg_sandboxed, g10…). `kpi` tem `code_mode_adherence`.",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O ECC pontua e mostra. O Touring pontua, bloqueia e conta. Nada a adotar."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "Deconflito entre agentes concorrentes",
+   "ecc": {
+    "como": "Visão `ecc.control-plane.view.v1`: risco par a par por noisy-OR sobre x_tree, x_overlap e x_dep, com projeção PCA. O hook TCAS que bloqueia a edição está só como design: 'Nothing in this document is implemented'.",
+    "evidencia": "docs/control-plane/VIEW-CONTRACT.md:7-12; docs/control-plane/TCAS-HOOK.md:3"
+   },
+   "touring": {
+    "como": "`decompose claim` é um UPDATE condicional atômico, com lease e renew. `conflict-check` declara write-sets. `hw-slot` é um semáforo flock. A visão é por tarefa, não por par de arquivos.",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "A exclusão do Touring é executada; a do ECC é desenho. Só a ideia de projeção de risco par a par é nova, e não vale o custo."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "Fila de trabalho e DAG",
+   "ecc": {
+    "como": "`work-items.js` registra itens de Linear, GitHub, handoff e manuais no SQLite, com `sync-github` via `gh`. Os estados de coordenação vão de available a published.",
+    "evidencia": "scripts/work-items.js:31-57,145-150; scripts/status.js:181-200"
+   },
+   "touring": {
+    "como": "`decompose status` devolve 432 tarefas e 1.758 subtarefas. Há claim, release, renew, ticket (Wayfinder) e frontier. Não existe `decompose list`: sai rc=2.",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ignorar",
+   "nota": "Falta só a ponte com a fila de PR/issue do GitHub. Com um mantenedor, não é gargalo medido."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Abertura de sessão com estado classificado",
+   "ecc": {
+    "como": "`welcome.js` e `feedback.js` imprimem boas-vindas e links de relato de problema. O estado do mundo só aparece quando o operador roda `status.js`.",
+    "evidencia": "scripts/welcome.js; scripts/feedback.js:10"
+   },
+   "touring": {
+    "como": "`painel_emanacao.py` (SessionStart) abre cada sessão com RETOMAR*.md, kpi FAIL/STUB e o espelho cognitivo, ordenados por gravidade, urgência e tendência (GUT). É fail-open e grava `painel_emitido` para medir adesão.",
+    "estado": "superior"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Push antes do primeiro turno, com medidor de adesão desde o início. Lacuna que o próprio painel admite: sem listagem de DAGs com títulos."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Autoauditoria de prontidão",
+   "ecc": {
+    "como": "`observability-readiness.js` tem 10 checks, como loop-status-live-signal e ecc2-tool-risk-ledger. Cada um passa se o arquivo contém certas strings (`includesAll`), por exemplo `--json --watch --write-dir`.",
+    "evidencia": "scripts/observability-readiness.js:143-149,229-237"
+   },
+   "touring": {
+    "como": "`kpi` tem 46 checks com fonte medida, `--check` e `--snapshot`. A seção `ab` traz delta e veredito atribuível. Os 7 STUB são declarados, não escondidos. `doctor -j` roda 9 checks de runtime, todos ok.",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "anti_licao",
+   "nota": "Verde por presença de texto prova a declaração, não o comportamento. Não imitar."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Saúde de runtime e ambiente",
+   "ecc": {
+    "como": "Não há equivalente de daemon. `doctor.js` e `repair.js` tratam deriva do install-state por alvo (OK/WARNING/ERROR) e reconstroem os arquivos gerenciados. `list-installed.js` lista o que está instalado.",
+    "evidencia": "scripts/doctor.js:10-13; scripts/repair.js:10-12; scripts/list-installed.js:9"
+   },
+   "touring": {
+    "como": "`doctor -j` roda 9 checks, todos ok (binário 30.4.96, socket, circuit breaker, symbols.db 503 MB, GPU cuda). `hw-slot --status` mostra 87 °C, 30,4 GB livres, VRAM 2223/8188 MB e o slot rust-1 ocupado. `sync-client-skills --check` deu CLEAN em 377 arquivos.",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Mede o recurso físico e a deriva de espelho. O ECC faz só deriva de instalação."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Registro de atividade (journals)",
+   "ecc": {
+    "como": "Um SQLite de estado, mais `metrics/tool-usage.jsonl` e `costs.jsonl`. Tudo consultável por `sessions-cli` e `status`.",
+    "evidencia": "scripts/observability-readiness.js:219-237; scripts/sessions-cli.js:9-11"
+   },
+   "touring": {
+    "como": "240 arquivos, 33 MB em ~/.claude/touring/logs: quality-runs 3,2 MB, r3_events 1,7 MB, jev_journal 1,5 MB, hw-slot.jsonl, cpu-health, touring.log diário. Há 5 logs de teste de ~1,2 MB de setembro e um JSON de 17,7 MB.",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "O Touring tem mais sinal e mais dispersão. Sem política de retenção visível: logs de ciclo de setembro seguem no disco."
+  },
+  {
+   "dominio": "contexto-custo",
+   "funcionalidade": "Custo de contexto de skills e injeções",
+   "ecc": {
+    "como": "`profile.js` define perfis lean/full com recibo, rollback e recover. O próprio código avisa que o 'whole-context cost' não foi observado.",
+    "evidencia": "scripts/profile.js:30-43,129"
+   },
+   "touring": {
+    "como": "`kpi.context_budget` mede injeção por família: code-mode-deny 40 blocos, 34 KB, 41,8% duplicado. Duplicação geral 0,069 contra teto 0,05; 3 itens reprovados.",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O Touring mede o que o ECC declara não observar. Os 3 reprovados são trabalho aberto (Regra #21), não o ECC."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Registro de diário de agente",
+   "ecc": {
+    "como": "Sem equivalente encontrado nas áreas lidas. A trilha fica no SQLite (decision_log) e na TUI.",
+    "evidencia": "ecc2/src/session/store.rs:316"
+   },
+   "touring": {
+    "como": "`touring diary` tem list, write, read, meta e projects (formato AAAK por agente). O Touring também guarda memória recall/store e `decompose` com histórico.",
+    "estado": "existe"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Persistência de aprendizado por agente é eixo do Touring. O ECC só guarda decisões por sessão."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Qualidade da própria harness",
+   "ecc": {
+    "como": "`harness-eval` registra candidatos por SHA-256, ativa o inicial, roda comparação com sementes e gera auditoria. É 'one bounded deterministic comparison', sem reescrita autônoma.",
+    "evidencia": "ecc2/README.md:79-92"
+   },
+   "touring": {
+    "como": "`harness-metric` dá composite 0,536 (evolving 0,0; performant 0,25; executable 0,83). `change-contract --pre/--post` é o gate de regressão. `kpi.ab` traz delta e veredito. O `evolving` zerado é lacuna real.",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "ignorar",
+   "nota": "Mesmo propósito. O endereçamento por hash do ECC é o único detalhe a mais; pouco valor."
+  },
+  {
+   "dominio": "documentacao",
+   "funcionalidade": "Superfícies de catálogo e comunidade",
+   "ecc": {
+    "como": "`dashboard-web.js` (porta 3456, loopback) e `ecc_dashboard.py` (Tk) listam agentes, skills, comandos, MCPs, regras e hooks. O bot Discord tem /ecc /skill /docs /release e anuncia releases por webhook.",
+    "evidencia": "scripts/dashboard-web.js:3-14; scripts/discord/ecc-bot.mjs:3,132-133; scripts/discord/release-announce.mjs:149"
+   },
+   "touring": {
+    "como": "Sem catálogo web. Skills e agents ficam em ~/.claude e são indexados como raízes-companheiras; `touring portfolio` busca por propósito. Sem bot de comunidade.",
+    "estado": "ausente"
+   },
+   "veredito": "so_ecc",
+   "acao": "ignorar",
+   "nota": "Vitrine para usuários externos, sem valor operacional. O ITO-DESK confirma que é o kit público; o Touring é ferramenta de um operador."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "Doutrina de lane worker",
+   "ecc": {
+    "como": "Um worker, uma tarefa, uma branch, um PR ou recibo. Sem loops de autorrevisão, sem merge em main. Nasceu porque 'unbounded agent loops were the dominant failure mode'.",
+    "evidencia": "docs/ITO-DESK.md:12-19"
+   },
+   "touring": {
+    "como": "O loop-engineering tem convergência por exit code (`loop_converged.py`), Stop hook e cap de 3 tentativas (A14). A regra de economia manda executar na camada mais barata. Sem regra uma-branch-um-PR.",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "ja_coberto",
+   "nota": "Mesma causa, remédios opostos: o ECC corta o loop, o Touring o mede com juiz em código. A de 'sem autorrevisão' vale ao brief de sessão irmã."
+  }
+ ],
+ "licoes": [
+  "Readiness por presença de string (`includesAll`) aprova declaração, não comportamento: observability-readiness.js:143-149 dá verde se o arquivo cita '--watch'. Mesma família do 'instrumento que mente'.",
+  "A TUI do ECC (dashboard.rs, 15.460 linhas) vive num README que diz 'Do not market ecc2/ as done'. Linhas de código por capacidade não são capacidade entregue.",
+  "O hook TCAS de deconflito é só desenho (TCAS-HOOK.md:3). A exclusão do Touring (`decompose claim` atômico, `hw-slot` flock) é executada. Contar desenho como capacidade infla o ECC.",
+  "O Touring emite 4 números de saúde sem reconciliação (0,4939 · 0,859 · 0,536 · 26/46). O ECC tem 1 `readiness` com `attentionCount`. O gargalo do Touring não é falta de dado, é falta de uma linha de decisão.",
+  "Cota em arquivo mas fora da barra: `rate_limits.json` existe e `--show` responde ('5 h 32% · 7 d 16%'), enquanto o ECC pôs 5h/7d com countdown na statusline. Caminho de menor custo é ler o arquivo no `status_monitor.sh`.",
+  "`kpi.context_budget` reprova 3 itens agora (duplicação 0,069 > 0,05; injected_bytes_per_turn; injection_follow_ratio). Pela Regra #21 isso é falha aberta no Touring, não um achado do ECC."
+ ],
+ "nao_coberto": "Não li scripts/lib/control-pane/ui.js nem proximity-viz.js (UI), nem os 12.830 linhas de ecc2/src/main.rs além de grep. Não executei nada do ECC. Não confirmei se a barra do status_monitor.sh exibe a cota (linhas finais truncadas), nem a entrega externa do hook Notification. O `touring e2e` rodou em 1,3 s e o ATZILUTH foi lido pelo docstring do hook, sem executar o painel."
+}

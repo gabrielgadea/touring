@@ -1,0 +1,338 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "recall de símbolo (arquivo) 0.000 < 0.7 (0/13)",
+  "recall de símbolo (inline) 0.000 < 0.7 (0/27)"
+ ],
+ "recall_simbolo": {
+  "arquivo": 0.0,
+  "inline": 0.0
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   0,
+   13
+  ],
+  "inline": [
+   0,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   0,
+   13
+  ],
+  "inline": [
+   0,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   11
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [],
+ "negativos": {
+  "arquivo": 400,
+  "inline": 300
+ },
+ "avisos_em_negativos": 700,
+ "defeito_de_corpus": [
+  "6dce9f68d2da",
+  "c72427be59bd",
+  "9c269d2c1bf5"
+ ],
+ "p95_ms": 0.0,
+ "chamadas": 762,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "15d469304a03",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "votos_nominais_por_comparecente",
+   "verdict": "unknown"
+  },
+  {
+   "id": "9f72920a9343",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "nm_municipio",
+   "verdict": "unknown"
+  },
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "unknown"
+  },
+  {
+   "id": "7f44e34538c8",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "m2",
+   "verdict": "unknown"
+  },
+  {
+   "id": "9569137c7076",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "creator",
+   "verdict": "unknown"
+  },
+  {
+   "id": "1ec93649b1ac",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "scripts",
+   "verdict": "unknown"
+  },
+  {
+   "id": "6fb90b5d7502",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "DERIVADOS",
+   "verdict": "unknown"
+  },
+  {
+   "id": "fbd4d99c3ec2",
+   "origem": "tmp",
+   "classe": "import",
+   "esperado": "agregado_pesquisas",
+   "verdict": "unknown"
+  },
+  {
+   "id": "6c366c868494",
+   "origem": "inline",
+   "classe": "import",
+   "esperado": "norma_corpus",
+   "verdict": "unknown"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "unknown"
+  },
+  {
+   "id": "ac6680ec4405",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "__file__",
+   "verdict": "unknown"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "unknown"
+  },
+  {
+   "id": "12f3fca9a950",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "DESBALANCEADO",
+   "verdict": "unknown"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "unknown"
+  },
+  {
+   "id": "26e7fb915147",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "decisoes_de",
+   "verdict": "unknown"
+  },
+  {
+   "id": "f1e9ade97240",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "TODAS",
+   "verdict": "unknown"
+  },
+  {
+   "id": "948e774f6903",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JUIZES",
+   "verdict": "unknown"
+  },
+  {
+   "id": "630de4ce89bc",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "maxlen",
+   "verdict": "unknown"
+  },
+  {
+   "id": "fe6a103451a2",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "json",
+   "verdict": "unknown"
+  },
+  {
+   "id": "10c65d8beead",
+   "origem": "inline",
+   "classe": "import",
+   "esperado": "gravar_gravacao",
+   "verdict": "unknown"
+  },
+  {
+   "id": "1549f702a1de",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "uf",
+   "verdict": "unknown"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "unknown"
+  },
+  {
+   "id": "dcdff927db73",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "combending",
+   "verdict": "unknown"
+  },
+  {
+   "id": "d94f8090d150",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "st_m_size",
+   "verdict": "unknown"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "unknown"
+  },
+  {
+   "id": "091584efee91",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__version__",
+   "verdict": "unknown"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "unknown"
+  },
+  {
+   "id": "c95d9b124cc5",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "packages",
+   "verdict": "unknown"
+  },
+  {
+   "id": "3c332c71bda3",
+   "origem": "inline",
+   "classe": "import",
+   "esperado": "inspect",
+   "verdict": "unknown"
+  },
+  {
+   "id": "0c5af2f059d6",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "_pct_de_frac",
+   "verdict": "unknown"
+  },
+  {
+   "id": "8b7a3476e024",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "total",
+   "verdict": "unknown"
+  },
+  {
+   "id": "34511b9ac100",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "total",
+   "verdict": "unknown"
+  },
+  {
+   "id": "36a02adfd43c",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "__file__",
+   "verdict": "unknown"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "unknown"
+  },
+  {
+   "id": "ea97d20c157a",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "digest",
+   "verdict": "unknown"
+  },
+  {
+   "id": "fed89ce930ce",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "test_a_fallback_counts_as_unmeasured",
+   "verdict": "unknown"
+  },
+  {
+   "id": "93a971ab6fe9",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "test_no_vocabulary_value_is_interpolated",
+   "verdict": "unknown"
+  },
+  {
+   "id": "0d9486a9cca5",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "subprocess",
+   "verdict": "unknown"
+  },
+  {
+   "id": "e8dcc4f2204f",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "the_redundant_key_marks_the_scout_echo",
+   "verdict": "unknown"
+  },
+  {
+   "id": "36a19de32b1a",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "tau_val_coverage",
+   "verdict": "unknown"
+  }
+ ]
+}
