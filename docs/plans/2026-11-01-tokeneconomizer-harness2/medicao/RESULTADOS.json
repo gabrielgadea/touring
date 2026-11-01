@@ -1,0 +1,13 @@
+{
+  "corpus": {"transcripts": 250, "window": "2026-10-02..2026-11-01", "bytes": "976 MB", "scope": "main-session transcripts of the touring project (subagent transcripts excluded)"},
+  "f4a_lessons_raw": {"pairs_total": 834, "distinct_keys": 530, "keys_by_distinct_sessions": {"1": 499, "2": 11, "3": 9, "4": 4, "5+": 7}, "keys_confirmed_k3": 20, "share_confirmed_k3": 0.0377},
+  "f4a_lessons_normalized": {"distinct_keys": 402, "keys_by_distinct_sessions": {"1": 364, "2": 17, "3": 6, "4": 5, "5+": 10}, "keys_confirmed_k3": 21, "share_confirmed_k3": 0.0522},
+  "f4b_lesson_cost": {"transcript_lessons_in_memory_db": 9367, "sessions_with_past_failure_lines": 2, "past_failure_lines": 29, "past_failure_bytes": 2300, "distinct_lesson_keys_injected": 2},
+  "f4c_loopguard": {"turns_with_tool_calls": 715, "turns_ge_20_calls": 216, "turns_flagged": 47, "share_flagged_of_ge20": 0.218, "tool_calls_total": 21198, "tool_calls_after_flag": 4141, "share_calls_after_flag": 0.1953, "flagged_with_touring_deny_before_flag": 45, "median_calls_flagged_turn": 142, "caveat": "no resolved-task label offline, so the p90x1.25 envelope is not applied: upper bound"},
+  "f4d_prune": {
+    "skill": {"announced": 327, "used_at_least_once": 7, "listing_bytes_total": 1933995, "pruned_at_end": 324, "false_prune_events": 9},
+    "agent": {"announced": 28, "used_at_least_once": 9, "listing_bytes_total": 1377869, "pruned_at_end": 28, "false_prune_events": 18},
+    "tool":  {"announced": 265, "used_at_least_once": 23, "listing_bytes_total": 375051, "pruned_at_end": 243, "false_prune_events": 23},
+    "caveat": "skill use counted only through the Skill tool; a user-typed /skill may not appear as tool_use (undercount)"},
+  "baseline_context_budget_kpi": {"injected_bytes_per_turn": 6039.083, "ceil": 2000, "injection_follow_ratio": 0.598, "floor": 0.6, "n": 502, "scope": "1 transcript (the KPI caps its scan)"}
+}

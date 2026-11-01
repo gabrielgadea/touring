@@ -1,0 +1,112 @@
+---
+type: Backlog
+title: "Backlog — TokenEconomizer × harness2 aplicados ao modus operandi do Claude Code + Touring"
+description: "Seis itens ordenados por (efeito esperado × confiança) ÷ custo, cada um com aceite mensurável e experimento pré-registrado. Nada aqui está aprovado: implementar exige decisão do Gabriel."
+timestamp: 2026-11-01T18:30:00-03:00
+---
+
+# Backlog (proposta — aguarda aprovação)
+
+Restrição comum: o AB34 está armado até 08/11 00:10. Antes disso só cabe o que é **só leitura e
+offline** (B5 e a fase sombra offline de B4). Tudo o que muda hook, settings ou daemon começa depois.
+
+Pontuação = efeito (1-3) × confiança ÷ custo (S=1, M=2, L=3).
+
+| # | Item | Verbo | ADR | Efeito | Conf. | Custo | Pontos |
+|---|---|---|---|---:|---:|---|---:|
+| B5 | Custo em tokens (com cache) por mecanismo no `touring kpi` | APERFEIÇOAR | 005 | 3 | 0,85 | M | 1,28 |
+| B2 | Gate por família pelo seguimento medido | POTENCIALIZAR | 002 | 3 | 0,75 | M | 1,13 |
+| B1 | Ciclo de vida das lições mineradas (confirmar, retirar, chave normalizada) | INSPIRAR + CORRIGIR | 001 | 2 | 0,80 | M | 0,80 |
+| B6 | Ledger de identidade + ablação leave-one-family-out | INSPIRAR / APROVEITAR (ideia) | 006 | 2 | 0,80 | M | 0,80 |
+| B3 | Relatório de uso da superfície (skills, agentes, plugins, tools) | INSPIRAR | 003 | 2 | 0,70 | S | 1,40 → só depois de B5 |
+| B4 | Detector de espiral por trajetória, em sombra | INSPIRAR + POTENCIALIZAR | 004 | 2 | 0,65 | L | 0,43 |
+| B7 | `touring explore` exclui o próprio ledger da lente antistaleness | CORRIGIR | — | 1 | 0,95 | S | 0,95 |
+
+Ordem de execução: **B7 (conserto pequeno) → B5 → B3 → B2 → B1 → B6 → B4**. B3 pontua alto, mas sem B5 decide em bytes, e
+bytes de prefixo cacheado custam ~1/10 (ADR-003).
+
+---
+
+## B5 — Custo por mecanismo (APERFEIÇOAR)
+
+- **Entrega:** seção `context_cost` no `touring kpi -j` com tokens de entrada nova, leitura e escrita
+  de cache, atribuídos a famílias de injeção, anúncio de superfície, saída de tools e overhead próprio
+  (hooks, subagentes), lidos dos registros de uso do transcrito.
+- **Aceite mensurável:** em 10 sessões sorteadas com semente fixa antes do sorteio, soma por mecanismo
+  = custo total da sessão (registro `cost-state`) com erro ≤ 2%.
+- **Experimento:** nenhum (instrumento). Regra: erro > 2% em qualquer das 10 → reprova e não serve de
+  desfecho para B1-B4.
+
+## B3 — Relatório de uso da superfície (INSPIRAR)
+
+- **Entrega:** `touring kpi` → `surface_usage`: por skill, plugin, agente e tool adiada, anunciado ×
+  usado (tool `Skill`, `/comando` digitado e `Agent.subagent_type`) × custo (B5).
+- **Aceite mensurável:** reproduz o F4d (327/7 skills, 28/9 agentes, 265/23 tools em 250 sessões) com
+  o uso por `/comando` incluído, e mostra o custo em tokens do anúncio por sessão.
+- **Decisão humana:** o relatório propõe; desligar plugin ou skill é decisão do Gabriel, item a item.
+- **Poda automática (fase 2, só se aprovada):** regra calibrada nos nossos dados, com agentes fora da
+  poda. Pré-registro: aceitar só se, em replay cronológico, podas erradas ≤ 1 por 50 sessões e
+  economia ≥ 30% do custo de anúncio (B5).
+
+## B2 — Gate por família (POTENCIALIZAR)
+
+- **Entrega:** a política de injeção desce uma família de nível (`full` → `brief` → `off`) quando o
+  seguimento medido dela fica abaixo de τ com n ≥ N; volta quando a medição em sombra sobe.
+- **Calibração (antes do experimento):** τ e N escolhidos no corpus de 250 sessões por validação
+  temporal (calibrar em out, testar em nov), declarados aqui antes do teste.
+- **Experimento pré-registrado:** A/B por dia, 8 dias, depois do AB34. Desfecho primário: tokens de
+  injeção por turno (B5). Guarda: `injection_follow_ratio` global não pode cair mais de 0,05 e a taxa
+  de deny repetido (G6) não pode subir. Regra: aceita se o primário cair ≥ 20% com IC-95 por bootstrap
+  de sessões abaixo de 0 e as guardas passarem.
+
+## B1 — Ciclo de vida das lições (INSPIRAR + CORRIGIR)
+
+- **CORRIGIR primeiro (teste vermelho):** um teste em `transcript_miner` prova que a mesma falha em 3
+  sessões gera UMA lição sem contagem de sessões (hoje), e passa a gerar contagem = 3 (depois).
+- **Entrega:** chave normalizada (caminhos, números, hex), contador de sessões distintas, estado
+  `candidate|active|retired`, retirada por contradição observável e por recência, injeção só de
+  `active` e sob o gate de B2.
+- **Aceite mensurável:** no corpus, a normalização reduz as chaves de 530 para ≤ 410 (F4a: 402) e a
+  fração ativa fica entre 3% e 10%.
+- **Experimento:** A/B por dia, desfecho primário = seguimento da família `past-lessons`; regra: aceita
+  se ≥ 0,6 com n ≥ 30 blocos e bytes da família por turno não aumentarem.
+
+## B6 — Ablação e ledger de identidade (INSPIRAR / APROVEITAR ideia)
+
+- **Entrega:** (a) `assert_identity` nos runners de experimento (AB34 e sucessores) — o runner reprova se
+  as células executadas não forem exatamente as pré-registradas, checando duplicata antes da contagem;
+  (b) desenho leave-one-family-out para as famílias de injeção com n por célula calculado por poder
+  antes.
+- **Aceite mensurável:** um teste com uma célula duplicada e uma faltando reprova; o desenho declara n
+  e o efeito mínimo detectável antes do dado.
+
+## B7 — `touring explore` lê o próprio ledger (CORRIGIR, achado durante esta análise)
+
+- **Defeito (FATO 1.0):** `lens_antistaleness` (`client/skills/Touring/scripts/explore_until_dry.py:274-283`,
+  vivo em `~/.claude/skills/Touring/scripts/`) faz grep no escopo inteiro sem excluir o arquivo do
+  ledger. Com o ledger dentro do escopo, cada rodada posterior acha as próprias linhas: nesta análise
+  as rodadas 6 e 7 deram 11 achados "novos" cada, todos auto-eco (`echoes_suppressed: 0`). O ledger
+  também grava caminhos absolutos, o que impede guardá-lo num repositório público.
+- **Teste vermelho primeiro:** ledger dentro do escopo → a 2ª rodada não pode ter achado cujo caminho
+  seja o próprio ledger.
+- **Aceite mensurável:** repetir este tema com o ledger no bundle dá rodadas secas consecutivas sem
+  achado do ledger; chaves gravadas relativas ao escopo.
+- Custo S. Efeito: o critério de convergência deixa de depender de onde o ledger mora.
+
+## Instrumento existente para B1-B4 (POTENCIALIZAR)
+
+`eval/swe_bench/harness.py` (junho/2026, `eval/swe_bench/README.md`) mede `resolved%` e custo em
+tokens, é determinístico e não gasta crédito sozinho; o solver com modelo roda fora de banda **com
+autorização explícita de crédito**. É o único caminho para replicar no nosso ambiente a medição do
+paper (custo × Pass@1) em vez de só sessões reais. Usar exige a decisão do Gabriel sobre crédito.
+
+## B4 — Detector de espiral, em sombra (INSPIRAR + POTENCIALIZAR)
+
+- **Fase 0 (offline, permitida antes de 08/11):** rotular à mão uma amostra pré-sorteada de 40 turnos
+  longos (20 marcados pelo detector, 20 não) como espiral ou trabalho produtivo.
+- **Aceite da fase 0:** precisão ≥ 0,7 e recall ≥ 0,6 contra o rótulo; abaixo disso, recalibrar ou
+  arquivar.
+- **Fase 1 (sombra ao vivo, depois de 08/11):** registra a assinatura por turno sem injetar.
+- **Fase 2 (aviso):** no máximo 1 aviso por turno, carregando a lição da memória para o erro repetido.
+  A/B por dia; regra: aceita se chamadas por turno longo caírem ≥ 10% sem aumento de retrabalho
+  (mesmo arquivo reeditado no turno seguinte).
