@@ -21,6 +21,13 @@ status: proposta
 - **Linha de base (FATO, 1 transcrito):** 6.039 B injetados por turno contra teto de 2.000; a família
   `code-mode-contract` tem 90,9% de bytes duplicados; `evidence-guard` 108 blocos.
 
+- **Rodada 2 (FATO 1.0, verificado):** o FIRE_GATE deles é vácuo em parte — `fired` cai para `scope`
+  quando o detector não declara um disparo próprio (`microskills/distiller.py:292`), e nos fatos de
+  ambiente `fired = exercised` (`microskills/envfacts.py:508`): a taxa dá 1,0 por construção. O nosso
+  gate deve medir SEGUIMENTO observado (o que o `injection_follow_ratio` já faz), nunca ocorrência.
+  E a mudança de nível só vale a partir da sessão seguinte, para não quebrar o cache do prefixo
+  (`plugin/fold.py:43-52`).
+
 ## Opções
 
 1. Limiar global (status quo: um número que só reprova o KPI).

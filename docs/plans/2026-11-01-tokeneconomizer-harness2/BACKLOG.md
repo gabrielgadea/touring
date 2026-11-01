@@ -21,8 +21,21 @@ Pontuação = efeito (1-3) × confiança ÷ custo (S=1, M=2, L=3).
 | B3 | Relatório de uso da superfície (skills, agentes, plugins, tools) | INSPIRAR | 003 | 2 | 0,70 | S | 1,40 → só depois de B5 |
 | B4 | Detector de espiral por trajetória, em sombra | INSPIRAR + POTENCIALIZAR | 004 | 2 | 0,65 | L | 0,43 |
 | B7 | `touring explore` exclui o próprio ledger da lente antistaleness | CORRIGIR | — | 1 | 0,95 | S | 0,95 |
+| B8 | `adw --resume-run` invalida nó cuja definição mudou (digest da spec + hash do nó) | CORRIGIR | — | 2 | 0,9 | S | 1,80 |
+| B9 | `claude -p` headless sem MCP alheio e sem gravar sessão | INSPIRAR | 005 | 2 | 0,7 | S | 1,40 |
+| B10 | Crédito de memória com veredito de 4 classes (inclui "confundido") | INSPIRAR + POTENCIALIZAR | 001 | 1 | 0,7 | S | 0,70 |
 
-Ordem de execução: **B7 (conserto pequeno) → B5 → B3 → B2 → B1 → B6 → B4**. B3 pontua alto, mas sem B5 decide em bytes, e
+Ordem de execução: **B8 → B7 → B9 → B5 → B3 → B2 → B1 → B10 → B6 → B4** (os consertos pequenos e de
+defeito provado primeiro).
+
+Restrições de desenho trazidas pela rodada 2 (valem para os itens indicados):
+- **B2/B3:** mudança de nível de injeção ou de superfície só vale a partir da sessão seguinte (o
+  TokenEconomizer espera o cache frio: `plugin/fold.py:43-52`); mudar o prefixo no meio da sessão
+  quebra o cache e pode custar mais do que poupa.
+- **B5:** modelo sem preço conhecido FALHA o cálculo em vez de chutar (`tokeneconomizer/pricing.py:135-160`).
+- **B1/B2:** o gate mede seguimento real e com hold-out temporal; a implementação deles é vácua em
+  parte (`microskills/distiller.py:292`, `envfacts.py:508`) e valida na janela de proposta
+  (`distiller.py:663-670`). B3 pontua alto, mas sem B5 decide em bytes, e
 bytes de prefixo cacheado custam ~1/10 (ADR-003).
 
 ---
@@ -92,6 +105,43 @@ bytes de prefixo cacheado custam ~1/10 (ADR-003).
 - **Aceite mensurável:** repetir este tema com o ledger no bundle dá rodadas secas consecutivas sem
   achado do ledger; chaves gravadas relativas ao escopo.
 - Custo S. Efeito: o critério de convergência deixa de depender de onde o ledger mora.
+
+## B8 — Retomada do ADW com identidade de conteúdo (CORRIGIR, achado na rodada 2)
+
+- **Defeito (FATO 1.0):** `exec_key = f"{node.name}#{visita}"` (`client/skills/Touring/scripts/adw.py:2443`)
+  e o evento `run_started` guarda só `adw` e `run_id` (`adw.py:2406`); `_resume_state` (`adw.py:2336-2350`)
+  carrega o artefato de toda `exec_key` concluída. Editar o prompt ou o comando de um nó e rodar
+  `--resume-run` reaproveita o artefato da versão antiga como se fosse da nova. O harness2 tem o mesmo
+  furo (`cli/run_sweep.py:209-235`).
+- **Teste vermelho primeiro:** run interrompido → editar o `prompt` de um nó concluído → `--resume-run` deve
+  reexecutar esse nó (hoje pula).
+- **Entrega:** digest da spec no `run_started`; hash da definição do nó gravado no `node_completed`; na
+  retomada, nó com hash diferente é reexecutado e o journal registra o motivo. Opcional: reaproveitar
+  artefato entre runs pelo mesmo hash (cache por conteúdo, como `harness2/core/proposer.py:507-534`).
+- **Aceite mensurável:** o teste vermelho passa; um nó não editado continua pulando.
+
+## B9 — Headless sem MCP alheio e sem sessão gravada (INSPIRAR)
+
+- **Fato (1.0):** nenhum `claude -p` do repositório passa `--strict-mcp-config` ou `--no-session-persistence`
+  (busca vazia); o TokenEconomizer passa os dois em toda side-call (`tokeneconomizer/plugin/sidecall.py:140-161`).
+- **Dois efeitos esperados:** (a) menos tokens de entrada por nó headless — o 570k→14k deles é com
+  `--tools ""`, que desliga o ToolSearch; nós usamos `--allowedTools`, que mantém tools MCP adiadas,
+  então o ganho é INFERÊNCIA a medir; (b) execuções headless deixam de entrar no histórico do usuário e
+  no corpus de transcritos que os KPIs varrem (hoje contaminam as duas coisas).
+- **Experimento pré-registrado (custa crédito pequeno, exige aprovação):** o mesmo nó trivial 5× com e
+  5× sem as flags; desfecho = tokens de entrada (`usage` do JSON); regra: adotar se a mediana cair ≥ 20%
+  e o nó produzir o mesmo artefato. Exceção declarada: nós que precisam de um MCP específico recebem
+  `--mcp-config` só com ele.
+
+## B10 — Crédito de memória com veredito de 4 classes (INSPIRAR + POTENCIALIZAR)
+
+- **Hoje (FATO 1.0):** `deposit_run_outcome` credita TODOS os casos pendentes com o mesmo número do run
+  (`adw.py:2382`, `memory credit --all-pending --reward`).
+- **Externo:** o harness2 classifica o efeito de cada mudança como ajudou / atrapalhou / sem efeito
+  observado / confundido (`harness2/core/prompts.py:1105-1160`).
+- **Entrega:** a classe "confundido" (run com mais de uma intervenção nova, ou falha de ambiente)
+  não credita nem debita; a memória deixa de aprender correlação espúria.
+- **Aceite:** num run marcado como confundido, nenhuma memória muda de score (teste).
 
 ## Instrumento existente para B1-B4 (POTENCIALIZAR)
 

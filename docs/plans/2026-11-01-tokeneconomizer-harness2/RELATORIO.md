@@ -26,6 +26,10 @@ timestamp: 2026-11-01T18:45:00-03:00
 6. **Método (harness2):** ablação por componente e ledger que reprova se as execuções não fecham com o plano. → ADR-006.
 7. **Não instalar o plugin:** escreve no `settings.local.json`, faz side-calls com haiku (o paper usou o modelo do agente) e
    foi avaliado só em SWE-Bench. → ADR-007.
+8. **Rodada 2:** os números do TokenEconomizer valem menos do que parecem (gate de disparo em parte vácuo, fato validado na
+   janela que o propôs, envelope do guard com o rótulo do avaliador, nenhum IC); e o harness2 revelou um defeito NOSSO — a
+   retomada do ADW reaproveita artefato de nó editado (B8). Também: headless sem MCP alheio e sem sessão gravada (B9) e
+   crédito de memória que não aprende com run confundido (B10).
 
 ## Linha de base (método e denominador)
 
@@ -58,6 +62,43 @@ timestamp: 2026-11-01T18:45:00-03:00
 | Executor e melhorador em modelos separados (`config.py:174-178`) | `agent_model_gate.py` (matriz busca→haiku, implementação→sonnet) | Equivalente | — | — | — | — | 0,8 |
 | Juiz por critério só como medição pós-escolha; nenhum verificador no loop (`core/judge.py:1-5`) | VGP, `loop_converged.py`, gates P0 dentro do loop | **Touring melhor**: verificação no loop | — | — | — | — | 0,85 |
 | Paralelo 2k candidatos + k composições (`core/recursion.py:343-450`) | `adw race`, fan-out `parallel` | Equivalente | — | — | — | — | 0,7 |
+
+## Rodada 2 — exploração exaustiva (01/11, 4 fatias, todos os arquivos rastreados)
+
+Quatro extrações por fatia, sem sobreposição: núcleo e avaliação do TokenEconomizer; núcleo e
+periferia do harness2. As afirmações que sustentam decisão foram reverificadas por leitura direta.
+
+### O que muda a confiança nos números do TokenEconomizer (FATO 1.0, verificado)
+
+| Defeito de método | Onde | Consequência para nós |
+|---|---|---|
+| Gate de disparo vácuo: `fired` cai para `scope`, logo "disparou" = "foi exercitado" e a taxa é 1,0 por construção | `tokeneconomizer/microskills/distiller.py:292`; `microskills/envfacts.py:508` (`fired = exercised`) | O FIRE_GATE do ADR-002 deve medir SEGUIMENTO real (o nosso `injection_follow_ratio` já mede), nunca a mera ocorrência |
+| Fato validado na mesma janela que o propôs (sem hold-out) | `microskills/distiller.py:663-670` (`_build_fact`) | B1 calibra e confirma com hold-out temporal |
+| Envelope do loop guard usa o rótulo do avaliador no benchmark e um proxy em produção | `experiments/te_bench/spiral_stage.py:100-106` × `tokeneconomizer/loopguard/turn.py:255-266` | O ganho declarado do guard é otimista; B4 fase 0 rotula à mão antes de qualquer número |
+| Sem IC nem teste estatístico; seeds só medem não-determinismo; `usage_incomplete` excluído de modo inconsistente; `eval_timeout` conta como miss | `experiments/scripts/compare_arms.py:84-114`; `te_bench/mechanism_arms.py:232-235`; `te_harness/swebench.py:1510-1518` | Os −18,4%..−30,9% são ESTIMATIVA PONTUAL sem incerteza (INFERÊNCIA 0,7); o nosso pré-registro com IC continua obrigatório |
+| CI não roda `experiments/tests` | `.github/workflows/tests.yml:33` | — |
+
+### Recursos novos aproveitáveis
+
+| Mecanismo externo (arq:linha) | Análogo nosso (arq:linha ou ausente + busca) | Verbo | Item |
+|---|---|---|---|
+| Side-call sem MCP: `--strict-mcp-config` + `--mcp-config` vazio e `--no-session-persistence` (570k → 14k tokens efetivos, medido pelo autor com `--tools ""`) (`tokeneconomizer/plugin/sidecall.py:140-161`) | `_claude_cmd` em `client/skills/Touring/scripts/adw.py` monta `claude -p` herdando todo MCP; **ausente** em todo o repo (busca `strict-mcp-config\|no-session-persistence`) | INSPIRAR | B9 |
+| Mudança de superfície só no fim de sessão e à espera de cache frio (`plugin/fold.py:43-52,312-341`; "a list applies from a later session") | — (restrição de desenho) | REFINAR | regra em B2/B3 |
+| Preço desconhecido FALHA em vez de chutar (`tokeneconomizer/pricing.py:135-160`) | — | REFINAR | regra em B5 |
+| Veredito de efeito com 4 classes: ajudou / atrapalhou / sem efeito / **confundido** (`harness2/core/prompts.py:1105-1160`) | `memory credit --reward <num>` credita todo caso pendente com o mesmo número (`adw.py:2382`) | INSPIRAR + POTENCIALIZAR | B10 |
+| Retomada revalida artefatos e fingerprint, mas a identidade do sweep não tem a versão do prompt (`harness2/core/schedule.py:350-421`; `cli/run_sweep.py:209-235`) | **O mesmo furo no nosso**: `exec_key = f"{node.name}#{visita}"` (`adw.py:2443`) e `run_started` sem digest da spec (`adw.py:2406`) — `--resume-run` reaproveita artefato de nó editado | CORRIGIR | B8 |
+| Cache de sessão por hash de missão + conteúdo (`harness2/core/proposer.py:507-534`) | — | INSPIRAR | junto com B8 |
+
+### Defeitos do harness2 que servem de checklist (já cobertos por doutrina nossa)
+
+Assimetria seletor×juiz — o seletor lê 60k, o juiz lê inteiro (`benchmarks/lab.py:330-339`) → nossa lição
+"verificador usa menos que o extrator"; "sem saída" tratado de 3 formas (`jobbench.py:1044-1068`,
+`lab.py:803`, `workbuddy.py:991-1004`) → Lei L2 "sinal ausente ≠ zero"; quarentena com descarte silencioso
+(`benchmarks/wb_render.py:94-135`) → "falhe loud"; rollout cortado pelo provedor pontuado como completo
+(`workbuddy.py:991-992`); split que ignora tarefas novas e manda domínio de 1 tarefa para o teste
+(`benchmarks/tasks.py:88`, `scripts/split_tasks.py:157`) → cuidado na calibração temporal de B2; Codex
+rodando com `--dangerously-bypass-approvals-and-sandbox` (`substrate/codex.py:149-174`) → nosso CEG é a
+contenção que eles não têm.
 
 ## Convergência da exploração
 
