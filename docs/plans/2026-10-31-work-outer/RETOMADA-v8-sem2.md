@@ -42,10 +42,14 @@ Logs: `/tmp/v8_oss_rota.log` (o encadeamento), `/tmp/oss_rotulado_20261031.log`
 
 **O que o resultado tem de responder**: a camada re-rotulada com o teto
 respeitado atinge 299 negativos por linguagem (tsx/typescript/javascript) para
-sair do "não provada"? E a camada nova pode virar o **estrato OSS de `html`**?
-(hmm: o `rotular_oss.py` hoje rotula `javascript`/`tsx`/`typescript` — o
-**html** precisaria de um adjudicador que o script não tem hoje ✗ — é o
-item em aberto para a coordenadora.)
+sair do "não provada"?
+
+**O `html` já foi decidido** (31/10, coordenadora): fica **NÃO PROVADA por
+decisão explícita** nesta rodada — um adjudicador próprio para html é trabalho
+novo, fora do escopo do V-8. O motivo (o de DELTA lê transcripts, não clones;
+o `rotular_oss.py` não rotula html) e a rota (um adjudicador html sobre
+`html5-boilerplate`/`dom-examples`, **item NOVO a decidir**) estão no
+`RELATORIO-V8-SEM2.md` §4.1.
 
 ## O critério (da coordenadora)
 
