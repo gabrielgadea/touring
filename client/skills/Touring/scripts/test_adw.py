@@ -784,6 +784,61 @@ def test_claude_cmd_carries_permission_and_add_dirs(tmp_path):
     assert cmd.count("--add-dir") == 2 and "/x/rules" in cmd and "/y/docs" in cmd
 
 
+def _flag_value(cmd, flag):
+    return cmd[cmd.index(flag) + 1]
+
+
+def test_headless_agent_loads_no_foreign_mcp_and_saves_no_session_by_default():
+    """B9 (01/11/2026): every `claude -p` inherited all of the person's MCP servers and
+    wrote a session into their history (and into the transcript corpus the KPIs read).
+    TokenEconomizer passes both flags on every side call (plugin/sidecall.py:140-161)."""
+    cmd = adw._claude_cmd(adw.Node(name="a", type="agent", raw={}), journal=None, prompt="go")
+    assert "--strict-mcp-config" in cmd
+    assert json.loads(_flag_value(cmd, "--mcp-config")) == {"mcpServers": {}}
+    assert "--no-session-persistence" in cmd
+
+
+def test_mcp_inherit_and_explicit_config_are_opt_ins():
+    inherit = adw._claude_cmd(adw.Node(name="a", type="agent", raw={"mcp": "inherit"}),
+                              journal=None, prompt="go")
+    assert "--strict-mcp-config" not in inherit and "--mcp-config" not in inherit
+    explicit = adw._claude_cmd(adw.Node(name="a", type="agent",
+                                        raw={"mcp": "/cfg/only-touring.json"}),
+                               journal=None, prompt="go")
+    assert "--strict-mcp-config" in explicit
+    assert _flag_value(explicit, "--mcp-config") == "/cfg/only-touring.json"
+
+
+def test_a_node_that_resumes_its_session_keeps_persistence(tmp_path):
+    """`session = "resume_on_fail"` resumes the previous session by id; a session that
+    was never persisted cannot be resumed, so persistence stays on for that node."""
+    node = adw.Node(name="a", type="agent", raw={"session": "resume_on_fail"})
+    cmd = adw._claude_cmd(node, adw.Journal(tmp_path), "go")
+    assert "--no-session-persistence" not in cmd
+
+
+def test_lint_rejects_a_bad_mcp_mode_and_a_resume_without_persistence(root):
+    write_spec(root, "mcpbad", """
+[adw]
+name = "mcpbad"
+entry = "a"
+[node.a]
+type = "agent"
+prompt = "go"
+mcp = "everything"
+on_pass = "b"
+[node.b]
+type = "agent"
+prompt = "go"
+session = "resume_on_fail"
+session_persistence = false
+on_pass = "__end__"
+""")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "mcpbad"))
+    assert any("`a`" in e and "mcp" in e for e in errors), errors
+    assert any("`b`" in e and "session_persistence" in e for e in errors), errors
+
+
 def test_cli_lint_and_list(root, capsys):
     write_spec(root, "ok", """
 [adw]

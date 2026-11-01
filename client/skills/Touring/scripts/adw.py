@@ -1245,6 +1245,8 @@ def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[st
             f"agent `{node.name}`: retries={node.raw.get('retries')} > 3 — A14: "
             f"após 3 retries de transporte muda-se de estratégia; o retry de "
             f"VEREDITO já existe e mora no gate (feedback verbatim)")
+    if node.type == "agent":
+        errors.extend(_lint_headless_isolation(node))
     if node.type in {"code", "gate"}:
         if not node.raw.get("command"):
             errors.append(f"node `{node.name}`: missing command[]")
@@ -2223,6 +2225,46 @@ def _agent_mock(spec: Spec, node: Node, synthesize: bool = False) -> ExecResult:
     )
 
 
+#: B9 (01/11/2026) — the headless agent's isolation. Every `claude -p` used to inherit
+#: all of the person's MCP servers and to write a session into their history, and so
+#: into the transcript corpus the KPIs read. TokenEconomizer passes both flags on every
+#: side call (plugin/sidecall.py:140-161). `mcp`: "none" (default: strict, empty config),
+#: "inherit" (the old behaviour) or a path to a JSON config holding only what the node needs.
+MCP_NONE = "none"
+MCP_INHERIT = "inherit"
+EMPTY_MCP_CONFIG = json.dumps({"mcpServers": {}})
+
+
+def _lint_headless_isolation(node: Node) -> list[str]:
+    """`mcp` must be a known mode or a .json path; a resuming node needs its session saved."""
+    errors: list[str] = []
+    mcp = node.raw.get("mcp", MCP_NONE)
+    if not isinstance(mcp, str) or not (mcp in (MCP_NONE, MCP_INHERIT) or mcp.endswith(".json")):
+        errors.append(f"agent `{node.name}`: mcp={mcp!r} — use \"none\" (padrão: nenhum servidor), "
+                      f"\"inherit\" (todos os do usuário) ou o caminho de um .json só com o necessário")
+    persist = node.raw.get("session_persistence")
+    if persist is not None and not isinstance(persist, bool):
+        errors.append(f"agent `{node.name}`: session_persistence={persist!r} deve ser booleano")
+    if persist is False and node.raw.get("session") == "resume_on_fail":
+        errors.append(f"agent `{node.name}`: session_persistence = false com session = "
+                      f"\"resume_on_fail\" — uma sessão não gravada não pode ser retomada")
+    return errors
+
+
+def _headless_isolation_flags(node: Node) -> list[str]:
+    """MCP and session-persistence flags for one headless agent node (B9)."""
+    flags: list[str] = []
+    mcp = str(node.raw.get("mcp", MCP_NONE))
+    if mcp == MCP_NONE:
+        flags += ["--strict-mcp-config", "--mcp-config", EMPTY_MCP_CONFIG]
+    elif mcp != MCP_INHERIT:
+        flags += ["--strict-mcp-config", "--mcp-config", str(Path(mcp).expanduser())]
+    resumes = node.raw.get("session", "fresh") == "resume_on_fail"
+    if not node.raw.get("session_persistence", resumes):
+        flags.append("--no-session-persistence")
+    return flags
+
+
 def _claude_cmd(node: Node, journal: Journal, prompt: str,
                 results: dict | None = None, variables: dict | None = None) -> list[str]:
     """Assemble the fail-closed headless invocation from the node spec."""
@@ -2245,6 +2287,7 @@ def _claude_cmd(node: Node, journal: Journal, prompt: str,
         cmd += ["--permission-mode", str(permission_mode)]
     for extra_dir in node.raw.get("add_dirs") or []:
         cmd += ["--add-dir", str(extra_dir)]
+    cmd += _headless_isolation_flags(node)
     if node.raw.get("session", "fresh") == "resume_on_fail":
         prev = journal.session_id_for(node.name)
         if prev:
