@@ -108,6 +108,24 @@ era sempre `0` e a «ordem canônica» era **alfabética por caminho** — o doc
 do commit na chave de ordem. Agora a ordem é a que foi pedida: pela data, depois pelo caminho,
 com o `id` desempata.
 
+### 1.7 A camada parcial tinha DOIS rotuladores no mesmo diretório
+
+Sinal: a camada tinha os **primeiros 12 índices repetindo caminho** (o teto não se aplicava) e do
+índice 12 em diante **não repetindo** (o teto se aplicava) — dois comportamentos na MESMA
+camada. Causa: dois `rotular_oss.py` escrevendo no mesmo `--saida` (um relançado sobre o outro
+sem matar o anterior), **cada um com os seus contadores**. O teto é contado por processo e o
+arquivo é compartilhado: o que um processo contou, o outro não viu.
+
+Duas consequências operacionais, ambas agora no launcher e no procedimento:
+
+1. o **runner** (`bash …/rodar_rotulacao_oss_20261101.sh`) tem de ser morto **junto** com o
+   rotulador — o wrapper continua vivo e relança;
+2. o `mv` do diretório de saída tem de acontecer **depois** de o processo antigo morrer, senão
+   o processo velho continua escrevendo no caminho (que agora aponta para o diretório novo).
+
+A camada foi descartada (guardada como `oss_rotulado_20261101-parcial3a-2processos`) e refeita
+com **um** processo, verificado por `ps` antes de continuar.
+
 ## 2. O que está EM CURSO
 
 O lote de re-rotulação (js/tsx/ts) está rodando:
