@@ -37,4 +37,14 @@ B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 - Construção rc 0 (1.236,7 s): 600 arquivo + 400 inline, 1.000 entradas, 873 overlays, 0 incompletas, 0 `ts=""`, 0 após o corte.
 - Selo `6c228591f1f404f5`, 2.478 arquivos, 16.400.909 bytes, conferido intacto. Sobreposição zero nas quatro chaves contra vivo, temporal e todos os anteriores, incluindo parcial 20261031 e 20261031b. Controle positivo ativo.
 - Relatório: `diagnostics/holdout-20261101/RELATORIO.md`.
-- **Estado atual: aguardando o release 30.4.102. NÃO rodar J15 nem abrir o corpus para julgamento.**
+- **Estado histórico antes da sonda do release: aguardava-se o 30.4.102 e o J15 estava bloqueado. Ver a atualização abaixo.**
+
+## Atualização — 30.4.102 comprovado e J15 em curso
+
+- Binário 30.4.102 congelado em `~/.claude/touring/vgp/binarios/30.4.102/touring`, sha256 `404106ccdb32edb4329036291cb8cb55660adbbc9c7a8fc835237a9f148e3ef7`.
+- CLI: `2106f0ebf279`, `exit` e `quit` = `allow`, camada 2, `findings=[]`. Daemon: `exit`/`quit` = `allow`, 6/6 rotas daemon; o caso real ficou `deny` no hook pela limitação de overlays/disco histórico, registrada sem reinterpretação.
+- A condição da touring-00 para liberar o J15 (`exit` sem deny) foi satisfeita. J15 iniciado em background `brm9mp620` por `diagnostics/j15/rodar_j15.sh`, sobre o selo `6c228591f1f404f5`, com 30.4.102 e referência `8fd0efb0`.
+- Frio preserva recall/falso deny/comparativo; p95 frio é só informativo. O aceite de latência sai do daemon quente. `consolidar_j15.py` foi feito por TDD e só filtra a pendência fria de p95; sinais ausentes e timeouts seguem fail-closed.
+- Testes combinados: 19 passed. `fix-builtins` Diamond 0,9784039, 0 blockers. Commit `2595019f`.
+- Ao concluir: rodar `python3 -I diagnostics/j15/consolidar_j15.py diagnostics/j15 --saida diagnostics/j15/aceite.json`, escrever `diagnostics/j15/RELATORIO.md`, medir quality/convergência, commitar somente metadados/scripts/números e avisar a touring-00.
+- Nenhum daemon foi reiniciado ou spawnado manualmente; nenhum corpus foi copiado para o repositório.
