@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -24,6 +25,7 @@ ATUAL = B / "diagnostics/j15/30_4_102_v3.porid.json"
 BINARIO = Path.home() / ".claude/touring/vgp/binarios/30.4.102/touring"
 TRABALHO = Path.home() / ".claude/touring/vgp/retrodependencias_20261101"
 SAIDA = B / "diagnostics/retrodependencias-20261101"
+ORCAMENTO = TRABALHO / "target-orcamento/debug/vgp-l2-orcamento"
 
 
 def entradas() -> list[dict]:
@@ -35,12 +37,17 @@ def entradas() -> list[dict]:
     ]
 
 
-def classe_veredito(saida: dict) -> str:
-    if "_erro" in saida or saida.get("verdict") == "unknown":
-        return "unknown"
-    if str(saida.get("camada2") or "").startswith("unknown:"):
-        return "unknown"
-    return "deny" if saida.get("verdict") == "deny" else "nao_deny"
+def classe_veredito(l1: dict, l2: dict) -> str:
+    if "_erro" in l1 or l1.get("verdict") == "unknown":
+        return "unknown_outro"
+    resultado = l2.get("resultado", {})
+    verdict = resultado.get("verdict")
+    motivo = str(resultado.get("motivo") or l2.get("_erro") or "")
+    if verdict == "unknown" or not resultado:
+        return "inconclusivo_timeout" if "prazo" in motivo.lower() else "unknown_outro"
+    if l1.get("verdict") == "deny" or verdict == "deny":
+        return "deny"
+    return "nao_deny"
 
 
 def absolutizar_estado(e: dict, novo: list[dict], original: dict) -> dict:
@@ -100,7 +107,7 @@ def preparar(limite: int | None = None) -> list[dict]:
     return registros
 
 
-def _comparar_um(e: dict, overlays: list[dict], manifesto: dict, atual: dict) -> dict:
+def _l1(e: dict, overlays: list[dict], manifesto: dict) -> dict:
     entrada = dict(e)
     entrada["snap"] = str(CORPUS / e["snap"])
     entrada["contexto"] = [
@@ -110,47 +117,87 @@ def _comparar_um(e: dict, overlays: list[dict], manifesto: dict, atual: dict) ->
     original = juiz.carregar_estado
     try:
         juiz.carregar_estado = lambda _corpus, estado=estado: {e["id"]: estado}
-        saida = juiz.rodar_motor([str(BINARIO)], entrada, TRABALHO)
+        return juiz.rodar_motor([str(BINARIO)], entrada, TRABALHO)
     finally:
         juiz.carregar_estado = original
+
+
+def _l2(e: dict, overlays: list[dict], manifesto: dict) -> dict:
+    estado = absolutizar_estado(e, overlays, manifesto.get(e["id"], {}))
+    disk = None
+    if estado.get("disk_file"):
+        disk = Path(estado["disk_file"]).read_text(errors="ignore")
+    req = {
+        "id": e["id"],
+        "project_root": e["project_root"],
+        "path": e["path"],
+        "content": (CORPUS / e["snap"]).read_text(errors="ignore"),
+        "disk": disk,
+        "overlays": [
+            (o["path"], Path(o["file"]).read_text(errors="ignore"))
+            for o in estado.get("overlays", [])
+        ],
+    }
+    try:
+        run = subprocess.run(
+            [str(ORCAMENTO)],
+            input=json.dumps(req) + "\n",
+            capture_output=True,
+            text=True,
+            timeout=65,
+            check=False,
+        )
+        return json.loads(run.stdout)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        return {"_erro": f"{type(exc).__name__}: {exc}"}
+
+
+def _comparar_um(e: dict, overlays: list[dict], manifesto: dict) -> dict:
+    atual_l1 = _l1(e, [], manifesto)
+    historico_l1 = _l1(e, overlays, manifesto)
+    atual_l2 = _l2(e, [], manifesto)
+    historico_l2 = _l2(e, overlays, manifesto)
     return {
-        "veredito_atual": classe_veredito(atual.get(e["id"], {})),
-        "veredito_historico": classe_veredito(saida),
+        "veredito_atual": classe_veredito(atual_l1, atual_l2),
+        "veredito_historico": classe_veredito(historico_l1, historico_l2),
+        "motivo_l2_atual": atual_l2.get("resultado", {}).get("motivo") or atual_l2.get("_erro"),
+        "motivo_l2_historico": historico_l2.get("resultado", {}).get("motivo") or historico_l2.get("_erro"),
+        "l2_elapsed_ms_atual": atual_l2.get("resultado", {}).get("elapsed_ms"),
+        "l2_elapsed_ms_historico": historico_l2.get("resultado", {}).get("elapsed_ms"),
     }
 
 
 def comparar(registros: list[dict]) -> list[dict]:
-    por_id_atual = json.loads(ATUAL.read_text())
-    por_id_atual = por_id_atual.get("por_id", por_id_atual)
     manifesto = json.loads((CORPUS / "estado_no_instante/manifesto.json").read_text())
     por_id = {e["id"]: e for e in entradas()}
-    cache = TRABALHO / "comparacoes.jsonl"
+    cache = TRABALHO / "comparacoes_v3.jsonl"
     if cache.is_file():
         salvas = {r["id"]: r for r in map(json.loads, cache.read_text().splitlines())}
         for r in registros:
             if r["id"] in salvas:
-                r.update({k: v for k, v in salvas[r["id"]].items() if k.startswith("veredito_")})
-    juiz.ARGS_MOTOR[:] = ["--camadas", "1,2"]
+                r.update({k: v for k, v in salvas[r["id"]].items() if k.startswith(("veredito_", "motivo_l2_", "l2_elapsed_"))})
+    juiz.ARGS_MOTOR[:] = ["--camadas", "1"]
     with cache.open("a") as out:
         for n, r in enumerate(registros, 1):
             if not r.get("overlays") or "veredito_historico" in r:
                 continue
-            r.update(_comparar_um(por_id[r["id"]], r["overlays"], manifesto, por_id_atual))
-            out.write(json.dumps({k: r[k] for k in ("id", "veredito_atual", "veredito_historico")}) + "\n")
+            r.update(_comparar_um(por_id[r["id"]], r["overlays"], manifesto))
+            chaves = ("id", "veredito_atual", "veredito_historico", "motivo_l2_atual", "motivo_l2_historico", "l2_elapsed_ms_atual", "l2_elapsed_ms_historico")
+            out.write(json.dumps({k: r[k] for k in chaves}) + "\n")
             out.flush()
             if n % 10 == 0:
                 print(f"comparadas {n}/{len(registros)}", flush=True)
     return registros
 
 
+def _par_conhecido(r: dict) -> bool:
+    return r["veredito_atual"] in ("deny", "nao_deny") and r["veredito_historico"] in ("deny", "nao_deny")
+
+
 def resumir(registros: list[dict]) -> dict:
     alteradas = [r for r in registros if r["dependencias_alteradas"]]
     comparados = [r for r in alteradas if r.get("veredito_historico")]
-    conhecidos = [
-        r
-        for r in comparados
-        if r["veredito_atual"] != "unknown" and r["veredito_historico"] != "unknown"
-    ]
+    conhecidos = [r for r in comparados if _par_conhecido(r)]
     mudancas = Counter(
         (r["veredito_atual"], r["veredito_historico"])
         for r in conhecidos
@@ -168,8 +215,10 @@ def resumir(registros: list[dict]) -> dict:
         "inconclusivo_reconstrucao": sum(r["inconclusivo_reconstrucao"] for r in registros),
         "alteradas_reconstruiveis": sum(bool(r.get("overlays")) for r in alteradas),
         "comparacoes_motor": len(comparados),
-        "unknown_atual": sum(r["veredito_atual"] == "unknown" for r in comparados),
-        "unknown_historico": sum(r["veredito_historico"] == "unknown" for r in comparados),
+        "unknown_outro_atual": sum(r["veredito_atual"] == "unknown_outro" for r in comparados),
+        "unknown_outro_historico": sum(r["veredito_historico"] == "unknown_outro" for r in comparados),
+        "inconclusivo_timeout_atual": sum(r["veredito_atual"] == "inconclusivo_timeout" for r in comparados),
+        "inconclusivo_timeout_historico": sum(r["veredito_historico"] == "inconclusivo_timeout" for r in comparados),
         "mudanca_veredito_efetivo": sum(mudancas.values()),
         "deny_para_nao_deny": mudancas[("deny", "nao_deny")],
         "nao_deny_para_deny": mudancas[("nao_deny", "deny")],
@@ -181,11 +230,16 @@ def resumir(registros: list[dict]) -> dict:
 
 
 def selftest() -> int:
-    assert classe_veredito({"verdict": "deny"}) == "deny"
-    assert classe_veredito({"verdict": "allow"}) == "nao_deny"
-    assert classe_veredito({"camada2": "unknown: prazo"}) == "unknown"
-    assert classe_veredito({"_erro": "x"}) == "unknown"
-    print("selftest: 4 asserções OK")
+    def l2(verdict: str, motivo: str | None = None) -> dict:
+        return {"resultado": {"verdict": verdict, "motivo": motivo}}
+
+    assert classe_veredito({"verdict": "allow"}, l2("deny")) == "deny"
+    assert classe_veredito({"verdict": "deny"}, l2("allow")) == "deny"
+    assert classe_veredito({"verdict": "allow"}, l2("allow")) == "nao_deny"
+    assert classe_veredito({"verdict": "allow"}, l2("unknown", "prazo de 30000 ms")) == "inconclusivo_timeout"
+    assert classe_veredito({"verdict": "allow"}, l2("unknown", "servidor morreu")) == "unknown_outro"
+    assert classe_veredito({"_erro": "x"}, l2("allow")) == "unknown_outro"
+    print("selftest: 6 asserções OK")
     return 0
 
 
@@ -201,6 +255,10 @@ def main() -> int:
     if not args.preparar:
         registros = comparar(registros)
     resumo = resumir(registros)
+    resumo["controle_positivo_10607309d143"] = next(
+        ({"atual": r["veredito_atual"], "historico": r["veredito_historico"]} for r in registros if r["id"] == "10607309d143" and r.get("veredito_historico")),
+        {},
+    )
     print(json.dumps(resumo, ensure_ascii=False, indent=1))
     if args.limite is None and not args.preparar:
         SAIDA.mkdir(parents=True, exist_ok=True)

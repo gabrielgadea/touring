@@ -11,13 +11,19 @@
  "dependencias_alteradas": 5146,
  "entradas_com_dependencia_alterada": 119,
  "inconclusivo_reconstrucao": 53,
- "alteradas_reconstruiveis": 109,
+ "alteradas_reconstruiveis": 0,
  "comparacoes_motor": 109,
- "unknown_atual": 51,
- "unknown_historico": 59,
- "mudanca_veredito_efetivo": 0,
- "deny_para_nao_deny": 0,
+ "unknown_outro_atual": 5,
+ "unknown_outro_historico": 5,
+ "inconclusivo_timeout_atual": 0,
+ "inconclusivo_timeout_historico": 6,
+ "mudanca_veredito_efetivo": 1,
+ "deny_para_nao_deny": 1,
  "nao_deny_para_deny": 0,
- "sem_mudanca_conhecida": 39,
- "limite": "pacotes de terceiros não são congelados; mudança de veredito mede sensibilidade, não verdade do rótulo"
+ "sem_mudanca_conhecida": 97,
+ "limite": "pacotes de terceiros não são congelados; mudança de veredito mede sensibilidade, não verdade do rótulo",
+ "controle_positivo_10607309d143": {
+  "atual": "deny",
+  "historico": "nao_deny"
+ }
 }

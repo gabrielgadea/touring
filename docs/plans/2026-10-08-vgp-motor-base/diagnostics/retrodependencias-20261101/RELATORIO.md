@@ -1,6 +1,6 @@
 ---
 type: Report
-title: "Retroativo 20261101 — deriva de dependências locais"
+title: "Retroativo 20261101 — deriva de dependências locais, mérito × mérito"
 plan_id: 2026-10-08-vgp-motor-base
 subtask: task_1793544410603554012::retroativo
 okf_version: 1
@@ -12,11 +12,13 @@ tags: ["#kind:report", "#domain:vgp", "#status:measured"]
 
 ## Escopo
 
-Medição de sensibilidade da reconstrução, conforme `../../PREREGISTRO-DEPENDENCIAS-LOCAIS-2026-11-01.md`. Não é novo veredito de release, não reclassifica a verdade dos rótulos e não reescreve J14/J15.
+Medição de sensibilidade da reconstrução, sem novo veredito de release, sem reclassificação da verdade dos rótulos e sem reescrever J14/J15. População: 600 entradas de arquivo + 400 inline.
 
-Foram examinadas as 600 entradas de arquivo + 400 inline. O resolvedor corrigido (`ab256a5b`) reconstruiu os módulos locais pelo Git no `ts`; o motor 30.4.102 comparou os estados atual × histórico apenas no subconjunto alterado, reutilizando os vereditos atuais já gravados no J15.
+O resolvedor corrigido (`ab256a5b`) reconstruiu os módulos locais pelo Git no `ts`. A comparação final executou **os dois lados** com camada 1 do binário 30.4.102 e camada 2 com orçamento declarado de **30.000 ms**. A biblioteca `touring-pyright` está idêntica ao release; o instrumento externo usa `CARGO_TARGET_DIR` próprio e `PyrightSession::with_budget(30s)`, sem alterar produção. Fonte versionada em `orcamento/src/main.rs`, sha256 `f6e90a5541d4a5b29853125ca024006c2e9e90b9d74936c602e119b45fa30f02`.
 
-## Números
+A flag `--timeout-ms` foi testada e **não** altera o orçamento da camada 2; por isso o instrumento direto foi necessário.
+
+## Dependências alteradas
 
 | Medida | Resultado |
 |---|---:|
@@ -26,25 +28,44 @@ Foram examinadas as 600 entradas de arquivo + 400 inline. O resolvedor corrigido
 | **Entradas com ao menos uma dependência alterada** | **119/1.000 (11,9%)** |
 | Entradas INCONCLUSIVO-RECONSTRUÇÃO | 53/1.000 |
 | Entradas alteradas reconstruíveis e comparadas | 109/119 |
-| `unknown` no estado atual | 51/109 |
-| `unknown` no estado histórico | 59/109 |
-| Pares conhecidos nos dois estados | 39/109 |
-| Pares indeterminados por `unknown` em ao menos um lado | 70/109 |
-| **Mudanças de veredito efetivo nos pares conhecidos** | **0/39** |
-| `deny → não-deny` | 0/39 |
-| `não-deny → deny` | 0/39 |
-| Sem mudança conhecida | 39/39 |
 
-Dez entradas alteradas não tinham fecho reconstruível e não foram ao motor. Os 53 casos INCONCLUSIVO-RECONSTRUÇÃO cobrem toda a população, não apenas as alteradas.
+Dez entradas alteradas não tinham fecho reconstruível e não foram ao motor.
 
-## Leitura
+## Controle positivo obrigatório
 
-A exposição estrutural ao viés de J14/J15 é de **119 entradas**, mas a mudança de veredito observada é **zero somente entre os 39 pares conhecidos**. Os outros 70 pares comparados ficam indeterminados; não é válido anunciar “zero mudanças em 109” nem concluir que o viés total seja zero.
+O id `10607309d143` está entre os 119 alterados e os 109 reconstruídos. Na medição final:
 
-O caso `10607309d143`, cuja perícia documental já havia comprovado a deriva, ficou `deny` no estado atual e `unknown` no histórico. Ele não entra no 0/39 nem é contado como confirmação adicional.
+- estado atual: **deny por mérito**, camada 2 completa, `motivo = None`, 1.256 ms;
+- estado histórico: **não-deny por mérito**, camada 2 completa, `motivo = None`, 3.104 ms;
+- 318 overlays, 76 dependências alteradas, zero faltantes.
 
-A agregação independente de `porid.json` conferiu 1.000 entradas, 109 comparações, 39 pares conhecidos, 70 indeterminados e zero mudanças conhecidas.
+**Controle positivo: PASSA — `deny → não-deny` com mérito nos dois lados.** Não é o `allow` fail-open de 1 s observado na primeira tentativa.
 
-## Limite
+## Contagens por classe
 
-Pacotes de terceiros não foram congelados. Mudança de veredito mede sensibilidade da reconstrução, não verdade do rótulo. Nenhum conteúdo do corpus foi incluído neste diretório: apenas código, metadados e agregados.
+| Classe do par atual × histórico | n |
+|---|---:|
+| **Mérito × mérito** | **98/109** |
+| — estáveis | 97 |
+| — **`deny → não-deny`** | **1** |
+| — `não-deny → deny` | 0 |
+| `não-deny → INCONCLUSIVO-TIMEOUT` | 6 |
+| `unknown_outro → unknown_outro` | 5 |
+| **Total** | **109** |
+
+Os 6 timeouts históricos persistiram mesmo com 30 s e ficam fora do denominador de mérito. Os 5 pares `unknown_outro` pertencem ao projeto `touring`, sem `pyright-langserver` no venv. O instrumento original fazia `expect` nessa ausência e produzia `JSONDecodeError`; após a correção e a reexecução dos 5, todos vieram como `unknown` JSON estruturado, com o motivo explícito de ausência do servidor. Nenhum foi promovido a mérito: o denominador final permanece **98**. Nenhum desses 11 pares é contado como estabilidade ou mudança de mérito.
+
+## Interpretação
+
+Entre os 98 pares com mérito nos dois lados, houve **1 mudança de veredito efetivo**, exatamente o caso que motivou a investigação. O valor anterior **0/39** foi substituído porque misturava estados com camada 2 incompleta; ele não é mais usado.
+
+A exposição estrutural é de 119 entradas e a mudança comprovada é de 1/98 pares de mérito. Os 11 casos não conclusivos impedem extrapolar essa taxa para os 109 sem ressalva.
+
+## Validação
+
+- TDD do resolvedor: RED 3 → GREEN 4; 56 testes; 23/23 mutantes mortos.
+- Instrumento retroativo: 9 testes pytest + 6 asserções de selftest; Diamond 0,961, 0 blockers; clippy externo `-D warnings` verde.
+- Reconstrutor: Diamond 0,964, 0 blockers.
+- Agregação independente: 98 pares de mérito = 97 estáveis + 1 mudança; 6 timeouts + 5 `unknown_outro` = 109.
+
+Pacotes de terceiros não foram congelados. Mudança de veredito mede sensibilidade da reconstrução, não verdade do rótulo. Nenhum conteúdo do corpus foi incluído neste diretório.

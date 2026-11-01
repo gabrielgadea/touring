@@ -87,8 +87,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1291,
+  "l2_elapsed_ms_historico": 1264,
   "overlays_gravados": 8
  },
  {
@@ -188,8 +192,12 @@
   "dependencias_alteradas": 77,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2178,
+  "l2_elapsed_ms_historico": 2049,
   "overlays_gravados": 320
  },
  {
@@ -228,6 +236,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1078,
+  "l2_elapsed_ms_historico": 1037,
   "overlays_gravados": 7
  },
  {
@@ -400,7 +412,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1709,
+  "l2_elapsed_ms_historico": 1917,
   "overlays_gravados": 78
  },
  {
@@ -474,7 +490,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1123,
+  "l2_elapsed_ms_historico": 1283,
   "overlays_gravados": 3
  },
  {
@@ -610,8 +630,12 @@
   "dependencias_alteradas": 72,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 5486,
+  "l2_elapsed_ms_historico": 26965,
   "overlays_gravados": 382
  },
  {
@@ -659,6 +683,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1336,
+  "l2_elapsed_ms_historico": 1750,
   "overlays_gravados": 7
  },
  {
@@ -749,8 +777,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "unknown_outro",
+  "veredito_historico": "unknown_outro",
+  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 0,
+  "l2_elapsed_ms_historico": 0,
   "overlays_gravados": 2
  },
  {
@@ -870,6 +902,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1830,
+  "l2_elapsed_ms_historico": 1806,
   "overlays_gravados": 4
  },
  {
@@ -969,8 +1005,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 3861,
+  "l2_elapsed_ms_historico": 3985,
   "overlays_gravados": 29
  },
  {
@@ -1009,6 +1049,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1736,
+  "l2_elapsed_ms_historico": 1367,
   "overlays_gravados": 7
  },
  {
@@ -1036,8 +1080,12 @@
   "dependencias_alteradas": 68,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2420,
+  "l2_elapsed_ms_historico": 2100,
   "overlays_gravados": 317
  },
  {
@@ -1067,6 +1115,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1499,
+  "l2_elapsed_ms_historico": 1124,
   "overlays_gravados": 2
  },
  {
@@ -1157,8 +1209,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "unknown_outro",
+  "veredito_historico": "unknown_outro",
+  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 0,
+  "l2_elapsed_ms_historico": 0,
   "overlays_gravados": 1
  },
  {
@@ -1231,8 +1287,12 @@
   "dependencias_alteradas": 223,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1959,
+  "l2_elapsed_ms_historico": 2881,
   "overlays_gravados": 951
  },
  {
@@ -1242,8 +1302,12 @@
   "dependencias_alteradas": 72,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2780,
+  "l2_elapsed_ms_historico": 26116,
   "overlays_gravados": 382
  },
  {
@@ -1253,8 +1317,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 3372,
+  "l2_elapsed_ms_historico": 3620,
   "overlays_gravados": 6
  },
  {
@@ -1309,8 +1377,12 @@
   "dependencias_alteradas": 73,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 4587,
+  "l2_elapsed_ms_historico": 4708,
   "overlays_gravados": 383
  },
  {
@@ -1349,6 +1421,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1263,
+  "l2_elapsed_ms_historico": 1228,
   "overlays_gravados": 7
  },
  {
@@ -1385,8 +1461,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 4632,
+  "l2_elapsed_ms_historico": 3282,
   "overlays_gravados": 6
  },
  {
@@ -1478,7 +1558,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2640,
+  "l2_elapsed_ms_historico": 15956,
   "overlays_gravados": 99
  },
  {
@@ -1697,6 +1781,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1643,
+  "l2_elapsed_ms_historico": 1976,
   "overlays_gravados": 7
  },
  {
@@ -1724,8 +1812,12 @@
   "dependencias_alteradas": 12,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 5362,
+  "l2_elapsed_ms_historico": 11681,
   "overlays_gravados": 47
  },
  {
@@ -1861,8 +1953,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "unknown_outro",
+  "veredito_historico": "unknown_outro",
+  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 0,
+  "l2_elapsed_ms_historico": 0,
   "overlays_gravados": 1
  },
  {
@@ -1908,8 +2004,12 @@
   "dependencias_alteradas": 215,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 3153,
+  "l2_elapsed_ms_historico": 3190,
   "overlays_gravados": 936
  },
  {
@@ -2081,8 +2181,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "unknown_outro",
+  "veredito_historico": "unknown_outro",
+  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 0,
+  "l2_elapsed_ms_historico": 0,
   "overlays_gravados": 1
  },
  {
@@ -2129,7 +2233,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1412,
+  "l2_elapsed_ms_historico": 2456,
   "overlays_gravados": 7
  },
  {
@@ -2176,7 +2284,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1903,
+  "l2_elapsed_ms_historico": 1415,
   "overlays_gravados": 7
  },
  {
@@ -2188,6 +2300,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1601,
+  "l2_elapsed_ms_historico": 2047,
   "overlays_gravados": 3
  },
  {
@@ -2225,7 +2341,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2475,
+  "l2_elapsed_ms_historico": 2375,
   "overlays_gravados": 316
  },
  {
@@ -2361,8 +2481,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "unknown_outro",
+  "veredito_historico": "unknown_outro",
+  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 0,
+  "l2_elapsed_ms_historico": 0,
   "overlays_gravados": 1
  },
  {
@@ -2399,8 +2523,12 @@
   "dependencias_alteradas": 17,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1961,
+  "l2_elapsed_ms_historico": 2759,
   "overlays_gravados": 79
  },
  {
@@ -2428,8 +2556,12 @@
   "dependencias_alteradas": 11,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 5225,
+  "l2_elapsed_ms_historico": 9539,
   "overlays_gravados": 45
  },
  {
@@ -2503,7 +2635,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1204,
+  "l2_elapsed_ms_historico": 1616,
   "overlays_gravados": 3
  },
  {
@@ -2533,6 +2669,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1038,
+  "l2_elapsed_ms_historico": 1256,
   "overlays_gravados": 7
  },
  {
@@ -2641,8 +2781,12 @@
   "dependencias_alteradas": 12,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 5268,
+  "l2_elapsed_ms_historico": 6645,
   "overlays_gravados": 47
  },
  {
@@ -2670,8 +2814,12 @@
   "dependencias_alteradas": 243,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "inconclusivo_timeout",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/external_apis/catalogo.py (version 968)",
+  "l2_elapsed_ms_atual": 2596,
+  "l2_elapsed_ms_historico": 30039,
   "overlays_gravados": 920
  },
  {
@@ -2710,6 +2858,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1085,
+  "l2_elapsed_ms_historico": 1392,
   "overlays_gravados": 7
  },
  {
@@ -2737,8 +2889,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 3055,
+  "l2_elapsed_ms_historico": 3640,
   "overlays_gravados": 6
  },
  {
@@ -2748,8 +2904,12 @@
   "dependencias_alteradas": 36,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 3185,
+  "l2_elapsed_ms_historico": 3236,
   "overlays_gravados": 177
  },
  {
@@ -2814,7 +2974,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1193,
+  "l2_elapsed_ms_historico": 3673,
   "overlays_gravados": 937
  },
  {
@@ -2888,7 +3052,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1429,
+  "l2_elapsed_ms_historico": 2465,
   "overlays_gravados": 937
  },
  {
@@ -2954,6 +3122,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1405,
+  "l2_elapsed_ms_historico": 2308,
   "overlays_gravados": 4
  },
  {
@@ -3044,8 +3216,12 @@
   "dependencias_alteradas": 220,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "inconclusivo_timeout",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/miprov2_merito.py (version 947)",
+  "l2_elapsed_ms_atual": 1761,
+  "l2_elapsed_ms_historico": 30038,
   "overlays_gravados": 945
  },
  {
@@ -3066,6 +3242,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1324,
+  "l2_elapsed_ms_historico": 994,
   "overlays_gravados": 4
  },
  {
@@ -3075,8 +3255,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 3053,
+  "l2_elapsed_ms_historico": 3349,
   "overlays_gravados": 6
  },
  {
@@ -3097,6 +3281,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1591,
+  "l2_elapsed_ms_historico": 1096,
   "overlays_gravados": 4
  },
  {
@@ -3135,6 +3323,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1091,
+  "l2_elapsed_ms_historico": 1171,
   "overlays_gravados": 7
  },
  {
@@ -3146,6 +3338,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 843,
+  "l2_elapsed_ms_historico": 920,
   "overlays_gravados": 4
  },
  {
@@ -3166,6 +3362,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1218,
+  "l2_elapsed_ms_historico": 1202,
   "overlays_gravados": 7
  },
  {
@@ -3222,6 +3422,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1266,
+  "l2_elapsed_ms_historico": 1137,
   "overlays_gravados": 4
  },
  {
@@ -3250,7 +3454,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1215,
+  "l2_elapsed_ms_historico": 11991,
   "overlays_gravados": 99
  },
  {
@@ -3325,6 +3533,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1410,
+  "l2_elapsed_ms_historico": 1513,
   "overlays_gravados": 7
  },
  {
@@ -3336,6 +3548,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1505,
+  "l2_elapsed_ms_historico": 1123,
   "overlays_gravados": 7
  },
  {
@@ -3428,6 +3644,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1191,
+  "l2_elapsed_ms_historico": 1034,
   "overlays_gravados": 7
  },
  {
@@ -3510,7 +3730,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1227,
+  "l2_elapsed_ms_historico": 21252,
   "overlays_gravados": 353
  },
  {
@@ -3610,8 +3834,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1052,
+  "l2_elapsed_ms_historico": 1347,
   "overlays_gravados": 3
  },
  {
@@ -3657,8 +3885,12 @@
   "dependencias_alteradas": 5,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1763,
+  "l2_elapsed_ms_historico": 1794,
   "overlays_gravados": 7
  },
  {
@@ -3688,6 +3920,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1375,
+  "l2_elapsed_ms_historico": 1073,
   "overlays_gravados": 4
  },
  {
@@ -3697,8 +3933,12 @@
   "dependencias_alteradas": 221,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "inconclusivo_timeout",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/packages/kazuba-enrichment/src/kazuba_enrichment/lexhub/wiring_semantico.py (version 949)",
+  "l2_elapsed_ms_atual": 1735,
+  "l2_elapsed_ms_historico": 30051,
   "overlays_gravados": 947
  },
  {
@@ -3710,6 +3950,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 849,
+  "l2_elapsed_ms_historico": 959,
   "overlays_gravados": 3
  },
  {
@@ -3739,6 +3983,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1285,
+  "l2_elapsed_ms_historico": 1034,
   "overlays_gravados": 7
  },
  {
@@ -3793,8 +4041,12 @@
   "dependencias_alteradas": 69,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1330,
+  "l2_elapsed_ms_historico": 16587,
   "overlays_gravados": 317
  },
  {
@@ -3867,8 +4119,12 @@
   "dependencias_alteradas": 2,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2466,
+  "l2_elapsed_ms_historico": 2438,
   "overlays_gravados": 29
  },
  {
@@ -3923,8 +4179,12 @@
   "dependencias_alteradas": 216,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "inconclusivo_timeout",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/w6g8_compile_kb.py (version 939)",
+  "l2_elapsed_ms_atual": 1583,
+  "l2_elapsed_ms_historico": 30027,
   "overlays_gravados": 937
  },
  {
@@ -3945,6 +4205,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1773,
+  "l2_elapsed_ms_historico": 1374,
   "overlays_gravados": 2
  },
  {
@@ -3974,6 +4238,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1050,
+  "l2_elapsed_ms_historico": 966,
   "overlays_gravados": 4
  },
  {
@@ -3983,8 +4251,12 @@
   "dependencias_alteradas": 223,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "inconclusivo_timeout",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/tests/test_faixas.py (version 954)",
+  "l2_elapsed_ms_atual": 2086,
+  "l2_elapsed_ms_historico": 30052,
   "overlays_gravados": 950
  },
  {
@@ -4049,7 +4321,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1248,
+  "l2_elapsed_ms_historico": 1364,
   "overlays_gravados": 7
  },
  {
@@ -4285,7 +4561,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1486,
+  "l2_elapsed_ms_historico": 1104,
   "overlays_gravados": 4
  },
  {
@@ -4315,6 +4595,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1358,
+  "l2_elapsed_ms_historico": 1123,
   "overlays_gravados": 4
  },
  {
@@ -4397,7 +4681,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 952,
+  "l2_elapsed_ms_historico": 889,
   "overlays_gravados": 3
  },
  {
@@ -4444,7 +4732,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1122,
+  "l2_elapsed_ms_historico": 2073,
   "overlays_gravados": 318
  },
  {
@@ -4473,7 +4765,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1358,
+  "l2_elapsed_ms_historico": 1522,
   "overlays_gravados": 4
  },
  {
@@ -4512,6 +4808,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1409,
+  "l2_elapsed_ms_historico": 1291,
   "overlays_gravados": 4
  },
  {
@@ -4523,6 +4823,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1151,
+  "l2_elapsed_ms_historico": 1331,
   "overlays_gravados": 7
  },
  {
@@ -4579,6 +4883,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1433,
+  "l2_elapsed_ms_historico": 1369,
   "overlays_gravados": 4
  },
  {
@@ -4589,7 +4897,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1023,
+  "l2_elapsed_ms_historico": 21647,
   "overlays_gravados": 353
  },
  {
@@ -4628,6 +4940,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1377,
+  "l2_elapsed_ms_historico": 1127,
   "overlays_gravados": 4
  },
  {
@@ -4728,7 +5044,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1408,
+  "l2_elapsed_ms_historico": 20537,
   "overlays_gravados": 353
  },
  {
@@ -4756,8 +5076,12 @@
   "dependencias_alteradas": 243,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "inconclusivo_timeout",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/external_apis/catalogo.py (version 968)",
+  "l2_elapsed_ms_atual": 2948,
+  "l2_elapsed_ms_historico": 30019,
   "overlays_gravados": 920
  },
  {
@@ -4812,8 +5136,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1985,
+  "l2_elapsed_ms_historico": 1579,
   "overlays_gravados": 2
  },
  {
@@ -4868,8 +5196,12 @@
   "dependencias_alteradas": 5,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1623,
+  "l2_elapsed_ms_historico": 1176,
   "overlays_gravados": 7
  },
  {
@@ -4888,8 +5220,12 @@
   "dependencias_alteradas": 29,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 974,
+  "l2_elapsed_ms_historico": 1076,
   "overlays_gravados": 56
  },
  {
@@ -5133,8 +5469,12 @@
   "dependencias_alteradas": 76,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2096,
+  "l2_elapsed_ms_historico": 17481,
   "overlays_gravados": 320
  },
  {
@@ -5144,8 +5484,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2638,
+  "l2_elapsed_ms_historico": 2175,
   "overlays_gravados": 9
  },
  {
@@ -5164,8 +5508,12 @@
   "dependencias_alteradas": 3,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1278,
+  "l2_elapsed_ms_historico": 1608,
   "overlays_gravados": 4
  },
  {
@@ -5213,6 +5561,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1533,
+  "l2_elapsed_ms_historico": 1491,
   "overlays_gravados": 7
  },
  {
@@ -5240,8 +5592,12 @@
   "dependencias_alteradas": 216,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2190,
+  "l2_elapsed_ms_historico": 2861,
   "overlays_gravados": 937
  },
  {
@@ -5314,8 +5670,12 @@
   "dependencias_alteradas": 35,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1411,
+  "l2_elapsed_ms_historico": 11201,
   "overlays_gravados": 183
  },
  {
@@ -5370,8 +5730,12 @@
   "dependencias_alteradas": 228,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2558,
+  "l2_elapsed_ms_historico": 2526,
   "overlays_gravados": 918
  },
  {
@@ -5390,8 +5754,12 @@
   "dependencias_alteradas": 3,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1018,
+  "l2_elapsed_ms_historico": 1262,
   "overlays_gravados": 4
  },
  {
@@ -5401,8 +5769,12 @@
   "dependencias_alteradas": 5,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1212,
+  "l2_elapsed_ms_historico": 1206,
   "overlays_gravados": 7
  },
  {
@@ -5421,8 +5793,12 @@
   "dependencias_alteradas": 5,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1207,
+  "l2_elapsed_ms_historico": 1045,
   "overlays_gravados": 7
  },
  {
@@ -5460,7 +5836,11 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "deny",
-  "veredito_historico": "unknown",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1256,
+  "l2_elapsed_ms_historico": 3104,
   "overlays_gravados": 318
  },
  {
@@ -5470,8 +5850,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2087,
+  "l2_elapsed_ms_historico": 1359,
   "overlays_gravados": 3
  },
  {
@@ -5481,8 +5865,12 @@
   "dependencias_alteradas": 217,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1212,
+  "l2_elapsed_ms_historico": 3146,
   "overlays_gravados": 938
  },
  {
@@ -5519,8 +5907,12 @@
   "dependencias_alteradas": 29,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
-  "veredito_historico": "unknown",
+  "veredito_atual": "nao_deny",
+  "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1590,
+  "l2_elapsed_ms_historico": 1511,
   "overlays_gravados": 56
  },
  {
@@ -5530,8 +5922,12 @@
   "dependencias_alteradas": 3,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1464,
+  "l2_elapsed_ms_historico": 1350,
   "overlays_gravados": 4
  },
  {
@@ -5604,8 +6000,12 @@
   "dependencias_alteradas": 244,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1062,
+  "l2_elapsed_ms_historico": 2165,
   "overlays_gravados": 921
  },
  {
@@ -5635,6 +6035,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1037,
+  "l2_elapsed_ms_historico": 1776,
   "overlays_gravados": 14
  },
  {
@@ -6861,6 +7265,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 960,
+  "l2_elapsed_ms_historico": 1076,
   "overlays_gravados": 2
  },
  {
@@ -7068,8 +7476,12 @@
   "dependencias_alteradas": 1,
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
-  "veredito_atual": "unknown",
+  "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1144,
+  "l2_elapsed_ms_historico": 1360,
   "overlays_gravados": 2
  },
  {
@@ -7153,6 +7565,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1223,
+  "l2_elapsed_ms_historico": 1371,
   "overlays_gravados": 2
  },
  {
@@ -7317,6 +7733,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1179,
+  "l2_elapsed_ms_historico": 2324,
   "overlays_gravados": 7
  },
  {
@@ -8318,6 +8738,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1250,
+  "l2_elapsed_ms_historico": 1632,
   "overlays_gravados": 7
  },
  {
@@ -8383,6 +8807,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1333,
+  "l2_elapsed_ms_historico": 1410,
   "overlays_gravados": 2
  },
  {
@@ -8421,6 +8849,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 857,
+  "l2_elapsed_ms_historico": 1088,
   "overlays_gravados": 2
  },
  {
@@ -8432,6 +8864,10 @@
   "faltantes": 0,
   "veredito_atual": "nao_deny",
   "veredito_historico": "nao_deny",
+  "motivo_l2_atual": null,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 917,
+  "l2_elapsed_ms_historico": 967,
   "overlays_gravados": 2
  },
  {
