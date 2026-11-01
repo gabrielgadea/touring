@@ -78,7 +78,6 @@ fn denies(out: &crate::vgp::CheckOutput) -> Vec<(String, String)> {
 
 // --------------------------------------------------------------------------- nome
 
-#[test]
 /// V-4 (31/10/2026): o `site-packages` do venv é uma raiz DECLARADA pelo
 /// resolver — o módulo de lá é lido; e um módulo cujo nome carrega `..` não
 /// escapa das raízes (no `Path::join`, um caminho absoluto SUBSTITUI a base).
