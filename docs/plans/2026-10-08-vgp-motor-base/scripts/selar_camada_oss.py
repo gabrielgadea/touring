@@ -72,12 +72,19 @@ def entradas_de(corpus: Path, lang: str) -> list[dict]:
     return out
 
 
-def ids_de(corpus: Path) -> set[str]:
-    """Todos os ids de um corpus, em qualquer estrato."""
+def ids_de(corpus: Path, ignorar: Path | None = None) -> set[str]:
+    """Todos os ids de um corpus, em qualquer estrato.
+
+    `ignorar` e o corpus que esta sendo selado: quando a origem da comparacao e o historico
+    INTEIRO, a propria camada nova esta dentro dele — e a camada se contaria como sobreposicao
+    de si mesma, que e um numero sem informacao (MEDIDO em 01/11).
+    """
     ids: set[str] = set()
     if not corpus.is_dir():
         return ids
     for jl in corpus.rglob("entradas.jsonl"):
+        if ignorar is not None and jl.resolve().is_relative_to(ignorar.resolve()):
+            continue
         for ln in jl.read_text(errors="replace").splitlines():
             if not ln.strip():
                 continue
@@ -226,16 +233,18 @@ def selo_interno(corpus: Path) -> dict:
     }
 
 
-def mede_disjuncao(ids_da_camada: set, origens: list) -> tuple[list, int]:
+def mede_disjuncao(ids_da_camada: set, origens: list, ignorar: Path | None = None) -> tuple[list, int]:
     """Quantos ids desta camada ja estavam em um corpus anterior.
 
     Um held-out que repete o holdout anterior nao prova nada: o juiz pode ter sido calibrado
     nos mesmos pares, e o numero de falso deny sai otimista sem nenhum sinal.
+
+    `ignorar` e a propria camada: quando a origem e o historico INTEIRO, ela esta dentro dele.
     """
     disjuncao = []
     for origem in origens:
         p = Path(origem).expanduser()
-        outros = ids_de(p)
+        outros = ids_de(p, ignorar)
         comum = sorted(ids_da_camada & outros)
         disjuncao.append(
             {
@@ -292,7 +301,7 @@ def main() -> int:
 
     # a DISJUNCAO, medida: quantos ids desta camada ja estavam em um corpus anterior
     ids_da_camada = ids_de(corpus)
-    disjuncao, n_em_comum = mede_disjuncao(ids_da_camada, a.verificar_disjuncao_de)
+    disjuncao, n_em_comum = mede_disjuncao(ids_da_camada, a.verificar_disjuncao_de, corpus)
 
     arqs = sorted(p for p in corpus.rglob("*") if p.is_file())
     interno = selo_interno(corpus)
