@@ -1292,6 +1292,14 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         .and_then(|v| v.as_str())
         .unwrap_or("access_count");
     let order = memory_list_order_clause(sort_field);
+    // `--tier` (01/11/2026): the tier is a namespace (decision B), so listing one
+    // is the natural read. Any stored name is accepted — the live store also holds
+    // tiers outside `MemoryTier` (`semantic`, `local`, `episodic`) — and an empty
+    // result names the tiers that DO exist instead of a mute zero.
+    let tier = payload
+        .get("tier")
+        .and_then(|v| v.as_str())
+        .filter(|t| !t.is_empty());
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     let conn = match rusqlite::Connection::open(&memory_db_path) {
         Ok(c) => c,
@@ -1319,7 +1327,7 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     let query = format!(
         "SELECT key, value, tier, entry_type, access_count, COALESCE(last_accessed_at, ''),
                 {reward_col}, {importance_col}, {pinned_col}, {superseded_col}
-         FROM memory_entries {order} LIMIT ?1"
+         FROM memory_entries WHERE (?2 IS NULL OR tier = ?2) {order} LIMIT ?1"
     );
     let mut stmt = match conn.prepare(&query) {
         Ok(s) => s,
@@ -1331,7 +1339,7 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         }
     };
     let mut entries: Vec<serde_json::Value> = stmt
-        .query_map(params![limit], |row| {
+        .query_map(params![limit, tier], |row| {
             let mut entry = serde_json::json!({
                 "key": row.get::<_, String>(0)?,
                 "value": row.get::<_, String>(1)?,
@@ -1362,6 +1370,9 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     // write-side guard); the database is not rewritten.
     sanitize_json_items(&mut entries);
     let count = entries.len();
+    // A filtered listing that came back empty says which namespaces exist, so a
+    // typo or a guessed name is corrected by the reply, not by a second query.
+    let available_tiers = (tier.is_some() && count == 0).then(|| memory_distinct_tiers(&conn));
     // The pheromone-health number, reported because it was invisible: 11 of
     // 7360 entries carried a reward when this was written (0,15%), so the
     // `positive`/`negative`/`unobserved` guidance recall prints was operating
@@ -1385,9 +1396,23 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         "total": total,
         "truncated": (count as i64) < total,
         "corpus": { "total": total, "with_reward": scored },
+        "tier": tier,
+        "available_tiers": available_tiers,
     })
     .to_string()
 }
+
+/// The tier names present in `memory_entries`, sorted (empty on any SQL error —
+/// it only decorates an empty filtered listing, never decides one).
+fn memory_distinct_tiers(conn: &rusqlite::Connection) -> Vec<String> {
+    conn.prepare("SELECT DISTINCT tier FROM memory_entries ORDER BY tier")
+        .and_then(|mut s| {
+            s.query_map([], |r| r.get::<_, String>(0))
+                .map(|rows| rows.filter_map(Result::ok).collect())
+        })
+        .unwrap_or_default()
+}
+
 /// Helper: determine ORDER BY clause for memory list queries.
 ///
 /// Columns are those of `memory_entries`; the previous clauses named
@@ -2436,6 +2461,37 @@ mod recall_sanitize_tests {
         assert!(!out.contains(&key), "secret leaked through list: {out}");
         let served = served_value(&out, "c6-list-old");
         assert_eq!(served, "listing [REDACTED] end");
+    }
+
+    /// `memory list --tier` (01/11/2026): the tier is a namespace. A tier
+    /// outside `MemoryTier` (`semantic`) is listable, another tier does not leak
+    /// into the result, and an empty filtered listing names the tiers present.
+    #[test]
+    fn list_filters_by_tier_and_names_the_tiers_when_empty() {
+        let (_tmp, mut rt) = runtime_with_legacy_row("tier-probe", "namespaced value");
+        let hit: serde_json::Value = serde_json::from_str(&cli_memory_list(
+            &mut rt,
+            &json!({"limit": 10, "tier": "semantic"}),
+        ))
+        .unwrap();
+        assert_eq!(hit["count"], 1, "{hit}");
+        assert_eq!(hit["entries"][0]["key"], "tier-probe");
+        assert!(
+            hit["available_tiers"].is_null(),
+            "only an EMPTY listing names tiers"
+        );
+
+        let miss: serde_json::Value = serde_json::from_str(&cli_memory_list(
+            &mut rt,
+            &json!({"limit": 10, "tier": "working"}),
+        ))
+        .unwrap();
+        assert_eq!(miss["count"], 0, "{miss}");
+        assert_eq!(miss["available_tiers"], json!(["semantic"]), "{miss}");
+
+        let all: serde_json::Value =
+            serde_json::from_str(&cli_memory_list(&mut rt, &json!({"limit": 10}))).unwrap();
+        assert_eq!(all["count"], 1, "no tier ⇒ no filter: {all}");
     }
 }
 

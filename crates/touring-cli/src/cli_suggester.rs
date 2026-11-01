@@ -2104,7 +2104,12 @@ fn collect_memory_lessons_one_db(
                 } else {
                     0.7 // plain / cross-class
                 };
-                let text = format!("Past failure [{}]: {}", key, truncate(&value, 80));
+                // C6 (01/11/2026): this text is injected as hook context, so the
+                // stored value is cleaned on the way out like every other memory
+                // reader (`memory recall`/`query`/`list` already do) — a row
+                // written before the write-side guard must not reach the model raw.
+                let clean = touring_foundation::text_sanitize::sanitize_memory_text(&value).text;
+                let text = format!("Past failure [{}]: {}", key, truncate(&clean, 80));
                 let score = severity_weight("warning")
                     * recency_weight(0.0) // no timestamp in memory_entries
                     * frequency_weight(1)

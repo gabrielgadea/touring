@@ -154,9 +154,7 @@ pub struct MemoryResult {
 }
 
 impl MemoryResult {
-    /// Get total number of matches
-    #[allow(dead_code)]
-    /// False positive: called via cross-module pub(crate) from tools_core.rs:401.
+    /// Get total number of matches (consumer: `server::tools_core`, memory query tool).
     pub(crate) fn total_matches(&self) -> usize {
         self.rlm_matches.len() + self.semantic_matches.len()
     }
@@ -413,19 +411,11 @@ impl MemoryStore {
         Ok(self.rlm.delete(key, tier)?)
     }
 
-    /// List entries in a tier
-    pub fn list_tier(&self, tier: &str, limit: usize) -> Result<Vec<RlmMatch>> {
-        let tier_parsed = MemoryTier::parse_tier(tier)?;
-        // Search with wildcard-like query to list entries in this tier
-        let results = self.rlm.search("*", Some(tier_parsed), limit)?;
-        Ok(results)
-    }
-
     /// Promote a memory entry to a different tier
     ///
-    /// Reads the entry from old tier, deletes it, stores in new tier.
-    #[allow(dead_code)]
-    /// False positive: called via cross-module pub(crate) from tools_analysis.rs:1062.
+    /// Reads the entry from old tier, deletes it, stores in new tier — an
+    /// explicit, requested move of the address (consumer: `server::tools_analysis`),
+    /// never an automatic heat-ladder step (decision B, 01/11/2026).
     pub(crate) fn promote_tier(&self, key: &str, old_tier: &str, new_tier: &str) -> Result<bool> {
         let old = MemoryTier::parse_tier(old_tier)?;
         let new = MemoryTier::parse_tier(new_tier)?;
