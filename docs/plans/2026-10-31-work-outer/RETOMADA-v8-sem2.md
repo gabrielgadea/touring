@@ -164,18 +164,20 @@ precisa.
 
 ### 2.2 O ritmo medido e o que falta
 
-| classe | n | negativos | taxa |
-|---|---:|---:|---:|
-| typescript | 209 | 135 | 65 % |
-| tsx | 192 | 80 | 42 % |
-| javascript | 18 | 18 | 100 % |
-| html | 2 | 2 | — |
+**MARCO: a classe `typescript` CRUZOU o critério** — 316 negativos (≥ 299) com 478 entradas,
+dentro do teto medido e disjunta do histórico. As outras ainda não:
+
+| classe | n | negativos | taxa | situação |
+|---|---:|---:|---:|---|
+| typescript | 478 | **316** | 66 % | **atinge o critério** |
+| tsx | 403 | 132 | 33 % | falta ~167 |
+| javascript | 22 | 21 | 95 % | falta ~278 (os repos de JS vêm no fim da ordem) |
+| html | 3 | 3 | — | **NÃO PROVADA por falta de adjudicador** (D-8) |
 
 Ritmo: **~5-9 entradas/min** (o gargalo é o delta do adjudicador mais o retestemunho com `tsc` a
-cada 50). Para os **299 negativos** por classe, o `typescript` precisa de ~+150 negativos (≈ +230
-entradas, ≈ 45 min) e o `tsx` de ~+220 (≈ +520 entradas). O `javascript` só cresce quando o
-lote sai dos repos de TS (a ordem é excalidraw → zod → date-fns → … → express/dom-examples) — e
-a **taxa de 100 % de negativos** do javascript é medida.
+cada 50). O `typescript` foi o primeiro a cruzar porque o `excalidraw` é todo de TypeScript; o
+`tsx` e o `javascript` crescem quando o lote passa por `zod`, `date-fns`, `express` e
+`dom-examples`.
 
 **A camada é selável a qualquer momento** (o selo externo é sobre o que está em disco), então um
 fim de sessão antecipado não perde o trabalho: basta rodar o comando acima e escrever o §5.6
