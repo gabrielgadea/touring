@@ -65,3 +65,27 @@ faz isso ✓).
 - hw-slot sempre; commit só dos meus paths.
 - Clones de repositórios públicos: na rede, **fora** do workspace
   (`~/.claude/touring/vgp/oss/` ✓ — já existiam ✓).
+
+## AB34 ARMADO (31/10, 21:5x) — o que NÃO se toca até 08/11 00:10
+
+O A/B 3.4 está armado (`day0 = 01/11 00:00`, timers `ab34-arm` de hora em hora
+e `ab34-reset` às 00:10). Até 08/11 00:10 valem duas regras:
+
+1. **Nenhum** `update-touring`, **nenhum** `propagate-release.sh`, **nenhum**
+   `touring daemon-ctl restart|stop`, e **nenhum daemon spawnado à mão** — isso
+   reverte a célula C e descarta o bloco. A **única** janela de release é a
+   virada do dia 3 para o 4 (**04/11 00:00**), e a **coordenadora** a conduz.
+   O merge do **V-4/V-5 (intadapt)** está no gate agora e entra no release de
+   **04/11**.
+2. **Build e teste com `cargo` seguem livres** — não tocam o daemon global.
+
+**O que esta sessão fez (nada toca o daemon global)**: `cargo check/clippy/
+test/build` ✓, o juiz (`juiz_motor_vgp.py` → o binário release) ✓, o
+`touring run` (o filho no sandbox do CEG — não é o daemon) ✓, e os scripts do
+bundle (`corpus_rust.py`, `rotular_oss.py`, `selar_holdout_web.py`,
+`confere_selo.py`) ✓. **Nenhum** `update-touring`, `propagate-release.sh`,
+`daemon-ctl restart|stop` ou spawn de daemon ✓.
+
+**Enquanto o AB34 estiver armado**: nada de release, nada de reinício de
+daemon. O que falta do V-8 (a re-rotulação OSS e o selo conferido) é
+`cargo`/python/node — livres ✓.
