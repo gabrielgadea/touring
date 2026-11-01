@@ -1,0 +1,19 @@
+{
+ "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261101c",
+ "sha_tree": "b5a819f38c57d227",
+ "arquivos": 3015,
+ "bytes": 23662250,
+ "holdout_meta_sha256": "d5a8ce58da02b2ee41c6f862af015d3886cafc026dda9239a8b8ce0927547a50",
+ "entradas_jsonl_sha256": "da839dfc0a50cfc5fa4b679bf33441980c80912f139d41af41d20c6aad88e2d7",
+ "entradas_inline_neg_jsonl_sha256": "2a1928ed9123d9ff6168317413587f7a35fe76a62359519fc0d13d98b53a782d",
+ "selado": "o motor e o juiz NAO rodaram neste corpus; abrir so depois do P0 e conferir o sha_tree antes (scripts/confere_selo.py)",
+ "adjudicador_sha256": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+ "estado_no_instante_sha256": "031a6fb8e59dc83d1ddc0bd2cff52310e6ec8364e2ab4e93f2bbd579a34bea11",
+ "congelados_json_sha256": "5b14b6707244e8e6593db88cd0a55a9f6352284ec39800a8f4e932f59ae54aa8",
+ "seed": "20261103",
+ "construtor_sha256": "a206a6d08f91970671346809daaad2decae3ff0265f0d275ac93d02a14cb4967",
+ "regra_de_estado_completo": "fecho transitivo de módulos locais pelo Git vigente no ts; src/python/packages; não reconstruível fora do denominador",
+ "preregistro_dependencias_sha256": "8f1b7443cab73552640855656670b1dc73f7d61ad52177a24c3fc8b939d0bfee",
+ "correcao_dependencias_commit": "ab256a5b",
+ "gasto_anterior": "corpus_holdout_disjunto_20261101 (J15)"
+}
