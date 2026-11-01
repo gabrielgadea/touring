@@ -137,6 +137,12 @@ Intra-arquivo, **intra-função**, **sem taint entre funções**:
 - arquivo > 4 MiB: não analisado por este braço;
 - ordem: o fluxo é "para frente" por posição; laço que realimenta o taint de uma linha
   anterior não é modelado.
+- **sanitizador reconhecido pelo NOME, por substring** (`dom_sinks.rs`, função que testa
+  `sanitize`/`sanitise`/`escape` no nome em minúsculas, excluindo `unescape` e `regex`): uma
+  função qualquer cujo nome contenha a palavra (`escapeKey(x)`, `sanitizeLayout(x)`) **limpa**
+  o taint sem escapar nada (falso negativo); um escapador real com outro nome
+  (`renderizarCorpo`, que chama `escapar()` por dentro) **não** limpa (falso positivo — o
+  caso 1 do censo §8). O corpo da função chamada nunca é lido.
 
 Inversamente, o parâmetro de função ser sempre fonte **é** a causa de falso positivo
 esperada: `function render(items){ el.innerHTML = items.map(...)… }` é reportado mesmo que
