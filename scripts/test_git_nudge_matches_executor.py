@@ -49,6 +49,41 @@ failures: list[str] = []
 unverified: list[str] = []
 
 
+GUARD_PINADO = re.compile(
+    r"^(?:export\s+)?GIT_GUARD_ENABLED\s*=\s*['\"]?1['\"]?\s*$"
+)
+
+
+def guard_has_no_off_switch(shell: str) -> bool:
+    """The guard has been unconditional since the S48 rewrite: no enable flag.
+
+    What must never come back is an off switch, so every GIT_GUARD_ENABLED
+    mention must pin it to 1. The old check demanded the literal
+    `GIT_GUARD_ENABLED=1`, which failed on the guard that runs.
+
+    MEDIDO em 01/11 (review de seguranca): o `findall` + busca de substring aceitava
+    (a) um COMENTARIO (`# GIT_GUARD_ENABLED=1`) e (b) uma atribuicao CONDICIONAL
+    (`if ...; then GIT_GUARD_ENABLED=1; fi`): nenhuma das duas liga o guard, e as duas
+    passavam. Agora a mencao tem de ser uma atribuicao INCONDICIONAL ancorada no 1 — o
+    comentario e a atribuicao condicional reprovam.
+
+    A correcao SUGERIDA pelo review (exigir que o shell nao cite a variavel) foi MEDIDA e
+    REJEITADA: ela reprovaria `GIT_GUARD_ENABLED=1`, que e o caso SEGURO e o que o guard
+    usa — exatamente a condicao que o check literal antigo tinha, e que a outra sessao
+    acabou de consertar.
+    """
+    for linha in shell.splitlines():
+        if "GIT_GUARD_ENABLED" not in linha:
+            continue
+        codigo = linha.strip()
+        if codigo.startswith("#"):
+            continue  # um comentario nao e atribuicao: nao cria off switch
+        codigo = codigo.split("#", 1)[0].strip()
+        if not GUARD_PINADO.match(codigo):
+            return False
+    return True
+
+
 def check(cond: bool, msg: str) -> None:
     if not cond:
         failures.append(msg)
@@ -112,9 +147,9 @@ def main() -> int:
     else:
         shell = EXECUTOR.read_text(encoding="utf-8")
         check(
-            "GIT_GUARD_ENABLED=1" in shell,
-            "executor guard is disabled (GIT_GUARD_ENABLED != 1) — the nudge "
-            "would promise a gate that does not run",
+            guard_has_no_off_switch(shell),
+            "executor guard has an off switch (GIT_GUARD_ENABLED not pinned to 1) — "
+            "the nudge would promise a gate that may not run",
         )
         check(
             "GIT_DESTRUCTIVE_OK=1" in shell,
@@ -170,6 +205,39 @@ def test_git_nudge_matches_its_executor():
     unverified.clear()
     rc = main()
     assert rc != 1, "drift entre o nudge do git e o executor: " + "; ".join(failures)
+
+
+def test_o_guard_nao_aceita_comentario_nem_atribuicao_condicional():
+    """O proprio meta-teste, testado — MEDIDO em 01/11 (review de seguranca).
+
+    O `findall` + busca de substring aceitava um COMENTARIO (`# GIT_GUARD_ENABLED=1`) e uma
+    atribuicao CONDICIONAL (`if ...; then GIT_GUARD_ENABLED=1; fi`): nenhuma das duas liga o
+    guard, e as duas passavam. O predicado agora e ANCORADO — so uma atribuicao incondicional
+    no 1 passa, e um off switch (`=0`, `${X:-1}`) reprova.
+
+    A correcao sugerida pelo review ("exigir que o shell nao cite a variavel") foi MEDIDA e
+    REJEITADA: ela reprovaria `GIT_GUARD_ENABLED=1`, que e o caso SEGURO e o que o guard usa
+    — a mesma condicao do check literal antigo, que foi justamente o que a outra sessao
+    acabou de consertar.
+    """
+    casos = [
+        ("sem mencao alguma", "echo ola\n", True),
+        ("atribuicao pinada no 1", "GIT_GUARD_ENABLED=1\n", True),
+        ("export pinado no 1", "export GIT_GUARD_ENABLED=1\n", True),
+        ("aspas no 1", 'GIT_GUARD_ENABLED="1"\n', True),
+        ("comentario nao e off switch", "# GIT_GUARD_ENABLED=1\n", True),
+        ("atribuicao condicional reprova", 'if [ -n "$X" ]; then GIT_GUARD_ENABLED=1; fi\n', False),
+        ("off switch reprova", "GIT_GUARD_ENABLED=0\n", False),
+        ("default reprova", "GIT_GUARD_ENABLED=${X:-1}\n", False),
+        (
+            "off switch depois de um pinado reprova",
+            "GIT_GUARD_ENABLED=1\nGIT_GUARD_ENABLED=0\n",
+            False,
+        ),
+    ]
+    for nome, shell, esperado in casos:
+        obtido = guard_has_no_off_switch(shell)
+        assert obtido == esperado, f"{nome}: esperado {esperado}, veio {obtido}"
 
 
 def test_guard_detects_a_revoked_prohibition_claim():
