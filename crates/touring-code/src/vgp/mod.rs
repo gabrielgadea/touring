@@ -239,12 +239,16 @@ fn medir(
 ) -> Medido {
     let v = adaptador.verificar(input);
     let mut achados = v.achados;
+    // the adapter's reason first, then each transversal's in registry order — none is dropped
+    let mut motivos: Vec<String> = v.nao_medido.into_iter().collect();
     for t in transversais {
-        achados.extend(t.verificar(input));
+        let r = t.verificar(input);
+        achados.extend(r.achados);
+        motivos.extend(r.nao_medido);
     }
     Medido {
         achados,
-        nao_medido: v.nao_medido,
+        nao_medido: (!motivos.is_empty()).then(|| motivos.join("; ")),
     }
 }
 

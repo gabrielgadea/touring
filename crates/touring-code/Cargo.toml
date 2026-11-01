@@ -34,6 +34,10 @@ tree-sitter-md = { workspace = true }
 tree-sitter-go = { workspace = true }
 tree-sitter-java = { workspace = true }
 
+# SRI digests of the CDN cache (vgp::lang::cdn::hash) — audited primitives, nothing hand-rolled
+sha2 = { workspace = true }
+base64 = { workspace = true }
+
 # ── ast-grep stack (W4.3 — polyglot module) ──────────────────────────────────
 ast-grep-core = { workspace = true }
 ast-grep-language = { workspace = true }
