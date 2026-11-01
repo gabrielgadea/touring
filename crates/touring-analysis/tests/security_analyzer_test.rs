@@ -570,7 +570,7 @@ fn a_scheme_blocklist_is_not_a_sink_but_a_url_assignment_is() {
         ("if ok:\n    el.href = \"javascript:\" + x\n", "python"),
         ("x == 1 and go(\"javascript:alert(1)\")\n", "python"),
         (
-            "redirect(url if url.startswith(\"/\") else \"javascript:void(0)\")\n",
+            "redirect(url if url.startswith(\"/\") else \"javascript:alert(1)\")\n",
             "python",
         ),
         ("if (ok) el.href = \"javascript:\" + x;\n", "javascript"),
@@ -579,6 +579,82 @@ fn a_scheme_blocklist_is_not_a_sink_but_a_url_assignment_is() {
             xss_findings(source, lang),
             1,
             "a URL assignment is a sink: {source}"
+        );
+    }
+}
+
+/// An INERT constant `javascript:` URL (no-op / history / print, no data) is not XSS:
+/// the real tag lines of 16 captured HTML pages, judged by the whole analyzer
+/// (the constant `onclick="window.close()"` next to one is the code judge's call).
+#[test]
+fn an_inert_constant_javascript_url_is_not_a_sink_but_data_flow_and_payloads_are() {
+    for (source, lang) in [
+        (
+            "<a href=\"javascript:;\" class=\"link-contraste\" id=\"alto_contraste_id\">Contraste</a>\n",
+            "html",
+        ),
+        (
+            "<a href=\"javascript:;\" id=\"voltar\" class=\"float-right\" onclick=\"window.close()\">Voltar</a>\n",
+            "html",
+        ),
+        (
+            "<a href=\"javascript:void(0)\" class=\"contrast-event\">x</a>\n",
+            "html",
+        ),
+        ("<a href=\"javascript:void(0);\">x</a>\n", "html"),
+        (
+            "<a href=\"javascript:history.back()\">Página Anterior</a>\n",
+            "html",
+        ),
+        ("<a href=\"javascript:history.forward(1);\">x</a>\n", "html"),
+        ("<a href=\"javascript:history.go(-1);\">x</a>\n", "html"),
+        (
+            "<a href=\"javascript:window.history.back();\">x</a>\n",
+            "html",
+        ),
+        (
+            "<a href=\"javascript:this.print();\">Imprimir</a>\n",
+            "html",
+        ),
+        (
+            "html = f'<a href=\"javascript:void(0)\">{name}</a>'\n",
+            "python",
+        ),
+        (
+            "TOKENS = [\"PORTARIA\", \"javascript:\", \"detalharAto\"]\n",
+            "python",
+        ),
+        (
+            "el.innerHTML = `<a href=\"javascript:void(0)\">${name}</a>`;\n",
+            "javascript",
+        ),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            0,
+            "an inert constant URL is not a sink: {source}"
+        );
+    }
+    for (source, lang) in [
+        ("location = 'javascript:' + x;\n", "javascript"),
+        ("url = \"javascript:void(0)\" + suffix\n", "python"),
+        ("html = f'<a href=\"javascript:{x}\">go</a>'\n", "python"),
+        ("<a href=\"javascript:alert(1)\">x</a>\n", "html"),
+        (
+            "<a href=\"javascript:alert(document.cookie)\">x</a>\n",
+            "html",
+        ),
+        ("<a href=\"javascript:void(0);alert(1)\">x</a>\n", "html"),
+        (
+            "<a href=\"javascript:history.go('http://evil.example')\">x</a>\n",
+            "html",
+        ),
+        ("<a href=javascript:alert(1)>x</a>\n", "html"),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            1,
+            "data flow or payload is a sink: {source}"
         );
     }
 }
