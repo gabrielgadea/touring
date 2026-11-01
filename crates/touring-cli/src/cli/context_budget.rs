@@ -248,13 +248,16 @@ pub fn transcript_dir_for(home: &Path, project_root: &Path) -> PathBuf {
 
 /// One text a hook injected, with the emitter mark Claude Code recorded for the hook that
 /// produced it (`None` in a transcript that does not record one).
-struct Injection {
-    emitter: Option<String>,
-    text: String,
+pub(crate) struct Injection {
+    /// The hook command Claude Code recorded, when the transcript carries one.
+    pub(crate) emitter: Option<String>,
+    /// The injected text.
+    pub(crate) text: String,
 }
 
-/// Every text a hook injected in one transcript record, or an empty vec.
-fn hook_injections(rec: &Value) -> Vec<Injection> {
+/// Every text a hook injected in one transcript record, or an empty vec. Shared with the
+/// `context_cost` ruler (B5), which prices the same blocks this module counts in bytes.
+pub(crate) fn hook_injections(rec: &Value) -> Vec<Injection> {
     let Some(att) = rec.get("attachment") else {
         return Vec::new();
     };

@@ -248,6 +248,13 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
         json!(gate_snap.injection_suppressed_blocks_count);
     out["context_budget"]["injection_suppressed_bytes_count"] =
         json!(gate_snap.injection_suppressed_bytes_count);
+    // B5/B3 (01/11/2026) — the window in TOKENS with the cache accounted
+    // (`context_cost`) and what the harness announces against what was used
+    // (`surface_usage`). Siblings of `context_budget`: same transcripts, same
+    // caps, read-only; one walk serves both. Absence is displayed, never zero.
+    let (cost, surface) = super::context_cost::context_cost_and_surface(&rt.project_root);
+    out["context_cost"] = cost;
+    out["surface_usage"] = surface;
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
