@@ -20,6 +20,7 @@ isso, vá muito mais além".
 | B7 explore não lê o próprio ledger (`_is_own_ledger`) | `1c9fe965` | test_explore 25/25 |
 | B9 headless `mcp = none|inherit|<json>` + `session_persistence` | `b1fd113e` | test_adw 254/254; lint 23/23 specs |
 | B10 `run_effect` helped/hurt/confounded + fixture que impede a suíte de depositar no aprendizado real | `6a1437e4` | test_adw 259/259 |
+| B11 onda EGM E1-E8 (goldfish, must_read por desafio de linha, findings, churn, triage, tools=none, purpose de design, output_schema) | `cabdd732` | test_adw 361/361; 23 specs válidas |
 
 ## Restrições vivas
 
@@ -35,4 +36,6 @@ de controle gravaria transcrito no corpus do AB34). B6 (`ab34_arm.py`) só depoi
   referências); revisor que não leu não revisou; sintetizador devolve só contagem + link; falha de revisor =
   `not run`; convergência = 2 rodadas limpas, teto 5, churn; triagem CONTEST/ESCALATE/PROPOSE FIX/DECLINE;
   contradição não edita arquivo; schema de retorno de worker {path, summary, interface, invariants, side_effects}.
-- Próximo: desenhar e implementar no ADW (campos novos de Spec + validação + testes), depois B5 → B3 → B2 → B1 → B4.
+- B5+B3 (`context_cost`, `surface_usage` no `touring kpi`) com subagente sonnet, em curso.
+- Pendências da onda EGM: o minerador do portfólio (`miner.rs`) não indexa goals/verification; efeito de `omitClaudeMd` e `--tools ""` exige run vivo (depois de 08/11).
+- Depois: B2 e B1 só na fonte e desligados até 08/11; B4 fase 0 (amostra para rótulo humano); B6, B12, B13 depois de 08/11.
