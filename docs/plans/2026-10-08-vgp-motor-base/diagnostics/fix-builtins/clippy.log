@@ -1,0 +1,6 @@
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+    Checking touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
+    Checking touring-storage v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+    Checking touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.85s

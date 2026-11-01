@@ -1,0 +1,24 @@
+
+running 1 test
+test vgp::lang::python::tests::site_builtins_exit_e_quit_nao_geram_falso_deny ... FAILED
+
+failures:
+
+---- vgp::lang::python::tests::site_builtins_exit_e_quit_nao_geram_falso_deny stdout ----
+
+thread 'vgp::lang::python::tests::site_builtins_exit_e_quit_nao_geram_falso_deny' (269150) panicked at crates/touring-code/src/vgp/lang/python/tests.rs:2127:9:
+assertion `left == right` failed: "exit()\n": [Finding { classe: "nome", nome: "exit", linha: 1, severidade: "deny", sugestao: "nome usado sem definição em nenhum escopo", reais: [], alvo: Projeto, receptor: None }]
+  left: [("nome", "exit")]
+ right: []
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    vgp::lang::python::tests::site_builtins_exit_e_quit_nao_geram_falso_deny
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 977 filtered out; finished in 0.00s
+
+   Compiling touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 47.46s
+     Running unittests src/lib.rs (target/debug/deps/touring_code-91c008abebc4bd9a)
+error: test failed, to rerun pass `-p touring-code --lib`

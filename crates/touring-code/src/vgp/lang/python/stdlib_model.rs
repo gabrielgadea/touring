@@ -87,6 +87,9 @@ pub const PYTHON_BUILTINS: &[&str] = &[
     "vars",
     "zip",
     "__import__",
+    // helpers injected by the standard `site` initialization (available to normal Python programs)
+    "exit",
+    "quit",
     // exceptions (BaseException hierarchy + warnings + common ones)
     "ArithmeticError",
     "AssertionError",

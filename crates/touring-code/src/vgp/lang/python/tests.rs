@@ -2116,3 +2116,47 @@ fn p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime() {
         assert!(!tipo_fechado(nome), "{nome} is subclassable: not closed");
     }
 }
+
+#[test]
+fn site_builtins_exit_e_quit_nao_geram_falso_deny() {
+    let tmp = std::env::temp_dir().join("vgp-t-site-builtins");
+    let _ = std::fs::remove_dir_all(&tmp);
+    let root = projeto(&tmp);
+    for src in ["exit()\n", "quit()\n"] {
+        let out = check(&input(root.clone(), "<string>", src, HashMap::new()));
+        assert_eq!(
+            denies(&out),
+            Vec::<(String, String)>::new(),
+            "{src:?}: {:?}",
+            out.findings
+        );
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn exec_e_return_tambem_nao_geram_falso_deny() {
+    let tmp = std::env::temp_dir().join("vgp-t-exec-return");
+    let _ = std::fs::remove_dir_all(&tmp);
+    let root = projeto(&tmp);
+    for src in ["exec(\"x = 1\")\n", "def f():\n    return 1\n"] {
+        let out = check(&input(root.clone(), "<string>", src, HashMap::new()));
+        assert_eq!(
+            denies(&out),
+            Vec::<(String, String)>::new(),
+            "{src:?}: {:?}",
+            out.findings
+        );
+    }
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn trap_sem_definicao_continua_negado() {
+    let tmp = std::env::temp_dir().join("vgp-t-trap");
+    let _ = std::fs::remove_dir_all(&tmp);
+    let root = projeto(&tmp);
+    let out = check(&input(root, "<string>", "trap()\n", HashMap::new()));
+    assert_eq!(denies(&out), vec![("nome".to_string(), "trap".to_string())]);
+    let _ = std::fs::remove_dir_all(&tmp);
+}
