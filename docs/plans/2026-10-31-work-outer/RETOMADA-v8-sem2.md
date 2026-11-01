@@ -75,6 +75,39 @@ prova sem acrescentar um único falso deny possível.
 `scripts/rodar_rotulacao_oss_20261101.sh` (o comando exato do lote, com o log **ao lado** da
 saída, e sem tocar no daemon global).
 
+### 1.5 A DIVERGÊNCIA que matava o lote — e o adjudicador que NÃO é o congelado
+
+O primeiro lote desta sessão (11:26→11:56, BRT) **parou com 218 entradas**: a **divergência**
+entre o adjudicador LS e o `tsc` de referência. No `excalidraw/packages/excalidraw/actions/
+manager.tsx`, o LS acusa `TS2307` de módulos (`../utils`, `../element/types`) que o `tsc`
+resolve — a causa provável é o **programa do LanguageService ser cacheado**: um arquivo criado
+pelo commit não está na lista do programa, então o módulo não resolve no LS e resolve no `tsc`.
+
+**O desfecho antigo era PARAR O LOTE INTEIRO.** E o efeito medido foi **nenhum corpus**: um
+corpus que não existe não prova nada. Agora a divergência **EXCLUI o par** (que é o item
+suspeito) e o lote continua — fail-closed no nível do par, que é onde a divergência vale. O que
+não pode é o par entrar. A divergência fica **registrada** no relatório do repo e no selo.
+
+**E um achado que muda a comparação entre as camadas**: o adjudicador vivo
+(`~/.claude/touring/vgp/oss/oraculo_ls.js`) é **byte a byte igual** à cópia versionada do bundle
+(sha `80976ec9…`, 10 580 bytes, mtime **09/10 23:39**), e a camada **antiga** foi feita com
+`8e8dd5f1…` (7 884 bytes). **O adjudicador foi trocado DEPOIS da camada antiga** (o fix do
+framing de 64 KB, medido em 10/10) — **as duas camadas não foram feitas pelo mesmo oráculo**, e
+por isso os números delas não são comparáveis sem declarar isso.
+
+### 1.6 A COLETA: 3 spawns por par → 1 processo
+
+A coleta era `git rev-parse` (o pai) + 2 `git show` (antes e depois) **por par**: 17 670 pares em
+mc=600 são ~50 000 spawns, e 1,5 h dos 2,4 h de coleta eram de repos cujas linguagens já
+estavam cheias (o `por_lang >= alvo` só é conferido **depois** da coleta). Agora o pai e a **data**
+de cada commit vêm no **mesmo log** (`%P`, `%ct`) e o conteúdo de todos os pares vem em **um**
+`git cat-file --batch` — o mesmo blob, byte a byte (o teste compara com o `git show`).
+
+**E um defeito que o número expôs**: o `datas` **nunca era preenchido**, então o `data_commit`
+era sempre `0` e a «ordem canônica» era **alfabética por caminho** — o docstring prometia a data
+do commit na chave de ordem. Agora a ordem é a que foi pedida: pela data, depois pelo caminho,
+com o `id` desempata.
+
 ## 2. O que está EM CURSO
 
 O lote de re-rotulação (js/tsx/ts) está rodando:
@@ -129,12 +162,19 @@ abstenção; as 4 causas de ruído de `warn` do Rust; e (agora resolvido) o adju
 
 ## 5. DOIS ACHADOS que a próxima sessão precisa saber
 
-1. **A camada OSS atual não é consumível pelo juiz como está.** As entradas do rotulador têm
-   `rotulo: "positivo_natural"`, e o juiz filtra `e["rotulo"] == "positivo"` (e exige
-   `reproduz == "true"`); e **não há `nome_esperado`** (sem ele não há recall). O **falso deny**
-   (o denominador do V-8) **não é afetado** — o critério do V-8 é sobre NEGATIVOS, e o rótulo
-   `"negativo"` está certo. Mas o **recall** de TS/TSX/JS (V-12) depende de corrigir o formato.
-   O modelo do formato certo é `~/.claude/touring/vgp/corpus_semeado/html/entradas.jsonl`.
+1. **A camada OSS atual não é consumível pelo juiz como está.** O juiz **já suporta** o contrato
+   do `--disk-file` pela entrada (`juiz_motor_vgp.py:180-182`: `elif entrada.get("snap_antes")`),
+   mas a camada do rotulador tem **três campos a menos** do que o juiz lê:
+   - **`snap`** (o conteúdo depois) — o juiz faz `corpus / entrada["snap"]`; a camada tem
+     `conteudo` (`conteudo/<id>.txt`), outro nome;
+   - **`project_root`** — o juiz passa `--project-root <root>` e não tem como obtê-lo;
+   - **nos positivos**: `rotulo` é `"positivo_natural"` e o juiz filtra `e["rotulo"] == "positivo"`
+     (e exige `reproduz == "true"`); e **não há `nome_esperado`** — sem ele não há recall.
+
+   O **falso deny** (o denominador do V-8) **não é afetado**: o critério do V-8 é sobre
+   NEGATIVOS, e o rótulo `"negativo"` está certo. Mas o **recall** de TS/TSX/JS (V-12) depende
+   de corrigir o formato. O modelo do formato certo é
+   `~/.claude/touring/vgp/corpus_semeado/html/entradas.jsonl`.
 2. **`contexto` tem de ser LISTA.** O juiz faz `for c in entrada.get("contexto") or []`; a string
    `"[]"` quebra (o mesmo defeito que o `RELATORIO-VRS.md` §6.1 registra para o corpus Rust).
 
