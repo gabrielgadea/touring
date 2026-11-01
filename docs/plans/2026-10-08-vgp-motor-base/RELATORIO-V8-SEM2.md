@@ -99,6 +99,9 @@ alvo). Não há mais 217 entradas para escrever: elas não existem.
    infratores nomeados). A correção é re-rotular com o teto aplicado na
    seleção (`rotular_oss.py --teto-concentracao 0.03`), o que exige os
    clones dos repositórios — o caminho fica sendo o da coordenadora.
+   **Em curso**: um `--dry-run` do rotulador com o teto de 3 % está rodando
+   (`/tmp/oss_dryrun.log`); o que ele responder é se os clones estão nesta
+   máquina — e o resultado entra aqui.
 
 ## 5. Regras (do briefing, em vigor)
 
