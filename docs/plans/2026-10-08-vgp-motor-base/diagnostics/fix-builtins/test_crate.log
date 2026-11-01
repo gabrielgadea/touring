@@ -1,0 +1,1393 @@
+   Compiling touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.16s
+     Running unittests src/lib.rs (target/debug/deps/touring_code-91c008abebc4bd9a)
+
+running 978 tests
+test ast::api_cascade::tests::cascade_plan_is_empty_when_no_changes ... ok
+test ast::api_cascade::tests::added_with_prior_callers_produces_medium_severity ... ok
+test ast::api_cascade::tests::added_without_callers_produces_low_severity ... ok
+test ast::api_cascade::tests::count_by_severity_groups_correctly ... ok
+test ast::api_cascade::tests::cascade_plan_serde_roundtrip ... ok
+test ast::api_cascade::tests::extract_symbol_from_const ... ok
+test ast::api_cascade::tests::extract_symbol_const_fn_prefers_fn_over_const ... ok
+test ast::api_cascade::tests::extract_symbol_from_enum ... ok
+test ast::api_cascade::tests::extract_symbol_from_plain_fn ... ok
+test ast::api_cascade::tests::extract_symbol_from_mod ... ok
+test ast::api_cascade::tests::end_to_end_real_source_pipeline ... ok
+test ast::api_cascade::tests::extract_symbol_from_static ... ok
+test ast::api_cascade::tests::extract_symbol_from_qualified_vis ... ok
+test ast::api_cascade::tests::extract_symbol_from_trait ... ok
+test ast::api_cascade::tests::extract_symbol_from_struct ... ok
+test ast::api_cascade::tests::extract_symbol_from_type_alias ... ok
+test ast::api_cascade::tests::extract_symbol_returns_empty_for_unparseable ... ok
+test ast::api_cascade::tests::extract_symbol_strips_generics ... ok
+test ast::api_cascade::tests::plan_preserves_change_ordering ... ok
+test ast::api_cascade::tests::removed_with_callers_produces_high_severity ... ok
+test ast::api_cascade::tests::removed_without_callers_produces_low_severity ... ok
+test ast::api_cascade::tests::unparseable_item_produces_no_callers_and_low_severity ... ok
+test ast::api_cascade::tests::extract_symbol_handles_unsafe_and_async ... ok
+test ast::call_graph::tests::test_call_graph_javascript ... ok
+test ast::call_graph::audit_probe_tests::probe_scoped_call_extraction ... ok
+test ast::call_graph::tests::test_call_graph_empty ... ok
+test ast::call_graph::tests::test_call_graph_basic ... ok
+test ast::call_graph::tests::test_call_graph_python ... ok
+test ast::call_graph::tests::test_call_graph_method_calls ... ok
+test ast::call_graph::tests::test_call_graph_unsupported_lang ... ok
+test ast::call_graph::tests::test_callees_of ... ok
+test ast::call_graph::tests::test_call_graph_ts_method_calls ... ok
+test ast::call_graph::tests::test_detect_cycles_empty_graph ... ok
+test ast::call_graph::tests::test_call_graph_ts_empty ... ok
+test ast::call_graph::tests::test_call_graph_typescript ... ok
+test ast::call_graph::tests::test_detect_cycles_python_mutual ... ok
+test ast::call_graph::tests::test_callers_of_nonexistent ... ok
+test ast::call_graph::tests::test_detect_cycles_mutual_recursion ... ok
+test ast::call_graph::tests::test_detect_cycles_no_cycles ... ok
+test ast::code_gen_workflow::tests::analyze_no_format_skips_prettyplease ... ok
+test ast::code_gen_workflow::tests::analyze_produces_full_report ... ok
+test ast::code_gen_workflow::tests::complexity_band_classifies_monotonically ... ok
+test ast::code_gen_workflow::tests::has_public_surface_reflects_emptiness ... ok
+test ast::code_gen_workflow::tests::malformed_source_returns_err ... ok
+test ast::code_gen_workflow::tests::report_round_trips_through_serde ... ok
+test ast::code_gen_workflow::tests::single_parse_reused_across_steps ... ok
+test ast::call_graph::tests::test_unique_callees ... ok
+test ast::complexity::tests::test_compute_complexity_direct ... ok
+test ast::call_graph::tests::test_detect_cycles_self_recursion ... ok
+test ast::complexity::tests::test_compute_complexity_from_tree ... ok
+test ast::call_graph::tests::test_detect_cycles_three_way ... ok
+test ast::complexity::tests::test_class_method_not_counted ... ok
+test ast::complexity::tests::test_enriched_symbols_with_complexity ... ok
+test ast::complexity::tests::test_compute_complexity_for_source_from_tree ... ok
+test ast::complexity::tests::test_enrich_symbols_with_complexity_from_tree ... ok
+test ast::complexity::tests::test_javascript_switch ... ok
+test ast::complexity::tests::test_from_tree_matches_reparse ... ok
+test ast::complexity::tests::test_if_else_cc2 ... ok
+test ast::complexity::tests::test_logical_operators_python ... ok
+test ast::complexity::tests::test_rust_combined ... ok
+test ast::complexity::tests::test_multiple_branches_python ... ok
+test ast::doc_text::tests::a_comment_longer_than_the_cap_is_cut_by_characters ... ok
+test ast::doc_text::tests::c_family_and_go_blocks ... ok
+test ast::doc_text::tests::python_docstrings_single_and_multi_line ... ok
+test ast::doc_text::tests::rust_item_docs_skip_attributes_and_stop_at_code_or_inner_docs ... ok
+test ast::doc_text::tests::rust_module_docs_are_the_leading_inner_block ... ok
+test ast::document::tests::sprint_4_6_edit_clamps_inverted_oob_no_panic ... ok
+test ast::document::tests::sprint_4_6_edit_clamps_oob_old_end_byte_no_panic ... ok
+test ast::document::tests::sprint_4_6_edit_clamps_oob_start_byte_no_panic ... ok
+test ast::document::tests::sprint_4_6_edit_inbounds_path_unchanged ... ok
+test ast::document::tests::sprint_4_6_slice_bytes_clamps_oob_no_panic ... ok
+test ast::document::tests::test_byte_char_unicode ... ok
+test ast::document::tests::test_byte_to_char_ascii ... ok
+test ast::document::tests::test_byte_to_point_multiline ... ok
+test ast::document::tests::test_byte_to_point_safe_agrees_with_byte_to_point ... ok
+test ast::document::tests::test_byte_to_point_safe_empty_document ... ok
+test ast::document::tests::test_byte_to_point_safe_multiline ... ok
+test ast::document::tests::test_byte_to_point_safe_out_of_bounds ... ok
+test ast::document::tests::test_byte_to_point_safe_unicode ... ok
+test ast::document::tests::test_byte_to_point_safe_valid ... ok
+test ast::document::tests::test_byte_to_point_single_line ... ok
+test ast::document::tests::test_char_to_byte_ascii ... ok
+test ast::document::tests::test_chunk_at_byte_exact_end ... ok
+test ast::complexity::tests::test_rust_match_complexity ... ok
+test ast::document::tests::test_chunk_at_byte_mid ... ok
+test ast::document::tests::test_chunk_at_byte_past_end ... ok
+test ast::document::tests::test_chunk_at_byte_start ... ok
+test ast::document::tests::test_display ... ok
+test ast::document::tests::test_edit_deletion ... ok
+test ast::document::tests::test_edit_insertion ... ok
+test ast::document::tests::test_edit_longer_replacement ... ok
+test ast::document::tests::test_edit_multiline_position ... ok
+test ast::document::tests::test_edit_preserves_content_integrity ... ok
+test ast::document::tests::test_edit_same_length_replacement ... ok
+test ast::document::tests::test_edit_start_position ... ok
+test ast::document::tests::test_empty_document ... ok
+test ast::document::tests::test_from_file_nonexistent ... ok
+test ast::document::tests::test_new_from_content ... ok
+test ast::document::tests::test_sequential_edits ... ok
+test ast::document::tests::test_slice_bytes_ascii ... ok
+test ast::document::tests::test_slice_bytes_unicode ... ok
+test ast::error::tests::ast_error_diagnostic_emits_help_for_actionable_variants ... ok
+test ast::error::tests::ast_error_diagnostic_emits_stable_code ... ok
+test ast::error::tests::grammar_unavailable_is_warning_with_stable_code ... ok
+test ast::error::tests::lock_poisoned_has_warning_severity ... ok
+test ast::error::tests::report_output_contains_code_and_help ... ok
+test ast::error::tests::traced_delegates_diagnostic_code_to_source ... ok
+test ast::error::tests::traced_exposes_diagnostic_source_chain ... ok
+test ast::error::tests::traced_new_captures_source ... ok
+test ast::error::tests::traced_preserves_display_message ... ok
+test ast::error::tests::traced_result_ext_passes_ok_through ... ok
+test ast::error::tests::traced_result_ext_wraps_err ... ok
+test ast::error::tests::traced_source_chain_reaches_original ... ok
+test ast::error::tests::traced_wraps_distinct_variants_without_collision ... ok
+test ast::complexity::tests::test_simple_function_cc1 ... ok
+test ast::file_heat::tests::proptest_tests::prop_priority_order_len_le_map_len ... ok
+test ast::file_heat::tests::test_blast_radius_boosts_heat ... ok
+test ast::file_heat::tests::test_eviction_heap_lazy_deletion_stale_entries ... ok
+test ast::file_heat::tests::test_eviction_removes_coldest ... ok
+test ast::file_heat::tests::test_heat_decays_over_time ... ok
+test ast::file_heat::tests::test_heat_increases_on_edit ... ok
+test ast::file_heat::tests::test_heat_map_capacity_limit ... ok
+test ast::file_heat::tests::test_priority_order_respects_heat ... ok
+test ast::file_heat::tests::test_sync_projector_changes_file_created ... ok
+test ast::file_heat::tests::test_sync_projector_changes_wires_projector ... ok
+test ast::format::preserve::formatter::tests::format_preserve_idempotent ... ok
+test ast::format::preserve::formatter::tests::format_preserve_normalizes ... ok
+test ast::format::preserve::formatter::tests::format_preserve_simple_fn ... ok
+test ast::format::preserve::formatter::tests::free_standing_comment_between_items_survives ... ok
+test ast::format::preserve::formatter::tests::gotcha49_doc_commented_pub_struct_after_const ... ok
+test ast::format::preserve::formatter::tests::has_rustfmt_skip_detection ... ok
+test ast::format::preserve::formatter::tests::inner_attrs_and_module_doc_survive ... ok
+test ast::format::preserve::formatter::tests::keyword_inside_string_literal_does_not_shift_boundaries ... ok
+test ast::format::preserve::formatter::tests::output_is_always_semantically_equal_to_input ... ok
+test ast::format::preserve::formatter::tests::top_level_macro_item_keeps_following_items_intact ... ok
+test ast::format::preserve::snippet_provider::tests::gap_is_whitespace_only ... ok
+test ast::format::preserve::snippet_provider::tests::snippet_provider_capture_trailing ... ok
+test ast::format::preserve::snippet_provider::tests::snippet_provider_tracks_position ... ok
+test ast::go_wiring::tests::duplicate_selectors_dedupe ... ok
+test ast::go_wiring::tests::export_kinds_are_tagged ... ok
+test ast::go_wiring::tests::extracts_exported_top_level_decls_only ... ok
+test ast::go_wiring::tests::grouped_and_multi_name_specs ... ok
+test ast::complexity::tests::test_typescript_ternary ... ok
+test ast::go_wiring::tests::key_for_file_none_without_go_mod ... ok
+test ast::go_wiring::tests::no_imports_no_edges ... ok
+test ast::go_wiring::tests::key_for_file_walks_up_to_go_mod ... ok
+test ast::go_wiring::tests::package_key_joins_module_and_reldir ... ok
+test ast::go_wiring::tests::selector_edges_resolve_alias_to_import_path ... ok
+test ast::go_wiring::tests::producer_key_and_consumer_key_rendezvous ... ok
+test ast::graph::cycles::tests::test_detect_cycles_empty_graph ... ok
+test ast::graph::cycles::tests::test_detect_cycles_no_cycles ... ok
+test ast::graph::cycles::tests::test_detect_cycles_self_loop ... ok
+test ast::graph::cycles::tests::test_detect_cycles_simple_cycle ... ok
+test ast::graph::cycles::tests::test_detect_cycles_triangle ... ok
+test ast::graph::enriched::tests::test_category_weights_sum_to_one ... ok
+test ast::file_heat::tests::proptest_tests::prop_heat_map_len_bounded ... ok
+test ast::graph::enriched::tests::test_enriched_blast_radius_direct_deps ... ok
+test ast::graph::enriched::tests::test_enriched_empty_graph ... ok
+test ast::graph::enriched::tests::test_enriched_blast_radius_transitive_deps ... ok
+test ast::graph::enriched::tests::test_signal_prefixes_keep_their_wire_names ... ok
+test ast::graph::imports::reexport_tests::only_visible_use_declarations_are_reexports ... ok
+test ast::graph::enriched::tests::test_enriched_blast_radius_severity_score ... ok
+test ast::e2e_tests::test_full_pipeline_e2e ... ok
+test ast::graph::imports::tests::extract_imports_surfaces_alias_targets_alongside_use_statements ... ok
+test ast::graph::imports::tests::f6_expand_brace_inner_drops_self_super_glob ... ok
+test ast::graph::imports::tests::f6_expand_brace_inner_keeps_alias_origin ... ok
+test ast::graph::imports::tests::f6_expand_brace_inner_rejects_malformed_tokens ... ok
+test ast::graph::imports::tests::f6_expand_brace_inner_simple ... ok
+test ast::graph::imports::tests::f6_expand_brace_inner_takes_leaf_of_path ... ok
+test ast::graph::imports::tests::f6_regex_fallback_expands_brace_group ... ok
+test ast::graph::imports::tests::f6_regex_fallback_multi_symbol_brace ... ok
+test ast::graph::imports::tests::f6_treesitter_brace_import_yields_individual_symbols ... ok
+test ast::graph::imports::tests::multiline_type_alias_is_skipped_rather_than_guessed ... ok
+test ast::graph::imports::tests::rust_use_trees_yield_every_leaf_under_its_full_module_path ... ok
+test ast::graph::imports::tests::a_relative_python_import_keeps_its_dots ... ok
+test ast::graph::imports::tests::test_extract_imports_treesitter_go ... ok
+test ast::graph::imports::tests::test_extract_imports_treesitter_java ... ok
+test ast::graph::imports::tests::test_extract_imports_treesitter_rust ... ok
+test ast::graph::imports::tests::test_extract_imports_treesitter_python ... ok
+test ast::graph::imports::tests::test_extract_python_imports_regex ... ok
+test ast::graph::imports::tests::test_extract_rust_imports_regex ... ok
+test ast::graph::imports::tests::test_extract_ts_imports_regex ... ok
+test ast::graph::imports::tests::the_rust_query_sees_uses_behind_a_visibility_modifier ... ok
+test ast::graph::imports::tests::type_alias_handles_visibility_and_generics ... ok
+test ast::graph::imports::tests::type_alias_records_a_consumer_edge_on_its_target ... ok
+test ast::graph::imports::tests::type_alias_without_a_path_emits_nothing ... ok
+test ast::graph::enriched::tests::test_severity_is_the_weighted_mean_of_the_categories ... ok
+test ast::graph::imports::tests::test_extract_imports_treesitter_ts ... ok
+test ast::graph::imports::tests::every_import_query_compiles ... ok
+test ast::graph::method_calls::tests::a_path_reference_inside_a_macro_is_a_type_or_const_ref ... ok
+test ast::graph::method_calls::tests::a_function_passed_by_path_as_a_value_is_a_use ... ok
+test ast::graph::method_calls::tests::a_call_inside_a_macro_is_a_call ... ok
+test ast::graph::method_calls::tests::captures_generic_method_call ... ok
+test ast::graph::method_calls::tests::deduplicates_repeated_calls ... ok
+test ast::graph::method_calls::tests::extracts_associated_fn_call ... ok
+test ast::graph::method_calls::tests::extracts_chained_calls ... ok
+test ast::graph::method_calls::tests::python_attribute_names_are_captured_called_or_not ... ok
+test ast::graph::method_calls::tests::extracts_field_method_call ... ok
+test ast::graph::method_calls::tests::returns_empty_without_an_attribute_access ... ok
+test ast::graph::method_calls::tests::inside_a_macro_a_field_a_string_and_a_macro_name_are_not_calls ... ok
+test ast::graph::method_calls::tests::the_text_scan_never_cuts_inside_a_character_or_past_the_end ... ok
+test ast::graph::method_calls::tests::extracts_free_function_calls ... ok
+test ast::graph::method_calls::type_ref_tests::a_bare_call_yields_no_pair ... ok
+test ast::graph::method_calls::type_ref_tests::a_reexport_path_counts_only_when_the_file_uses_the_name ... ok
+test ast::graph::method_calls::tests::returns_empty_for_files_with_no_calls ... ok
+test ast::graph::method_calls::type_ref_tests::a_declared_type_name_is_not_a_reference_to_itself ... ok
+test ast::graph::method_calls::type_ref_tests::non_rust_yields_empty ... ok
+test ast::graph::method_calls::type_ref_tests::extracts_type_and_const_refs ... ok
+test ast::graph::method_calls::type_ref_tests::extracts_the_qualifier_of_a_scoped_call ... ok
+test ast::graph::module_paths::tests::a_bare_module_import_names_the_module ... ok
+test ast::graph::module_paths::tests::a_child_module_this_file_declares_is_named_by_its_bare_name ... ok
+test ast::graph::module_paths::tests::a_comment_or_string_names_nothing ... ok
+test ast::graph::module_paths::tests::a_group_and_a_relative_path_name_their_modules ... ok
+test ast::graph::module_paths::tests::a_macro_path_stops_at_the_item_and_at_a_type ... ok
+test ast::graph::module_paths::tests::a_module_declaration_says_where_its_file_is ... ok
+test ast::graph::method_calls::type_ref_tests::types_from_other_crates_are_left_to_the_import_resolver ... ok
+test ast::graph::method_calls::type_ref_tests::path_keywords_are_not_qualifiers ... ok
+test ast::graph::module_paths::tests::a_pure_reexport_path_names_no_module ... ok
+test ast::graph::module_paths::tests::a_run_of_path_declarations_keeps_each_attribute_with_its_own_module ... ok
+test ast::graph::method_calls::type_ref_tests::captures_a_qualified_call_inside_a_dispatch_closure ... ok
+test ast::graph::module_paths::tests::a_use_path_names_every_module_it_crosses ... ok
+test ast::graph::module_paths::tests::an_inline_path_names_its_modules_and_stops_at_the_type ... ok
+test ast::graph::module_paths::tests::a_path_inside_a_macro_names_its_modules ... ok
+test ast::graph::module_paths::tests::declared_child_modules_are_the_ones_living_in_another_file ... ok
+test ast::graph::module_paths::tests::an_inline_child_this_file_declares_is_named_by_its_bare_name ... ok
+test ast::graph::module_paths::tests::declared_module_names_cover_the_three_shapes ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_evaporate_prunes_weak ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_hot_edges_k_larger_than_count ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_hot_edges_sorted ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_reinforce_accumulates ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_reinforce_single_path ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_self_edge_ignored ... ok
+test ast::graph::pheromone::symbol_pheromone_tests::test_evaporate_decays ... ok
+test ast::graph::pheromone::symbol_pheromone_tests::test_evaporate_prunes_weak_trails ... ok
+test ast::graph::pheromone::pheromone_graph_tests::test_evaporate_decays ... ok
+test ast::graph::pheromone::symbol_pheromone_tests::test_record_co_access_symmetric ... ok
+test ast::graph::pheromone::symbol_pheromone_tests::test_rerank_orders_by_strength ... ok
+test ast::graph::pheromone::symbol_pheromone_tests::test_record_co_access_caps_at_max ... ok
+test ast::graph::pheromone::symbol_pheromone_tests::test_self_loop_ignored ... ok
+test ast::graph::python_uses::tests::a_dotted_imported_name_is_left_alone ... ok
+test ast::graph::python_uses::tests::a_module_imported_and_never_touched_is_not_a_use ... ok
+test ast::graph::python_uses::tests::a_dotted_import_without_alias_is_left_alone ... ok
+test ast::graph::python_uses::tests::a_plain_import_and_a_from_import_competing_for_a_name_resolve_by_position ... ok
+test ast::graph::python_uses::tests::a_relative_from_import_is_left_alone ... ok
+test ast::graph::python_uses::tests::from_package_import_module_as_alias_binds_the_alias ... ok
+test ast::graph::python_uses::tests::an_attribute_of_something_that_was_never_imported_is_not_a_use ... ok
+test ast::graph::python_uses::tests::an_aliased_module_attribute_is_a_qualified_use ... ok
+test ast::graph::python_uses::tests::from_package_import_module_binds_the_module_with_no_alias ... ok
+test ast::graph::python_uses::tests::the_last_import_of_a_name_is_the_one_that_binds_it ... ok
+test ast::graph::python_uses::tests::several_modules_from_one_package_each_bind_their_own_path ... ok
+test ast::graph::python_uses::tests::the_original_name_is_not_bound_when_the_import_renames_it ... ok
+test ast::graph::python_uses::unreferenced_import_tests::every_used_import_is_referenced ... ok
+test ast::graph::python_uses::unreferenced_import_tests::a_name_only_forwarded_or_never_touched_is_not_referenced ... ok
+test ast::graph::self_refs::tests::a_field_named_like_a_method_is_not_a_call_of_it ... ok
+test ast::graph::self_refs::tests::a_rust_method_counts_only_through_self_or_its_own_type ... ok
+test ast::graph::self_refs::tests::a_name_that_only_appears_in_a_comment_or_a_string_is_not_a_use ... ok
+test ast::graph::self_refs::tests::a_function_called_by_another_function_of_the_same_file_is_self_referenced ... ok
+test ast::graph::self_refs::tests::a_module_constant_read_by_its_own_function_is_self_referenced ... ok
+test ast::graph::self_refs::tests::a_rust_type_or_const_counts_by_name_but_its_impl_header_does_not ... ok
+test ast::graph::self_refs::tests::a_use_inside_a_test_item_is_not_the_files_use ... ok
+test ast::graph::self_refs::tests::inside_a_macro_the_same_rules_hold ... ok
+test ast::graph::self_refs::tests::the_dispatcher_routes_by_language_and_is_empty_elsewhere ... ok
+test ast::graph::tests::test_blast_radius_with_depth_unlimited_matches_original ... ok
+test ast::graph::tests::test_dependency_path ... ok
+test ast::graph::tests::test_blast_radius_with_depth_zero ... ok
+test ast::import_resolver::tests::s3_a_name_imported_through_a_grouped_list_is_not_missing ... ok
+test ast::graph::tests::test_symbol_index ... ok
+test ast::import_resolver::tests::s3_declared_type_names_lists_struct_enum_trait_type_and_union_only ... ok
+test ast::import_resolver::tests::s3_grouped_use_list_is_flattened_one_entry_per_name ... ok
+test ast::import_resolver::tests::s3_alias_import_counts_for_the_alias_not_the_original_name ... ok
+test ast::import_resolver::tests::s3_unresolved_type_references_count_a_name_used_unqualified_at_least_once ... ok
+test ast::import_resolver::tests::s3_unresolved_type_references_skip_qualified_declared_imported_and_builtins ... ok
+test ast::import_resolver::tests::test_detect_missing_imports ... ok
+test ast::import_resolver::tests::test_extract_js_imports ... ok
+test ast::import_resolver::tests::test_detect_no_missing_when_imported ... ok
+test ast::graph::tests::test_blast_radius_with_depth_one ... ok
+test ast::import_resolver::tests::test_extract_python_imports ... ok
+test ast::import_resolver::tests::test_extract_ts_default_import ... ok
+test ast::import_resolver::tests::test_extract_ts_empty ... ok
+test ast::import_resolver::tests::test_extract_rust_glob_import ... ok
+test ast::import_resolver::tests::test_extract_ts_named_imports ... ok
+test ast::import_resolver::tests::test_extract_ts_namespace_import ... ok
+test ast::import_resolver::tests::test_unsupported_language ... ok
+test ast::incremental_pipeline::aco_tests::test_prioritized_pipeline_drains_all ... ok
+test ast::incremental_pipeline::aco_tests::test_prioritized_pipeline_empty_returns_none ... ok
+test ast::incremental_pipeline::aco_tests::test_prioritized_pipeline_hot_first ... ok
+test ast::incremental_pipeline::aco_tests::test_prioritized_pipeline_pending_count ... ok
+test ast::import_resolver::tests::test_extract_rust_imports ... ok
+test ast::graph::tests::test_blast_radius ... ok
+test ast::incremental_pipeline::lazy_loading_tests::test_queue_for_lazy_and_ensure_loaded ... ok
+test ast::incremental_pipeline::lazy_loading_tests::test_queue_for_lazy_no_op_when_already_loaded ... ok
+test ast::incremental_pipeline::aco_tests::test_process_edit_with_heat_sets_blast_radius_weight ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_basic ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_debug_and_default ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_cache_stats_and_clear ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_send_sync ... ok
+test ast::incremental_pipeline::aco_tests::test_process_edit_with_heat_updates_heat_map ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_with_closure ... ok
+test ast::incremental_pipeline::tests::test_cache_stats_track_documents ... ok
+test ast::incremental_pipeline::tests::test_clear_cache_resets_all ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_concurrent_tasks ... ok
+test ast::incremental_pipeline::tests::test_get_document_returns_loaded ... ok
+test ast::incremental_pipeline::tests::async_tests::test_async_pipeline_process_edit ... ok
+test ast::incremental_pipeline::tests::test_process_edit_without_prior_load_returns_error ... ok
+test ast::incremental_pipeline::tests::test_process_file_extracts_javascript_symbols ... ok
+test ast::incremental_pipeline::tests::test_process_file_extracts_python_symbols ... ok
+test ast::incremental_pipeline::tests::test_process_file_extracts_rust_symbols ... ok
+test ast::incremental_pipeline::tests::test_process_edit_returns_changed_ranges ... ok
+test ast::incremental_pipeline::tests::test_process_edit_incremental_vs_full ... ok
+test ast::incremental_pipeline::tests::test_process_file_extracts_typescript_symbols ... ok
+test ast::incremental_pipeline::tests::test_process_file_indexes_every_name_of_a_module_tuple_unpacking ... ok
+test ast::incremental_pipeline::tests::test_shared_pipeline_basic ... ok
+test ast::incremental_pipeline::tests::test_shared_pipeline_clear_cache ... ok
+test ast::incremental_pipeline::tests::test_shared_pipeline_send_sync ... ok
+test ast::incremental_pipeline::tests::test_sequential_edits_maintain_consistency ... ok
+test ast::incremental_pipeline::tests::test_unknown_language_returns_empty_symbols ... ok
+test ast::languages::tests::test_detect_bash ... ok
+test ast::languages::tests::test_detect_css ... ok
+test ast::languages::tests::test_detect_go ... ok
+test ast::languages::tests::test_detect_html ... ok
+test ast::languages::tests::test_detect_java ... ok
+test ast::languages::tests::test_detect_javascript ... ok
+test ast::languages::tests::test_detect_json ... ok
+test ast::languages::tests::test_detect_markdown ... ok
+test ast::languages::tests::test_detect_python ... ok
+test ast::languages::tests::test_detect_rust ... ok
+test ast::languages::tests::test_detect_toml ... ok
+test ast::languages::tests::test_detect_typescript ... ok
+test ast::languages::tests::test_detect_yaml ... ok
+test ast::languages::tests::test_display ... ok
+test ast::languages::tests::test_from_str ... ok
+test ast::languages::tests::test_from_str_more_languages ... ok
+test ast::languages::tests::test_lang_iter_contains_every_variant ... ok
+test ast::languages::tests::test_language_categories ... ok
+test ast::languages::tests::test_unknown_extension ... ok
+test ast::learning_loop::tests::test_average_reward ... ok
+test ast::learning_loop::tests::test_ema_updates ... ok
+test ast::learning_loop::tests::test_learning_loop_records ... ok
+test ast::learning_loop::tests::test_per_language_tracking ... ok
+test ast::learning_loop::tests::test_per_symbol_reward ... ok
+test ast::learning_loop::tests::test_recommend_default_no_history ... ok
+test ast::learning_loop::tests::test_recommend_language_aware ... ok
+test ast::learning_loop::tests::test_recommend_strategy ... ok
+test ast::learning_loop::tests::test_reward ... ok
+test ast::learning_loop::tests::test_ring_buffer_bounded ... ok
+test ast::learning_loop::tests::test_strategies_used ... ok
+test ast::learning_loop::tests::test_success_rate ... ok
+test ast::learning_loop::tests::test_success_rate_no_events ... ok
+test ast::learning_loop::tests::test_symbol_lru_eviction ... ok
+test ast::manifest::tests::go_mod_extracts_module_and_require_block ... ok
+test ast::manifest::tests::npm_package_json_extracts_name_version_and_all_dep_groups ... ok
+test ast::manifest::tests::polyglot_dir_reports_all_three_ecosystems ... ok
+test ast::manifest::tests::pyproject_pep621_extracts_deps_and_names ... ok
+test ast::manifest::tests::pyproject_poetry_extracts_deps_and_skips_python_constraint ... ok
+test ast::manifest::tests::scan_of_empty_dir_is_empty ... ok
+test ast::incremental_pipeline::tests::test_symbol_store_updated_on_edit ... ok
+test ast::markdown_text::tests::a_memory_without_headings_is_one_document_named_by_its_frontmatter ... ok
+test ast::markdown_text::tests::an_unclosed_frontmatter_is_body_and_not_a_heading_is_not_a_section ... ok
+test ast::markdown_text::tests::chunks_cover_the_whole_body_under_the_heading_in_effect ... ok
+test ast::markdown_text::tests::only_markdown_gets_a_document_symbol_and_never_twice ... ok
+test ast::markdown_text::tests::sections_run_to_the_next_heading_and_skip_fences_and_frontmatter ... ok
+test ast::markdown_text::tests::text_is_capped_by_characters_without_splitting_a_code_point ... ok
+test ast::markdown_text::tests::the_document_text_is_the_description_then_the_capped_body ... ok
+test ast::markdown_text::tests::the_document_title_falls_back_to_the_first_heading_then_to_the_stem ... ok
+test ast::markdown_text::tests::a_giant_heading_is_capped_so_chunks_stay_linear_in_the_file ... ok
+test ast::module_tree::tests::test_module_tree_empty_source ... ok
+test ast::module_tree::tests::test_module_tree_no_modules ... ok
+test ast::module_tree::tests::test_python_module_tree_empty ... ok
+test ast::module_tree::tests::test_python_module_tree_imports ... ok
+test ast::module_tree::tests::test_module_tree_basic ... ok
+test ast::module_tree::tests::test_re_exports ... ok
+test ast::module_tree::tests::test_ts_module_tree_empty ... ok
+test ast::module_tree::tests::test_ts_module_tree_exports ... ok
+test ast::module_tree::tests::test_unsupported_lang_module_tree ... ok
+test ast::node_types::tests::test_all_languages_have_content ... ok
+test ast::node_types::tests::test_all_supported_languages ... ok
+test ast::node_types::tests::test_bash_node_count_is_16 ... ok
+test ast::node_types::tests::test_go_node_count_is_28 ... ok
+test ast::node_types::tests::test_importance_threshold_0_8_boundary ... ok
+test ast::node_types::tests::test_importance_threshold_filters_correctly ... ok
+test ast::node_types::tests::test_java_node_count_is_30 ... ok
+test ast::node_types::tests::test_javascript_node_count_is_24 ... ok
+test ast::node_types::tests::test_python_node_count_is_27 ... ok
+test ast::node_types::tests::test_rust_node_count_is_34 ... ok
+test ast::node_types::tests::test_threshold_boundary_cases ... ok
+test ast::node_types::tests::test_typescript_node_count_is_28 ... ok
+test ast::node_types::tests::test_unknown_language_returns_empty ... ok
+test ast::parser::tests::test_cache_size_bounded ... ok
+test ast::parser::tests::test_changed_ranges_detects_structural_modification ... ok
+test ast::parser::tests::test_incremental_parse_basic_edit ... ok
+test ast::parser::tests::test_incremental_without_cache_falls_back_to_full ... ok
+test ast::parser::tests::test_invalidate_removes_cached_tree ... ok
+test ast::module_tree::tests::test_resolve_path ... ok
+test ast::parser::tests::test_lru_eviction_preserves_recently_used ... ok
+test ast::parser::tests::test_parse_and_cache_shared ... ok
+test ast::parser::tests::test_parse_and_cache_updates_on_change ... ok
+test ast::parser::tests::test_parse_bash_css_html_grammars_load ... ok
+test ast::parser::tests::test_parse_file_temp ... ok
+test ast::parser::tests::test_parse_go_grammar_loads ... ok
+test ast::parser::tests::test_parse_multiple_languages ... ok
+test ast::parser::tests::test_parse_rope_empty_document ... ok
+test ast::parser::tests::test_parse_rope_incremental_with_old_tree ... ok
+test ast::parser::tests::test_parse_rope_rust_source ... ok
+test ast::parser::tests::test_parse_rope_produces_same_tree_as_parse_full ... ok
+test ast::parser::tests::test_parsed_file_has_errors ... ok
+test ast::parser::tests::test_parser_pool_creation ... ok
+test ast::parser::tests::test_parser_pool_parse_returns_valid_tree ... ok
+test ast::parser::tests::test_parser_pool_reuse_produces_correct_output ... ok
+test ast::parser::tests::test_tree_cache_stores_and_retrieves ... ok
+test ast::parser::tests::test_shared_tree_across_threads ... ok
+test ast::parser_diff::tests::byte_to_point_after_newline_increments_row ... ok
+test ast::parser_diff::tests::byte_to_point_clamps_to_source_len ... ok
+test ast::parser_diff::tests::byte_to_point_zero_offset_is_origin ... ok
+test ast::parser_diff::tests::empty_new_yields_full_delete ... ok
+test ast::parser_diff::tests::empty_old_yields_full_insert ... ok
+test ast::parser_diff::tests::full_replacement ... ok
+test ast::parser_diff::tests::identical_strings_yield_no_edit ... ok
+test ast::parser_diff::tests::middle_replacement ... ok
+test ast::parser_diff::tests::multi_line_edit_computes_row_column ... ok
+test ast::parser_diff::tests::parse_incremental_auto_detects_no_change ... ok
+test ast::parser_diff::tests::parse_incremental_auto_handles_first_call_without_cache ... ok
+test ast::parser_diff::tests::pure_append_locates_end ... ok
+test ast::parser_diff::tests::pure_prepend_locates_start ... ok
+test ast::parser_diff::tests::parse_incremental_auto_uses_cached_tree ... ok
+test ast::parser_diff::tests::shared_prefix_collapses_to_minimal_edit_region ... ok
+test ast::polyglot_semantic::tests::health_signals_penalize_dynamic_escapes ... ok
+test ast::polyglot_semantic::tests::javascript_async_function_no_types ... ok
+test ast::polyglot_semantic::tests::python_generic_subscript_is_not_a_type_param ... ok
+test ast::polyglot_semantic::tests::python_extracts_async_decorator_dynamic_and_annotations ... ok
+test ast::polyglot_semantic::tests::unsupported_language_is_rejected ... ok
+test ast::polyglot_semantic::tests::typescript_extracts_generics_async_any_and_typed_params ... ok
+test ast::quality::tests::test_count_line_pattern_skips_hash_comments ... ok
+test ast::quality::tests::test_count_line_pattern_skips_js_comments ... ok
+test ast::quality::tests::test_count_occurrences_basic ... ok
+test ast::quality::tests::test_count_occurrences_empty_needle ... ok
+test ast::quality::tests::test_count_occurrences_no_match ... ok
+test ast::incremental_pipeline::tests::test_shared_pipeline_multithread ... ok
+test ast::quality::tests::test_javascript_eval_is_error ... ok
+test ast::quality::tests::test_clean_code_score_near_one ... ok
+test ast::quality::tests::test_javascript_loose_equality_detected ... ok
+test ast::quality::tests::test_json_no_antipatterns ... ok
+test ast::quality::tests::test_javascript_var_detected ... ok
+test ast::quality::tests::test_javascript_no_antipatterns ... ok
+test ast::quality::tests::test_overall_score_in_range ... ok
+test ast::quality::tests::test_passes_threshold ... ok
+test ast::quality::tests::test_python_bare_except_detected ... ok
+test ast::quality::tests::test_python_comment_except_not_detected ... ok
+test ast::quality::tests::test_python_eval_is_error ... ok
+test ast::quality::tests::test_python_global_detected ... ok
+test ast::quality::tests::test_python_exec_is_error ... ok
+test ast::quality::tests::test_python_no_antipatterns ... ok
+test ast::quality::tests::test_rust_double_clone_detected ... ok
+test ast::quality::tests::test_rust_allow_dead_code_detected ... ok
+test ast::quality::tests::test_python_star_import_detected ... ok
+test ast::quality::tests::test_rust_no_antipatterns ... ok
+test ast::quality::tests::test_rust_let_underscore_detected ... ok
+test ast::quality::tests::test_rust_panic_detected ... ok
+test ast::quality::tests::test_rust_todo_info_severity ... ok
+test ast::quality::tests::test_rust_unsafe_block_detected ... ok
+test ast::quality::tests::test_severity_ordering ... ok
+test ast::quality::tests::test_rust_unwrap_count_multiple ... ok
+test ast::quality::tests::test_toml_no_antipatterns ... ok
+test ast::quality::tests::test_rust_unwrap_detected ... ok
+test ast::quality::tests::test_summary_contains_score ... ok
+test ast::quality::tests::test_typescript_any_type_detected ... ok
+test ast::quality::tests::test_typescript_inherits_js_eval ... ok
+test ast::quality::tests::test_typescript_ts_ignore_in_comment_detected ... ok
+test ast::revision::tests::test_durability_for_path ... ok
+test ast::revision::tests::test_hash_symbols_deterministic ... ok
+test ast::revision::tests::test_high_durability_survives_low_bump ... ok
+test ast::revision::tests::test_revision_needs_revalidation ... ok
+test ast::revision::tests::test_revision_tracker_bump ... ok
+test ast::revision::tests::test_symbol_cache_early_cutoff ... ok
+test ast::revision::tests::test_symbol_cache_get_if_valid ... ok
+test ast::quality::tests::test_yaml_no_antipatterns ... ok
+test ast::rust_semantic::tests::async_unsafe_fn_counted ... ok
+test ast::rust_semantic::tests::const_generic_captured ... ok
+test ast::rust_semantic::tests::diff_api_surfaces_detects_addition ... ok
+test ast::rust_semantic::tests::derive_attrs_captured_per_type ... ok
+test ast::rust_semantic::tests::diff_api_surfaces_detects_removal ... ok
+test ast::rust_semantic::tests::diff_api_surfaces_no_change ... ok
+test ast::rust_semantic::tests::empty_source_is_simple ... ok
+test ast::rust_semantic::tests::generic_fn_captures_bounds ... ok
+test ast::rust_semantic::tests::invalid_source_returns_parse_error ... ok
+test ast::rust_semantic::tests::impl_block_captures_trait_and_target ... ok
+test ast::rust_semantic::tests::public_api_crate_is_accessible ... ok
+test ast::rust_semantic::tests::lifetime_param_captured ... ok
+test ast::rust_semantic::tests::simple_fn_has_no_generics ... ok
+test ast::rust_semantic::tests::semantic_complexity_increases_with_abstraction ... ok
+test ast::rust_semantic::tests::unsafe_block_in_body_counted ... ok
+test ast::rust_semantic::tests::where_clause_captured ... ok
+test ast::scope_map::tests::test_scope_map_empty ... ok
+test ast::scope_map::tests::test_scope_map_function_params ... ok
+test ast::quality::tests::test_typescript_ts_nocheck_is_error ... ok
+test ast::scope_map::tests::test_scope_map_js ... ok
+test ast::scope_map::tests::test_scope_map_let_bindings ... ok
+test ast::scope_map::tests::test_scope_map_python ... ok
+test ast::scope_map::tests::test_scope_map_ts_for_in ... ok
+test ast::scope_map::tests::test_scope_map_ts_imports ... ok
+test ast::scope_map::tests::test_scope_map_unsupported_language ... ok
+test ast::semantic_search::tests::test_clear ... ok
+test ast::scope_map::tests::test_scope_map_ts_let_const ... ok
+test ast::semantic_search::tests::test_embed_dim ... ok
+test ast::semantic_search::tests::test_dedup_insert ... ok
+test ast::semantic_search::tests::test_find_similar_empty_index ... ok
+test ast::semantic_search::tests::test_find_similar_same_kind ... ok
+test ast::semantic_search::tests::test_fused_search_empty_index ... ok
+test ast::semantic_search::tests::test_fused_search_combines_signals ... ok
+test ast::semantic_search::tests::test_fused_search_rrf_scores_positive ... ok
+test ast::semantic_search::tests::test_fused_search_respects_limit ... ok
+test ast::semantic_search::tests::test_index_and_len ... ok
+test ast::semantic_search::tests::test_kind_one_hot ... ok
+test ast::semantic_search::tests::test_fused_search_single_signal ... ok
+test ast::speculate::tests::a_bare_test_function_is_not_production ... ok
+test ast::semantic_search::tests::test_lru_eviction ... ok
+test ast::speculate::tests::a_marker_inside_a_string_or_comment_is_not_a_call ... ok
+test ast::speculate::tests::test_cfg_all_condition_composite ... ok
+test ast::speculate::tests::panic_inside_cfg_test_module_is_not_production ... ok
+test ast::speculate::tests::test_cfg_any_condition ... ok
+test ast::speculate::tests::test_cfg_feature_still_works ... ok
+test ast::scope_map::tests::test_scope_map_ts_params ... ok
+test ast::speculate::tests::test_cfg_multiple_conditions_mixed ... ok
+test ast::speculate::tests::test_cfg_no_items_returns_empty ... ok
+test ast::speculate::tests::test_cfg_not_condition ... ok
+test ast::speculate::tests::test_cfg_target_os_condition ... ok
+test ast::speculate::tests::test_cfg_unix_condition ... ok
+test ast::incremental_pipeline::tests::test_large_file_performance ... ok
+test ast::speculate::tests::test_cfg_impact_layer_present_in_speculate_result ... ok
+test ast::speculate::tests::test_speculate_grammar_unavailable_does_not_fail_syntax ... ok
+test ast::speculate::tests::test_speculate_all_passed ... ok
+test ast::speculate::tests::test_cfg_impact_score_does_not_affect_composite ... ok
+test ast::speculate::tests::test_speculate_syntax_error ... ok
+test ast::speculate::tests::test_speculate_unsupported_language ... ok
+test ast::speculate::tests::test_speculate_unwrap_penalty ... ok
+test ast::speculate::tests::test_speculate_valid_code ... ok
+test ast::speculate::tests::test_speculate_with_symbol_context ... ok
+test ast::speculate::tests::test_structural_python_bare_except ... ok
+test ast::speculate::tests::test_structural_typescript_any_annotation ... ok
+test ast::speculate::tests::test_structural_python_except_in_string_or_comment_is_not_code ... ok
+test ast::speculate::tests::test_symbol_layer_finds_real_identifiers ... ok
+test ast::ssr::tests::apply_ssr_rule_js ... ok
+test ast::ssr::tests::apply_ssr_rule_rust ... ok
+test ast::ssr::tests::prebuilt_rules_not_empty ... ok
+test ast::speculate::tests::test_structural_typescript_ts_ignore ... ok
+test ast::speculate::tests::test_symbol_layer_ignores_comments ... ok
+test ast::speculate::tests::test_symbol_layer_ignores_string_literals ... ok
+test ast::store::tests::proptest_tests::prop_empty_changeset_is_empty ... ok
+test ast::ssr::tests::surgery_ssr_replaces_body ... ok
+test ast::store::tests::proptest_tests::prop_clone_preserves_empty ... ok
+test ast::ssr::tests::vgp_gate_passes_for_valid_symbols ... ok
+test ast::store::tests::proptest_tests::prop_nonempty_remove_not_empty ... ok
+test ast::store::tests::test_apply_change_set_empty ... ok
+test ast::store::tests::test_apply_change_set_mixed ... ok
+test ast::store::tests::proptest_tests::prop_nonempty_upsert_not_empty ... ok
+test ast::store::tests::test_apply_change_set_upserts_only ... ok
+test ast::store::tests::test_create_store_fresh_db ... ok
+test ast::store::tests::test_apply_change_set_removals_only ... ok
+test ast::store::tests::test_bulk_index ... ok
+test ast::store::tests::test_dependencies ... ok
+test ast::store::tests::test_dependency_symbols_cascade_on_remove_file ... ok
+test ast::store::tests::test_diff_symbols_detects_additions ... ok
+test ast::store::tests::test_diff_symbols_empty_file ... ok
+test ast::store::tests::test_diff_symbols_detects_removals ... ok
+test ast::store::tests::test_diff_then_apply_roundtrip ... ok
+test ast::store::tests::test_find_symbol_excludes_references_find_references_returns_them ... ok
+test ast::store::tests::test_find_deps_by_symbol_after_upsert ... ok
+test ast::store::tests::test_find_deps_by_symbol_basic ... ok
+test ast::store::tests::test_levenshtein_basic ... ok
+test ast::store::tests::test_find_symbols_in_file ... ok
+test ast::store::tests::test_load_into_index ... ok
+test ast::store::tests::test_get_indexed_files_returns_every_distinct_path ... ok
+test ast::store::tests::test_get_indexed_files_honors_limit ... ok
+test ast::store::tests::test_rename_detection_basic ... ok
+test ast::store::tests::test_remove_file_cascades ... ok
+test ast::store::tests::test_persist_and_reload_roundtrip ... ok
+test ast::store::tests::test_rename_detection_no_false_positive_for_unrelated_symbols ... ok
+test ast::store::tests::test_replace_file_symbols_atomic ... ok
+test ast::store::tests::test_replace_file_symbols_empty_replaces_with_nothing ... ok
+test ast::store::tests::test_search_prefix ... ok
+test ast::surgery::tests::format_rust_code_best_effort_formats_valid ... ok
+test ast::surgery::tests::format_rust_code_best_effort_passes_through_invalid ... ok
+test ast::surgery::tests::format_rust_code_normalizes_whitespace ... ok
+test ast::surgery::tests::format_rust_code_preserves_semantics ... ok
+test ast::surgery::tests::format_rust_code_rejects_invalid ... ok
+test ast::surgery::tests::test_apply_indentation ... ok
+test ast::surgery::tests::test_apply_indentation_empty ... ok
+test ast::surgery::tests::test_apply_indentation_preserves_first_line_existing_indent ... ok
+test ast::surgery::tests::test_detect_language_python ... ok
+test ast::surgery::tests::test_detect_language_rust ... ok
+test ast::store::tests::test_stats ... ok
+test ast::store::tests::test_symbol_kind_round_trips_through_store ... ok
+test ast::store::tests::test_upsert_and_find_symbol ... ok
+test ast::surgery::tests::test_extract_body_with_lang_rust ... ok
+test ast::surgery::tests::test_extract_body_python_class ... ok
+test ast::surgery::tests::test_extract_body_with_type_hints ... ok
+test ast::surgery::tests::test_extract_body_with_nested_brackets ... ok
+test ast::surgery::tests::test_find_symbol ... ok
+test ast::surgery::tests::test_get_symbol_range_not_found ... ok
+test ast::surgery::tests::test_find_symbol_not_found ... ok
+test ast::surgery::tests::test_get_symbol_range_with_lang ... ok
+test ast::surgery::tests::test_get_symbol_range_python ... ok
+test ast::surgery::tests::test_replace_nonexistent_symbol ... ok
+test ast::surgery::tests::test_replace_rust_function_body ... ok
+test ast::surgery::tests::test_surgery_recursion_depth_guard_constant ... ok
+test ast::surgery::tests::test_replace_preserves_surrounding_code ... ok
+test ast::surgery::tests::test_validate_bash_now_supported ... ok
+test ast::surgery::tests::test_replace_python_function_body ... ok
+test ast::surgery::tests::test_validate_invalid_python ... ok
+test ast::surgery::tests::test_validate_invalid_rust ... ok
+test ast::surgery::tests::test_validate_valid_python ... ok
+test ast::surgery::tests::test_validate_valid_rust ... ok
+test ast::surgery::tests::test_validate_valid_typescript ... ok
+test ast::symbol_detail::tests::test_extract_enum_variants ... ok
+test ast::symbol_detail::tests::test_extract_impl_methods ... ok
+test ast::surgery::tests::test_surgery_depth_guard_does_not_panic_on_nested_input ... ok
+test ast::symbol_detail::tests::test_extract_struct_fields ... ok
+test ast::symbol_detail::tests::test_python_class_methods ... ok
+test ast::symbol_detail::tests::test_python_enum_members ... ok
+test ast::symbol_detail::tests::test_python_init_fields ... ok
+test ast::symbol_detail::tests::test_extract_nonexistent_symbol ... ok
+test ast::symbol_detail::tests::test_python_nonexistent ... ok
+test ast::symbol_detail::tests::test_extract_empty_struct ... ok
+test ast::symbol_detail::tests::test_ts_class_members ... ok
+test ast::symbol_detail::tests::test_ts_interface_members ... ok
+test ast::symbol_detail::tests::test_unsupported_lang ... ok
+test ast::symbol_detail::tests::test_ts_interface_methods ... ok
+test ast::symbols::tests::symbol_kind_iter_works ... ok
+test ast::symbol_detail::tests::test_ts_enum_members ... ok
+test ast::symbol_detail::tests::test_ts_nonexistent ... ok
+test ast::symbols::tests::a_python_module_binding_takes_the_visibility_of_its_name ... ok
+test ast::symbols::tests::test_async_detection_rust ... ok
+test ast::symbols::tests::test_async_detection_python ... ok
+test ast::symbols::tests::test_extract_python ... ok
+test ast::symbols::tests::test_extract_python_type_alias ... ok
+test ast::symbols::tests::test_extract_symbols_batch_empty_input ... ok
+test ast::symbols::tests::test_extract_rust ... ok
+test ast::symbols::tests::test_batch_then_filter ... ok
+test ast::symbols::tests::test_extract_symbols_batch_unsupported_language ... ok
+test ast::symbols::tests::test_extract_symbols_backward_compat ... ok
+test ast::symbols::tests::test_extract_symbols_batch_multiple_files ... ok
+test ast::symbols::tests::test_extract_symbols_batch_mixed_success_and_failure ... ok
+test ast::symbols::tests::test_filter_by_complexity ... ok
+test ast::symbols::tests::test_filter_by_complexity_excludes_none ... ok
+test ast::symbols::tests::test_extract_typescript_namespace ... ok
+test ast::symbols::tests::test_extract_symbols_with_pool ... ok
+test ast::symbols::tests::test_filter_by_kind_rust ... ok
+test ast::symbols::tests::test_filter_by_kind_python ... ok
+test ast::symbols::tests::test_find_by_name_empty_slice ... ok
+test ast::symbols::tests::test_filter_by_kind_empty_result ... ok
+test ast::symbols::tests::test_find_depth_zero_colon_nested ... ok
+test ast::symbols::tests::test_find_depth_zero_colon_no_colon ... ok
+test ast::symbols::tests::test_find_depth_zero_colon_simple ... ok
+test ast::symbols::tests::test_find_depth_zero_colon_type_hints ... ok
+test ast::symbols::tests::test_line_count ... ok
+test ast::symbols::tests::test_filter_integration_python_methods_vs_functions ... ok
+test ast::symbols::tests::test_find_by_name_rust ... ok
+test ast::symbols::tests::test_module_binding_constant_vs_variable_classification ... ok
+test ast::symbols::tests::test_find_by_name ... ok
+test ast::symbols::tests::test_module_tuple_unpacking_defines_every_name ... ok
+test ast::symbols::tests::test_python_decorator_extraction ... ok
+test ast::symbols::tests::test_rust_doc_comment_extraction ... ok
+test ast::symbols::tests::test_python_docstring_extraction ... ok
+test ast::symbols::tests::test_python_parent_detection ... ok
+test ast::symbols::tests::test_rust_visibility_levels ... ok
+test ast::symbols::tests::test_symbol_builder_pattern ... ok
+test ast::symbols::tests::test_symbol_json_backward_compat ... ok
+test ast::symbols::tests::test_symbol_kind_display ... ok
+test ast::symbols::tests::test_symbol_kind_from_str_known_variants ... ok
+test ast::symbols::tests::test_symbol_kind_from_str_roundtrip ... ok
+test ast::symbols::tests::test_symbol_kind_from_str_unknown_becomes_other ... ok
+test ast::symbols::tests::test_symbol_kind_predicates ... ok
+test ast::symbols::tests::test_symbol_kind_serde_roundtrip ... ok
+test ast::symbols::tests::test_symbol_kind_str_comparison ... ok
+test ast::symbols::tests::test_signature_with_type_hints ... ok
+test ast::watcher::tests::test_classify_event_kinds ... ok
+test ast::symbols::tests::test_signature_with_nested_brackets ... ok
+test ast::symbols::tests::test_symbol_signature ... ok
+test ast::symbols::tests::typescript_and_javascript_exported_declarations_are_public ... ok
+test ast::watcher::tests::test_watcher_detects_create ... ok
+test ast::watcher::tests::test_watcher_detects_modify ... ok
+test ast::wiring::tests::s3_suggest_imports_for_collapses_mod_rs_and_lib_rs_to_their_module ... ok
+test ast::wiring::tests::s3_suggest_imports_for_names_the_foreign_crate_by_its_snake_case_name ... ok
+test ast::wiring::tests::s3_suggest_imports_for_uses_crate_root_inside_the_same_crate ... ok
+test ast::wiring::tests::s3_suggest_imports_without_a_target_keeps_the_legacy_single_crate_form ... ok
+test ast::wiring::tests::test_detect_reexports ... ok
+test ast::wiring::tests::test_detect_reexports_empty ... ok
+test ast::wiring::tests::test_detect_unresolved_ignores_builtins ... ok
+test ast::wiring::tests::test_detect_unresolved_ignores_imported ... ok
+test ast::wiring::tests::test_detect_unresolved_references ... ok
+test ast::wiring::tests::test_diff_empty_old ... ok
+test ast::wiring::tests::test_diff_pub_symbols ... ok
+test ast::wiring::tests::test_e2e_ast_diff_empty_both ... ok
+test ast::wiring::tests::test_e2e_ast_extract_diff_detect_lifecycle ... ok
+test ast::wiring::tests::test_e2e_ast_reexports_full ... ok
+test ast::wiring::tests::test_e2e_ast_unresolved_ignores_all_caps ... ok
+test ast::wiring::tests::test_e2e_ast_unresolved_local_symbol_excluded ... ok
+test ast::wiring::tests::test_extract_pub_symbols ... ok
+test ast::wiring::tests::test_suggest_imports_basic ... ok
+test ast::wiring::tests::test_suggest_imports_empty_inputs ... ok
+test ast::wiring::tests::test_suggest_imports_first_match_wins ... ok
+test ast::wiring::tests::test_suggest_imports_no_match ... ok
+test ast::watcher::tests::test_watcher_detects_remove ... ok
+test ast::watcher::tests::test_watcher_recursive_subdirs ... ok
+test ast::wiring::tests::workspace_info_loads_current_workspace ... ok
+test ast::wiring::tests::workspace_info_finds_touring_code ... ok
+test ast::wiring::tests::workspace_info_dependents_of_touring_foundation ... ok
+test cwe_scan::tests::clean_source_has_no_findings ... ok
+test cwe_scan::tests::detects_hardcoded_api_key ... ok
+test cwe_scan::tests::detects_path_traversal ... ok
+test cwe_scan::tests::detects_production_unwrap_but_not_in_comments ... ok
+test cwe_scan::tests::detects_sql_injection_pattern ... ok
+test cwe_scan::tests::severity_labels_are_the_cli_strings ... ok
+test cwe_scan::tests::vendor_needles_are_built_from_bytes ... ok
+test journal::tests::all_malformed_returns_error ... ok
+test journal::tests::bytes_aggregate_correct ... ok
+test journal::tests::default_path_is_canonical ... ok
+test journal::tests::empty_input_is_empty_aggregate ... ok
+test journal::tests::failure_kind_taxonomy ... ok
+test journal::tests::malformed_line_reports_position_and_skips ... ok
+test journal::tests::malformed_lines_are_counted_and_exposed ... ok
+test journal::tests::multi_language_separates_correctly ... ok
+test journal::tests::read_journal_missing_file_is_error ... ok
+test journal::tests::single_language_aggregate ... ok
+test journal::v2_tests::v2_entry_fields_are_typed ... ok
+test journal::v2_tests::v2_fields_parse_and_aggregate_while_v1_lines_still_read ... ok
+test languages::types::tests::item_new_round_trip ... ok
+test polyglot::lang::tests::detect_from_extension ... ok
+test polyglot::lang::tests::from_str_aliases ... ok
+test polyglot::rewrite::tests::rewrite_allows_ellipsis_inside_pattern ... ok
+test polyglot::rewrite::tests::rewrite_rejects_bare_ellipsis_without_panic ... ok
+test polyglot::rewrite::tests::rewrite_rejects_bare_named_ellipsis_without_panic ... ok
+test polyglot::rewrite::tests::rewrite_rejects_malformed_pattern_without_panic ... ok
+test polyglot::scan::tests::render_fix_substitutes_metavars ... ok
+test polyglot::scan::tests::scan_files_empty_inputs_returns_empty_report ... ok
+test polyglot::scan::tests::scan_files_finds_matches_in_rust_file ... ok
+test polyglot::scan::tests::scan_files_matches_sorted_by_file_line_col ... ok
+test polyglot::scan::tests::scan_files_records_elapsed_time ... ok
+test polyglot::scan::tests::scan_files_skips_rule_with_mismatched_language ... ok
+test polyglot::scan::tests::scan_files_unreadable_file_counted_as_skipped ... ok
+test polyglot::scan::tests::scan_report_severity_counts ... ok
+test polyglot::scan::tests::severity_str_matches_lowercase ... ok
+test polyglot::scan::tests::walk_files_finds_rs_files_in_dir ... ok
+test polyglot::scan::tests::walk_files_skips_target_and_hidden ... ok
+test polyglot::search::tests::extract_metavars_basic ... ok
+test polyglot::search::tests::extract_metavars_dedup ... ok
+test polyglot::search::tests::is_degenerate_ellipsis_pattern_cases ... ok
+test polyglot::search::tests::is_degenerate_ellipsis_pattern_handles_control_char_suffix ... ok
+test polyglot::search::tests::search_allows_ellipsis_inside_pattern ... ok
+test polyglot::search::tests::search_rejects_b_fuzz_001_extended_payload_without_panic ... ok
+test polyglot::search::tests::search_rejects_bare_ellipsis_without_panic ... ok
+test polyglot::search::tests::search_rejects_bare_named_ellipsis_without_panic ... ok
+test polyglot::search::tests::search_rejects_malformed_pattern_without_panic ... ok
+test polyglot::search::tests::search_rejects_whitespace_padded_ellipsis_without_panic ... ok
+test polyglot::search::tests::test_go_polyglot_search_handles_minimal_and_unusual_sources_without_panic ... ok
+test polyglot::search::tests::test_go_polyglot_search_post_abi_v15_returns_ok_on_arbitrary_input ... ok
+test sdk::tests::all_hooks_have_strings ... ok
+test sdk::tests::classify_maps_the_seven_cli_shapes ... ok
+test sdk::tests::classify_rejects_non_touring_and_other_subcommands ... ok
+test sdk::tests::classify_sees_through_env_prefix_and_binary_path ... ok
+test sdk::tests::parse_hook_roundtrip ... ok
+test sdk::tests::parse_hook_unknown_is_error ... ok
+test sdk::tests::signal_report_emits_all_hooks_even_with_zero_calls ... ok
+test sdk_signal_mirror::tests::augment_does_not_clobber_existing ... ok
+test sdk_signal_mirror::tests::augment_zeroed_hooks_get_mirror_counts ... ok
+test sdk_signal_mirror::tests::default_mirror_path_is_canonical ... ok
+test sdk_signal_mirror::tests::empty_mirror_returns_default ... ok
+test sdk_signal_mirror::tests::legacy_line_without_origin_still_parses_and_counts ... ok
+test sdk_signal_mirror::tests::read_missing_returns_default_not_error ... ok
+test sdk_signal_mirror::tests::record_appends_valid_jsonl ... ok
+test sdk_signal_mirror::tests::record_writes_the_origin_of_the_delivery ... ok
+test semantics::definition::tests::test_byte_offset_to_line_col ... ok
+test semantics::definition::tests::test_definition_id_display ... ok
+test semantics::definition::tests::test_definition_id_without_name ... ok
+test semantics::definition::tests::test_definition_kind_display ... ok
+test semantics::definition::tests::test_file_range_from_offsets ... ok
+test semantics::definition::tests::test_is_rust_rich ... ok
+test semantics::multi_lang::tests::test_is_valid_kind ... ok
+test semantics::multi_lang::tests::test_js_kind_to_definition ... ok
+test semantics::multi_lang::tests::test_lang_definition_kinds_js ... ok
+test semantics::multi_lang::tests::test_lang_definition_kinds_rust ... ok
+test semantics::multi_lang::tests::test_rust_kind_to_definition ... ok
+test semantics::semantics::tests::test_semantics_cache_invalidation ... ok
+test semantics::semantics::tests::test_semantics_from_tree ... ok
+test semantics::source_to_def::tests::test_find_definitions_in_tree_empty ... ok
+test semantics::source_to_def::tests::test_source_to_definition_rust_fn ... ok
+test semantics::source_to_def::tests::test_try_def_from_node_unknown_kind ... ok
+test tests::languages_module_exposed ... ok
+test tests::smoke_re_exports_compile ... ok
+test types::tests::item_new_round_trip ... ok
+test vgp::lang::cdn::tests::stub_nao_inventa_achado ... ok
+test vgp::lang::classe_css::tests::stub_nao_inventa_achado ... ok
+test vgp::lang::css::tests::stub_responde_unknown_com_motivo_nunca_allow ... ok
+test vgp::lang::html::tests::stub_responde_unknown_com_motivo_nunca_allow ... ok
+test vgp::lang::javascript::tests::stub_responde_unknown_com_motivo_nunca_allow ... ok
+test vgp::lang::python::modules::debug_tree::debug_shapes ... ok
+test vgp::lang::python::modules::tests::classe_campos_metodos_self_attrs_e_slots ... ok
+test vgp::lang::python::modules::tests::dataclass_init_sao_os_campos ... ok
+test vgp::lang::python::modules::tests::dataclass_init_segue_a_ordem_de_declaracao ... ok
+test vgp::lang::python::modules::tests::dunder_all_e_getattr_e_star ... ok
+test vgp::lang::python::modules::tests::func_sig_params_kwargs_e_retorno ... ok
+test vgp::lang::python::modules::tests::getattr_de_instancia_marca_incompleto ... ok
+test vgp::lang::python::modules::tests::resolver_prefere_o_overlay_ao_disco_e_guarda_a_raiz ... ok
+test vgp::lang::python::modules::tests::self_attrs_somem_de_qualquer_metodo_mas_nao_de_nested ... ok
+test vgp::lang::python::modules::tests::top_names_cobrem_atribuicao_def_classe_e_imports ... ok
+test vgp::lang::python::namespace::tests::censo_do_namespace_para_cruzar_com_o_runtime ... ignored, instrumento de censo: precisa de VGP_CENSUS_FILES
+test vgp::lang::python::namespace::tests::corpos_de_def_class_lambda_e_comprehension_nao_sao_escopo_de_modulo ... ok
+test vgp::lang::python::namespace::tests::dunder_all_literal_em_composto_e_estendido_conta_como_nome ... ok
+test vgp::lang::python::namespace::tests::future_import_liga_annotations ... ok
+test vgp::lang::python::namespace::tests::getattr_com_return_sem_guarda_e_aberto ... ok
+test vgp::lang::python::namespace::tests::getattr_de_classe_ou_de_funcao_aninhada_nao_e_do_modulo ... ok
+test vgp::lang::python::namespace::tests::getattr_em_ramo_composto_do_modulo_e_analisado ... ok
+test vgp::lang::python::namespace::tests::getattr_guarda_in_literal_and_or_e_condicao_nao_literal ... ok
+test vgp::lang::python::namespace::tests::getattr_idioma_do_cpython_e_fechado ... ok
+test vgp::lang::python::namespace::tests::getattr_por_atribuicao_ou_reexport_e_aberto ... ok
+test vgp::lang::python::namespace::tests::getattr_return_no_else_ou_depois_do_if_e_aberto ... ok
+test vgp::lang::python::namespace::tests::getattr_sem_raise_final_devolve_none_e_e_aberto ... ok
+test vgp::lang::python::namespace::tests::getattr_so_com_raise_serve_nenhum_nome ... ok
+test vgp::lang::python::namespace::tests::global_em_funcao_declara_atributo_de_modulo ... ok
+test vgp::lang::python::namespace::tests::globals_com_chave_nao_literal_e_aberto ... ok
+test vgp::lang::python::namespace::tests::if_elif_else_unem_as_ligacoes_de_todos_os_ramos ... ok
+test vgp::lang::python::namespace::tests::imports_e_defs_dentro_de_compostos_ligam_o_nome ... ok
+test vgp::lang::python::namespace::tests::laco_literal_nao_vaza_para_depois_do_for ... ok
+test vgp::lang::python::namespace::tests::modulo_nomeado_por_literal_e_outro_modulo_e_variavel_pode_ser_este ... ok
+test vgp::lang::python::namespace::tests::modulo_substituido_por_objeto_exec_no_modulo_e_class_sao_abertos ... ok
+test vgp::lang::python::namespace::tests::namespace_entregue_a_um_chamador_que_pode_ligar_nomes_e_aberto ... ok
+test vgp::lang::python::namespace::tests::numpy_composto_liga_array_where_e_fecha_o_namespace ... ok
+test vgp::lang::python::namespace::tests::o_escopo_volta_ao_modulo_depois_de_um_def_ou_class ... ok
+test vgp::lang::python::namespace::tests::pillow_setattr_sobre_o_modulo_com_nome_nao_literal_e_aberto ... ok
+test vgp::lang::python::namespace::tests::setattr_e_globals_com_chave_literal_ou_laco_literal_sao_fechados ... ok
+test vgp::lang::python::namespace::tests::setattr_sobre_objeto_que_nao_e_o_modulo_nao_conta ... ok
+test vgp::lang::python::namespace::tests::star_import_em_qualquer_ramo_marca_namespace_nao_enumeravel ... ok
+test vgp::lang::python::namespace::tests::sys_modules_de_outra_entrada_nao_substitui_este_modulo ... ok
+test vgp::lang::python::namespace::tests::try_except_else_finally_unem_as_ligacoes ... ok
+test vgp::lang::python::namespace::tests::type_alias_liga_o_nome_simples_e_o_generico ... ok
+test vgp::lang::python::namespace::tests::walrus_e_atribuicao_encadeada_ligam ... ok
+test vgp::lang::python::namespace::tests::with_for_while_match_ligam_alvos_e_corpos ... ok
+test vgp::lang::python::scope::except_binding_tests::except_com_as_liga_o_nome_no_bloco ... ok
+test vgp::lang::python::scope::except_binding_tests::nome_realmente_indefinido_no_except_segue_negado ... ok
+test vgp::lang::python::scope::r2_constructs_tests::alvo_de_comprehension_liga_no_escopo_isolado ... ok
+test vgp::lang::python::scope::r2_constructs_tests::atribuicao_encadeada_liga_todos_os_alvos ... ok
+test vgp::lang::python::scope::r2_constructs_tests::future_import_nao_vira_uso ... ok
+test vgp::lang::python::scope::r2_constructs_tests::match_captura_liga_e_valor_pontuado_e_uso ... ok
+test vgp::lang::python::scope::r2_constructs_tests::nome_definido_em_fstring_nao_nega ... ok
+test vgp::lang::python::scope::r2_constructs_tests::splat_args_e_kwargs_ligam ... ok
+test vgp::lang::python::scope::r2_constructs_tests::splat_tipado_liga_o_nome ... ok
+test vgp::lang::python::scope::r2_constructs_tests::uso_dentro_de_fstring_conta ... ok
+test vgp::lang::python::scope::r2_constructs_tests::walrus_liga_o_nome ... ok
+test vgp::lang::python::scope::r2_constructs_tests::with_as_liga_o_alvo ... ok
+test vgp::lang::python::scope::sexp_probe::dump_except_sexp ... ok
+test vgp::lang::python::scope::tests::anotacoes_usam_nomes ... ok
+test vgp::lang::python::scope::tests::aug_assign_carrega_e_vincula ... ok
+test vgp::lang::python::scope::tests::classe_invisivel_dentro_do_metodo_mas_nome_da_classe_visivel ... ok
+test vgp::lang::python::scope::tests::comprehension_isolada_e_primeiro_iteravel_no_escopo_externo ... ok
+test ast::wiring::tests::workspace_info_reports_feature_names ... ok
+test vgp::lang::python::scope::tests::dunder_file_inline_nega_e_em_arquivo_nao ... ok
+test vgp::lang::python::scope::tests::fechamento_enxerga_escopo_externo_de_funcao ... ok
+test vgp::lang::python::scope::tests::forward_reference_no_mesmo_escopo_e_legitima ... ok
+test vgp::lang::python::scope::tests::global_redireciona_para_o_modulo ... ok
+test vgp::lang::python::scope::tests::import_simples_vincula ... ok
+test vgp::lang::python::scope::tests::nome_de_funcao_ausente_em_tupla_nega ... ok
+test vgp::lang::python::scope::tests::nome_usado_sem_definicao_nega ... ok
+test vgp::lang::python::scope::tests::star_import_e_exec_escape_viram_desconhecido_nunca_deny ... ok
+test vgp::lang::python::tests::atributo_de_modulo_do_projeto_nega ... ok
+test vgp::lang::python::tests::atributo_de_modulo_stdlib_fechado_nega_combending ... ok
+test vgp::lang::python::tests::atributo_em_submodulo_importado_nega_com_o_nome_do_submodulo ... ok
+test vgp::lang::python::tests::atributo_em_funcao_importada_nega ... ok
+test vgp::lang::python::tests::construtor_com_alias_tipa_a_instancia_pelo_nome_original ... ok
+test vgp::lang::python::tests::construtor_pontuado_pathlib_path_tipa ... ok
+test ast::wiring::tests::workspace_info_workspace_members_all_flagged ... ok
+test vgp::lang::python::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo ... ok
+test vgp::lang::python::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem ... ok
+test vgp::lang::python::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde ... ok
+test vgp::lang::python::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao ... ok
+test vgp::lang::python::tests::delta_so_nega_o_que_a_edicao_introduz ... ok
+test vgp::lang::python::tests::dc_kw_only_vai_depois_dos_posicionais ... ok
+test vgp::lang::python::tests::det_ordem_dos_membros_publicos_primeiro_alfabetica_e_cortada_em_oito ... ok
+test vgp::lang::python::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so ... ok
+test vgp::lang::python::tests::det_reais_sao_o_corte_de_uma_ordem_total_e_a_sugestao_sai_dela ... ok
+test vgp::lang::python::tests::exec_e_return_tambem_nao_geram_falso_deny ... ok
+test vgp::lang::python::tests::from_import_de_modulo_irresoluvel_e_unknown_nunca_deny ... ok
+test vgp::lang::python::tests::from_import_de_nome_inventado_nega_e_real_nao ... ok
+test vgp::lang::python::tests::from_import_lista_mista_nega_so_o_inventado ... ok
+test vgp::lang::python::tests::from_import_parenteses_multilinha_nega_so_o_inventado ... ok
+test vgp::lang::python::tests::from_import_relativo_com_irmao_nega_o_inventado ... ok
+test vgp::lang::python::tests::from_import_sem_alias_nega_o_nome_inventado ... ok
+test vgp::lang::python::tests::from_import_submodulo_fora_do_dunder_all_nao_nega ... ok
+test vgp::lang::python::tests::det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao ... ok
+test vgp::lang::python::tests::getattr_de_instancia_no_caminho_e_unknown_nunca_deny ... ok
+test vgp::lang::python::tests::guardas_de_precisao_em_codigo_comum ... ok
+test vgp::lang::python::tests::hierarquia_ciclica_de_classes_nao_crasha_nem_nega ... ok
+test vgp::lang::python::tests::inferencia_mutua_ciclica_nao_crasha_e_nao_nega ... ok
+test vgp::lang::python::tests::inferencia_autorreferente_nao_crasha_e_nao_nega ... ok
+test vgp::lang::python::tests::kwarg_inexistente_nega_e_kwargs_absorve ... ok
+test vgp::lang::python::tests::kwarg_atraves_de_reexport_usa_a_assinatura_real ... ok
+test vgp::lang::python::tests::membro_importado_de_tipo_desconhecido_nao_nega ... ok
+test vgp::lang::python::tests::membro_de_instancia_via_retorno_anotado_nega_total ... ok
+test vgp::lang::python::tests::membro_via_construtor_direto_e_self_attrs ... ok
+test vgp::lang::python::tests::nenhum_par_de_testes_compartilha_o_diretorio_temporario ... ok
+test vgp::lang::python::tests::nome_ausente_nega_com_linha ... ok
+test vgp::lang::python::tests::p0_getattr_preguicoso_aberto_abstem_em_todo_balde ... ok
+test vgp::lang::python::tests::p0_controle_numpy_typo_continua_negando_em_tmp_e_inline ... ok
+test vgp::lang::python::tests::p0_numpy_from_import_do_composto_e_do_getattr_nao_nega_e_do_typo_nega ... ok
+test vgp::lang::python::tests::p0_numpy_bloco_composto_liga_array_e_where_em_todo_balde ... ok
+test vgp::lang::python::tests::p0_pillow_import_de_nome_dinamico_nao_nega ... ok
+test vgp::lang::python::tests::p0_numpy_nomes_dos_dois_mecanismos_dinamicos_fechados_existem ... ok
+test vgp::lang::python::tests::p0_pillow_setattr_dinamico_abstem_com_a_mesma_resposta_nos_tres_baldes ... ok
+test vgp::lang::python::tests::p0_rust_bridge_nome_ligado_em_try_except_existe ... ok
+test vgp::lang::python::tests::p0_submodulo_compilado_existe_e_a_ausencia_do_py_nao_o_nega ... ok
+test vgp::lang::python::tests::p0b_a_atributo_implicito_depende_de_arquivo_e_de_pacote ... ok
+test vgp::lang::python::tests::p0_stdlib_sem_tabela_fechada_nao_e_modelada_por_desenho ... ok
+test vgp::lang::python::tests::p0b_a_controles_inexistencia_de_verdade_e_path_de_modulo_comum_seguem_negando ... ok
+test vgp::lang::python::tests::p0b_a_from_import_do_atributo_implicito_nao_nega_e_do_inventado_nega ... ok
+test vgp::lang::python::tests::p0b_a_modulo_stdlib_de_tabela_fechada_tem_os_implicitos_e_o_inventado_nega ... ok
+test vgp::lang::python::tests::p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome ... ok
+test vgp::lang::python::tests::p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde ... ok
+test vgp::lang::python::tests::det_mesma_entrada_dez_chamadas_dao_os_mesmos_bytes_nos_tres_baldes ... ok
+test vgp::lang::python::tests::p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro ... ok
+test vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg ... ok
+test vgp::lang::python::tests::p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde ... ok
+test vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho ... ok
+test vgp::lang::python::tests::p0bd_os_demais_builtins_seguem_incertos_e_sem_receptor ... ok
+test vgp::lang::python::tests::p4_externo_nega_em_arquivo_e_em_tmp ... ok
+test vgp::lang::python::tests::p4_forma_e_dinamico_sao_warn_mesmo_em_tmp ... ok
+test vgp::lang::python::tests::site_builtins_exit_e_quit_nao_geram_falso_deny ... ok
+test vgp::lang::python::tests::reexport_segue_o_salto_e_nega_o_membro_inventado ... ok
+test vgp::lang::python::tests::slots_sem_dunder_dict_nega ... ok
+test vgp::lang::python::tests::trap_sem_definicao_continua_negado ... ok
+test vgp::lang::rust::tests::stub_responde_unknown_com_motivo_nunca_allow ... ok
+test vgp::lang::tests::adaptador_nao_decide_veredito_so_os_achados_decidem ... ok
+test vgp::lang::python::tests::splat_tipado_kwargs_absorve_os_nomeados ... ok
+test vgp::lang::tests::delta_vale_para_qualquer_lang_e_so_rebaixa_o_que_o_disco_ja_tinha ... ok
+test vgp::lang::tests::delta_vale_para_toda_lang_registrada_o_pre_existente_no_disco_nunca_vira_deny ... ok
+test vgp::lang::tests::alvo_externo_inexistente_nega_ja_na_escrita_em_tmp_p1_nao_muda ... ok
+test vgp::lang::tests::lang_do_caminho_tabela_do_paragrafo_2 ... ok
+test vgp::lang::tests::linguagem_sem_adaptador_e_unknown_com_motivo_nunca_allow ... ok
+test vgp::lang::tests::gramaticas_aceitas_pelo_runtime_e_ts_tsx_sao_distintas ... ok
+test vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa ... ok
+test vgp::lang::tests::parse_de_lang_desconhecida_e_erro_com_motivo ... ok
+test vgp::lang::tests::na_execucao_o_scratch_roda_agora_e_o_python_nega_o_simbolo_do_projeto_ali ... ok
+test vgp::lang::tests::registro_sem_lang_duplicada_e_cada_adaptador_responde_pela_sua ... ok
+test vgp::lang::tests::regra_de_politica_vale_para_adaptador_de_qualquer_lang ... ok
+test vgp::lang::tests::toda_extensao_da_tabela_leva_a_uma_lang_com_adaptador_e_gramatica ... ok
+test vgp::lang::tests::transversais_registradas_so_rodam_nas_langs_que_declaram ... ok
+test vgp::lang::tests::transversal_roda_depois_do_adaptador_e_passa_pela_mesma_politica ... ok
+test vgp::lang::tsx::tests::stub_responde_unknown_com_motivo_nunca_allow ... ok
+test vgp::lang::typescript::tests::stub_responde_unknown_com_motivo_nunca_allow ... ok
+test vgp::politica::tests::aplicar_sobrescreve_a_severidade_que_o_adaptador_escreveu ... ok
+test vgp::politica::tests::delta_ignora_a_severidade_do_achado_no_disco ... ok
+test vgp::politica::tests::delta_rebaixa_so_o_deny_que_o_disco_ja_tinha ... ok
+test vgp::politica::tests::na_escrita_so_o_inline_roda_agora ... ok
+test vgp::politica::tests::o_contexto_padrao_e_a_escrita_e_o_cli_o_le_pelo_nome ... ok
+test vgp::politica::tests::p1_externo_nega_em_qualquer_balde ... ok
+test vgp::politica::tests::p2_projeto_nega_so_onde_roda_agora ... ok
+test vgp::politica::tests::p3_fechado_sozinho_so_avisa_em_todo_balde ... ok
+test vgp::politica::tests::p3_incerto_nunca_nega ... ok
+test vgp::politica::tests::p4_classes_consultivas_nunca_negam_nem_com_alvo_externo ... ok
+test vgp::politica::tests::roda_agora_na_execucao_cobre_inline_tmp_e_cache_do_projeto ... ok
+test vgp::politica::tests::verdict_dos_deny_domina_e_vazio_devolve_a_base ... ok
+test vgp::sombra::tests::balde_por_path ... ok
+test vgp::sombra::tests::iso_z_tem_forma_do_contrato ... ok
+test vgp::sombra::tests::camada2_ligada_padrao_so_python_e_a_declaracao_substitui ... ok
+test vgp::sombra::tests::linha_de_linguagem_sem_adaptador_carrega_lang_e_o_motivo_do_motor ... ok
+test vgp::sombra::tests::p0b_b_fusao_controles_sem_sinal_dinamico_a_camada2_segue_escalando ... ok
+test vgp::sombra::tests::p0bd_a_corroboracao_exige_o_alvo_fechado_nao_so_o_receptor_igual ... ok
+test vgp::sombra::tests::p0b_b_fusao_nao_deixa_a_camada2_negar_por_cima_do_dinamico_da_camada_1 ... ok
+test vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny ... ok
+test vgp::sombra::tests::p0bd_classe_diferente_ou_sem_classe_ou_so_uma_camada_segue_warn ... ok
+test vgp::sombra::tests::p0bd_incerto_segue_sem_ser_escalado_nem_pela_mesma_classe ... ok
+test vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta ... ok
+test vgp::sombra::tests::redirecionamento_e_por_thread_e_restaura_no_fim ... ok
+test vgp::sombra::tests::p0bd_receptor_str_nao_e_fechado_e_segue_warn ... ok
+test vgp::sombra::tests::sombra_check_em_execucao_grava_o_hook_de_execucao_e_nega_o_scratch ... ok
+test vgp::sombra::tests::toml_camada2_langs_ausente_ou_malformada_nao_declara ... ok
+test vgp::sombra::tests::toml_camada2_langs_le_a_lista_de_uma_linha ... ok
+test vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta ... ok
+test vgp::sombra::tests::toml_modo_e_precedencia ... ok
+test vgp::lang::python::tests::p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime ... ok
+test ast::watcher::tests::test_watcher_unwatch ... ok
+
+test result: ok. 977 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.07s
+
+     Running tests/bash_scanner_ctype.rs (target/debug/deps/bash_scanner_ctype-ee30e61836f37f8c)
+
+running 2 tests
+test bash_codepoint_sweep_child ... ok
+test a_codepoint_in_a_bash_brace_expression_never_reads_outside_the_ctype_table ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.87s
+
+     Running tests/cross_audit.rs (target/debug/deps/cross_audit-03c18c7a87f9bf55)
+
+running 31 tests
+test audit_01_ast_error_is_non_exhaustive ... ok
+test audit_01_ast_error_from_sqlite ... ok
+test audit_01_ast_error_backward_compat_to_string ... ok
+test audit_01_ast_error_from_io ... ok
+test audit_03_python_imports_treesitter ... ok
+test audit_03_rust_imports_treesitter ... ok
+test audit_02_symbol_column_rust_nested ... ok
+test audit_03_treesitter_matches_regex_fallback ... ok
+test audit_04_lru_cache_bounded_at_128 ... ok
+test audit_02_symbol_column_zero_for_toplevel ... ok
+test audit_02_symbol_column_nonzero_for_indented ... ok
+test audit_05_parser_pool_is_send_sync ... ok
+test audit_04_lru_eviction_is_not_fifo ... ok
+test audit_03_ts_imports_treesitter ... ok
+test audit_07_tracing_does_not_alter_behavior ... ok
+test audit_05_parser_pool_parallel_parsing ... ok
+test audit_08_surgery_single_function_source ... ok
+test audit_08_surgery_decorated_function ... ok
+test audit_09_extract_symbols_from_file_works ... ok
+test audit_09_validate_syntax_used_by_bridge ... ok
+test audit_11_symbol_new_accepts_column ... ok
+test audit_06_parallel_indexing_complete_and_correct ... ok
+test edge_case_incremental_parse_after_invalidation ... ok
+test audit_09_blast_radius_through_index ... ok
+test edge_case_empty_source ... ok
+test edge_case_unicode_source ... ok
+test full_flow_incremental_edit_and_reparse ... ok
+test edge_case_syntax_errors_dont_crash ... ok
+test audit_06_parallel_vs_sequential_same_result ... ok
+test edge_case_very_large_file ... ok
+test full_flow_parse_extract_index_blast_radius ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/fuzz_parsers.rs (target/debug/deps/fuzz_parsers-357959581b065fea)
+
+running 4 tests
+test parallel_parse_is_deterministic ... ok
+test empty_source_is_safe_for_every_language ... ok
+test large_single_line_source_terminates ... ok
+test fuzz_every_language_does_not_panic ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 43.26s
+
+     Running tests/integration_test.rs (target/debug/deps/integration_test-ff77c1d248ff4198)
+
+running 2 tests
+test integration_item_construction ... ok
+test integration_result_alias_compiles ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/latency_p99_guard.rs (target/debug/deps/latency_p99_guard-b7989ee0751ac25e)
+
+running 5 tests
+test histogram_records_monotonic_sequence ... ok
+test extract_medium_rust_p99_under_budget ... ok
+test extract_small_rust_p99_under_budget ... ok
+test extract_python_p99_under_budget ... ok
+test quality_rust_p99_under_budget ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.09s
+
+     Running tests/markdown_scanner_overflow.rs (target/debug/deps/markdown_scanner_overflow-a470430f0303eb54)
+
+running 7 tests
+test overflow_child ... ok
+test the_ctype_guard_sees_through_comments_literals_parentheses_and_aliases ... ok
+test the_patched_grammars_are_the_ones_the_workspace_builds ... ok
+test unicode_after_list_digits_child ... ok
+test the_vendored_scanners_never_call_ctype_on_a_codepoint ... ok
+test deeply_nested_markdown_never_corrupts_the_parser ... ok
+test a_codepoint_after_list_digits_never_reads_outside_the_ctype_table ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.39s
+
+     Running tests/mockall_observer.rs (target/debug/deps/mockall_observer-10b299151a20a423)
+
+running 6 tests
+test observer_chain_over_multiple_apply_calls ... ok
+test empty_changeset_does_not_notify ... ok
+test multiple_observers_fan_out ... ok
+test observer_receives_upserted_symbol_name ... ok
+test upsert_triggers_observer_exactly_once ... ok
+test remove_triggers_observer_exactly_once ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/parametric_multilang.rs (target/debug/deps/parametric_multilang-3a996ceaf5adedaa)
+
+running 58 tests
+test lang_as_str_matches_display::case_03 ... ok
+test lang_as_str_matches_display::case_01 ... ok
+test lang_as_str_matches_display::case_02 ... ok
+test lang_as_str_matches_display::case_04 ... ok
+test lang_as_str_matches_display::case_05 ... ok
+test lang_as_str_matches_display::case_06 ... ok
+test lang_as_str_matches_display::case_07 ... ok
+test lang_as_str_matches_display::case_08 ... ok
+test lang_as_str_matches_display::case_09 ... ok
+test lang_as_str_matches_display::case_10 ... ok
+test lang_as_str_matches_display::case_11 ... ok
+test lang_classification_partitions_languages::case_01 ... ok
+test lang_classification_partitions_languages::case_02 ... ok
+test lang_classification_partitions_languages::case_03 ... ok
+test lang_classification_partitions_languages::case_04 ... ok
+test lang_classification_partitions_languages::case_05 ... ok
+test lang_classification_partitions_languages::case_06 ... ok
+test lang_classification_partitions_languages::case_07 ... ok
+test lang_classification_partitions_languages::case_08 ... ok
+test lang_classification_partitions_languages::case_09 ... ok
+test lang_classification_partitions_languages::case_10 ... ok
+test lang_classification_partitions_languages::case_11 ... ok
+test lang_from_path_detects_correctly::case_01 ... ok
+test lang_from_path_detects_correctly::case_02 ... ok
+test lang_from_path_detects_correctly::case_03 ... ok
+test lang_from_path_detects_correctly::case_04 ... ok
+test lang_from_path_detects_correctly::case_05 ... ok
+test lang_from_path_detects_correctly::case_06 ... ok
+test lang_from_path_detects_correctly::case_07 ... ok
+test lang_from_path_detects_correctly::case_08 ... ok
+test lang_from_path_detects_correctly::case_09 ... ok
+test lang_from_path_detects_correctly::case_10 ... ok
+test lang_from_path_detects_correctly::case_11 ... ok
+test lang_from_path_detects_correctly::case_12 ... ok
+test lang_from_path_detects_correctly::case_13 ... ok
+test lang_from_path_detects_correctly::case_14 ... ok
+test lang_from_path_detects_correctly::case_15 ... ok
+test lang_from_path_detects_correctly::case_16 ... ok
+test lang_from_path_detects_correctly::case_17 ... ok
+test lang_from_str_accepts_aliases::case_01 ... ok
+test lang_from_str_accepts_aliases::case_02 ... ok
+test lang_from_str_accepts_aliases::case_03 ... ok
+test lang_from_str_accepts_aliases::case_04 ... ok
+test lang_from_str_accepts_aliases::case_05 ... ok
+test lang_from_str_accepts_aliases::case_06 ... ok
+test lang_from_str_accepts_aliases::case_07 ... ok
+test lang_from_str_accepts_aliases::case_08 ... ok
+test lang_from_str_accepts_aliases::case_09 ... ok
+test lang_from_str_accepts_aliases::case_10 ... ok
+test lang_from_str_rejects_unknown::case_1 ... ok
+test lang_from_str_rejects_unknown::case_2 ... ok
+test lang_from_str_rejects_unknown::case_3 ... ok
+test symbol_extraction_finds_top_level_function::case_2 ... ok
+test quality_detects_todo_macro_in_rust::case_2 ... ok
+test quality_detects_todo_macro_in_rust::case_1 ... ok
+test symbol_extraction_finds_top_level_function::case_3 ... ok
+test symbol_extraction_finds_top_level_function::case_1 ... ok
+test symbol_extraction_finds_top_level_function::case_4 ... ok
+
+test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/property_tests.rs (target/debug/deps/property_tests-f66087194dc682fd)
+
+running 19 tests
+test filter_by_kind_correct ... ok
+test class_def_produces_class_kind ... ok
+test filter_by_kind_subset ... ok
+test async_def_produces_async_kind ... ok
+test find_by_name_correct ... ok
+test find_by_name_missing ... ok
+test function_def_produces_function_kind ... ok
+test incremental_parse_symbol_count_stable ... ok
+test blast_radius_monotone ... ok
+test rust_surgery_idempotent ... ok
+test methods_have_class_parent ... ok
+test nonempty_source_produces_symbols ... ok
+test symbols_byte_within_source ... ok
+test symbols_no_position_duplicates ... ok
+test symbols_nonempty_names ... ok
+test symbols_lines_one_indexed ... ok
+test symbols_nonempty_signatures ... ok
+test symbols_valid_byte_ranges ... ok
+test symbols_valid_line_ranges ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.06s
+
+     Running tests/proptest_parser_fuzz.rs (target/debug/deps/proptest_parser_fuzz-b6dfecb7b1146fdf)
+
+running 8 tests
+test compute_complexity_never_panics ... ok
+test extract_imports_never_panics ... ok
+test build_call_graph_never_panics ... ok
+test extract_symbols_python_never_panics ... ok
+test extract_symbols_rust_never_panics ... ok
+test module_tree_never_panics ... ok
+test extract_symbols_typescript_never_panics ... ok
+test pathological_inputs_dont_crash_pipeline ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.10s
+
+     Running tests/rusty_fork_isolation.rs (target/debug/deps/rusty_fork_isolation-5e343f170d6d14a1)
+
+running 4 tests
+test parent_sees_fresh_static_between_forks ... ok
+test sub_process_runs_and_exits_cleanly ... ok
+test static_mutations_in_child_do_not_leak_back_to_parent ... ok
+test symbol_store_opens_in_fresh_child_process ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/semantics_tests.rs (target/debug/deps/semantics_tests-60abafdfcbb31f2b)
+
+running 13 tests
+test test_definition_kind_display ... ok
+test test_definition_id_roundtrip ... ok
+test test_is_valid_kind_rust_fn ... ok
+test test_is_valid_kind_js_class ... ok
+test test_js_class_maps_to_class ... ok
+test test_lang_definition_kinds_completeness ... ok
+test test_js_function_resolution ... ok
+test test_rust_fn_maps_to_function ... ok
+test test_python_class_resolution ... ok
+test test_rust_struct_field_resolution ... ok
+test test_typescript_interface_resolution ... ok
+test test_usages_of_basic ... ok
+test test_rust_function_resolution ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/snapshot_call_graph.rs (target/debug/deps/snapshot_call_graph-317761a110692cc3)
+
+running 2 tests
+test snapshot_python_nested_calls ... ok
+test snapshot_rust_simple_call_graph ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/snapshot_call_graph_scc.rs (target/debug/deps/snapshot_call_graph_scc-af02521a2a328e97)
+
+running 3 tests
+test snapshot_python_self_recursion ... ok
+test snapshot_rust_mutual_recursion_two_node_scc ... ok
+test snapshot_rust_three_node_cycle_plus_tail ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/snapshot_complexity.rs (target/debug/deps/snapshot_complexity-115707df7648ca58)
+
+running 2 tests
+test snapshot_rust_complexity_branches ... ok
+test snapshot_python_complexity_branches ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/snapshot_complexity_async.rs (target/debug/deps/snapshot_complexity_async-1503a52e09787351)
+
+running 2 tests
+test snapshot_rust_async_await_branches ... ok
+test snapshot_python_async_await_branches ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/snapshot_imports.rs (target/debug/deps/snapshot_imports-79950389932065a6)
+
+running 2 tests
+test snapshot_python_imports_mixed ... ok
+test snapshot_rust_imports_mixed ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/snapshot_module_tree.rs (target/debug/deps/snapshot_module_tree-a4a19b92f4221f70)
+
+running 1 test
+test snapshot_rust_module_tree_nested ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/snapshot_module_tree_deep.rs (target/debug/deps/snapshot_module_tree_deep-e721eb63fb5202b8)
+
+running 1 test
+test snapshot_rust_module_tree_four_level_chained_reexports ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/snapshot_pheromone_e2e.rs (target/debug/deps/snapshot_pheromone_e2e-c3324a730599df1b)
+
+running 10 tests
+test e2e_enriched_blast_radius_empty_graph ... ok
+test e2e_integration_all_pheromone_structures ... ok
+test e2e_pheromone_graph_evaporation ... ok
+test e2e_pheromone_graph_ignores_self_edge ... ok
+test e2e_pheromone_graph_reinforce_and_hot_edges ... ok
+test e2e_symbol_pheromone_map_coaccess_rerank ... ok
+test e2e_symbol_pheromone_map_caps_at_max ... ok
+test e2e_symbol_pheromone_map_evaporation_prunes_weak ... ok
+test e2e_enriched_blast_radius_severity_bounded ... ok
+test e2e_enriched_blast_radius_direct_and_transitive ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/strategies_audit.rs (target/debug/deps/strategies_audit-ce42b76800de8aab)
+
+running 54 tests
+test audit_call_graph_detecta_chamadas_encadeadas ... ok
+test audit_call_graph_linguagem_desconhecida ... ok
+test audit_call_graph_detecta_chamadas_diretas ... ok
+test audit_call_graph_callers_of_funcao_nao_chamada ... ok
+test audit_call_graph_callees_of ... ok
+test audit_call_graph_python_funciona ... ok
+test audit_import_resolver_detecta_glob ... ok
+test audit_import_resolver_detecta_tipo_nao_importado ... ok
+test audit_import_resolver_extrai_use_agrupado ... ok
+test audit_call_graph_source_vazio_nao_crasha ... ok
+test audit_import_resolver_linguagem_desconhecida ... ok
+test audit_import_resolver_extrai_use_simples ... ok
+test audit_call_graph_unique_callees ... ok
+test audit_import_resolver_python_imports ... ok
+test audit_import_resolver_source_vazio_nao_crasha ... ok
+test audit_learning_loop_average_reward ... ok
+test audit_import_resolver_nao_reporta_tipo_ja_importado ... ok
+test audit_learning_loop_recommend_melhor_estrategia ... ok
+test audit_learning_loop_reward_afeta_estado ... ok
+test audit_learning_loop_sem_eventos_nao_crasha ... ok
+test audit_learning_loop_strategies_used ... ok
+test audit_learning_loop_success_rate_deterministico ... ok
+test audit_module_tree_detecta_re_exports ... ok
+test audit_module_tree_detecta_visibilidade ... ok
+test audit_module_tree_detecta_modulos_aninhados ... ok
+test audit_invariante_outputs_deterministicos ... ok
+test audit_invariante_unicode_nao_crasha ... ok
+test audit_module_tree_source_vazio_nao_crasha ... ok
+test audit_module_tree_source_invalido_nao_crasha ... ok
+test audit_scope_map_detecta_for_loop_variable ... ok
+test audit_module_tree_resolve_path ... ok
+test audit_scope_map_detecta_let_bindings ... ok
+test audit_scope_map_linguagem_desconhecida_nao_crasha ... ok
+test audit_scope_map_detecta_parametros_funcao ... ok
+test audit_scope_map_python_funciona ... ok
+test audit_scope_map_source_vazio_nao_crasha ... ok
+test audit_scope_map_type_annotation_preservada ... ok
+test audit_speculate_v2_codigo_valido_score_alto ... ok
+test audit_speculate_v2_com_symbol_context ... ok
+test audit_speculate_v2_linguagem_desconhecida_nao_crasha ... ok
+test audit_speculate_v2_detecta_unwrap_producao ... ok
+test audit_pipeline_completo_fluxo_orquestracao ... ok
+test audit_speculate_v2_syntax_error_score_baixo ... ok
+test audit_speculate_v2_tem_exatamente_4_camadas ... ok
+test audit_vgp_v2_extrai_campos_struct_complexa ... ok
+test audit_vgp_v2_extrai_campos_struct_simples ... ok
+test audit_vgp_v2_extrai_metodos_impl ... ok
+test audit_speculate_v2_score_range_valido ... ok
+test audit_vgp_v2_extrai_variantes_enum_todas_formas ... ok
+test audit_vgp_v2_source_vazio_nao_crasha ... ok
+test audit_vgp_v2_source_invalido_nao_crasha ... ok
+test audit_vgp_v2_type_str_preservado ... ok
+test audit_vgp_v2_struct_inexistente_retorna_vazio ... ok
+test audit_pipeline_edge_case_codigo_invalido_nao_crasha_sistema ... ok
+
+test result: ok. 54 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running tests/ts_parse_budget.rs (target/debug/deps/ts_parse_budget-542e487d0b3388eb)
+
+running 1 test
+test a_parse_that_never_completes_is_halted_and_the_parser_recovers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.02s
+
+     Running tests/wave5_code_gen_workflow_e2e.rs (target/debug/deps/wave5_code_gen_workflow_e2e-a4f4cd4d6744cec2)
+
+running 8 tests
+test workflow_robustness_malformed_source_errors_without_panic ... ok
+test workflow_step1_language_detection_classifies_rs_as_rust ... ok
+test workflow_public_api_diff_is_monotonic ... ok
+test workflow_step4_format_rust_produces_clean_output ... ok
+test workflow_step3_public_api_surface_finds_pub_items_only ... ok
+test workflow_step2_rust_semantic_extracts_every_surface ... ok
+test workflow_full_chain_executes_under_one_second ... ok
+test workflow_step5_workspace_info_loads_manifest_metadata ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests touring_code
+
+running 17 tests
+test crates/touring-code/src/ast/error.rs - ast::error (line 14) ... ignored
+test crates/touring-code/src/ast/error.rs - ast::error::AstError::traced (line 222) ... ignored
+test crates/touring-code/src/ast/incremental_pipeline.rs - ast::incremental_pipeline::AsyncSharedPipeline (line 988) ... ignored
+test crates/touring-code/src/ast/incremental_pipeline.rs - ast::incremental_pipeline::SharedPipeline (line 831) ... ignored
+test crates/touring-code/src/ast/code_gen_workflow.rs - ast::code_gen_workflow (line 35) - compile ... ok
+test crates/touring-code/src/ast/parser_diff.rs - ast::parser_diff::compute_input_edit_from_diff (line 58) ... ignored
+test crates/touring-code/src/ast/polyglot_semantic.rs - ast::polyglot_semantic (line 24) - compile ... ok
+test crates/touring-code/src/ast/rust_semantic.rs - ast::rust_semantic (line 20) - compile ... ok
+test crates/touring-code/src/ast/graph/blast_radius.rs - ast::graph::blast_radius::BlastSpan (line 44) ... ok
+test crates/touring-code/src/ast/incremental_pipeline.rs - ast::incremental_pipeline::PrioritizedPipeline (line 742) ... ok
+test crates/touring-code/src/ast/parser.rs - ast::parser::incremental_parse (line 117) ... ok
+test crates/touring-code/src/ast/rust_semantic.rs - ast::rust_semantic::diff_api_surfaces (line 501) ... ok
+test crates/touring-code/src/ast/semantic_search.rs - ast::semantic_search::SemanticSymbolIndex (line 59) - compile ... ok
+test crates/touring-code/src/ast/surgery.rs - ast::surgery::format_rust_code (line 539) - compile ... ok
+test crates/touring-code/src/ast/watcher.rs - ast::watcher (line 14) - compile ... ok
+test crates/touring-code/src/polyglot/mod.rs - polyglot (line 8) - compile ... ok
+test crates/touring-code/src/semantics/semantics.rs - semantics::semantics (line 8) ... ok
+
+test result: ok. 12 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+all doctests ran in 2.52s; merged doctests compilation took 2.51s
