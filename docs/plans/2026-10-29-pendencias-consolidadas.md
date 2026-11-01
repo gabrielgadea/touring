@@ -139,6 +139,21 @@ adjudicação)?
 
 ## 1. Agora — código e testes, permitidos no congelamento
 
+### Estado reconciliado em 01/11 (as linhas abaixo guardam o enunciado original; o estado é ESTE)
+
+| Item | Estado | Evidência |
+|---|---|---|
+| V-4 INTADAPT · V-5 F21K | **FEITO** — mergeados na `main` (gate completo verde); vão ao binário no release de 04/11 | `2c4db159` |
+| V-8 SEM2 | **em curso** (touring-a4): typescript PROVADA (394 negativos), leitor de blobs sem rede, selo da camada OSS | `5494a0fe`, `ec671803`, `632fdcac` |
+| V-10 V0e | **FEITO** — os 3 destinos (b) vivos no binário (provado 01/11: `-c` roda; sintaxe ensina `--file`; timeout nomeia o orçamento). Destinos (d) são do ambiente | `88f3f38c`, `476cf4a3` |
+| V-11 / 3.9 | **FEITO** 31/10 — prova ao vivo de que o gate P0 não falha aberto sob contenção | `b54c6afb` |
+| V-6 VRS · V-7 VHTML · V-9 HORUST · V-12 residual | **datado**: julgam o adaptador no BINÁRIO, que só leva o V-4 no release de **04/11**; fila da touring-a4 depois do V-8/D-8 | — |
+| I-1..I-4 | **FEITO** 31/10 (régua julga só o que mede; `injection_level` no `kpi`/daemon; `HookResponse` único; predicado "So what?") | `503a2411`, `e0ae0812` |
+| T-1..T-5 | **FEITO** 31/10 (journal; HOME temporário no g10; F2.4 lado direito; `cancelled` no decompose; wiring por ponteiro) | `795449ab`, `32bb8561`, `d62558b5`, `4e487287` |
+| Orçamento L2 do VGP (CLI) | **FEITO** (touring-45) | `751b0c62`, `b75d7e71` |
+| D-8 adjudicador html | reformulado (touring-a4): o adjudicador já existia → congelar, escalar e selar | `461a6b3a` |
+| T-6 tantivy 0.22 → 0.27 | **aberto — L4, decisão do Gabriel** (upgrade + reindexação de todo projeto; advisories zstd seguem inalcançáveis por análise de 28/10) | `deny.toml:70-72` |
+
 ### 1a. VGP (DAG `task_1791581548206685387`)
 
 | # | Item | P | Tam. | Depende de | O que fazer | Evidência |
