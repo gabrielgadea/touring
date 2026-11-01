@@ -19,7 +19,10 @@ Exit: 0 all checks passed · 1 a real drift · 2 could not verify (declared,
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -49,28 +52,55 @@ failures: list[str] = []
 unverified: list[str] = []
 
 
-GUARD_TOKEN = "GIT_GUARD_ENABLED"
+COMANDO_DESTRUTIVO = "git push origin --delete feature/x"
+COMANDO_BENIGNO = "git push origin main"
 
 
-def guard_has_no_off_switch(shell: str) -> bool:
-    """The guard has been unconditional since the S48 rewrite: no enable flag.
+def _payload_bash(command: str) -> dict:
+    """O payload do PreToolUse Bash — o MESMO formato que os testes do proprio executor usam
+    (`client/hooks/tests/test_s25_block_git_delete.py`)."""
+    return {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "session_id": "hooks-contract-nudge",
+        "tool_input": {"command": command},
+    }
 
-    MEDIDO em 01/11 (review de seguranca, DUAS rodadas): um predicado POR LINHA — anchored ou
-    nao — nao distingue uma atribuicao na RAIZ do script de uma aninhada dentro de uma funcao,
-    de um subshell ou de um `case`: `guard() { GIT_GUARD_ENABLED=1; }` passa, e o flag so
-    existe se alguem chamar a funcao — ou seja, um off switch.
 
-    Entao o predicado final e o mais forte que se pode fazer sem um parser de shell: a variavel
-    NAO pode aparecer no executor, nem em comentario. O guard real (MEDIDO) nao tem nenhuma
-    mencao a ela — o S48 tirou o flag de vez — entao a exigencia nao cria falso negativo: o
-    check literal antigo (`GIT_GUARD_ENABLED=1` in shell) era vermelho num guard que nao tem
-    flag nenhum, e e esse o falso negativo que o predicado por menciao resolve.
+def _decisao(script: Path, command: str, env_extra: dict) -> str | None:
+    """A DECISAO do executor para um comando: 'deny'/'block' (nega) ou None (nao nega)."""
+    env = dict(os.environ)
+    env.update(env_extra)
+    r = subprocess.run(
+        ["bash", str(script)],
+        input=json.dumps(_payload_bash(command)),
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+    try:
+        j = json.loads(r.stdout or "{}")
+    except json.JSONDecodeError:
+        return None
+    return j.get("hookSpecificOutput", {}).get("permissionDecision")
 
-    O COMENTARIO tambem conta, e e de proposito: um `#` dentro de uma string nao e comentario, e
-    um comentario que engole o resto da linha (`x='#'; GIT_GUARD_ENABLED=0`) faria um corte
-    ingenuo perder o off switch. Sem cortar comentario nenhum, nao ha como esconder.
+
+def guard_bloqueia_com_o_flag_desligado(script: Path) -> bool:
+    """O INVARIANTE, provado COMPORTAMENTALMENTE: com `GIT_GUARD_ENABLED=0` no ambiente, o
+    guard AINDA bloqueia o comando destrutivo.
+
+    MEDIDO em 01/11 (review de seguranca, TERCEIRA rodada): um predicado de FONTE — busca de
+    token, anchored, ou "nenhuma mencao" — nunca prova o invariante, porque o NOME da variavel
+    pode ser construido dinamicamente (`N=GIT"_GUARD_ENABLED"; export $N=0`) e escapar de
+    qualquer busca. A prova do invariante e comportamental: o guard tem de NEGAR com o flag
+    desligado. E assim o token sai de cena: a sonda nao le o fonte do executor, ela pergunta ao
+    executor.
+
+    O comando destrutivo e o mesmo dos testes do proprio executor (S25): `git push origin
+    --delete feature/x`, que e negado sem o token ritual.
     """
-    return GUARD_TOKEN not in shell
+    return _decisao(script, COMANDO_DESTRUTIVO, {"GIT_GUARD_ENABLED": "0"}) in ("deny", "block")
 
 
 def check(cond: bool, msg: str) -> None:
@@ -136,10 +166,10 @@ def main() -> int:
     else:
         shell = EXECUTOR.read_text(encoding="utf-8")
         check(
-            guard_has_no_off_switch(shell),
-            "executor mentions GIT_GUARD_ENABLED — the guard has been unconditional "
-            "since S48 and must not carry the flag at all; the nudge would promise a "
-            "gate that may not run",
+            guard_bloqueia_com_o_flag_desligado(EXECUTOR),
+            "the guard does not deny a destructive command with GIT_GUARD_ENABLED=0 in the "
+            "environment — the flag is an off switch and the guard is not unconditional "
+            "(S48); the nudge would promise a gate that may not run",
         )
         check(
             "GIT_DESTRUCTIVE_OK=1" in shell,
@@ -197,33 +227,32 @@ def test_git_nudge_matches_its_executor():
     assert rc != 1, "drift entre o nudge do git e o executor: " + "; ".join(failures)
 
 
-def test_o_guard_nao_aceita_comentario_nem_atribuicao_condicional():
-    """O proprio meta-teste, testado — MEDIDO em 01/11 (review de seguranca, duas rodadas).
+def test_o_flag_desligado_nao_desliga_o_guard():
+    """O proprio meta-teste, testado COMPORTAMENTALMENTE — MEDIDO em 01/11 (review de seguranca,
+    terceira rodada).
 
-    O predicado por linha (qualquer um) nao distingue uma atribuicao na RAIZ de uma aninhada
-    em funcao/subshell/`case`: `guard() { GIT_GUARD_ENABLED=1; }` passa, e o flag so existe se
-    alguem chamar a funcao. Entao o predicado final e o mais forte sem parser de shell: a
-    variavel NAO pode aparecer no executor, nem em comentario.
+    O predicado por linha (qualquer um) nao distingue uma atribuicao na RAIZ de uma aninhada em
+    funcao/subshell/`case`, e uma busca de token nao ve um nome construido dinamicamente
+    (`N=GIT"_GUARD_ENABLED"`). A prova do invariante e comportamental: com o flag em 0 o guard
+    tem de NEGAR.
+
+    Os tres casos sao o invariante e DOIS controles: se a sonda negasse tudo, ela passaria
+    sozinha — o comando benigno e o que prova que ela ainda distingue.
     """
-    casos = [
-        ("sem mencao alguma", "echo ola\n", True),
-        ("atribuicao pinada no 1 reprova (o flag nao deve voltar)", "GIT_GUARD_ENABLED=1\n", False),
-        ("export pinado no 1 reprova", "export GIT_GUARD_ENABLED=1\n", False),
-        ("aspas no 1 reprova", 'GIT_GUARD_ENABLED="1"\n', False),
-        ("comentario reprova", "# GIT_GUARD_ENABLED=1\n", False),
-        ("atribuicao aninhada em funcao reprova", "guard() {\n  GIT_GUARD_ENABLED=1\n}\n", False),
-        ("atribuicao condicional reprova", 'if [ -n "$X" ]; then GIT_GUARD_ENABLED=1; fi\n', False),
-        ("off switch reprova", "GIT_GUARD_ENABLED=0\n", False),
-        ("default reprova", "GIT_GUARD_ENABLED=${X:-1}\n", False),
-        (
-            "off switch escondido atras de um '#' reprova",
-            "x='#'; GIT_GUARD_ENABLED=0\n",
-            False,
-        ),
-    ]
-    for nome, shell, esperado in casos:
-        obtido = guard_has_no_off_switch(shell)
-        assert obtido == esperado, f"{nome}: esperado {esperado}, veio {obtido}"
+    if not EXECUTOR.exists():
+        return  # ausente = "nao verificado", e o main() reporta o unverified; nunca verde
+    d_flag0 = _decisao(EXECUTOR, COMANDO_DESTRUTIVO, {"GIT_GUARD_ENABLED": "0"})
+    assert d_flag0 in ("deny", "block"), (
+        f"com GIT_GUARD_ENABLED=0 o executor decidiu {d_flag0!r} em vez de negar — "
+        "o flag virou off switch"
+    )
+    d_flag1 = _decisao(EXECUTOR, COMANDO_DESTRUTIVO, {"GIT_GUARD_ENABLED": "1"})
+    assert d_flag1 in ("deny", "block"), f"com o flag em 1 o executor decidiu {d_flag1!r}"
+    d_benigno = _decisao(EXECUTOR, COMANDO_BENIGNO, {"GIT_GUARD_ENABLED": "0"})
+    assert d_benigno not in ("deny", "block"), (
+        f"a sonda nega ate o comando benigno ({d_benigno!r}) — ela nao distingue, "
+        "entao o caso do flag nao prova nada"
+    )
 
 
 def test_guard_detects_a_revoked_prohibition_claim():
