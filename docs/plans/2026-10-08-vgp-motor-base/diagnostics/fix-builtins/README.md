@@ -27,6 +27,7 @@ cargo test -p touring-code builtins
 cargo test -p touring-code exec_e_return_tambem_nao_geram_falso_deny
 cargo test -p touring-code trap_sem_definicao_continua_negado
 cargo test -p touring-code --no-fail-fast
+python3 -I -m pytest -q .
 ```
 
 ## License / Licença

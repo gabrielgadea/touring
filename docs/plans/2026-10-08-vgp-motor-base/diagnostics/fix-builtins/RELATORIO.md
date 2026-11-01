@@ -57,3 +57,32 @@ Somente estes arquivos Rust foram alterados no motor:
 
 Os demais artefatos são evidências em `diagnostics/fix-builtins/`. O trabalho foi feito na
 branch principal, separado do worktree `touring-wt-intadapt`.
+
+## 5. Prova comportamental do 30.4.102 instalado
+
+Binário congelado: `~/.claude/touring/vgp/binarios/30.4.102/touring`, sha256
+`404106ccdb32edb4329036291cb8cb55660adbbc9c7a8fc835237a9f148e3ef7` (versão 30.4.102,
+git `9ab1723f72160e75fc08ab9a34244b80b5b04362`). Nenhum daemon foi reiniciado.
+
+| Caminho | `2106f0ebf279` | `exit()` sintético | `quit()` sintético |
+|---|---|---|---|
+| CLI instalada, camadas 1+2 | `allow`, `findings=[]` | `allow`, `findings=[]` | `allow`, `findings=[]` |
+| Daemon global pelo hook | `deny` | `allow` | `allow` |
+
+O run quente teve 3/3 medições com sombra e camada 2, **6/6 rotas daemon**, zero timeouts e
+p95 54,10 ms (`probe_30_4_102_hot*.json`). O caso real diverge entre CLI e hook porque o hook
+não aceita `--overlay` nem `--disk-file`; a divergência fica registrada e não é apresentada como
+equivalência semântica. A condição pré-anunciada para liberar o J15 era `exit` sem deny, e ela
+foi satisfeita nos dois caminhos.
+
+## 6. Regressões dos instrumentos e qualidade
+
+- A preparação quente passou a resolver snapshots relativos ao corpus e absolutos das fixtures;
+  o teste `test_main_prepara_mini_corpus_sem_apagar_o_caso` cobre o fluxo inteiro com dados
+  sintéticos, sem abrir conteúdo do corpus.
+- Os testes pareados usam imports estáticos e cobrem `main`, agregação de entradas, construção
+  da chamada com overlays, restauração byte a byte do mutante e as cinco fixtures.
+- Suíte deste escopo mais o consolidador J15: **19 passed**.
+- `quality_final.json`: **Diamond 0,9784039**, 12 arquivos, **0 blockers**; F3.1 0,99462366.
+  Uma medição intermediária com `--workspace` (4.154 arquivos) foi descartada por estar fora do
+  escopo; o valor final foi medido sem essa flag.
