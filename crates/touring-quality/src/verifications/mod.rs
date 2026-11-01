@@ -1488,8 +1488,14 @@ pub fn run_verification(dim: DimId, target: &Path) -> Result<DimScore> {
 /// convention, as Semgrep's default ignore does with `*_test.go`: pytest's
 /// `conftest.py`, `test_*.py` and `*_test.py`. One predicate for F2.1 and F2.6, which
 /// each kept a copy of the directory list and neither saw a `conftest.py`.
+///
+/// 01/11/2026: the JS/TS conventions (`__tests__/`, `*.test.<ext>`, `*.spec.<ext>` for
+/// ts/tsx/js/jsx/mjs/cjs) joined — the analise sei-simulator XSS fix could not commit
+/// its RED test, because a `href="javascript:…"` fixture in `DocumentViewer.test.tsx`
+/// was blocked by F2.1 as if it were a deployed sink.
 pub(crate) fn is_non_production_harness(path: &str) -> bool {
-    const NON_PRODUCTION_DIRS: [&str; 4] = ["/tests/", "/test/", "/benches/", "/bench/"];
+    const NON_PRODUCTION_DIRS: [&str; 5] =
+        ["/tests/", "/test/", "/benches/", "/bench/", "/__tests__/"];
     if NON_PRODUCTION_DIRS.iter().any(|s| path.contains(s)) {
         return true;
     }
@@ -1498,6 +1504,18 @@ pub(crate) fn is_non_production_harness(path: &str) -> bool {
         || (name.starts_with("test_") && name.ends_with(".py"))
         || name.ends_with("_test.py")
         || name.ends_with("_test.go")
+        || is_js_test_file_name(name)
+}
+
+/// `foo.test.tsx`, `foo.spec.ts`, … — the JS/TS test-runner conventions (Jest,
+/// Vitest, Mocha, Playwright). The marker must sit right before a JS/TS extension:
+/// `contest.ts` or `latest.js` are production files.
+fn is_js_test_file_name(name: &str) -> bool {
+    const JS_EXTS: [&str; 6] = ["ts", "tsx", "js", "jsx", "mjs", "cjs"];
+    let Some((stem, ext)) = name.rsplit_once('.') else {
+        return false;
+    };
+    JS_EXTS.contains(&ext) && (stem.ends_with(".test") || stem.ends_with(".spec"))
 }
 
 #[cfg(test)]
@@ -2156,5 +2174,37 @@ mod tests {
         std::fs::write(&prod, fixture).expect("write");
         assert!(f2_1_owasp::F2_1_Owasp.check(&prod).expect("f2.1").value < 1.0);
         assert!(f2_6_config::F2_6_Config.check(&prod).expect("f2.6").value < 1.0);
+    }
+
+    /// 01/11/2026: a JS/TS test file carrying an XSS payload literal is a test
+    /// fixture (the analise sei-simulator RED test was blocked by exactly this),
+    /// while the same bytes in production code — or in a file whose name only
+    /// LOOKS like a test (`latest.ts`, `contest.ts`) — keep failing F2.1.
+    #[test]
+    fn js_test_files_are_non_production_for_f2_1() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let fixture =
+            "export const LINK = \"<a href=\\\"javascript:alert(document.cookie)\\\">x</a>\";\n";
+        std::fs::create_dir_all(dir.path().join("__tests__")).expect("mkdir");
+        for harness in [
+            "DocumentViewer.test.tsx",
+            "viewer.spec.ts",
+            "render.test.js",
+            "__tests__/viewer.ts",
+        ] {
+            let p = dir.path().join(harness);
+            std::fs::write(&p, fixture).expect("write");
+            let owasp = f2_1_owasp::F2_1_Owasp.check(&p).expect("f2.1").value;
+            assert_eq!(owasp, 1.0, "{harness}");
+        }
+        for prod in ["DocumentViewer.tsx", "latest.ts", "contest.ts", "test.ts"] {
+            let p = dir.path().join(prod);
+            std::fs::write(&p, fixture).expect("write");
+            let owasp = f2_1_owasp::F2_1_Owasp.check(&p).expect("f2.1").value;
+            assert!(
+                owasp < 1.0,
+                "{prod} is production code and must still fail: {owasp}"
+            );
+        }
     }
 }
