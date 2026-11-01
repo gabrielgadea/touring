@@ -300,6 +300,15 @@ para escapar, porque nada sob uma raiz que não existe existe também. Os **2
 testes por adaptador que escrevi** (a referência relativa fora das raízes, no
 HTML; o specifier fora das raízes, no TypeScript) passaram na primeira rodada.
 
+**O gate final (com as decisões 1 e 2)** reprovou em mais duas coisas, **minhas**:
+o `#[test]` duplicado no `python/tests.rs` (o clippy: "duplicated attribute") e
+o `v.nao_medido` movido no teste do HTML (`borrow of moved value`). As duas
+foram corrigidas; o **gate alvo** (check → clippy do `touring-code` → fmt → a
+suíte do `touring-code`) fechou **verde**: `check_rc=0 · clippy_rc=0 ·
+fmt_rc=0 · test_code_rc=0` (1 429 passed, 0 failed). Como é código de teste, o
+**binário release não muda** → os números dos 7Adaptadores (medidos no gate
+completo) permanecem válidos.
+
 ## 6. Os 7 juízes por id: ANTES × DEPOIS
 
 O juiz é `docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py`
