@@ -261,6 +261,74 @@ comportamentos na mesma camada. As camadas parciais foram guardadas ( `-parcial1
 `-parcial2a-teto`, `-parcial3a-2processos`, `-parcial4a-alvo450`) e o lote final roda com
 **um** processo, verificado.
 
+### 5.6 A CAMADA NOVA: n por classe, concentração medida e hash do selo
+
+**Comando** (reproduzível, um passo): `scripts/selar_e_conferir_camada_oss_20261101.sh`.
+
+**Selo externo**: `~/.claude/touring/vgp/oss_rotulado_20261101.selo.json` — **fora** do corpus.
+**Conferido com o validador atual**: `confere_selo.py --corpus … --selo …` → **INTACTO** (rc=0).
+
+| | |
+|---|---|
+| `sha_tree` | **`e298fe3b6fe48d58`** |
+| arquivos | 2 150 |
+| bytes | 40 449 756 |
+| ids na camada | 1 119 |
+| **disjunção** | **DISJUNTA** — 0 ids em comum com o histórico de corporas (8 901 ids medidos em `~/.claude/touring/vgp`) |
+
+**O veredito por classe** (critério: **299 negativos ou mais**, **dentro do teto**, **selo
+conferido**):
+
+| classe | n | **negativos** | taxa | teto por chave | dentro do teto | **situação** |
+|---|---:|---:|---:|---:|---|---|
+| **`typescript`** | 604 | **394** | 65 % | 18 | **sim** | **PROVADA** |
+| `tsx` | 488 | 152 | 31 % | 14 | sim | **NÃO PROVADA** |
+| `javascript` | 24 | 23 | 96 % | 1 | sim | **NÃO PROVADA** |
+| `html` | 3 | 3 | — | 1 | sim | **NÃO PROVADA** |
+
+**A concentração medida**, por classe (maior fatia da classe numa chave: arquivo e commit):
+
+| classe | por arquivo | por commit | teto por chave | infratores |
+|---|---:|---:|---:|---:|
+| `typescript` | 2,6 % | 2,8 % | 18 | 0 |
+| `tsx` | 2,9 % | 2,9 % | 14 | 0 |
+| `javascript` | 4,2 % | 4,2 % | 1 | 0 |
+| `html` | 33,3 % | 33,3 % | 1 | 0 |
+
+O teto é `max(1, int(n_da_classe × 0,03))` **entradas por chave**: a `html` tem 1 entrada num
+arquivo e o teto é 1 — dentro, mas com n = 3 a concentração percentual não significa nada, e é
+por isso que a classe entra declarada como sem adjudicador. Nenhuma classe tem infrator.
+
+**O veredito, classe a classe, com o motivo:**
+
+1. **`typescript` — PROVADA.** 394 negativos >= 299, dentro do teto, selo conferido, camada
+   disjunta. É a primeira classe do estrato OSS a sair de «não provada».
+2. **`tsx` — NÃO PROVADA.** n = 152 negativos < 299. **O motivo é medido, não suposto**: a taxa
+   de negativos desta classe é de **31 %** (a da `typescript` é 65 %), e a população elegível de
+   `tsx` que sobra depois da disjunção é curta. Para os 299 negativos ela precisaria de cerca de
+   **965** entradas (299 dividido por 0,31), e o lote foi interrompido em 488.
+3. **`javascript` — NÃO PROVADA.** n = 23 negativos < 299. O motivo também é medido: os
+   repositórios com `.js`/`.mjs` (express, dom-examples, html5-boilerplate) são os **últimos**
+   da ordem canônica, e o `excalidraw` — que vem primeiro — quase não tem js. A taxa de
+   negativos do que existe é de 96 %; falta **população**, não método.
+4. **`html` — NÃO PROVADA, por um motivo de outra natureza:** o adjudicador desta camada é o do
+   **TypeScript** (`oraculo_ls.js`), e um arquivo `.html` **não produz diagnóstico nenhum** — o
+   par sai «negativo» com o rótulo **vazio de conteúdo**, e um negativo vazio não mede falso
+   deny. A classe é declarada assim no selo (`classes_sem_adjudicador: ["html"]`) e o **n dela
+   não entra em nenhuma prova**. O html tem adjudicador próprio: é o **D-8**, com o plano em
+   `PLANO-ADJUDICADOR-HTML.md` (escrito antes de qualquer código).
+
+**O que a camada nova é, em uma frase**: 1 119 entradas rotuladas por DELTA (o adjudicador e o
+`tsc` concordam em cada retestamento), **disjuntas** de 8 901 ids de corporas anteriores, com o
+teto de 3 % aplicado **na seleção** e não só medido depois, e **uma classe provada**.
+
+**O que ficou para continuar** (o comando está no disco, e a camada é selável a qualquer
+momento): relançar o lote com um alvo maior para levar `tsx` e `javascript` aos 299 negativos.
+O `tsx` precisa de mais **~480** entradas (488 → ~965) e o `javascript` dos repositórios de js,
+que vêm no fim da ordem — os dois exigiriam um alvo total de **~1 700**, acima do `--alvo 1200`
+que este lote usava. Nenhum dos dois depende de mudar o método: só de tempo de adjudicador e de
+alvo.
+
 ## 6. Regras (do briefing, em vigor)
 
 - Nada foi mergeado no branch principal; nada foi sobrescrito nem apagado: o
