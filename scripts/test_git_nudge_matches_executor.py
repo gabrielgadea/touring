@@ -49,39 +49,28 @@ failures: list[str] = []
 unverified: list[str] = []
 
 
-GUARD_PINADO = re.compile(
-    r"^(?:export\s+)?GIT_GUARD_ENABLED\s*=\s*['\"]?1['\"]?\s*$"
-)
+GUARD_TOKEN = "GIT_GUARD_ENABLED"
 
 
 def guard_has_no_off_switch(shell: str) -> bool:
     """The guard has been unconditional since the S48 rewrite: no enable flag.
 
-    What must never come back is an off switch, so every GIT_GUARD_ENABLED
-    mention must pin it to 1. The old check demanded the literal
-    `GIT_GUARD_ENABLED=1`, which failed on the guard that runs.
+    MEDIDO em 01/11 (review de seguranca, DUAS rodadas): um predicado POR LINHA — anchored ou
+    nao — nao distingue uma atribuicao na RAIZ do script de uma aninhada dentro de uma funcao,
+    de um subshell ou de um `case`: `guard() { GIT_GUARD_ENABLED=1; }` passa, e o flag so
+    existe se alguem chamar a funcao — ou seja, um off switch.
 
-    MEDIDO em 01/11 (review de seguranca): o `findall` + busca de substring aceitava
-    (a) um COMENTARIO (`# GIT_GUARD_ENABLED=1`) e (b) uma atribuicao CONDICIONAL
-    (`if ...; then GIT_GUARD_ENABLED=1; fi`): nenhuma das duas liga o guard, e as duas
-    passavam. Agora a mencao tem de ser uma atribuicao INCONDICIONAL ancorada no 1 — o
-    comentario e a atribuicao condicional reprovam.
+    Entao o predicado final e o mais forte que se pode fazer sem um parser de shell: a variavel
+    NAO pode aparecer no executor, nem em comentario. O guard real (MEDIDO) nao tem nenhuma
+    mencao a ela — o S48 tirou o flag de vez — entao a exigencia nao cria falso negativo: o
+    check literal antigo (`GIT_GUARD_ENABLED=1` in shell) era vermelho num guard que nao tem
+    flag nenhum, e e esse o falso negativo que o predicado por menciao resolve.
 
-    A correcao SUGERIDA pelo review (exigir que o shell nao cite a variavel) foi MEDIDA e
-    REJEITADA: ela reprovaria `GIT_GUARD_ENABLED=1`, que e o caso SEGURO e o que o guard
-    usa — exatamente a condicao que o check literal antigo tinha, e que a outra sessao
-    acabou de consertar.
+    O COMENTARIO tambem conta, e e de proposito: um `#` dentro de uma string nao e comentario, e
+    um comentario que engole o resto da linha (`x='#'; GIT_GUARD_ENABLED=0`) faria um corte
+    ingenuo perder o off switch. Sem cortar comentario nenhum, nao ha como esconder.
     """
-    for linha in shell.splitlines():
-        if "GIT_GUARD_ENABLED" not in linha:
-            continue
-        codigo = linha.strip()
-        if codigo.startswith("#"):
-            continue  # um comentario nao e atribuicao: nao cria off switch
-        codigo = codigo.split("#", 1)[0].strip()
-        if not GUARD_PINADO.match(codigo):
-            return False
-    return True
+    return GUARD_TOKEN not in shell
 
 
 def check(cond: bool, msg: str) -> None:
@@ -148,8 +137,9 @@ def main() -> int:
         shell = EXECUTOR.read_text(encoding="utf-8")
         check(
             guard_has_no_off_switch(shell),
-            "executor guard has an off switch (GIT_GUARD_ENABLED not pinned to 1) — "
-            "the nudge would promise a gate that may not run",
+            "executor mentions GIT_GUARD_ENABLED — the guard has been unconditional "
+            "since S48 and must not carry the flag at all; the nudge would promise a "
+            "gate that may not run",
         )
         check(
             "GIT_DESTRUCTIVE_OK=1" in shell,
@@ -208,30 +198,26 @@ def test_git_nudge_matches_its_executor():
 
 
 def test_o_guard_nao_aceita_comentario_nem_atribuicao_condicional():
-    """O proprio meta-teste, testado — MEDIDO em 01/11 (review de seguranca).
+    """O proprio meta-teste, testado — MEDIDO em 01/11 (review de seguranca, duas rodadas).
 
-    O `findall` + busca de substring aceitava um COMENTARIO (`# GIT_GUARD_ENABLED=1`) e uma
-    atribuicao CONDICIONAL (`if ...; then GIT_GUARD_ENABLED=1; fi`): nenhuma das duas liga o
-    guard, e as duas passavam. O predicado agora e ANCORADO — so uma atribuicao incondicional
-    no 1 passa, e um off switch (`=0`, `${X:-1}`) reprova.
-
-    A correcao sugerida pelo review ("exigir que o shell nao cite a variavel") foi MEDIDA e
-    REJEITADA: ela reprovaria `GIT_GUARD_ENABLED=1`, que e o caso SEGURO e o que o guard usa
-    — a mesma condicao do check literal antigo, que foi justamente o que a outra sessao
-    acabou de consertar.
+    O predicado por linha (qualquer um) nao distingue uma atribuicao na RAIZ de uma aninhada
+    em funcao/subshell/`case`: `guard() { GIT_GUARD_ENABLED=1; }` passa, e o flag so existe se
+    alguem chamar a funcao. Entao o predicado final e o mais forte sem parser de shell: a
+    variavel NAO pode aparecer no executor, nem em comentario.
     """
     casos = [
         ("sem mencao alguma", "echo ola\n", True),
-        ("atribuicao pinada no 1", "GIT_GUARD_ENABLED=1\n", True),
-        ("export pinado no 1", "export GIT_GUARD_ENABLED=1\n", True),
-        ("aspas no 1", 'GIT_GUARD_ENABLED="1"\n', True),
-        ("comentario nao e off switch", "# GIT_GUARD_ENABLED=1\n", True),
+        ("atribuicao pinada no 1 reprova (o flag nao deve voltar)", "GIT_GUARD_ENABLED=1\n", False),
+        ("export pinado no 1 reprova", "export GIT_GUARD_ENABLED=1\n", False),
+        ("aspas no 1 reprova", 'GIT_GUARD_ENABLED="1"\n', False),
+        ("comentario reprova", "# GIT_GUARD_ENABLED=1\n", False),
+        ("atribuicao aninhada em funcao reprova", "guard() {\n  GIT_GUARD_ENABLED=1\n}\n", False),
         ("atribuicao condicional reprova", 'if [ -n "$X" ]; then GIT_GUARD_ENABLED=1; fi\n', False),
         ("off switch reprova", "GIT_GUARD_ENABLED=0\n", False),
         ("default reprova", "GIT_GUARD_ENABLED=${X:-1}\n", False),
         (
-            "off switch depois de um pinado reprova",
-            "GIT_GUARD_ENABLED=1\nGIT_GUARD_ENABLED=0\n",
+            "off switch escondido atras de um '#' reprova",
+            "x='#'; GIT_GUARD_ENABLED=0\n",
             False,
         ),
     ]
