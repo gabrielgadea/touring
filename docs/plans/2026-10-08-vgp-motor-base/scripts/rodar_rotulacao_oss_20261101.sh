@@ -18,8 +18,12 @@ VG=$HOME/.claude/touring/vgp
 
 SAIDA="$VG/oss_rotulado_20261101"
 LOG="$VG/oss_rotulado_20261101.log"
-ALVO=450
-MAX_COMMITS=600
+# MEDIDO em 01/11 (V-8): o criterio e sobre NEGATIVOS (o falso deny so existe sobre um
+# negativo), e a taxa de negativos medida nesta camada e 26-40% — logo um alvo de 450 ENTRADAS
+# daria ~120-180 negativos, longe dos 299. O alvo e um TETO ARTIFICIAL: o que limita de verdade
+# e a populacao (pares elegiveis, medidos em `v8_populacao.py`) e o teto de concentracao.
+ALVO=1200
+MAX_COMMITS=1000
 TETO=0.03
 
 # O `/tmp` da maquina esta com cota (medido em 17/10: tmpfs com usrquota); o rotulador
