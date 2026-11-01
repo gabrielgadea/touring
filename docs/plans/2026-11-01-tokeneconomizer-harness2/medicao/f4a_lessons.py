@@ -7,9 +7,9 @@ error_text truncated to 500 chars; dedup key = (tool_name, first 200 chars of er
 Prints aggregates only — never transcript text (public repo rule).
 """
 import glob
-import re
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 
@@ -36,26 +36,39 @@ def flatten(content):
     return str(content)
 
 
-def pairs_of(path):
-    uses, results, order = {}, {}, defaultdict(list)
+def _blocks(raw):
+    """Content blocks of one transcript line, only from user/assistant records."""
+    try:
+        rec = json.loads(raw)
+    except ValueError:
+        return []
+    if rec.get("type") not in ("user", "assistant"):
+        return []
+    content = (rec.get("message") or {}).get("content")
+    return [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
+
+
+def read_tool_events(path):
+    """(tool_name -> ordered unique tool_use ids, tool_use_id -> (is_error, text)).
+
+    Errata 01/11/2026 (found by the Rust port, commit 9e22fd31): the first version read
+    tool_use blocks from every record type and kept duplicated ids, +35 pairs on 215
+    transcripts. Only user/assistant records count, and an id is taken once."""
+    results, order, seen = {}, defaultdict(list), set()
     with open(path, encoding="utf-8", errors="ignore") as fh:
         for raw in fh:
-            try:
-                rec = json.loads(raw)
-            except ValueError:
-                continue
-            msg = rec.get("message") or {}
-            content = msg.get("content")
-            if not isinstance(content, list):
-                continue
-            for b in content:
-                if not isinstance(b, dict):
-                    continue
-                if b.get("type") == "tool_use":
-                    uses[b.get("id")] = b.get("name", "?")
+            for b in _blocks(raw):
+                if b.get("type") == "tool_use" and b.get("id") not in seen:
+                    seen.add(b.get("id"))
                     order[b.get("name", "?")].append(b.get("id"))
                 elif b.get("type") == "tool_result":
-                    results[b.get("tool_use_id")] = (bool(b.get("is_error")), flatten(b.get("content", ""))[:ERR_MAX])
+                    results[b.get("tool_use_id")] = (bool(b.get("is_error")),
+                                                     flatten(b.get("content", ""))[:ERR_MAX])
+    return order, results
+
+
+def pairs_of(path):
+    order, results = read_tool_events(path)
     out = []
     for tool, ids in order.items():
         start, n = None, 0
