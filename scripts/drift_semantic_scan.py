@@ -15,12 +15,26 @@ Origem: loop 2026-08-26-documentacao-touring, opção (c) autorizada por Gabriel
       build fica fora por construção — majoritariamente em audits datados).
       Antes, prosa portuguesa ("o touring deixa de...") contava como citação:
       18 dos 26 sinais novos do delta 31/08→08/10 eram esse falso positivo.
-  C5: Nomes de crates em exemplos de código (code fences) (vs `ls crates/`)
+      10ª reconciliação (01/11/2026): "touring" precedido de "[" é rótulo de log
+      (`[touring result-compactor]`, o rodapé do compactador), não subcomando.
+  C5: Nomes de crates em exemplos de código (code fences) (vs `ls crates/`) —
+      10ª reconciliação (01/11/2026): o nome só conta como crate quando começa
+      num limite de token — não é sufixo de um token com hífen (diretório de
+      bundle datado `2026-10-26-touring-x`), a forma com sublinhado não é
+      componente de caminho (`~/.ssh/touring_signing`), `touring-wt-*` é
+      diretório de worktree git, e os diretórios de `tools/mods/` são
+      componentes do repo (mods do Claude Code), não crates ausentes.
+  C1: 10ª reconciliação (01/11/2026): inteiro com separador de milhar pt-BR
+      (`30.973.693 B`: minor e patch com exatamente 3 dígitos) não é versão.
   C6: Variáveis de ambiente citadas — predicado corrigido 08/10/2026: ground
       truth = vars TOURING_* referenciadas no CÓDIGO-FONTE (.rs/.py/.sh/.toml),
       estático e reproduzível. Antes era `os.environ` do processo do scanner —
       o resultado dependia de QUEM roda; uma var viva no código mas não
       exportada na sessão virava falso "stale" (23 dos 30 sinais novos do delta).
+      10ª reconciliação (01/11/2026): `.ts` entra no ground truth (os mods de
+      `tools/mods/` leem env em TypeScript; a var do mod compact-evict só vive lá).
+      CUIDADO: este arquivo é .py fora de docs/, logo entra no ground truth —
+      nunca escreva aqui o nome literal de uma var que as docs citam.
   C7: Hooks citados (vs `ls ~/.claude/hooks/`)
 
 Reconciliação do delta 31/08→08/10 (561→669, 111 sinais novos por conjunto):
@@ -96,6 +110,18 @@ def gt_actual_crates() -> list[str]:
     return sorted([p.name for p in crates_dir.iterdir() if p.is_dir()])
 
 
+def gt_actual_mods() -> list[str]:
+    """Mods do Claude Code versionados no repo (`tools/mods/<nome>/`).
+
+    Componente legítimo que o C5 não pode ler como crate ausente: um mod é citado
+    com o nome do diretório em `cp -r tools/mods/<nome> …` e `claude plugin install <nome>@…`.
+    """
+    mods_dir = ROOT / "tools" / "mods"
+    if not mods_dir.is_dir():
+        return []
+    return sorted([p.name for p in mods_dir.iterdir() if p.is_dir()])
+
+
 def gt_actual_envvars() -> list[str]:
     """Ground truth ESTÁTICO de env vars: TOURING_* referenciadas no código-fonte.
 
@@ -108,7 +134,8 @@ def gt_actual_envvars() -> list[str]:
     strings) não são código do sistema — medido: o próprio bundle da
     reconciliação contaminou o ground truth com 7 vars (26→19 fantasma).
     """
-    exts = {".rs", ".py", ".sh", ".toml"}
+    # `.ts`: os mods de tools/mods/ leem env em TypeScript (10ª reconciliação, 01/11/2026).
+    exts = {".rs", ".py", ".sh", ".toml", ".ts"}
     skip = ("/target/", "/node_modules/", "/.git/", "/.touring-cache/", "/.venv/")
     found: set[str] = set()
     for p in ROOT.rglob("*"):
@@ -160,7 +187,10 @@ def scan_c1_versions(content_by_file: dict, gt_version: str) -> dict:
     cited = set()
     files_with = []
     for f, content in content_by_file.items():
-        matches = C1_PATTERN.findall(content)
+        # Inteiro com separador de milhar pt-BR ("30.973.693 B": 30 milhões) casa o
+        # padrão, mas minor e patch com exatamente 3 dígitos cada não é versão.
+        matches = [(a, b) for a, b in C1_PATTERN.findall(content)
+                   if not (len(a) == 3 and len(b) == 3)]
         if matches:
             distinct = sorted(set(f"30.{a}.{b}" for a, b in matches))
             files_with.append((f, len(matches), distinct))
@@ -220,7 +250,15 @@ def scan_c3_fused_crates(content_by_file: dict, gt_crates: list[str]) -> dict:
 
 RE_FENCE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
 RE_INLINE_CODE = re.compile(r"`[^`\n]+`")
-RE_C4_CMD = re.compile(r"(?<![/\w])touring ([a-z][a-z0-9_-]+)\b")
+# "[" também antecede rótulo de log (`[touring result-compactor]`), que não é subcomando.
+RE_C4_CMD = re.compile(r"(?<![/\w\[])touring ([a-z][a-z0-9_-]+)\b")
+# C5: nome de crate começa num limite de token. `(?<!-)` descarta o sufixo de um token com
+# hífen (diretório de bundle datado `2026-10-26-touring-x`); `(?<!/)` na forma com sublinhado
+# descarta componente de caminho (`~/.ssh/touring_signing`) — diretórios de crate usam hífen.
+RE_C5_HYPHEN = re.compile(r"(?<!-)\b(touring-[a-z][a-z0-9_-]+)\b")
+RE_C5_UNDERSCORE = re.compile(r"(?<!/)\b(touring_[a-z][a-z0-9_]+)\b")
+# Diretório de worktree git por convenção do projeto (`~/projects/touring-wt-<tag>`).
+C5_WORKTREE_PREFIX = "touring-wt-"
 
 
 def _code_spans(content: str) -> list[tuple[int, int]]:
@@ -276,6 +314,14 @@ def scan_c4_cli(content_by_file: dict, gt_cli: set[str]) -> dict:
     }
 
 
+def _c5_names_in_block(block: str) -> set[str]:
+    """Nomes de crate citados num code fence (forma `touring-x` e `touring_x`, normalizada
+    para hífen), sem os diretórios de worktree git (`touring-wt-*`)."""
+    names = {m.group(1) for m in RE_C5_HYPHEN.finditer(block)}
+    names |= {m.group(1).replace("_", "-") for m in RE_C5_UNDERSCORE.finditer(block)}
+    return {n for n in names if not n.startswith(C5_WORKTREE_PREFIX)}
+
+
 def scan_c5_crates_in_code(content_by_file: dict, gt_crates: list[str]) -> dict:
     """Crates em exemplos de código (code fences) — F4/F5 aligned (ARCHITECTURE*.md)."""
     CODE_FENCE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
@@ -284,12 +330,8 @@ def scan_c5_crates_in_code(content_by_file: dict, gt_crates: list[str]) -> dict:
     for f, content in content_by_file.items():
         crates = set()
         for block in CODE_FENCE.findall(content):
-            for m in re.finditer(r"\b(touring-[a-z][a-z0-9_-]+)\b", block):
-                cited.add(m.group(1))
-                crates.add(m.group(1))
-            for m in re.finditer(r"\b(touring_[a-z][a-z0-9_]+)\b", block):
-                cited.add(m.group(1).replace("_", "-"))
-                crates.add(m.group(1).replace("_", "-"))
+            crates |= _c5_names_in_block(block)
+        cited |= crates
         if crates:
             files_with[f] = sorted(crates)
     stale = sorted([c for c in cited if c not in gt_crates])
@@ -372,6 +414,7 @@ def main():
     progress("[2/7] Coletando ground truth...")
     gt_version = gt_workspace_version()
     gt_crates = gt_actual_crates()
+    gt_mods = gt_actual_mods()
     gt_envvars = gt_actual_envvars()
     gt_cli_set = gt_actual_cli_commands()
     gt_hooks = gt_actual_hooks()
@@ -389,7 +432,7 @@ def main():
             "version": gt_version,
             "crates_count": len(gt_crates),
             "envvars": gt_envvars,
-            "envvars_ground_truth": "code (.rs/.py/.sh/.toml) — desde 08/10/2026",
+            "envvars_ground_truth": "code (.rs/.py/.sh/.toml/.ts) — desde 08/10/2026 (.ts desde 01/11/2026)",
             "cli_commands_count": len(gt_cli_set),
             "hooks": gt_hooks,
         },
@@ -411,7 +454,8 @@ def main():
     results["categories"]["C4-cli-cited"] = c4
 
     progress("[7/7] C5/C6/C7: Crates em code/envvars/hooks...")
-    c5 = scan_c5_crates_in_code(content_by_file, gt_crates)
+    # Mods de tools/mods/ são componentes do repo: entram no ground truth do C5 (não no do C3).
+    c5 = scan_c5_crates_in_code(content_by_file, gt_crates + gt_mods)
     results["categories"]["C5-crates-in-code-examples"] = c5
     c6 = scan_c6_envvars(content_by_file, gt_envvars)
     results["categories"]["C6-envvars-cited"] = c6

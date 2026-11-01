@@ -62,7 +62,7 @@ timestamp: 2026-10-26
 | `cd` | 1.220.290 | mudança de diretório — **o modelo repete o caminho inteiro** |
 | `export` | 485.169 | variáveis de ambiente |
 | `touring` | 476.537 | chamadas ao Touring |
-| `TOURING_CODE_MOD` | 315.974 | o prefixo do code mode |
+| `TOURING_CODE_MODE=…` | 315.974 | o prefixo do code mode |
 | `python3` | 230.718 | inline |
 | `cat` | 180.963 | leitura crua |
 | `timeout` | 139.912 | o wrapper |

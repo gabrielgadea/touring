@@ -33,11 +33,11 @@ Enquanto o GitHub Releases não tiver consumidor (v30.3.0: 0 downloads), o job `
 pensado para outras pessoas instalarem, a assinatura passa a ser obrigatória:
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/touring_signing -C "touring tag signing"   # chave só de assinatura
+ssh-keygen -t ed25519 -f ~/.ssh/touring_signing -C "release tag signing"   # chave só de assinatura
 git config --global gpg.format ssh
 git config --global user.signingkey ~/.ssh/touring_signing.pub
 git config --global tag.gpgSign true
-gh ssh-key add ~/.ssh/touring_signing.pub --type signing --title "touring tag signing"
+gh ssh-key add ~/.ssh/touring_signing.pub --type signing --title "release tag signing"
 git tag -s vX.Y.Z -m "release vX.Y.Z" && git push origin vX.Y.Z
 ```
 

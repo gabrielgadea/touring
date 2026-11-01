@@ -49,6 +49,31 @@ TOURING_VGP_L2_{OFF,WARMUP_S,RA_BUILD,MAX_RA} da camada 2 genérica, citadas no 
 RELATORIO-VL0-camada2-generica.md, cujo código vive só na worktree touring-wt-l2 (pool.rs,
 rust_analyzer.rs) e ainda não está nesta árvore — (c), stale por construção até a integração;
 lote "2026-10-10-release-30.4.96" → 397→401.
+10ª reconciliação (01/11, release 30.4.102; ledger 132→135 linhas): 401→396 = C1 +4, C4 +4,
+C5 -14, C6 +1 (C3 sem mudança). Desde a 9ª, o scan viu 30 sinais NOVOS e perdeu 15 sinais
+declarados (c) no ledger, que terceiros resolveram (30.4.70; C4 `por`, `hook-memory-*`, `vgp` — agora
+no help do binário —; 6 crates absorvidos dos backups; as 4 TOURING_VGP_L2_*, hoje em
+crates/touring-pyright). Dos 30 novos, 11 foram CORRIGIDOS (zero no ledger, pois nunca
+entraram no delta): 9 falsos positivos de predicado — C1 inteiro com milhar pt-BR
+(30.644.663, 30.973.693), C4 rótulo de log `[touring result-compactor]`, C5 diretório de bundle
+datado/arquivo/worktree/mod (touring-janela-eficacia, touring-signing, touring-wt-e2eherm,
+touring-wt-onda1, touring-compact-evict), C6 var lida só em .ts (a do mod compact-evict) — e 2 drifts
+REAIS em docs vivos: `touring tag signing` no RELEASE-CHECKLIST (rótulo lido como subcomando) e o
+prefixo do code mode truncado a 16 caracteres no ESTRATEGIA-FERRAMENTAS (faltava o "E" final).
+Os mesmos predicados eliminaram 9 sinais antigos: 6 do baseline de 31/08 (touring-base,
+touring-error, touring-excellence-pipeline-master-plan, touring-symbol-index-vow,
+touring-todo-fixme-audit, touring-unification — todos nome de arquivo/caminho) e 3 (c) do
+ledger (touring-modules e touring-proxima-geracao, reclassificadas (b); touring-wt-semeado,
+linha removida). Sobraram 19 irredutíveis, disposição (c), lote "2026-11-01-release-30.4.102":
+C1 30.4.96/98/99/100/101 (releases anteriores, registros datados), C4 cli-suggest, cost-report,
+journal, ops, pr, readiness, web, worktree (comandos propostos/inexistentes ou rótulos em
+análises datadas), C5 touring-melhor (valor de enum), C6 as 2 vars propostas no plano ECC (perfil
+de hooks e lista de desativação), as 2 do handler de worktree da R98 (código na branch R98, fora
+da árvore; citadas só por r98/RELATORIO.md, não rastreado) e a do tsc (lida por script de plano).
+Predicados novos com teste pos/neg em test_scanner_predicates.py → 401→396.
+ARMADILHA (medida na própria 10ª): este arquivo é .py FORA de docs/, logo entra no ground truth
+do C6 — escrever aqui o nome literal de uma var citada pelas docs a transformava em "existente" e
+o sinal sumia do scan. Por isso este docstring não nomeia nenhuma delas; os nomes estão no ledger.
 É o C1 "por construção" (pergunta 1 da Kimi a Gabriel, drift-reconciliacao/RELATORIO.md):
 todo release mexe neste literal.
 Ledger completo:
@@ -95,9 +120,9 @@ NUMERIC_CATEGORIES = ["C1", "C3", "C4", "C5", "C6"]
 FILES_ONLY_CATEGORIES = ["C2", "C7"]
 ALL_CATEGORIES = NUMERIC_CATEGORIES + FILES_ONLY_CATEGORIES
 
-# Totais reconciliados 10/10/2026, 9ª reconciliação (ver docstring do módulo).
-EXPECTED_TOTAL = 401
-EXPECTED_BY_CAT = {"C1": 86, "C3": 11, "C4": 107, "C5": 167, "C6": 30}
+# Totais reconciliados 01/11/2026, 10ª reconciliação (ver docstring do módulo).
+EXPECTED_TOTAL = 396
+EXPECTED_BY_CAT = {"C1": 90, "C3": 11, "C4": 111, "C5": 153, "C6": 31}
 
 _scan_check_cache: tuple[int, str, str] | None = None
 _scan_full_cache: tuple[int, dict] | None = None
@@ -187,7 +212,7 @@ def test_scan_check_exits_one(errors: list) -> None:
 
 
 def test_scan_check_total_reconciled(errors: list) -> None:
-    """Scan --check reporta EXATAMENTE 401 stale signals (C1+C3+C4+C5+C6).
+    """Scan --check reporta EXATAMENTE 396 stale signals (C1+C3+C4+C5+C6).
 
     REQUIREMENT: a métrica reconciliada em 08/10/2026 é literal (era 561 até a
     reconciliação — ver ledger em docs/plans/2026-10-08-drift-reconciliacao/).
@@ -203,7 +228,7 @@ def test_scan_check_total_reconciled(errors: list) -> None:
 
 
 def test_scan_categories_breakdown(errors: list) -> None:
-    """Decomposição C1+C3+C4+C5+C6 = 86+11+107+167+30 = 401 (9ª reconciliação, 10/10, bump 30.4.96)."""
+    """Decomposição C1+C3+C4+C5+C6 = 90+11+111+153+31 = 396 (10ª reconciliação, 01/11, bump 30.4.102)."""
     code, data = run_scan_full()
     if code != 0:
         errors.append(f"FAIL scan_categories_breakdown: scan default exit {code}")
@@ -259,7 +284,7 @@ def test_guard_covers_only_c3(errors: list) -> None:
 def test_files_only_categories_not_in_check(errors: list) -> None:
     """C2 (paths) e C7 (hooks) NÃO contam em --check (são files-only)."""
     _, _, stderr = run_scan_check()
-    # O stderr do check: "CHECK: 401 stale signals (C1=86, C3=11, C4=107, C5=167, C6=30)"
+    # O stderr do check: "CHECK: 396 stale signals (C1=90, C3=11, C4=111, C5=153, C6=31)"
     # Não menciona C2 nem C7.
     has_c2 = "C2=" in stderr
     has_c7 = "C7=" in stderr
