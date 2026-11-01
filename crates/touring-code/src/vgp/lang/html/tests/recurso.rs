@@ -79,9 +79,18 @@ fn recurso_resolve_relativo_ao_arquivo_e_nao_a_raiz_do_projeto() {
     s.escreve("css/a.css", "x");
     let html = pagina("<link rel=\"stylesheet\" href=\"../css/a.css\">");
     limpo(&s.mede("pages/index.html", &html));
-    // a mesma referência, de um arquivo na raiz, sobe para fora do projeto: não existe lá
+    // a mesma referência, de um arquivo na raiz, sobe para fora do projeto: a
+    // classe se ABSTÉM (V-4, 31/10/2026 — o limite é a raiz do projeto; uma
+    // referência que a deixa é recusada, e a recusa não nomeia o caminho)
     let v = s.mede("index.html", &html);
-    ve(&v, "recurso", &["../css/a.css"]);
+    assert!(v.achados.is_empty(), "achados inesperados: {:?}", v.achados);
+    assert!(
+        v.nao_medido
+            .unwrap_or_default()
+            .contains("raízes permitidas"),
+        "{:?}",
+        v.nao_medido
+    );
     // `css/a.css` só existe a partir da raiz, não a partir de `pages/`
     let v = s.mede(
         "pages/index.html",
