@@ -87,8 +87,8 @@ def test_selftest_do_instrumento():
 
 
 def test_l2_sem_servidor_devolve_unknown_json_estruturado(monkeypatch, tmp_path):
-    if not d.ORCAMENTO.exists():
-        pytest.skip("instrumento externo ainda não compilado")
+    if not d.PRODUTO.exists():
+        pytest.skip("binário do produto ainda não compilado")
     (tmp_path / "snap").mkdir()
     (tmp_path / "snap/x.py").write_text("print(1)\n")
     monkeypatch.setattr(d, "CORPUS", tmp_path)
@@ -97,3 +97,4 @@ def test_l2_sem_servidor_devolve_unknown_json_estruturado(monkeypatch, tmp_path)
     assert "_erro" not in saida
     assert saida["resultado"]["verdict"] == "unknown"
     assert "no pyright-langserver" in saida["resultado"]["motivo"]
+    assert saida["l2_budget_ms"] == 30000

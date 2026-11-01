@@ -1,0 +1,41 @@
+hw-slot: aguardando — temp 90C > 88C
+comparadas 10/1000
+comparadas 110/1000
+comparadas 150/1000
+comparadas 160/1000
+comparadas 260/1000
+comparadas 350/1000
+comparadas 560/1000
+comparadas 580/1000
+comparadas 740/1000
+comparadas 790/1000
+{
+ "escopo": "diagnóstico de sensibilidade da reconstrução; não é novo veredito nem reclassificação de rótulos",
+ "corpus": "20261101",
+ "motor": "30.4.102",
+ "entradas": 1000,
+ "por_balde": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "dependencias_locais": 21684,
+ "dependencias_alteradas": 5146,
+ "entradas_com_dependencia_alterada": 119,
+ "inconclusivo_reconstrucao": 53,
+ "alteradas_reconstruiveis": 109,
+ "comparacoes_motor": 109,
+ "unknown_outro_atual": 5,
+ "unknown_outro_historico": 5,
+ "inconclusivo_timeout_atual": 0,
+ "inconclusivo_timeout_historico": 0,
+ "mudanca_veredito_efetivo": 1,
+ "deny_para_nao_deny": 1,
+ "nao_deny_para_deny": 0,
+ "sem_mudanca_conhecida": 103,
+ "limite": "pacotes de terceiros não são congelados; mudança de veredito mede sensibilidade, não verdade do rótulo",
+ "controle_positivo_10607309d143": {
+  "atual": "deny",
+  "historico": "nao_deny"
+ }
+}
+retro_v4 rc=0 2026-11-01T14:11:34-03:00

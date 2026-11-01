@@ -91,8 +91,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1291,
-  "l2_elapsed_ms_historico": 1264,
+  "l2_elapsed_ms_atual": 2592.068688,
+  "l2_elapsed_ms_historico": 1749.743739,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 8
  },
  {
@@ -196,8 +198,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2178,
-  "l2_elapsed_ms_historico": 2049,
+  "l2_elapsed_ms_atual": 1880.606439,
+  "l2_elapsed_ms_historico": 1530.339948,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 320
  },
  {
@@ -238,8 +242,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1078,
-  "l2_elapsed_ms_historico": 1037,
+  "l2_elapsed_ms_atual": 949.772384,
+  "l2_elapsed_ms_historico": 1054.977033,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -415,8 +421,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1709,
-  "l2_elapsed_ms_historico": 1917,
+  "l2_elapsed_ms_atual": 1172.164846,
+  "l2_elapsed_ms_historico": 992.034194,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 78
  },
  {
@@ -493,8 +501,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1123,
-  "l2_elapsed_ms_historico": 1283,
+  "l2_elapsed_ms_atual": 1059.811045,
+  "l2_elapsed_ms_historico": 1066.182318,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -634,8 +644,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 5486,
-  "l2_elapsed_ms_historico": 26965,
+  "l2_elapsed_ms_atual": 2719.266586,
+  "l2_elapsed_ms_historico": 15693.309363,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 382
  },
  {
@@ -685,8 +697,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1336,
-  "l2_elapsed_ms_historico": 1750,
+  "l2_elapsed_ms_atual": 960.541516,
+  "l2_elapsed_ms_historico": 1056.621358,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -779,10 +793,12 @@
   "faltantes": 0,
   "veredito_atual": "unknown_outro",
   "veredito_historico": "unknown_outro",
-  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "l2_elapsed_ms_atual": 0,
-  "l2_elapsed_ms_historico": 0,
+  "motivo_l2_atual": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 56.470401,
+  "l2_elapsed_ms_historico": 52.664535,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -904,8 +920,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1830,
-  "l2_elapsed_ms_historico": 1806,
+  "l2_elapsed_ms_atual": 1019.95638,
+  "l2_elapsed_ms_historico": 1080.578564,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -1009,8 +1027,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 3861,
-  "l2_elapsed_ms_historico": 3985,
+  "l2_elapsed_ms_atual": 2642.127068,
+  "l2_elapsed_ms_historico": 2601.268808,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 29
  },
  {
@@ -1051,8 +1071,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1736,
-  "l2_elapsed_ms_historico": 1367,
+  "l2_elapsed_ms_atual": 1072.196941,
+  "l2_elapsed_ms_historico": 1104.886652,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -1084,8 +1106,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2420,
-  "l2_elapsed_ms_historico": 2100,
+  "l2_elapsed_ms_atual": 1775.211339,
+  "l2_elapsed_ms_historico": 1751.65211,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 317
  },
  {
@@ -1117,8 +1141,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1499,
-  "l2_elapsed_ms_historico": 1124,
+  "l2_elapsed_ms_atual": 1157.44227,
+  "l2_elapsed_ms_historico": 1046.3074569999999,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -1211,10 +1237,12 @@
   "faltantes": 0,
   "veredito_atual": "unknown_outro",
   "veredito_historico": "unknown_outro",
-  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "l2_elapsed_ms_atual": 0,
-  "l2_elapsed_ms_historico": 0,
+  "motivo_l2_atual": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 6.384796,
+  "l2_elapsed_ms_historico": 6.084716,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 1
  },
  {
@@ -1291,8 +1319,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1959,
-  "l2_elapsed_ms_historico": 2881,
+  "l2_elapsed_ms_atual": 1404.945188,
+  "l2_elapsed_ms_historico": 2292.416425,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 951
  },
  {
@@ -1306,8 +1336,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2780,
-  "l2_elapsed_ms_historico": 26116,
+  "l2_elapsed_ms_atual": 2390.89529,
+  "l2_elapsed_ms_historico": 15128.283286,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 382
  },
  {
@@ -1321,8 +1353,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 3372,
-  "l2_elapsed_ms_historico": 3620,
+  "l2_elapsed_ms_atual": 2485.265186,
+  "l2_elapsed_ms_historico": 2315.565773,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 6
  },
  {
@@ -1381,8 +1415,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 4587,
-  "l2_elapsed_ms_historico": 4708,
+  "l2_elapsed_ms_atual": 3203.446915,
+  "l2_elapsed_ms_historico": 1214.255101,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 383
  },
  {
@@ -1423,8 +1459,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1263,
-  "l2_elapsed_ms_historico": 1228,
+  "l2_elapsed_ms_atual": 1161.694455,
+  "l2_elapsed_ms_historico": 1176.881099,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -1465,8 +1503,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 4632,
-  "l2_elapsed_ms_historico": 3282,
+  "l2_elapsed_ms_atual": 2488.288777,
+  "l2_elapsed_ms_historico": 2644.565706,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 6
  },
  {
@@ -1561,8 +1601,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2640,
-  "l2_elapsed_ms_historico": 15956,
+  "l2_elapsed_ms_atual": 1185.446989,
+  "l2_elapsed_ms_historico": 8886.623897,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 99
  },
  {
@@ -1783,8 +1825,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1643,
-  "l2_elapsed_ms_historico": 1976,
+  "l2_elapsed_ms_atual": 1074.520371,
+  "l2_elapsed_ms_historico": 1146.379287,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -1816,8 +1860,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 5362,
-  "l2_elapsed_ms_historico": 11681,
+  "l2_elapsed_ms_atual": 4424.773263,
+  "l2_elapsed_ms_historico": 7639.042282,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 47
  },
  {
@@ -1955,10 +2001,12 @@
   "faltantes": 0,
   "veredito_atual": "unknown_outro",
   "veredito_historico": "unknown_outro",
-  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "l2_elapsed_ms_atual": 0,
-  "l2_elapsed_ms_historico": 0,
+  "motivo_l2_atual": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 36.073784999999994,
+  "l2_elapsed_ms_historico": 40.815318000000005,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 1
  },
  {
@@ -2008,8 +2056,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 3153,
-  "l2_elapsed_ms_historico": 3190,
+  "l2_elapsed_ms_atual": 1733.602327,
+  "l2_elapsed_ms_historico": 11924.788972,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 936
  },
  {
@@ -2183,10 +2233,12 @@
   "faltantes": 0,
   "veredito_atual": "unknown_outro",
   "veredito_historico": "unknown_outro",
-  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "l2_elapsed_ms_atual": 0,
-  "l2_elapsed_ms_historico": 0,
+  "motivo_l2_atual": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 41.960769,
+  "l2_elapsed_ms_historico": 35.66458,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 1
  },
  {
@@ -2236,8 +2288,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1412,
-  "l2_elapsed_ms_historico": 2456,
+  "l2_elapsed_ms_atual": 1177.213702,
+  "l2_elapsed_ms_historico": 1043.19559,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -2287,8 +2341,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1903,
-  "l2_elapsed_ms_historico": 1415,
+  "l2_elapsed_ms_atual": 1470.293986,
+  "l2_elapsed_ms_historico": 1084.947621,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -2302,8 +2358,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1601,
-  "l2_elapsed_ms_historico": 2047,
+  "l2_elapsed_ms_atual": 1588.931191,
+  "l2_elapsed_ms_historico": 1836.590806,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -2344,8 +2402,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2475,
-  "l2_elapsed_ms_historico": 2375,
+  "l2_elapsed_ms_atual": 1212.647565,
+  "l2_elapsed_ms_historico": 9780.86449,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 316
  },
  {
@@ -2483,10 +2543,12 @@
   "faltantes": 0,
   "veredito_atual": "unknown_outro",
   "veredito_historico": "unknown_outro",
-  "motivo_l2_atual": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "motivo_l2_historico": "no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
-  "l2_elapsed_ms_atual": 0,
-  "l2_elapsed_ms_historico": 0,
+  "motivo_l2_atual": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "motivo_l2_historico": "unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+  "l2_elapsed_ms_atual": 28.346921000000002,
+  "l2_elapsed_ms_historico": 24.771123,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 1
  },
  {
@@ -2527,8 +2589,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1961,
-  "l2_elapsed_ms_historico": 2759,
+  "l2_elapsed_ms_atual": 1424.560387,
+  "l2_elapsed_ms_historico": 1412.001297,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 79
  },
  {
@@ -2560,8 +2624,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 5225,
-  "l2_elapsed_ms_historico": 9539,
+  "l2_elapsed_ms_atual": 3951.592792,
+  "l2_elapsed_ms_historico": 4667.608525,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 45
  },
  {
@@ -2638,8 +2704,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1204,
-  "l2_elapsed_ms_historico": 1616,
+  "l2_elapsed_ms_atual": 1080.248701,
+  "l2_elapsed_ms_historico": 1146.081392,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -2671,8 +2739,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1038,
-  "l2_elapsed_ms_historico": 1256,
+  "l2_elapsed_ms_atual": 878.413466,
+  "l2_elapsed_ms_historico": 980.435185,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -2785,8 +2855,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 5268,
-  "l2_elapsed_ms_historico": 6645,
+  "l2_elapsed_ms_atual": 4643.518273,
+  "l2_elapsed_ms_historico": 5257.557525,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 47
  },
  {
@@ -2815,11 +2887,13 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "inconclusivo_timeout",
+  "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
-  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/external_apis/catalogo.py (version 968)",
-  "l2_elapsed_ms_atual": 2596,
-  "l2_elapsed_ms_historico": 30039,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 2143.385567,
+  "l2_elapsed_ms_historico": 26546.703549,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 920
  },
  {
@@ -2860,8 +2934,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1085,
-  "l2_elapsed_ms_historico": 1392,
+  "l2_elapsed_ms_atual": 995.654289,
+  "l2_elapsed_ms_historico": 1101.234484,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -2893,8 +2969,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 3055,
-  "l2_elapsed_ms_historico": 3640,
+  "l2_elapsed_ms_atual": 2380.997417,
+  "l2_elapsed_ms_historico": 2297.4904500000002,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 6
  },
  {
@@ -2908,8 +2986,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 3185,
-  "l2_elapsed_ms_historico": 3236,
+  "l2_elapsed_ms_atual": 2109.449077,
+  "l2_elapsed_ms_historico": 1174.679332,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 177
  },
  {
@@ -2977,8 +3057,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1193,
-  "l2_elapsed_ms_historico": 3673,
+  "l2_elapsed_ms_atual": 910.943358,
+  "l2_elapsed_ms_historico": 1561.045736,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 937
  },
  {
@@ -3055,8 +3137,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1429,
-  "l2_elapsed_ms_historico": 2465,
+  "l2_elapsed_ms_atual": 966.305234,
+  "l2_elapsed_ms_historico": 1713.463417,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 937
  },
  {
@@ -3124,8 +3208,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1405,
-  "l2_elapsed_ms_historico": 2308,
+  "l2_elapsed_ms_atual": 892.331911,
+  "l2_elapsed_ms_historico": 965.543213,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -3217,11 +3303,13 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "inconclusivo_timeout",
+  "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
-  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/miprov2_merito.py (version 947)",
-  "l2_elapsed_ms_atual": 1761,
-  "l2_elapsed_ms_historico": 30038,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1275.49705,
+  "l2_elapsed_ms_historico": 26005.801216,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 945
  },
  {
@@ -3244,8 +3332,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1324,
-  "l2_elapsed_ms_historico": 994,
+  "l2_elapsed_ms_atual": 974.390833,
+  "l2_elapsed_ms_historico": 942.915686,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -3259,8 +3349,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 3053,
-  "l2_elapsed_ms_historico": 3349,
+  "l2_elapsed_ms_atual": 2161.454981,
+  "l2_elapsed_ms_historico": 2260.268983,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 6
  },
  {
@@ -3283,8 +3375,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1591,
-  "l2_elapsed_ms_historico": 1096,
+  "l2_elapsed_ms_atual": 935.127167,
+  "l2_elapsed_ms_historico": 987.185009,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -3325,8 +3419,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1091,
-  "l2_elapsed_ms_historico": 1171,
+  "l2_elapsed_ms_atual": 1018.50852,
+  "l2_elapsed_ms_historico": 965.047399,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -3340,8 +3436,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 843,
-  "l2_elapsed_ms_historico": 920,
+  "l2_elapsed_ms_atual": 1036.679206,
+  "l2_elapsed_ms_historico": 1031.929097,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -3364,8 +3462,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1218,
-  "l2_elapsed_ms_historico": 1202,
+  "l2_elapsed_ms_atual": 979.871574,
+  "l2_elapsed_ms_historico": 959.728974,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -3424,8 +3524,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1266,
-  "l2_elapsed_ms_historico": 1137,
+  "l2_elapsed_ms_atual": 1122.922376,
+  "l2_elapsed_ms_historico": 1211.908609,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -3457,8 +3559,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1215,
-  "l2_elapsed_ms_historico": 11991,
+  "l2_elapsed_ms_atual": 1037.897768,
+  "l2_elapsed_ms_historico": 7331.89525,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 99
  },
  {
@@ -3535,8 +3639,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1410,
-  "l2_elapsed_ms_historico": 1513,
+  "l2_elapsed_ms_atual": 1023.263414,
+  "l2_elapsed_ms_historico": 1014.9141,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -3550,8 +3656,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1505,
-  "l2_elapsed_ms_historico": 1123,
+  "l2_elapsed_ms_atual": 977.993944,
+  "l2_elapsed_ms_historico": 961.21394,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -3646,8 +3754,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1191,
-  "l2_elapsed_ms_historico": 1034,
+  "l2_elapsed_ms_atual": 915.296363,
+  "l2_elapsed_ms_historico": 933.751038,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -3733,8 +3843,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1227,
-  "l2_elapsed_ms_historico": 21252,
+  "l2_elapsed_ms_atual": 935.810904,
+  "l2_elapsed_ms_historico": 13236.449512,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 353
  },
  {
@@ -3838,8 +3950,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1052,
-  "l2_elapsed_ms_historico": 1347,
+  "l2_elapsed_ms_atual": 753.842304,
+  "l2_elapsed_ms_historico": 1158.72455,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -3889,8 +4003,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1763,
-  "l2_elapsed_ms_historico": 1794,
+  "l2_elapsed_ms_atual": 995.627052,
+  "l2_elapsed_ms_historico": 1024.630234,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -3922,8 +4038,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1375,
-  "l2_elapsed_ms_historico": 1073,
+  "l2_elapsed_ms_atual": 880.859757,
+  "l2_elapsed_ms_historico": 985.311474,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -3934,11 +4052,13 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "inconclusivo_timeout",
+  "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
-  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/packages/kazuba-enrichment/src/kazuba_enrichment/lexhub/wiring_semantico.py (version 949)",
-  "l2_elapsed_ms_atual": 1735,
-  "l2_elapsed_ms_historico": 30051,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1333.448068,
+  "l2_elapsed_ms_historico": 26104.935203,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 947
  },
  {
@@ -3952,8 +4072,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 849,
-  "l2_elapsed_ms_historico": 959,
+  "l2_elapsed_ms_atual": 829.532834,
+  "l2_elapsed_ms_historico": 1068.54751,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -3985,8 +4107,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1285,
-  "l2_elapsed_ms_historico": 1034,
+  "l2_elapsed_ms_atual": 996.250658,
+  "l2_elapsed_ms_historico": 948.24476,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -4045,8 +4169,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1330,
-  "l2_elapsed_ms_historico": 16587,
+  "l2_elapsed_ms_atual": 1307.777888,
+  "l2_elapsed_ms_historico": 10186.561588,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 317
  },
  {
@@ -4123,8 +4249,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2466,
-  "l2_elapsed_ms_historico": 2438,
+  "l2_elapsed_ms_atual": 2058.379519,
+  "l2_elapsed_ms_historico": 1896.364707,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 29
  },
  {
@@ -4180,11 +4308,13 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "inconclusivo_timeout",
+  "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
-  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/w6g8_compile_kb.py (version 939)",
-  "l2_elapsed_ms_atual": 1583,
-  "l2_elapsed_ms_historico": 30027,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1349.640683,
+  "l2_elapsed_ms_historico": 25405.303734,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 937
  },
  {
@@ -4207,8 +4337,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1773,
-  "l2_elapsed_ms_historico": 1374,
+  "l2_elapsed_ms_atual": 1227.742439,
+  "l2_elapsed_ms_historico": 1147.94365,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -4240,8 +4372,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1050,
-  "l2_elapsed_ms_historico": 966,
+  "l2_elapsed_ms_atual": 966.689875,
+  "l2_elapsed_ms_historico": 899.963008,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -4252,11 +4386,13 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "inconclusivo_timeout",
+  "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
-  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/tests/test_faixas.py (version 954)",
-  "l2_elapsed_ms_atual": 2086,
-  "l2_elapsed_ms_historico": 30052,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1371.065389,
+  "l2_elapsed_ms_historico": 23989.728245,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 950
  },
  {
@@ -4324,8 +4460,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1248,
-  "l2_elapsed_ms_historico": 1364,
+  "l2_elapsed_ms_atual": 899.788346,
+  "l2_elapsed_ms_historico": 933.422517,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -4564,8 +4702,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1486,
-  "l2_elapsed_ms_historico": 1104,
+  "l2_elapsed_ms_atual": 908.809407,
+  "l2_elapsed_ms_historico": 865.652642,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -4597,8 +4737,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1358,
-  "l2_elapsed_ms_historico": 1123,
+  "l2_elapsed_ms_atual": 977.759001,
+  "l2_elapsed_ms_historico": 898.009628,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -4684,8 +4826,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 952,
-  "l2_elapsed_ms_historico": 889,
+  "l2_elapsed_ms_atual": 904.109629,
+  "l2_elapsed_ms_historico": 1738.825796,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -4735,8 +4879,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1122,
-  "l2_elapsed_ms_historico": 2073,
+  "l2_elapsed_ms_atual": 897.746149,
+  "l2_elapsed_ms_historico": 1235.668481,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 318
  },
  {
@@ -4768,8 +4914,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1358,
-  "l2_elapsed_ms_historico": 1522,
+  "l2_elapsed_ms_atual": 824.54973,
+  "l2_elapsed_ms_historico": 846.868135,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -4810,8 +4958,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1409,
-  "l2_elapsed_ms_historico": 1291,
+  "l2_elapsed_ms_atual": 888.517812,
+  "l2_elapsed_ms_historico": 823.018463,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -4825,8 +4975,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1151,
-  "l2_elapsed_ms_historico": 1331,
+  "l2_elapsed_ms_atual": 844.106167,
+  "l2_elapsed_ms_historico": 918.618006,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -4885,8 +5037,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1433,
-  "l2_elapsed_ms_historico": 1369,
+  "l2_elapsed_ms_atual": 908.61032,
+  "l2_elapsed_ms_historico": 935.356171,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -4900,8 +5054,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1023,
-  "l2_elapsed_ms_historico": 21647,
+  "l2_elapsed_ms_atual": 857.186595,
+  "l2_elapsed_ms_historico": 12917.022867,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 353
  },
  {
@@ -4942,8 +5098,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1377,
-  "l2_elapsed_ms_historico": 1127,
+  "l2_elapsed_ms_atual": 933.392336,
+  "l2_elapsed_ms_historico": 818.379077,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -5047,8 +5205,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1408,
-  "l2_elapsed_ms_historico": 20537,
+  "l2_elapsed_ms_atual": 927.154715,
+  "l2_elapsed_ms_historico": 18812.842779,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 353
  },
  {
@@ -5077,11 +5237,13 @@
   "inconclusivo_reconstrucao": false,
   "faltantes": 0,
   "veredito_atual": "nao_deny",
-  "veredito_historico": "inconclusivo_timeout",
+  "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
-  "motivo_l2_historico": "prazo de 30000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/external_apis/catalogo.py (version 968)",
-  "l2_elapsed_ms_atual": 2948,
-  "l2_elapsed_ms_historico": 30019,
+  "motivo_l2_historico": null,
+  "l2_elapsed_ms_atual": 1907.169631,
+  "l2_elapsed_ms_historico": 23383.725915,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 920
  },
  {
@@ -5140,8 +5302,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1985,
-  "l2_elapsed_ms_historico": 1579,
+  "l2_elapsed_ms_atual": 1131.148586,
+  "l2_elapsed_ms_historico": 1175.883997,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -5200,8 +5364,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1623,
-  "l2_elapsed_ms_historico": 1176,
+  "l2_elapsed_ms_atual": 952.787346,
+  "l2_elapsed_ms_historico": 887.112399,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -5224,8 +5390,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 974,
-  "l2_elapsed_ms_historico": 1076,
+  "l2_elapsed_ms_atual": 1148.798504,
+  "l2_elapsed_ms_historico": 1958.418912,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 56
  },
  {
@@ -5473,8 +5641,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2096,
-  "l2_elapsed_ms_historico": 17481,
+  "l2_elapsed_ms_atual": 1178.963548,
+  "l2_elapsed_ms_historico": 9880.623973,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 320
  },
  {
@@ -5488,8 +5658,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2638,
-  "l2_elapsed_ms_historico": 2175,
+  "l2_elapsed_ms_atual": 1685.646534,
+  "l2_elapsed_ms_historico": 1780.033417,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 9
  },
  {
@@ -5512,8 +5684,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1278,
-  "l2_elapsed_ms_historico": 1608,
+  "l2_elapsed_ms_atual": 1028.971064,
+  "l2_elapsed_ms_historico": 932.130419,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -5563,8 +5737,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1533,
-  "l2_elapsed_ms_historico": 1491,
+  "l2_elapsed_ms_atual": 902.927954,
+  "l2_elapsed_ms_historico": 940.428024,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -5596,8 +5772,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2190,
-  "l2_elapsed_ms_historico": 2861,
+  "l2_elapsed_ms_atual": 1390.144649,
+  "l2_elapsed_ms_historico": 1588.520698,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 937
  },
  {
@@ -5674,8 +5852,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1411,
-  "l2_elapsed_ms_historico": 11201,
+  "l2_elapsed_ms_atual": 1048.679961,
+  "l2_elapsed_ms_historico": 6772.686965,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 183
  },
  {
@@ -5734,8 +5914,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2558,
-  "l2_elapsed_ms_historico": 2526,
+  "l2_elapsed_ms_atual": 1482.801568,
+  "l2_elapsed_ms_historico": 1716.066248,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 918
  },
  {
@@ -5758,8 +5940,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1018,
-  "l2_elapsed_ms_historico": 1262,
+  "l2_elapsed_ms_atual": 950.753512,
+  "l2_elapsed_ms_historico": 1098.88455,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -5773,8 +5957,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1212,
-  "l2_elapsed_ms_historico": 1206,
+  "l2_elapsed_ms_atual": 991.710877,
+  "l2_elapsed_ms_historico": 1009.663318,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -5797,8 +5983,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1207,
-  "l2_elapsed_ms_historico": 1045,
+  "l2_elapsed_ms_atual": 898.056316,
+  "l2_elapsed_ms_historico": 1001.520212,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -5839,8 +6027,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1256,
-  "l2_elapsed_ms_historico": 3104,
+  "l2_elapsed_ms_atual": 1073.323344,
+  "l2_elapsed_ms_historico": 1638.137036,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 318
  },
  {
@@ -5854,8 +6044,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 2087,
-  "l2_elapsed_ms_historico": 1359,
+  "l2_elapsed_ms_atual": 1215.516703,
+  "l2_elapsed_ms_historico": 1246.036148,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 3
  },
  {
@@ -5869,8 +6061,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1212,
-  "l2_elapsed_ms_historico": 3146,
+  "l2_elapsed_ms_atual": 1789.465784,
+  "l2_elapsed_ms_historico": 2276.966321,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 938
  },
  {
@@ -5911,8 +6105,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1590,
-  "l2_elapsed_ms_historico": 1511,
+  "l2_elapsed_ms_atual": 1319.91953,
+  "l2_elapsed_ms_historico": 2018.271263,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 56
  },
  {
@@ -5926,8 +6122,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1464,
-  "l2_elapsed_ms_historico": 1350,
+  "l2_elapsed_ms_atual": 978.098777,
+  "l2_elapsed_ms_historico": 1001.211766,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 4
  },
  {
@@ -6004,8 +6202,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1062,
-  "l2_elapsed_ms_historico": 2165,
+  "l2_elapsed_ms_atual": 972.007452,
+  "l2_elapsed_ms_historico": 1773.263363,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 921
  },
  {
@@ -6037,8 +6237,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1037,
-  "l2_elapsed_ms_historico": 1776,
+  "l2_elapsed_ms_atual": 953.521244,
+  "l2_elapsed_ms_historico": 1268.78504,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 14
  },
  {
@@ -7267,8 +7469,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 960,
-  "l2_elapsed_ms_historico": 1076,
+  "l2_elapsed_ms_atual": 1090.299343,
+  "l2_elapsed_ms_historico": 763.18374,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -7480,8 +7684,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1144,
-  "l2_elapsed_ms_historico": 1360,
+  "l2_elapsed_ms_atual": 2222.242485,
+  "l2_elapsed_ms_historico": 918.665546,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -7567,8 +7773,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1223,
-  "l2_elapsed_ms_historico": 1371,
+  "l2_elapsed_ms_atual": 1013.249239,
+  "l2_elapsed_ms_historico": 800.081176,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -7735,8 +7943,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1179,
-  "l2_elapsed_ms_historico": 2324,
+  "l2_elapsed_ms_atual": 977.932443,
+  "l2_elapsed_ms_historico": 964.939106,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -8740,8 +8950,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1250,
-  "l2_elapsed_ms_historico": 1632,
+  "l2_elapsed_ms_atual": 987.92474,
+  "l2_elapsed_ms_historico": 974.952336,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 7
  },
  {
@@ -8809,8 +9021,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 1333,
-  "l2_elapsed_ms_historico": 1410,
+  "l2_elapsed_ms_atual": 800.875362,
+  "l2_elapsed_ms_historico": 821.955804,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -8851,8 +9065,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 857,
-  "l2_elapsed_ms_historico": 1088,
+  "l2_elapsed_ms_atual": 793.591795,
+  "l2_elapsed_ms_historico": 765.765681,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {
@@ -8866,8 +9082,10 @@
   "veredito_historico": "nao_deny",
   "motivo_l2_atual": null,
   "motivo_l2_historico": null,
-  "l2_elapsed_ms_atual": 917,
-  "l2_elapsed_ms_historico": 967,
+  "l2_elapsed_ms_atual": 707.200671,
+  "l2_elapsed_ms_historico": 845.08851,
+  "l2_budget_ms_atual": 30000,
+  "l2_budget_ms_historico": 30000,
   "overlays_gravados": 2
  },
  {

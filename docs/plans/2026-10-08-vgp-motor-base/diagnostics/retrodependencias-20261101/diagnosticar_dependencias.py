@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -21,11 +20,10 @@ import estado_no_instante_v0d as eni  # noqa: E402
 import juiz_motor_vgp as juiz  # noqa: E402
 
 CORPUS = Path.home() / ".claude/touring/vgp/corpus_holdout_disjunto_20261101"
-ATUAL = B / "diagnostics/j15/30_4_102_v3.porid.json"
 BINARIO = Path.home() / ".claude/touring/vgp/binarios/30.4.102/touring"
 TRABALHO = Path.home() / ".claude/touring/vgp/retrodependencias_20261101"
 SAIDA = B / "diagnostics/retrodependencias-20261101"
-ORCAMENTO = TRABALHO / "target-orcamento/debug/vgp-l2-orcamento"
+PRODUTO = Path("/home/gabrielgadea/projects/touring/target/debug/touring")
 
 
 def entradas() -> list[dict]:
@@ -123,33 +121,30 @@ def _l1(e: dict, overlays: list[dict], manifesto: dict) -> dict:
 
 
 def _l2(e: dict, overlays: list[dict], manifesto: dict) -> dict:
+    entrada = dict(e)
+    entrada["snap"] = str(CORPUS / e["snap"])
+    entrada["contexto"] = [
+        {**c, "snap": str(CORPUS / c["snap"])} for c in e.get("contexto") or []
+    ]
     estado = absolutizar_estado(e, overlays, manifesto.get(e["id"], {}))
-    disk = None
-    if estado.get("disk_file"):
-        disk = Path(estado["disk_file"]).read_text(errors="ignore")
-    req = {
-        "id": e["id"],
-        "project_root": e["project_root"],
-        "path": e["path"],
-        "content": (CORPUS / e["snap"]).read_text(errors="ignore"),
-        "disk": disk,
-        "overlays": [
-            (o["path"], Path(o["file"]).read_text(errors="ignore"))
-            for o in estado.get("overlays", [])
-        ],
-    }
+    original_estado = juiz.carregar_estado
+    original_args = juiz.ARGS_MOTOR[:]
     try:
-        run = subprocess.run(
-            [str(ORCAMENTO)],
-            input=json.dumps(req) + "\n",
-            capture_output=True,
-            text=True,
-            timeout=65,
-            check=False,
-        )
-        return json.loads(run.stdout)
-    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
-        return {"_erro": f"{type(exc).__name__}: {exc}"}
+        juiz.carregar_estado = lambda _corpus, estado=estado: {e["id"]: estado}
+        juiz.ARGS_MOTOR[:] = ["--camadas", "1,2", "--l2-budget-ms", "30000"]
+        saida = juiz.rodar_motor([str(PRODUTO)], entrada, TRABALHO)
+    finally:
+        juiz.carregar_estado = original_estado
+        juiz.ARGS_MOTOR[:] = original_args
+    camada2 = saida.get("camada2")
+    return {
+        "resultado": {
+            "verdict": "unknown" if camada2 else saida.get("verdict"),
+            "motivo": camada2 or saida.get("motivo"),
+            "elapsed_ms": saida.get("elapsed_ms"),
+        },
+        "l2_budget_ms": saida.get("l2_budget_ms"),
+    }
 
 
 def _comparar_um(e: dict, overlays: list[dict], manifesto: dict) -> dict:
@@ -164,25 +159,27 @@ def _comparar_um(e: dict, overlays: list[dict], manifesto: dict) -> dict:
         "motivo_l2_historico": historico_l2.get("resultado", {}).get("motivo") or historico_l2.get("_erro"),
         "l2_elapsed_ms_atual": atual_l2.get("resultado", {}).get("elapsed_ms"),
         "l2_elapsed_ms_historico": historico_l2.get("resultado", {}).get("elapsed_ms"),
+        "l2_budget_ms_atual": atual_l2.get("l2_budget_ms"),
+        "l2_budget_ms_historico": historico_l2.get("l2_budget_ms"),
     }
 
 
 def comparar(registros: list[dict]) -> list[dict]:
     manifesto = json.loads((CORPUS / "estado_no_instante/manifesto.json").read_text())
     por_id = {e["id"]: e for e in entradas()}
-    cache = TRABALHO / "comparacoes_v3.jsonl"
+    cache = TRABALHO / "comparacoes_v4.jsonl"
     if cache.is_file():
         salvas = {r["id"]: r for r in map(json.loads, cache.read_text().splitlines())}
         for r in registros:
             if r["id"] in salvas:
-                r.update({k: v for k, v in salvas[r["id"]].items() if k.startswith(("veredito_", "motivo_l2_", "l2_elapsed_"))})
+                r.update({k: v for k, v in salvas[r["id"]].items() if k.startswith(("veredito_", "motivo_l2_", "l2_elapsed_", "l2_budget_"))})
     juiz.ARGS_MOTOR[:] = ["--camadas", "1"]
     with cache.open("a") as out:
         for n, r in enumerate(registros, 1):
             if not r.get("overlays") or "veredito_historico" in r:
                 continue
             r.update(_comparar_um(por_id[r["id"]], r["overlays"], manifesto))
-            chaves = ("id", "veredito_atual", "veredito_historico", "motivo_l2_atual", "motivo_l2_historico", "l2_elapsed_ms_atual", "l2_elapsed_ms_historico")
+            chaves = ("id", "veredito_atual", "veredito_historico", "motivo_l2_atual", "motivo_l2_historico", "l2_elapsed_ms_atual", "l2_elapsed_ms_historico", "l2_budget_ms_atual", "l2_budget_ms_historico")
             out.write(json.dumps({k: r[k] for k in chaves}) + "\n")
             out.flush()
             if n % 10 == 0:
