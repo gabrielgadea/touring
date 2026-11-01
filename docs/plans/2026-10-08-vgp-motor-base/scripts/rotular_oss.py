@@ -16,6 +16,7 @@ import argparse
 import hashlib
 import inspect
 import json
+import os
 import re
 import select
 import shutil
@@ -317,11 +318,22 @@ def git_show_em_lote(repo: Path, specs: list[str]) -> list[str]:
     """
     if not specs:
         return []
+    # MEDIDO em 01/11 (V-8): os clones sao PARTIAIS (`remote.origin.promisor = true`) — o
+    # `excalidraw` tem 21.169 blobs ausentes e o `zod` 13.576. O `cat-file --batch` encontra
+    # um blob ausente e dispara um LAZY FETCH: **um round-trip HTTP por blob**. Medido: 24 min
+    # de coleta com o git em 1,8% de CPU e um `git fetch` NOVO a cada 9 segundos — um lote de
+    # 13.572 blobs precisaria de ~10.000 fetches. Com `GIT_NO_LAZY_FETCH=1` o blob ausente vem
+    # como "missing" na hora e o par e descartado: nunca um travamento. Os blobs que a janela
+    # usa sao buscados antes, em UMA negociacao por repo (`scripts/preparar_clones_oss.sh`),
+    # para a rotulagem correr offline e determinista.
+    env = dict(os.environ)
+    env["GIT_NO_LAZY_FETCH"] = "1"
     proc = subprocess.Popen(
         ["git", "-C", str(repo), "cat-file", "--batch"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
     entrada = ("\n".join(specs) + "\n").encode("utf-8")
     bruto, _ = proc.communicate(entrada)
