@@ -182,7 +182,7 @@ def cenario_sem_exclusao_nao_filtra_nada() -> list:
         ("excluidos=None", None),
         ("excluidos=vazio", set()),
     ):
-        mantidos, fora = ro.filtra_pares_excluidos("r", pares, mascara)
+        mantidos, fora, _ = ro.filtra_pares_excluidos("r", pares, mascara)
         cen.append(
             (
                 f"com {rotulo} NENHUM par e descartado",
@@ -191,7 +191,7 @@ def cenario_sem_exclusao_nao_filtra_nada() -> list:
             )
         )
     id_a = ro.ident_do_par("r", pares[0])
-    mantidos, fora = ro.filtra_pares_excluidos("r", pares, {id_a})
+    mantidos, fora, _ = ro.filtra_pares_excluidos("r", pares, {id_a})
     cen.append(
         (
             "com a mascara o par do id e o unico descartado",
