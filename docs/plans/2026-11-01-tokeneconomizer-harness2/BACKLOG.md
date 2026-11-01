@@ -143,6 +143,19 @@ bytes de prefixo cacheado custam ~1/10 (ADR-003).
   não credita nem debita; a memória deixa de aprender correlação espúria.
 - **Aceite:** num run marcado como confundido, nenhuma memória muda de score (teste).
 
+## Resultado do B5 + B3 (01/11, `8827db32`) — muda a prioridade
+
+Medido com `context_cost`/`surface_usage` (exemplo `crates/touring-cli/examples/context_cost_probe.rs`, semente
+20261101, sessões ≥ 512 KiB): 36 sessões, 8.279 chamadas, 3,43 bi tokens de entrada, **98,9% leitura de cache**.
+Atribuição da entrada (limite inferior, 4 bytes/token declarado): hooks **7,2%**, anúncio de superfície **2,1%**
+(≈ US$ 7,1 de US$ 390 precificados = 1,8%), saídas de tool **9,4%**, prefixo não visto 57,9%. Superfície: 327
+skills anunciadas / 11 usadas (3 pela tool, 49 digitadas por `/comando`), 28 agentes / 9, 265 tools / 21.
+`reconciliation_error` é unilateral (0,0 porque o resíduo absorve) — ler junto com `unseen_share`.
+
+**Consequências:** B12 (podar skills do anúncio) vale pouco em dólar (≤ 1,8%) — rebaixado; serve à janela, não à
+fatura. As alavancas maiores medidas são as saídas de tool (9,4% — o compactador, célula C do AB34, é quem as
+mede) e os hooks (7,2% — B2). Nova ordem do que resta: **B2 → B1 → B4 (fase 0) → B6 → B12/B13**.
+
 ## B11 — Onda EGM no ADW (E1-E8) — EM EXECUÇÃO (01/11)
 
 Campos novos da Spec, cada um com lint, comportamento no runner e teste (detalhe em RELATORIO §Rodada 3):
