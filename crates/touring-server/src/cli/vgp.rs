@@ -5,9 +5,9 @@
 //! Contract (juiz_motor_vgp.py, 2026-10-08-vgp-motor-base):
 //!   touring vgp check --path <virtual> --content-file <proposto> --project-root <raiz>
 //!                     [--disk-file <disco>] [--overlay <orig>=<arquivo>]... [--lang python]
-//!                     [--contexto escrita|execucao] [-j]
+//!                     [--contexto escrita|execucao] [--l2-budget-ms N] [-j]
 //!     -> {"verdict": "deny"|"warn"|"allow"|"unknown", "layer": 1, "lang": "python",
-//!         "elapsed_ms": N, "findings": [...]}
+//!         "elapsed_ms": N, "l2_budget_ms": 1000, "findings": [...]}
 //!
 //! Fail-open by construction: an unreadable content file, a missing argument, or a parse failure
 //! still prints a valid JSON with verdict "unknown" — the hook channel never dies on the motor.
@@ -29,10 +29,10 @@ pub fn run(args: &[String]) -> Result<()> {
 /// Everything returns a CheckOutput — including argument and IO failures (verdict "unknown").
 fn run_json(args: &[String]) -> touring_code::vgp::CheckOutput {
     match parse_args(args) {
-        Ok((input, camadas, contexto)) => {
+        Ok((input, camadas, contexto, orcamento)) => {
             let mut out = check_em(&input, contexto);
             if camadas.contains(&2) {
-                camada2(&mut out, &input, contexto);
+                camada2(&mut out, &input, contexto, orcamento);
             }
             out
         }
@@ -56,6 +56,7 @@ fn run_json(args: &[String]) -> touring_code::vgp::CheckOutput {
                 )]
             },
             camada2: None,
+            l2_budget_ms: None,
             motivo: Some(recusa.motivo),
         },
     }
@@ -65,7 +66,14 @@ fn run_json(args: &[String]) -> touring_code::vgp::CheckOutput {
 /// lsp), only where the project turned it on — Python by default, every other language through
 /// `[vgp] camada2_langs`. Asked for and off, `camada2` says so: a layer that did not run must never
 /// read as a layer that found nothing.
-fn camada2(out: &mut touring_code::vgp::CheckOutput, input: &CheckInput, contexto: Contexto) {
+fn camada2(
+    out: &mut touring_code::vgp::CheckOutput,
+    input: &CheckInput,
+    contexto: Contexto,
+    orcamento: Option<u64>,
+) {
+    let orcamento = orcamento.unwrap_or_else(touring_pyright::pyright::l2_budget_ms);
+    out.l2_budget_ms = Some(orcamento);
     if !camada2_ligada(&input.lang, &input.project_root) {
         out.camada2 = Some(format!(
             "desligada: camada 2 não está ligada para `{}` neste projeto ([vgp] camada2_langs)",
@@ -80,13 +88,14 @@ fn camada2(out: &mut touring_code::vgp::CheckOutput, input: &CheckInput, context
         .iter()
         .map(|(origem, texto)| (origem.clone(), texto.clone()))
         .collect();
-    let mut l2 = touring_pyright::pool::checar_lang(
+    let mut l2 = touring_pyright::pool::checar_lang_com_orcamento(
         &input.lang,
         &input.project_root,
         &input.path,
         &input.content,
         input.disk.as_deref(),
         &overlays,
+        orcamento,
     );
     no_momento(&mut l2, input, contexto);
     fundir_camada2(out, &l2);
@@ -190,6 +199,7 @@ struct Opt {
     lang: Option<String>,
     camadas: Option<String>,
     contexto: Option<String>,
+    l2_budget_ms: Option<String>,
 }
 
 impl Opt {
@@ -202,6 +212,7 @@ impl Opt {
             "--lang" => self.lang = Some(value),
             "--camadas" => self.camadas = Some(value),
             "--contexto" => self.contexto = Some(value),
+            "--l2-budget-ms" => self.l2_budget_ms = Some(value),
             _ => {}
         }
     }
@@ -225,7 +236,9 @@ fn lang_efetiva(explicita: Option<String>, path: &str) -> String {
         .unwrap_or_else(|| "python".into())
 }
 
-fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>, Contexto), Recusa> {
+fn parse_args(
+    args: &[String],
+) -> std::result::Result<(CheckInput, Vec<u8>, Contexto, Option<u64>), Recusa> {
     let mut o = Opt::default();
     // sem flags lidos ainda a linguagem do pedido é a default (a mesma de `lang_efetiva`)
     let padrao = lang_efetiva(None, "<string>");
@@ -292,6 +305,15 @@ fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>, Cont
         .as_deref()
         .map(parse_camadas)
         .unwrap_or_else(|| vec![1]);
+    let orcamento = o
+        .l2_budget_ms
+        .map(|v| {
+            v.parse::<u64>()
+                .ok()
+                .filter(|n| *n > 0)
+                .ok_or_else(|| Recusa::argumento("--l2-budget-ms espera inteiro > 0", &lang))
+        })
+        .transpose()?;
     Ok((
         CheckInput {
             path,
@@ -303,6 +325,7 @@ fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>, Cont
         },
         camadas,
         contexto,
+        orcamento,
     ))
 }
 
@@ -324,6 +347,7 @@ mod tests {
             elapsed_ms: 5.0,
             findings,
             camada2: None,
+            l2_budget_ms: None,
             motivo: None,
         }
     }
@@ -491,7 +515,7 @@ mod tests {
             ("/p/a.html", "html"),
             ("/p/a.py", "python"),
         ] {
-            let (input, _, _) = parse_args(&args(&[
+            let (input, _, _, _) = parse_args(&args(&[
                 "check",
                 "--path",
                 path,
@@ -871,5 +895,30 @@ mod tests {
                 .as_deref()
                 .is_some_and(|m| m.starts_with("desligada"))
         );
+    }
+
+    #[test]
+    fn l2_budget_flag_e_veredito() {
+        let raiz = projeto_com(None, "l2budget");
+        let proposto = raiz.join("proposto.rs");
+        std::fs::write(&proposto, "fn a() {}\n").unwrap();
+        let caminho = raiz.join("src/a.rs");
+        let base = [
+            "check",
+            "--path",
+            caminho.to_str().unwrap(),
+            "--content-file",
+            proposto.to_str().unwrap(),
+            "--project-root",
+            raiz.to_str().unwrap(),
+            "--camadas",
+            "1,2",
+        ];
+        let out = run_json(&args(
+            &[base.as_slice(), &["--l2-budget-ms", "30000"]].concat(),
+        ));
+        assert_eq!(out.l2_budget_ms, Some(30000));
+        let default = run_json(&args(&base));
+        assert_eq!(default.l2_budget_ms, Some(1000));
     }
 }

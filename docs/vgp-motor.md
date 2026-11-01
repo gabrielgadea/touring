@@ -57,10 +57,11 @@ verificador estático — e por isso fora do recall do juiz: a **forma do dado**
 | `TOURING_VGP_L2_OFF=rust-analyzer,deno` | desliga só esses verificadores |
 | `TOURING_VGP_L2_IDLE_S` (900) · `TOURING_VGP_L2_MAX` (2, por verificador) · `TOURING_VGP_L2_MAX_RA` (1) | ociosidade e teto de sessões vivas |
 | `TOURING_VGP_L2_WARMUP_S` (180) | prazo do aquecimento em segundo plano (rust-analyzer, tsserver, deno) |
+| `TOURING_VGP_L2_BUDGET_MS` (1000) | orçamento de cada verificação da camada 2; `--l2-budget-ms N` na CLI/juiz sobrescreve o env, e o veredito registra `l2_budget_ms` |
 | `TOURING_VGP_SOMBRA_FILE` | caminho do registro (default `~/.claude/touring/vgp/sombra.jsonl`) |
 
 Linha do registro: `{ts, session_id, tool_use_id, hook, project_root, path, balde, camadas, modo, verdict,
-elapsed_ms, findings[{classe, nome, linha, severidade, escopo, sugestao, reais}], motivo?}` — sem o conteúdo do arquivo.
+elapsed_ms, findings[{classe, nome, linha, severidade, escopo, sugestao, reais}], motivo?, l2_budget_ms?}` — sem o conteúdo do arquivo.
 
 ## Como se mede (juízes por exit code)
 

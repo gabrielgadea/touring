@@ -47,7 +47,9 @@ use crate::lsp_nucleo::{
 use crate::servidor::{Edicao, Sessao, Verificado};
 
 /// Per-`check` budget: the V3 target is p95 ≤ 1 s per edit, and exceeding it is `unknown`, never allow.
-const DEFAULT_BUDGET: Duration = Duration::from_millis(1000);
+pub const L2_BUDGET_DEFAULT_MS: u64 = 1000;
+/// Process-wide override for measurements; the CLI flag takes precedence when present.
+pub const L2_BUDGET_ENV: &str = "TOURING_VGP_L2_BUDGET_MS";
 /// The cold start (node + project analysis set-up) is paid once, at `discover`.
 const STARTUP_BUDGET: Duration = Duration::from_secs(15);
 const LANGUAGE_ID: &str = "python";
@@ -55,6 +57,24 @@ const LANGUAGE_ID: &str = "python";
 const SERVERS: [&str; 2] = ["pyright-langserver", "basedpyright-langserver"];
 /// Venv directory names looked up, in order of preference.
 const VENV_DIRS: [&str; 2] = [".venv", "venv"];
+
+/// Resolves the layer-2 budget in milliseconds; zero and invalid values preserve production's 1 s default.
+pub fn l2_budget_ms_com(get: impl Fn(&str) -> Option<String>) -> u64 {
+    get(L2_BUDGET_ENV)
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .filter(|v| *v > 0)
+        .unwrap_or(L2_BUDGET_DEFAULT_MS)
+}
+
+/// Reads [`L2_BUDGET_ENV`] from the process.
+pub fn l2_budget_ms() -> u64 {
+    l2_budget_ms_com(|name| std::env::var(name).ok())
+}
+
+/// The resolved budget as a duration.
+pub fn l2_budget() -> Duration {
+    Duration::from_millis(l2_budget_ms())
+}
 
 const NEGA_MODULO: [&str; 2] = [
     "is not a known attribute of module",
@@ -897,7 +917,7 @@ impl PyrightSession {
             startup: STARTUP_BUDGET,
             modo: EscolhaDeModo::Forcado(Modo::Push),
         };
-        let nucleo = NucleoLsp::iniciar(inicio, root.clone(), DEFAULT_BUDGET, &PERFIL)?;
+        let nucleo = NucleoLsp::iniciar(inicio, root.clone(), l2_budget(), &PERFIL)?;
         Ok(Self { nucleo })
     }
 
@@ -2446,5 +2466,13 @@ len = 4
             "len"
         ));
         assert!(fonte_define_nome("len = 4\n", "len"));
+    }
+
+    #[test]
+    fn l2_budget_default_e_env() {
+        assert_eq!(l2_budget_ms_com(|_| None), 1000);
+        assert_eq!(l2_budget_ms_com(|_| Some("30000".into())), 30000);
+        assert_eq!(l2_budget_ms_com(|_| Some("0".into())), 1000);
+        assert_eq!(l2_budget_ms_com(|_| Some("lixo".into())), 1000);
     }
 }

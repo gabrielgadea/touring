@@ -374,5 +374,28 @@ def test_cenarios_do_juiz_timeout():
     )
 
 
+def test_l2_budget_flag_chega_ao_motor(tmp_path, monkeypatch):
+    corpus = corpus_sintetico(tmp_path)
+    motor = tmp_path / "motor_falso"
+    motor.write_text(MOTOR_FALSO.replace(
+        'a = sys.argv[1:]',
+        'a = sys.argv[1:]\nwith open(os.environ["FAKE_ARGV"], "a") as f:\n    f.write(json.dumps(a) + "\\n")',
+    ))
+    motor.chmod(0o755)
+    argv_log = tmp_path / "argv.jsonl"
+    monkeypatch.setenv("FAKE_ARGV", str(argv_log))
+    r = subprocess.run(
+        [sys.executable, str(JUIZ), "--touring", str(motor), "--corpus", str(corpus), "--v5-estrito", "--l2-budget-ms", "30000"],
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    chamadas = [json.loads(line) for line in argv_log.read_text().splitlines()]
+    chamadas = [c for c in chamadas if c[:3] != ["vgp", "check", "--help"]]
+    assert chamadas and all(c[-3:-1] == ["--l2-budget-ms", "30000"] for c in chamadas)
+
+
 if __name__ == "__main__":
     sys.exit(main())

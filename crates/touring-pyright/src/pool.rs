@@ -73,6 +73,7 @@ struct Config {
     off: Vec<Servidor>,
     backoff: Duration,
     aquecimento: Duration,
+    l2_budget: Option<Duration>,
 }
 
 impl Config {
@@ -100,6 +101,9 @@ impl Config {
             off,
             backoff: DEFAULT_BACKOFF,
             aquecimento: Duration::from_secs(number(ENV_WARMUP).unwrap_or(DEFAULT_WARMUP_S).max(1)),
+            l2_budget: Some(Duration::from_millis(crate::pyright::l2_budget_ms_com(
+                &get,
+            ))),
         }
     }
 
@@ -472,7 +476,7 @@ impl Pool {
             return L2Resultado::unknown("camada 2: estado interno inconsistente (sem sessão)", 0);
         };
         entrada.ultimo_uso = now;
-        let verificado = entrada.sessao.verificar(edicao, None);
+        let verificado = entrada.sessao.verificar(edicao, cfg.l2_budget);
         if !verificado.saudavel
             && let Some(broken) = guard.entrada.take()
         {
@@ -753,16 +757,33 @@ pub fn checar_em(
     disk: Option<&str>,
     overlays: &[(String, String)],
 ) -> L2Resultado {
+    checar_em_com_orcamento(servidor, project_root, path, content, disk, overlays, None)
+}
+
+/// [`checar_em`] with an explicit per-call budget, used by the CLI flag; absent means the env/default.
+fn checar_em_com_orcamento(
+    servidor: Servidor,
+    project_root: &Path,
+    path: &str,
+    content: &str,
+    disk: Option<&str>,
+    overlays: &[(String, String)],
+    orcamento: Option<Duration>,
+) -> L2Resultado {
     let edicao = Edicao {
         path,
         content,
         disk,
         overlays,
     };
+    let mut cfg = Config::from_env();
+    if let Some(orcamento) = orcamento {
+        cfg.l2_budget = Some(orcamento);
+    }
     checar_com_servidor(
         global(),
         habilitado(),
-        &Config::from_env(),
+        &cfg,
         Instant::now(),
         servidor,
         project_root,
@@ -783,6 +804,33 @@ pub fn checar_lang(
 ) -> L2Resultado {
     match Servidor::para_lang(lang, project_root, path) {
         Some(servidor) => checar_em(servidor, project_root, path, content, disk, overlays),
+        None => L2Resultado::unknown(
+            format!("camada 2: não há verificador para a linguagem `{lang}`"),
+            0,
+        ),
+    }
+}
+
+/// [`checar_lang`] with an explicit per-call budget in milliseconds.
+pub fn checar_lang_com_orcamento(
+    lang: &str,
+    project_root: &Path,
+    path: &str,
+    content: &str,
+    disk: Option<&str>,
+    overlays: &[(String, String)],
+    orcamento_ms: u64,
+) -> L2Resultado {
+    match Servidor::para_lang(lang, project_root, path) {
+        Some(servidor) => checar_em_com_orcamento(
+            servidor,
+            project_root,
+            path,
+            content,
+            disk,
+            overlays,
+            Some(Duration::from_millis(orcamento_ms)),
+        ),
         None => L2Resultado::unknown(
             format!("camada 2: não há verificador para a linguagem `{lang}`"),
             0,
@@ -2046,6 +2094,22 @@ while True:
         assert_eq!(
             abridor.pre_checagens.load(Ordering::SeqCst) + abridor.aberturas.load(Ordering::SeqCst),
             0
+        );
+    }
+
+    #[test]
+    fn l2_budget_env_pequeno_classifica_timeout() {
+        assert_eq!(cfg().l2_budget, Some(Duration::from_millis(1000)));
+        let cfg = Config::from_lookup(|name| {
+            (name == crate::pyright::L2_BUDGET_ENV).then_some("1".into())
+        });
+        let pool = pool(&Arc::new(Probe::default()), 5000);
+        let tree = TempTree::new("l2budget");
+        let r = check(&pool, &cfg, Instant::now(), &tree.root, "# silencio\n");
+        assert_eq!(r.verdict, Verdict::Unknown);
+        assert!(
+            r.motivo.as_deref().is_some_and(|m| m.contains("prazo")),
+            "{r:?}"
         );
     }
 

@@ -86,6 +86,7 @@ fn mapear(mut l2: L2Resultado, input: &CheckInput, contexto: Contexto) -> Sombra
                 .clone()
                 .unwrap_or_else(|| "sem motivo declarado".to_string())
         }),
+        l2_budget_ms: Some(touring_pyright::pyright::l2_budget_ms()),
     }
 }
 
