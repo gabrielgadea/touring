@@ -21,6 +21,7 @@ isso, vá muito mais além".
 | B9 headless `mcp = none|inherit|<json>` + `session_persistence` | `b1fd113e` | test_adw 254/254; lint 23/23 specs |
 | B10 `run_effect` helped/hurt/confounded + fixture que impede a suíte de depositar no aprendizado real | `6a1437e4` | test_adw 259/259 |
 | B5+B3 `context_cost` e `surface_usage` no `touring kpi` (vão ao daemon no release de 04/11) | `8827db32` | touring-cli 768/768; clippy limpo; 36 sessões reais, hooks 7,2% / anúncio 2,1% / tools 9,4% da entrada |
+| B2+B1 em sombra: `family_gate` (touring-suggest 0,49 → brief; loop-outer 0,10 → off) e `lesson_lifecycle` (406 chaves, 21 active) | `9e22fd31` | touring-cli 802/802; clippy limpo; errata do F4a em medicao/RESULTADOS.json |
 | B11 onda EGM E1-E8 (goldfish, must_read por desafio de linha, findings, churn, triage, tools=none, purpose de design, output_schema) | `cabdd732` | test_adw 361/361; 23 specs válidas |
 
 ## Restrições vivas
@@ -38,4 +39,4 @@ de controle gravaria transcrito no corpus do AB34). B6 (`ab34_arm.py`) só depoi
   `not run`; convergência = 2 rodadas limpas, teto 5, churn; triagem CONTEST/ESCALATE/PROPOSE FIX/DECLINE;
   contradição não edita arquivo; schema de retorno de worker {path, summary, interface, invariants, side_effects}.
 - Pendências da onda EGM: o minerador do portfólio (`miner.rs`) não indexa goals/verification; efeito de `omitClaudeMd` e `--tools ""` exige run vivo (depois de 08/11).
-- Próximo: B2 e B1 só na fonte e desligados até 08/11; B4 fase 0 (amostra para rótulo humano); B6, B12, B13 depois de 08/11.
+- Próximo: B4 fase 0; ligar B2/B1 ao vivo só depois de 08/11 (decisão do Gabriel) (amostra para rótulo humano); B6, B12, B13 depois de 08/11.
