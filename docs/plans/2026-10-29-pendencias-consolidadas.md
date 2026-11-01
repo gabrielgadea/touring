@@ -93,7 +93,23 @@ gate com os 22 dependentes reversos) → **FEITO 01/11** (`fffbe192`, merge de `
 devolve SEMPRE vazio (`search("*")` não tokeniza) e tem zero chamadores — decidir remover (REGRA #0) ou
 consertar com `scan_prefix` (que pularia a sanitização C6 do `search`).
 **Achado do J15 (touring-45):** a CLI não expõe o orçamento da camada 2 do VGP (`--timeout-ms` não o altera);
-a comparação retroativa precisou de instrumento externo com `PyrightSession::with_budget(30s)`. D-8: **construir o adjudicador html** (touring-a4, depois da
+a comparação retroativa precisou de instrumento externo com `PyrightSession::with_budget(30s)`.
+
+### Achados corrigidos em 01/11 (pedido do Gabriel: "corrija todos os achados, sempre potencializando")
+
+| Achado | Correção | Commit |
+|---|---|---|
+| `MemoryStore::list_tier` sempre vazio, sem chamador | removido; a capacidade foi para o caminho vivo: `touring memory list --tier <nome>` (aceita tiers fora do `MemoryTier`; vazio devolve `available_tiers`) | `e492a546` |
+| C6: injetor de lições do `cli_suggester` lia o `value` cru | `sanitize_memory_text` antes de injetar (recall/query/list já sanitizavam — diagnóstico inicial de "4 leitores crus" estava errado e foi refeito antes de editar) | `e492a546` |
+| `#[allow(dead_code)]` em `total_matches`/`promote_tier`, que TÊM chamador | supressões removidas | `e492a546` |
+| `.pyc` reaparecendo no espelho `client/` | `conftest.py` na raiz com `sys.dont_write_bytecode` (controle: 4 → 0 `.pyc`) | `51ac5592` |
+| parser do `test_r3_a1_kpi` contava `[` em comentário | pula `//` e `/* */`, teste novo; ruff 5 → 0 | `51ac5592` |
+| branches `worktree-agent-*` órfãs | apagadas após provar 0 commits únicos | — |
+| XSS `DocumentViewer.tsx:58` (analise) | entregue à `analise-2a` (DOMPurify, teste RED→GREEN); commit dela pendente | — |
+| CLI sem orçamento da camada 2 do VGP | delegado à touring-45 (config única + env + flag + `l2_budget_ms` no veredito) | — |
+| JSONDecodeError do instrumento retroativo (5 casos) | delegado à touring-45 | — |
+| `proc-macro-error2` future-incompat | **externo**: 2.0.1 é a última versão, vem do `leptos`; nada a corrigir no repositório | — |
+| `origin/main` 624 commits atrás (fez o isolamento de subagentes partir de agosto) | **decisão do Gabriel**: atualizar a `main` = push no repositório público |  — | D-8: **construir o adjudicador html** (touring-a4, depois da
 re-rotulação js/tsx/ts). D-7b: **deduplicar agora** — 73% do duplicado (3.648/4.986 linhas) está em
 `scripts/touring_premium_refactor_2026/` (15 `validate_W*.py`, `w5/w6/w7_rewrite_crate_paths.py`); subagente
 em worktree isolado, aceite = F1.3 ≥ 0,80 + testes verdes + saída idêntica.
