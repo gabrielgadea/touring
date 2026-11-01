@@ -361,5 +361,18 @@ def main() -> int:
     return 0 if not reg.falhas else 1
 
 
+def test_cenarios_do_juiz_timeout():
+    """Os cenários, como o pytest os ve.
+
+    MEDIDO em 01/11 (V-8): este arquivo tinha so `main()`, e o pytest NAO o coletava — o
+    `test_todo_teste_e_coletavel` reprovava por causa disso. Um `no tests ran` com exit 5 e lido
+    por varios CI como "nada a fazer": o pipeline fica VERDE sem rodar o teste, que e exatamente
+    o defeito que o proprio arquivo do meta-teste descreve.
+    """
+    assert main() == 0, (
+        "os cenários do JUIZ-TIMEOUT reprovaram: rode `python3 scripts/test_juiz_timeout.py`"
+    )
+
+
 if __name__ == "__main__":
     sys.exit(main())
