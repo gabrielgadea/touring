@@ -84,13 +84,8 @@ fn recurso_resolve_relativo_ao_arquivo_e_nao_a_raiz_do_projeto() {
     // referência que a deixa é recusada, e a recusa não nomeia o caminho)
     let v = s.mede("index.html", &html);
     assert!(v.achados.is_empty(), "achados inesperados: {:?}", v.achados);
-    assert!(
-        v.nao_medido
-            .unwrap_or_default()
-            .contains("raízes permitidas"),
-        "{:?}",
-        v.nao_medido
-    );
+    let motivo = v.nao_medido.unwrap_or_default();
+    assert!(motivo.contains("raízes permitidas"), "{motivo}");
     // `css/a.css` só existe a partir da raiz, não a partir de `pages/`
     let v = s.mede(
         "pages/index.html",
