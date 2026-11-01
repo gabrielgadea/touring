@@ -203,6 +203,14 @@ fn cmd_backup(args: &[String]) -> anyhow::Result<()> {
     let (flags, args) = parse_global_flags(args);
     let subcommand = args.get(2).map(|s| s.as_str()).unwrap_or("help");
 
+    // Help (and any unknown word) answers BEFORE the project lookup: `backup --help`
+    // outside a Touring project used to fail on `find_db_dir` instead of helping
+    // (scripts/test_help_never_executes.py, 01/11/2026).
+    if !matches!(subcommand, "knowledge" | "memory" | "graph" | "all") {
+        print_backup_usage();
+        return Ok(());
+    }
+
     let db_dir = find_db_dir().ok_or_else(|| {
         anyhow::anyhow!(
             "could not locate .claude/touring/ — run from a Touring project root \
@@ -220,7 +228,8 @@ fn cmd_backup(args: &[String]) -> anyhow::Result<()> {
             backup_one(&src, &PathBuf::from(dst_str), flags.json)?;
         }
 
-        "all" => {
+        // "all": every other word already returned through print_backup_usage.
+        _ => {
             let default_dir = format!("touring_backup_{timestamp}");
             let out_dir_str = flag_value(&args, "--output").unwrap_or(default_dir.as_str());
             let out_dir = PathBuf::from(out_dir_str);
@@ -242,16 +251,17 @@ fn cmd_backup(args: &[String]) -> anyhow::Result<()> {
                 anyhow::bail!("backup incomplete — check logs: `touring doctor`");
             }
         }
-
-        _ => {
-            eprintln!("Usage:");
-            eprintln!("  touring backup knowledge [--output <path>]");
-            eprintln!("  touring backup memory   [--output <path>]");
-            eprintln!("  touring backup graph    [--output <path>]");
-            eprintln!("  touring backup all      [--output <dir>]");
-        }
     }
     Ok(())
+}
+
+/// Usage of `touring backup`, printed for `help`, `--help`, `-h` and unknown words.
+fn print_backup_usage() {
+    eprintln!("Usage:");
+    eprintln!("  touring backup knowledge [--output <path>]");
+    eprintln!("  touring backup memory   [--output <path>]");
+    eprintln!("  touring backup graph    [--output <path>]");
+    eprintln!("  touring backup all      [--output <dir>]");
 }
 
 fn cmd_restore(args: &[String]) -> anyhow::Result<()> {
@@ -468,6 +478,19 @@ mod tests {
              INSERT INTO t VALUES (1, 'hello');",
         )
         .expect("create test table");
+    }
+
+    /// Every non-domain word takes the usage path and succeeds. This does NOT prove the
+    /// 01/11/2026 defect (help outside a project failed on `find_db_dir`): the test's cwd
+    /// sits inside a project, where the old code also succeeded, and changing the cwd
+    /// would race parallel tests. The proof is `scripts/test_help_never_executes.py`,
+    /// which runs the release binary in an empty scratch dir.
+    #[test]
+    fn backup_help_answers_without_a_project() {
+        for word in ["--help", "-h", "help", "nonsense"] {
+            let args: Vec<String> = ["touring", "backup", word].map(String::from).to_vec();
+            cmd_backup(&args).unwrap_or_else(|e| panic!("`backup {word}` must help, got: {e}"));
+        }
     }
 
     #[test]
