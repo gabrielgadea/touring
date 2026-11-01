@@ -284,7 +284,7 @@ conferido**):
 | **`typescript`** | 604 | **394** | 65 % | 18 | **sim** | **PROVADA** |
 | `tsx` | 488 | 152 | 31 % | 14 | sim | **NÃO PROVADA** |
 | `javascript` | 24 | 23 | 96 % | 1 | sim | **NÃO PROVADA** |
-| `html` | 3 | 3 | — | 1 | sim | **NÃO PROVADA** |
+| `html` | 3 | 3 | — | 1 | sim | **NÃO PROVADA** (a camada ts; a camada html dedicada está na §5.7) |
 
 **A concentração medida**, por classe (maior fatia da classe numa chave: arquivo e commit):
 
@@ -311,12 +311,9 @@ por isso que a classe entra declarada como sem adjudicador. Nenhuma classe tem i
    repositórios com `.js`/`.mjs` (express, dom-examples, html5-boilerplate) são os **últimos**
    da ordem canônica, e o `excalidraw` — que vem primeiro — quase não tem js. A taxa de
    negativos do que existe é de 96 %; falta **população**, não método.
-4. **`html` — NÃO PROVADA, por um motivo de outra natureza:** o adjudicador desta camada é o do
-   **TypeScript** (`oraculo_ls.js`), e um arquivo `.html` **não produz diagnóstico nenhum** — o
-   par sai «negativo» com o rótulo **vazio de conteúdo**, e um negativo vazio não mede falso
-   deny. A classe é declarada assim no selo (`classes_sem_adjudicador: ["html"]`) e o **n dela
-   não entra em nenhuma prova**. O html tem adjudicador próprio: é o **D-8**, com o plano em
-   `PLANO-ADJUDICADOR-HTML.md` (escrito antes de qualquer código).
+4. **`html` — ver a §5.7.** O motivo mudou: o adjudicador html **existe** (e foi usado), e a
+   camada html dedicada tem **642 negativos** — o bloqueio medido agora é a **concentração**, não
+   a ausência de adjudicador.
 
 **O que a camada nova é, em uma frase**: 1 119 entradas rotuladas por DELTA (o adjudicador e o
 `tsc` concordam em cada retestamento), **disjuntas** de 8 901 ids de corporas anteriores, com o
@@ -328,6 +325,61 @@ O `tsx` precisa de mais **~480** entradas (488 → ~965) e o `javascript` dos re
 que vêm no fim da ordem — os dois exigiriam um alvo total de **~1 700**, acima do `--alvo 1200`
 que este lote usava. Nenhum dos dois depende de mudar o método: só de tempo de adjudicador e de
 alvo.
+
+### 5.7 O D-8: a camada html (o adjudicador já existia; o bloqueio era outro)
+
+**O que a investigação mudou.** O D-8 foi decidido como «construir o adjudicador html». Ao
+procurar o que já existia (cadeia 3 do VP-Scout), achei que **ele existia**:
+`scripts/oraculo_instancia_git.py` (331 linhas, 4 classes, disciplina C→D: o positivo exige um
+commit **posterior** que corrige a referência — é o par que prova o erro real, e foi o que
+eliminou os 10 falsos positivos de 10/10) e `scripts/cdn_pin.py` (21 casos em
+`test_cdn_pin.py`). E mais: um corpus html **já tinha sido montado e selado** em 10/10
+(`corpus_holdout_html_git_20261010`, **236 negativos** + 12 positivos `cdn_pin`,
+`sha_tree b6966be51d13e5ee`).
+
+**Logo o plano que escrevi antes (v1) partia de uma premissa errada** — propunha *escrever* um
+adjudicador novo, de camada 1, e supunha que `recurso`/`classe_css` dependeriam do clone em HEAD
+(e dariam drift). **Não dão**: o oráculo resolve a árvore **no commit C** (`git ls-tree -r C`).
+O plano foi **reescrito** (`PLANO-ADJUDICADOR-HTML.md`, v2) com a premissa corrigida.
+
+**O bloqueio real, medido** (não «construir o adjudicador»):
+
+| # | bloqueio | medido | o que foi feito |
+|---|---|---|---|
+| 1 | `LIMITE_COMMIT = 40` corta o rendimento | 240 negativos (< 299) | limite **250**; a população medida é de **1 704** negativos no acervo (540 com limite 100) |
+| 2 | as entradas html **não carregam o «antes»** | sem `snap_antes` o juiz não recebe `--disk-file`: o falso deny mediria a base ausente, não o motor | agora **cada entrada carrega `snap_antes`** (o conteúdo em C^) — o delta é exato e o clone em HEAD deixa de ser o «antes» |
+| 3 | o selo **não congelava** o adjudicador | o selo de 10/10 tem `orcamento` em prosa, nenhum hash | o selo novo carrega `oraculo_instancia_git_sha256` e `cdn_pin_sha256` |
+
+**A camada nova** (`scripts/monta_camada_html_oss.py`, que **importa** o oráculo e o `cdn_pin.py`
+— duas cópias do mesmo critério divergiriam em silêncio):
+
+| | |
+|---|---|
+| entradas | 657 (**642 negativos** + 15 positivos `cdn_pin`) |
+| **concentração medida** | máx **29** entradas num caminho, 3 num commit |
+| teto por chave (n = 657) | 19 → **10 infratores** |
+| **disjunção** | 171 entradas descartadas por id contra as camadas html anteriores (1 722 ids de origem) |
+| selo | `~/.claude/touring/vgp/oss_html_20261101.selo.json`, `sha_tree` **`396eb4047b24cfc6`**, 1 985 arquivos, 21 625 564 bytes |
+| conferência | `confere_selo.py` → **INTACTO** (rc=0) |
+| testes | `scripts/test_monta_camada_html_oss.py` **6/6** — controle positivo, controle negativo, mutante da base do delta, mutante do `nome_esperado`, idempotência, mutante do teto |
+
+**O veredito: `html` continua NÃO PROVADA — e o motivo agora é medido, não «não existe
+adjudicador».** São **642 negativos** (acima dos 299), mas a **concentração violou o teto**: uma
+única chave tem 29 entradas contra um teto de 19.
+
+**Por que o teto é inalcançável com esta população** (medido): a concentração **natural** do html
+é de **11,2 %** (111 entradas num caminho, sem poda) — a população html é concentrada por natureza
+(poucos arquivos, muitos commits cada). Para caber em 3 % com 111 numa chave, a camada
+precisaria de **n ≥ 3 700**, e o acervo inteiro (7 clones) dá **1 704**. Logo o que falta **não é
+método**: é **população** (≈ 4x, via repositórios públicos com histórico html denso, clonados
+fora do workspace) — **ou** um teto diferente para a classe html, que é decisão da coordenadora,
+não minha.
+
+**Um achado de método que a poda revelou**: realimentar o teto pelo n que a poda produz
+**degenera** — podar baixa o n, e baixar o n baixa o teto (`max(1, int(n*0,03))`), e o conjunto
+colapsa (medido: 10 entradas numa chave com 3 % caem para 1). A poda passou a ser **uma passada,
+com o teto dos candidatos**, e a **medição** do teto é feita no n final — que é o que o selo
+declara. O mesmo explains por que a camada antiga de 10/10 tinha 1 infrator por classe.
 
 ## 6. Regras (do briefing, em vigor)
 

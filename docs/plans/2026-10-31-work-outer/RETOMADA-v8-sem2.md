@@ -327,6 +327,7 @@ ao remoto. Não mexi em nenhum dos dois.
 
 ## 9. SEGUNDA PARADA DE COMMIT (01/11) — os `.db` de estado saem do histórico público
 
+
 A coordenadora avisa: o **Gabriel mandou tirar do histórico PÚBLICO os 151 `.db` de estado**
 (`crates/**/.claude/touring/*.db`). Isso **reescreve TODO o histórico desde julho** e exige
 force-push da `main` e da branch. Até ela mandar o novo HEAD: **sem `git commit`, sem `push`**.
@@ -368,3 +369,29 @@ as **duas** branches remotas → `.db=0`; e o tag `v30.3.0` aponta para `e4cd202
 ancestral do `origin/main` reescrito e também não alcança nenhum `.db`. Os `.db` continuam
 alcançáveis **apenas por branches LOCAIS** (`safety/2026-11-01-pre-db-purge`,
 `safety/2026-11-01-pre-scrub`, `release-plz-2026-07-24T22-54-32Z`), que **nunca vão ao remoto**.
+
+## 10. O D-8 (adjudicador html) — o adjudicador **existia**; o bloqueio era outro
+
+O plano v1 (que escrevi **antes** de procurar prior art) partia de uma premissa errada.
+**Achado**: o adjudicador html **já existia** — `scripts/oraculo_instancia_git.py` (4 classes,
+disciplina C→D: o positivo exige um commit **posterior** que corrige a referência, que é o que
+eliminou os 10 falsos positivos de 10/10) e `scripts/cdn_pin.py` (21 casos) — e um corpus html
+**já estava selado** de 10/10 (236 negativos, `sha_tree b6966be51d13e5ee`). O plano foi
+reescrito (`PLANO-ADJUDICADOR-HTML.md` v2) e a camada html nova foi montada e selada:
+
+- **657 entradas, 642 negativos** — o n está pronto (acima dos 299);
+- **10 infratores de teto** (máx 29 por chave contra teto 19) ⇒ `html` continua **NÃO PROVADA**, e
+  o motivo agora é **medido**: a concentração natural do html é de **11,2 %** (111 entradas numa
+  chave), e para caber em 3 % a camada precisaria de **n ≥ 3 700**, contra **1 704** no acervo
+  inteiro dos 7 clones;
+- selo `sha_tree` **`396eb4047b24cfc6`** (1 985 arquivos, 21 625 564 bytes), `confere_selo.py`
+  **INTACTO** (rc=0), disjunção: **171** entradas descartadas por id contra as camadas anteriores;
+- três defeitos corrigidos: o `LIMITE_COMMIT` (40 → 250), a **base do delta** (agora cada entrada
+  carrega `snap_antes` — sem ele o falso deny mediria a base ausente, não o motor) e o
+  **congelamento** (sha256 do adjudicador no selo);
+- testes: `scripts/test_monta_camada_html_oss.py` **6/6** (controle positivo, controle negativo,
+  mutante da base do delta, mutante do `nome_esperado`, idempotência, mutante do teto).
+
+**O que falta é população** (≈ 4x, via repositórios públicos com histórico html denso, clonados
+fora do workspace) **ou** um teto diferente para a classe html — e a segunda é decisão da
+coordenadora, não minha.

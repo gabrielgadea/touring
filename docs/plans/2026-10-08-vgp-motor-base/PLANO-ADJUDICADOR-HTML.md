@@ -1,210 +1,133 @@
-# PLANO — adjudicador html para o estrato OSS (item D-8, decidido em 01/11)
+# PLANO — adjudicador html para o estrato OSS (item D-8) — **v2, medido**
 
 > **Decisão do Gabriel (01/11)**: construir o adjudicador html. Isto substitui o «html NÃO
-> PROVADA por decisão» que a coordenadora tinha me passado. **Este documento é o plano, e vem
-> ANTES de qualquer código** — o adjudicador só é escrito depois do plano aceito.
+> PROVADA por decisão» que a coordenadora tinha me passado. O plano vem **ANTES de qualquer
+> código** — e esta é a **v2**, corrigida pela medição.
 >
-> Referência: `RELATORIO-V8-SEM2.md` §4.1 (o que o D-8 substitui) e §1 das pendências
-> consolidadas. O estrato OSS de js/tsx/ts (o V-8 propriamente dito) está em curso e sai antes.
+> **O que mudou da v1 para a v2 (e por quê)**: a v1 propunha *escrever* um adjudicador html
+> novo, de camada 1, cobrindo `ancora` + `cdn_pin`. **A medição mostrou que ele já existe** —
+> `scripts/oraculo_instancia_git.py` (331 linhas, 4 classes, disciplina C→D) e
+> `scripts/cdn_pin.py` (21 casos em `test_cdn_pin.py`) — **e que um corpus html já foi montado
+> e selado** em 10/10 (`corpus_holdout_html_git_20261010`, **236 negativos** + 12 positivos
+> `cdn_pin`). A v1 também supunha que `recurso`/`classe_css` dependeriam do clone em HEAD (e
+> por isso dariam drift); **isso é falso**: o oráculo resolve a árvore **no commit C**
+> (`git ls-tree -r C`), que é exatamente a «segunda camada» que a v1 previa.
+>
+> **O bloqueio real, medido**: (1) **população** — o `LIMITE_COMMIT = 40` corta o rendimento em
+> 240 negativos, abaixo dos 299; (2) **base do delta** — as entradas html não carregam o
+> «antes», então o juiz não tem contra o que comparar; (3) **congelamento** — o selo não
+> carrega o sha256 do adjudicador. **Nenhum dos três é «construir o adjudicador».**
 
 ---
 
-## 1. A fonte de verdade do rótulo
+## 1. O adjudicador que existe (e por que ele serve)
 
-### 1.1 O que o juiz exige (lido no código, não inferido)
-
-`scripts/juiz_motor_vgp.py`:
-
-| linha | o que diz | consequência |
+| peça | arquivo | o que faz |
 |---|---|---|
-| 110 | `CLASSES_WEB = {"recurso", "ancora", "cdn", "cdn_pin", "classe_css"}` | são as classes web do VGP |
-| 124 | «Classes web (VL0 §4) **não têm compilador**: o rótulo vem do oráculo do corpus, que exige a mensagem dele» | **o adjudicador É a fonte do rótulo** — não há oráculo de terceiro para html |
-| 146 | «negativo (delta: o hook só nega o que a edição INTRODUZ)» | o rótulo é por DELTA, como no `oraculo_ls.js` |
-| 22 | recall = positivos **de símbolo** com um achado (deny OU warn) cujo `nome` == `nome_esperado` | o rótulo do positivo precisa dizer **qual token** o motor deve achar |
-| 23 | falso_deny = negativos com QUALQUER achado `deny`, por balde | o negativo é o denominador |
-| 272 | `b, nome = balde(e), e["nome_esperado"]` | `nome_esperado` é lido em todo positivo |
-| 185 | `sobre |= {c["path"]: corpus / c["snap"] for c in entrada.get("contexto") or []}` | `contexto` tem de ser **LISTA** (a string `"[]"` quebra o `for`) |
-| 160-170 | `rodar_motor` chama `vgp check --path <path> --content-file <corpus>/<snap> --project-root <root> --lang <lang>` | a entrada precisa de `path`, `snap`, `project_root`, `lang` |
+| oráculo por instância | `scripts/oraculo_instancia_git.py` | INSTANTE = C, BASE = C^, árvore do instante = `git ls-tree -r C`, conteúdo = `git show C:<rel>`. Positivo exige **D** (um commit posterior que CORRIGE a referência): é o par C→D que prova o erro real. Negativo = commit que toca `.html` e cuja árvore em C confirma **0 introduções**. |
+| critério de CDN | `scripts/cdn_pin.py` | o HOST do CDN decide (não a presença de `@`); 21 casos em `test_cdn_pin.py`. O oráculo e o montador **importam o mesmo módulo** — dois critérios para a mesma classe divergiriam em silêncio. |
+| montador | `scripts/monta_holdout_html_git.py` | importa o oráculo (não reescreve), monta `entradas.jsonl` + `snap/`, sela no formato do `confere_selo.py`. |
 
-E a memória `corpus-rotulo-que-o-juiz-nunca-casa` (10/10), que é a armadilha escrita por quem já
-caiu nela: **`nome_esperado` é o token referenciado COMO ESTÁ NO CÓDIGO** — para `recurso`, sem a
-query `?…` e sem o fragmento `#…`; e qualquer predicado que existence-teste disco a partir do
-valor cru do atributo acusa os DOIS lados (mutado e original), o que é a assinatura de que não é
-oráculo.
+**Por que o oráculo por instância é a resposta certa** (e não um detector de padrão): a versão
+anterior, de padrão, produziu **10 falsos positivos** — o commit *removia* `.no-js`, não
+corrigia referência quebrada. A prova C→D elimina isso: o alvo **existe em D** e **não** existia
+em C.
 
-### 1.2 As regras do rótulo
+**Independência — o que impede o adjudicador de confirmar o motor** (mantido da v1, com uma
+correção): para html **não existe implementação de referência** de «este `#id` resolve?» (é
+checagem de aplicação, não de spec). A independência é de **implementação**, não de spec:
 
-| rótulo | regra |
-|---|---|
-| **negativo** | a edição **não introduz** nenhum achado novo → o motor **não** deve negar (um deny aqui é falso deny) |
-| **positivo** | a edição introduz ≥ 1 achado novo; `nome_esperado` = o token, como está no código; `mensagem` = a mensagem do adjudicador; `reproduz` = `true` (o defeito está no conteúdo do commit, reproduz por construção) |
+1. o oráculo resolve a árvore por `git ls-tree -r C` + `git cat-file -e` — **nada** do adaptador
+   html do VGP é importado;
+2. o `nome_esperado` sai do **token** (a URL como escrita no atributo), nunca do valor cru;
+3. **controles sintéticos** (§4) — positivos e negativos, com o mutante reprovando;
+4. **controle cruzado**: o `vnu` (WHATWG, jar local) como CONTROLE, nunca como fonte de rótulo —
+   porque as classes do VGP não são erros de spec, e um rótulo de `vnu` daria recall 0 por
+   construção (a armadilha da memória `corpus-rotulo-que-o-juiz-nunca-casa`).
 
-O formato da entrada é o de `~/.claude/touring/vgp/corpus_semeado/html/entradas.jsonl` (o
-modelo que o juiz já consome):
+---
 
-```json
-{"classe": "ancora", "contexto": [], "id": "...", "lang": "html",
- "mensagem": "id 'X' ausente no documento", "nome_esperado": "X",
- "origem": "natural", "path": "<abs>", "project_root": "<abs>",
- "reproduz": "true", "rotulo": "positivo", "snap": "snap/<id>.html"}
-```
+## 2. A população — MEDIDA em 01/11 (`mede_rendimento_html.py`)
 
-### 1.3 As classes — e o corte que a honestidade impõe
+Corte temporal `2026-10-10T00:00:00Z` (o mesmo do corpus de 10/10). Negativos = commit que toca
+`.html` e **não introduz** URL de CDN sem versão exata (delta entre C e C^ — dois `git show` por
+arquivo; o POSITIVO, que exige a busca de filhos, é o caro).
 
-As cinco classes web do VGP **não precisam do mesmo oráculo**:
+| repo | commits tocando `.html` | ≤ corte | negativos (limite 40) | (100) | (250) | (todos) |
+|---|---:|---:|---:|---:|---:|---:|
+| `dom-examples` | 487 | 487 | 40 | 100 | 250 | 440 |
+| `lodash` | 489 | 489 | 40 | 100 | 250 | 478 |
+| `html5-boilerplate` | 381 | 381 | 40 | 100 | 250 | 362 |
+| `express` | 255 | 255 | 40 | 100 | 250 | 252 |
+| `excalidraw` | 133 | 133 | 40 | 100 | 132 | 132 |
+| `zod` | 42 | 42 | 35 | 35 | 35 | 35 |
+| `date-fns` | 5 | 5 | 5 | 5 | 5 | 5 |
+| **TOTAL** | 1 792 | 1 792 | **240** | **540** | **1 172** | **1 704** |
 
-| classe | o que é | precisa da árvore de arquivos? | precisa da rede? |
+**Leitura**: a população **existe** e é folgada. O corte de 40 não é uma limitação do acervo — é o
+teto do script, posto quando o custo era proibitivo (≈ 1 750 commits × 60 revisões filhas ×
+`ls-tree` inteiro). A memoização posterior (`filhos_de`, `arvore`, ambos memoizados por rev)
+trocou o custo: **o gargalo era o número de chamadas repetidas, não a duração de cada uma**.
+
+**O limite de 40 → 100 já entrega 540 negativos**, acima dos 299 com folga, sem clonar um repo
+novo. (A clonagem de repos adicionais fica como **reserva**, não como plano.)
+
+---
+
+## 3. Os três defeitos a corrigir ANTES de rotular
+
+| # | defeito | medido | correção |
 |---|---|---|---|
-| `ancora` | `href="#id"` cujo id não existe no documento | **não** | não |
-| `cdn_pin` | URL de CDN sem pin de versão (ou com pin vencido) | não | não (a forma da URL) |
-| `cdn` | URL de CDN | não | não (a forma) |
-| `recurso` | atributo que aponta para arquivo local inexistente | **sim** | não |
-| `classe_css` | classe usada que não existe em nenhuma folha do projeto | **sim** | não |
+| 1 | **`LIMITE_COMMIT = 40`** corta o rendimento | 240 negativos (< 299) | limite **100** (540) ou **250** (1 172), medido; o custo é medido antes de subir |
+| 2 | **as entradas html não carregam o «antes»** — sem `snap_antes` e sem `estado_no_instante`, o juiz não recebe `--disk-file` | o `snap_antes` é o que o juiz usa (`rodar_motor`: `elif entrada.get("snap_antes")`) | gravar **`snap_antes`** (o conteúdo em C^) por entrada: o delta passa a ser exato e o clone em HEAD **deixa de ser o «antes»** — o drift que a v1 temia |
+| 3 | **o selo não carrega o sha256 do adjudicador** | o selo de 10/10 tem `orcamento` em prosa, nenhum hash | `oraculo_sha256` + `cdn_pin_sha256` + bytes + versão do critério, gravados no selo (como o `oraculo_ls_sha256` do estrato js/ts) |
 
-**O problema medido de `recurso` e `classe_css`**: resolver um caminho relativo exige a árvore do
-**commit**, e o clone está em HEAD (o `exige_clone_limpo` garante isso). Um arquivo html de um
-commit de 2024 referencia recursos que existiam em 2024 e talvez não existam em HEAD → o
-adjudicator acusaria um `recurso` inexistente que não é defeito nenhum: **o rótulo viria do
-drift da árvore, não da edição**. Esse é exatamente o defeito que a memória
-`corpus-rotulo-que-o-juiz-nunca-casa` descreve em outra forma (o rótulo que não implementava a
-descrição).
-
-**=> Proposta: a primeira camada do adjudicador cobre `ancora` + `cdn_pin`, que dependem SÓ do
-documento.** Sem filesystem, sem rede, sem drift. `recurso` e `classe_css` ficam para uma segunda
-camada que resolva contra a árvore do commit (via `git cat-file`), e são declarados como
-**desvio declarado** até lá — não como falha do motor.
+**Um quarto item, de disjunção**: o id html é `sha256(repo|rev|caminho|classe|nome)[:12]` e o id do
+estrato js/ts é `sha256(repo+commit+path)[:16]` — **esquemas diferentes**, então a disjunção por id
+**não funciona entre eles**. A disjunção html tem de ser medida por **identidade do par**
+(`repo`, `rev`, `caminho`) e por **sha256 do conteúdo**, contra **todos** os corpora — e o número
+reportado, não presumido.
 
 ---
 
-## 2. Independência: o que impede o adjudicador de confirmar o motor
+## 4. O que eu executo (passo a passo)
 
-O risco real: usar o próprio adaptador html do VGP como adjudicador seria **o motor confirmando
-a si mesmo**. Um bug do adaptador viraria «achado» e o juiz mediria recall 1,0 sobre um corpus
-que não prova nada.
-
-**A independência proposta é de implementação, não de especificação** — e isso precisa ser dito
-com todas as letras: para html **não existe uma implementação de referência** de «este `#id`
-resolve?» (é checagem de aplicação, não de spec). A defesa é em quatro camadas:
-
-1. **Parser diferente**: o adjudicador usa o `html.parser` da stdlib do Python; o adaptador usa a
-   gramática tree-sitter do crate. Dois parsers, uma gramática: um deslize de parsing aparece como
-   divergência entre eles, não como concordância silenciosa.
-2. **Tokenização pela regra do juiz**: o `nome_esperado` sai do token **sem query/fragmento**, e
-   o predicado existence-testa o **token**, nunca o valor cru — as duas lições da memória.
-3. **Controles sintéticos** (§4): casos com resposta conhecida por construção, positivos e
-   negativos, com o mutante (o controle tem de **reprovar** quando o predicado é quebrado).
-4. **Cruzamento com o validador de referência do WHATWG (Nu `vnu`)** — o `java` **está instalado**
-   nesta máquina. O `vnu` é a referência independente mais forte que existe para html, e ele é
-   usado como **CONTROLE CRUZADO**, não como fonte de rótulo:
-   - o adjudicador **não pode** acusar um erro de spec num html que o `vnu` aceita → prova de que
-     os achados dele são de **aplicação**, e não de spec;
-   - um html que o `vnu` reprova tem de ser registrado por uma classe nossa, senão há um buraco.
-
-   **Por que o `vnu` NÃO pode ser a fonte do rótulo**: as classes do VGP (`ancora`, `recurso`,
-   `classe_css`) não são erros de spec — o `vnu` não checa se um `#id` existe. Um rótulo de `vnu`
-   seria «este html viola a spec», e o motor do VGP **não reporta erro de spec** → o recall
-   dessa classe sairia **0 por construção**, que é a armadilha da memória.
-
-   O `vnu` exige o jar baixado da rede (uma vez, congelado por sha256) — se a rede não estiver
-   disponível, o controle cruzado fica **declarado como não feito**, e o adjudicador continua
-   válido para o que ele cobre.
+1. **`monta_camada_html_oss.py`** (novo, no bundle): importa o oráculo e o `cdn_pin.py` (não
+   reescreve nenhum dos dois), monta a camada html nova num diretório **novo**, com:
+   - `LIMITE_COMMIT` parametrizado (100), **corte antes do limite**;
+   - `snap_antes` por entrada (o conteúdo em C^) — o defeito 2 corrigido;
+   - `snap` (o conteúdo em C) — o estado que o motor julga;
+   - o **delta** declarado: negativo = 0 introduções; positivo = ≥ 1 introdução de URL de CDN
+     sem versão exata, com `nome_esperado` = a URL **como escrita**;
+   - `classe`, `mensagem`, `reproduz`, `origem`, `path`, `project_root`, `contexto: []`
+     (lista — a string `"[]"` quebra o `for` do juiz).
+2. **Testes do montador** (antes de rotular): (a) controle positivo — um commit sintético que
+   introduz uma URL sem pin **é** positivo, com o `nome_esperado` certo; (b) controle negativo —
+   um commit que **não** introduz é negativo; (c) **mutante**: o `snap_antes` ausente tem de
+   **reprovar** (é o defeito 2 virado teste); (d) **mutante**: o `nome_esperado` com o valor cru
+   em vez do token; (e) **idempotência**: duas execuções dão os mesmos ids.
+3. **Selar** a camada nova (selo **externo**, formato do `confere_selo.py`), com o
+   `oraculo_sha256`, o `cdn_pin_sha256`, os denominadores por classe, o **teto medido**
+   (`max(1, int(n × 0,03))` por chave) e a **disjunção** medida.
+4. **Conferir** com `confere_selo.py` (rc 0) e **julgar** com `juiz_motor_vgp.py`, do mesmo jeito
+   que o estrato js/ts.
+5. **Atualizar** o `RELATORIO-V8-SEM2.md` com o n por classe, a concentração, o hash do selo e o
+   **veredito por classe** — e a advertência de que o **recall** do html natural é
+   provavelmente **não mensurável** (um commit que quebra um `#id` é incomum): o valor do html é
+   o **lado do falso deny**.
 
 ---
 
-## 3. Onde ele roda
-
-| | |
-|---|---|
-| clones | `~/.claude/touring/vgp/oss/html5-boilerplate` e `~/.claude/touring/vgp/oss/dom-examples` (já existem, fora do workspace) |
-| repositórios adicionais | **se o n < 299** — e vai ser: a população medida é curta (§5) |
-| onde vive o adjudicador | `~/.claude/touring/vgp/oss/oraculo_html.py`, **ao lado** do `oraculo_ls.js` (que é congelado e vive fora do repo) — e o sha256 dele vai no selo |
-| forma de rodar | um processo por par, protocolo **linhas JSON em stdin, frames `#<n bytes>` em stdout** — o MESMO protocolo do `oraculo_ls.js`, e **lido em BYTES** (o defeito que matou o run anterior: `#<n>` em bytes lido em caracteres trava para sempre num corpo multibyte) |
-
----
-
-## 4. Testes do adjudicador — antes de rotular qualquer coisa
-
-O repositório exige RED→GREEN com **controle positivo** e **mutante morto**; um teste que passa
-sem provar nada é a modalidade de falha que o próprio bundle documenta.
-
-| # | teste | o que prova |
-|---|---|---|
-| T1 | **controle positivo**: um html sintético com `href="#nao-existe"` e nenhum id `nao-existe` → o adjudicador acha 1 achado, classe `ancora`, `nome_esperado == "nao-existe"` | o predicado acha o que deve achar |
-| T2 | **controle negativo**: o mesmo html **com** o id presente → 0 achados | não acusa o que está certo |
-| T3 | **mutante**: o predicado existence-testa o valor cru (`x.html?v=2`) em vez do token → tem de **reprovar** | o token, não o valor cru (a lição da memória) |
-| T4 | **mutante**: a comparação passa a ser «existe ALGUM id com esse prefixo» → tem de reprovar | o id é exato |
-| T5 | **delta**: html antes/depois onde a edição **introduz** um id ausente → 1 achado NOVO; onde a edição não muda nada → 0 achados novos | o rótulo é por delta, como o `oraculo_ls.js` |
-| T6 | **multibyte**: um html com acento → o frame volta **inteiro** (o defeito de bytes/caracteres) | o protocolo não trava |
-| T7 | **controle cruzado (vnu)**: um html que o `vnu` aceita → o adjudicador não acusa erro de spec | os achados são de aplicação |
-| T8 | **idempotência**: dois `cmd` seguidos → os dois respondem (o `\n` do frame não vira cabeçalho) | o framing |
-
----
-
-## 5. A população: o n que o html consegue alcançar
-
-**Medido** (mesmo método do `v8_populacao.py`, corte 2026-10-09 23:00):
-
-| `--max-commits` | pares html elegíveis |
-|---|---|
-| 120 | 161 |
-| 300 | 446 |
-| **600** | **518** |
-| 1000 | 557 |
-| 2000 | 914 |
-
-Origem: `dom-examples` 479, `html5-boilerplate` 18, `excalidraw` 10, `date-fns` 2, `zod` 1.
-
-**O problema**: com o rendimento medido no estrato js/ts (≈ 50 % dos pares viram entrada), 518
-pares dão **≈ 260 negativos — ABAIXO de 299**. Mesmo em mc=2000 (914 pares → ~460) o número
-dependeria de o rendimento se manter.
-
-**=> O html precisa de mais repositórios públicos com histórico html denso**, clonados fora do
-workspace, escolhidos **por medição** (pares elegíveis por repo), não por palpite. Candidatos a
-medir: `jquery/jquery` (html de teste), `jekyllrb/jekyll` e `jekyllrb/minima` (layouts),
-`whatwg/html` (o spec tem exemplos), `mozilla/developer-blog`, `pages-themes/*`. A lista fina é
-**medida** (pares elegíveis por repo, com o mesmo filtro), e a clonagem só entra no plano se o
-repo passar de um limiar de pares.
-
-**Com classes que dependem só do documento (`ancora`), o yield é alto** (uma edição de html que
-não quebra âncora é negativa) — de modo que o n é limitado pela **população de pares**, não pelo
-rendimento. É esse o número que decide se mais repositórios são necessários.
-
----
-
-## 6. O teto, o corte e a disjunção — os mesmos do estrato js/ts
-
-| | |
-|---|---|
-| teto de concentração | 3 % **na seleção** (`teto_de(n_lang, 0.03)`), medido contra o disco no selo (`concentra_dentro_do_teto`) |
-| corte temporal | 2026-10-09 23:00 (o mesmo hardcoded do `rotular_oss.py`) |
-| disjunção | a flag `--excluir-corpus` que acabei de criar no rotulador: os ids de **7 527** entradas de corpora anteriores saem da população **antes** da seleção, então não consomem oracle nem entram no teto |
-| selo | **externo**, no formato do `confere_selo.py` (`sha_tree`/`arquivos`/`bytes`, fora do corpus), conferido com `confere_selo.py --corpus <dir> --selo <selo.json>` → rc 0 |
-| selo do adjudicador | `oraculo_html_sha256` + `oraculo_html_bytes` + a versão da regra de tokenização, gravados no selo (como o `oraculo_ls_sha256` do `oraculo_ls.js`) |
-
----
-
-## 7. O critério de aceite
-
-O mesmo do resto do V-8:
+## 5. O critério de aceite (o mesmo do resto do V-8)
 
 - classe com **≥ 299 negativos**, **dentro do teto** e com o **selo conferido** → sai de «não
   provada»;
 - abaixo disso → **segue declarada como não provada, com o n e o motivo**. Sem inflar o número.
 
-**E uma advertência que precisa entrar no relatório**: o html natural renderiza **positivos
-raros** (um commit que quebra um `#id` é incomum), então o **recall** do html provavelmente não
-será mensurável neste estrato — o valor dele é o **lado do falso deny** (n de negativos). O recall
-do html continua sendo o do corpus semeado (`corpus_semeado/html`, 100 positivos). Isso é
-declarado, não escondido.
+**E o que NÃO entra**: `recurso` e `classe_css` continuam fora da camada 1 (exigem a árvore do
+commit e o par C→D para a prova do alvo — a **segunda** camada, com o custo que ela tem); classes
+de spec (`vnu` como fonte de rótulo); rede no lote; qualquer conteúdo de corpus no repositório
+(o selo e o código são scripts versionados; o corpus, não).
 
----
-
-## 8. O que NÃO entra no escopo (e por quê)
-
-| não entra | por quê |
-|---|---|
-| `recurso` e `classe_css` | exigem a árvore do commit; com o clone em HEAD o rótulo viria do drift da árvore, não da edição → desvio declarado até a segunda camada |
-| classes de spec (`vnu` como fonte de rótulo) | o motor do VGP não reporta erro de spec → recall 0 por construção |
-| rede no lote | o resolvedor de CDN não fala com a rede; o `vnu` (jar) é baixado uma vez, fora do lote, e congelado por sha |
-| qualquer coisa no repositório | o corpus não vai para o repo (só o código do adjudicador e do selo, que são scripts versionados) |
-| `update-touring`, `propagate-release.sh`, `daemon-ctl restart/stop`, daemon spawnado à mão | o AB34 está armado até 08/11 00:10 |
+**Regra do AB34 continua valendo**: nada de `update-touring`, `propagate-release.sh`,
+`daemon-ctl restart|stop`, daemon à mão.
