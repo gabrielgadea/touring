@@ -99,9 +99,20 @@ alvo). Não há mais 217 entradas para escrever: elas não existem.
    infratores nomeados). A correção é re-rotular com o teto aplicado na
    seleção (`rotular_oss.py --teto-concentracao 0.03`), o que exige os
    clones dos repositórios — o caminho fica sendo o da coordenadora.
-   **Em curso**: um `--dry-run` do rotulador com o teto de 3 % está rodando
-   (`/tmp/oss_dryrun.log`); o que ele responder é se os clones estão nesta
-   máquina — e o resultado entra aqui.
+   **Em curso**: a re-rotulação com o teto de 3 % **na seleção** está rodando
+   (`/tmp/v8_oss_rota.sh` → `rotular_oss.py --alvo 300 --teto-concentracao 0.03
+   --saida /tmp/oss_rotulado_20261031`, depois o selo externo e a conferência
+   pelo `confere_selo.py`). **Nenhuma clonagem foi necessária**: os 7 clones já
+   existiam em `~/.claude/touring/vgp/oss/` (excalidraw, zod, date-fns,
+   html5-boilerplate, express, lodash, dom-examples) e o adjudicador congelado
+   (`oss/oraculo_ls.js`) está lá — nada do workspace foi tocado.
+
+   **O item que falta para o `html`**: o `rotular_oss.py` rotula hoje
+   `javascript`/`tsx`/`typescript` — o **html** precisaria de um adjudicador
+   que o script não tem (o de DELTA do `construir_holdout_web.py` lê os
+   transcripts, não um clone). É o que fica em aberto para a coordenadora: ou um
+   adjudicador de html para o estrato OSS, ou o html sai do "não provada" por
+   decisão explícita.
 
 ## 5. Regras (do briefing, em vigor)
 
