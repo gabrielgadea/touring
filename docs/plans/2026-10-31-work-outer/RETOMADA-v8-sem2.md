@@ -4,6 +4,29 @@
 > consolidadas. O relatório do item é `docs/plans/2026-10-08-vgp-motor-base/RELATORIO-V8-SEM2.md`
 > (a §5 é o que esta sessão acrescenta).
 
+## RESUMO FINAL (01/11/2026) — o item V-8 SEM2 está FECHADO
+
+**O critério foi cumprido numa classe: `typescript` saiu de «não provada».**
+
+| classe | n | negativos | situação |
+|---|---:|---:|---|
+| **typescript** | 604 | **394** | **PROVADA** (>= 299, dentro do teto, selo conferido) |
+| `tsx` | 488 | 152 | NÃO PROVADA — falta ~480 entradas (taxa medida de 31 %) |
+| `javascript` | 24 | 23 | NÃO PROVADA — falta população |
+| `html` | 3 | 3 | NÃO PROVADA — **sem adjudicador próprio** (D-8) |
+
+- **Selo** (externo, fora do corpus): `sha_tree` **`e298fe3b6fe48d58`**, 2 150 arquivos,
+  40 449 756 bytes — `confere_selo.py` → **INTACTO** (rc=0).
+- **Disjunção**: **DISJUNTA** — 0 ids em comum com os 8 901 ids do histórico de corporas.
+- **Teto de 3 %**: 0 infratores em todas as classes (medido, não declarado).
+- **Relatório**: §5.6 do `RELATORIO-V8-SEM2.md` escrito com o n por classe, a concentração
+  medida e o hash do selo. **Commit**: `ebda1d37`.
+- **O que falta** (não depende do método): alvo total ~1 700 para levar `tsx` e `javascript`
+  aos 299 negativos. O `html` depende do **D-8** (adjudicator próprio), cujo plano está em
+  `docs/plans/2026-10-08-vgp-motor-base/PLANO-ADJUDICADOR-HTML.md` — **antes** de qualquer
+  código, como o Gabriel pediu.
+- **Planos de V-6, V-7, V-9 e V-12**: `docs/plans/2026-10-08-vgp-motor-base/PLANOS-V6-V7-V9-V12.md`.
+
 ## 0. O que a sessão ANTERIOR (touring-65) deixou — não repetir
 
 1. **O selo EXTERNO do held-out web** (`scripts/selar_holdout_web.py`):
