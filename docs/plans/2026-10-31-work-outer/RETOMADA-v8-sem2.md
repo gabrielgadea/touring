@@ -126,62 +126,42 @@ Duas consequências operacionais, ambas agora no launcher e no procedimento:
 A camada foi descartada (guardada como `oss_rotulado_20261101-parcial3a-2processos`) e refeita
 com **um** processo, verificado por `ps` antes de continuar.
 
-## 2. O que está EM CURSO
+## 2. ENCERRADO — o lote terminou e a camada foi selada
 
-O lote de re-rotulação (js/tsx/ts) está rodando:
-
-```
-scripts/rotular_oss.py --alvo 1200 --teto-concentracao 0.03 --max-commits 1000 \
-  --saida ~/.claude/touring/vgp/oss_rotulado_20261101 --excluir-corpus ~/.claude/touring/vgp
-```
-
-- **um processo só** — dois rotuladores no mesmo `--saida` corrompem a camada (§1.7);
-- saída: `~/.claude/touring/vgp/oss_rotulado_20261101/`
-- log: `~/.claude/touring/vgp/oss_rotulado_20261101.log` (+ `.log.err`), runner em
-  `oss_rotulado_20261101.runner.log`;
-- **por que `--alvo 1200`**: o critério é sobre **NEGATIVOS** e a taxa de negativos medida nesta
-  camada é **26-40 %** (contra os 79 % da camada antiga) — um alvo de 450 *entradas* daria
-  ~120-180 negativos, longe dos 299. O alvo é um teto **artificial**; o que limita de verdade é a
-  população (pares elegíveis) e o teto de concentração;
-- camadas anteriores guardadas para o registro: `-parcial1a-divergencia`, `-parcial2a-teto`,
-  `-parcial3a-2processos`, `-parcial4a-alvo450`.
-
-### 2.1 O CAMINHO DE FECHAMENTO (um comando)
+O lote de re-rotulação (js/tsx/ts) **terminou** (1 119 entradas, 572 negativos) e a camada foi
+**selada e conferida**. O §5.6 do `RELATORIO-V8-SEM2.md` **está escrito** com os números finais.
 
 ```
 bash scripts/selar_e_conferir_camada_oss_20261101.sh
 ```
 
-Ele: sela a camada (selo **fora** do corpus, formato do `confere_selo.py`), mede a **disjunção**
-contra o histórico inteiro de corporas (com a própria camada de fora da comparação), declara a
-classe `html` como **sem adjudicador** (o adjudicador desta camada é o do TypeScript: um `.html`
-não produz diagnóstico, e um negativo vazio não mede falso deny — item D-8), **confere** o selo
-com `confere_selo.py` e **imprime a tabela por classe** que o §5.6 do `RELATORIO-V8-SEM2.md`
-precisa.
+- saída: `~/.claude/touring/vgp/oss_rotulado_20261101/`
+- log: `~/.claude/touring/vgp/oss_rotulado_20261101.log` (+ `.log.err`), runner em
+  `oss_rotulado_20261101.runner.log`;
+- selo **fora** do corpus: `~/.claude/touring/vgp/oss_rotulado_20261101.selo.json`
+  (`sha_tree` **`e298fe3b6fe48d58`**, 2 150 arquivos, 40 449 756 bytes);
+- camadas anteriores guardadas para o registro: `-parcial1a-divergencia`, `-parcial2a-teto`,
+  `-parcial3a-2processos`, `-parcial4a-alvo450`.
 
-**Já provado** sobre a camada em andamento: `confere_selo.py` → **INTACTO** (rc=0), disjunção
-**DISJUNTA**, rc=0 nos dois.
-
-### 2.2 O ritmo medido e o que falta
-
-**MARCO: a classe `typescript` CRUZOU o critério** — 316 negativos (≥ 299) com 478 entradas,
-dentro do teto medido e disjunta do histórico. As outras ainda não:
+### 2.1 O resultado final (medido, não estimado)
 
 | classe | n | negativos | taxa | situação |
 |---|---:|---:|---:|---|
-| typescript | 478 | **316** | 66 % | **atinge o critério** |
-| tsx | 403 | 132 | 33 % | falta ~167 |
-| javascript | 22 | 21 | 95 % | falta ~278 (os repos de JS vêm no fim da ordem) |
+| **typescript** | 604 | **394** | 65 % | **PROVADA** (>= 299, dentro do teto, selo conferido) |
+| tsx | 488 | 152 | 31 % | NÃO PROVADA — faltam ~480 entradas (taxa baixa) |
+| javascript | 24 | 23 | 96 % | NÃO PROVADA — falta população (os repos de js vêm no fim da ordem) |
 | html | 3 | 3 | — | **NÃO PROVADA por falta de adjudicador** (D-8) |
 
-Ritmo: **~5-9 entradas/min** (o gargalo é o delta do adjudicador mais o retestemunho com `tsc` a
-cada 50). O `typescript` foi o primeiro a cruzar porque o `excalidraw` é todo de TypeScript; o
-`tsx` e o `javascript` crescem quando o lote passa por `zod`, `date-fns`, `express` e
-`dom-examples`.
+**Disjunção: DISJUNTA** — 0 ids em comum com os 8 901 ids do histórico de corporas.
+**Teto**: 0 infratores em todas as classes (o teto é `max(1, int(n × 0,03))` entradas por chave).
+`confere_selo.py` → **INTACTO** (rc=0) nos dois comandos.
 
-**A camada é selável a qualquer momento** (o selo externo é sobre o que está em disco), então um
-fim de sessão antecipado não perde o trabalho: basta rodar o comando acima e escrever o §5.6
-com a tabela que ele imprime.
+### 2.2 O que ficou para continuar (e o que NÃO depende do método)
+
+Para levar `tsx` e `javascript` aos 299 negativos o alvo total precisa subir de 1 200 para
+**~1 700** (o `tsx` sozinho precisaria de ~965 entradas, pela taxa medida de 31 %). Não é
+problema de método: é **população e tempo de adjudicador**. O comando de fechamento acima
+continua válido — a camada é selável a qualquer momento, e o selo é sobre o que está em disco.
 
 ## 3. O PLANO do adjudicador html (D-8, decidido pelo Gabriel em 01/11) — **antes do código**
 
