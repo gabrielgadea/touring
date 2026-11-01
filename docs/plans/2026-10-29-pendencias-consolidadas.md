@@ -152,7 +152,16 @@ adjudicação)?
 | T-1..T-5 | **FEITO** 31/10 (journal; HOME temporário no g10; F2.4 lado direito; `cancelled` no decompose; wiring por ponteiro) | `795449ab`, `32bb8561`, `d62558b5`, `4e487287` |
 | Orçamento L2 do VGP (CLI) | **FEITO** (touring-45) | `751b0c62`, `b75d7e71` |
 | D-8 adjudicador html | reformulado (touring-a4): o adjudicador já existia → congelar, escalar e selar | `461a6b3a` |
-| T-6 tantivy 0.22 → 0.27 | **aberto — L4, decisão do Gabriel** (upgrade + reindexação de todo projeto; advisories zstd seguem inalcançáveis por análise de 28/10) | `deny.toml:70-72` |
+| T-6 tantivy 0.22 → 0.27 | **ADIADO por decisão do Gabriel (31/10: "adiar")** — advisories zstd seguem inalcançáveis (análise de 28/10) | `deny.toml:70-72` |
+| D-1 chave `AIza…` | **FEITO** — revogada (Gabriel, 01/11: "Já revoguei") | — |
+| D-2 worktrees | **FEITO** — 7 VGP integrados removidos (snapshot `safety/2026-11-01-wt-*`); f21/frag/p0b/p0bd/roteamento/semeado concluídos no HEAD, tiers mergeado | `d13fd22d`, `fffbe192` |
+| D-4 F21INNER | **FEITO** — braço de XSS de DOM no F2.1 como AVISO (promoção a bloqueio exige o censo do PLANO §8) | `7b38b160`, `02115aa7` |
+| D-6 denominador r3 | **FEITO** — decisão (b): o replay declara os 2 denominadores | `1e76ac30` |
+| D-7 F1.3 em `scripts/` | **FEITO** — remedido 01/11 depois do D-7b: F1.3 **1,000** (Type-1 2,8%, combinado 9,9%); `touring-quality score scripts` = **Diamond 0,957, 0 blockers** (era Silver 0,938 travado pelo F1.3) | `4c85f572` |
+| D-3 `SECURITY_REVIEW_MODEL` | opcional; mudança de settings — **bloqueada pelo AB34 até 08/11** | — |
+| D-5 residual zip | espera upstream (candle com zip ≥ 9) | — |
+
+**O que resta, por que não roda hoje (01/11):** 3.5/M-1/M-2/3.6 → **03/11** (medição); release + V-6/V-7/V-9/V-12 + `test_help_never_executes` verde → **04/11 00:00**; patch D8 + 3.11 (A3) + D-3 → **depois de 08/11 00:10**; 3.7 → J16 PRONTO; 3.8 → V-7 e V-8; V-8/D-8 em curso (touring-a4); `refs/pull/*/head` → **suporte do GitHub, ação do Gabriel**.
 
 ### 1a. VGP (DAG `task_1791581548206685387`)
 
