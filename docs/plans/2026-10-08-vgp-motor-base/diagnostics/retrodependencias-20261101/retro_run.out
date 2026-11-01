@@ -1,0 +1,75 @@
+hw-slot: aguardando — temp 89C > 88C
+preparadas 25/1000
+preparadas 50/1000
+preparadas 75/1000
+preparadas 100/1000
+preparadas 125/1000
+preparadas 150/1000
+preparadas 175/1000
+preparadas 200/1000
+preparadas 225/1000
+preparadas 250/1000
+preparadas 275/1000
+preparadas 300/1000
+preparadas 325/1000
+preparadas 350/1000
+preparadas 375/1000
+preparadas 400/1000
+preparadas 425/1000
+preparadas 450/1000
+preparadas 475/1000
+preparadas 500/1000
+preparadas 525/1000
+preparadas 550/1000
+preparadas 575/1000
+preparadas 600/1000
+preparadas 625/1000
+preparadas 650/1000
+preparadas 675/1000
+preparadas 700/1000
+preparadas 725/1000
+preparadas 750/1000
+preparadas 775/1000
+preparadas 800/1000
+preparadas 825/1000
+preparadas 850/1000
+preparadas 875/1000
+preparadas 900/1000
+preparadas 925/1000
+preparadas 950/1000
+preparadas 975/1000
+preparadas 1000/1000
+comparadas 10/1000
+comparadas 110/1000
+comparadas 150/1000
+comparadas 160/1000
+comparadas 260/1000
+comparadas 350/1000
+comparadas 560/1000
+comparadas 580/1000
+comparadas 740/1000
+comparadas 790/1000
+{
+ "escopo": "diagnóstico de sensibilidade da reconstrução; não é novo veredito nem reclassificação de rótulos",
+ "corpus": "20261101",
+ "motor": "30.4.102",
+ "entradas": 1000,
+ "por_balde": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "dependencias_locais": 21684,
+ "dependencias_alteradas": 5146,
+ "entradas_com_dependencia_alterada": 119,
+ "inconclusivo_reconstrucao": 53,
+ "alteradas_reconstruiveis": 109,
+ "comparacoes_motor": 109,
+ "unknown_atual": 51,
+ "unknown_historico": 59,
+ "mudanca_veredito_efetivo": 0,
+ "deny_para_nao_deny": 0,
+ "nao_deny_para_deny": 0,
+ "sem_mudanca_conhecida": 39,
+ "limite": "pacotes de terceiros não são congelados; mudança de veredito mede sensibilidade, não verdade do rótulo"
+}
+retro rc=0 2026-11-01T12:14:18-03:00
