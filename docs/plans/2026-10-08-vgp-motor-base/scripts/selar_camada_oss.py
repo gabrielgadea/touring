@@ -146,15 +146,36 @@ def mede_teto(regs: list, n: int) -> dict:
     }
 
 
-def mede_classe(corpus: Path, lang: str, alvo: int) -> dict:
-    """Os denominadores e a concentracao REAL de uma classe do estrato OSS."""
+def mede_classe(corpus: Path, lang: str, alvo: int, sem_adjudicador: bool = False) -> dict:
+    """Os denominadores e a concentracao REAL de uma classe do estrato OSS.
+
+    `sem_adjudicador` marca a classe cujo rotulo NAO tem conteudo: MEDIDO em 01/11 (V-8), o
+    adjudicador desta camada e o do TypeScript (`oraculo_ls.js`), e um arquivo `.html` nao produz
+    diagnostico nenhum — o par sairia "negativo" com o rotulo VAZIO de conteudo, e um negativo
+    vazio nao mede falso deny. A classe e declarada NAO PROVADA com esse motivo, e o html tem
+    adjudicador proprio (item D-8).
+    """
     regs = entradas_de(corpus, lang)
     n = len(regs)
     negativos = [r for r in regs if r.get("rotulo") == "negativo"]
     n_neg = len(negativos)
     conc = mede_concentracao(regs, negativos)
     conc.update(mede_teto(regs, n))
-    prova = n_neg >= N_PARA_CP95_1PCT
+    prova = n_neg >= N_PARA_CP95_1PCT and not sem_adjudicador
+    if sem_adjudicador:
+        motivo = (
+            "o adjudicador desta camada e o do TypeScript e nao fala a lingua desta classe: "
+            "um arquivo html nao produz diagnostico, e o rotulo de negativo sairia vazio de "
+            "conteudo — a classe precisa de adjudicador proprio (item D-8)"
+        )
+    elif prova:
+        motivo = None
+    else:
+        motivo = (
+            f"n_negativos={n_neg} < {N_PARA_CP95_1PCT}: o limite superior de "
+            "Clopper-Pearson 95% com 0 falsos nao fica em 1% — a classe sai como NAO "
+            "PROVADA, sem inflar o numero"
+        )
     return {
         "lang": lang,
         "n": n,
@@ -168,16 +189,9 @@ def mede_classe(corpus: Path, lang: str, alvo: int) -> dict:
         "limite_sup_cp95_0_falsos": round(limite_sup_cp95(n_neg), 6),
         "limite_sup_cp95_0_falsos_no_total": round(limite_sup_cp95(n), 6),
         "prova_cp95_1pct": prova,
+        "rotulo_com_conteudo": not sem_adjudicador,
         "situacao": "provada" if prova else "NAO PROVADA",
-        "motivo": (
-            None
-            if prova
-            else (
-                f"n_negativos={n_neg} < {N_PARA_CP95_1PCT}: o limite superior de "
-                "Clopper-Pearson 95% com 0 falsos nao fica em 1% — a classe sai como NAO "
-                "PROVADA, sem inflar o numero"
-            )
-        ),
+        "motivo": motivo,
     }
 
 
@@ -196,6 +210,7 @@ def resumo_classes(classes: list) -> dict:
             "dentro_do_teto": c["dentro_do_teto"],
             "teto_por_chave": c["teto_por_chave"],
             "n_infratores": c["n_infratores"],
+            "rotulo_com_conteudo": c["rotulo_com_conteudo"],
         }
         for c in classes
     }
@@ -281,6 +296,17 @@ def main() -> int:
         metavar="DIR",
         help="corpus anterior com o qual esta camada nao pode ter entrada em comum",
     )
+    ap.add_argument(
+        "--classe-sem-adjudicador",
+        action="append",
+        default=[],
+        metavar="LANG",
+        help=(
+            "classe cujo rotulo nao tem conteudo: o adjudicador desta camada nao fala a lingua "
+            "dela (o html e o caso medido: o adjudicador e o do TypeScript). A classe sai como "
+            "NAO PROVADA com esse motivo, e o n dela NAO entra em nenhuma prova."
+        ),
+    )
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
 
@@ -297,7 +323,9 @@ def main() -> int:
     langs = sorted(
         d.name for d in corpus.iterdir() if d.is_dir() and (d / "entradas.jsonl").is_file()
     )
-    classes = [mede_classe(corpus, lang, a.alvo) for lang in langs]
+    classes = [
+        mede_classe(corpus, lang, a.alvo, lang in a.classe_sem_adjudicador) for lang in langs
+    ]
 
     # a DISJUNCAO, medida: quantos ids desta camada ja estavam em um corpus anterior
     ids_da_camada = ids_de(corpus)
@@ -316,6 +344,7 @@ def main() -> int:
         "n_para_cp95_1pct": N_PARA_CP95_1PCT,
         "metodo": "sha256(concat de relpath + sha256(conteudo), em ordem)",
         "classes": {c["lang"]: c for c in classes},
+        "classes_sem_adjudicador": list(a.classe_sem_adjudicador),
         "denominadores": {
             c["lang"]: {
                 "n": c["n"],
