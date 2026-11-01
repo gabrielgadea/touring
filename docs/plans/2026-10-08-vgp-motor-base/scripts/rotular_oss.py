@@ -123,7 +123,7 @@ TSCONFIG_JS = json.dumps(
 )
 
 
-def pipe_de(proc: subprocess.Popen, nome: str) -> IO[str]:
+def pipe_de(proc: subprocess.Popen, nome: str) -> IO[bytes]:
     """O stream `nome` do processo, ou erro alto se o pipe nao existe.
 
     `subprocess.Popen` declara os streams como `IO[str] | None` mesmo com `PIPE` no construtor;
@@ -157,8 +157,14 @@ class LS:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
+            # MEDIDO em 01/11 (V-8): o pipe precisa ser BINARIO. O `oraculo_ls.js` declara o
+            # comprimento do corpo em BYTES (`Buffer.byteLength`), e o `read(n)` em modo TEXTO pede
+            # n CARACTERES. Num corpo com acento (o `zod` tem), o frame tinha menos caracteres
+            # que os bytes declarados, o pipe esvaziava e o `read` bloqueava PARA SEMPRE: o
+            # lote morria com o node VIVO e ocioso, sem erro e sem saida. Era o run do V-8
+            # anterior, que voltou vazio. Em bytes, `read(n)` le n BYTES -- exatamente o que o
+            # oraculo declarou.
+            text=False,
         )
         # `pipe_de` falha ALTO se algum faltar: melhor um erro que nomeia o pipe do que um
         # AttributeError no meio de um delta.
@@ -192,49 +198,59 @@ class LS:
         `readline()` devolve `''`: o erro precisa dizer que ele morreu e por que. (b) O `node` esta
         VIVO e calculando, e o `readline()` devolve `''` na mesma forma — a espera e o que separa
         os dois, e sem ela o rotulador morre no meio do lote.
+
+        MEDIDO em 01/11 (V-8), a terceira da mesma classe: o frame e lido em BYTES. O
+        `oraculo_ls.js` declara `#<n>` com `Buffer.byteLength` (bytes) e escrevia o corpo em
+        UTF-8; o `read(n)` em modo TEXTO pede n CARACTERES. Num corpo com acento, os caracteres
+        sao MENOS que os bytes declarados: o pipe esvaziava e o `read` bloqueava para sempre, com
+        o node VIVO e ocioso e sem nenhuma saida. O lote do V-8 anterior morreu assim. O pipe e
+        binario e a leitura e por BYTES — e o `\n` que o oraculo escreve depois do corpo e
+        consumido, senao o proximo frame comeca pelo terminador do anterior.
         """
-        pipe_de(self.proc, "stdin").write(json.dumps(msg) + "\n")
+        pipe_de(self.proc, "stdin").write((json.dumps(msg) + "\n").encode("utf-8"))
         pipe_de(self.proc, "stdin").flush()
         stdout = pipe_de(self.proc, "stdout")
         if not self._espera_resposta(stdout, self.ESPERA_PADRAO):
             rc = self.proc.poll()
-            causa = ""
-            try:
-                causa = pipe_de(self.proc, "stderr").read()[:800]
-            except (OSError, ValueError):
-                causa = "(stderr ilegivel)"
+            causa = self._stderr_legivel()
             raise RuntimeError(
                 f"o oraculo LS nao respondeu a {msg['op']!r} em {self.ESPERA_PADRAO}s: "
                 f"{'VIVO E NAO RESPONDE' if rc is None else f'morreu com rc={rc}'} | "
                 f"stderr={causa or '(vazio)'}"
             )
-        cabecalho = stdout.readline()
-        if not cabecalho.strip():
+        cabecalho_b = stdout.readline()
+        if not cabecalho_b.strip():
             rc = self.proc.poll()
-            causa = ""
-            try:
-                causa = pipe_de(self.proc, "stderr").read()[:800]
-            except (OSError, ValueError):
-                causa = "(stderr ilegivel)"
+            causa = self._stderr_legivel()
             raise RuntimeError(
                 f"o oraculo LS nao respondeu a {msg['op']!r}: "
                 f"{'VIVO E NAO RESPONDE' if rc is None else f'morreu com rc={rc}'} | "
                 f"stderr={causa or '(vazio)'}"
             )
+        cabecalho = cabecalho_b.decode("utf-8", errors="replace")
         if not cabecalho.startswith("#"):
             # protocolo antigo: a linha inteira e o corpo. Ainda aceito, e o selo declara a
             # identidade do `oraculo_ls.js` por sha256 — se ele voltar a esse protocolo, o selo
             # muda e a diferenca fica visivel.
             return json.loads(cabecalho)
         n = int(cabecalho[1:].strip())
-        partes, restante = [], n
-        while restante > 0:
-            pedaco = stdout.read(restante)
-            if not pedaco:
-                break
-            partes.append(pedaco)
-            restante -= len(pedaco)
-        return oraculo.ler_framing("node_ls", f"{cabecalho}{''.join(partes)}\n")
+        corpo_b = stdout.read(n)  # n BYTES — exatamente o que o oraculo declarou
+        if len(corpo_b) < n:
+            raise RuntimeError(
+                f"o oraculo LS declarou {n} bytes e vein {len(corpo_b)}: o frame esta truncado"
+            )
+        # o oraculo escreve `\n` depois do corpo: come o terminador, senao o proximo
+        # `readline()` le esse `\n` como se fosse o cabecalho do proximo frame.
+        stdout.readline()
+        return oraculo.ler_framing("node_ls", cabecalho + corpo_b.decode("utf-8") + "\n")
+
+    def _stderr_legivel(self) -> str:
+        """O stderr do node, como texto. Um pipe binario devolve bytes."""
+        try:
+            bruto = pipe_de(self.proc, "stderr").read()[:800]
+        except (OSError, ValueError):
+            return "(stderr ilegivel)"
+        return bruto.decode("utf-8", errors="replace") if isinstance(bruto, bytes) else bruto
 
     def abrir(self, raiz: Path, tsconfig: Path) -> dict:
         return self.cmd(
@@ -647,6 +663,84 @@ def ids_ja_gravados(saida: Path) -> set:
     return estado_no_disco(saida)[0]
 
 
+def ident_do_par(nome_repo: str, par: dict) -> str:
+    """O id do par: `sha256(repo + commit + caminho)[:16]`.
+
+    Fica numa funcao so porque DOIS lugares precisam do MESMO nome: o `grava_entrada` que
+    escreve a entrada e a disjuncao que recusa o par. Duas copias do calculo divergem em
+    silencio -- e uma divergencia silenciosa aqui significa um par repetido num held-out.
+    """
+    return hashlib.sha256((nome_repo + par["commit"] + par["caminho"]).encode()).hexdigest()[:16]
+
+
+def filtra_pares_excluidos(
+    nome_repo: str, pares: list, excluidos: set | None
+) -> tuple[list, list]:
+    """A POPULACAO sem os pares que um corpus anterior ja rotulou.
+
+    MEDIDO em 01/11 (V-8): sem isto a camada nova repetiria a anterior par a par -- o
+    `grava_entrada` REESCREVE o id em vez de recusar o par, entao um par ja usado seria rotulado
+    de novo, e um held-out que repete o holdout anterior nao prova nada.
+
+    O filtro e ANTES do laco de selecao: um par excluido nao consome tempo de oracle e nao entra
+    no teto -- o teto mede o que foi ROTULADO, e contar o excluido daria um n maior que o n da
+    camada.
+
+    Fica numa funcao propria porque o `rotula_repo` ja era o bloco mais complexo do rotulador e
+    as compreensoes de filtro somavam ramos a ele.
+    """
+    mask = excluidos or frozenset()
+    mantidos: list = []
+    fora: list = []
+    for p in pares:
+        if ident_do_par(nome_repo, p) in mask:
+            fora.append(p)
+        else:
+            mantidos.append(p)
+    return mantidos, fora
+
+
+def ids_excluidos(dirs: list, ignorar: Path | None = None) -> tuple[set, dict]:
+    """Os ids ja usados nos corpora ANTERIORES -- a DISJUNCAO da selecao.
+
+    MEDIDO em 01/11 (V-8): o rotulador nao tinha nenhuma disjuncao entre corpora.
+    `estado_no_disco` le SO o diretorio de SAIDA, e o `grava_entrada` REESCREVE o id em vez de
+    recusar o par -- ou seja, um par que um corpus anterior ja rotulou seria rotulado DE NOVO, e
+    a camada nova repetiria a anterior. Um held-out que repete o holdout anterior nao prova nada:
+    o juiz pode ter sido calibrado nos mesmos pares.
+
+    A comparacao e no MESMO espaco de nomes do rotulo (`ident_do_par`), e nao por similaridade de
+    conteudo: dois arquivos com o mesmo conteudo em commits diferentes sao entradas diferentes.
+
+    Os ids excluidos NAO entram em `cont_arq`, `cont_commit` nem `por_lang`: um par excluido nao
+    foi rotulado, e o teto mede o que foi rotulado. Contar o excluido no teto daria um n maior que
+    o n da camada, e o teto mediria uma populacao que nao esta no corpus.
+
+    `ignorar` e o diretorio de SAIDA: uma reexecucao nao pode excluir a si mesma, senao o par ja
+    gravado seria pulado em vez de reescrito, e a idempotencia do rotulador se perde.
+    """
+    ids: set = set()
+    por_origem: dict = {}
+    for d in dirs:
+        p = Path(d).expanduser()
+        if ignorar is not None and p.resolve().is_relative_to(ignorar.resolve()):
+            continue
+        achados: set = set()
+        if p.is_dir():
+            for jl in sorted(p.rglob("entradas.jsonl")):
+                for ln in jl.read_text(errors="replace").splitlines():
+                    if not ln.strip():
+                        continue
+                    try:
+                        e = json.loads(ln)
+                    except json.JSONDecodeError:
+                        continue
+                    achados.add(str(e.get("id")))
+        por_origem[str(p)] = len(achados)
+        ids |= achados
+    return ids, por_origem
+
+
 def grava_entrada(
     saida: Path, nome_repo: str, par: dict, lang: str, rotulo: str, vistos: set
 ) -> str:
@@ -664,9 +758,7 @@ def grava_entrada(
     nunca os contou. O par A (criacao) nao tem antes: o campo fica AUSENTE de proposito e
     `operacao` diz "A", para o juiz saber que nao ha delta a computar.
     """
-    ident = hashlib.sha256(
-        (nome_repo + par["commit"] + par["caminho"]).encode()
-    ).hexdigest()[:16]
+    ident = ident_do_par(nome_repo, par)
     d = saida / lang
     (d / "conteudo").mkdir(parents=True, exist_ok=True)
     (d / "conteudo" / f"{ident}.txt").write_text(par["depois"], encoding="utf-8")
@@ -1025,8 +1117,14 @@ def acrescenta_exclude_minimo(repo: Path, tsconfig: Path, necessarios: list) -> 
     return necessarios
 
 
-def rotula_repo(nome_repo: str, a, por_lang: dict) -> dict:
-    """Rotula um repo inteiro. Devolve o relatorio do repo, ou `{"parado": True, ...}`."""
+def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None) -> dict:
+    """Rotula um repo inteiro. Devolve o relatorio do repo, ou `{"parado": True, ...}`.
+
+    `excluidos` sao os ids que um corpus ANTERIOR ja rotulou: o par e recusado ANTES do
+    adjudicador, entao ele nao consome tempo de oracle nem entra no teto. Recusar antes e o que
+    mantem a camada nova DISJUNTA da antiga -- e e o que impede um held-out de repetir o
+    holdout que o juiz ja viu.
+    """
     repo = OSS / nome_repo
     if not repo.is_dir():
         return {"erro": "repo ausente"}
@@ -1068,6 +1166,12 @@ def rotula_repo(nome_repo: str, a, por_lang: dict) -> dict:
     # `ids_ja_gravados` faz o lote retomar no meio, e a baralhava comecava do zero de novo. A
     # ordem canonica resolve as duas coisas: independe do lote e nao depende de sorte.
     pares = ordem_canonica(pares)
+    # A DISJUNCAO tira da POPULACAO os pares que um corpus anterior ja rotulou (V-8, 01/11).
+    pares, descartados = filtra_pares_excluidos(nome_repo, pares, excluidos)
+    relatorio["pares_excluidos_ja_usados"] = len(descartados)
+    relatorio["excluidos_por_lang"] = dict(
+        Counter(EXT_LANG[Path(p["caminho"]).suffix] for p in descartados)
+    )
     ordem = list(range(len(pares)))
     marcados = {i for i in range(0, len(ordem), RETEST_A_CADA)}
     # MEDIDO em 09/10: o teto era calculado sobre `alvo` (300), dando 9, e o lote parava em 319
@@ -1283,7 +1387,11 @@ def confere_oraculo(antes: dict, agora: dict) -> str:
 
 
 def grava_selo(
-    saida: Path, por_lang: dict, relatorios: dict, ident: dict | None = None
+    saida: Path,
+    por_lang: dict,
+    relatorios: dict,
+    ident: dict | None = None,
+    exclusao: dict | None = None,
 ) -> dict:
     """Grava o selo e o confere relendo do disco -- um selo nao conferido nao e selo.
 
@@ -1316,6 +1424,7 @@ def grava_selo(
         ),
         "teto_concentracao": 0.03,
         "concentracao_medida": concentracao_medida,
+        "exclusao": exclusao or {},
         "artefatos_de_instalacao_permitidos_no_clone": list(ARTEFATOS_DE_INSTALACAO),
         "contrato_do_clone": (
             "antes de rotular, `exige_clone_limpo` RECUSA se houver ` M`, ` D`, ou `??` fora da "
@@ -1350,6 +1459,16 @@ def main() -> int:
     ap.add_argument("--max-commits", type=int, default=120)
     ap.add_argument("--repos", default=",".join(ORDEM))
     ap.add_argument("--saida", type=Path, default=SAIDA)
+    ap.add_argument(
+        "--excluir-corpus",
+        action="append",
+        default=[],
+        metavar="DIR",
+        help=(
+            "corpus anterior cujos ids ficam de fora da selecao (repetivel). Sem esta flag o "
+            "comportamento e o de sempre: nenhum par e recusado por uso anterior."
+        ),
+    )
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -1357,6 +1476,17 @@ def main() -> int:
     relatorios = {}
     paradas = []
     ident_inicio = identidades_do_oraculo()
+    excluidos, ids_por_origem = ids_excluidos(a.excluir_corpus, a.saida)
+    exclusao = {
+        "fontes": [str(Path(d).expanduser()) for d in a.excluir_corpus],
+        "n_ids_por_origem": ids_por_origem,
+        "n_ids": len(excluidos),
+        "metodo": "sha256(repo + commit + caminho)[:16] -- o mesmo nome que o `grava_entrada` usa",
+        "efeito": (
+            "os pares ja usados saem da POPULACAO antes da selecao: nao consomem oracle e nao "
+            "entram no teto (o teto mede o que foi ROTULADO)"
+        ),
+    }
     # MEDIDO em 10/10 (dois lotes perdidos): o rotulador e os probes escrevem os mesmos
     # arquivos dos clones. No `v3` o `oraculo_ls.js` foi trocado no meio do lote e o
     # `node` respondeu com a versao antiga; no `v5` um probe reescreveu
@@ -1365,21 +1495,21 @@ def main() -> int:
     # `oraculo_ls.js` e um `node` de vida longa por dentro do rotulador, e um fd herdado
     # seguraria o exclusive depois do rotulador morrer.
     with vgp_lock.escreve_exclusivo():
-        _rotula_todos(a, por_lang, relatorios, paradas, ident_inicio)
-    selo = _selo_e_veredito(a, por_lang, relatorios, paradas, ident_inicio)
+        _rotula_todos(a, por_lang, relatorios, paradas, ident_inicio, excluidos)
+    selo = _selo_e_veredito(a, por_lang, relatorios, paradas, ident_inicio, exclusao)
     return selo
 
 
-def _rotula_todos(a, por_lang, relatorios, paradas, ident_inicio) -> None:
+def _rotula_todos(a, por_lang, relatorios, paradas, ident_inicio, excluidos=None) -> None:
     for nome_repo in a.repos.split(","):
-        rel = rotula_repo(nome_repo, a, por_lang)
+        rel = rotula_repo(nome_repo, a, por_lang, excluidos)
         relatorios[nome_repo] = rel
         if rel.get("parado"):
             paradas.append(rel["divergencia"])
             break
 
 
-def _selo_e_veredito(a, por_lang, relatorios, paradas, ident_inicio) -> int:
+def _selo_e_veredito(a, por_lang, relatorios, paradas, ident_inicio, exclusao=None) -> int:
     """Selo, conferencia do oraculo e do teto, e o EXIT CODE.
 
     Fica DEPOIS do `with vgp_lock`: a identidade do oraculo e a concentracao sao do estado do
@@ -1397,7 +1527,7 @@ def _selo_e_veredito(a, por_lang, relatorios, paradas, ident_inicio) -> int:
         paradas.append({"oraculo_mudou_durante_o_lote": mudou})
         print(f"!! ORACULO MUDOU NO MEIO DO LOTE -- selo INVALIDADO: {mudou}")
     selo = (
-        grava_selo(a.saida, por_lang, relatorios, ident_inicio)
+        grava_selo(a.saida, por_lang, relatorios, ident_inicio, exclusao)
         if not a.dry_run
         else None
     )
@@ -2141,7 +2271,7 @@ def cenario_oraculo_lento() -> list:
 
     # MUTANTE: o `cmd` sem espera. Precisa reprovar aqui.
     def cmd_mutante(self, msg):
-        pipe_de(self.proc, "stdin").write(json.dumps(msg) + "\n")
+        pipe_de(self.proc, "stdin").write((json.dumps(msg) + "\n").encode("utf-8"))
         pipe_de(self.proc, "stdin").flush()
         return json.loads(pipe_de(self.proc, "stdout").readline())
 

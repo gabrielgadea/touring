@@ -224,9 +224,14 @@ def ler_framing(ferramenta: str, saida: str) -> dict:
             f"{ferramenta}: cabecalho malformado {linhas[0][:40]!r}"
         ) from e
     corpo = linhas[1] if len(linhas) > 1 else ""
-    if len(corpo) != n:
+    # MEDIDO em 01/11 (V-8): o comprimento declarado e em BYTES (`Buffer.byteLength` no
+    # `oraculo_ls.js`) e o corpo e UTF-8 — entao `len(corpo)` (CARACTERES) e menor que `n` num
+    # corpo com acento, e a confercia acusava "truncado" num frame INTEIRO. A comparacao e por
+    # bytes, que e o que o oraculo declarou.
+    corpo_bytes = len(corpo.encode("utf-8"))
+    if corpo_bytes != n:
         raise RespostaMalformada(
-            f"truncado: esperava {n}, veio {len(corpo)} bytes de {ferramenta}"
+            f"truncado: esperava {n}, veio {corpo_bytes} bytes de {ferramenta}"
         )
     try:
         return json.loads(corpo)
