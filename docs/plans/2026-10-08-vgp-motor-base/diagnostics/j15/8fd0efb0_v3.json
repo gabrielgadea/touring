@@ -1,0 +1,248 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) limite superior 95% 1.29% > 1% (3/600, taxa 0.500%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.18% > 1% (1/400, taxa 0.250%) — com n=400 o teto admite no máximo 0 falso(s)",
+  "p95 1119.7 ms > 1000.0 ms",
+  "taxa de timeout da camada 2 49.06% acima do patamar 20% (522/1064) — os denies perdidos pelas timeouts distorcem o falso deny (JUIZ-TIMEOUT)"
+ ],
+ "inconclusivo": true,
+ "inconclusivo_motivo": "taxa de timeout da camada 2 49.06% acima do patamar 20% (522/1064) — os denies perdidos pelas timeouts distorcem o falso deny (JUIZ-TIMEOUT)",
+ "timeouts_camada2": 522,
+ "camada2_sem_veredito": 609,
+ "taxa_timeouts_camada2": 0.4906015037593985,
+ "patamar_timeouts_camada2": 0.2,
+ "sinal_camada2": "presente",
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 3,
+   "n": 600,
+   "taxa": 0.005,
+   "limite_superior_95": 0.012871648947422924,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 1,
+   "n": 400,
+   "taxa": 0.0025,
+   "limite_superior_95": 0.011804304453987273,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.9230769230769231,
+  "inline": 0.8518518518518519
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   6,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "264d19be83ec",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_gitenv.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 14,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "os",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "3e243fcb3c2c",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/mutacao_ks_learning.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "API",
+     "linha": 35,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "78c60efe7b44",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_estados_pyright.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_consumidores",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.tests.test_instalar_clk` não tem atributo `_consumidores`",
+     "reais": [
+      "Path",
+      "RAIZ",
+      "annotations",
+      "ast",
+      "clk",
+      "hashlib",
+      "pytest",
+      "re"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "_pyright",
+     "linha": 27,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.tests.test_instalar_clk` não tem atributo `_pyright`",
+     "reais": [
+      "Path",
+      "RAIZ",
+      "annotations",
+      "ast",
+      "clk",
+      "hashlib",
+      "pytest",
+      "re"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "_erros_do_clk",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.tests.test_instalar_clk` não tem atributo `_erros_do_clk`",
+     "reais": [
+      "Path",
+      "RAIZ",
+      "annotations",
+      "ast",
+      "clk",
+      "hashlib",
+      "pytest",
+      "re"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bf4694700c37",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.external_apis.catalogo` não tem atributo `__file__`",
+     "reais": [
+      "Any",
+      "BASE",
+      "Estado",
+      "Integracao",
+      "Iterable",
+      "Literal",
+      "Origem",
+      "Path"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "avisos_em_negativos": 41,
+ "defeito_de_corpus": [],
+ "p95_ms": 1119.705683,
+ "chamadas": 1064,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}
