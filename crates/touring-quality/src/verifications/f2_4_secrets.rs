@@ -18,7 +18,15 @@
 //!      plus UNQUOTED `.env`/YAML `API_KEY=<hex|high-entropy>` (name context relaxes
 //!      the entropy floor to 3.5 and accepts hex, gitleaks-style).
 //!   5. **Generic high-entropy literals** — a quoted value with len ≥ 24, no whitespace,
-//!      mixed alphanumeric, Shannon entropy ≥ 4.5 (skips hex hashes & `arn:`/URL/markup).
+//!      mixed alphanumeric, Shannon entropy ≥ 4.5 (skips hex hashes & `arn:`/URL/markup,
+//!      and — 02/11/2026 — literals that READ as words, numbers and short ids joined by
+//!      `- _ . + / | & = ? :`: SEI piece names, NUP keys, query strings, checksum paths).
+//!
+//! The assignment signals (4) read a comparison (`!=`, `<=`, `>=`) as a comparison, not a
+//! binding; a secret name is the target of the delimiter only (another parameter of the
+//! same signature is not); and a quoted value is a stand-in — not a credential — when it
+//! is a readable placeholder (also numbered/headed: `test-api-key-123`), a ≤4-digit
+//! `token` ordinal, or prose assigned to a message holder (`errors.password = "Senha …"`).
 //!
 //! Strong signal → Fail (0.0 → PreToolUse BLOCK). A bare secret keyword used as a real code
 //! identifier with no assigned value → Warn (0.5, surfaced but not blocking). The weak scan runs
@@ -351,7 +359,11 @@ fn looks_like_secret_value(v: &str) -> bool {
     if v.len() < 24 || v.chars().any(|c| c.is_whitespace()) {
         return false;
     }
-    if has_non_secret_markers(v) {
+    // `is_readable_phrase` lives HERE and not in `has_non_secret_markers`: that
+    // predicate is shared with the NAMED unquoted path (`.env` `DB_PASSWORD=
+    // summer-sunset-2024`), where a readable phrase assigned to a secret name is a
+    // real, human-chosen credential and must keep blocking (02/11/2026).
+    if has_non_secret_markers(v) || is_readable_phrase(v) {
         return false;
     }
     let has_digit = v.bytes().any(|b| b.is_ascii_digit());
@@ -498,6 +510,15 @@ fn is_readable_placeholder(v: &str) -> bool {
     if v.is_empty() {
         return false;
     }
+    // 02/11/2026 (analise sweep, `test-api-key-123` in kazuba-browser and
+    // `X-API-Key: your-api-key-here` in the antt SDK tests): a placeholder-vocabulary
+    // word makes a readable phrase of words and SHORT numbers a stand-in even with a
+    // digit or a header colon — the vocabulary is "decisive regardless of length",
+    // the digit bar only existed to keep opaque tokens out. A token beside the word
+    // (`test-4eC39Hq…`) is not a phrase and keeps blocking.
+    if has_placeholder_word(v) && is_word_number_phrase(v) {
+        return true;
+    }
     // Letters plus separators only — any digit or other symbol means the value
     // carries entropy or mixes character classes, i.e. a real credential. A
     // SPACE is allowed here because auth values legitimately read as prose
@@ -512,32 +533,61 @@ fn is_readable_placeholder(v: &str) -> bool {
     // Explicit placeholder vocabulary — these words are how humans SAY "put
     // your value here", so their presence is decisive regardless of length
     // (`your_api_key_here` is 17 chars but obviously not a credential).
-    const PLACEHOLDER_WORDS: &[&str] = &[
-        "your",
-        "here",
-        "changeme",
-        "change-me",
-        "example",
-        "sample",
-        "dummy",
-        "fake",
-        "test",
-        "placeholder",
-        "redacted",
-        "xxx",
-        "todo",
-        "fixme",
-        "insert",
-        "replace",
-        "notasecret",
-    ];
-    let lower = v.to_ascii_lowercase();
-    if PLACEHOLDER_WORDS.iter().any(|w| lower.contains(w)) {
+    if has_placeholder_word(v) {
         return true;
     }
     // Otherwise fall back to length: short prose-like text is a stand-in; a
     // 16+ character passphrase of words is a real secret and still blocks.
     v.len() < 16
+}
+
+/// The vocabulary humans use to say "put your value here" (see
+/// [`is_readable_placeholder`]).
+const PLACEHOLDER_WORDS: &[&str] = &[
+    "your",
+    "here",
+    "changeme",
+    "change-me",
+    "example",
+    "sample",
+    "dummy",
+    "fake",
+    "test",
+    "placeholder",
+    "redacted",
+    "xxx",
+    "todo",
+    "fixme",
+    "insert",
+    "replace",
+    "notasecret",
+];
+
+/// `v` carries a word of [`PLACEHOLDER_WORDS`] (case-insensitive substring).
+fn has_placeholder_word(v: &str) -> bool {
+    let lower = v.to_ascii_lowercase();
+    PLACEHOLDER_WORDS.iter().any(|w| lower.contains(w))
+}
+
+/// Words (any case) and short numbers (≤4 digits) joined only by ` - _ . :` —
+/// `test-api-key-123`, `X-API-Key: your-api-key-here`, `YOUR_API_KEY_1`. A segment
+/// that mixes letters and digits (`4eC39HqLyjWD…`) is the shape of a token, so the
+/// phrase is refused and the value falls through to the secret reading.
+fn is_word_number_phrase(v: &str) -> bool {
+    let separator = |b: u8| matches!(b, b' ' | b'-' | b'_' | b'.' | b':');
+    v.bytes().all(|b| b.is_ascii_alphanumeric() || separator(b))
+        && v.split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|s| !s.is_empty())
+            .all(is_plain_word_or_short_number)
+}
+
+/// An alphabetic word (any case, ≤24 letters) or a number of ≤4 digits.
+fn is_plain_word_or_short_number(s: &str) -> bool {
+    if s.bytes().all(|b| b.is_ascii_digit()) {
+        s.len() <= 4
+    } else {
+        s.len() <= 24 && s.bytes().all(|b| b.is_ascii_alphabetic())
+    }
 }
 
 /// True when a quoted secret-named RHS is a shell expansion read at run time —
@@ -591,6 +641,100 @@ fn is_relative_dir_path(v: &str) -> bool {
                     .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
         })
         && segments.iter().any(|s| s.trim_matches('-').contains('-'))
+}
+
+/// Separators a READABLE literal may join its segments with. `%`, `$`, `@`, `!`, `*`
+/// and the like are deliberately absent: passwords and tokens carry them, names and
+/// query strings do not.
+const PHRASE_SEPARATORS: &[u8] = b"-_.+/|&=?:#";
+
+/// A literal that READS — words, numbers and short ids joined by [`PHRASE_SEPARATORS`]:
+/// a SEI piece name (`[03]-26510579_Anexo.zip__Relatorio__PIA-8041_part_001`), a NUP
+/// key (`50500.023913/2026-89|template_instance|reequilibrio`), a query string
+/// (`/x/S03032026.zip?version=1.0&t=1&download=true`), a checksum path
+/// (`…/MEMORIAL_8.1.1_AS_BUILT_R00.sha256`), a kebab phrase
+/// (`the-original-mvt-payload-0123456789`).
+///
+/// 02/11/2026, the analise sweep (13 literals in 8 files at `high-entropy-literal`):
+/// Shannon entropy over the CONCATENATION measures the variety of the field names,
+/// not randomness. The honest test is on the SEGMENTS — ≥3 of them, at least two real
+/// words, and EVERY one a word, a number or a short id. One opaque segment (mixed
+/// case/digits, a base64 run) and the literal is a token again, which is why
+/// `/api?key=aB3x…`, `page=1&sess=aB3x…` and `[03]-26510579_aB3x…` keep blocking.
+/// The split is on non-alphanumerics, never on `/` alone: a base64 secret with slashes
+/// (`wJal…/K7MD…/bPxR…`) has mixed-case segments and fails the same test.
+fn is_readable_phrase(v: &str) -> bool {
+    let body = strip_index_prefix(v);
+    if !body
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || PHRASE_SEPARATORS.contains(&b))
+    {
+        return false;
+    }
+    let segments: Vec<&str> = body
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+    segments.len() >= 3
+        && segments.iter().filter(|s| is_word_segment(s)).count() >= 2
+        && segments.iter().all(|s| is_readable_segment(s))
+}
+
+/// A leading `[NN]` — the ordinal of a SEI piece name (`[03]-26510579_…`) — stripped;
+/// any other `[` is left in place, where [`is_readable_phrase`] refuses it.
+fn strip_index_prefix(v: &str) -> &str {
+    let Some((index, tail)) = v.strip_prefix('[').and_then(|r| r.split_once(']')) else {
+        return v;
+    };
+    if (1..=4).contains(&index.len()) && index.bytes().all(|b| b.is_ascii_digit()) {
+        tail
+    } else {
+        v
+    }
+}
+
+/// An alphabetic segment shaped like a word: an ACRONYM (`BNDES`) or lower / Capitalized
+/// / camelCase / PascalCase (`megaprojects`, `Anexo`, `abrirAtoPublico`) — every
+/// uppercase letter opens a lowercase run, which random mixed-case letters rarely do.
+fn is_word_segment(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.is_empty() || b.len() > 24 || !b.iter().all(u8::is_ascii_alphabetic) {
+        return false;
+    }
+    b.iter().all(u8::is_ascii_uppercase)
+        || b.iter().enumerate().all(|(i, c)| {
+            !c.is_ascii_uppercase() || b.get(i + 1).is_some_and(u8::is_ascii_lowercase)
+        })
+}
+
+/// A segment of a readable literal: a word, a number (≤14 digits) or a short id of one
+/// word run and one digit run (`S03032026`, `MARCO1`, `sha256`, `10mb`).
+fn is_readable_segment(s: &str) -> bool {
+    let (head, tail, digits_first) = split_runs(s);
+    match (digits_first, tail.is_empty()) {
+        (true, true) => is_number_run(head),
+        (false, true) => is_word_segment(head),
+        (false, false) => is_word_segment(head) && is_number_run(tail),
+        (true, false) => is_number_run(head) && is_word_segment(tail),
+    }
+}
+
+/// A digit run short enough to be a number, an ordinal or a code (≤14 digits).
+fn is_number_run(n: &str) -> bool {
+    !n.is_empty() && n.len() <= 14 && n.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// `s` cut where digits turn into non-digits (or back), plus whether it opened with a
+/// digit. A third run lands in the tail, which the callers then refuse.
+fn split_runs(s: &str) -> (&str, &str, bool) {
+    let bytes = s.as_bytes();
+    let digits_first = bytes.first().is_some_and(u8::is_ascii_digit);
+    let cut = bytes
+        .iter()
+        .position(|b| b.is_ascii_digit() != digits_first)
+        .unwrap_or(bytes.len());
+    let (head, tail) = s.split_at(cut);
+    (head, tail, digits_first)
 }
 
 /// Double-quoted string literals on a line (odd-indexed `"`-split segments).
@@ -1150,29 +1294,9 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
     if has_connstring_creds(line) {
         return Some("connstring-credentials");
     }
-    // (2/2b) secret-named assignment. Prefer the `=` split so a type annotation
-    // `let token: T = "…"` is handled by the assignment, not the colon. A quoted
-    // RHS with a non-empty literal hard-blocks; an UNQUOTED RHS blocks only when
-    // it is itself a hex / high-entropy token (`.env` / shell `export` / YAML).
-    // A line that merely *mentions* a keyword next to strings (a meta tuple, a
-    // doc comment, `= std::env::var("…")`) is NOT a blocking assignment.
-    if let Some((lhs, rhs)) = split_at_code_delimiter(line, code)
-        && binds_secret(lhs, line, code)
-    {
-        let rhs_start = rhs.trim_start();
-        let quoted = rhs_start.starts_with('"')
-            || (is_destructuring(lhs_code(lhs, line, code)) && rhs_start.starts_with(['(', '[']));
-        let strong = if quoted {
-            !is_shell_expansion(rhs)
-                && extract_quoted(rhs)
-                    .iter()
-                    .any(|l| !l.is_empty() && !is_readable_placeholder(l) && !is_version_spec(l))
-        } else {
-            looks_like_secret_value_named(rhs)
-        };
-        if strong {
-            return Some("secret-named-assignment");
-        }
+    // (2/2b) secret-named assignment.
+    if named_assignment_is_strong(line, code) {
+        return Some("secret-named-assignment");
     }
     // (2c) T-3 (31/10/2026): a ligação NESTED no lado direito.
     if nested_secret_binding(line, code) {
@@ -1217,8 +1341,18 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
 /// `dict(_use(2, "Bash", {"command": "pwd"}), timestamp="…")` named `pwd`.
 fn assigned_name(lhs: &str) -> &str {
     // The delimiters are ASCII, so `i + 1` is a char boundary.
-    lhs.rfind([',', '(', '{', '['])
-        .map_or(lhs, |i| &lhs[i + 1..])
+    let name = lhs
+        .rfind([',', '(', '{', '['])
+        .map_or(lhs, |i| &lhs[i + 1..]);
+    // 02/11/2026 (analise `apps/web/src/lib/pagina.ts:91`): an ODD number of quotes
+    // means the cut fell INSIDE a string literal — `token.href)}" target` out of
+    // `"${escapar(token.href)}" target="_blank"` — so its text is not a name. What
+    // follows the closing quote is the code, and the code is what names the target.
+    // A quoted KEY (`"api_key"`, `"token"] `) closes its quotes and is untouched.
+    if name.bytes().filter(|&b| b == b'"').count() % 2 == 1 {
+        return name.rsplit('"').next().unwrap_or(name);
+    }
+    name
 }
 
 /// `lhs` with its string literals and comments blanked: the same bytes of the
@@ -1232,15 +1366,204 @@ fn lhs_code<'a>(lhs: &'a str, line: &str, code: &'a str) -> &'a str {
     }
 }
 
-/// Does the assignment bind a secret-named target? Either the name right before
-/// the delimiter (which may be a quoted key, `{"api_key": …}`) or any IDENTIFIER of
-/// the LHS once its strings are blanked — the destructuring forms
-/// `let (password, other) = …` and `password, other = …` (29/10/2026: the first
-/// was a fail-open older than the release of 28/10; the second broke in
-/// 20d2b05a, which looked only at the last name). A keyword that is only a string
-/// VALUE inside the LHS (`{"command": "pwd"}`) is blank in the projection.
-fn binds_secret(lhs: &str, line: &str, code: &str) -> bool {
-    names_secret(assigned_name(lhs)) || names_secret(lhs_code(lhs, line, code))
+/// The target a secret-named binding writes to: `None` when `lhs` binds no secret
+/// name; `Some(lhs)` for a single target (the stand-in rules read it); `Some("")`
+/// for a destructuring, whose literals belong to SEVERAL targets, so no name-specific
+/// stand-in applies to them.
+///
+/// The name right before the delimiter (which may be a quoted key, `{"api_key": …}`)
+/// binds a secret. ANY identifier of the LHS binds one only for destructuring — the
+/// forms `let (password, other) = …` and `password, other = …` (29/10/2026: the first
+/// was a fail-open older than the release of 28/10; the second broke in 20d2b05a,
+/// which looked only at the last name). Anywhere else a secret-named identifier
+/// earlier on the LHS is ANOTHER parameter or operand, not what the delimiter binds:
+/// `def __init__(self, api_key: str, model_name: str = "gpt-4"):` (02/11/2026,
+/// analise `src/agents/core/llm_provider_example.py:200`). A keyword that is only a
+/// string VALUE inside the LHS (`{"command": "pwd"}`) is blank in the projection.
+///
+/// `allow_destructuring` is false for the nested reading: a prefix of a right-hand
+/// side is never a destructuring pattern (`[{"token"` opens a list, not a target).
+fn secret_binding<'a>(
+    lhs: &'a str,
+    line: &str,
+    code: &str,
+    allow_destructuring: bool,
+) -> Option<&'a str> {
+    let named_last = names_secret(assigned_name(lhs));
+    let code_lhs = lhs_code(lhs, line, code);
+    if allow_destructuring && is_destructuring(code_lhs) {
+        return (named_last || names_secret(code_lhs)).then_some("");
+    }
+    named_last.then_some(lhs)
+}
+
+/// (2/2b) The top-level split binds a secret name to a value that is itself strong.
+///
+/// Prefer the `=` split so a type annotation `let token: T = "…"` is handled by the
+/// assignment, not the colon. A quoted RHS with a non-empty literal hard-blocks (unless
+/// it is a stand-in, see [`is_stand_in`]); an UNQUOTED RHS blocks only when it is itself
+/// a hex / high-entropy token (`.env` / shell `export` / YAML). A line that merely
+/// *mentions* a keyword next to strings (a meta tuple, a doc comment,
+/// `= std::env::var("…")`) is NOT a blocking assignment.
+fn named_assignment_is_strong(line: &str, code: &str) -> bool {
+    let Some((lhs, rhs)) = split_at_code_delimiter(line, code) else {
+        return false;
+    };
+    let Some(target) = secret_binding(lhs, line, code, true) else {
+        return false;
+    };
+    let destructuring = target.is_empty();
+    let rhs_start = rhs.trim_start();
+    if rhs_start.starts_with('"') || (destructuring && rhs_start.starts_with(['(', '['])) {
+        // A destructuring RHS lists the values of several targets: all of them count.
+        // A single target owns only ITS value (up to the next top-level `,`/`;`/closer).
+        let value = if destructuring {
+            rhs
+        } else {
+            bound_value(rhs, code_tail(line, code, rhs))
+        };
+        quoted_value_is_secret(target, rhs, value)
+    } else {
+        looks_like_secret_value_named(rhs)
+    }
+}
+
+/// The projection of `tail` — a suffix of `line` — when `code` addresses the same
+/// bytes as `line`; `None` when the projection is misaligned (the stricter reading).
+fn code_tail<'a>(line: &str, code: &'a str, tail: &str) -> Option<&'a str> {
+    if code.len() != line.len() {
+        return None;
+    }
+    code.get(line.len() - tail.len()..)
+}
+
+/// The part of `rhs` that is the VALUE of the name just bound: up to the first
+/// top-level `,` / `;` or unmatched closer, located on `rhs_code` — the same bytes
+/// with strings and comments blanked, so a delimiter inside a literal never counts.
+///
+/// 02/11/2026, analise `test_t012_anexo_siglas.py:206`: in `{"token": "SC",
+/// "motivo": "unidade da federação"}` the value of `token` is `"SC"`; the literal
+/// after the comma is the value of ANOTHER key, which the nested reading judges on
+/// its own name. Without a projection (or with one that is misaligned) the whole
+/// right-hand side is the value — the stricter reading.
+fn bound_value<'a>(rhs: &'a str, rhs_code: Option<&str>) -> &'a str {
+    let Some(code) = rhs_code.filter(|c| c.len() == rhs.len()) else {
+        return rhs;
+    };
+    let mut depth = 0usize;
+    for (i, b) in code.bytes().enumerate() {
+        match b {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' if depth == 0 => return rhs.get(..i).unwrap_or(rhs),
+            b')' | b']' | b'}' => depth -= 1,
+            b',' | b';' if depth == 0 => return rhs.get(..i).unwrap_or(rhs),
+            _ => {}
+        }
+    }
+    rhs
+}
+
+/// A quoted right-hand side carries a real value: it is not a shell expansion read at
+/// run time, and at least one literal of `value` — the part [`bound_value`] kept — is
+/// not a stand-in for the target `lhs` ([`is_stand_in`]). The expansion is judged on the
+/// WHOLE `rhs` (`TOKEN="$(cat "${F}")"` closes its string before the `)`).
+fn quoted_value_is_secret(lhs: &str, rhs: &str, value: &str) -> bool {
+    !is_shell_expansion(rhs)
+        && extract_quoted(value)
+            .iter()
+            .any(|l| !l.is_empty() && !is_stand_in(lhs, l))
+}
+
+/// A literal that reads as a stand-in, not a credential, for the target `lhs`:
+/// a readable placeholder, a version, a lexical ordinal or a UI message.
+fn is_stand_in(lhs: &str, literal: &str) -> bool {
+    is_readable_placeholder(literal)
+        || is_version_spec(literal)
+        || is_lexical_ordinal(lhs, literal)
+        || (is_message_holder_target(lhs) && is_prose(literal))
+}
+
+/// `"token": "1009"` — a LEXICAL token (a parser/NLP field) carrying an offset, a
+/// counter or an id: a bare number of ≤4 digits under the name `token` only
+/// (analise `test_medir_lastro_estruturado.py:57`). Bearer tokens are never 4-digit
+/// decimals, while a PIN under `password`/`secret` IS a credential, so no other name
+/// is spared and a fifth digit ends the exemption.
+fn is_lexical_ordinal(lhs: &str, literal: &str) -> bool {
+    (1..=4).contains(&literal.len())
+        && literal.bytes().all(|b| b.is_ascii_digit())
+        && last_identifier(lhs).eq_ignore_ascii_case("token")
+}
+
+/// The trailing identifier of `text` (`errors.password ` → `password`,
+/// `"token"] ` → `token`): trailing punctuation and spaces are skipped first.
+fn last_identifier(text: &str) -> &str {
+    let t = text.trim_end_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '_'));
+    let start = t
+        .bytes()
+        .rposition(|b| !is_ident_byte(b))
+        .map_or(0, |i| i + 1);
+    t.get(start..).unwrap_or("")
+}
+
+/// The target is a MESSAGE holder — `errors.password`, `errors["password"]`,
+/// `newErrors.password`, `messages.token`: the container is named like a bag of
+/// user-facing text. The container must sit right before the member (`.` or `[`), so
+/// `f(errors, password` is not one.
+fn is_message_holder_target(lhs: &str) -> bool {
+    const HOLDERS: &[&str] = &[
+        "errors",
+        "error",
+        "errs",
+        "messages",
+        "message",
+        "msgs",
+        "labels",
+        "label",
+        "hints",
+        "hint",
+        "placeholders",
+        "translations",
+        "i18n",
+    ];
+    let t = lhs.trim_end_matches(|c: char| !(c.is_ascii_alphanumeric() || c == '_'));
+    let leaf = last_identifier(t);
+    let before = t
+        .get(..t.len() - leaf.len())
+        .unwrap_or("")
+        .trim_end_matches(['"', '\'']);
+    let Some(container) = before
+        .strip_suffix('.')
+        .or_else(|| before.strip_suffix('['))
+    else {
+        return false;
+    };
+    let holder = last_identifier(container).to_ascii_lowercase();
+    HOLDERS.iter().any(|h| holder.ends_with(h))
+}
+
+/// Prose: ≥2 whitespace-separated words, each purely alphabetic (Unicode, with inner
+/// `-`/`'`) or a plain number, punctuation allowed around them — `Senha é obrigatória`,
+/// `Senha deve ter pelo menos 8 caracteres`. A word that mixes letters and digits
+/// (`Tr0ub4dor`) or carries a credential symbol (`&3`) is not prose.
+fn is_prose(v: &str) -> bool {
+    let word_ok = |w: &str| {
+        let core = w.trim_matches(|c: char| {
+            matches!(
+                c,
+                '.' | ',' | ';' | ':' | '!' | '?' | '(' | ')' | '"' | '\''
+            )
+        });
+        !core.is_empty()
+            && (core.bytes().all(|b| b.is_ascii_digit())
+                || core
+                    .chars()
+                    .all(|c| c.is_alphabetic() || matches!(c, '-' | '\'' | '’')))
+    };
+    let mut words = 0usize;
+    v.split_whitespace().all(|w| {
+        words += 1;
+        word_ok(w)
+    }) && words >= 2
 }
 
 /// O lado direito LIGA um nome secreto? (T-3, 31/10/2026)
@@ -1260,22 +1583,24 @@ fn binds_secret_nested(rhs: &str, rhs_code: &str) -> bool {
         //
         // Os DOIS `=` do `==` são pulados: o scanner acha cada caractere, e
         // pular só o primeiro deixava o segundo virar delimitador.
-        if rhs_code.as_bytes()[pos] == b'='
-            && (matches!(rhs_code.as_bytes().get(pos + 1), Some(b'=') | Some(b'>'))
-                || (pos > 0 && rhs_code.as_bytes()[pos - 1] == b'='))
+        //
+        // 02/11/2026: `!=`, `<=` e `>=` são a mesma classe (comparação) —
+        // `is_comparison_eq` é o predicado único, o mesmo do split de topo.
+        let bytes = rhs_code.as_bytes();
+        if bytes[pos] == b'=' && (bytes.get(pos + 1) == Some(&b'>') || is_comparison_eq(bytes, pos))
         {
             continue;
         }
         let antes = &rhs[..pos];
         let depois = &rhs[pos + 1..];
-        if !binds_secret(antes, rhs, rhs_code) {
+        // `allow_destructuring = false`: um prefixo do lado direito nunca é padrão
+        // de desestruturação, e um nome secreto EARLIER nele é outro operando.
+        let Some(target) = secret_binding(antes, rhs, rhs_code, false) else {
             continue;
-        }
+        };
         let strong = if depois.trim_start().starts_with('"') {
-            !is_shell_expansion(depois)
-                && extract_quoted(depois)
-                    .iter()
-                    .any(|l| !l.is_empty() && !is_readable_placeholder(l) && !is_version_spec(l))
+            let value = bound_value(depois, rhs_code.get(pos + 1..));
+            quoted_value_is_secret(target, depois, value)
         } else {
             looks_like_secret_value_named(depois)
         };
@@ -1326,11 +1651,43 @@ fn split_at_code_delimiter<'a>(line: &'a str, code: &str) -> Option<(&'a str, &'
     if code.len() != line.len() {
         return line.split_once('=').or_else(|| line.split_once(':'));
     }
-    let at = code.find('=').or_else(|| code.find(':'))?;
+    let at = first_binding_eq(code).or_else(|| code.find(':'))?;
     // `=` and `:` are ASCII, so `at + 1` is a boundary whenever `at` is, and
     // `at < code.len() == line.len()` keeps the tail slice in range.
     line.is_char_boundary(at)
         .then(|| (&line[..at], &line[at + 1..]))
+}
+
+/// Byte index of the first `=` of `code` that BINDS — the comparison operators of
+/// [`is_comparison_eq`] are skipped. When no `=` binds, the caller falls back to `:`.
+fn first_binding_eq(code: &str) -> Option<usize> {
+    let bytes = code.as_bytes();
+    code.match_indices('=')
+        .map(|(at, _)| at)
+        .find(|&at| !is_comparison_eq(bytes, at))
+}
+
+/// The `=` at byte `at` of `code` belongs to a COMPARISON — `==`, `===`, `!=`, `!==`,
+/// `<=`, `>=` — not to an assignment.
+///
+/// 02/11/2026, analise `scripts/dspy/setup_kimi_dspy.py:77` (`if api_key != "…":`) and
+/// `scripts/sei_premium/tests/test_theme.py:86` (`assert theme.token("…") != "#101010"`):
+/// the split took the `=` of `!=` as the binding, so the secret NAME on the left of a
+/// comparison met the literal it is compared to. Compound assignments (`+=`, `-=`,
+/// `|=`, `<<=`, `>>=`) and walrus/short declarations (`:=`) still bind. A `>` stuck to
+/// the `=` closes a GENERIC (`Vec<u8>= …`) unless it stands apart (` >= `), so a
+/// declaration written without spaces keeps binding (fail-closed).
+fn is_comparison_eq(code: &[u8], at: usize) -> bool {
+    if code.get(at + 1) == Some(&b'=') {
+        return true; // first `=` of `==` / `===`
+    }
+    let before = |n: usize| at.checked_sub(n).and_then(|i| code.get(i)).copied();
+    match before(1) {
+        Some(b'!') | Some(b'=') => true,
+        Some(b'<') => before(2) != Some(b'<'),
+        Some(b'>') => before(2).is_some_and(|c| c.is_ascii_whitespace()),
+        _ => false,
+    }
 }
 
 /// The secrets detector's OWN source defines provider markers (`"ghp_"`, `"AKIA"`,
@@ -2885,5 +3242,262 @@ mod tests {
             "{}",
             clean.evidence
         );
+    }
+
+    // ── 02/11/2026: false positives measured on the analise repo (F2.4 sweep) ──────
+    //
+    // Each test pairs the measured case (the line as it stands in the analise,
+    // `arquivo:linha:regra` in its comment) with the CONTROL that must keep
+    // blocking: the narrowing never touches a real credential.
+
+    fn rule_of(line: &str) -> Option<&'static str> {
+        scan_text(&format!("{line}\n")).rule
+    }
+
+    /// Class 1 — a comparison is not an assignment. `split_at_code_delimiter`
+    /// took the `=` of `!=` / `<=` / `>=` as the binding, so the secret NAME on the
+    /// left of a comparison paired with the literal it is compared to.
+    #[test]
+    fn a_comparison_is_not_an_assignment_but_a_real_assignment_beside_it_still_blocks() {
+        for clean in [
+            // scripts/dspy/setup_kimi_dspy.py:77 [secret-named-assignment]
+            r##"    if api_key != "[NÃO CONFIGURADA]":"##,
+            // scripts/sei_premium/tests/test_theme.py:86 — a `token(` CALL, compared
+            r##"    assert theme.token("c_primary_soft") != "#101010""##,
+            r##"    if token <= "#101010" or secret >= "#202020":"##,
+            // nested reading (the name sits on the RHS of another binding)
+            r##"    ok = api_key != "[NÃO CONFIGURADA]""##,
+        ] {
+            assert_eq!(rule_of(clean), None, "comparison, not a binding: {clean}");
+        }
+        for real in [
+            // the control of the brief: a real-shaped assignment AFTER the comparison
+            r##"if api_key != "none": api_key = "Tr0ub4dor&3""##,
+            r##"assert theme.token("x") != "#101010"; token = "Tr0ub4dor&3""##,
+            // `:=`, `+=` and a generic closer stuck to `=` are bindings, not comparisons
+            r##"password := "Tr0ub4dor&3""##,
+            r##"token += "Tr0ub4dor&3""##,
+            r##"let password: Vec<u8>= "Tr0ub4dor&3".into();"##,
+        ] {
+            assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
+        }
+    }
+
+    /// Class 2 — the secret name is a PARAMETER of the signature, not the target of
+    /// the default that follows. The whole-LHS reading exists for destructuring
+    /// only (`let (password, x) = …`, `password, x = …`).
+    #[test]
+    fn another_parameters_default_is_not_the_secret_names_value_but_its_own_default_still_is() {
+        // src/agents/core/llm_provider_example.py:200 [secret-named-assignment]
+        let fp = r##"    def __init__(self, api_key: str, model_name: str = "gpt-4"):"##;
+        assert_eq!(rule_of(fp), None, "{fp}");
+        for real in [
+            r##"    def __init__(self, api_key: str = "Tr0ub4dor&3", model_name: str = "gpt-4"):"##,
+            r##"    def __init__(self, model_name: str = "gpt-4", api_key: str = "Tr0ub4dor&3"):"##,
+            r##"    def __init__(self, model_name: str = "gpt-4", *, password="Tr0ub4dor&3"):"##,
+            // destructuring keeps the whole-LHS reading
+            r##"let (other, password) = ("x", "Tr0ub4dor&3");"##,
+            r##"password, other = "Tr0ub4dor&3", "x""##,
+        ] {
+            assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
+        }
+    }
+
+    /// Class 3a — a placeholder VOCABULARY word makes a readable phrase a stand-in
+    /// even with a short number or a header prefix: `test-api-key-123`,
+    /// `X-API-Key: your-api-key-here`. A token beside the word is not a phrase.
+    #[test]
+    fn a_numbered_or_headed_placeholder_phrase_is_a_stand_in_but_a_token_beside_the_word_still_blocks()
+     {
+        for clean in [
+            // packages/kazuba-browser/tests/lib/api-client.test.ts:182
+            r##"        apiKey: "test-api-key-123","##,
+            // packages/antt-process-analysis/sdks/typescript/tests/analyze.test.ts:15
+            r##"      apiKey: "X-API-Key: your-api-key-here","##,
+            r##"    api_key = "YOUR_API_KEY_1""##,
+        ] {
+            assert_eq!(rule_of(clean), None, "placeholder phrase: {clean}");
+        }
+        for real in [
+            // the vocabulary word does not exempt a token that sits beside it
+            r##"        apiKey: "test-4eC39HqLyjWDarjtT1zdp7dc","##,
+            r##"        apiKey: "your-key-Xk9mQ7zR2wY5","##,
+            // a phrase WITHOUT the vocabulary is a passphrase — still a secret
+            r##"    password = "correct-horse-battery-staple-123""##,
+            // a long digit run is a numeric secret, not a short ordinal
+            r##"        apiKey: "test-api-key-12345678","##,
+        ] {
+            assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
+        }
+    }
+
+    /// Class 3b — a LEXICAL token (`"token": "1009"`: a parser/NLP field carrying an
+    /// offset) is a counter, never a bearer credential: a bare ≤4-digit number under
+    /// the name `token` only. A PIN under `password` is a credential.
+    #[test]
+    fn a_lexical_token_ordinal_is_not_a_credential_but_a_numeric_password_still_is() {
+        // scripts/process_analysis/tests/test_medir_lastro_estruturado.py:57
+        let fp = r##"            "token": "1009","##;
+        assert_eq!(rule_of(fp), None, "{fp}");
+        for real in [
+            r##"            "password": "1009","##,
+            r##"            "secret": "1009","##,
+            // five digits and a word are no longer an ordinal
+            r##"            "token": "10091","##,
+            r##"            "token": "aB3xK9mQ","##,
+        ] {
+            assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
+        }
+    }
+
+    /// Class 3c — the bound value is the value OF THAT NAME. The literals of the
+    /// sibling keys that follow (`"motivo": "unidade da federação"`) are other
+    /// bindings, judged on their own by the nested reading.
+    #[test]
+    fn a_binding_does_not_inherit_the_literals_of_its_sibling_keys() {
+        // docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/test_t012_anexo_siglas.py:206
+        let fp = r##"        "nao_siglas": [{"token": "SC", "motivo": "unidade da federação"}, {"token": "OK"}],"##;
+        assert_eq!(rule_of(fp), None, "{fp}");
+        for real in [
+            // a later sibling that IS a secret name keeps blocking (nested reading)
+            r##"        "x": [{"token": "SC", "password": "Tr0ub4dor&3"}],"##,
+            r##"        cfg = {"note": "ok", "api_key": "Tr0ub4dor&3"}"##,
+            r##"    connect(host="h", token="SC", password="Tr0ub4dor&3")"##,
+            // without a comma the alternates belong to the same value
+            r##"    token = "changeme" if dev else "Tr0ub4dor&3""##,
+            r##"    password = "changeme" "Tr0ub4dor&3""##,
+        ] {
+            assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
+        }
+    }
+
+    /// Class 4 — user-facing TEXT: `errors.password = "Senha é obrigatória"` is the
+    /// validation message of the password field. The narrowest rule that does not
+    /// free a passphrase: the TARGET is a message holder (`errors`, `messages`,
+    /// `labels`, …) AND the value is prose (≥2 words, no credential symbols). A
+    /// passphrase under a plain name keeps blocking.
+    #[test]
+    fn a_validation_message_for_the_password_field_is_not_a_credential_but_a_passphrase_still_is() {
+        for clean in [
+            // frontend/components/auth/LoginForm.tsx:30, SignupForm.tsx:69 and :71
+            r##"      errors.password = "Senha é obrigatória";"##,
+            r##"      errors.password = "Senha deve ter pelo menos 8 caracteres";"##,
+            r##"      newErrors["password"] = "Senha é obrigatória";"##,
+            r##"      messages.token = "Token expirado, entre novamente";"##,
+        ] {
+            assert_eq!(rule_of(clean), None, "UI message: {clean}");
+        }
+        for real in [
+            // the case the rule must NOT free: a passphrase under a plain name
+            r##"    password = "uma frase secreta longa""##,
+            r##"    form.password = "uma frase secreta longa""##,
+            // a message holder with a credential-shaped value is still a credential
+            r##"      errors.password = "Tr0ub4dor&3xK9";"##,
+            r##"      errors.password = "Tr0ub4dor &3 xK9";"##,
+            r##"      errors.password = "ghp_aBcDeF0123456789aBcDeF0123456789aBcD";"##,
+        ] {
+            assert!(rule_of(real).is_some(), "still a secret: {real}");
+        }
+    }
+
+    /// Class 5 — a literal that READS: words, numbers and short ids joined by
+    /// `- _ . + / | & = ? :` (a SEI piece name, a NUP key, a query string, a
+    /// checksum path, a kebab phrase). Shannon entropy over the concatenation
+    /// measures the variety of the field names, not randomness. The test is on the
+    /// SEGMENTS: one opaque segment (mixed case/digits, a base64 run) and it is a
+    /// token again.
+    #[test]
+    fn a_literal_that_reads_as_words_and_numbers_is_not_opaque_but_a_token_segment_still_blocks() {
+        for clean in [
+            // scripts/external_apis/tests/test_dou_federal.py:889 — path + query
+            r##"        "/629105016/S03032026.zip/uuid-S03032026?version=1.0&t=1&download=true" in u for u in http.baixou_mensal()"##,
+            // packages/kazuba-lexhub/tests/test_unidades_antt_e_vocabulario_comum.py:68, :176
+            r##"    "_tipo=POR&sgl_orgao=SUINF/ANTT/MI&vlr_ano=2019&seq_at""##,
+            r##"    "tion.php?acao=abrirAtoPublico&num_ato=00000002&sgl_tipo=CMS&sgl_orgao=SUROD/ANTT/MT&vlr_ano=2025""##,
+            // packages/kazuba-lexhub/tests/test_links_partes.py:28, :53 — SEI piece names
+            r##"ANEXO_A = "[03]-26510579_Anexo.zip__Relatorio__PIA-8041_part_001""##,
+            r##"        origem = "[07]-26510999_Outro.zip__Relatorio__PIA-8041""##,
+            // packages/antt-process-analysis/tests/unit/test_template_instance.py:50 — NUP key
+            r##"    assert inst.entity_id == "50500.023913/2026-89|template_instance|reequilibrio""##,
+            // analise/relatoria/50500.373544_2023_20/analysis/analyze_kandango_data.py:20
+            r##"MULTAS_XLS = RAW / "[023]-22029359_Historico_de_multas___KANDANGO" / "03.233.439.xlsx""##,
+            // scripts/rail-ap-elite-50500-021563/W31/deep_economic_analysis.py:163
+            r##"        "source": "Flyvbjerg_2014_megaprojects_database_+_BNDES_rail_concession_audit","##,
+            // scripts/vlt_campina/generate_plan.py:1416, :2343, :3108, :3180, :4178
+            r##"                    "analise/vlt_campina/manual/01_levantamento/MEMORIAL_8.1.1_AS_BUILT_R00.sha256", ".sha256", "output""##,
+            r##"                _io("analise/vlt_campina/manual/02_urbanistico/COMPATIBILIZACAO_8.2_BCF.bcfzip", ".bcfzip", "output"),"##,
+            r##"                _io("analise/vlt_campina/handoff/VLT_EstacaoVelha_MARCO_1_R00.zip.sha256", ".sha256", "output"),"##,
+            r##"                _io("analise/vlt_campina/quality/PEER_REVIEW_CERTIFICATE_MARCO1.sha256", ".sha256", "output"),"##,
+            // packages/kazuba-geo-engine/src/io/pmtiles.rs:254 — a kebab phrase
+            r##"        let original = b"the-original-mvt-payload-0123456789".to_vec();"##,
+        ] {
+            assert_eq!(rule_of(clean), None, "reads as words and numbers: {clean}");
+        }
+        for real in [
+            r##"let k = "q7Zp3xVb9TqLm2Rw8sYd4NcF6hJk1GtA";"##,
+            r##"BLOB="aB3xYz9QwErT5uIoP2aSdF6gHjK8lZ/xC4vBn7mQrT1/eW9sZ2kL""##,
+            r##"url = "/api?key=aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB""##,
+            // a query string whose VALUE is the token
+            r##"u = "page=1&limit=50&sess=aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB""##,
+            // readable fields followed by an opaque segment
+            r##"id = "[03]-26510579_aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB""##,
+            r##"id = "docs_v2_aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB_final""##,
+        ] {
+            assert_eq!(rule_of(real), Some("high-entropy-literal"), "{real}");
+        }
+    }
+
+    /// The operator table behind class 1: every `=` of a comparison is told apart from
+    /// the `=` of an assignment, compound or not.
+    #[test]
+    fn is_comparison_eq_tells_comparisons_from_assignments() {
+        let marks = |s: &str| -> Vec<bool> {
+            s.match_indices('=')
+                .map(|(at, _)| is_comparison_eq(s.as_bytes(), at))
+                .collect()
+        };
+        assert_eq!(marks("a == b"), [true, true]);
+        assert_eq!(marks("a === b"), [true, true, true]);
+        assert_eq!(marks("a != b"), [true]);
+        assert_eq!(marks("a !== b"), [true, true]);
+        assert_eq!(marks("a <= b"), [true]);
+        assert_eq!(marks("a >= b"), [true]);
+        for binding in [
+            "a = b",
+            "a += b",
+            "a -= b",
+            "a |= b",
+            "a <<= b",
+            "a >>= b",
+            "a := b",
+            "let v: Vec<u8>= b",
+        ] {
+            assert!(
+                marks(binding).iter().all(|&c| !c),
+                "an assignment, not a comparison: {binding}"
+            );
+        }
+        // the first binding `=` skips the comparisons before it
+        assert_eq!(first_binding_eq("if a != b: c = d"), Some(13));
+        assert_eq!(first_binding_eq("if a != b:"), None);
+    }
+
+    /// Found by the census of the whole analise (not in the brief's list): the name
+    /// slice cut the line at a `(` INSIDE a template string, so `token.href)}" target`
+    /// became the "assigned name" and `token` named a secret. An odd number of quotes
+    /// means the cut fell inside a literal: the name is what follows its closing quote.
+    #[test]
+    fn a_secret_word_inside_a_literal_cut_by_the_name_slice_is_not_the_assigned_name() {
+        // apps/web/src/lib/pagina.ts:91 [secret-named-assignment]
+        let fp = r##"        return `<a href="${escapar(token.href)}" target="_blank" rel="noopener noreferrer">${texto}</a>`;"##;
+        assert_eq!(rule_of(fp), None, "{fp}");
+        for real in [
+            // the same literal followed by a real `password=` attribute
+            r##"        return `<a href="${escapar(token.href)}" password="Tr0ub4dor&3">`;"##,
+            r##"        creds = {"x-token": "Tr0ub4dor&3"}"##,
+            r##"        cfg = f("${esc(token.href)}", password="Tr0ub4dor&3")"##,
+        ] {
+            assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
+        }
     }
 }
