@@ -22,6 +22,7 @@ use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::time::timeout;
+use touring_foundation::run_outcome::ExitStatus;
 
 use crate::capability::{ResourceLimits, apply_resource_caps_to};
 use crate::gateway::exec_pool::ExecPool;
@@ -1407,7 +1408,9 @@ async fn spawn_and_capture_in(
             );
         }
     };
-    let exit_code = exit_status.code().unwrap_or(-1);
+    let exit_code = exit_status
+        .code()
+        .unwrap_or_else(|| ExitStatus::NoExitCode.to_wire());
     let signal = std::os::unix::process::ExitStatusExt::signal(&exit_status);
 
     let content_hash = hash_output(&output_bytes);
@@ -1564,9 +1567,13 @@ fn timeout_outcome_with_cause(
             store_output(&content_hash, &partial_stdout).ok()
         };
         let summary = if partial_stdout.is_empty() {
-            OutputSummary::empty(-2)
+            OutputSummary::empty(ExitStatus::TimedOut.to_wire())
         } else {
-            summarize_output(&String::from_utf8_lossy(&partial_stdout), -2, true)
+            summarize_output(
+                &String::from_utf8_lossy(&partial_stdout),
+                ExitStatus::TimedOut.to_wire(),
+                true,
+            )
         };
         let stderr = if partial_stderr.is_empty() {
             stderr
@@ -1577,7 +1584,7 @@ fn timeout_outcome_with_cause(
             )
         };
         Ok(SandboxResult {
-            exit_code: -2,
+            exit_code: ExitStatus::TimedOut.to_wire(),
             output_bytes: partial_stdout.len() as u64,
             was_truncated: true,
             content_hash,
@@ -2058,7 +2065,7 @@ mod tests {
             b"trabalho parcial do filho".to_vec(),
         )
         .expect("com fallback_on_timeout o timeout tem resultado");
-        assert_eq!(r.exit_code, -2);
+        assert_eq!(ExitStatus::from_wire(r.exit_code), ExitStatus::TimedOut);
         let linhas: Vec<&str> = r.stderr.lines().collect();
         assert_eq!(
             linhas.first().copied(),
@@ -2917,7 +2924,7 @@ mod tests {
         };
         let res = timeout_outcome_with_cause(&config, TimeoutCause::Wall, Vec::new(), Vec::new())
             .expect("fallback_on_timeout=true yields Ok");
-        assert_eq!(res.exit_code, -2);
+        assert_eq!(ExitStatus::from_wire(res.exit_code), ExitStatus::TimedOut);
         assert!(
             res.stderr.contains("timeout") && res.stderr.contains("1234"),
             "timeout sentinel must teach its cause, got: {:?}",
@@ -2937,7 +2944,7 @@ mod tests {
             b"aviso do programa\n".to_vec(),
         )
         .expect("fallback_on_timeout=true yields Ok");
-        assert_eq!(res.exit_code, -2);
+        assert_eq!(ExitStatus::from_wire(res.exit_code), ExitStatus::TimedOut);
         assert_eq!(res.output_bytes, 27, "partial stdout length travels");
         assert!(!res.content_hash.is_empty(), "partial stdout is hashed");
         assert!(res.stored_path.is_some(), "partial stdout is persisted");

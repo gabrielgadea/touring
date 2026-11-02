@@ -73,7 +73,7 @@ pub fn derive_summary_with_tool(
     tool_name: &str,
     tool_args: &Value,
 ) -> String {
-    if result.exit_code == -2 {
+    if touring_foundation::run_outcome::ExitStatus::from_wire(result.exit_code).is_timed_out() {
         return format!(
             "<sandbox_timeout fallback exit=-2 truncated={}>",
             result.was_truncated
