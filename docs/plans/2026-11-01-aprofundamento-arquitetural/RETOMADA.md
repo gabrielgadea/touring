@@ -29,7 +29,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | 5 | Árvores-gêmeas não compiladas | feito | c03484d6 | 5.424 linhas removidas; nada as incluía |
 | 6 | Gates do code mode fora do cli_suggester | feito | 1aee80af a63ad737 db9b22d7 21c6533d | touring-cli lib 720/0 (base 815/1: testes por cenário viraram 114 linhas de tabela), cli_suggester_e2e 20/20, g10 3/3, clippy --all-features limpo, server --tests e dispatch check ok; replay 114 sequências/444 passos + digest de 30.406 chamadas, JUSTIFIED_DIFFERENCES vazio; 29/29 mutantes mortos; latência sem mudança; 0 aresta Cargo nova |
 | 7 | touring-dispatch: testes pelos handle_* | feito | 221082d4 343912cd 893eea1a c65a2edb 0874659b | dispatch lib 746/0 (base 1353 com 1 falha pré-existente em updated_input_writers, corrigida), touring-hooks 1216/0, clippy --all-features limpo, check --workspace --tests ok; replay 629 cenários idênticos, JUSTIFIED_DIFFERENCES vazio; 1.247 testes antigos mapeados (0 sem destino); 15/15 mutantes mortos; 6 deps removidas sem mudar a unificação de features |
-| 8 | VGP: leitura contida em caminho.rs | fila | — | — |
+| 8 | VGP: leitura contida em caminho.rs | feito | 3bc6831e 93baea2d | touring-code 1708/0 (base 1689/0), clippy --all-features limpo, check --workspace --tests ok; replay 86 casos adversariais: 79 idênticos + 7 diferenças justificadas, todas FECHANDO escape; 28/29 mutantes mortos (1 equivalente: dupla contenção); guarda estrutural `vgp_guarda_disco.rs`; 0 aresta Cargo |
 | 9 | adw.py: interface de nó tipada | fila | — | — |
 | 10 | Crates de passagem (capnp-server, contracts) | fila | — | — |
 
