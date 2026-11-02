@@ -1,9 +1,11 @@
 //! Integration test: an *external* type implements [`LearnRuntime`], proving the
 //! contract trait is usable from outside the crate — the whole point of the seam
 //! (a downstream host satisfies the contract; a generic consumer drives it).
+//! Moved here from the former `touring-contracts` leaf crate (folded into
+//! `touring-ceg`, 2026-11-02); the public path is `touring_ceg::gateway::LearnRuntime`.
 
 use serde_json::{Value, json};
-use touring_contracts::LearnRuntime;
+use touring_ceg::gateway::LearnRuntime;
 
 /// A downstream host that satisfies the contract by counting dispatched calls.
 #[derive(Default)]

@@ -22,7 +22,6 @@
 
 # ── L0 — foundational (no dependence on any touring crate) ──────────────────
 touring-foundation = 0
-touring-contracts  = 0
 touring-identity   = 0
 touring-rkyv       = 0
 touring-license    = 0

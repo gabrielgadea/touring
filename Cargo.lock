@@ -13252,7 +13252,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "touring-code",
- "touring-contracts",
  "touring-foundation",
  "touring-hooks-shared",
  "touring-offensive",
@@ -13364,13 +13363,6 @@ dependencies = [
  "tree-sitter-toml-ng",
  "tree-sitter-typescript",
  "tree-sitter-yaml",
-]
-
-[[package]]
-name = "touring-contracts"
-version = "30.4.102"
-dependencies = [
- "serde_json",
 ]
 
 [[package]]

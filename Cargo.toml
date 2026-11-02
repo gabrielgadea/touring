@@ -77,7 +77,6 @@ members = [
     "crates/touring-pyright",
     "crates/touring-hooks-saga",
     "crates/touring-hooks-rl",
-    "crates/touring-contracts",
     "crates/touring-ceg",
     "crates/touring-hooks-core",
     "crates/touring-cli",
