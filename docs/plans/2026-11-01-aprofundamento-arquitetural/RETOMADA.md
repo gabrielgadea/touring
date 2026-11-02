@@ -23,7 +23,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | # | Candidato | Estado | Commits | Verificação independente |
 |---|---|---|---|---|
 | 1 | Transcript reader dono da política | feito | 2f5f178b 94a71cba e2a9d87d | touring-cli 813/0 (base 802), clippy limpo, 0 consumidor lendo isMeta/sidechain |
-| 2 | Veredito de comando destrutivo | em curso (engenheiro) | — | — |
+| 2 | Veredito de comando destrutivo | feito | c3ce28ac 0791ff32 dee9718a | shared 544+1+1, core 484, handlers 809 (0 falhas), clippy --all-features limpo, dispatch/ceg check ok; replay 643 comandos com JUSTIFIED_DIFFERENCES vazio; divergência block_git 3/3 |
 | 3 | Desfecho de run (tipo + journal) | fila | — | — |
 | 4 | Nomes de evento de hook: fonte única | fase 1 feita | df57547b 8a4d9e3e | dispatch 1352/0, touring-server check ok, clippy limpo |
 | 5 | Árvores-gêmeas não compiladas | feito | c03484d6 | 5.424 linhas removidas; nada as incluía |
@@ -41,7 +41,17 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   `post-tool-use`, `stop`, `pre-compact`, `user_prompt_submit`) respondem unknown-subcommand com o daemon fora →
   fase 2 do #4: os braços do `main.rs` derivam de `dispatch_table()`.
 
+- #2: `command_policy` (touring-hooks-shared) é dono único do vocabulário (39 linhas). Replay de 652 comandos idêntico
+  antes/depois. Lacunas fixadas por teste, não corrigidas (mudam comportamento): `pkill -9 nginx` passa; `sudo rm
+  /etc/passwd` passa na superfície de linha de comando; heredoc python com `rm -rf` segue bloqueado pela leitura
+  estrutural. block_git × Rust: 71 formas git destrutivas simples e 83 aninhadas só o shell nega; `--force-with-lease`
+  com veredito oposto. O CEG (`pre_exec.rs:180`) só pergunta a leitura estrutural (não vê dd/mkfs). Superfície morta:
+  `HookRuntime.ctx.pre_tool_validator` sem chamador de produção.
+
 ## Decisões do Gabriel pendentes
+
+- #2: fechar as lacunas `pkill -9`/`sudo rm`; CEG passar a chamar `judge()`; remover a superfície morta do
+  `PreToolValidator` em touring-hook-runtime; reconciliar block_git (começar por `--force-with-lease`) depois de 08/11.
 
 - Unificar o minerador do `touring-server` com o reader (#1): muda o que um escritor de produção grava na memória.
 - Liberar `~/.cache/touring-wt-g6-snapshot` (496 MB, cópia congelada dos transcritos usada nas sondas do #1).
