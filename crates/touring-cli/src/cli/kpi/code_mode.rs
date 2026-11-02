@@ -6,6 +6,7 @@
 //! inspecao, aderencia, reuso da escada e uso do sinal do SDK.
 
 use super::*;
+use touring_foundation::run_outcome::{Journal, Line, classify_line};
 /// P5b (achado de Gabriel, 2026-08-26) — dos programas que o modelo rodou,
 /// qual fração FUNDIU round-trips.
 ///
@@ -269,11 +270,10 @@ pub(crate) fn today_iso() -> String {
 /// documentado: uma run da mesma linguagem <120 s após uma falha (o par
 /// falha→retry conta 1).
 pub(crate) fn code_mode_adherence() -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(journal) = Journal::from_env() else {
         return json!({"available": false, "reason": "HOME unset"});
     };
-    let path = PathBuf::from(home).join(".claude/touring/run_journal.jsonl");
-    match std::fs::read_to_string(&path) {
+    match journal.read_to_string() {
         Ok(content) => adherence_from_lines(content.lines()),
         Err(_) => json!({"available": false, "reason": "no journal yet"}),
     }
@@ -292,12 +292,11 @@ pub(crate) const CODE_MODE_REUSE_FLOOR: f64 = 0.20;
 /// (measured 19/09/2026). A ruler blind to the rail it is measuring reports a
 /// zero that is not there.
 pub(crate) fn code_mode_reuse(project_root: &Path) -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(journal) = Journal::from_env() else {
         return json!({"available": false, "reason": "HOME unset"});
     };
-    let path = touring_code::journal::default_journal_path(&PathBuf::from(home));
     let ladder = ladder_totals_of(project_root);
-    match touring_code::journal::read_journal(&path) {
+    match touring_code::journal::read_journal(journal.path()) {
         Ok(agg) => reuse_from_aggregate(&agg, ladder),
         Err(_) => json!({"available": false, "reason": "no journal yet"}),
     }
@@ -481,25 +480,7 @@ mod reuse_tests {
 /// medidas em 31/10/2026) e o denominador de `runs_total` ficava menor sem
 /// ninguém saber: o KPI dizia "31 execuções" quando o journal tinha 32 linhas.
 #[cfg(test)]
-mod adherence_tests {
-    use super::adherence_from_lines;
-
-    #[test]
-    fn malformed_journal_lines_are_counted_not_skipped() {
-        let linhas = [
-            r#"{"ts":1,"language":"bash","exit_code":0}"#,
-            "NOT JSON",
-            r#"{"ts":2,"language":"bash","exit_code":0}"#,
-            "TAMBEM NAO",
-        ];
-        let v = adherence_from_lines(linhas.iter().copied());
-        assert_eq!(
-            v["runs_total"], 2,
-            "só as linhas válidas entram no denominador"
-        );
-        assert_eq!(v["malformed_lines"], 2, "as linhas ruins são CONTADAS");
-    }
-}
+mod adherence_tests;
 
 /// F6 — aggregate per-canonical-hook stats from the post-tool-use mirror.
 /// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
@@ -740,34 +721,31 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
     // `runs_total` ficava menor sem ninguém saber.
     let mut malformed_lines = 0u64;
     for line in lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            malformed_lines += 1;
-            continue;
+        let run = match classify_line(line) {
+            Line::Record(run) => run,
+            // `lines()` over UNTRIMMED text: a blank line never parsed as JSON, so
+            // it has always been counted with the corrupt ones (the aggregate's
+            // strict reader skips blanks; this ruler never did — kept, because
+            // the denominator is the measurement).
+            Line::Blank | Line::Malformed => {
+                malformed_lines += 1;
+                continue;
+            }
         };
         total += 1;
-        let lang = v
-            .get("language")
-            .and_then(Value::as_str)
-            .unwrap_or("?")
-            .to_string();
+        let lang = run.language().unwrap_or("?").to_string();
         *by_lang.entry(lang.clone()).or_default() += 1;
-        let ts = v.get("ts").and_then(Value::as_u64).unwrap_or(0);
-        let exit = v.get("exit_code").and_then(Value::as_i64).unwrap_or(-1);
-        if exit == 0 {
+        let ts = run.ts().unwrap_or(0);
+        // PROCESS-level success (`exited_zero`): a line with no usable exit code
+        // reads as "no exit", which is not zero. The class goes through the one
+        // taxonomy before it becomes a bucket: a raw string made an unknown
+        // spelling open a new category.
+        let outcome = run.outcome();
+        if outcome.exited_zero() {
             ok += 1;
         }
-        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
-        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
-        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
-        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
-        // A classe passa pela taxonomia canônica (`FailureKind`) antes de virar
-        // balde: string crua fazia uma grafia desconhecida criar categoria nova.
-        if let Some(fk) = v
-            .get("failure_kind")
-            .and_then(Value::as_str)
-            .map(|s| touring_code::journal::FailureKind::from_str_opt(Some(s)).as_str())
-        {
-            *by_kind.entry(fk.to_string()).or_default() += 1;
+        if let Some(kind) = outcome.failure {
+            *by_kind.entry(kind.as_str().to_string()).or_default() += 1;
         }
         if let Some((pts, plang)) = prev_fail.take()
             && plang == lang
@@ -775,7 +753,7 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
         {
             wasted += 1;
         }
-        prev_fail = (exit != 0).then_some((ts, lang));
+        prev_fail = (!outcome.exited_zero()).then_some((ts, lang));
     }
     json!({
         "available": true,

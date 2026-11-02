@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         3 => (PathBuf::from(&args[1]), PathBuf::from(&args[2])),
         _ => {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-            let journal = PathBuf::from(&home).join(".claude/touring/run_journal.jsonl");
+            let journal = touring_foundation::run_outcome::journal_path(&PathBuf::from(&home));
             let out = PathBuf::from("/tmp/sdk_end_to_end_report.json");
             run_default(&journal, &out)?;
             return Ok(());

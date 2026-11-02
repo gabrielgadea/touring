@@ -1846,7 +1846,7 @@ mod tests {
     /// Cross-audit 04/09/2026 — `by_failure_kind` era histograma da string CRUA do
     /// journal, entao uma grafia desconhecida virava categoria propria e a taxonomia
     /// declarada na diretriz A5 nao valia na ponta que le. `FailureKind::from_str_opt`
-    /// existia com essa funcao exata e nao tinha consumidor de producao (orfao pela
+    /// (hoje `run_outcome::FailureKind::from_label`) existia com essa funcao exata e nao tinha consumidor de producao (orfao pela
     /// REGRA #0). Agora o KPI conta as 7 classes que existem, e so elas.
     #[test]
     fn classe_de_falha_desconhecida_cai_em_other_e_nao_cria_categoria() {
