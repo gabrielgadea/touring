@@ -10,7 +10,9 @@ measured defect or one property that keeps the table honest.
 """
 
 import ast
+import os
 import re
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -406,13 +408,15 @@ def test_table_rows_are_well_formed():
 
 # ── the shipped corpora pass the schema ────────────────────────────────────────
 
-LIB = Path.home() / ".claude" / "skills" / "Touring" / "adw-library"
+#: The runner's own override (`TOURING_ADW_LIBRARY`), so the corpus checks and the runner
+#: read the same library — a patched copy can be verified before the live tree changes.
+LIB = Path(os.environ.get("TOURING_ADW_LIBRARY") or Path.home() / ".claude" / "skills" / "Touring" / "adw-library")
 CORPUS_FILES = sorted([*LIB.glob("*.toml"), *(LIB / "fragments").glob("*.toml")])
 
-#: Known finding (02/11/2026): `skilling-pack` sets RECURRENCE through `env`, which
-#: `run_code_node` never passes on. strict xfail: fixing the fragment (or implementing
-#: `env`) turns this into an XPASS and forces the marker out.
-KNOWN_FINDINGS = {"skilling-pack.toml": "env is declared on node `should_skill` and never read"}
+#: Shipped files allowed one schema finding, each as a strict xfail (a fix XPASSes and
+#: forces the entry out). Empty since 02/11/2026: the `env` on `skilling-pack` was the
+#: only one, and `skilling-pack.patch` moves RECURRENCE into argv (decision B').
+KNOWN_FINDINGS: dict[str, str] = {}
 
 
 def _corpus_param(path: Path):
@@ -431,6 +435,31 @@ def test_shipped_library_files_have_no_schema_findings(path):
         errors, warnings = adw.schema_findings(adw.Node(name=name, type=body.get("type", ""), raw=body))
         findings += errors + warnings
     assert findings == []
+
+
+SKILLING_PACK = LIB / "fragments" / "skilling-pack.toml"
+
+
+def _should_skill_exit(recurrence: str, cwd: Path) -> int:
+    """Run `should_skill` the way inlining renders it: `{{inputs.recurrence}}` replaced
+    inside each argv element, then the argv list executed as is (no shell re-parse)."""
+    body = tomllib.loads(SKILLING_PACK.read_text(encoding="utf-8"))["node"]["should_skill"]
+    argv = [part.replace("{{inputs.recurrence}}", recurrence) for part in body["command"]]
+    return subprocess.run(argv, cwd=cwd, capture_output=True, timeout=10).returncode
+
+
+@pytest.mark.skipif(not SKILLING_PACK.is_file(), reason="no real adw-library present")
+def test_should_skill_gate_answers_on_recurrence_and_never_runs_it_as_shell(tmp_path):
+    """Decision B' (02/11/2026): the value travels as argv[1], so `test` compares it and the
+    shell never parses it. Before the fix every value answered "one-off" (`env` was dead)."""
+    assert _should_skill_exit("5", tmp_path) == 0
+    assert _should_skill_exit("2", tmp_path) == 0
+    assert _should_skill_exit("1", tmp_path) != 0
+    assert _should_skill_exit("abc", tmp_path) != 0  # non-numeric closes the gate
+    marker = tmp_path / "pwned"
+    assert _should_skill_exit(f'2" ] || touch {marker} ; [ "', tmp_path) != 0
+    assert _should_skill_exit(f"$(touch {marker})", tmp_path) != 0
+    assert not marker.exists()
 
 
 PROJECT_ADW = Path.home() / "projects" / "touring" / ".touring" / "adw"

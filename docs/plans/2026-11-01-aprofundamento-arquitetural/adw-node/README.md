@@ -14,7 +14,8 @@ fixtures with a mistyped key, none of which any existing check could see.
 |---|---|
 | `adw.patch` | unified diff against the live `adw.py` (`patch -p1` from `~/.claude/skills/Touring`), base sha256 `91f8ac2a87d49ab8` |
 | `test_adw.patch` | 4 fixture lines in the existing `test_adw.py` (a `human` node written with `prompt`, which the runner ignores) |
-| `test_adw_node.py` | new tests (142 cases + 1 strict xfail) |
+| `skilling-pack.patch` | decision B' (02/11): `should_skill` receives the count as argv[1] instead of the dead `env` (`patch -p1` from `~/.claude/skills/Touring`) |
+| `test_adw_node.py` | new tests (144 cases; the strict xfail for `skilling-pack` is gone, its entry in `KNOWN_FINDINGS` removed) |
 | `evidence/results/` | every number below, as produced; `evidence/tools/` reproduces them |
 
 ## How to apply (after the AB34 window closes, 08/11 00:10)
@@ -24,18 +25,23 @@ cd ~/.claude/skills/Touring
 sha256sum scripts/adw.py | cut -c1-16        # expect 91f8ac2a87d49ab8; if not, run the --dry-run and rebase
 patch -p1 --dry-run < <this dir>/adw.patch && patch -p1 < <this dir>/adw.patch
 patch -p1 < <this dir>/test_adw.patch
+patch -p1 < <this dir>/skilling-pack.patch
 cp <this dir>/test_adw_node.py scripts/
 cd scripts && python3 -m pytest test_adw_node.py test_adw.py test_adw_gate_rejection.py -q
-#   expect: 507 passed, 1 xfailed
+#   expect: 509 passed (365 in the two old files + 144 in test_adw_node.py)
 # then the generated mirror (CLAUDE.md item 6), from ~/projects/touring:
 python3 scripts/sync-client-skills.py --apply
 ```
 
-Rollback: `patch -R -p1` in reverse order (tests, then adw.patch); the patch adds no state.
+Rollback: `patch -R -p1` in reverse order (skilling-pack, tests, then adw.patch); the patches add no state.
+The old copy of the fragment under `~/omarchy-kit/` carries the same dead `env`; it is outside this
+repository and is not patched here.
 
-**Decide before applying: the `env` finding (below).** Until it is resolved, any flow that composes
-the `skilling-pack` fragment fails `adw lint` after this patch. No flow ships composing it (checked
-across 161 spec/fragment files), but `adw new --use skilling-pack` would produce one.
+**Decisions taken by Gabriel on 02/11/2026** (canvas in the session): `env` is fixed in the fragment
+by passing the count as a positional argument (B'), and an unknown key stays an ERROR (E). Apply
+`skilling-pack.patch` together with `adw.patch`: without it, a flow composing the fragment fails
+`adw lint` (verified: `unknown key env` on a probe flow under the patched runner and the live library;
+with the patched library, `valid: true`).
 
 ## The measurement (baseline = live adw.py, sha 91f8ac2a87d49ab8, 5093 lines)
 
@@ -81,9 +87,14 @@ below is identical), so this is a latent defect with a demonstrated trigger, not
 * **Decision for Gabriel, two options**, both leave this patch unchanged:
   (A) implement `env`: pass `env={**os.environ, **rendered}` in `run_code_node` and add one row
   `"env": _field(dict, "code", "gate", "probe")` to `NODE_FIELDS`; or (B) express it without `env`,
-  e.g. `command = ["bash","-c","test \"{{inputs.recurrence}}\" -ge 2"]`. Either makes the strict
-  xfail in `test_shipped_library_files_have_no_schema_findings` XPASS, which forces removing the
-  `KNOWN_FINDINGS` entry in the test. I recommend (B): one line, no new runtime surface.
+  e.g. `command = ["bash","-c","test \"{{inputs.recurrence}}\" -ge 2"]`.
+* **Chosen: B'** (02/11). (B) as written splices a rendered value into the `-c` string, which is
+  shell injection (`recurrence = '2" ] || touch X ; [ "'` executes); (A) with `os.environ` hands
+  the whole runner environment, secrets included, to the child. B' keeps (B)'s "no runtime
+  surface" and passes the value as argv: `["bash","-c","test \"$1\" -ge 2","_","{{inputs.recurrence}}"]`.
+  `test_should_skill_gate_answers_on_recurrence_and_never_runs_it_as_shell` pins it (5/2 pass,
+  1/`abc` fail, two injection payloads fail and create nothing); against the old fragment it fails
+  (`assert 1 == 0` for `recurrence = "5"`), as does the corpus test.
 * **Fixtures**: four `human` nodes in `test_adw.py` declare `prompt` (the runner reads `message`).
   Two of them make existing tests fail under the new lint (the lint's own warning is correct);
   `test_adw.patch` renames all four.
@@ -168,8 +179,8 @@ instead of tested.
 
 ## Open issues
 
-1. `env` (above): needs Gabriel's choice of (A) or (B) before or with the patch.
-2. Unknown key is an ERROR (exit 1, blocks `run`). If a soft landing is preferred, it is one line in
+1. `env` (above): decided, B' (02/11), shipped as `skilling-pack.patch`.
+2. Unknown key is an ERROR (exit 1, blocks `run`), confirmed by Gabriel 02/11 (E). Reverting is one line in
    `schema_findings` (`errors.append` to `warnings.append`) plus the matching assertions in
    `test_adw_node.py`. Specs outside this machine are unmeasured: the 161 files here are the
    whole corpus I could reach.
