@@ -187,42 +187,23 @@ impl HookResponse {
     pub fn emit(self) -> ! {
         if matches!(self, HookResponse::Allow) {
             note_emit_reason("emit-allow");
-        } else {
-            note_emit_reason("emit-json");
-            let (level, sink) = touring_foundation::injection_policy::current();
-            println!(
-                "{}",
-                self.stdout_text(level, sink.as_deref(), dedup_scope())
-            );
+            std::process::exit(0);
         }
-        std::process::exit(0);
+        emit_json(&self.to_json())
     }
 
     /// The exact text [`HookResponse::emit`] writes to stdout: the serialization
     /// ([`HookResponse::to_json`]), the injection policy (`level`, recording the cut
     /// in the journal at `sink`) and the epoch dedupe (`scope`). Split from `emit` —
-    /// which exits the process — to be testable.
-    ///
-    /// The policy runs BEFORE the dedupe: what it cut never reached the model, so it
-    /// must not enter the epoch state. The site label is [`SITE_EMIT_RUNTIME`]
-    /// (`emit-runtime`): it is the label the standalone emit funnel always wrote and
-    /// the one the journals already hold — the type was unified around it.
-    ///
-    /// [`SITE_EMIT_RUNTIME`]: touring_foundation::injection_policy::SITE_EMIT_RUNTIME
+    /// which exits the process — to be testable. The policy and the dedupe are
+    /// [`stdout_text_of_json`], shared with [`emit_json`].
     pub fn stdout_text(
         &self,
         level: touring_foundation::injection_policy::InjectionLevel,
         sink: Option<&std::path::Path>,
         scope: Option<&(PathBuf, String)>,
     ) -> String {
-        let json = self.to_json();
-        let json = touring_foundation::injection_policy::apply_at(
-            level,
-            touring_foundation::injection_policy::SITE_EMIT_RUNTIME,
-            &json,
-            sink,
-        );
-        dedup_with_scope(&json, scope)
+        stdout_text_of_json(&self.to_json(), level, sink, scope)
     }
 
     /// Build a context response (injects additionalContext).
@@ -455,6 +436,48 @@ pub fn dedup_with_scope(json: &str, scope: Option<&(PathBuf, String)>) -> String
         }
         None => json.to_string(),
     }
+}
+
+/// What an already-serialized answer becomes on stdout: the injection policy (`level`,
+/// recording the cut in the journal at `sink`) and then the epoch dedupe (`scope`).
+///
+/// The policy runs BEFORE the dedupe: what it cut never reached the model, so it must not
+/// enter the epoch state. The site label is [`SITE_EMIT_RUNTIME`] (`emit-runtime`): the label
+/// the standalone emit funnel always wrote and the one the journals already hold — the type
+/// was unified around it. [`HookResponse::stdout_text`] serializes and calls this; a caller
+/// that holds the serialized text already (the standalone route serving a dispatch-table
+/// handler) calls it directly and the two cannot differ.
+///
+/// [`SITE_EMIT_RUNTIME`]: touring_foundation::injection_policy::SITE_EMIT_RUNTIME
+pub fn stdout_text_of_json(
+    json: &str,
+    level: touring_foundation::injection_policy::InjectionLevel,
+    sink: Option<&std::path::Path>,
+    scope: Option<&(PathBuf, String)>,
+) -> String {
+    let json = touring_foundation::injection_policy::apply_at(
+        level,
+        touring_foundation::injection_policy::SITE_EMIT_RUNTIME,
+        json,
+        sink,
+    );
+    dedup_with_scope(&json, scope)
+}
+
+/// [`HookResponse::emit`] for an answer that is ALREADY serialized — the string a dispatch
+/// table handler returns (`HookHandler`): print it through [`stdout_text_of_json`] at this
+/// process's policy level and dedupe scope, record the exit reason `emit-json`, exit 0.
+///
+/// An empty answer is not this function's business: [`HookResponse::Allow`] emits NOTHING
+/// (`emit-allow`), and the caller that holds a handler's `""`/`{}` sends it there.
+pub fn emit_json(json: &str) -> ! {
+    note_emit_reason("emit-json");
+    let (level, sink) = touring_foundation::injection_policy::current();
+    println!(
+        "{}",
+        stdout_text_of_json(json, level, sink.as_deref(), dedup_scope())
+    );
+    std::process::exit(0);
 }
 
 /// Sink the runtime layer installs so [`HookResponse::emit`] can say WHY the
@@ -901,6 +924,39 @@ mod s2_injection_policy_tests {
             .collect();
         assert_eq!(lines.len(), 3);
         assert!(lines.iter().all(|l| l["site"] == "emit-runtime"));
+    }
+
+    /// A resposta já serializada (o texto que um handler da tabela de despacho devolve)
+    /// sai pelo MESMO funil do `emit`: `stdout_text` é `to_json` + `stdout_text_of_json`,
+    /// em todo nível — uma rota que serve o texto pronto não pode diferir da que serializa.
+    #[test]
+    fn test_serialized_answer_leaves_through_the_same_funnel_as_emit() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sink = touring_foundation::injection_journal::journal_path_in(dir.path());
+        for level in [
+            InjectionLevel::Full,
+            InjectionLevel::NoAdvisory,
+            InjectionLevel::Off,
+        ] {
+            let answers = || {
+                [
+                    HookResponse::context_with_event(SERMON, "PostToolUse"),
+                    HookResponse::Deny {
+                        reason: "G2: pipe sem pipefail".into(),
+                        context: Some(SERMON.into()),
+                        event_name: Some("PreToolUse".into()),
+                    },
+                    HookResponse::halt("fim de sessão"),
+                ]
+            };
+            for r in answers() {
+                assert_eq!(
+                    r.stdout_text(level, Some(&sink), None),
+                    super::stdout_text_of_json(&r.to_json(), level, Some(&sink), None),
+                    "level {level:?}"
+                );
+            }
+        }
     }
 
     /// `off` num `Context` puro: o envelope vira `{}`; `Halt` (só decisão)
