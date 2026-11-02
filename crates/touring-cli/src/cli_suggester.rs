@@ -4411,9 +4411,9 @@ fn r1_skeleton_path() -> Option<std::path::PathBuf> {
 
 /// A rota R1 para o alvo `fp`: o esqueleto real instanciado quando existe, a
 /// query de memória quando não.
-fn r1_route_for(fp: &str) -> String {
+fn r1_route_for(fp: &str, skeleton: Option<&Path>) -> String {
     let query = "`touring memory query \"#kind:snippet #process:code-mode\"`";
-    match r1_skeleton_path() {
+    match skeleton {
         Some(p) => format!(
             "touring run --lang python --args '[\"{fp}\"]' --file {} (outros esqueletos: {query})",
             p.display()
@@ -4641,6 +4641,10 @@ pub(crate) struct CodeModeEnv {
     pub mode: Option<String>,
     /// Valor de `TOURING_CODE_ONLY` (o alias legado de `Code`).
     pub code_only_alias: Option<String>,
+    /// `TOURING_CODE_MODE_ARM_ARMED` (a política do braço A/B só age ARMADA). Lido uma vez
+    /// aqui, nunca no meio da resolução: o predicado puro `resolve_with_policy` já recebia
+    /// o dado, mas quem o entregava lia o env do processo.
+    pub arm_armed: bool,
 }
 
 impl CodeModeEnv {
@@ -4648,6 +4652,7 @@ impl CodeModeEnv {
         Self {
             mode: std::env::var("TOURING_CODE_MODE").ok(),
             code_only_alias: std::env::var("TOURING_CODE_ONLY").ok(),
+            arm_armed: code_mode_arm_armed(),
         }
     }
 
@@ -4697,7 +4702,7 @@ fn code_mode_presentation_with(
     // desobedecer.
     resolve_with_policy(
         project_presentation(project_root),
-        code_mode_arm_armed(),
+        env.arm_armed,
         arm_counts_durable(project_root),
     )
 }
@@ -5737,9 +5742,21 @@ pub(crate) struct GateOverrides {
     /// `Some(x)` fixa o dado — o ramo advisory do G1 só dispara com precisão abaixo do
     /// piso, e o contador global não é controlável por um teste.
     pub g1_precision: Option<Option<(f64, u64)>>,
+    /// O esqueleto R1 INJETADO: `None` = produção (procura o arquivo sob `$HOME`);
+    /// `Some(x)` fixa o dado. Sem isto o texto do G7 dependia de um arquivo da máquina
+    /// do desenvolvedor, e um teste que afirmava o texto reprovava em qualquer outra.
+    pub r1_skeleton: Option<Option<std::path::PathBuf>>,
 }
 
 impl GateOverrides {
+    /// O esqueleto R1 em vigor: o injetado, ou o da máquina (produção).
+    fn r1_skeleton(&self) -> Option<std::path::PathBuf> {
+        match &self.r1_skeleton {
+            Some(fixed) => fixed.clone(),
+            None => r1_skeleton_path(),
+        }
+    }
+
     fn from_env() -> Self {
         Self {
             g2_rewrite_disabled: std::env::var("TOURING_G2_REWRITE_DISABLED")
@@ -5754,6 +5771,7 @@ impl GateOverrides {
             code_mode_env: CodeModeEnv::from_env(),
             code_gates_disabled: code_gates_disabled(),
             g1_precision: None,
+            r1_skeleton: None,
         }
     }
 }
@@ -5925,7 +5943,7 @@ fn code_mode_gates_chain(
         if !ovr.code_gates_disabled {
             if n >= 3 {
                 record_gate_event(GateId::G7, GateEvent::Denied);
-                let rota = r1_route_for(fp);
+                let rota = r1_route_for(fp, ovr.r1_skeleton().as_deref());
                 let edicao = g7_edit_route_note(fp, stamp.is_some());
                 return Some(deny_response(format!(
                     "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
@@ -5936,7 +5954,7 @@ fn code_mode_gates_chain(
             }
             if n == 2 {
                 record_gate_event(GateId::G7, GateEvent::Emitted);
-                let rota = r1_route_for(fp);
+                let rota = r1_route_for(fp, ovr.r1_skeleton().as_deref());
                 return Some(advisory_response(format!(
                     "[G7 re-inspeção] 2ª leitura de {fp} na janela — programa-faltando? \
                      R1 instanciado: {rota} (a 3ª leitura nega)."
@@ -6989,6 +7007,15 @@ mod tests;
 /// Gates da 30.4.97 (G10ROTA · G7G3G9): os casos reais do `analise` como testes.
 #[cfg(test)]
 mod gates97_tests;
+
+/// The gate scenario table (event sequences → verdicts), its rows, and the proofs that drive
+/// it through `drive`: the contract, the recorded replay corpus, the S-13 rubric.
+#[cfg(test)]
+mod gate_scenarios;
+#[cfg(test)]
+mod gate_rows;
+#[cfg(test)]
+mod gate_replay;
 
 #[cfg(test)]
 mod intent_codetag_tests {

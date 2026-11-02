@@ -14,7 +14,6 @@ use super::*;
 use serde_json::json;
 use serial_test::serial;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 fn bash(cmd: &str) -> Value {
     json!({ "command": cmd })
@@ -171,37 +170,6 @@ fn g10_corpo_de_leitura_segue_com_a_rota_sandboxed() {
 
 // ── G7G3G9 ───────────────────────────────────────────────────────────────────
 
-/// O mundo de UM arquivo e UMA sessão: os gates do hook + o que o harness do Claude Code
-/// exige do `Edit` (um `Read` BEM-SUCEDIDO depois da última modificação do disco).
-struct Mundo {
-    proj: PathBuf,
-    sess: String,
-    fp: PathBuf,
-    tick: u64,
-    /// O `readFileState` do harness está em dia com o disco.
-    fresco: bool,
-    /// Algum `Read` BEM-SUCEDIDO já aconteceu nesta sessão: o G3 conhece o arquivo e não fala mais
-    /// dele (o ledger do G3 não olha o mtime — só o harness o faz).
-    leu: bool,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum Op {
-    Read,
-    Edit,
-    /// Escrita FORA da ferramenta Edit: python, linter, outra sessão.
-    Modify,
-    /// `touring run` citando o arquivo (reseta o G7).
-    Run,
-    /// `sed -i` cego sobre o arquivo: o G9 nega e NOMEIA o `Edit` como a rota (o arquivo não muda).
-    SedCego,
-}
-
-static SESSOES: AtomicU64 = AtomicU64::new(0);
-/// Um `sed -i` distinto por chamada: o G6 nega a repetição idêntica através de uma época, e o que
-/// este modelo mede é o G9, não o G6.
-static SEDS: AtomicU64 = AtomicU64::new(0);
-
 /// Grava `conteudo` e fixa o mtime em `base + tick` s — dois `tocar` nunca empatam.
 fn tocar(fp: &Path, conteudo: &str, tick: u64) {
     std::fs::write(fp, conteudo).expect("write");
@@ -212,138 +180,6 @@ fn tocar(fp: &Path, conteudo: &str, tick: u64) {
         .expect("open")
         .set_modified(t)
         .expect("set_modified");
-}
-
-impl Mundo {
-    fn novo(proj: &Path, fp: &Path) -> Self {
-        let n = SESSOES.fetch_add(1, Ordering::Relaxed);
-        tocar(fp, "base", 0);
-        Self {
-            proj: proj.to_path_buf(),
-            sess: format!("g97-mundo-{n}"),
-            fp: fp.to_path_buf(),
-            tick: 0,
-            fresco: false,
-            leu: false,
-        }
-    }
-
-    fn gate(&self, tool: &str, input: &Value) -> Option<String> {
-        gate(&self.proj, &self.sess, tool, input)
-    }
-
-    fn le(&mut self) -> Option<String> {
-        let r = self.gate("Read", &json!({ "file_path": self.fp, "limit": 8 }));
-        if !is_deny(&r) {
-            self.fresco = true;
-            self.leu = true;
-        }
-        r
-    }
-
-    /// `Some(true)` = o Edit TEVE SUCESSO (hook liberou E o harness o aceita).
-    fn edita(&mut self) -> (Option<String>, bool) {
-        let r = self.gate(
-            "Edit",
-            &json!({ "file_path": self.fp, "old_string": "a", "new_string": "b" }),
-        );
-        // A rota «Edit direto» que o G7 e o G9 nomeiam promete que o G3 a aceita: depois de um
-        // `Read` o G3 fica MUDO (nem advisory) — reclamar de Edit-sem-Read de um arquivo lido é
-        // o gate rodando contra a rota que os outros dois apontam.
-        if self.leu {
-            assert!(
-                !r.as_deref()
-                    .is_some_and(|x| x.contains("[G3 edit-sem-read]")),
-                "o G3 não fala de um arquivo que a sessão já leu: {r:?}"
-            );
-        }
-        let ok = !is_deny(&r) && self.fresco;
-        if ok {
-            self.tick += 1;
-            tocar(&self.fp, "editado", self.tick);
-        }
-        (r, ok)
-    }
-
-    fn aplica(&mut self, op: Op) {
-        match op {
-            Op::Read => {
-                let _ = self.le();
-            }
-            Op::Edit => {
-                let _ = self.edita();
-            }
-            Op::Modify => {
-                self.tick += 1;
-                tocar(&self.fp, "externo", self.tick);
-                self.fresco = false;
-            }
-            Op::Run => {
-                let cmd = format!(
-                    "touring run --lang python --args '[\"{}\"]' --file r1.py",
-                    self.fp.display()
-                );
-                let _ = self.gate("Bash", &bash(&cmd));
-            }
-            Op::SedCego => {
-                let sed = |m: &Self| {
-                    let n = SEDS.fetch_add(1, Ordering::Relaxed);
-                    m.gate(
-                        "Bash",
-                        &bash(&format!("sed -i 's/a/b{n}/' {}", m.fp.display())),
-                    )
-                };
-                let mut r = sed(self);
-                // O G5 (telemetria) fala PRIMEIRO na primeira ação Bash depois de uma rajada de
-                // ≥3 edits — um advisory único que zera a rajada; o G9 responde na chamada seguinte.
-                if r.as_deref().is_some_and(|x| x.contains("[G5 telemetria]")) {
-                    r = sed(self);
-                }
-                assert!(is_deny(&r), "`sed -i` cego é negado pelo G9: {r:?}");
-                let motivo = reason(&r);
-                // D8: o deny nomeia a rota de edição COM o arquivo real (nunca `<o arquivo>`).
-                assert!(
-                    motivo.contains(&format!("Edit tool em `{}`", self.fp.display())),
-                    "o deny do G9 nomeia o Edit como a rota: {motivo}"
-                );
-            }
-        }
-    }
-}
-
-const OPS: [Op; 5] = [Op::Read, Op::Edit, Op::Modify, Op::Run, Op::SedCego];
-
-fn mundo_apos(proj: &Path, fp: &Path, prefixo: &[Op]) -> Mundo {
-    let mut m = Mundo::novo(proj, fp);
-    for op in prefixo {
-        m.aplica(*op);
-    }
-    m
-}
-
-/// Existe, a partir deste estado, uma rota de edição que o hook não nega e que o harness
-/// aceita: o `Edit` direto, ou um `Read` liberado seguido do `Edit`?
-fn existe_rota_de_edicao(proj: &Path, fp: &Path, prefixo: &[Op]) -> bool {
-    let mut direto = mundo_apos(proj, fp, prefixo);
-    if direto.edita().1 {
-        return true;
-    }
-    let mut via_read = mundo_apos(proj, fp, prefixo);
-    !is_deny(&via_read.le()) && via_read.edita().1
-}
-
-fn percorre(proj: &Path, fp: &Path, prefixo: &mut Vec<Op>, fundo: usize, falhas: &mut Vec<String>) {
-    if !existe_rota_de_edicao(proj, fp, prefixo) {
-        falhas.push(format!("{prefixo:?}"));
-    }
-    if fundo == 0 {
-        return;
-    }
-    for op in OPS {
-        prefixo.push(op);
-        percorre(proj, fp, prefixo, fundo - 1, falhas);
-        prefixo.pop();
-    }
 }
 
 fn arquivo_de_edicao() -> (tempfile::TempDir, PathBuf) {
@@ -448,25 +284,6 @@ fn g7_deny_sem_medicao_nao_promete_rota_de_edicao() {
     assert!(
         !r.contains("Edit direto"),
         "sem medição o deny não afirma que o arquivo não mudou: {r}"
-    );
-}
-
-/// O invariante da composição G7×G3×G9: para TODO estado alcançável por sequências de até 5
-/// operações {Read, Edit, Modify, Run, SedCego} sobre o arquivo, existe uma rota de edição que
-/// algum gate nomeia (Edit direto, ou Read→Edit) e que nenhum gate nega nem o harness recusa —
-/// e o `sed -i` cego (G9) nega NOMEANDO essa rota (o `Edit` sobre o arquivo real), enquanto o G3
-/// fica mudo diante de um arquivo que a sessão já leu.
-#[test]
-#[serial(gate_metrics, t3_env)]
-fn composicao_g7_g3_g9_sempre_deixa_uma_rota_de_edicao() {
-    let (tmp, fp) = arquivo_de_edicao();
-    let mut falhas = Vec::new();
-    percorre(tmp.path(), &fp, &mut Vec::new(), 5, &mut falhas);
-    assert!(
-        falhas.is_empty(),
-        "{} estado(s) sem rota de edição — o círculo; o menor: {:?}",
-        falhas.len(),
-        falhas.iter().min_by_key(|f| f.len())
     );
 }
 

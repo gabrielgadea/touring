@@ -3418,8 +3418,16 @@ mod mode_gates_w3 {
         let fp = "crates/x/src/lib.rs";
         // 1ª leitura: silêncio (aperto 29/08, ordem de Gabriel: era 3ª/5ª)
         assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
-        // 2ª: advisory com R1 instanciado citando o ARQUIVO real
-        let r = code_mode_gates(proj, s, "Read", &read(fp)).expect("advisory");
+        // 2ª: advisory com R1 instanciado citando o ARQUIVO real. O esqueleto é INJETADO: o
+        // texto dependia de um arquivo sob `$HOME` da máquina de quem rodava o teste.
+        let ovr = super::super::GateOverrides {
+            r1_skeleton: Some(Some(std::path::PathBuf::from(
+                "/r1/r1_varredura_agregado.py",
+            ))),
+            ..Default::default()
+        };
+        let r = super::super::code_mode_gates_with(proj, s, "Read", &read(fp), &ovr)
+            .expect("advisory");
         assert!(r.contains("G7") && r.contains(fp) && r.contains("r1_varredura_agregado"));
         // 3ª: deny
         let r = code_mode_gates(proj, s, "Read", &read(fp)).expect("deny");
