@@ -9,12 +9,14 @@
 //! defines them. The resolver is deliberately PERMISSIVE — it accepts every extension the supported
 //! modes accept — because a module is reported missing only when NO mode could load it.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use serde_json::Value;
+
+use crate::vgp::lang::caminho::{self, Sonda};
 
 /// Files bigger than this are never read (a generated bundle is not a module summary).
 pub(super) const MAX_LEITURA: u64 = 3 * 1024 * 1024;
@@ -47,6 +49,9 @@ pub(super) enum Resolvido {
     Fora(String),
 }
 
+/// The reason an import is not measured when it names something outside the roots (never the path).
+const RECUSA_FORA: &str = "caminho fora das raízes permitidas";
+
 const EXT_ANEXAR: &[&str] = &[
     ".ts", ".tsx", ".d.ts", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".json", ".vue",
     ".svelte", ".astro", ".node",
@@ -73,25 +78,20 @@ const SUBSTITUICOES: &[(&str, &[&str])] = &[
     (".cjs", &[".cts", ".d.cts"]),
 ];
 
-/// Lexical `.`/`..` normalisation — the path may not exist, so `canonicalize` is out.
-pub(super) fn normalizar(p: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for c in p.components() {
-        match c {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if !out.pop() {
-                    out.push("..");
-                }
-            }
-            outro => out.push(outro.as_os_str()),
-        }
-    }
-    out
-}
-
 fn eh_relativo(spec: &str) -> bool {
     spec == "." || spec == ".." || spec.starts_with("./") || spec.starts_with("../")
+}
+
+/// What proving a path found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Procura {
+    /// The first file the path can mean.
+    Achou(PathBuf),
+    /// Nothing there.
+    Nada,
+    /// Something EXISTS there, but outside the roots: it is not looked at, and the import is not
+    /// measured (a refusal is not a missing module — never a deny).
+    Fora,
 }
 
 /// The disk laid under the entry's overlays, plus the per-call config cache.
@@ -99,41 +99,105 @@ pub(super) struct Projeto<'a> {
     pub raiz: &'a Path,
     sobrepor: &'a HashMap<String, String>,
     configs: RefCell<HashMap<PathBuf, Rc<ConfigTs>>>,
+    /// The roots the disk may be touched inside: the project root, the directory of the file being
+    /// checked (a fragment in `/tmp` resolves its imports next to itself) and the `node_modules`
+    /// the module resolution walks up through — above the project too (a hoisted install).
+    raizes: Vec<PathBuf>,
+    /// Set when a probe met something that exists OUTSIDE the roots; [`Projeto::provar`] reads it.
+    fora: Cell<bool>,
+}
+
+/// The project root, the directory of the entry file (when it lives outside the project) and
+/// the `node_modules` above them.
+///
+/// No `stat` here: a `node_modules` that does not exist is a root with nothing under it, and
+/// `caminho` remembers what each root is (once per thread), so the list can be generous.
+fn raizes_de(raiz: &Path, entrada: Option<&Path>) -> Vec<PathBuf> {
+    let fora_da_raiz = entrada.filter(|dir| !dir.starts_with(raiz));
+    let mut out = vec![raiz.to_path_buf()];
+    out.extend(fora_da_raiz.map(Path::to_path_buf));
+    out.extend(raiz.ancestors().map(|a| a.join("node_modules")));
+    // an entry inside the project shares every ancestor above it with the root
+    if let Some(dir) = fora_da_raiz {
+        for ancestral in dir.ancestors() {
+            let modulos = ancestral.join("node_modules");
+            if !out.contains(&modulos) {
+                out.push(modulos);
+            }
+        }
+    }
+    out
 }
 
 impl<'a> Projeto<'a> {
+    /// A project with no entry file (the unit tests' shape; the motor always has one — see
+    /// [`Projeto::para_arquivo`]).
+    #[cfg(test)]
     pub fn novo(raiz: &'a Path, sobrepor: &'a HashMap<String, String>) -> Self {
+        Self::de(raiz, sobrepor, None)
+    }
+
+    /// The project as seen from the file being checked: that file's directory is a root too (a
+    /// fragment in `/tmp` resolves its imports next to itself).
+    pub fn para_arquivo(
+        raiz: &'a Path,
+        sobrepor: &'a HashMap<String, String>,
+        arquivo: &Path,
+    ) -> Self {
+        Self::de(raiz, sobrepor, arquivo.parent())
+    }
+
+    fn de(raiz: &'a Path, sobrepor: &'a HashMap<String, String>, entrada: Option<&Path>) -> Self {
         Self {
             raiz,
             sobrepor,
             configs: RefCell::new(HashMap::new()),
+            raizes: raizes_de(raiz, entrada),
+            fora: Cell::new(false),
         }
     }
 
-    /// Is `p` a file — in the overlays or on disk?
-    pub fn eh_arquivo(&self, p: &Path) -> bool {
-        self.sobrepor.contains_key(p.to_string_lossy().as_ref()) || p.is_file()
+    /// The roots the disk may be touched inside.
+    pub fn raizes(&self) -> &[PathBuf] {
+        &self.raizes
     }
 
-    /// Is `p` a directory — on disk, or the parent of an overlay file?
+    /// What `p` is: a file of the overlays, else what the disk says INSIDE the roots. Something that
+    /// exists outside them is [`Sonda::Fora`] — and remembered for [`Projeto::provar`].
+    fn sonda(&self, p: &Path) -> Sonda {
+        if self.sobrepor.contains_key(p.to_string_lossy().as_ref()) {
+            return Sonda::Arquivo;
+        }
+        let s = caminho::sondar(&self.raizes, p);
+        if s == Sonda::Fora {
+            self.fora.set(true);
+        }
+        s
+    }
+
+    /// Is `p` a file — in the overlays or on disk (inside the roots)?
+    pub fn eh_arquivo(&self, p: &Path) -> bool {
+        self.sonda(p) == Sonda::Arquivo
+    }
+
+    /// Is `p` a directory — on disk (inside the roots), or the parent of an overlay file?
     pub fn eh_diretorio(&self, p: &Path) -> bool {
-        if p.is_dir() {
-            return true;
+        match caminho::sondar(&self.raizes, p) {
+            Sonda::Diretorio => return true,
+            Sonda::Fora => self.fora.set(true),
+            _ => {}
         }
         let prefixo = format!("{}/", p.to_string_lossy());
         self.sobrepor.keys().any(|k| k.starts_with(&prefixo))
     }
 
-    /// Content of `p` (overlay first, then disk, capped); `None` if unreadable or too big.
+    /// Content of `p` (overlay first, then disk inside the roots, capped); `None` if unreadable,
+    /// outside the roots or too big.
     pub fn ler(&self, p: &Path) -> Option<String> {
         if let Some(c) = self.sobrepor.get(p.to_string_lossy().as_ref()) {
             return Some(c.clone());
         }
-        let meta = std::fs::metadata(p).ok()?;
-        if !meta.is_file() || meta.len() > MAX_LEITURA {
-            return None;
-        }
-        std::fs::read_to_string(p).ok()
+        caminho::ler_contido_ate(&self.raizes, p, MAX_LEITURA).ok()
     }
 
     /// The overlay map (read-only), for callers that scan sibling overlays.
@@ -202,7 +266,7 @@ impl<'a> Projeto<'a> {
         if let Some(ext) = json.get("extends").and_then(Value::as_str)
             && eh_relativo(ext)
         {
-            let mut base = normalizar(&dir.join(ext));
+            let mut base = caminho::normaliza(&dir.join(ext));
             if base.extension().is_none_or(|e| e != "json") {
                 base.set_extension("json");
             }
@@ -217,7 +281,7 @@ impl<'a> Projeto<'a> {
             .flatten()
             .filter_map(|r| r.get("path")?.as_str())
         {
-            let mut alvo = normalizar(&dir.join(p));
+            let mut alvo = caminho::normaliza(&dir.join(p));
             if self.eh_diretorio(&alvo) {
                 alvo = alvo.join("tsconfig.json");
             }
@@ -235,17 +299,17 @@ impl<'a> Projeto<'a> {
             return Resolvido::Fora(fora);
         }
         if eh_relativo(limpo) {
-            let alvo = normalizar(&dir_de.join(limpo));
             // V-4 (31/10/2026): the allowed roots are the project root AND the
             // directory of the file being checked (a fragment in `/tmp` resolves
             // its imports next to itself). A `../..` that leaves both is not a file
             // of the project — and the refusal names the reason, never the path.
-            if !crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz, dir_de], &alvo) {
-                return Resolvido::Fora("caminho fora das raízes permitidas".into());
-            }
-            return match self.provar_caminho(&alvo) {
-                Some(f) => Resolvido::Arquivo(f),
-                None => Resolvido::Inexistente,
+            let Some(bruto) = caminho::derivar(&[self.raiz, dir_de], dir_de, limpo) else {
+                return Resolvido::Fora(RECUSA_FORA.into());
+            };
+            return match self.provar(&caminho::normaliza(&bruto)) {
+                Procura::Achou(f) => Resolvido::Arquivo(f),
+                Procura::Fora => Resolvido::Fora(RECUSA_FORA.into()),
+                Procura::Nada => Resolvido::Inexistente,
             };
         }
         self.resolver_nao_relativo(limpo, dir_de)
@@ -257,10 +321,12 @@ impl<'a> Projeto<'a> {
         if let Some(r) = self.por_paths(&cfg, spec, dir_de) {
             return r;
         }
-        if let Some(base) = &cfg.base_url
-            && let Some(f) = self.provar_caminho(&normalizar(&base.join(spec)))
-        {
-            return Resolvido::Arquivo(f);
+        if let Some(base) = &cfg.base_url {
+            match self.provar(&caminho::normaliza(&base.join(spec))) {
+                Procura::Achou(f) => return Resolvido::Arquivo(f),
+                Procura::Fora => return Resolvido::Fora(RECUSA_FORA.into()),
+                Procura::Nada => {}
+            }
         }
         Resolvido::Pacote
     }
@@ -269,11 +335,18 @@ impl<'a> Projeto<'a> {
     /// pattern never proves anything missing (TS falls through to `node_modules`).
     fn por_paths(&self, cfg: &ConfigTs, spec: &str, dir_de: &Path) -> Option<Resolvido> {
         let (peso, alvos, capt) = melhor_padrao(&cfg.paths, spec)?;
+        let mut fora = false;
         for alvo in alvos {
             let candidato = PathBuf::from(alvo.to_string_lossy().replace('*', &capt));
-            if let Some(f) = self.provar_caminho(&candidato) {
-                return Some(Resolvido::Arquivo(f));
+            match self.provar(&candidato) {
+                Procura::Achou(f) => return Some(Resolvido::Arquivo(f)),
+                Procura::Fora => fora = true,
+                Procura::Nada => {}
             }
+        }
+        if fora {
+            // a target that EXISTS outside the roots: not read, and not proven missing
+            return Some(Resolvido::Fora(RECUSA_FORA.into()));
         }
         if peso == 0 || self.pacote_instalado(dir_de, &nome_do_pacote(spec)) {
             return None; // catch-all, or an installed package with the same prefix wins
@@ -281,16 +354,36 @@ impl<'a> Projeto<'a> {
         Some(Resolvido::Inexistente)
     }
 
-    /// Does some `node_modules` at or above `dir` hold the package `nome`?
+    /// Does some `node_modules` at or above `dir` hold the package `nome`? A package that exists
+    /// where we may not look (a link out of the project) still counts as installed: the answer
+    /// only keeps an alias from being called missing, so a refusal must not turn into a deny.
     pub fn pacote_instalado(&self, dir: &Path, nome: &str) -> bool {
-        self.dir_do_pacote(dir, nome).is_some()
+        dir.ancestors()
+            .map(|d| d.join("node_modules").join(nome))
+            .any(|c| {
+                matches!(
+                    caminho::sondar(&self.raizes, &c),
+                    Sonda::Diretorio | Sonda::Fora
+                )
+            })
     }
 
-    /// The directory of the installed package `nome` visible from `dir`.
+    /// The directory of the installed package `nome` visible from `dir`, if it is inside the roots.
     pub fn dir_do_pacote(&self, dir: &Path, nome: &str) -> Option<PathBuf> {
         dir.ancestors()
             .map(|d| d.join("node_modules").join(nome))
-            .find(|c| c.is_dir())
+            .find(|c| caminho::e_diretorio(&self.raizes, c))
+    }
+
+    /// [`Projeto::provar_caminho`] that tells "nothing there" from "something there, outside the
+    /// roots".
+    pub fn provar(&self, base: &Path) -> Procura {
+        self.fora.set(false);
+        match self.provar_caminho(base) {
+            Some(f) => Procura::Achou(f),
+            None if self.fora.replace(false) => Procura::Fora,
+            None => Procura::Nada,
+        }
     }
 
     /// The first existing file `base` can mean: itself, the TS file a `.js` specifier stands for,
@@ -336,7 +429,11 @@ impl<'a> Projeto<'a> {
             .and_then(|j| {
                 ["types", "typings", "module", "main"]
                     .iter()
-                    .filter_map(|c| j.get(*c)?.as_str().map(|e| normalizar(&base.join(e))))
+                    .filter_map(|c| {
+                        j.get(*c)?
+                            .as_str()
+                            .map(|e| caminho::normaliza(&base.join(e)))
+                    })
                     .filter(|alvo| alvo != base)
                     .find_map(|alvo| self.arquivo_ou_com_extensao(&alvo))
             });
@@ -392,7 +489,7 @@ fn melhor_padrao<'c>(
 fn mesclar_opcoes(opts: &Value, dir: &Path, cfg: &mut ConfigTs) {
     let texto = |k: &str| opts.get(k).and_then(Value::as_str).map(str::to_string);
     if let Some(b) = texto("baseUrl") {
-        cfg.base_url = Some(normalizar(&dir.join(b)));
+        cfg.base_url = Some(caminho::normaliza(&dir.join(b)));
     }
     cfg.jsx = texto("jsx").or(cfg.jsx.take());
     cfg.jsx_import_source = texto("jsxImportSource").or(cfg.jsx_import_source.take());
@@ -412,7 +509,7 @@ fn mesclar_opcoes(opts: &Value, dir: &Path, cfg: &mut ConfigTs) {
                 .into_iter()
                 .flatten()
                 .filter_map(Value::as_str)
-                .map(|t| normalizar(&ancora.join(t)))
+                .map(|t| caminho::normaliza(&ancora.join(t)))
                 .collect();
             cfg.paths.retain(|(q, _)| q != padrao);
             cfg.paths.push((padrao.clone(), alvos));
@@ -533,15 +630,6 @@ mod tests {
         assert_eq!(nome_do_pacote("lodash/fp"), "lodash");
         assert_eq!(nome_do_pacote("react"), "react");
         assert_eq!(nome_do_pacote("@solo"), "@solo");
-    }
-
-    #[test]
-    fn normalizar_resolve_pontos_sem_tocar_o_disco() {
-        assert_eq!(
-            normalizar(Path::new("/a/b/../c/./d")),
-            PathBuf::from("/a/c/d")
-        );
-        assert_eq!(normalizar(Path::new("/a/b/../../x")), PathBuf::from("/x"));
     }
 
     #[test]

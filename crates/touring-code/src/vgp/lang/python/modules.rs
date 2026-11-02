@@ -16,6 +16,7 @@ use tree_sitter::Node;
 
 use crate::ast::languages::Lang;
 use crate::ast::parser::parse_thread_local;
+use crate::vgp::lang::caminho;
 
 /// Static signature of a project function/method (kwarg checks and return-type inference).
 #[derive(Debug, Clone, Default)]
@@ -201,12 +202,19 @@ pub enum Tri {
 /// Cache de processo do resolver: (caminho, sha256 do conteúdo) → tabela do módulo.
 type ModuleCache = std::cell::RefCell<HashMap<(PathBuf, String), Option<Rc<ModuleInfo>>>>;
 
+/// Disk content already read: per SET of allowed roots, then per path.
+type FsCache = std::cell::RefCell<HashMap<Vec<PathBuf>, HashMap<PathBuf, Option<String>>>>;
+
 /// On-demand module resolver: project → sibling → venv, overlay first, (path, sha) cached.
 pub struct Resolver<'a> {
     root: &'a Path,
     overlays: &'a HashMap<String, String>,
     cache: ModuleCache,
-    fs_cache: std::cell::RefCell<HashMap<PathBuf, Option<String>>>,
+    /// Disk content already read, per SET of allowed roots: the answer depends on the roots, so
+    /// what was read under a wide set is never served to a narrow one.
+    fs_cache: FsCache,
+    /// `<root>/.venv/lib/python*/site-packages`, listed once (the venv does not change mid-check).
+    site_packages_cache: std::cell::OnceCell<Vec<PathBuf>>,
 }
 
 impl<'a> Resolver<'a> {
@@ -222,6 +230,7 @@ impl<'a> Resolver<'a> {
             overlays,
             cache: ModuleCache::new(HashMap::new()),
             fs_cache: std::cell::RefCell::new(HashMap::new()),
+            site_packages_cache: std::cell::OnceCell::new(),
         }
     }
 
@@ -247,17 +256,12 @@ impl<'a> Resolver<'a> {
         candidates.extend(self.venv_candidates(&rel));
         // V-4 (31/10/2026): a candidate outside the allowed roots is not a file of
         // the project — and it is not reported as missing either (the class
-        // abstains: the refusal names the reason, never the path).
+        // abstains: the refusal names the reason, never the path). The read itself
+        // is contained ([`caminho::ler_contido`]): there is no check to forget here.
         let raizes = self.raizes_permitidas(importer);
-        for cand in candidates {
-            if !crate::vgp::lang::caminho::dentro_das_raizes(&raizes, &cand) {
-                continue;
-            }
-            if let Some(info) = self.module_at(&cand) {
-                return Some(info);
-            }
-        }
-        None
+        candidates
+            .iter()
+            .find_map(|cand| self.module_at(cand, &raizes))
     }
 
     /// Does `dotted` resolve as a module at all (without loading it)? Used for submodule checks.
@@ -266,10 +270,10 @@ impl<'a> Resolver<'a> {
         self.resolve_module(dotted, importer).is_some()
     }
 
-    /// The module bound to `path` if it is a file (overlay first, then disk).
-    /// The module bound to `path` if it is a file (overlay first, then disk).
-    pub fn module_at(&self, path: &Path) -> Option<Rc<ModuleInfo>> {
-        let content = self.content_of(path)?;
+    /// The module bound to `path` if it is a file (overlay first, then disk — and the disk only
+    /// inside `raizes`).
+    pub fn module_at(&self, path: &Path, raizes: &[PathBuf]) -> Option<Rc<ModuleInfo>> {
+        let content = self.content_of(path, raizes)?;
         let sha = sha256(&content);
         let key = (path.to_path_buf(), sha);
         if let Some(hit) = self.cache.borrow().get(&key) {
@@ -286,24 +290,24 @@ impl<'a> Resolver<'a> {
         info.map(Rc::new)
     }
 
-    /// Overlay first; then the filesystem (empty dir is not a file).
-    fn content_of(&self, path: &Path) -> Option<String> {
+    /// Overlay first; then the filesystem (a directory is not a file).
+    fn content_of(&self, path: &Path, raizes: &[PathBuf]) -> Option<String> {
         let key = path.to_string_lossy().to_string();
         if let Some(c) = self.overlays.get(&key) {
             return Some(c.clone());
         }
-        if let Some(hit) = self.fs_cache.borrow().get(path) {
+        if let Some(hit) = self.fs_cache.borrow().get(raizes).and_then(|m| m.get(path)) {
             return hit.clone();
         }
         // V-4 (31/10/2026): only what is inside the allowed roots is read — the
         // project root AND the `site-packages` the resolver itself declares (the venv
         // it resolved through `pyvenv.cfg`). A path that only the CONTENT names is
         // not a root.
-        let c = std::fs::read_to_string(path)
-            .ok()
-            .filter(|s| !s.is_empty() || path.exists());
+        let c = caminho::ler_contido(raizes, path).ok();
         self.fs_cache
             .borrow_mut()
+            .entry(raizes.to_vec())
+            .or_default()
             .insert(path.to_path_buf(), c.clone());
         c
     }
@@ -314,7 +318,7 @@ impl<'a> Resolver<'a> {
     /// to itself).
     fn raizes_permitidas(&self, importer: &str) -> Vec<PathBuf> {
         let mut raizes = vec![self.root.to_path_buf()];
-        raizes.extend(self.site_packages());
+        raizes.extend(self.site_packages().iter().cloned());
         if !crate::vgp::is_inline(importer)
             && let Some(dir) = Path::new(importer).parent()
         {
@@ -324,20 +328,18 @@ impl<'a> Resolver<'a> {
     }
 
     /// `<root>/.venv/lib/python*/site-packages` directories (the installed env).
-    fn site_packages(&self) -> Vec<PathBuf> {
-        let mut out = Vec::new();
-        if let Ok(rd) = std::fs::read_dir(self.root.join(".venv/lib")) {
-            for e in rd.flatten() {
-                let p = e.path();
-                if p.file_name()
-                    .map(|n| n.to_string_lossy().starts_with("python"))
-                    .unwrap_or(false)
-                {
-                    out.push(p.join("site-packages"));
-                }
-            }
-        }
-        out
+    fn site_packages(&self) -> &[PathBuf] {
+        self.site_packages_cache.get_or_init(|| {
+            let Ok(entradas) = caminho::listar_contido(&[self.root], &self.root.join(".venv/lib"))
+            else {
+                return Vec::new();
+            };
+            entradas
+                .into_iter()
+                .filter(|e| e.nome.to_string_lossy().starts_with("python"))
+                .map(|e| e.caminho.join("site-packages"))
+                .collect()
+        })
     }
 
     fn venv_candidates(&self, rel: &str) -> Vec<PathBuf> {
@@ -356,26 +358,21 @@ impl<'a> Resolver<'a> {
     pub fn extension_exists(&self, dotted: &str, importer: &str) -> bool {
         let rel = dotted.replace('.', "/");
         let (parent, last) = rel.rsplit_once('/').unwrap_or(("", rel.as_str()));
-        let mut bases = vec![self.root.to_path_buf()];
-        if !crate::vgp::is_inline(importer)
-            && let Some(dir) = Path::new(importer).parent()
-        {
-            bases.push(dir.to_path_buf());
-        }
-        bases.extend(self.site_packages());
-        bases
+        // the places [`Self::resolve_module`] looks, and the roots a listing may come from
+        let raizes = self.raizes_permitidas(importer);
+        raizes
             .iter()
-            .any(|b| dir_has_extension(&b.join(parent), last))
+            .any(|b| dir_has_extension(&raizes, &b.join(parent), last))
     }
 }
 
 /// A file `<last>.<tag>.so` / `<last>.so` / `<last>.pyd` in `dir`. The dot after the name is
 /// required: `etree_extra.so` is not `etree`.
-fn dir_has_extension(dir: &Path, last: &str) -> bool {
-    std::fs::read_dir(dir).is_ok_and(|rd| {
-        rd.flatten().any(|e| {
-            let nome = e.file_name();
-            nome.to_string_lossy()
+fn dir_has_extension(raizes: &[PathBuf], dir: &Path, last: &str) -> bool {
+    caminho::listar_contido(raizes, dir).is_ok_and(|entradas| {
+        entradas.iter().any(|e| {
+            e.nome
+                .to_string_lossy()
                 .strip_prefix(last)
                 .is_some_and(|rest| {
                     rest.starts_with('.') && (rest.ends_with(".so") || rest.ends_with(".pyd"))

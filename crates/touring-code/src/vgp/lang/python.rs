@@ -29,7 +29,7 @@ use self::scope::ScopeTree;
 use self::stdlib_model::{
     builtin_type_members, call_result_type, stdlib_module_members, tipo_fechado,
 };
-use super::{Adaptador, Verificacao};
+use super::{Adaptador, Verificacao, distancia};
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding};
 
@@ -1049,27 +1049,10 @@ fn out_find_de_builtin(out: &mut Vec<Finding>, tipo: &str, nome: &str, linha: us
 fn sugestao_proxima(nome: &str, reais: &[String]) -> Option<String> {
     reais
         .iter()
-        .map(|r| (levenshtein(nome, r), r))
+        .map(|r| (distancia::levenshtein(nome, r), r))
         .filter(|(d, _)| *d > 0 && *d <= 2)
         .min_by(|(da, ra), (db, rb)| da.cmp(db).then_with(|| ra.cmp(rb)))
         .map(|(_, r)| r.clone())
-}
-
-fn levenshtein(a: &str, b: &str) -> usize {
-    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
-    let mut prev: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.iter().enumerate() {
-        let mut cur = vec![i + 1];
-        for (j, cb) in b.iter().enumerate() {
-            cur.push(
-                (prev[j] + usize::from(ca != cb))
-                    .min(cur[j] + 1)
-                    .min(prev[j + 1] + 1),
-            );
-        }
-        prev = cur;
-    }
-    prev[b.len()]
 }
 
 fn text<'a>(source: &'a str, node: Node) -> &'a str {

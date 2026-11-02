@@ -937,18 +937,29 @@ fn linguagem_fora_do_alcance_nao_mede_nada() {
 
 // ------------------------------------------------------------------ peças puras
 
+/// The `Leitor` is a second layer under the resolver's own filtering: it refuses, by itself, what is
+/// outside the roots it is given — and the refusal names the reason, never the path.
 #[test]
-fn distancia_de_edicao_e_a_de_levenshtein() {
-    for (a, b, d) in [
-        ("", "", 0),
-        ("meta", "metaq", 1),
-        ("kitten", "sitting", 3),
-        ("abc", "", 3),
-        ("flaw", "lawn", 2),
-        ("áé", "ae", 2),
-    ] {
-        assert_eq!(distancia(a, b), d, "{a} {b}");
-    }
+fn o_leitor_recusa_por_conta_propria_o_que_esta_fora_das_raizes() {
+    let dir = tempfile::tempdir().unwrap();
+    let raiz = dir.path().join("proj");
+    let fora = dir.path().join("fora.css");
+    std::fs::create_dir_all(&raiz).unwrap();
+    std::fs::write(&fora, ".so-fora { }").unwrap();
+    std::fs::write(raiz.join("a.css"), ".a { }").unwrap();
+    let overlays = HashMap::new();
+    let leitor = Leitor::novo(&overlays);
+    let raizes = [raiz.as_path()];
+    let erro = leitor.ler(&fora, &raizes).unwrap_err();
+    assert!(erro.contains("fora das raízes"), "{erro}");
+    assert!(
+        !erro.contains("fora.css"),
+        "the refusal must not echo the path: {erro}"
+    );
+    assert!(!leitor.existe(&fora, &raizes));
+    // the control: the same call inside the roots reads
+    assert_eq!(leitor.ler(&raiz.join("a.css"), &raizes).unwrap(), ".a { }");
+    assert!(leitor.existe(&raiz.join("a.css"), &raizes));
 }
 
 #[test]

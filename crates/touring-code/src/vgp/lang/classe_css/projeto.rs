@@ -2,6 +2,7 @@
 //! CSS-in-JS library is in play (then the classes are not all written in sheets: "unmeasured",
 //! never a guess), which stylesheets the project owns, and what its entry `index.html` loads.
 
+use crate::vgp::lang::caminho;
 use std::path::{Path, PathBuf};
 
 /// Config files whose presence means a utility-class generator builds the classes.
@@ -103,9 +104,9 @@ fn gerador_do_package_json(texto: &str) -> Option<String> {
 
 /// A generator marker in the directory `dir`: a config file, or a dependency of its
 /// `package.json`. The second element says whether `dir` is a package root.
-fn gerador_na_pasta(dir: &Path) -> (Option<String>, bool) {
+fn gerador_na_pasta(raizes: &[&Path], dir: &Path) -> (Option<String>, bool) {
     for (arquivo, nome) in CONFIGS_DE_GERADOR {
-        if dir.join(arquivo).is_file() {
+        if caminho::e_arquivo(raizes, &dir.join(arquivo)) {
             return (
                 Some(format!("{nome} ({})", dir.join(arquivo).display())),
                 true,
@@ -113,7 +114,7 @@ fn gerador_na_pasta(dir: &Path) -> (Option<String>, bool) {
         }
     }
     let manifesto = dir.join("package.json");
-    let Ok(texto) = std::fs::read_to_string(&manifesto) else {
+    let Ok(texto) = caminho::ler_contido(raizes, &manifesto) else {
         return (None, false);
     };
     let achado =
@@ -127,9 +128,10 @@ fn gerador_na_pasta(dir: &Path) -> (Option<String>, bool) {
 /// `frontend/package.json`.
 pub(super) fn gerador_do_pacote(dir: &Path, raiz: &Path) -> Option<String> {
     let dentro = dir.starts_with(raiz);
+    let raizes = [raiz, dir];
     let mut atual = dir.to_path_buf();
     for _ in 0..MAX_NIVEIS_ACIMA {
-        let (achado, e_pacote) = gerador_na_pasta(&atual);
+        let (achado, e_pacote) = gerador_na_pasta(&raizes, &atual);
         if achado.is_some() || e_pacote || !dentro || atual == raiz {
             return achado;
         }
@@ -148,10 +150,10 @@ pub(super) fn folhas_do_projeto(raiz: &Path, limites: Limites) -> Result<Vec<Pat
     let mut pilha = vec![raiz.to_path_buf()];
     let mut visitadas = 0usize;
     while let Some(dir) = pilha.pop() {
-        let Ok(entradas) = std::fs::read_dir(&dir) else {
+        let Ok(entradas) = caminho::listar_contido(&[raiz], &dir) else {
             continue;
         };
-        for entrada in entradas.filter_map(Result::ok) {
+        for entrada in entradas {
             visitadas += 1;
             if visitadas > limites.entradas {
                 return Err(format!(
@@ -159,17 +161,17 @@ pub(super) fn folhas_do_projeto(raiz: &Path, limites: Limites) -> Result<Vec<Pat
                     limites.entradas
                 ));
             }
-            let nome = entrada.file_name().to_string_lossy().into_owned();
-            let caminho = entrada.path();
-            let Ok(tipo) = entrada.file_type() else {
+            let nome = entrada.nome.to_string_lossy().into_owned();
+            let arquivo = entrada.caminho;
+            let Some(tipo) = entrada.tipo else {
                 continue;
             };
             if tipo.is_dir() {
                 if !nome.starts_with('.') && !DIRETORIOS_IGNORADOS.contains(&nome.as_str()) {
-                    pilha.push(caminho);
+                    pilha.push(arquivo);
                 }
             } else if tipo.is_file() && nome.ends_with(".css") && !nome.ends_with(".module.css") {
-                folhas.push(caminho);
+                folhas.push(arquivo);
                 if folhas.len() > limites.folhas {
                     return Err(format!(
                         "projeto com folhas demais para ler (mais de {})",
@@ -188,7 +190,7 @@ pub(super) fn html_de_entrada(raiz: &Path) -> Vec<PathBuf> {
     ["index.html", "public/index.html", "src/index.html"]
         .iter()
         .map(|rel| raiz.join(rel))
-        .filter(|p| p.is_file())
+        .filter(|p| caminho::e_arquivo(&[raiz], p))
         .collect()
 }
 
@@ -197,20 +199,18 @@ pub(super) fn html_de_entrada(raiz: &Path) -> Vec<PathBuf> {
 /// conventional `src/` (then the root).
 pub(super) fn resolver_pacote(alvo: &str, dir: &Path, raiz: &Path) -> Option<PathBuf> {
     if let Some(resto) = alvo.strip_prefix("@/") {
+        // V-4 (31/10/2026): the alias is CONTENT — a `..` that leaves the project root is
+        // not a file of the project ([`caminho::e_arquivo`] only answers for what is inside).
         return [raiz.join("src").join(resto), raiz.join(resto)]
             .into_iter()
-            // V-4 (31/10/2026): the alias is CONTENT — a `..` that leaves the
-            // project root is not a file of the project.
-            .filter(|c| crate::vgp::lang::caminho::dentro_das_raizes(&[raiz], c))
-            .find(|c| c.is_file());
+            .find(|c| caminho::e_arquivo(&[raiz], c));
     }
     let sem_til = alvo.strip_prefix('~').unwrap_or(alvo);
     let mut atual = dir.to_path_buf();
     for _ in 0..MAX_NIVEIS_ACIMA {
         let candidato = atual.join("node_modules").join(sem_til);
         // V-4 (31/10/2026): the package name is CONTENT — it may not leave the roots.
-        if crate::vgp::lang::caminho::dentro_das_raizes(&[raiz], &candidato) && candidato.is_file()
-        {
+        if caminho::e_arquivo(&[raiz], &candidato) {
             return Some(candidato);
         }
         if atual == raiz || !atual.pop() {
@@ -218,8 +218,7 @@ pub(super) fn resolver_pacote(alvo: &str, dir: &Path, raiz: &Path) -> Option<Pat
         }
     }
     let da_raiz = raiz.join("node_modules").join(sem_til);
-    (crate::vgp::lang::caminho::dentro_das_raizes(&[raiz], &da_raiz) && da_raiz.is_file())
-        .then_some(da_raiz)
+    caminho::e_arquivo(&[raiz], &da_raiz).then_some(da_raiz)
 }
 
 #[cfg(test)]

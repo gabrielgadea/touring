@@ -3,6 +3,8 @@
 
 use std::borrow::Cow;
 
+use crate::vgp::lang::distancia::levenshtein;
+
 /// Markers of server-side or client-side templating: a value carrying one is not a literal
 /// reference, so the adapter cannot say whether it resolves (`unknown`, never a finding).
 const MARCADORES_DE_TEMPLATE: &[&str] = &[
@@ -166,24 +168,6 @@ fn fim_do_valor_sem_aspas(b: &[u8], de: usize) -> usize {
         .map_or(b.len(), |p| de + p)
 }
 
-/// Edit distance over characters (insert, delete, substitute).
-pub(super) fn distancia(a: &str, b: &str) -> usize {
-    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
-    let mut prev: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.iter().enumerate() {
-        let mut cur = vec![i + 1];
-        for (j, cb) in b.iter().enumerate() {
-            cur.push(
-                (prev[j] + usize::from(ca != cb))
-                    .min(cur[j] + 1)
-                    .min(prev[j + 1] + 1),
-            );
-        }
-        prev = cur;
-    }
-    prev[b.len()]
-}
-
 /// How many distances "você quis dizer" computes at most (a document with a hundred thousand ids
 /// must not turn a typo into a quadratic scan).
 const TETO_DE_CANDIDATOS: usize = 2000;
@@ -205,7 +189,7 @@ pub(super) fn mais_proximos<'a>(
             if c.eq_ignore_ascii_case(alvo) {
                 return Some((0, c));
             }
-            let d = distancia(alvo, c);
+            let d = levenshtein(alvo, c);
             (d <= limite).then_some((d, c))
         })
         .collect();
@@ -272,9 +256,9 @@ mod unit {
 
     #[test]
     fn distancia_e_proximos() {
-        assert_eq!(distancia("kitten", "sitting"), 3);
-        assert_eq!(distancia("", "abc"), 3);
-        assert_eq!(distancia("abc", "abc"), 0);
+        assert_eq!(levenshtein("kitten", "sitting"), 3);
+        assert_eq!(levenshtein("", "abc"), 3);
+        assert_eq!(levenshtein("abc", "abc"), 0);
         let c = ["introducao", "conclusao", "Conclusao", "x"];
         assert_eq!(
             mais_proximos("conclusoa", c.iter().copied(), 5),

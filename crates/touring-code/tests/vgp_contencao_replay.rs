@@ -33,8 +33,62 @@ use touring_code::vgp::{CheckInput, Contexto, check_em};
 
 const GRAVADO: &str = include_str!("fixtures/vgp_contencao_replay.json");
 
-/// Cases whose answer may differ from the recording, each with WHY. Empty = byte for byte.
-const JUSTIFIED_DIFFERENCES: &[(&str, &str)] = &[];
+/// Cases whose answer may differ from the recording: (id, WHY, the NEW answer, reviewed and pinned).
+/// Pinned, not just "differs": a difference that is allowed but not exact would hide a regression
+/// that still happens to differ. Empty = byte for byte.
+const JUSTIFIED_DIFFERENCES: &[(&str, &str, &str)] = &[
+    (
+        "html_raiz_relativa_com_dotdot",
+        "Closes the existence oracle: a root-relative `/..` climbed out of the project and `Path::exists` \
+         answered for a file OUTSIDE the roots (the recording is `allow`: the file is there). The probe is \
+         contained now; the reference reads as unresolved (`Alvo::Incerto`, a warning, never a deny).",
+        r##"{"findings":[{"classe":"recurso","linha":7,"nome":"/../../../fora/segredo.png","reais":[],"severidade":"warn","sugestao":"recurso local inexistente: `/../../../fora/segredo.png` (img src) — resolvido como `<TMP>/proj/../../../fora/segredo.png`"}],"lang":"html","layer":1,"verdict":"warn"}"##,
+    ),
+    (
+        "rust_lib_path_fora",
+        "A manifest `[lib] path` that points outside the project is no longer probed with `is_file` (an \
+         existence probe outside the roots, closed): it counts as an absent path, so the crate root falls \
+         back to `src/lib.rs` and `crate::…` is measured instead of left unresolved. No file outside the \
+         roots is read in either version.",
+        r##"{"findings":[{"classe":"import","linha":1,"nome":"nada","reais":[],"severidade":"warn","sugestao":"módulo `nada` declarado sem arquivo (`nada.rs` | `nada/mod.rs`)"},{"classe":"import","linha":2,"nome":"fantasma_lp","reais":[],"severidade":"warn","sugestao":"`fantasma_lp` não encontrado ao resolver `crate::fantasma_lp`"}],"lang":"rust","layer":1,"verdict":"warn"}"##,
+    ),
+    (
+        "ts_base_url_aponta_para_fora",
+        "Closes an escape: a tsconfig `baseUrl` outside the project made the import resolve to a file \
+         OUTSIDE the roots, which was read (its export names were printed in `reais`). Now the import is \
+         not measured, with the reason and without the path.",
+        r##"{"findings":[],"lang":"typescript","layer":1,"motivo":"`externo`: caminho fora das raízes permitidas","verdict":"unknown"}"##,
+    ),
+    (
+        "ts_extends_aponta_para_fora",
+        "Closes an escape: a tsconfig `extends` outside the project was read as JSON and its `paths` \
+         were followed to a file outside the roots. The `extends` is refused, the alias is unknown, and \
+         the import is not measured.",
+        r##"{"findings":[],"lang":"typescript","layer":1,"motivo":"1 pacote(s) externo(s) importado(s), não verificados na camada 1: @b/externo (a camada 2 do projeto verifica)","verdict":"unknown"}"##,
+    ),
+    (
+        "ts_package_json_main_aponta_para_fora",
+        "Closes an escape: a package.json `main` pointing out of the project resolved the import to a \
+         file OUTSIDE the roots, which was read. Now the import is not measured, with the reason and \
+         without the path.",
+        r##"{"findings":[],"lang":"typescript","layer":1,"motivo":"`./pkgesc`: caminho fora das raízes permitidas","verdict":"unknown"}"##,
+    ),
+    (
+        "ts_paths_apontam_para_fora",
+        "Closes an escape: a tsconfig `paths` target outside the project resolved the import to a file \
+         OUTSIDE the roots, which was read (its export names were printed in `reais`). Now the import is \
+         not measured, with the reason and without the path.",
+        r##"{"findings":[],"lang":"typescript","layer":1,"motivo":"`@o/externo`: caminho fora das raízes permitidas","verdict":"unknown"}"##,
+    ),
+    (
+        "ts_symlink_fora",
+        "Closes an escape: an import that resolved to a symlink leaving the project read the file it \
+         points to (its export names were printed in `reais`). The relative-specifier check only judged \
+         the extension-less base; the probe and the read are contained now, and the import is not \
+         measured.",
+        r##"{"findings":[],"lang":"typescript","layer":1,"motivo":"`./link_fora`: caminho fora das raízes permitidas","verdict":"unknown"}"##,
+    ),
+];
 
 /// A path that climbs `n` levels, built by component (the literal traversal in a source file is
 /// what the F2.1/CWE-22 rule flags — and the corpus needs exactly the dangerous path).
@@ -181,7 +235,7 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &ws,
         "Cargo.toml",
-        &format!(
+        format!(
             "[workspace]\nmembers = ['{}/fora_ws/*', 'member']\n",
             sobe(1)
         ),
@@ -196,7 +250,7 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &lp,
         "Cargo.toml",
-        &format!(
+        format!(
             "[package]\nname = 'lp'\nversion = '0.1.0'\n[lib]\npath = '{}/fora/externo.rs'\n",
             sobe(1)
         ),
@@ -237,7 +291,7 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &proj,
         "web/tsconfig.json",
-        &format!(
+        format!(
             r#"{{"compilerOptions":{{"baseUrl":".","paths":{{"@app/*":["src/*"],"@o/*":["{up}/fora/ts/*"],"alto/*":["nada/*"],"hoist/*":["nada/*"]}}}}}}"#,
             up = sobe(2)
         ),
@@ -265,14 +319,14 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &proj,
         "web2/tsconfig.json",
-        &format!(r#"{{"extends":"{}/fora/base.json"}}"#, sobe(2)),
+        format!(r#"{{"extends":"{}/fora/base.json"}}"#, sobe(2)),
     );
     escreve(&proj, "web2/src/util.ts", "export function realFn2() {}\n");
     // a package.json whose `main` points out of the project
     escreve(
         &proj,
         "web/src/pkgesc/package.json",
-        &format!(r#"{{"main":"{}/fora/ts/externo.ts"}}"#, sobe(4)),
+        format!(r#"{{"main":"{}/fora/ts/externo.ts"}}"#, sobe(4)),
     );
     escreve(
         &proj,
@@ -288,7 +342,7 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &proj,
         "web3/tsconfig.json",
-        &format!(
+        format!(
             r#"{{"compilerOptions":{{"baseUrl":"{}/fora/ts"}}}}"#,
             sobe(2)
         ),
@@ -309,7 +363,7 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &proj,
         "site/css/imp_fora.css",
-        &format!("@import \"{}/fora/estilo.css\";\n.in-impf {{ }}\n", sobe(3)),
+        format!("@import \"{}/fora/estilo.css\";\n.in-impf {{ }}\n", sobe(3)),
     );
     escreve(&proj, "site/css/ruim.css", nao_utf8);
     elo(&fora.join("estilo.css"), &proj, "site/css/link_fora.css");
@@ -351,12 +405,12 @@ fn monta(tmp: &Path) -> Mundo {
     escreve(
         &jx.import_fora,
         "src/ui.css",
-        &format!("@import \"{}/fora/estilo.css\";\n.ui-a {{ }}\n", sobe(3)),
+        format!("@import \"{}/fora/estilo.css\";\n.ui-a {{ }}\n", sobe(3)),
     );
     escreve(
         &jx.entrada_html,
         "index.html",
-        &pagina("<link rel=\"stylesheet\" href=\"css/b.css\">", "<p>x</p>"),
+        pagina("<link rel=\"stylesheet\" href=\"css/b.css\">", "<p>x</p>"),
     );
     escreve(
         &jx.entrada_html,
@@ -989,7 +1043,15 @@ fn o_replay_reproduz_a_gravacao_byte_a_byte() {
         if antes == depois {
             continue;
         }
-        if JUSTIFIED_DIFFERENCES.iter().any(|(j, _)| j == id) {
+        if let Some((_, _, fixada)) = JUSTIFIED_DIFFERENCES.iter().find(|(j, _, _)| j == id) {
+            let esperada: Value = serde_json::from_str(fixada).expect("pinned answer is JSON");
+            if *depois == esperada {
+                continue;
+            }
+            diferentes.push(format!(
+                "{id} (justified, but not the pinned answer)\n  pinned:   {fixada}\n  replayed: {}",
+                serde_json::to_string(depois).expect("json")
+            ));
             continue;
         }
         diferentes.push(format!(
@@ -1012,7 +1074,8 @@ fn o_replay_reproduz_a_gravacao_byte_a_byte() {
 fn toda_diferenca_justificada_tem_razao_e_ainda_difere() {
     let atual = resposta_de_todos();
     let gravado: BTreeMap<String, Value> = serde_json::from_str(GRAVADO).expect("recording");
-    for (id, razao) in JUSTIFIED_DIFFERENCES {
+    for (id, razao, fixada) in JUSTIFIED_DIFFERENCES {
+        serde_json::from_str::<Value>(fixada).expect("pinned answer is JSON");
         assert!(
             razao.trim().len() >= 20,
             "{id}: a justified difference needs a reason"

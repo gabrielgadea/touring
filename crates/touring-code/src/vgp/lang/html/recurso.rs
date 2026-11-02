@@ -15,11 +15,12 @@
 //! URL is `cdn`'s, not this class's — and templated values, which are counted as not measured.
 
 use std::collections::HashMap;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use super::Saida;
 use super::documento::{Documento, Elemento};
 use super::texto::{decodificar_percentual, mais_proximos, tem_template};
+use crate::vgp::lang::caminho;
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding, is_inline};
 
@@ -316,11 +317,12 @@ impl<'a> Disco<'a> {
     }
 
     fn existe(&mut self, p: &Path) -> bool {
-        let p = normalizar(p);
+        let p = caminho::normaliza(p);
         if let Some(&b) = self.cache.get(&p) {
             return b;
         }
-        let b = p.exists() || self.overlays.contains_key(p.to_string_lossy().as_ref());
+        let b = caminho::existe(&self.raizes(), &p)
+            || self.overlays.contains_key(p.to_string_lossy().as_ref());
         self.cache.insert(p, b);
         b
     }
@@ -336,14 +338,13 @@ impl<'a> Disco<'a> {
         }
         let mut fora = false;
         for v in &variantes {
-            let alvo = self.base.join(v);
             // V-4 (31/10/2026): the `href`/`src` of the CONTENT does not choose the
             // file that is read — a target outside the allowed roots is refused (it
             // is not a missing file either).
-            if !self.permitido(&alvo) {
+            let Some(alvo) = caminho::derivar(&self.raizes(), &self.base, v) else {
                 fora = true;
                 continue;
-            }
+            };
             if self.existe(&alvo) {
                 return Resolucao::Existe;
             }
@@ -367,20 +368,30 @@ impl<'a> Disco<'a> {
             return Vizinhos::default();
         };
         // V-4 (31/10/2026): listing a directory is a READ of the filesystem — only a
-        // directory inside the allowed roots is listed.
-        if !self.permitido(dir) {
-            return Vizinhos::default();
+        // directory inside the allowed roots is listed ([`caminho::listar_contido`] refuses
+        // the rest, and a refusal is not a missing directory).
+        if !self.listagens.contains_key(dir) {
+            match caminho::listar_contido(&self.raizes(), dir) {
+                Err(recusa) if recusa.fora_das_raizes() => return Vizinhos::default(),
+                Err(_) => {
+                    self.listagens.insert(dir.to_path_buf(), None);
+                }
+                Ok(entradas) => {
+                    let mut nomes: Vec<String> = entradas
+                        .into_iter()
+                        .filter_map(|e| e.nome.into_string().ok())
+                        .collect();
+                    nomes.sort_unstable();
+                    self.listagens.insert(dir.to_path_buf(), Some(nomes));
+                }
+            }
         }
-        let lista = self
-            .listagens
-            .entry(dir.to_path_buf())
-            .or_insert_with(|| listar(dir));
-        match lista {
-            Some(nomes) => Vizinhos {
+        match self.listagens.get(dir) {
+            Some(Some(nomes)) => Vizinhos {
                 parecidos: mais_proximos(nome, nomes.iter().map(String::as_str), 5),
                 dir_inexistente: None,
             },
-            None => Vizinhos {
+            _ => Vizinhos {
                 parecidos: Vec::new(),
                 dir_inexistente: Some(dir.to_path_buf()),
             },
@@ -408,7 +419,7 @@ impl<'a> Disco<'a> {
             // It is tried ONLY when it is inside the allowed roots — the search
             // never goes above the project root (V-4, 31/10/2026).
             let absoluto = Path::new("/").join(v);
-            if self.permitido(&absoluto) && self.existe(&absoluto) {
+            if self.existe(&absoluto) {
                 return Resolucao::Existe;
             }
         }
@@ -426,8 +437,8 @@ impl<'a> Disco<'a> {
     /// The roots a reference may resolve inside: the project root and the document's
     /// own directory (the document is the subject of the check). A target outside
     /// them is refused — the CONTENT does not choose what the analyzer reads.
-    fn permitido(&self, p: &Path) -> bool {
-        crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz, self.dir_doc.as_path()], p)
+    fn raizes(&self) -> [&Path; 2] {
+        [self.raiz, self.dir_doc.as_path()]
     }
 
     /// Every directory a root-relative URL may be served from.
@@ -490,23 +501,6 @@ fn base_do_documento(doc: &Documento, dir_doc: &Path) -> (PathBuf, Option<String
     (dir_doc.join(diretorio), None)
 }
 
-/// Lexical normalization (`a/../b` → `b`), so overlay keys compare as written by the hook.
-fn normalizar(p: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for c in p.components() {
-        match c {
-            Component::ParentDir => {
-                if !out.pop() {
-                    out.push("..");
-                }
-            }
-            Component::CurDir => {}
-            outro => out.push(outro.as_os_str()),
-        }
-    }
-    out
-}
-
 fn achado(
     escrito: &str,
     grupo: &[&Referencia],
@@ -554,17 +548,6 @@ struct Vizinhos {
     dir_inexistente: Option<PathBuf>,
 }
 
-/// The sorted names inside `dir`, or `None` when it cannot be listed.
-fn listar(dir: &Path) -> Option<Vec<String>> {
-    let mut nomes: Vec<String> = std::fs::read_dir(dir)
-        .ok()?
-        .flatten()
-        .filter_map(|e| e.file_name().into_string().ok())
-        .collect();
-    nomes.sort_unstable();
-    Some(nomes)
-}
-
 #[cfg(test)]
 mod unit {
     use super::*;
@@ -585,15 +568,6 @@ mod unit {
         assert_eq!(candidatos_de_srcset("a.png, b.png"), vec!["a.png", "b.png"]);
         assert_eq!(candidatos_de_srcset("a.png,"), vec!["a.png"]);
         assert!(candidatos_de_srcset("  ").is_empty());
-    }
-
-    #[test]
-    fn normalizar_resolve_pontos_lexicamente() {
-        assert_eq!(
-            normalizar(Path::new("/p/site/pages/../css/a.css")),
-            PathBuf::from("/p/site/css/a.css")
-        );
-        assert_eq!(normalizar(Path::new("/p/./a")), PathBuf::from("/p/a"));
     }
 
     #[test]

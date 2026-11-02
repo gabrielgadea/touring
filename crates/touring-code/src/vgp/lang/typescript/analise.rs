@@ -24,10 +24,10 @@ use super::globais::{Busca, Mundo, Requisito, eh_global_conhecido};
 use super::inferencia::Inferidor;
 use super::jsdoc;
 use super::modulos::{Carregador, Prova, resumir};
-use super::projeto::{Projeto, Resolvido, normalizar};
+use super::projeto::{Projeto, Resolvido};
 use super::tipos::{Contexto, Forma, Origem, Resolvedor, Resultado};
 use super::util::{conteudo_string, linha, mais_proximo, reais_de, texto, ultimo_segmento};
-use crate::vgp::lang::{Verificacao, parse};
+use crate::vgp::lang::{Verificacao, caminho, parse};
 use crate::vgp::politica::{Alvo, roda_agora};
 use crate::vgp::{CheckInput, Finding, is_inline};
 
@@ -188,7 +188,7 @@ fn verificar_arvore<'t>(
 ) -> Verificacao {
     let inline = is_inline(&input.path);
     let arquivo = caminho_efetivo(input, inline);
-    let projeto = Projeto::novo(&input.project_root, &input.overlays);
+    let projeto = Projeto::para_arquivo(&input.project_root, &input.overlays, &arquivo);
     let carregador = Carregador::novo(&projeto);
     let dts = input.path.ends_with(".d.ts");
     let info = Rc::new(resumir(src, raiz, dts, lang == "javascript"));
@@ -586,7 +586,7 @@ impl<'a, 't> Verificador<'a, 't> {
 
     fn modulo_inexistente(&mut self, spec: &str, linha: usize) {
         let dir = self.arquivo.parent().unwrap_or(Path::new("."));
-        let irmaos = irmaos_em_disco(&normalizar(&dir.join(spec)));
+        let irmaos = irmaos_em_disco(self.projeto, &caminho::normaliza(&dir.join(spec)));
         self.achar(Candidato::novo(
             "import",
             &ultimo_segmento(spec),
@@ -998,17 +998,17 @@ fn especificadores(pai: Node, tipo: &str, src: &str) -> Vec<Pedido> {
 }
 
 /// File stems next to the module that was not found — the real names a refusal can teach.
-fn irmaos_em_disco(procurado: &Path) -> Vec<String> {
+fn irmaos_em_disco(projeto: &Projeto, procurado: &Path) -> Vec<String> {
     let Some(pai) = procurado.parent() else {
         return Vec::new();
     };
-    let Ok(entradas) = std::fs::read_dir(pai) else {
+    let Ok(entradas) = caminho::listar_contido(projeto.raizes(), pai) else {
         return Vec::new();
     };
     let mut nomes: Vec<String> = entradas
-        .flatten()
+        .iter()
         .filter_map(|e| {
-            let n = e.file_name().to_string_lossy().to_string();
+            let n = e.nome.to_string_lossy().to_string();
             let tronco = n.split('.').next().unwrap_or("").to_string();
             (!tronco.is_empty() && !tronco.starts_with('_')).then_some(tronco)
         })
