@@ -838,3 +838,4 @@
 {"has": [], "id": "heat_hint_empty_on_single_pending_task", "lacks": ["[TOURING HEAT]"], "old": "heat_hint_empty_on_single_pending_task", "scenario": "saf534cf4e"}
 {"has": [], "id": "heat_hint_empty_on_no_pending_tasks", "lacks": ["[TOURING HEAT]"], "old": "heat_hint_empty_on_no_pending_tasks", "scenario": "sc3aef9dbd"}
 {"has": [], "id": "heat_hint_uniform_scores_suppressed", "lacks": ["[TOURING HEAT]"], "old": "heat_hint_uniform_scores_suppressed", "scenario": "s64ffa888f"}
+{"has": ["generator: run `touring generate render migration`"], "id": "cwd_changed_maps_a_migrations_dir_to_the_migration_kind", "lacks": [], "old": "added_after_refactor:no_old_test_pinned_the_migrations_mapping", "scenario": "se72959968"}
