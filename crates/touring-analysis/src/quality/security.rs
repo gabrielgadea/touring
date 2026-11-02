@@ -312,26 +312,48 @@ fn is_constant_module_specifier(source: &str, lang: &str, m: &VulnMatch) -> bool
     if m.pattern_name != "PathTraversal" || !matches!(lang, "javascript" | "typescript") {
         return false;
     }
-    let head = &source[..m.span.0];
-    let line_start = head.rfind('\n').map_or(0, |p| p + 1);
-    let Some(open) = head[line_start..]
-        .rfind(['"', '\''])
-        .map(|q| line_start + q)
-    else {
+    let Some((open, close, line_end)) = enclosing_constant_literal(source, m) else {
         return false;
     };
+    let before = source[..open].trim_end();
+    let after = source[close + 1..line_end].trim_start();
+    if before.ends_with('(') {
+        // `require("x")` / `import("x")`: the literal is the whole argument.
+        after.starts_with(')') && introduces_module_specifier(before)
+    } else {
+        // `from "x"` / `import "x"`: nothing but the statement's end may follow.
+        ends_statement(after) && introduces_module_specifier(before)
+    }
+}
+
+/// The `"…"` / `'…'` literal that encloses the match on its own line, as
+/// `(opening quote, closing quote, line end)` offsets — `None` when the match is
+/// not inside such a literal, or when the literal carries a `${` hole (a backtick
+/// template never qualifies: only `"` and `'` open one).
+fn enclosing_constant_literal(source: &str, m: &VulnMatch) -> Option<(usize, usize, usize)> {
+    let head = &source[..m.span.0];
+    let line_start = head.rfind('\n').map_or(0, |p| p + 1);
+    let open = line_start + head[line_start..].rfind(['"', '\''])?;
     let quote = source.as_bytes()[open] as char;
     let line_end = source[m.span.1..]
         .find('\n')
         .map_or(source.len(), |i| m.span.1 + i);
-    let Some(close) = source[m.span.1..line_end].find(quote).map(|i| m.span.1 + i) else {
-        return false;
-    };
+    let close = m.span.1 + source[m.span.1..line_end].find(quote)?;
     let literal = &source[open + 1..close];
-    if literal.contains("${") || literal.contains(['"', '\'']) {
-        return false;
-    }
-    introduces_module_specifier(source[..open].trim_end())
+    (!literal.contains("${") && !literal.contains(['"', '\''])).then_some((open, close, line_end))
+}
+
+/// True when `after` (the rest of the line after a specifier's closing quote)
+/// ends the import statement: empty, `;`, a comment, or an import attribute
+/// clause (`with { type: "json" }` / `assert { … }`). A `+` — a concatenation
+/// that builds the specifier from input — is not (security review of 0abafc64).
+fn ends_statement(after: &str) -> bool {
+    after.is_empty()
+        || after.starts_with(';')
+        || after.starts_with("//")
+        || after.starts_with("/*")
+        || after.starts_with("with ")
+        || after.starts_with("assert ")
 }
 
 /// True when `before` (the source up to a string literal's opening quote,

@@ -779,6 +779,12 @@ fn the_module_specifier_exemption_is_narrow_and_real_traversal_still_counts() {
         "const s = fs.readFileSync(`../../${p}`);\n",
         // a dynamic import whose specifier carries input
         "const m = await import(`../../plugins/${name}.js`);\n",
+        // a constant prefix CONCATENATED with input inside the call or after `from`
+        // (security review of 0abafc64: the literal must be the WHOLE specifier)
+        "const m = require(\"../../\" + userInput);\n",
+        "const m = await import(\"../../\" + name);\n",
+        "const m = require('../../' + userInput);\n",
+        "import x from \"../../\" + y;\n",
         // a string that merely CONTAINS the word `from`
         "const msg = \"copied from ../../etc/passwd\";\nfs.readFileSync(msg);\n",
         // an import line first, a real sink further down: the sink survives
