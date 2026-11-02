@@ -303,10 +303,10 @@ fn modularization_hook_runtime_accessible() {
 
 #[test]
 fn functionality_hook_registry_complete() {
-    use touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES;
+    use touring_hooks::hook_registry::{all_daemon_hook_names, is_daemon_hook};
 
     // Verify hook count matches expected (138 as of 2026-04-14)
-    let count = ALL_DAEMON_HOOK_NAMES.len();
+    let count = all_daemon_hook_names().len();
     assert!(
         count >= 130,
         "hook registry should have at least 130 hooks, got {}",
@@ -329,7 +329,7 @@ fn functionality_hook_registry_complete() {
 
     for hook in required_hooks {
         assert!(
-            ALL_DAEMON_HOOK_NAMES.contains(&hook),
+            is_daemon_hook(hook),
             "required hook '{}' should be in registry",
             hook
         );

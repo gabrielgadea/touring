@@ -70,7 +70,7 @@ rkyv-ipc = []
 # Wave 5 (2026-04-18) — side-by-side declarative hook registration.
 # When on, hooks can opt into `inventory::submit!(HookEntry { ... })`
 # at the call site and `collect_inventory_hooks()` returns everything
-# registered at link time. The manual `ALL_DAEMON_HOOK_NAMES` table
+# registered at link time. The manual `build_dispatch_table` declaration
 # remains the source of truth; inventory is additive for new hooks
 # that want plugin-style registration without touching the registry.
 inventory-registry = ["dep:inventory", "touring-hooks-core/inventory-registry"]

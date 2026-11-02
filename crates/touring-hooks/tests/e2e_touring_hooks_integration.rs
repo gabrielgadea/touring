@@ -10,7 +10,7 @@
 use touring_hooks::{
     aco_bridge::{HookOutcome, HookQualityAssessment, HookResultCache},
     errors::TouringError,
-    hook_registry::ALL_DAEMON_HOOK_NAMES,
+    hook_registry::{all_daemon_hook_names, is_daemon_hook},
     hook_response::HookResponse,
     knowledge::FileKnowledgeDB,
     metrics::RuntimeMetrics,
@@ -168,7 +168,7 @@ mod e2e_hook_registry {
     #[test]
     fn test_all_daemon_hooks_registered() {
         // Verify all hooks are properly registered
-        let hook_count = ALL_DAEMON_HOOK_NAMES.len();
+        let hook_count = all_daemon_hook_names().len();
         assert!(hook_count > 100, "Expected > 100 hooks, got {}", hook_count);
 
         // Verify key hooks exist
@@ -192,11 +192,7 @@ mod e2e_hook_registry {
         ];
 
         for hook in required_hooks {
-            assert!(
-                ALL_DAEMON_HOOK_NAMES.contains(&hook),
-                "Missing required hook: {}",
-                hook
-            );
+            assert!(is_daemon_hook(hook), "Missing required hook: {}", hook);
         }
     }
 }

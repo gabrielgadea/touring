@@ -152,9 +152,10 @@ fn main() {
     // first. If the daemon is unavailable (not started, crashed, timeout),
     // we fall through to the standalone path below — no blocking, always exit 0.
     //
-    // S10: Single source of truth — hook_registry::ALL_DAEMON_HOOK_NAMES.
+    // S10: Single source of truth — the dispatch table; membership is
+    // `hook_registry::is_daemon_hook` (no second hand-written name list to drift from it).
     // Stateless subcommands (prompt-enhance, qa-syntax, classify, …) always run standalone.
-    if touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES.contains(&subcommand)
+    if touring_hooks::hook_registry::is_daemon_hook(subcommand)
         && std::env::var("TOURING_NO_DAEMON").is_err()
     {
         // HOOKCWD (30.4.97): o `cwd` do payload é quem está perguntando — vem antes de uma env
@@ -957,7 +958,9 @@ fn run_task_completed_standalone(
     runtime: &mut HookRuntime,
     input: &serde_json::Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let table = touring_hooks::hook_registry::build_dispatch_table();
+    // The shared per-process table — the one `is_daemon_hook` already built for the fast-path
+    // check above — instead of building a second copy.
+    let table = touring_hooks::hook_registry::dispatch_table();
     if let Some(handler) = table.get("task-completed") {
         // O handler local não tem como «recusar» como o daemon: a saída é de sucesso.
         // S-4p (26/10/2026): a saída standalone passa pela MESMA dedupe de época

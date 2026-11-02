@@ -6,7 +6,8 @@
 //! perform rename refactoring via SourceChange.
 //!
 //! Wire: cli-resolve-def, cli-find-references, cli-rename (daemon dispatch)
-//! + all_daemon_hook_names() registration.
+//! + their `m.insert` entries in `hook_registry::build_dispatch_table` (the table
+//!   `all_daemon_hook_names()` and `is_daemon_hook()` derive from).
 
 use crate::runtime::HookRuntime;
 use serde::Serialize;

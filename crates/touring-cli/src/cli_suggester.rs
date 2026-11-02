@@ -6734,7 +6734,7 @@ fn record_emission(project_root: &Path, context_len: usize, session: String, is_
 }
 
 /// Hook entry point — invoked by `touring-hook cli-suggest` (registered in
-/// `hook_registry::ALL_DAEMON_HOOK_NAMES`).
+/// `hook_registry::build_dispatch_table`).
 ///
 /// Reads `tool_name` and `tool_input` from `payload`, evaluates suggestion-uptake
 /// for the prior suggestion (F2), classifies, enriches with live daemon state,

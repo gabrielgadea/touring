@@ -65,7 +65,7 @@ pub use touring_hooks_prediction::tfidf_retriever;
 pub use touring_hooks_shared::memory_finding; // Wave Q4: M-500..M-530 diagnostic codes for memory recall outcomes // Wave M1 reescopado: TF-IDF over touring memory + decompose corpus // Pln3-P3: uniform Suggester trait + storage helpers for suggesters
 
 // Wave 5 (2026-04-18) — link-time declarative hook registration (side-by-side
-// with the manual ALL_DAEMON_HOOK_NAMES table). See inventory_registry.rs.
+// with the manual `hook_registry::build_dispatch_table` declaration). See inventory_registry.rs.
 pub use touring_hooks_core::inventory_registry;
 
 // Wave 5 (2026-04-18) — public Rust workflow advisory helpers

@@ -28,7 +28,7 @@
 #![allow(clippy::unwrap_used)] // Tests may unwrap; production code in pre_grep does not.
 
 use std::sync::Mutex;
-use touring_hooks::hook_registry::{ALL_DAEMON_HOOK_NAMES, all_daemon_hook_names};
+use touring_hooks::hook_registry::{all_daemon_hook_names, is_daemon_hook};
 use touring_hooks::runtime::{HookResponse, HookRuntime};
 use touring_hooks::shared::gate_metrics::GateMetricsSnapshot;
 
@@ -275,12 +275,12 @@ fn hook_registry_exposes_pre_grep_and_pre_glob() {
         "all_daemon_hook_names must include pre-glob"
     );
     assert!(
-        ALL_DAEMON_HOOK_NAMES.contains(&"pre-grep"),
-        "ALL_DAEMON_HOOK_NAMES must include pre-grep"
+        is_daemon_hook("pre-grep"),
+        "is_daemon_hook must accept pre-grep"
     );
     assert!(
-        ALL_DAEMON_HOOK_NAMES.contains(&"pre-glob"),
-        "ALL_DAEMON_HOOK_NAMES must include pre-glob"
+        is_daemon_hook("pre-glob"),
+        "is_daemon_hook must accept pre-glob"
     );
 }
 

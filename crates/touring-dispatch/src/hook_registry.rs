@@ -1,708 +1,63 @@
 //! S10: Centralized hook registry — single source of truth.
 //!
-//! All hook names and their handlers are declared here. Both the thin client
-//! (`main.rs`) and the daemon (`daemon.rs`) import from this module instead
-//! of maintaining separate lists that can drift out of sync.
+//! A daemon hook is declared in exactly ONE place: its `m.insert("<name>", <handler>)` in
+//! [`build_dispatch_table`], carrying its own `#[cfg(feature)]` gate. Everything else that
+//! needs to know "which hooks does the daemon answer" is DERIVED from that table, never
+//! listed a second time: the daemon dispatches through it, and the thin client
+//! (`touring-hook`) asks it whether a subcommand is the daemon's.
+//!
+//! Until 01/11/2026 the thin client decided the daemon fast-path from a hand-written
+//! `ALL_DAEMON_HOOK_NAMES` constant while the daemon dispatched from the table. The two
+//! drifted: eight hooks the table served (`cli-acp-discover`, `cli-acp-message`,
+//! `cli-ast-callgraph`, `cli-decompose-archive`, `cli-decompose-reconcile-stages`,
+//! `cli-mcp-overhead`, `cli-ssr-apply`, `cli-ssr-status`) never took the fast-path, and the
+//! only test compared the cfg-aware name function with the table — never the constant the
+//! client used. A list that exists twice is a list that drifts; there is one now.
 //!
 //! ## Architecture
 //!
-//! - `ALL_DAEMON_HOOK_NAMES`: `&[&str]` used by the thin client to decide
-//!   which hooks should be forwarded to the daemon (vs. standalone execution).
-//! - `build_dispatch_table()`: returns a `HashMap<&'static str, HookHandler>`
-//!   used by the daemon to dispatch requests via O(1) lookup.
+//! - [`build_dispatch_table`]: the declaration — a `HashMap<&'static str, HookHandler>`.
+//! - [`dispatch_table`]: that table built once per process (`OnceLock`); the daemon actors
+//!   and the client's membership test read the same cell.
+//! - [`is_daemon_hook`]: membership — what the thin client asks before the daemon fast-path.
+//! - [`all_daemon_hook_names`]: the table's keys, sorted (introspection and tests).
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use touring_foundation::truncate_str;
 
 use crate::daemon::HookHandler;
 
-/// All hooks handled by the daemon (require warm HookRuntime).
+/// The process-wide dispatch table: [`build_dispatch_table`] run once, then shared.
 ///
-/// This is the **single source of truth** for daemon-routed hooks.
-/// The thin client in `main.rs` uses this to decide whether to attempt
-/// the daemon fast-path before falling back to standalone execution.
-///
-/// T3.10: Built dynamically to match `#[cfg(feature)]` gates in
-/// `build_dispatch_table()`. When a feature is disabled, both the
-/// dispatch entry AND the name list entry are omitted — preventing
-/// `registry_names_match_dispatch_table` from failing.
-///
-/// Categories:
-/// - Pre-hooks: inject context before tool execution
-/// - Post-hooks: capture outcomes after tool execution
-/// - Session: lifecycle management
-/// - Team (N1): Agent Teams <-> ACO gateway
-/// - Lifecycle (S4): intelligent event handlers
-pub fn all_daemon_hook_names() -> Vec<&'static str> {
-    let mut names = Vec::with_capacity(64);
-
-    // Pre-hooks (feature-gated)
-    #[cfg(feature = "pre-hooks")]
-    {
-        names.extend_from_slice(&[
-            "pre-read",
-            "pre-bash",
-            "pre-edit",
-            "pre-edit-prevention",
-            "pre-grep",
-            "pre-glob",
-            "pre-write",
-            "pre-tool-use",
-            "cli-suggest",
-            "ceg-observe",
-        ]);
-    }
-    // Post-hooks (feature-gated)
-    #[cfg(feature = "post-hooks")]
-    {
-        names.extend_from_slice(&[
-            "post-read",
-            "post-bash",
-            "post-edit",
-            "post-write",
-            "post-tool-batch",
-            "post-tool-rl",
-            "post-tool-failure",
-            "post-tool-use",
-        ]);
-    }
-    // Session (feature-gated)
-    #[cfg(feature = "session-hooks")]
-    {
-        names.extend_from_slice(&["session-start", "session-stop"]);
-    }
-    // Team (N1) — always-on
-    names.extend_from_slice(&[
-        "teammate-idle",
-        "task-completed",
-        "task-created",
-        "task-validation",
-        "task-metrics",
-        "task-escalation",
-    ]);
-    // Team gate hooks (anti-limbo + bootstrap) — always-on
-    names.extend_from_slice(&["teammate-idle-gate", "subagent-bootstrap"]);
-    // Lifecycle (S4) — always-on
-    names.extend_from_slice(&[
-        "subagent-start",
-        "subagent-stop",
-        "file-changed",
-        "cwd-changed",
-        "pre-compact",
-        "post-compact",
-        "worktree-create",
-        "instructions-loaded",
-        "enter-plan-mode",
-        "exit-plan-mode",
-        "stop",
-        // TACO Phase Protocol: UserPromptSubmit captures the raw user prompt
-        // before CILA classification, enabling attribution and budget injection.
-        // Emitted by `prompt_enhance.rs` with hookEventName: "UserPromptSubmit".
-        "user_prompt_submit",
-        // Claude Code Task ↔ Touring Decompose sync (R7-Sync)
-        "task-sync-create",
-        "task-sync-update",
-        "task-sync-list",
-        // Claude Code Task output/get sync (R8-Sync)
-        "task-sync-output",
-        "task-sync-get",
-        // Claude Code Task stop/delete sync (R9-Sync)
-        "task-sync-stop",
-        "task-sync-delete",
-    ]);
-    // CLI telemetry handlers (daemon-side query handlers for touring <subsystem> <command>)
-    names.extend_from_slice(&[
-        "cli-learning-status",
-        "cli-learning-reward",
-        "cli-granularity-status",
-        "cli-granularity-reset",
-        "cli-granularity-hint",
-        "cli-cascade-queue-status",
-        "cli-cascade-queue-drain",
-        // PLN2: saga distributed 2PC coordinator
-        "cli-saga-register",
-        "cli-saga-prepare",
-        "cli-saga-decide",
-        "cli-saga-delta",
-        "cli-saga-begin",
-        "cli-saga-status",
-        "cli-saga-abort",
-        "cli-wiring-status",
-        "cli-wiring-orphans",
-        "cli-wiring-modules",
-        "cli-wiring-suggest",
-        "cli-wiring-impact",
-        "cli-wiring-cycles",
-        "cli-wiring-scip-ingest",
-        "cli-cognitive-metrics",
-        "cli-cognitive-engines",
-        "cli-flywheel-status",
-        "cli-incremental-status",
-        "cli-gotcha-list",
-        "cli-gotcha-add",
-        "cli-gotcha-match",
-        "cli-gotcha-stats",
-        "cli-gotcha-resolve",
-        "cli-experiment-record",
-        "cli-experiment-list",
-        "cli-learning-replay",
-        "cli-memory-stats",
-        "cli-memory-recall",
-        "cli-memory-credit",
-        "cli-memory-store",
-        "cli-memory-tag-add",
-        "cli-memory-tags",
-        "cli-memory-query",
-        "cli-memory-sync-tags",
-        "cli-memory-link",
-        "cli-memory-links",
-        "cli-memory-backfill-tags",
-        "cli-memory-moc",
-        "cli-memory-communities",
-        "cli-memory-unlink",
-        "cli-memory-list",
-        "cli-memory-reindex",
-        "cli-evolution-drift",
-        "cli-evolution-insights",
-        "cli-evolution-tools",
-        // D10-S1: touring-web health dashboard handlers
-        "cli-doctor",
-        "cli-status",
-        // P1.6 (2026-04-25): mpatch-fuzzy dry-run patch preview
-        "cli-mpatch-preview",
-    ]);
-    // CLI session handlers
-    names.extend_from_slice(&[
-        "cli-session-start",
-        "cli-session-checkpoint",
-        "cli-session-list",
-        "cli-session-assess",
-    ]);
-    // CLI suggest handlers
-    names.extend_from_slice(&["cli-suggest-next", "cli-suggest-skill"]);
-    // CLI decompose handlers
-    names.extend_from_slice(&[
-        "cli-decompose-create",
-        "cli-decompose-add",
-        "cli-decompose-get",
-        "cli-decompose-update",
-        "cli-decompose-validate",
-        "cli-decompose-status",
-        "cli-decompose-event",
-        "cli-decompose-finalize",
-        "cli-decompose-archive",
-        "cli-decompose-reconcile-stages",
-        "cli-decompose-ready",
-        "cli-decompose-claim",
-        "cli-decompose-release",
-        "cli-decompose-renew",
-        "cli-decompose-ticket",
-        "cli-decompose-frontier",
-    ]);
-    // CLI mcts handlers
-    names.push("cli-mcts-search");
-    // CLI shadow handlers
-    names.push("cli-shadow-validate");
-    // CLI flow pipeline handler — REMOVED: cli-flow was registered in names
-    // but never implemented (no cli_flow handler exists). cli-mcp-overhead
-    // takes its place — handler existed at lines 1262-1264 but was missing
-    // from all_daemon_hook_names(). Fixed 2026-05-03 cross-audit.
-    // CLI mcts handlers
-    names.extend_from_slice(&[
-        "cli-index-status",
-        "cli-index-search",
-        "cli-index-find",
-        "cli-index-files",
-        "cli-index-rebuild",
-        "cli-index-ingest",
-        "cli-index-why",
-    ]);
-    // CLI ast handlers
-    names.extend_from_slice(&[
-        "cli-ast-find",
-        "cli-ast-overview",
-        "cli-ast-blast",
-        "cli-ast-semantic",
-        "cli-ast-quality",
-        "cli-ast-calls",
-        "cli-ast-heat",
-        "cli-ast-modules",
-        "cli-ast-scope",
-        "cli-ast-detail",
-        "cli-ast-imports",
-        "cli-ast-grep",
-        "cli-ast-scan",
-        // D.2: resolve-def / find-references / rename
-        "cli-resolve-def",
-        "cli-find-references",
-        "cli-rename",
-    ]);
-    // CLI e2e handler
-    names.push("cli-e2e");
-    // CLI pre-task-scout handler (LRU-cached scouting for PreToolUse)
-    names.push("cli-pre-task-scout");
-    // CLI prompt-enhance handler
-    names.push("cli-prompt-enhance");
-    // CLI hook-memory handlers
-    names.push("cli-hook-memory-store");
-    names.push("cli-hook-memory-recall");
-    // CLI entity disambiguation handlers
-    names.push("cli-entity-resolve");
-    names.push("cli-entity-list");
-    names.push("cli-entity-generic-patterns");
-    // L7-B Gamma: gate metrics + inferlets + jobs handlers
-    names.push("cli-gate-metrics");
-    // R5/OP1: unified 6-dimension harness-quality metric
-    names.push("cli-harness-metric");
-    // Code mode: o CLI efêmero retransmite a execução para o daemon contar
-    names.push("cli-code-mode-run");
-    // S-09/R8: formal change-contract gating self-mutation
-    names.push("cli-change-contract");
-    // B-5/R10: distill historical bash-outcome substrate into an action predictor
-    names.push("cli-predict-action");
-    // S-08/A-A1: conformal calibration of the skill-selection gate (KnowNo)
-    names.push("cli-calibrate-confidence");
-    // Cold-start cluster: opt-in cross-project RL warm-start (real experience replay)
-    names.push("cli-rl-warmstart");
-    // ES4 P1: durable action world-model liveness probe (persist + warm-load)
-    names.push("cli-world-model-status");
-    // ES2 P2: constitutional sink-token contract attestation (EAGLE B-6)
-    names.push("cli-attest-contract");
-    // ES1 P4 (CAH roadmap 2026-05-30): standalone SMT service (`touring
-    // prove-claim`) — JSON adapter that calls `touring-offensive`'s
-    // `prove_claim` with stub/Z3/CVC5 backend selection.
-    names.push("cli-prove-claim");
-    // Wave 6 (2026-05-23): CEG observability boundary fix — CLI→daemon mirror
-    names.push("cli-gate-event");
-    // D28: MCP overhead self-report handler
-    names.push("cli-mcp-overhead");
-    // Wave 26: Tokio runtime metrics
-    names.push("cli-tokio-metrics");
-    // Wave 15: health_delta direct CLI exposure
-    names.push("cli-health-delta-status");
-    names.push("cli-health-delta-reset");
-    // Wave I (Phase 5, 2026-04-24): grow-only audit trail query
-    names.push("cli-health-delta-history");
-    // Wave A A.4: profile_query CLI exposure
-    names.push("cli-profile-status");
-    // A.2.5 (2026-04-29): skip-region CLI exposure
-    names.push("cli-skip-list");
-    names.push("cli-skip-validate");
-    // D31: touring definitions CLI (classify / node-types / semantic-search)
-    names.extend_from_slice(&[
-        "cli-definitions-classify",
-        "cli-definitions-nodetypes",
-        "cli-definitions-semantic-search",
-    ]);
-    // D27: plugin DI CLI (list/status/reload/unregister)
-    names.extend_from_slice(&[
-        "cli-plugin-list",
-        "cli-plugin-status",
-        "cli-plugin-reload",
-        "cli-plugin-unregister",
-    ]);
-    // B.1 (2026-04-29): SSR CLI exposure
-    names.push("cli-ssr-status");
-    names.push("cli-ssr-apply");
-    names.push("cli-inferlets-list");
-    names.push("cli-inferlets-run");
-    names.push("cli-jobs-spawn");
-    names.push("cli-jobs-poll");
-    names.push("cli-jobs-list");
-    names.push("cli-jobs-drop");
-    // P7 Pln2: new AST/wiring/search/session/bench handlers
-    names.extend_from_slice(&[
-        "cli-ast-callgraph",
-        "cli-ast-todos",
-        "cli-ast-rationale",
-        "cli-ast-features",
-        "cli-ast-meta",
-        "cli-ast-skeleton",
-        "cli-ast-tdg",
-        "cli-gotcha-sync",
-        "cli-gotcha-init",
-        "cli-repo-score",
-        "cli-kpi",
-        "cli-repo-health",
-        "cli-mutation-test",
-        "cli-ast-blast-enriched",
-        "cli-wiring-purpose",
-        "cli-search-symbols",
-        "cli-search-docs",
-        "cli-query-dsl",
-        "cli-metadata-backfill",
-        "cli-session-summary",
-        "cli-bench-run",
-    ]);
-    // Tantivy BM25 full-text search handlers
-    names.extend_from_slice(&[
-        "cli-tantivy-search",
-        "cli-tantivy-fuzzy",
-        "cli-tantivy-stats",
-        "cli-tantivy-suggest",
-        "cli-tantivy-reindex",
-        "cli-wiring-community",
-    ]);
-    // Wave cross-audit: functional chains, cross-feature blast radius, enriched file knowledge
-    names.extend_from_slice(&[
-        "cli-wiring-chains",
-        "cli-ast-blast-cross-feature",
-        "cli-file-knowledge-extended",
-        "cli-file-knowledge-stats",
-        "cli-file-knowledge-populate",
-        "cli-file-knowledge-audit",
-        "cli-repair-wiring",
-    ]);
-    // Pln3 bidirectional action suggestions (expose to CLI as `touring suggest action|list|stats|gc|consumed`)
-    names.extend_from_slice(&[
-        "cli-suggest-action",
-        "cli-suggestion-list",
-        "cli-suggestion-stats",
-        "cli-suggestion-gc",
-        "cli-suggestion-consumed",
-    ]);
-    // Feature B (2026-04-24): workflow CLI
-    names.extend_from_slice(&[
-        "cli-workflow-run",
-        "cli-workflow-stats",
-        "cli-workflow-slowest",
-        "cli-workflow-compare",
-        "cli-workflow-resume",
-        "cli-workflow-status",
-        // Wave 8 collateral fix (2026-04-26): tasksfile hooks were registered
-        // in the dispatch table (line 1277-1281) but missing from this names
-        // list, causing `dispatch_table_entries_are_in_registry` test to fail.
-        "cli-tasksfile-validate",
-        "cli-tasksfile-export",
-        "cli-devrcfile-import",
-        "cli-devrcfile-export",
-    ]);
-    // Graph-viz (D3, D6): visual encoding integration + flow A→B path enumeration
-    names.extend_from_slice(&[
-        "cli-graph-flow",
-        "cli-viz-workspace",
-        "cli-viz-blast",
-        "cli-viz-wiring",
-        "cli-viz-cycles",
-        "cli-viz-orphans",
-        "cli-viz-feature",
-    ]);
-    // ACP (feature `acp-protocol`). Gate idêntico ao de `build_dispatch_table`:
-    // as duas listas são fontes da verdade paralelas, e até 03/08/2026 só a
-    // tabela conhecia estes dois hooks. Sob `--all-features` eles ficavam
-    // despacháveis porém invisíveis à introspecção — `all_daemon_hook_names` é
-    // o que enumera a superfície do daemon. `dispatch_table_and_registry_are_in_sync`
-    // é o teste que guarda a paridade; ele reprovava exatamente aqui.
-    #[cfg(feature = "acp-protocol")]
-    names.extend_from_slice(&["cli-acp-message", "cli-acp-discover"]);
-
-    names
+/// The daemon's per-project actors dispatch through it and [`is_daemon_hook`] answers from
+/// it, so "the hooks the daemon serves" and "the hooks the client routes to the daemon"
+/// are one fact. Building it only stores `fn` pointers — no handler runs.
+pub fn dispatch_table() -> &'static HashMap<&'static str, HookHandler> {
+    static TABLE: OnceLock<HashMap<&'static str, HookHandler>> = OnceLock::new();
+    TABLE.get_or_init(build_dispatch_table)
 }
 
-/// Backward-compatible constant for callers that need a static slice.
-/// With all default features enabled, this is identical to the previous
-/// `ALL_DAEMON_HOOK_NAMES` constant.
-pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
-    // Pre-hooks
-    "pre-read",
-    "pre-bash",
-    "pre-edit",
-    "pre-edit-prevention",
-    "pre-grep",
-    "pre-glob",
-    "pre-write",
-    "pre-tool-use",
-    "cli-suggest",
-    "ceg-observe",
-    // Post-hooks
-    "post-read",
-    "post-bash",
-    "post-edit",
-    "post-write",
-    "post-tool-batch",
-    "post-tool-rl",
-    "post-tool-failure",
-    "post-tool-use",
-    // Session
-    "session-start",
-    "session-stop",
-    // Team (N1)
-    "teammate-idle",
-    "task-completed",
-    "task-created",
-    "task-validation",
-    "task-metrics",
-    "task-escalation",
-    // Team gate hooks (anti-limbo + bootstrap)
-    "teammate-idle-gate",
-    "subagent-bootstrap",
-    // Lifecycle (S4)
-    "subagent-start",
-    "subagent-stop",
-    "file-changed",
-    "cwd-changed",
-    "pre-compact",
-    "post-compact",
-    "worktree-create",
-    "instructions-loaded",
-    "stop",
-    // TACO Phase Protocol: UserPromptSubmit — emitted by prompt_enhance.rs
-    "user_prompt_submit",
-    // Plan mode lifecycle (R7)
-    "enter-plan-mode",
-    "exit-plan-mode",
-    // Claude Code Task ↔ Touring Decompose sync (R7-Sync)
-    "task-sync-create",
-    "task-sync-update",
-    "task-sync-list",
-    // Claude Code Task output/get sync (R8-Sync)
-    "task-sync-output",
-    "task-sync-get",
-    // Claude Code Task stop/delete sync (R9-Sync)
-    "task-sync-stop",
-    "task-sync-delete",
-    // CLI telemetry handlers
-    "cli-learning-status",
-    "cli-learning-reward",
-    "cli-granularity-status",
-    "cli-granularity-reset",
-    "cli-granularity-hint",
-    "cli-saga-register",
-    "cli-saga-prepare",
-    "cli-saga-decide",
-    "cli-saga-delta",
-    "cli-saga-begin",
-    "cli-saga-status",
-    "cli-saga-abort",
-    "cli-cascade-queue-status",
-    "cli-cascade-queue-drain",
-    "cli-wiring-status",
-    "cli-wiring-orphans",
-    "cli-wiring-modules",
-    "cli-wiring-suggest",
-    "cli-wiring-impact",
-    "cli-wiring-cycles",
-    "cli-wiring-scip-ingest",
-    "cli-cognitive-metrics",
-    "cli-cognitive-engines",
-    "cli-flywheel-status",
-    "cli-incremental-status",
-    "cli-gotcha-list",
-    "cli-gotcha-add",
-    "cli-gotcha-match",
-    "cli-gotcha-stats",
-    "cli-gotcha-resolve",
-    "cli-experiment-record",
-    "cli-experiment-list",
-    "cli-learning-replay",
-    "cli-memory-stats",
-    "cli-memory-recall",
-    "cli-memory-credit",
-    "cli-memory-store",
-    "cli-memory-tag-add",
-    "cli-memory-tags",
-    "cli-memory-query",
-    "cli-memory-sync-tags",
-    "cli-memory-link",
-    "cli-memory-links",
-    "cli-memory-backfill-tags",
-    "cli-memory-moc",
-    "cli-memory-communities",
-    "cli-memory-unlink",
-    "cli-memory-list",
-    "cli-memory-reindex",
-    "cli-evolution-drift",
-    "cli-evolution-insights",
-    "cli-evolution-tools",
-    // D10-S1: touring-web health dashboard handlers
-    "cli-doctor",
-    "cli-status",
-    // CLI session handlers
-    "cli-session-start",
-    "cli-session-checkpoint",
-    "cli-session-list",
-    "cli-session-assess",
-    // CLI suggest handlers
-    "cli-suggest-next",
-    "cli-suggest-skill",
-    // CLI decompose handlers
-    "cli-decompose-create",
-    "cli-decompose-add",
-    "cli-decompose-get",
-    "cli-decompose-update",
-    "cli-decompose-validate",
-    "cli-decompose-status",
-    "cli-decompose-event",
-    "cli-decompose-finalize",
-    "cli-decompose-ready",
-    "cli-decompose-claim",
-    "cli-decompose-release",
-    "cli-decompose-renew",
-    "cli-decompose-ticket",
-    "cli-decompose-frontier",
-    // CLI mcts handlers
-    "cli-mcts-search",
-    // CLI shadow handlers
-    "cli-shadow-validate",
-    // CLI index handlers
-    "cli-index-status",
-    "cli-index-search",
-    "cli-index-find",
-    "cli-index-files",
-    "cli-index-rebuild",
-    "cli-index-ingest",
-    "cli-index-why",
-    // CLI ast handlers
-    "cli-ast-find",
-    "cli-ast-overview",
-    "cli-ast-blast",
-    "cli-ast-semantic",
-    "cli-ast-quality",
-    "cli-ast-calls",
-    "cli-ast-heat",
-    "cli-ast-modules",
-    "cli-ast-scope",
-    "cli-ast-detail",
-    "cli-ast-imports",
-    "cli-ast-grep",
-    "cli-ast-scan",
-    // D.2: resolve-def / find-references / rename
-    "cli-resolve-def",
-    "cli-find-references",
-    "cli-rename",
-    // CLI e2e handler
-    "cli-e2e",
-    // CLI pre-task-scout handler
-    "cli-pre-task-scout",
-    // CLI prompt-enhance handler
-    "cli-prompt-enhance",
-    // CLI hook-memory handlers
-    "cli-hook-memory-store",
-    "cli-hook-memory-recall",
-    // CLI entity disambiguation handlers
-    "cli-entity-resolve",
-    "cli-entity-list",
-    "cli-entity-generic-patterns",
-    // L7-B Gamma: gate metrics + inferlets + jobs handlers
-    "cli-gate-metrics",
-    // R5/OP1: unified 6-dimension harness-quality metric
-    "cli-harness-metric",
-    // Code mode: contagem de execução retransmitida pelo CLI
-    "cli-code-mode-run",
-    // S-09/R8: formal change-contract gating self-mutation
-    "cli-change-contract",
-    // B-5/R10: distill historical bash-outcome substrate into an action predictor
-    "cli-predict-action",
-    // S-08/A-A1: conformal calibration of the skill-selection gate (KnowNo)
-    "cli-calibrate-confidence",
-    // Cold-start cluster: opt-in cross-project RL warm-start (real experience replay)
-    "cli-rl-warmstart",
-    // ES4 P1: durable action world-model liveness probe (persist + warm-load)
-    "cli-world-model-status",
-    // ES2 P2: constitutional sink-token contract attestation (EAGLE B-6)
-    "cli-attest-contract",
-    // ES1 P4 (CAH roadmap 2026-05-30): standalone SMT service handler
-    "cli-prove-claim",
-    // Wave 6 (2026-05-23): CEG observability boundary fix — CLI→daemon mirror
-    "cli-gate-event",
-    // Wave 26: Tokio runtime metrics
-    "cli-tokio-metrics",
-    // Wave 15: health_delta direct CLI exposure
-    "cli-health-delta-status",
-    "cli-health-delta-reset",
-    // Wave I (Phase 5): grow-only audit trail query
-    "cli-health-delta-history",
-    // Wave A A.4: profile_query CLI exposure
-    "cli-profile-status",
-    // A.2.5 (2026-04-29): skip-region CLI exposure
-    "cli-skip-list",
-    "cli-skip-validate",
-    // D27: plugin DI CLI
-    "cli-plugin-list",
-    "cli-plugin-status",
-    "cli-plugin-reload",
-    "cli-plugin-unregister",
-    // L7-B Gamma: inferlets + jobs handlers
-    "cli-inferlets-list",
-    "cli-inferlets-run",
-    "cli-jobs-spawn",
-    "cli-jobs-poll",
-    "cli-jobs-list",
-    "cli-jobs-drop",
-    "cli-ast-todos",
-    "cli-ast-rationale",
-    "cli-ast-features",
-    "cli-ast-meta",
-    "cli-ast-skeleton",
-    "cli-ast-tdg",
-    "cli-gotcha-sync",
-    "cli-gotcha-init",
-    "cli-repo-score",
-    "cli-kpi",
-    "cli-repo-health",
-    "cli-mutation-test",
-    "cli-ast-blast-enriched",
-    "cli-wiring-purpose",
-    "cli-search-symbols",
-    "cli-search-docs",
-    "cli-query-dsl",
-    "cli-metadata-backfill",
-    "cli-session-summary",
-    "cli-bench-run",
-    // Tantivy BM25 full-text search handlers
-    "cli-tantivy-search",
-    "cli-tantivy-fuzzy",
-    "cli-tantivy-stats",
-    "cli-tantivy-suggest",
-    "cli-tantivy-reindex",
-    // Wiring community handler
-    "cli-wiring-community",
-    // Wave cross-audit: functional chains, cross-feature blast radius, enriched file knowledge
-    "cli-wiring-chains",
-    "cli-ast-blast-cross-feature",
-    "cli-file-knowledge-extended",
-    "cli-file-knowledge-stats",
-    "cli-file-knowledge-populate",
-    "cli-file-knowledge-audit",
-    "cli-repair-wiring",
-    // Pln3 bidirectional action suggestions
-    "cli-suggest-action",
-    "cli-suggestion-list",
-    "cli-suggestion-stats",
-    "cli-suggestion-gc",
-    "cli-suggestion-consumed",
-    // Feature B (2026-04-24): workflow CLI
-    "cli-workflow-run",
-    "cli-workflow-stats",
-    "cli-workflow-slowest",
-    "cli-workflow-compare",
-    "cli-workflow-resume",
-    "cli-workflow-status",
-    // P1.6 (2026-04-25): mpatch-fuzzy dry-run patch preview
-    "cli-mpatch-preview",
-    // Wave 8 collateral fix (2026-04-26): tasksfile hooks were registered
-    // in dispatch table but missing from this constant.
-    "cli-tasksfile-validate",
-    "cli-tasksfile-export",
-    // Wave 9 collateral fix (2026-04-26): same drift for devrcfile pair —
-    // dispatch table (lines ~1294/1297) and `all_daemon_hook_names()`
-    // (lines ~290/291) both list these hooks, but the backward-compat
-    // constant lagged behind. REGRA #0 — encontrar é corrigir.
-    "cli-devrcfile-import",
-    "cli-devrcfile-export",
-    // Graph-viz (D3, D6): visual encoding + flow A→B
-    "cli-graph-flow",
-    "cli-viz-workspace",
-    "cli-viz-blast",
-    "cli-viz-wiring",
-    "cli-viz-cycles",
-    "cli-viz-orphans",
-    "cli-viz-feature",
-    // D31: touring definitions CLI (classify / node-types / semantic-search)
-    "cli-definitions-classify",
-    "cli-definitions-nodetypes",
-    "cli-definitions-semantic-search",
-];
+/// `true` when `name` is a hook the daemon answers (a key of the dispatch table).
+///
+/// The thin client (`touring-hook`, `main.rs`) uses this to decide whether to attempt the
+/// daemon fast-path before falling back to standalone execution. Stateless subcommands
+/// (`prompt-enhance`, `qa-syntax`, `classify`, …) are not in the table and always run
+/// standalone. Feature-aware by construction: a hook whose `#[cfg(feature)]` is off has no
+/// table entry, so it is neither dispatched nor routed.
+pub fn is_daemon_hook(name: &str) -> bool {
+    dispatch_table().contains_key(name)
+}
+
+/// Every hook name the daemon answers: the keys of the dispatch table, sorted.
+///
+/// Sorted so the order is deterministic (a `HashMap` iterates in a per-process random
+/// order). Derived, never listed — see the module docs.
+pub fn all_daemon_hook_names() -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = dispatch_table().keys().copied().collect();
+    names.sort_unstable();
+    names
+}
 
 /// Hooks that can DENY a tool call — the GUARDS (C4, 2026-10-17).
 ///
@@ -728,10 +83,14 @@ pub fn is_guard_hook(name: &str) -> bool {
         || (name == "pre-exec" && crate::ceg_adapter::enforcement_enabled())
 }
 
-/// Build the O(1) dispatch table for daemon hook handlers.
+/// Build the O(1) dispatch table for daemon hook handlers — THE declaration of which hooks
+/// the daemon serves (see the module docs).
 ///
-/// Called once via `OnceLock::get_or_init` in `daemon.rs`.
-/// Feature-gated hooks use `#[cfg]` on the insert statements.
+/// Production callers go through [`dispatch_table`], which runs this once per process.
+/// Feature-gated hooks use `#[cfg]` on the insert statements. Add a hook by adding its
+/// `m.insert(...)` here and nowhere else: [`is_daemon_hook`] and [`all_daemon_hook_names`]
+/// follow by construction. An insert is always a new key — `hook_names_are_declared_once`
+/// fails on a name inserted twice (a `HashMap` would silently keep only the last).
 /// All handlers are wrapped with LatencyMarker for observability.
 pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     let mut m: HashMap<&'static str, HookHandler> = HashMap::new();
