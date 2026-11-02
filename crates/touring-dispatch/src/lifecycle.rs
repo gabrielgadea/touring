@@ -151,3 +151,6 @@ pub(crate) use task_update::maybe_mcts_unblock_hint;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod surface_tests;

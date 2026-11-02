@@ -14,7 +14,7 @@ use touring_foundation::truncate_str;
 /// escavar `task_id` do JSON e cair num literal — estavam copiadas em 30 testes.
 /// `fallback` preserva o comportamento original de cada um quando o runtime sem
 /// daemon não devolve id.
-fn create_intent_task(rt: &mut HookRuntime, description: &str, fallback: &str) -> String {
+pub(super) fn create_intent_task(rt: &mut HookRuntime, description: &str, fallback: &str) -> String {
     let payload = serde_json::json!({"task_type": "intent", "description": description});
     let created = super::super::cli_handlers::cli_decompose_create(rt, &payload);
     serde_json::from_str::<serde_json::Value>(&created)
@@ -27,7 +27,7 @@ fn create_intent_task(rt: &mut HookRuntime, description: &str, fallback: &str) -
         .unwrap_or_else(|| fallback.to_string())
 }
 
-fn make_runtime() -> (TempDir, HookRuntime) {
+pub(super) fn make_runtime() -> (TempDir, HookRuntime) {
     let tmp = TempDir::new().expect("tempdir");
     // Real project marker — WITHOUT it `normalize_project_root` walks up, finds
     // nothing, and falls back to $HOME, so every handler that touches tantivy
