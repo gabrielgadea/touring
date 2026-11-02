@@ -1356,12 +1356,15 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
     if has_connstring_creds(line) {
         return Some("connstring-credentials");
     }
-    // (2/2b) secret-named assignment.
-    if named_assignment_is_strong(line, code) {
+    // (2/2b) secret-named assignment. A Go struct-field declaration with its tag
+    // (`Password string \`json:"password,omitempty"\``) names a field and its wire key;
+    // nothing is assigned (02/11/2026, analise `sdks/go/configuration.go:54`).
+    let go_field = is_go_struct_tag_field(line);
+    if !go_field && named_assignment_is_strong(line, code) {
         return Some("secret-named-assignment");
     }
     // (2c) T-3 (31/10/2026): a ligação NESTED no lado direito.
-    if nested_secret_binding(line, code) {
+    if !go_field && nested_secret_binding(line, code) {
         return Some("secret-named-assignment");
     }
     // (3) generic high-entropy literal anywhere on the line → strong.
@@ -1372,6 +1375,41 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
         return Some("high-entropy-literal");
     }
     None
+}
+
+/// A Go struct field with a struct tag: `Name Type \`key:"value" key2:"value2"\``, an
+/// optional `// comment` after it. The tag is metadata for encoders (`json`, `yaml`, `xml`,
+/// `db`…); its quoted values are wire names, never assigned secrets. A token-shaped value
+/// inside a tag is still caught by the high-entropy rule, which runs regardless.
+fn is_go_struct_tag_field(line: &str) -> bool {
+    let body = line.split("//").next().unwrap_or(line).trim();
+    let Some(tick) = body.find('`') else {
+        return false;
+    };
+    let (decl, tag) = body.split_at(tick);
+    let mut parts = decl.split_whitespace();
+    let (Some(name), Some(ty), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    let is_ident = |s: &str| {
+        s.chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    let is_type = |s: &str| {
+        s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '*' | '[' | ']'))
+    };
+    if !(is_ident(name) && is_type(ty)) || !tag.ends_with('`') || tag.len() < 2 {
+        return false;
+    }
+    // Every space-separated pair of the tag is `key:"value"`.
+    tag[1..tag.len() - 1].split_whitespace().all(|pair| {
+        pair.split_once(':').is_some_and(|(k, v)| {
+            is_ident(k) && v.len() >= 2 && v.starts_with('"') && v.ends_with('"')
+        })
+    })
 }
 
 /// Split `line` at its first code-level `=` (else `:`), located in `code` — the
@@ -2887,6 +2925,27 @@ mod tests {
         assert!(s.strong, "{s:?}");
         assert!(!s.allowlisted);
         assert_eq!(s.first_line, Some(2), "{s:?}");
+    }
+
+    #[test]
+    fn a_go_struct_tag_names_a_field_it_does_not_assign_a_secret() {
+        for clean in [
+            // packages/antt-process-analysis/sdks/go/configuration.go:54
+            "\tPassword string `json:\"password,omitempty\"`",
+            "\tAPIKey   *string `json:\"api_key\" yaml:\"api_key\"` // the key",
+            "\tToken []byte `db:\"token\"`",
+        ] {
+            assert_eq!(rule_of(clean), None, "{clean}");
+        }
+        for real in [
+            // an assignment in Go still counts
+            "\tpassword := \"Tr0ub4dor&3xK9\"",
+            "\tcfg.Password = \"Tr0ub4dor&3xK9\"",
+            // a token inside the tag is still a token
+            "\tToken string `default:\"ghp_0123456789abcdef0123456789abcdef0123\"`",
+        ] {
+            assert!(rule_of(real).is_some(), "{real}");
+        }
     }
 
     #[test]
