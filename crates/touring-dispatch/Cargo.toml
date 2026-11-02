@@ -25,7 +25,7 @@ default = ["hooks-active", "all-hooks", "templates", "shadow-workspace", "quanti
 # Without this feature, the standalone `touring-capnp` binary can still host
 # `GeneratorHealth`, but events emitted by the daemon will NOT reach it
 # because broadcast singletons are per-process.
-capnp-server = ["dep:touring-capnp-server", "touring-hooks-core/capnp-server"]
+capnp-server = ["touring-hooks-core/capnp-server"]
 all-hooks = ["pre-hooks", "post-hooks", "session-hooks", "utilities", "nlp-enrichment", "ann-blast"]
 pre-hooks = ["touring-hook-handlers/pre-hooks"]
 post-hooks = ["pre-hooks", "touring-hook-runtime/post-hooks", "touring-hook-handlers/post-hooks"]
@@ -114,7 +114,7 @@ txn_lock_enforcement = ["touring-ceg/txn_lock_enforcement", "touring-hook-runtim
 # (768d) instead of the 64-dim FNV lexical hash. Cycle-free: touring-storage does
 # not depend on touring-hooks. When OFF, semantic_text_embedding() returns None
 # and callers fall back to the hash embedder (graceful degradation).
-semantic-embeddings = ["dep:touring-storage", "touring-hook-runtime/semantic-embeddings"]
+semantic-embeddings = ["touring-hook-runtime/semantic-embeddings"]
 
 [dependencies]
 # CEG Pln2 P2.4 — Linux capability enforcement (setrlimit resource caps in capability::enforce_linux)
@@ -123,18 +123,12 @@ rustix = { version = "1", features = ["process"] }
 # into touring-orchestration::{flow,tasks,devrc}. Default = yaml+templates.
 touring-orchestration = { path = "../touring-orchestration" }
 touring-foundation = { path = "../touring-foundation" }
-# S-04 (2026-05-29) — optional, lean: ONLY the fastembed provider (no qdrant /
-# candle / voyage / hybrid). Gated by the `semantic-embeddings` feature.
-touring-storage = { path = "../touring-storage", optional = true, default-features = false, features = ["storage-emb-fastembed", "storage-emb-cuda"] }
 # W8 pragmatic split — internal sub-crates re-exported verbatim by this façade
 # (see lib.rs `pub use touring_hooks_{shared,prediction}::*`).
 touring-hooks-shared = { path = "../touring-hooks-shared" }
 touring-hooks-prediction = { path = "../touring-hooks-prediction" }
 # A01 (2026-06-06) — leaf crates, re-exported as `touring_hooks::{saga,agentic_rl}`.
 touring-hooks-saga = { path = "../touring-hooks-saga" }
-# A.W3.P1 (2026-06-09) — leaf crate housing the IoC contract traits (LearnRuntime);
-# re-exported via `crate::gateway::deps::LearnRuntime`.
-touring-contracts = { path = "../touring-contracts" }
 touring-ceg = { path = "../touring-ceg" } # Session B F4 (2026-06-10): the extracted Code Execution Gateway (gateway/ + capability/)
 touring-hooks-core = { path = "../touring-hooks-core" }
 touring-hook-runtime = { path = "../touring-hook-runtime" } # Wave R+C carve (2026-06-10): HookRuntime substrate layer # Phase C carve (2026-06-10): data/intelligence engines (knowledge, tantivy_index, health_delta, bridges, session_bus) — re-exported verbatim by this façade
@@ -143,15 +137,8 @@ touring-hook-handlers = { path = "../touring-hook-handlers" } # Wave H carve (20
 touring-hooks-rl = { path = "../touring-hooks-rl" }
 touring-analysis = { path = "../touring-analysis", features = ["ann-blast", "simd-wiring", "simd-temporal-ac", "deep", "erickson-bridge"] }
 touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
-touring-bindings = { path = "../touring-bindings", features = ["bind-wasm"] }
 touring-intelligence = { path = "../touring-intelligence" }
-# W4 shim-elimination 2026-05-31: touring-semantics → touring_code::semantics (direct).
-touring-code = { path = "../touring-code" }
-touring-offensive = { path = "../touring-offensive" }
 # W3.5 (2026-05-12): touring-definitions absorbed into touring-foundation::semantic
-# Phase 5 Opt A — optional embedded capnp RPC server. Preserves the
-# in-process broadcast channel shared with `touring_core::health_events`.
-touring-capnp-server = { path = "../touring-capnp-server", optional = true }
 uuid = { workspace = true, features = ["v4"] }
 base64 = { workspace = true }
 inventory = { workspace = true, optional = true }
