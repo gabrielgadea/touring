@@ -42,7 +42,9 @@ members = [
     # only loom itself, bypassing the hyper-util / tokio::net::UnixStream
     # conflict that blocks loom tests under the main touring-hooks crate.
     "crates/touring-loom-proofs",
-    "crates/touring-capnp-server",
+    # touring-capnp-server shim removed 2026-11-02 (aprofundamento #10): its whole
+    # surface was `pub use touring_bindings::capnp::*`; the 2 consumers
+    # (touring-hooks-core, touring-hooks tests) import touring_bindings::capnp directly.
     # touring-geopostgis shim removed 2026-05-30 (shim-elimination WA): 0 consumers;
     # PostGIS EWKB impl lives in touring_bindings::postgis (feature bind-postgis).
     # touring-resource-monitor absorbed into touring-foundation::sentinel in W3.7 (2026-05-12)

@@ -13234,23 +13234,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "touring-capnp-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "capnp-rpc",
- "futures",
- "hdrhistogram",
- "serde_json",
- "tempfile",
- "tokio",
- "tokio-util",
- "touring-bindings",
- "touring-foundation",
-]
-
-[[package]]
 name = "touring-ceg"
 version = "30.4.102"
 dependencies = [
@@ -13691,7 +13674,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "touring-analysis",
- "touring-capnp-server",
+ "touring-bindings",
  "touring-code",
  "touring-dispatch",
  "touring-foundation",
@@ -13734,7 +13717,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "touring-analysis",
- "touring-capnp-server",
+ "touring-bindings",
  "touring-ceg",
  "touring-code",
  "touring-foundation",
