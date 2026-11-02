@@ -459,6 +459,14 @@ const TABLE: &[(&str, Want, &str)] = &[
     ("fd /dev/sda", Allow, ""),
     ("partclone /dev/sda", Allow, ""),
     ("kill -9 2345", Allow, ""),
+    // ── KNOWN GAPS, pinned as measured (flip the row when one is closed) ──
+    // The lexical reading strips the `sudo` wrapper (`command_of`), so the
+    // `sudo with dangerous commands` row can only fire on the `(tool, params)`
+    // surface (`judge_tool("sudo", "rm /etc/passwd")` is refused, see TOOL_TABLE).
+    ("sudo rm /etc/passwd", Allow, ""),
+    // `^pkill\s+.-9` wants one character BEFORE `-9`: a plain `pkill -9 <name>`
+    // is not the row's shape, so the row never fires on the usual spelling.
+    ("pkill -9 nginx", Allow, ""),
 ];
 
 #[test]
