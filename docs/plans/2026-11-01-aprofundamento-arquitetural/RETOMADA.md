@@ -60,7 +60,16 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   responde nada. 11 handlers da tabela devolvem prosa em vez de JSON (viram `{}` em toda rota, inclusive o daemon).
   `pre-compact` standalone regrava o estado do bandit a partir de um runtime recém-carregado.
 
+- #6: `code_mode_gates::evaluate(&GateState, &ToolEvent, &GateConfig) -> Decision`; os ~19 ledgers globais viram
+  `GateState` (global no daemon, novo por teste). `cli_suggester.rs` 7.907 → 3.353 linhas. O kill switch
+  `TOURING_CODE_GATES_DISABLED=1` não cala dois advisories (G5 telemetria, E3 contrafactual): fixado como exceção
+  explícita em `switch.rs`, não corrigido. Replay de trace real impossível: `hook_trace.jsonl` não grava input nem
+  veredito. Janelas (TTL) fixadas por constante; um relógio injetável no `GateState` deixaria testar expiração.
+
 ## Decisões do Gabriel pendentes
+
+- #6: o kill switch deve calar também G5 e E3?; gravar (tool, classe, veredito, gate) sem caminhos no trace do hook
+  para permitir replay real.
 
 - #4: remover o override do `cli-suggest` (passa a sugerir com o daemon fora); os 11 handlers em prosa (embrulhar
   em Context ou remover as dicas); convergir os 13 overrides; `pre-compact` standalone regravando o bandit.
