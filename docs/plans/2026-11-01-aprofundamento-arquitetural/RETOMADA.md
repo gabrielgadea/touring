@@ -75,7 +75,19 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 - **Pré-condição de publicação da branch**: o commit `343912cd` contém o nome do usuário em `surface_tests.rs`
   (removido em `893eea1a`). Antes de push ou fusão, reescrever esse commit (ritual REGRA #11 v2 + confirmação).
 
+- #8: `caminho.rs` é o único dono de normalizar + conter + ler (`ler_contido`, `listar_contido`, `sondar`…); antes
+  eram 49 acessos a disco em 10 arquivos, 9 checagens e 4 normalizadores com duas regras opostas para `..`. Agora
+  1 regra (absoluto para na raiz; relativo mantém o excesso) e contenção julgada no canônico. Levenshtein: 5 cópias → 1
+  (`distancia.rs`). Escapes fechados: tsconfig `baseUrl`/`extends`/`paths`, `package.json main`, symlink e Cargo
+  `[lib] path` apontando para fora das raízes eram LIDOS e os nomes de export saíam no achado; o html era oráculo de
+  existência fora das raízes. Custo: p50 +15% / p95 +7,7% em debug (pior absoluto TS p95 0,147 → 0,210 ms, contra
+  orçamento de 150 ms); medir em release antes da fusão. Mudanças fora do replay, fixadas por teste unitário: overlays
+  consultados antes da contenção em rust/python; html sugere a raiz; pacote TS que resolve fora conta como instalado.
+
 ## Decisões do Gabriel pendentes
+
+- #8: `sombra.rs` (lê `.touring/touring.toml`) e o cache CDN seguem como as duas exceções documentadas à guarda ou
+  passam por `caminho`?
 
 - #7: corrigir os defeitos de chave produtor × leitor (os hints passam a disparar: muda a saída do hook).
 
