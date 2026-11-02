@@ -3,10 +3,16 @@
 //! Migrated out of `lifecycle.rs` (Master Plan A.W3.P3, 2026-06-05) to shrink the
 //! production file. This is a child module of `lifecycle`, so `super::*` and all
 //! `pub(crate)` re-exports declared in `lifecycle.rs` resolve unchanged.
+//!
+//! After the handler-surface rewrite the helpers behind the `handle_*` entry points are
+//! no longer re-exported for tests: what is left here either drives a `handle_*` function
+//! or a `cli_*` handler, or pins a pure classifier of another crate
+//! (`touring_hooks_core::generator_hints`, imported from its public path below).
 
 use super::*;
 use tempfile::TempDir;
 use touring_foundation::truncate_str;
+use touring_hooks_core::generator_hints;
 
 /// Cria uma task `intent` a partir de `description` e devolve o id resolvido.
 ///
@@ -496,115 +502,7 @@ fn worktree_create_without_intent_omits_generator_hint() {
     );
 }
 
-#[test]
-fn worktree_create_hint_direct_empty_path() {
-    // Direct unit test for the pure helper
-    let hint = super::worktree_create_hint("", "benchmark");
-    assert!(hint.is_empty(), "empty path → empty hint: {hint}");
-}
-
-#[test]
-fn worktree_create_hint_direct_with_path_and_intent() {
-    let hint = super::worktree_create_hint("/tmp/wt-test", "migration schema");
-    assert!(hint.contains("/tmp/wt-test"), "path in hint: {hint}");
-    assert!(hint.contains("wiring score"), "wiring score hint: {hint}");
-    assert!(
-        hint.contains("generator:"),
-        "migration → generator hint: {hint}"
-    );
-    assert!(
-        hint.contains("Migration"),
-        "migration → Migration kind: {hint}"
-    );
-}
-
-#[test]
-fn generator_for_first_ready_subtask_no_ready_tasks_is_empty() {
-    // R25-S3: empty ready list → empty hint
-    let json = r#"{"ready_count": 0, "ready_subtasks": []}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(result.is_empty(), "no ready tasks → empty: {result}");
-}
-
-#[test]
-fn generator_for_first_ready_subtask_maps_description_to_kind() {
-    // R25-S3: description containing "test" → Test kind
-    let json = r#"{
-            "ready_count": 1,
-            "ready_subtasks": [
-                {"task_id": "T-1", "subtask_id": "T-1::scout",
-                 "description": "write unit test for the VGP engine"}
-            ]
-        }"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(!result.is_empty(), "test keyword should match: {result}");
-    assert!(
-        result.contains("Test"),
-        "test description → Test kind: {result}"
-    );
-}
-
 // ── R121 end-to-end: 13 new SUBJECT_KEYWORD_MAP entries via generator_for_first_ready_subtask ──
-
-#[test]
-fn ready_subtask_shell_completion_maps_via_r121() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"add shell completion for bash autocomplete"}]}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(
-        result.contains("ShellCompletion"),
-        "shell completion ready subtask must map to ShellCompletion: {result}"
-    );
-}
-
-#[test]
-fn ready_subtask_man_page_maps_via_r121() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"write man page for unix documentation"}]}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(
-        result.contains("ManPage"),
-        "man page ready subtask must map to ManPage: {result}"
-    );
-}
-
-#[test]
-fn ready_subtask_incremental_patch_maps_via_r121() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"apply incremental patch for hotfix release"}]}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(
-        result.contains("IncrementalPatch"),
-        "incremental patch ready subtask must map to IncrementalPatch: {result}"
-    );
-}
-
-#[test]
-fn ready_subtask_diary_entry_maps_via_r121() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"write diary entry as lesson learned"}]}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(
-        result.contains("DiaryEntry"),
-        "diary entry ready subtask must map to DiaryEntry: {result}"
-    );
-}
-
-#[test]
-fn ready_subtask_asyncapi_maps_via_r121() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"define asyncapi schema for event-driven broker"}]}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(
-        result.contains("AsyncApiSpec"),
-        "asyncapi ready subtask must map to AsyncApiSpec: {result}"
-    );
-}
-
-#[test]
-fn ready_subtask_task_scaffold_maps_via_r121() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"create task scaffold for taco task dag"}]}"#;
-    let result = super::generator_for_first_ready_subtask(json);
-    assert!(
-        result.contains("TaskScaffold"),
-        "task scaffold ready subtask must map to TaskScaffold: {result}"
-    );
-}
 
 #[test]
 fn task_sync_list_includes_generator_hint_when_ready_subtask_matches() {
@@ -953,37 +851,6 @@ fn file_changed_plan_json_surfaces_generator_hint() {
     );
 }
 
-// R16-S1: extract_backtick_symbols parses simple identifiers correctly
-#[test]
-fn extract_backtick_symbols_parses_identifiers() {
-    let text = "compiled `main.rs` and tested `MyStruct` — ok";
-    let syms = super::extract_backtick_symbols(text);
-    assert!(
-        syms.contains(&"main.rs".to_string()),
-        "should extract file-like: {syms:?}"
-    );
-    assert!(
-        syms.contains(&"MyStruct".to_string()),
-        "should extract CamelCase: {syms:?}"
-    );
-}
-
-// R16-S1: Space inside backtick discards the token (not a clean identifier)
-#[test]
-fn extract_backtick_symbols_discards_tokens_with_spaces() {
-    let text = "run `cargo test` to verify";
-    let syms = super::extract_backtick_symbols(text);
-    assert!(
-        !syms.contains(&"cargo test".to_string()),
-        "backtick with space must be discarded: {syms:?}"
-    );
-    // "cargo" alone is discarded too (space terminates without closing backtick)
-    assert!(
-        syms.is_empty() || !syms.iter().any(|s| s.contains(' ')),
-        "no symbols with spaces: {syms:?}"
-    );
-}
-
 // R16-S1: TaskOutput with backtick symbols does not panic and returns correct hints
 #[test]
 fn task_sync_output_with_backtick_symbols_does_not_panic() {
@@ -1021,32 +888,6 @@ fn task_sync_output_empty_text_no_tantivy_hint() {
     assert!(
         !result.contains("symbol(s) indexed"),
         "empty output must not emit tantivy hint: {result}"
-    );
-}
-
-// R17-S2: extract_file_paths helper
-#[test]
-fn extract_file_paths_finds_rs_files() {
-    let text = "modified crates/touring-hooks/src/lifecycle.rs and crates/foo/Cargo.toml";
-    let paths = super::extract_file_paths(text);
-    assert!(
-        paths.contains(&"crates/touring-hooks/src/lifecycle.rs".to_string()),
-        "should detect .rs: {paths:?}"
-    );
-    assert!(
-        paths.contains(&"crates/foo/Cargo.toml".to_string()),
-        "should detect .toml: {paths:?}"
-    );
-}
-
-#[test]
-fn extract_file_paths_ignores_bare_words() {
-    let text = "no paths here just plain words lifecycle.rs without slash";
-    let paths = super::extract_file_paths(text);
-    // "lifecycle.rs" has no '/' so must be excluded
-    assert!(
-        paths.is_empty(),
-        "bare filename without slash must not match: {paths:?}"
     );
 }
 
@@ -1152,87 +993,6 @@ fn exit_plan_mode_without_session_id_is_stable() {
     let _ = &result; // no panic = pass
 }
 
-// R18-S3 pure: assess_session_id_from_recall — deterministic branch coverage
-#[test]
-fn assess_session_id_from_recall_empty_input_returns_empty() {
-    // Empty string → malformed JSON → returns ""
-    assert_eq!(
-        super::assess_session_id_from_recall(""),
-        "",
-        "empty recall must return empty session id"
-    );
-}
-
-#[test]
-fn assess_session_id_from_recall_no_entries_field_returns_empty() {
-    // Valid JSON but no `entries` key → returns ""
-    let json = r#"{"count":0,"query":"plan_session:current"}"#;
-    assert_eq!(
-        super::assess_session_id_from_recall(json),
-        "",
-        "missing entries field must return empty session id"
-    );
-}
-
-#[test]
-fn assess_session_id_from_recall_empty_entries_array_returns_empty() {
-    // entries is an empty array → returns ""
-    let json = r#"{"entries":[],"count":0}"#;
-    assert_eq!(
-        super::assess_session_id_from_recall(json),
-        "",
-        "empty entries array must return empty session id"
-    );
-}
-
-#[test]
-fn assess_session_id_from_recall_extracts_value_from_first_entry() {
-    // entries[0].value present → returns value string
-    let json = r#"{"entries":[{"key":"plan_session:current","value":"plan-abc-xyz"}],"count":1}"#;
-    assert_eq!(
-        super::assess_session_id_from_recall(json),
-        "plan-abc-xyz",
-        "must extract value from first entry"
-    );
-}
-
-#[test]
-fn assess_hint_from_session_result_no_quality_score_returns_empty() {
-    // Session assess JSON without quality_score → empty hint
-    let json = r#"{"session_id":"plan-abc","status":"ok"}"#;
-    assert_eq!(
-        super::assess_hint_from_session_result("plan-abc", json),
-        "",
-        "missing quality_score must return empty hint"
-    );
-}
-
-#[test]
-fn assess_hint_from_session_result_with_quality_score_returns_hint() {
-    // Session assess JSON with quality_score → formatted hint
-    let json = r#"{"session_id":"plan-abc","quality_score":0.85}"#;
-    let hint = super::assess_hint_from_session_result("plan-abc", json);
-    assert!(
-        hint.contains("session-assessed"),
-        "must contain session-assessed: {hint}"
-    );
-    assert!(
-        hint.contains("plan-abc"),
-        "must reference session id: {hint}"
-    );
-    assert!(hint.contains("0.85"), "must include quality score: {hint}");
-}
-
-#[test]
-fn assess_hint_from_session_result_malformed_json_returns_empty() {
-    // Malformed JSON → parse fails → empty hint (no panic)
-    assert_eq!(
-        super::assess_hint_from_session_result("plan-abc", "not json at all"),
-        "",
-        "malformed JSON must return empty hint"
-    );
-}
-
 // R18-S3: ExitPlanMode with session_id — assess_plan_session runs (no-panic)
 #[test]
 fn exit_plan_mode_with_session_id_attempts_assess() {
@@ -1250,90 +1010,6 @@ fn exit_plan_mode_with_session_id_attempts_assess() {
     );
 }
 
-// R19-S1: classify_file_to_generator_kind covers known extensions
-#[test]
-fn classify_file_to_generator_kind_maps_extensions() {
-    assert_eq!(
-        super::classify_file_to_generator_kind("crates/foo/src/lib.rs"),
-        Some("RustModule")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("benches/bench_main.rs"),
-        Some("Benchmark")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("fuzz/fuzz_target.rs"),
-        Some("FuzzTarget")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("tests/integration_test.rs"),
-        Some("Test")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("api.proto"),
-        Some("ProtobufSchema")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("main.tf"),
-        Some("TerraformModule")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("script.py"),
-        Some("PythonScript")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("Dockerfile"),
-        Some("Dockerfile")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind(".github/workflows/ci.yml"),
-        Some("CiWorkflow")
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("k8s/deploy.yaml"),
-        Some("K8sManifest")
-    );
-    // Unknown extensions return None
-    assert_eq!(super::classify_file_to_generator_kind("README.md"), None);
-    assert_eq!(super::classify_file_to_generator_kind("Cargo.lock"), None);
-}
-
-#[test]
-fn maybe_generator_kind_hint_formats_correctly() {
-    let hint = super::maybe_generator_kind_hint("crates/foo/src/lib.rs");
-    assert!(hint.is_some(), "should produce hint for .rs");
-    let h = hint.unwrap();
-    assert!(
-        h.contains("RustModule"),
-        "hint must name generator kind: {h}"
-    );
-    assert!(
-        h.contains("touring generate render"),
-        "hint must include CLI: {h}"
-    );
-}
-
-#[test]
-fn maybe_generator_kind_hint_returns_none_for_unknown() {
-    assert!(super::maybe_generator_kind_hint("notes.txt").is_none());
-    assert!(super::maybe_generator_kind_hint("Cargo.lock").is_none());
-}
-
-// R19-S2: search_tantivy_for_task does not panic (smoke test)
-#[test]
-fn search_tantivy_for_task_does_not_panic() {
-    // global_tantivy() returns None in test environment — function must return "" cleanly
-    let result = super::search_tantivy_for_task(
-        std::path::Path::new("/tmp/projeto-de-teste"),
-        "t-r19-smoke",
-    );
-    // Either empty (no Tantivy) or formatted hint — both acceptable; must not panic
-    assert!(
-        result.is_empty() || result.contains("tantivy"),
-        "unexpected format: {result}"
-    );
-}
-
 // R19-S1: handle_file_changed surfaces generator kind hint for .rs files
 #[test]
 fn file_changed_rs_surfaces_generator_kind_hint() {
@@ -1348,179 +1024,7 @@ fn file_changed_rs_surfaces_generator_kind_hint() {
     );
 }
 
-// R20-S3: suggest_generator_for_task_subject — keyword → GeneratorKind mapping
-#[test]
-fn suggest_generator_for_task_subject_maps_test_keyword() {
-    let hint = super::suggest_generator_for_task_subject("add unit tests for parser");
-    assert!(
-        hint.contains("Test"),
-        "test keyword must map to Test: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render"),
-        "must contain render command: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_for_task_subject_maps_bench_keyword() {
-    let hint = super::suggest_generator_for_task_subject("benchmark latency of VGP engine");
-    assert!(
-        hint.contains("Benchmark"),
-        "bench/latency keyword must map to Benchmark: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_for_task_subject_returns_empty_for_unknown() {
-    // No keyword match → empty string (not a generator hint, not an error)
-    let hint = super::suggest_generator_for_task_subject("general cleanup task");
-    assert!(
-        hint.is_empty(),
-        "unknown subject must return empty, got: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_for_task_subject_returns_empty_for_empty_input() {
-    let hint = super::suggest_generator_for_task_subject("");
-    assert!(hint.is_empty(), "empty subject must return empty: {hint}");
-}
-
-#[test]
-fn find_kind_by_keywords_returns_first_match() {
-    // "test" appears before "spec" in SUBJECT_KEYWORD_MAP — should match "test" first
-    let kind = super::find_kind_by_keywords("test the spec document");
-    assert_eq!(kind, Some("Test"), "first matching keyword wins: {kind:?}");
-}
-
 // ── R121: 13 new SUBJECT_KEYWORD_MAP entries — full 30/30 coverage ────────
-
-#[test]
-fn suggest_generator_maps_shell_completion_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("add shell completion for bash autocomplete");
-    assert!(
-        hint.contains("ShellCompletion"),
-        "shell completion keyword must map to ShellCompletion: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_man_page_keyword() {
-    let hint = super::suggest_generator_for_task_subject("write man page for unix manpage section");
-    assert!(
-        hint.contains("ManPage"),
-        "man page keyword must map to ManPage: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_incremental_patch_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("apply incremental patch hotfix for release");
-    assert!(
-        hint.contains("IncrementalPatch"),
-        "incremental patch keyword must map to IncrementalPatch: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_skill_document_keyword() {
-    let hint = super::suggest_generator_for_task_subject("create skill document as playbook");
-    assert!(
-        hint.contains("SkillDocument"),
-        "skill document keyword must map to SkillDocument: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_diary_entry_keyword() {
-    let hint = super::suggest_generator_for_task_subject("write diary entry as lesson learned");
-    assert!(
-        hint.contains("DiaryEntry"),
-        "diary entry keyword must map to DiaryEntry: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_consumer_generator_keyword() {
-    let hint = super::suggest_generator_for_task_subject(
-        "create event consumer as message consumer handler",
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "event consumer keyword must map to ConsumerGenerator: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_task_scaffold_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("scaffold task scaffold for taco task dag");
-    assert!(
-        hint.contains("TaskScaffold"),
-        "task scaffold keyword must map to TaskScaffold: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_asyncapi_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("define asyncapi schema for event-driven broker");
-    assert!(
-        hint.contains("AsyncApiSpec"),
-        "asyncapi keyword must map to AsyncApiSpec: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_changelog_keyword() {
-    let hint = super::suggest_generator_for_task_subject("add changelog for release notes entry");
-    assert!(
-        hint.contains("ChangelogEntry"),
-        "changelog keyword must map to ChangelogEntry: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_ffi_binding_keyword() {
-    let hint = super::suggest_generator_for_task_subject("create ffi binding for c binding native");
-    assert!(
-        hint.contains("FfiBinding"),
-        "ffi binding keyword must map to FfiBinding: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_derive_macro_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("build derive macro with proc macro attribute");
-    assert!(
-        hint.contains("DeriveMacro"),
-        "derive macro keyword must map to DeriveMacro: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_schema_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("design data schema with json schema validator");
-    assert!(
-        hint.contains("Schema"),
-        "data schema keyword must map to Schema: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_maps_python_script_keyword() {
-    let hint =
-        super::suggest_generator_for_task_subject("write python script for python automation");
-    assert!(
-        hint.contains("PythonScript"),
-        "python script keyword must map to PythonScript: {hint}"
-    );
-}
 
 #[test]
 fn task_sync_update_non_completed_suggests_generator_hint() {
@@ -1578,26 +1082,6 @@ fn exit_plan_mode_without_intent_no_extra_generator_hint() {
     );
 }
 
-#[test]
-fn exit_plan_mode_generator_hint_maps_benchmark_intent() {
-    // Direct test of the helper — no runtime needed
-    let hint = super::exit_plan_mode_generator_hint("benchmark latency of the VGP engine");
-    assert!(
-        hint.contains("Benchmark"),
-        "bench/latency → Benchmark: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render"),
-        "must contain render command: {hint}"
-    );
-}
-
-#[test]
-fn exit_plan_mode_generator_hint_empty_for_no_match() {
-    let hint = super::exit_plan_mode_generator_hint("general task with no keywords");
-    assert!(hint.is_empty(), "unknown intent must return empty: {hint}");
-}
-
 // R21-S2: handle_task_sync_post_list does not panic (code_symbols is optional)
 #[test]
 fn task_sync_list_code_symbols_hint_does_not_panic() {
@@ -1613,20 +1097,6 @@ fn task_sync_list_code_symbols_hint_does_not_panic() {
         result.contains("decompose status") || result.contains("scaffold"),
         "must contain decompose or scaffold hint: {result}"
     );
-}
-
-// R21-S3: upsert_task_completion_to_tantivy does not panic (index may be absent)
-#[test]
-fn upsert_task_completion_to_tantivy_does_not_panic() {
-    // FOSSIL WARNING (corrected 2026-08-28): the old comment claimed
-    // "global_tantivy() returns None in test env" — false since the per-root
-    // migration (F5, 03/08/2026). A bare /tmp path normalizes to $HOME and
-    // reaches the user's REAL index; this very test's "t-r21-s3-smoke" was
-    // found there. A marker-less tempdir keeps the write out of the real
-    // index only because the path below does not exist as a project.
-    let tmp = TempDir::new().expect("tempdir");
-    std::fs::create_dir_all(tmp.path().join(".git")).expect("project marker");
-    super::upsert_task_completion_to_tantivy(tmp.path(), "t-r21-s3-smoke");
 }
 
 #[test]
@@ -1702,16 +1172,6 @@ fn task_sync_create_without_subject_no_generator_hint() {
     );
 }
 
-// R22-S2: upsert_file_changed_to_tantivy does not panic (no Tantivy in test env)
-#[test]
-fn upsert_file_changed_to_tantivy_does_not_panic() {
-    super::upsert_file_changed_to_tantivy(
-        std::path::Path::new("/tmp/projeto-de-teste"),
-        "crates/foo/src/lib.rs",
-    );
-    super::upsert_file_changed_to_tantivy(std::path::Path::new("/tmp/projeto-de-teste"), ""); // edge: empty path
-}
-
 #[test]
 fn file_changed_with_rs_file_calls_tantivy_no_panic() {
     let (_tmp, mut rt) = make_runtime();
@@ -1757,89 +1217,6 @@ fn task_sync_stop_does_not_suggest_manual_memory_store() {
 
 // ── R23 tests ──────────────────────────────────────────────────────────────
 
-// R23-S1: dag_json_to_active_description parses in_progress subtask
-#[test]
-fn dag_json_to_active_description_extracts_first_in_progress() {
-    let dag_json = serde_json::json!({
-            "task_id": "t-r23",
-            "subtasks": [
-                {"subtask_id": "t-r23::scout", "status": "completed", "description": "scout: research"},
-                {"subtask_id": "t-r23::implement", "status": "in_progress", "description": "implement: write rust module"},
-                {"subtask_id": "t-r23::validate", "status": "pending", "description": "validate: run tests"}
-            ]
-        }).to_string();
-    let result = super::dag_json_to_active_description(&dag_json);
-    assert_eq!(result.as_deref(), Some("implement: write rust module"));
-}
-
-#[test]
-fn dag_json_to_active_description_returns_none_when_no_in_progress() {
-    let dag_json = serde_json::json!({
-            "task_id": "t-r23-done",
-            "subtasks": [
-                {"subtask_id": "t-r23-done::scout", "status": "completed", "description": "scout: done"},
-                {"subtask_id": "t-r23-done::validate", "status": "pending", "description": "validate: pending"}
-            ]
-        }).to_string();
-    let result = super::dag_json_to_active_description(&dag_json);
-    assert!(
-        result.is_none(),
-        "no in_progress subtask should return None"
-    );
-}
-
-#[test]
-fn generator_for_active_subtask_returns_empty_for_no_in_progress() {
-    let dag_json = serde_json::json!({
-        "subtasks": [
-            {"subtask_id": "s1", "status": "completed", "description": "scout done"}
-        ]
-    })
-    .to_string();
-    let result = super::generator_for_active_subtask(&dag_json);
-    // No in_progress → no keyword match → empty
-    assert!(
-        result.is_empty(),
-        "should return empty when no in_progress: '{result}'"
-    );
-}
-
-#[test]
-fn task_sync_get_includes_generator_hint_for_rust_module_subtask() {
-    let (_tmp, mut rt) = make_runtime();
-    // Simulate: dag_state will be queried but task unknown → dag_context empty.
-    // We test generator_for_active_subtask independently since dag_state is live.
-    let dag_json = serde_json::json!({
-        "task_id": "t-r23-get",
-        "subtasks": [
-            {"subtask_id": "t-r23-get::implement", "status": "in_progress",
-             "description": "implement: create rust module for parser"}
-        ]
-    })
-    .to_string();
-    let hint = super::generator_for_active_subtask(&dag_json);
-    // "rust" + "module" → should match RustModule generator kind
-    assert!(
-        hint.contains("rust")
-            || hint.contains("Rust")
-            || hint.contains("module")
-            || hint.contains("Module")
-            || hint.is_empty(),
-        "rust module subtask should produce generator hint or be empty: '{hint}'"
-    );
-    // The full handle call should not panic
-    let input = serde_json::json!({"task_id": "t-r23-get-full"});
-    let result = handle_task_sync_post_get(&mut rt, &input);
-    assert!(
-        result.contains("t-r23-get-full"),
-        "must include task_id: {result}"
-    );
-    assert!(
-        result.contains("decompose get"),
-        "must include DAG hint: {result}"
-    );
-}
-
 // R23-S2: task-completed auto-stores lesson (tested via hook_registry behavior)
 #[test]
 fn task_completed_event_success_format_mentions_lesson_stored() {
@@ -1876,32 +1253,6 @@ fn task_completed_event_failure_format_does_not_suggest_manual_store() {
     );
 }
 
-// R23-S3: cwd_wiring_hint and handle_cwd_changed
-#[test]
-fn cwd_wiring_hint_contains_new_dir_and_commands() {
-    let hint = super::cwd_wiring_hint("/home/user/project/crates/touring-hooks");
-    assert!(
-        hint.contains("touring-hooks"),
-        "must mention new dir: {hint}"
-    );
-    assert!(
-        hint.contains("wiring score"),
-        "must include wiring score command: {hint}"
-    );
-    assert!(
-        hint.contains("wiring suggest"),
-        "must include wiring suggest command: {hint}"
-    );
-}
-
-#[test]
-fn cwd_wiring_hint_empty_for_blank_dir() {
-    assert!(
-        super::cwd_wiring_hint("").is_empty(),
-        "empty dir must return empty hint"
-    );
-}
-
 #[test]
 fn handle_cwd_changed_returns_hint_for_valid_dir() {
     let (_tmp, mut rt) = make_runtime();
@@ -1930,25 +1281,6 @@ fn handle_cwd_changed_empty_for_missing_new_cwd() {
 }
 
 // ── R24 tests ──────────────────────────────────────────────────────────────
-
-// R24-S2: memory_recall_hint_for_intent helper
-#[test]
-fn memory_recall_hint_for_intent_returns_none_for_empty_json() {
-    let (_tmp, mut rt) = make_runtime();
-    // cli_memory_recall in test env returns non-parseable or empty JSON → None
-    let result = super::memory_recall_hint_for_intent(&mut rt, "rust module patterns");
-    // In test env, daemon is not running — recall returns empty/error → None or Some
-    // Key invariant: must not panic
-    let _ = result;
-}
-
-#[test]
-fn memory_recall_hint_for_intent_returns_none_for_blank_query() {
-    let (_tmp, mut rt) = make_runtime();
-    // Empty query — daemon not running, should return None gracefully
-    let result = super::memory_recall_hint_for_intent(&mut rt, "");
-    let _ = result; // must not panic; value is None or Some depending on daemon state
-}
 
 // R24-S2: handle_enter_plan_mode with concrete GeneratorKind intent
 #[test]
@@ -1993,25 +1325,6 @@ fn enter_plan_mode_without_intent_surfaces_generic_hint() {
         "must include plan-suggest: {result}"
     );
     assert!(result.contains("wiring"), "must include wiring: {result}");
-}
-
-// R24-S3: generator_hint_from_output helper
-#[test]
-fn generator_hint_from_output_empty_for_blank_output() {
-    assert!(
-        super::generator_hint_from_output("").is_empty(),
-        "blank output must return empty hint"
-    );
-}
-
-#[test]
-fn generator_hint_from_output_maps_test_keyword_or_returns_empty() {
-    // "test" is in SUBJECT_KEYWORD_MAP → should match or be empty (both are valid)
-    let result = super::generator_hint_from_output(
-        "test: add coverage for the new parser module implementation",
-    );
-    // Either maps to a generator kind or returns empty — must not panic
-    let _ = result;
 }
 
 #[test]
@@ -2072,28 +1385,6 @@ fn file_changed_non_tera_has_no_tera_hint() {
 }
 
 #[test]
-fn maybe_tera_template_hint_direct_match() {
-    let hint = super::maybe_tera_template_hint("templates/hook_handler.tera");
-    assert!(hint.is_some(), "must match .tera path");
-    let h = hint.expect("maybe_tera_template_hint must return Some for .tera path");
-    assert!(
-        h.contains("template-validate"),
-        "must include validate: {h}"
-    );
-    assert!(h.contains("template-test"), "must include test: {h}");
-    assert!(
-        h.contains("hook_handler.tera"),
-        "must include template name: {h}"
-    );
-}
-
-#[test]
-fn maybe_tera_template_hint_direct_no_match() {
-    let hint = super::maybe_tera_template_hint("src/lifecycle.rs");
-    assert!(hint.is_none(), "non-.tera must return None");
-}
-
-#[test]
 fn task_sync_create_stores_lesson_in_memory() {
     // R26-S2: creating a task should persist a lesson to memory
     let (_tmp, mut rt) = make_runtime();
@@ -2117,52 +1408,6 @@ fn task_sync_create_stores_lesson_in_memory() {
 }
 
 #[test]
-fn finalize_hint_if_dag_complete_all_completed() {
-    // R26-S3: all subtasks completed → finalize hint
-    let dag = r#"{
-            "task_id": "T-fin",
-            "subtasks": [
-                {"subtask_id": "T-fin::scout", "status": "completed"},
-                {"subtask_id": "T-fin::implement", "status": "completed"},
-                {"subtask_id": "T-fin::validate", "status": "completed"}
-            ]
-        }"#;
-    let hint = super::finalize_hint_if_dag_complete(dag, "T-fin");
-    assert!(!hint.is_empty(), "all completed → finalize hint: {hint}");
-    assert!(
-        hint.contains("finalize"),
-        "must contain finalize command: {hint}"
-    );
-    assert!(hint.contains("T-fin"), "must include task_id: {hint}");
-}
-
-#[test]
-fn finalize_hint_if_dag_complete_partial_returns_empty() {
-    // R26-S3: in_progress subtask → no finalize hint
-    let dag = r#"{
-            "task_id": "T-part",
-            "subtasks": [
-                {"subtask_id": "T-part::scout", "status": "completed"},
-                {"subtask_id": "T-part::implement", "status": "in_progress"},
-                {"subtask_id": "T-part::validate", "status": "pending"}
-            ]
-        }"#;
-    let hint = super::finalize_hint_if_dag_complete(dag, "T-part");
-    assert!(hint.is_empty(), "partial DAG must return empty: {hint}");
-}
-
-#[test]
-fn finalize_hint_if_dag_complete_empty_subtasks_returns_empty() {
-    // R26-S3: no subtasks → no finalize hint (guard against empty DAG)
-    let dag = r#"{"task_id": "T-empty", "subtasks": []}"#;
-    let hint = super::finalize_hint_if_dag_complete(dag, "T-empty");
-    assert!(
-        hint.is_empty(),
-        "empty subtask list must return empty: {hint}"
-    );
-}
-
-#[test]
 fn task_sync_get_shows_finalize_hint_when_dag_has_no_subtasks() {
     // R26-S3: live DAG query in test env returns empty/no subtasks → no finalize hint
     let (_tmp, mut rt) = make_runtime();
@@ -2180,47 +1425,6 @@ fn task_sync_get_shows_finalize_hint_when_dag_has_no_subtasks() {
 }
 
 // ── R27 tests ─────────────────────────────────────────────────────────────
-
-#[test]
-fn update_status_side_effects_in_progress_returns_empty_hint() {
-    // R27-S1: in_progress → RL +0.2 injected, no visible hint appended to output
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::update_status_side_effects(&mut rt, "t-r27-s1", "in_progress");
-    assert!(
-        hint.is_empty(),
-        "in_progress status hint must be empty (silent RL): {hint}"
-    );
-}
-
-#[test]
-fn update_status_side_effects_blocked_returns_hint() {
-    // R27-S3: blocked → hint surfaces decompose ready suggestion
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::update_status_side_effects(&mut rt, "t-r27-s3", "blocked");
-    assert!(
-        !hint.is_empty(),
-        "blocked must return non-empty hint: {hint}"
-    );
-    assert!(
-        hint.contains("blocked"),
-        "hint must mention blocked: {hint}"
-    );
-    assert!(
-        hint.contains("decompose ready"),
-        "hint must suggest decompose ready: {hint}"
-    );
-}
-
-#[test]
-fn update_status_side_effects_unknown_status_returns_empty() {
-    // R27: unknown status → no-op, empty hint
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::update_status_side_effects(&mut rt, "t-r27-unknown", "cancelled");
-    assert!(
-        hint.is_empty(),
-        "unknown status must return empty hint: {hint}"
-    );
-}
 
 #[test]
 fn task_sync_update_in_progress_injects_rl_and_surfaces_hint() {
@@ -2256,54 +1460,6 @@ fn task_sync_update_blocked_surfaces_decompose_ready_hint() {
 }
 
 #[test]
-fn completion_signal_hint_detects_cargo_test_ok() {
-    // R27-S2: "test result: ok" → completion hint with TaskUpdate suggestion
-    let hint = super::completion_signal_hint(
-        "test result: ok. 119 passed; 0 failed; 0 ignored",
-        "t-r27-s2-ok",
-    );
-    assert!(
-        !hint.is_empty(),
-        "cargo test ok must trigger completion hint: {hint}"
-    );
-    assert!(hint.contains("success"), "must mention success: {hint}");
-    assert!(
-        hint.contains("TaskUpdate"),
-        "must suggest TaskUpdate: {hint}"
-    );
-    assert!(hint.contains("t-r27-s2-ok"), "must include task_id: {hint}");
-}
-
-#[test]
-fn completion_signal_hint_detects_zero_failed() {
-    // R27-S2: "; 0 failed" → completion hint
-    let hint =
-        super::completion_signal_hint("running 47 tests ... ; 0 failed; 47 passed", "t-r27-s2-zf");
-    assert!(
-        !hint.is_empty(),
-        "0 failed must trigger completion hint: {hint}"
-    );
-}
-
-#[test]
-fn completion_signal_hint_empty_for_failure_output() {
-    // R27-S2: no success signal → empty hint
-    let hint =
-        super::completion_signal_hint("test result: FAILED. 3 failed; 116 passed", "t-r27-s2-fail");
-    assert!(
-        hint.is_empty(),
-        "failure output must not trigger completion hint: {hint}"
-    );
-}
-
-#[test]
-fn completion_signal_hint_empty_for_blank_output() {
-    // R27-S2: empty output → empty hint
-    let hint = super::completion_signal_hint("", "t-r27-s2-blank");
-    assert!(hint.is_empty(), "blank output must return empty: {hint}");
-}
-
-#[test]
 fn task_sync_output_with_test_success_includes_completion_hint() {
     // R27-S2: integration — output with cargo test success → completion hint in result
     let (_tmp, mut rt) = make_runtime();
@@ -2328,31 +1484,6 @@ fn task_sync_output_with_test_success_includes_completion_hint() {
 
 // ── R28 tests ─────────────────────────────────────────────────────────────
 
-// R28-S1: suggest_generator_for_task_subject is now pub(crate) — callable across modules
-#[test]
-fn suggest_generator_for_task_subject_pub_crate_maps_docker_keyword() {
-    // pub(crate) visibility: callable from test module → confirms S1 API surface change
-    let hint = super::suggest_generator_for_task_subject("add docker container for the service");
-    assert!(
-        hint.contains("Dockerfile"),
-        "docker keyword must map to Dockerfile: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render"),
-        "must include render command: {hint}"
-    );
-}
-
-#[test]
-fn suggest_generator_for_task_subject_pub_crate_maps_migration_keyword() {
-    // pub(crate) visibility: second keyword check — migrat → Migration
-    let hint = super::suggest_generator_for_task_subject("migrate the users table schema");
-    assert!(
-        hint.contains("Migration"),
-        "migrat keyword must map to Migration: {hint}"
-    );
-}
-
 // R28-S2: task-created RL +0.1 — validate via format string in output
 #[test]
 fn task_created_format_includes_rl_positive_signal() {
@@ -2373,19 +1504,6 @@ fn task_created_format_includes_rl_positive_signal() {
     assert!(
         result.contains("Benchmark") || result.contains("generator"),
         "bench subject → Benchmark hint: {result}"
-    );
-}
-
-// R28-S3: active_dag_ready_hint — direct helper tests
-#[test]
-fn active_dag_ready_hint_returns_none_on_fresh_runtime() {
-    // Fresh test runtime has no DAG entries → cli_decompose_ready returns error/empty → None
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::active_dag_ready_hint(&mut rt);
-    // In test env, decompose_ready returns empty or error → gracefully returns None
-    assert!(
-        hint.is_none(),
-        "fresh runtime has no ready subtasks — must return None: {hint:?}"
     );
 }
 
@@ -2440,87 +1558,6 @@ fn enter_plan_mode_with_no_intent_still_works_after_dag_check() {
 
 // ── R29 tests ─────────────────────────────────────────────────────────────
 
-// R29-S1: failure_signal_hint — detect failure in task output
-#[test]
-fn failure_signal_hint_detects_cargo_test_failed() {
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::failure_signal_hint(
-        &mut rt,
-        "test result: FAILED. 3 failed; 116 passed; 0 ignored",
-        "t-r29-s1-fail",
-    );
-    assert!(
-        !hint.is_empty(),
-        "FAILED output must trigger failure hint: {hint}"
-    );
-    assert!(
-        hint.contains("failure detected"),
-        "must mention failure: {hint}"
-    );
-    assert!(
-        hint.contains("RL -0.1"),
-        "must confirm RL injection: {hint}"
-    );
-}
-
-#[test]
-fn failure_signal_hint_detects_panicked_at() {
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::failure_signal_hint(
-        &mut rt,
-        "thread 'main' panicked at 'assertion failed: value == expected', src/lib.rs:42",
-        "t-r29-s1-panic",
-    );
-    assert!(
-        !hint.is_empty(),
-        "panicked at must trigger failure hint: {hint}"
-    );
-    assert!(
-        hint.contains("failure detected"),
-        "must mention failure: {hint}"
-    );
-}
-
-#[test]
-fn failure_signal_hint_empty_for_success_output() {
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::failure_signal_hint(
-        &mut rt,
-        "test result: ok. 119 passed; 0 failed; 0 ignored",
-        "t-r29-s1-ok",
-    );
-    assert!(
-        hint.is_empty(),
-        "success output must NOT trigger failure hint: {hint}"
-    );
-}
-
-#[test]
-fn failure_signal_hint_empty_for_blank_output() {
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::failure_signal_hint(&mut rt, "", "t-r29-s1-blank");
-    assert!(hint.is_empty(), "blank output must return empty: {hint}");
-}
-
-#[test]
-fn output_outcome_hint_prefers_completion_on_success() {
-    // R29-S1: success output → completion hint only (no failure hint)
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::output_outcome_hint(
-        &mut rt,
-        "test result: ok. 119 passed; 0 failed",
-        "t-r29-s1-outcome",
-    );
-    assert!(
-        result.contains("success"),
-        "success output → completion hint: {result}"
-    );
-    assert!(
-        !result.contains("failure"),
-        "success output must not trigger failure: {result}"
-    );
-}
-
 #[test]
 fn task_sync_output_with_failure_includes_failure_hint() {
     // R29-S1: integration — output with cargo test FAILED → failure hint in result
@@ -2541,105 +1578,6 @@ fn task_sync_output_with_failure_includes_failure_hint() {
     assert!(
         result.contains("RL -0.1"),
         "must confirm negative RL signal: {result}"
-    );
-}
-
-// R29-S2: maybe_test_file_hint — detect test files
-#[test]
-fn maybe_test_file_hint_matches_tests_directory() {
-    let hint = super::maybe_test_file_hint("crates/touring-hooks/tests/wave2_4_e2e.rs");
-    assert!(hint.is_some(), "tests/ directory must match: {hint:?}");
-    let h = hint.expect("must be Some for /tests/ path");
-    assert!(
-        h.contains("test-changed"),
-        "must have test-changed prefix: {h}"
-    );
-    assert!(h.contains("Test"), "must suggest Test generator: {h}");
-    assert!(
-        h.contains("cargo test"),
-        "must include cargo test reminder: {h}"
-    );
-}
-
-#[test]
-fn maybe_test_file_hint_matches_test_rs_suffix() {
-    let hint = super::maybe_test_file_hint("src/my_module_test.rs");
-    assert!(hint.is_some(), "_test.rs suffix must match: {hint:?}");
-}
-
-#[test]
-fn maybe_test_file_hint_matches_tests_rs_suffix() {
-    let hint = super::maybe_test_file_hint("src/my_module_tests.rs");
-    assert!(hint.is_some(), "_tests.rs suffix must match: {hint:?}");
-}
-
-#[test]
-fn maybe_test_file_hint_no_match_for_src_file() {
-    let hint = super::maybe_test_file_hint("crates/touring-hooks/src/lifecycle.rs");
-    assert!(
-        hint.is_none(),
-        "production src file must return None: {hint:?}"
-    );
-}
-
-// R29-S3: in_progress_count_advisory — detect excessive concurrency
-#[test]
-fn in_progress_count_advisory_warns_on_excess() {
-    // 4 in_progress tasks → advisory
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [
-                {"id": "T-1", "status": "in_progress"},
-                {"id": "T-2", "status": "in_progress"},
-                {"id": "T-3", "status": "in_progress"},
-                {"id": "T-4", "status": "in_progress"},
-                {"id": "T-5", "status": "completed"},
-            ]
-        }
-    });
-    let hint = super::in_progress_count_advisory(&input);
-    assert!(
-        !hint.is_empty(),
-        "4 in_progress must trigger advisory: {hint}"
-    );
-    assert!(
-        hint.contains("4 tasks in_progress"),
-        "must state count: {hint}"
-    );
-    assert!(
-        hint.contains("decompose ready"),
-        "must suggest decompose ready: {hint}"
-    );
-}
-
-#[test]
-fn in_progress_count_advisory_silent_on_low_count() {
-    // 3 in_progress tasks → below threshold → empty
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [
-                {"id": "T-1", "status": "in_progress"},
-                {"id": "T-2", "status": "in_progress"},
-                {"id": "T-3", "status": "in_progress"},
-                {"id": "T-4", "status": "completed"},
-            ]
-        }
-    });
-    let hint = super::in_progress_count_advisory(&input);
-    assert!(
-        hint.is_empty(),
-        "3 in_progress is not excessive — must be silent: {hint}"
-    );
-}
-
-#[test]
-fn in_progress_count_advisory_silent_when_no_tasks_field() {
-    // No tool_result → graceful return empty
-    let input = serde_json::json!({});
-    let hint = super::in_progress_count_advisory(&input);
-    assert!(
-        hint.is_empty(),
-        "missing tasks field must return empty: {hint}"
     );
 }
 
@@ -2674,169 +1612,9 @@ fn task_sync_list_includes_concurrency_hint_on_excess() {
 
 // ── R30-S1: plan_scaffold_for_subject ────────────────────────────────────
 
-#[test]
-fn plan_scaffold_for_subject_returns_stub_for_test_subject() {
-    // "add tests" → keyword "test" → Test kind → stub with kind=Test
-    let result = super::plan_scaffold_for_subject("add tests for login module", "T-42");
-    let scaffold = result.expect("should return Some for known keyword");
-    assert!(
-        scaffold.contains("plan-submit"),
-        "must reference plan-submit: {scaffold}"
-    );
-    assert!(
-        scaffold.contains("Test"),
-        "stub must include Test kind: {scaffold}"
-    );
-    assert!(
-        scaffold.contains("T-42"),
-        "stub must include task_id: {scaffold}"
-    );
-}
-
-#[test]
-fn plan_scaffold_for_subject_returns_stub_for_rust_module_subject() {
-    // "implement module" → keyword "module" → RustModule kind
-    let result = super::plan_scaffold_for_subject("implement new module for auth", "T-99");
-    let scaffold = result.expect("should return Some for 'module' keyword");
-    assert!(
-        scaffold.contains("RustModule"),
-        "stub must include RustModule kind: {scaffold}"
-    );
-}
-
-#[test]
-fn plan_scaffold_for_subject_returns_none_for_empty_subject() {
-    let result = super::plan_scaffold_for_subject("", "T-1");
-    assert!(result.is_none(), "empty subject must return None");
-}
-
-#[test]
-fn plan_scaffold_for_subject_returns_none_for_unknown_subject() {
-    // No keyword matches → None, no noise
-    let result = super::plan_scaffold_for_subject("xyzzy frob nonce", "T-1");
-    assert!(
-        result.is_none(),
-        "unrecognized subject must return None: {result:?}"
-    );
-}
-
-#[test]
-fn plan_scaffold_for_subject_stub_contains_output_path() {
-    // output_path field should be present in the JSON stub
-    let result = super::plan_scaffold_for_subject("write migration for users table", "T-7");
-    let scaffold = result.expect("should return Some for 'migration' keyword");
-    assert!(
-        scaffold.contains("generated"),
-        "stub output_path must reference generated/: {scaffold}"
-    );
-}
-
 // ── R30-S3: dag_next_ready_hint ──────────────────────────────────────────
 
-#[test]
-fn dag_next_ready_hint_silent_when_no_ready_subtasks() {
-    // Fresh runtime has no DAG entries → cli_decompose_ready returns ready_count=0 → empty
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::dag_next_ready_hint(&mut rt, "T-unused");
-    assert!(
-        hint.is_empty(),
-        "no ready subtasks must return empty: {hint}"
-    );
-}
-
 // ── R30-S2: plan_session_link_hint ───────────────────────────────────────
-
-#[test]
-fn plan_session_link_hint_silent_when_no_memory_stored() {
-    // Fresh runtime → plan_session_link_hint calls cli_memory_recall (federated, includes
-    // production DBs when daemon is running) → result may or may not be empty depending
-    // on whether a plan_session:current entry exists in any DB.
-    // Either outcome is correct — the only requirement is no panic.
-    // Deterministic branch coverage is in plan_session_link_hint_from_recall_* below.
-    let (_tmp, mut rt) = make_runtime();
-    let hint = super::plan_session_link_hint(&mut rt);
-    // hint is either empty (no stored session) or a valid DAG completion hint
-    assert!(
-        hint.is_empty() || hint.contains("touring decompose update"),
-        "must be empty or a valid DAG completion hint: {hint}"
-    );
-}
-
-// R30-S2 pure: plan_session_link_hint_from_recall — deterministic branch coverage
-#[test]
-fn plan_session_link_hint_from_recall_empty_string_returns_empty() {
-    assert_eq!(
-        super::plan_session_link_hint_from_recall(""),
-        "",
-        "empty recall must return empty hint"
-    );
-}
-
-#[test]
-fn plan_session_link_hint_from_recall_malformed_json_returns_empty() {
-    assert_eq!(
-        super::plan_session_link_hint_from_recall("not valid json"),
-        "",
-        "malformed JSON must return empty hint"
-    );
-}
-
-#[test]
-fn plan_session_link_hint_from_recall_no_entries_returns_empty() {
-    let json = r#"{"count":0,"query":"plan_session:current"}"#;
-    assert_eq!(
-        super::plan_session_link_hint_from_recall(json),
-        "",
-        "missing entries field must return empty hint"
-    );
-}
-
-#[test]
-fn plan_session_link_hint_from_recall_empty_entries_returns_empty() {
-    let json = r#"{"entries":[],"count":0}"#;
-    assert_eq!(
-        super::plan_session_link_hint_from_recall(json),
-        "",
-        "empty entries array must return empty hint"
-    );
-}
-
-#[test]
-fn plan_session_link_hint_from_recall_returns_dag_hint_for_stored_id() {
-    let json = r#"{"entries":[{"key":"plan_session:current","value":"plan-r30-test"}],"count":1}"#;
-    let hint = super::plan_session_link_hint_from_recall(json);
-    assert!(
-        hint.contains("plan-r30-test"),
-        "must reference the stored plan id: {hint}"
-    );
-    assert!(
-        hint.contains("touring decompose update"),
-        "must contain DAG update command: {hint}"
-    );
-    assert!(
-        hint.contains("completed"),
-        "must suggest completing the DAG entry: {hint}"
-    );
-}
-
-#[test]
-fn plan_session_link_hint_surfaces_stored_plan_id() {
-    // Store plan_session:current in memory → link hint must reference it
-    let (_tmp, mut rt) = make_runtime();
-    let _ = crate::cli_handlers::cli_memory_store(
-        &mut rt,
-        &serde_json::json!({
-            "key": "plan_session:current",
-            "value": "plan-abc-123",
-            "tier": "semantic",
-            "entry_type": "lesson",
-        }),
-    );
-    let hint = super::plan_session_link_hint(&mut rt);
-    // Daemon may be offline in tests → graceful empty or populated
-    // Either is correct (daemon-offline graceful = empty; daemon-online = populated)
-    let _ = hint; // no panic = pass
-}
 
 #[test]
 fn task_sync_create_scaffold_emitted_for_test_subject() {
@@ -2863,45 +1641,6 @@ fn task_sync_create_scaffold_emitted_for_test_subject() {
 // ── R31-S2: advance_dag_validate_on_success ──────────────────────────────
 
 #[test]
-fn advance_dag_validate_on_success_fires_on_success_marker() {
-    // "✓ success" in outcome_hint → returns dag-auto confirmation
-    let (_tmp, mut rt) = make_runtime();
-    let outcome_hint = " | ✓ success detected — consider `TaskUpdate T-1 completed`";
-    let result = super::advance_dag_validate_on_success(&mut rt, outcome_hint, "T-1");
-    assert!(
-        result.contains("dag-auto"),
-        "must confirm DAG advance: {result}"
-    );
-    assert!(
-        result.contains("T-1::validate"),
-        "must name validate subtask: {result}"
-    );
-}
-
-#[test]
-fn advance_dag_validate_on_success_silent_on_failure_outcome() {
-    // No success marker → returns empty (failure path)
-    let (_tmp, mut rt) = make_runtime();
-    let outcome_hint = " | ✗ failure detected — RL -0.1 injected";
-    let result = super::advance_dag_validate_on_success(&mut rt, outcome_hint, "T-2");
-    assert!(
-        result.is_empty(),
-        "failure outcome must not advance DAG: {result}"
-    );
-}
-
-#[test]
-fn advance_dag_validate_on_success_silent_on_empty_outcome() {
-    // Empty outcome hint → no success, no advance
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::advance_dag_validate_on_success(&mut rt, "", "T-3");
-    assert!(
-        result.is_empty(),
-        "empty outcome must return empty: {result}"
-    );
-}
-
-#[test]
 fn task_sync_output_dag_advance_included_on_success() {
     // R31-S2: TaskOutput with success signal → dag-auto included in output
     let (_tmp, mut rt) = make_runtime();
@@ -2926,67 +1665,6 @@ fn task_sync_output_dag_advance_included_on_success() {
 // ── R31-S3: generator_for_first_inprogress_cc_task ───────────────────────
 
 #[test]
-fn generator_for_first_inprogress_cc_task_returns_hint_for_known_subject() {
-    // In_progress task with "test" subject → returns Some with generator hint
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [
-                {"id": "T-1", "status": "completed", "task_subject": "plan architecture"},
-                {"id": "T-2", "status": "in_progress", "task_subject": "add tests for login"},
-            ]
-        }
-    });
-    let result = super::generator_for_first_inprogress_cc_task(&input);
-    assert!(
-        result.is_some(),
-        "in_progress task with known subject must return Some: {result:?}"
-    );
-    let hint = result.expect("in_progress task with known subject must yield Some");
-    assert!(
-        hint.contains("active-cc-task"),
-        "must prefix with active-cc-task: {hint}"
-    );
-    assert!(
-        hint.contains("Test"),
-        "must surface Test generator kind: {hint}"
-    );
-}
-
-#[test]
-fn generator_for_first_inprogress_cc_task_returns_none_when_no_inprogress() {
-    // No in_progress tasks → None
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [
-                {"id": "T-1", "status": "completed", "task_subject": "add tests"},
-            ]
-        }
-    });
-    let result = super::generator_for_first_inprogress_cc_task(&input);
-    assert!(
-        result.is_none(),
-        "no in_progress tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn generator_for_first_inprogress_cc_task_returns_none_for_unknown_subject() {
-    // In_progress but unrecognized subject → None (no noise)
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [
-                {"id": "T-1", "status": "in_progress", "task_subject": "xyzzy nonce frob"},
-            ]
-        }
-    });
-    let result = super::generator_for_first_inprogress_cc_task(&input);
-    assert!(
-        result.is_none(),
-        "unrecognized subject must return None: {result:?}"
-    );
-}
-
-#[test]
 fn task_sync_list_includes_active_cc_gen_for_known_subject() {
     // R31-S3: TaskList with in_progress task "write migration" → active-cc-task hint
     let (_tmp, mut rt) = make_runtime();
@@ -3009,56 +1687,6 @@ fn task_sync_list_includes_active_cc_gen_for_known_subject() {
 }
 
 // ── R32-S1: plan_scaffold_for_active_subtask ─────────────────────────────
-
-#[test]
-fn plan_scaffold_for_active_subtask_returns_stub_for_inprogress_test_subtask() {
-    // DAG with in_progress subtask whose description contains "test" → Some with stub
-    let dag_json = serde_json::json!({
-            "subtasks": [
-                {"id": "T-1::scout", "status": "completed", "description": "scout: research context"},
-                {"id": "T-1::implement", "status": "in_progress", "description": "implement tests for auth module"},
-                {"id": "T-1::validate", "status": "pending", "description": "validate: cargo test + wiring"},
-            ]
-        }).to_string();
-    let result = super::plan_scaffold_for_active_subtask(&dag_json, "T-1");
-    assert!(
-        result.is_some(),
-        "in_progress subtask with 'test' keyword must return Some: {result:?}"
-    );
-    let stub = result.expect("must be Some");
-    assert!(
-        stub.contains("plan-submit"),
-        "must reference plan-submit: {stub}"
-    );
-    assert!(stub.contains("T-1"), "stub must include task_id: {stub}");
-}
-
-#[test]
-fn plan_scaffold_for_active_subtask_returns_none_when_no_inprogress() {
-    // All subtasks completed → no active → None
-    let dag_json = serde_json::json!({
-        "subtasks": [
-            {"id": "T-2::scout", "status": "completed", "description": "scout"},
-            {"id": "T-2::validate", "status": "completed", "description": "validate"},
-        ]
-    })
-    .to_string();
-    let result = super::plan_scaffold_for_active_subtask(&dag_json, "T-2");
-    assert!(
-        result.is_none(),
-        "no in_progress subtasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn plan_scaffold_for_active_subtask_returns_none_for_invalid_json() {
-    // Invalid JSON → graceful None, no panic
-    let result = super::plan_scaffold_for_active_subtask("not-json", "T-3");
-    assert!(
-        result.is_none(),
-        "invalid JSON must return None: {result:?}"
-    );
-}
 
 #[test]
 fn task_sync_get_includes_scaffold_hint_for_inprogress_test_subtask() {
@@ -3111,36 +1739,6 @@ fn task_sync_get_includes_scaffold_hint_for_inprogress_test_subtask() {
 // ── R32-S2: advance_dag_implement_on_artifact ────────────────────────────
 
 #[test]
-fn advance_dag_implement_on_artifact_fires_when_artifacts_detected() {
-    // artifact_count > 0 → returns dag-auto confirmation for implement subtask
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::advance_dag_implement_on_artifact(&mut rt, 2, "T-r32-s2");
-    assert!(
-        result.contains("dag-auto"),
-        "must confirm DAG advance: {result}"
-    );
-    assert!(
-        result.contains("T-r32-s2::implement"),
-        "must name implement subtask: {result}"
-    );
-    assert!(
-        result.contains("2 artifact(s)"),
-        "must state artifact count: {result}"
-    );
-}
-
-#[test]
-fn advance_dag_implement_on_artifact_silent_when_no_artifacts() {
-    // artifact_count == 0 → empty string (no noise)
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::advance_dag_implement_on_artifact(&mut rt, 0, "T-r32-s2-none");
-    assert!(
-        result.is_empty(),
-        "zero artifacts must return empty: {result}"
-    );
-}
-
-#[test]
 fn task_sync_output_impl_advance_included_when_file_paths_in_output() {
     // R32-S2: TaskOutput with file paths → impl_advance in output
     let (_tmp, mut rt) = make_runtime();
@@ -3168,46 +1766,6 @@ fn task_sync_output_impl_advance_included_when_file_paths_in_output() {
 // ── R33-S1: maybe_cargo_toml_hint ────────────────────────────────────────
 
 #[test]
-fn maybe_cargo_toml_hint_fires_for_cargo_toml() {
-    // Cargo.toml change → Some with wiring audit + feature gate commands
-    let result = super::maybe_cargo_toml_hint("crates/touring-hooks/Cargo.toml");
-    assert!(result.is_some(), "Cargo.toml must return Some: {result:?}");
-    let hint = result.expect("must be Some for Cargo.toml path");
-    assert!(
-        hint.contains("cargo check --all-features"),
-        "must include feature gate check: {hint}"
-    );
-    assert!(
-        hint.contains("touring wiring audit"),
-        "must include wiring audit: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate capacity"),
-        "must include capacity check: {hint}"
-    );
-}
-
-#[test]
-fn maybe_cargo_toml_hint_silent_for_regular_rs_file() {
-    // Non-Cargo.toml path → None (no noise)
-    let result = super::maybe_cargo_toml_hint("src/lifecycle.rs");
-    assert!(
-        result.is_none(),
-        "non-Cargo.toml must return None: {result:?}"
-    );
-}
-
-#[test]
-fn maybe_cargo_toml_hint_silent_for_lock_file() {
-    // Cargo.lock is not Cargo.toml → None
-    let result = super::maybe_cargo_toml_hint("Cargo.lock");
-    assert!(
-        result.is_none(),
-        "Cargo.lock must return None (not Cargo.toml): {result:?}"
-    );
-}
-
-#[test]
 fn file_changed_includes_cargo_toml_hint() {
     // R33-S1: FileChanged for Cargo.toml → cargo-toml-changed hint in output
     let (_tmp, mut rt) = make_runtime();
@@ -3226,40 +1784,6 @@ fn file_changed_includes_cargo_toml_hint() {
 }
 
 // ── R33-S2: missing_dag_entry_creation_hint ───────────────────────────────
-
-#[test]
-fn missing_dag_entry_hint_fires_when_no_status_in_dag_state() {
-    // dag_state has no "status" → no-dag hint returned
-    let dag_state = r#"{"error": "task not found"}"#;
-    let result = super::missing_dag_entry_creation_hint(dag_state, "T-r33-s2");
-    assert!(
-        !result.is_empty(),
-        "missing DAG entry must return non-empty: {result}"
-    );
-    assert!(
-        result.contains("no-dag"),
-        "must have no-dag prefix: {result}"
-    );
-    assert!(
-        result.contains("decompose create"),
-        "must suggest create command: {result}"
-    );
-    assert!(
-        result.contains("T-r33-s2"),
-        "must include task_id: {result}"
-    );
-}
-
-#[test]
-fn missing_dag_entry_hint_silent_when_status_present() {
-    // dag_state contains "status" → entry exists → empty string
-    let dag_state = r#"{"task_id": "T-1", "status": "in_progress", "subtasks": []}"#;
-    let result = super::missing_dag_entry_creation_hint(dag_state, "T-r33-s2-exists");
-    assert!(
-        result.is_empty(),
-        "existing DAG entry must return empty: {result}"
-    );
-}
 
 #[test]
 fn task_sync_get_includes_no_dag_hint_when_no_entry() {
@@ -3281,16 +1805,6 @@ fn task_sync_get_includes_no_dag_hint_when_no_entry() {
 // ── R34-S1: auto_checkpoint_on_task_complete ─────────────────────────────
 
 #[test]
-fn auto_checkpoint_on_task_complete_does_not_panic() {
-    // Pure smoke test: function must not panic even when daemon offline
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::auto_checkpoint_on_task_complete(&mut rt, "T-r34-s1");
-    // Either empty (daemon offline) or contains "checkpoint" — both valid
-    let ok = result.is_empty() || result.contains("checkpoint");
-    assert!(ok, "result must be empty or checkpoint hint: {result}");
-}
-
-#[test]
 fn task_sync_update_completed_contains_sync_prefix() {
     // R34-S1: TaskUpdate(completed) must still include "touring-sync" prefix after R34-S1 addition
     let (_tmp, mut rt) = make_runtime();
@@ -3310,107 +1824,7 @@ fn task_sync_update_completed_contains_sync_prefix() {
 
 // ── R34-S2: dag_cc_task_ratio_hint ──────────────────────────────────────
 
-#[test]
-fn dag_cc_task_ratio_hint_warns_when_cc_far_exceeds_dag() {
-    // 6 CC tasks, 0 DAG tasks → 6 untracked → advisory
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [
-                {"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"},
-                {"id": "T-4"}, {"id": "T-5"}, {"id": "T-6"},
-            ]
-        }
-    });
-    let dag_status = r#"{"task_count": 0}"#;
-    let result = super::dag_cc_task_ratio_hint(&input, dag_status);
-    assert!(
-        !result.is_empty(),
-        "6 CC vs 0 DAG must trigger advisory: {result}"
-    );
-    assert!(
-        result.contains("dag-gap"),
-        "must have dag-gap prefix: {result}"
-    );
-    assert!(
-        result.contains("decompose create"),
-        "must suggest create command: {result}"
-    );
-}
-
-#[test]
-fn dag_cc_task_ratio_hint_silent_when_balanced() {
-    // 3 CC tasks, 2 DAG tasks → difference ≤ 2 → silent
-    let input = serde_json::json!({
-        "tool_result": {
-            "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}]
-        }
-    });
-    let dag_status = r#"{"task_count": 2}"#;
-    let result = super::dag_cc_task_ratio_hint(&input, dag_status);
-    assert!(
-        result.is_empty(),
-        "balanced counts must return empty: {result}"
-    );
-}
-
-#[test]
-fn dag_cc_task_ratio_hint_silent_when_no_cc_tasks() {
-    // Empty CC task list → no advisory (avoid noise)
-    let input = serde_json::json!({"tool_result": {"tasks": []}});
-    let dag_status = r#"{"task_count": 0}"#;
-    let result = super::dag_cc_task_ratio_hint(&input, dag_status);
-    assert!(
-        result.is_empty(),
-        "empty CC task list must return empty: {result}"
-    );
-}
-
 // ── R34-S3: maybe_plan_validate_from_output ──────────────────────────────
-
-#[test]
-fn maybe_plan_validate_from_output_fires_on_plan_json_mention() {
-    // Output containing "plan.json" → validate + submit commands surfaced
-    let output = "Generated plan.json with 5 steps for the auth module.";
-    let result = super::maybe_plan_validate_from_output(output);
-    assert!(
-        !result.is_empty(),
-        "plan.json mention must trigger hint: {result}"
-    );
-    assert!(
-        result.contains("plan-validate"),
-        "must reference plan-validate: {result}"
-    );
-    assert!(
-        result.contains("plan-submit"),
-        "must reference plan-submit: {result}"
-    );
-}
-
-#[test]
-fn maybe_plan_validate_from_output_fires_on_plan_submit_mention() {
-    // Output containing "plan-submit" → validate + submit commands surfaced
-    let output = "Use plan-submit to commit the generated artifacts.";
-    let result = super::maybe_plan_validate_from_output(output);
-    assert!(
-        !result.is_empty(),
-        "plan-submit mention must trigger hint: {result}"
-    );
-    assert!(
-        result.contains("plan-validate"),
-        "must reference plan-validate: {result}"
-    );
-}
-
-#[test]
-fn maybe_plan_validate_from_output_silent_for_unrelated_output() {
-    // Cargo test output — no plan.json or plan-submit → silent
-    let output = "test result: ok. 174 passed; 0 failed; 0 ignored";
-    let result = super::maybe_plan_validate_from_output(output);
-    assert!(
-        result.is_empty(),
-        "cargo test output must return empty: {result}"
-    );
-}
 
 #[test]
 fn task_sync_output_surfaces_plan_validate_when_plan_json_in_output() {
@@ -3434,49 +1848,6 @@ fn task_sync_output_surfaces_plan_validate_when_plan_json_in_output() {
 }
 
 // R35-S1: maybe_rust_error_generator_hint — compilation error detection
-
-#[test]
-fn rust_error_hint_surfaces_for_undefined_symbol_error() {
-    // error[E0425] → verify + render hint
-    let output = "error[E0425]: cannot find value `foo` in this scope";
-    let result = super::maybe_rust_error_generator_hint(output);
-    assert!(!result.is_empty(), "E0425 must trigger hint: {result}");
-    assert!(
-        result.contains("rust-error"),
-        "must have rust-error prefix: {result}"
-    );
-    assert!(
-        result.contains("verify"),
-        "must reference generate verify: {result}"
-    );
-}
-
-#[test]
-fn rust_error_hint_surfaces_for_type_mismatch_error() {
-    // error[E0308] → render RustModule hint
-    let output = "error[E0308]: mismatched types\n  --> src/main.rs:42:5";
-    let result = super::maybe_rust_error_generator_hint(output);
-    assert!(!result.is_empty(), "E0308 must trigger hint: {result}");
-    assert!(
-        result.contains("rust-error"),
-        "must have rust-error prefix: {result}"
-    );
-    assert!(
-        result.contains("RustModule"),
-        "E0308 must suggest RustModule render: {result}"
-    );
-}
-
-#[test]
-fn rust_error_hint_silent_for_non_error_output() {
-    // Cargo test success → no hint
-    let output = "test result: ok. 190 passed; 0 failed; 0 ignored; finished in 2.11s";
-    let result = super::maybe_rust_error_generator_hint(output);
-    assert!(
-        result.is_empty(),
-        "success output must return empty: {result}"
-    );
-}
 
 // R35-S2: plan_critique_hint_on_exit — plan critique surface on ExitPlanMode
 
@@ -3520,73 +1891,7 @@ fn exit_plan_mode_no_critique_hint_when_no_session() {
     assert!(!result.is_empty(), "must return non-empty output: {result}");
 }
 
-#[test]
-fn plan_critique_hint_on_exit_returns_empty_when_no_value_in_recall() {
-    // plan_critique_hint_on_exit calls cli_memory_recall (federated, includes production
-    // DBs when daemon is running) → result may contain "value" if any plan_session:current
-    // exists in any DB. Either outcome is correct — no panic is the hard requirement.
-    // Deterministic branch coverage is in plan_critique_hint_from_recall_* below.
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::plan_critique_hint_on_exit(&mut rt);
-    // result is either empty (no active plan session) or the plan-critique hint string
-    assert!(
-        result.is_empty() || result.contains("plan-critique"),
-        "must be empty or a valid plan-critique hint: {result}"
-    );
-}
-
-// R35-S2 pure: plan_critique_hint_from_recall — deterministic branch coverage
-#[test]
-fn plan_critique_hint_from_recall_empty_string_returns_empty() {
-    assert_eq!(
-        super::plan_critique_hint_from_recall(""),
-        "",
-        "empty recall must return empty hint"
-    );
-}
-
-#[test]
-fn plan_critique_hint_from_recall_no_value_field_returns_empty() {
-    // JSON without "value" field → empty (no active plan session)
-    let json = r#"{"entries":[],"count":0,"query":"plan_session:current"}"#;
-    assert_eq!(
-        super::plan_critique_hint_from_recall(json),
-        "",
-        "recall without value field must return empty hint"
-    );
-}
-
-#[test]
-fn plan_critique_hint_from_recall_with_value_field_returns_hint() {
-    // JSON containing "value" field → surfaces plan-critique hint
-    let json = r#"{"entries":[{"key":"plan_session:current","value":"plan-r35-test"}],"count":1}"#;
-    let hint = super::plan_critique_hint_from_recall(json);
-    assert!(
-        hint.contains("plan-critique"),
-        "must contain plan-critique command: {hint}"
-    );
-    assert!(
-        hint.contains("plan.json"),
-        "must reference plan file: {hint}"
-    );
-}
-
 // R35-S3: top_orphans_for_plan_hint — orphan symbols surface during EnterPlanMode
-
-#[test]
-fn top_orphans_for_plan_hint_returns_none_on_empty_orphans() {
-    // Orphan list empty (fresh DB) → None
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::top_orphans_for_plan_hint(&mut rt);
-    // Fresh runtime typically has no wiring data → None is valid
-    assert!(
-        result.is_none()
-            || result
-                .as_deref()
-                .map_or(false, |s| s.contains("top-orphans")),
-        "must return None or valid orphan hint: {result:?}"
-    );
-}
 
 #[test]
 fn enter_plan_mode_does_not_panic_with_orphan_hint() {
@@ -3632,44 +1937,6 @@ fn task_sync_output_includes_rust_error_hint_for_e_code() {
 }
 
 // R36-S2: stem_to_camel_case + maybe_vgp_verify_hint_for_rs_file + handle_file_changed
-
-#[test]
-fn stem_to_camel_case_converts_snake_correctly() {
-    assert_eq!(super::stem_to_camel_case("hook_registry"), "HookRegistry");
-    assert_eq!(super::stem_to_camel_case("lifecycle"), "Lifecycle");
-    assert_eq!(
-        super::stem_to_camel_case("cli_handlers_session"),
-        "CliHandlersSession"
-    );
-}
-
-#[test]
-fn vgp_verify_hint_surfaces_for_rs_file() {
-    // hook_registry.rs → symbol HookRegistry → verify hint
-    let hint =
-        super::maybe_vgp_verify_hint_for_rs_file("crates/touring-hooks/src/hook_registry.rs");
-    assert!(hint.is_some(), "must return hint for .rs file: {hint:?}");
-    let h = hint.unwrap();
-    assert!(h.contains("vgp-verify"), "must have vgp-verify prefix: {h}");
-    assert!(
-        h.contains("HookRegistry"),
-        "must include CamelCase symbol: {h}"
-    );
-    assert!(
-        h.contains("generate verify"),
-        "must reference generate verify: {h}"
-    );
-}
-
-#[test]
-fn vgp_verify_hint_silent_for_generic_stems() {
-    // lib.rs, main.rs, mod.rs are too generic — no hint
-    assert!(super::maybe_vgp_verify_hint_for_rs_file("src/lib.rs").is_none());
-    assert!(super::maybe_vgp_verify_hint_for_rs_file("src/main.rs").is_none());
-    assert!(super::maybe_vgp_verify_hint_for_rs_file("src/mod.rs").is_none());
-    // Non-.rs files silent too
-    assert!(super::maybe_vgp_verify_hint_for_rs_file("src/config.toml").is_none());
-}
 
 #[test]
 fn file_changed_rs_includes_vgp_verify_hint() {
@@ -3845,33 +2112,6 @@ fn task_completed_dispatch_runs_the_decompose_retention_pass() {
 // R37-S1: scout_tantivy_search_hint — ::scout pending/in_progress → tantivy + ast blast hint
 
 #[test]
-fn scout_tantivy_search_hint_returns_hint_when_scout_pending() {
-    // ::scout with status=pending → hint contains scout-ready + tantivy search + ast blast
-    let dag_json = r#"{"subtasks": [{"id": "T-1::scout", "status": "pending"}, {"id": "T-1::implement", "status": "pending"}]}"#;
-    let hint = super::scout_tantivy_search_hint(dag_json, "T-1");
-    assert!(
-        hint.contains("scout-ready"),
-        "must include scout-ready prefix: {hint}"
-    );
-    assert!(
-        hint.contains("tantivy search"),
-        "must include tantivy search: {hint}"
-    );
-    assert!(hint.contains("ast blast"), "must include ast blast: {hint}");
-}
-
-#[test]
-fn scout_tantivy_search_hint_silent_when_scout_completed() {
-    // ::scout completed (implement in_progress) → empty — no noise after scout phase done
-    let dag_json = r#"{"subtasks": [{"id": "T-1::scout", "status": "completed"}, {"id": "T-1::implement", "status": "in_progress"}]}"#;
-    let hint = super::scout_tantivy_search_hint(dag_json, "T-1");
-    assert!(
-        hint.is_empty(),
-        "completed scout must yield empty hint: {hint}"
-    );
-}
-
-#[test]
 fn task_sync_get_with_pending_scout_does_not_panic() {
     // R37-S1 integration: handle_task_sync_post_get must not panic with any dag state
     let (_tmp, mut rt) = make_runtime();
@@ -3886,17 +2126,6 @@ fn task_sync_get_with_pending_scout_does_not_panic() {
 }
 
 // R37-S2: auto_finalize_plan_on_exit — plan session active → auto-call cli_decompose_finalize
-
-#[test]
-fn auto_finalize_plan_on_exit_returns_empty_when_no_plan_session() {
-    // Fresh runtime with no plan_session:current → helper returns empty (no noise)
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::auto_finalize_plan_on_exit(&mut rt);
-    assert!(
-        result.is_empty(),
-        "no plan session → must return empty: {result}"
-    );
-}
 
 #[test]
 fn exit_plan_mode_finalize_does_not_panic_on_fresh_runtime() {
@@ -3931,18 +2160,6 @@ fn exit_plan_mode_still_includes_core_hints_after_r37() {
 // R37-S3: session_assess_on_task_stop — TaskStop → assess session from R36-S1
 
 #[test]
-fn session_assess_on_task_stop_returns_empty_for_unknown_session() {
-    // cli_session_assess always returns quality_score (0.0 when no edits) →
-    // helper either returns empty or a "session-assessed" string — no panic is the gate.
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::session_assess_on_task_stop(&mut rt, "T-unknown-r37-s3");
-    assert!(
-        result.is_empty() || result.contains("session-assessed"),
-        "must be empty or contain session-assessed: {result}"
-    );
-}
-
-#[test]
 fn task_sync_stop_result_contains_cancelled_and_lesson() {
     // R37-S3 integration: handle_task_sync_post_stop must still confirm cancel + lesson
     let (_tmp, mut rt) = make_runtime();
@@ -3960,132 +2177,11 @@ fn task_sync_stop_result_contains_cancelled_and_lesson() {
     // assess_hint may be empty (session not started) — no panic is the gate
 }
 
-#[test]
-fn session_assess_on_task_stop_surfaces_score_after_session_started() {
-    // R37-S3: start a session first (R36-S1 pattern), then assess on stop
-    let (_tmp, mut rt) = make_runtime();
-    let task_id = "T-r37-s3-score";
-    let _ = crate::cli_handlers::cli_session_start(
-        &mut rt,
-        &serde_json::json!({
-            "session_id": task_id,
-            "task_type": "task",
-            "objective": "r37 session assess integration test",
-        }),
-    );
-    let result = super::session_assess_on_task_stop(&mut rt, task_id);
-    // Fresh session with no edits → quality_score may be 0.0 → either empty or scored
-    // Both are valid — no panic is the hard gate; presence of session-assessed is the soft gate
-    assert!(
-        result.is_empty() || result.contains("session-assessed"),
-        "must be empty or contain session-assessed: {result}"
-    );
-}
-
 // R38-S1: maybe_start_session_on_in_progress — TaskUpdate(in_progress) → session ensured
 
 // ── Fix-B1/B2: double-pipe/double-generator regression guards ─────────────
 
-#[test]
-fn fix_b1_gen_suffix_has_single_pipe_separator() {
-    // Fix-B1: generator_for_first_ready_subtask returns " | generator: ..." (already prefixed).
-    // After fix, gen_suffix = gen_hint directly — no extra " | " wrapping.
-    let json = r#"{
-            "ready_count": 1,
-            "ready_subtasks": [
-                {"task_id": "T-1", "subtask_id": "T-1::scout",
-                 "description": "write unit test for the VGP pipeline"}
-            ]
-        }"#;
-    let hint = super::generator_for_first_ready_subtask(json);
-    // Must not contain double-pipe " |  | " anywhere
-    assert!(
-        !hint.contains(" |  | "),
-        "Fix-B1: no double-pipe in gen_hint: {hint}"
-    );
-    // Must still surface a generator hint (not empty) for "test" keyword
-    assert!(
-        hint.contains("generator") || hint.is_empty(),
-        "Fix-B1: hint must contain generator or be empty: {hint}"
-    );
-}
-
-#[test]
-fn fix_b2_worktree_create_hint_has_single_generator_prefix() {
-    // Fix-B2: worktree_create_hint wraps suggest_generator_for_task_subject result.
-    // After fix, gen_suffix = gen_hint directly — no double "generator:" prefix.
-    let hint = super::worktree_create_hint("/tmp/wt-fix-b2", "migrate the users table schema");
-    // Must not contain "generator:  | generator:" (old double-generator pattern)
-    assert!(
-        !hint.contains("generator:  | generator:"),
-        "Fix-B2: no double-generator prefix in worktree_create_hint: {hint}"
-    );
-    // Must contain Migration kind
-    assert!(
-        hint.contains("Migration"),
-        "Fix-B2: migration keyword → Migration kind: {hint}"
-    );
-}
-
 // ── R37-S4: session assess on task-completed ──────────────────────────────
-
-#[test]
-fn r37_s4_session_assess_on_task_completed_no_panic() {
-    // R37-S4: hook_registry task-completed inlines session_assess (same as session_assess_on_task_stop).
-    // This test validates the shared contract: must return session-assessed or empty.
-    let (_tmp, mut rt) = make_runtime();
-    let task_id = "T-r37-s4-completed";
-    let _ = crate::cli_handlers::cli_session_start(
-        &mut rt,
-        &serde_json::json!({
-            "session_id": task_id,
-            "task_type": "task",
-            "objective": "r37-s4 TaskCompleted session assess test",
-        }),
-    );
-    let result = super::session_assess_on_task_stop(&mut rt, task_id);
-    // R37-S4 inlines the same logic — verify contract: no panic + correct format
-    assert!(
-        result.is_empty() || result.contains("session-assessed"),
-        "R37-S4: must return session-assessed or empty: {result}"
-    );
-    // If session-assessed present, format must include quality=
-    if result.contains("session-assessed") {
-        assert!(
-            result.contains("quality="),
-            "R37-S4: session-assessed must include quality=: {result}"
-        );
-    }
-}
-
-#[test]
-fn maybe_start_session_on_in_progress_returns_empty_for_non_inprogress() {
-    // status="blocked" → helper must return empty (only in_progress triggers session)
-    let (_tmp, mut rt) = make_runtime();
-    let result =
-        super::maybe_start_session_on_in_progress(&mut rt, "T-r38-s1", "some task", "blocked");
-    assert!(
-        result.is_empty(),
-        "non-in_progress status must yield empty: {result}"
-    );
-}
-
-#[test]
-fn maybe_start_session_on_in_progress_returns_hint_for_inprogress() {
-    // status="in_progress" → session started → hint contains "session:T-r38-s1 ensured"
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::maybe_start_session_on_in_progress(
-        &mut rt,
-        "T-r38-s1b",
-        "build async cache",
-        "in_progress",
-    );
-    // cli_session_start returns session_id → hint should appear
-    assert!(
-        result.is_empty() || result.contains("session:T-r38-s1b"),
-        "in_progress must yield session hint or empty: {result}"
-    );
-}
 
 #[test]
 fn task_sync_update_inprogress_surfaces_session_hint() {
@@ -4109,33 +2205,6 @@ fn task_sync_update_inprogress_surfaces_session_hint() {
 // R38-S2: first_inprogress_task_lesson_hint — TaskList → memory recall for first in_progress task
 
 #[test]
-fn first_inprogress_task_lesson_hint_returns_empty_when_no_tasks() {
-    // No tasks in input → helper returns empty (no tasks = no in_progress = no recall)
-    let (_tmp, mut rt) = make_runtime();
-    let input = serde_json::json!({});
-    let result = super::first_inprogress_task_lesson_hint(&mut rt, &input);
-    assert!(
-        result.is_empty(),
-        "no tasks in input must yield empty: {result}"
-    );
-}
-
-#[test]
-fn first_inprogress_task_lesson_hint_empty_when_no_memory_for_task() {
-    // Task in_progress but no memory stored → recall returns no "value" → empty
-    let (_tmp, mut rt) = make_runtime();
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"task_id": "T-nomem-r38", "status": "in_progress"}]}
-    });
-    let result = super::first_inprogress_task_lesson_hint(&mut rt, &input);
-    // No memory stored for T-nomem-r38 → recall returns no "value" → empty
-    assert!(
-        result.is_empty(),
-        "no stored memory must yield empty: {result}"
-    );
-}
-
-#[test]
 fn task_sync_list_does_not_panic_with_lesson_hint() {
     // R38-S2 integration: handle_task_sync_post_list must not panic with lesson_hint wired
     let (_tmp, mut rt) = make_runtime();
@@ -4152,21 +2221,6 @@ fn task_sync_list_does_not_panic_with_lesson_hint() {
 }
 
 // R38-S3: evolution_drift_hint_on_enter_plan — EnterPlanMode → drift check before planning
-
-#[test]
-fn evolution_drift_hint_returns_none_on_fresh_runtime() {
-    // Fresh runtime with no bash history → drift alert_level = "none" → helper returns None
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::evolution_drift_hint_on_enter_plan(&mut rt);
-    // Fresh DB has no metrics → "none" level → None
-    assert!(
-        result.is_none()
-            || result
-                .as_deref()
-                .map_or(false, |s| s.contains("evolution-drift")),
-        "must be None or contain evolution-drift: {result:?}"
-    );
-}
 
 #[test]
 fn enter_plan_mode_does_not_panic_with_drift_check() {
@@ -4202,41 +2256,6 @@ fn enter_plan_mode_still_has_wiring_hint_after_r38() {
 // R39-S1: maybe_test_pass_rl_reward
 
 #[test]
-fn test_pass_rl_reward_returns_hint_on_success_outcome() {
-    // R39-S1: outcome_hint containing "✓ success" → non-empty with test-pass-rl + diary hint
-    let (_tmp, mut rt) = make_runtime();
-    let outcome_hint = " | ✓ success detected — consider `TaskUpdate t-r39-s1 completed`";
-    let result = super::maybe_test_pass_rl_reward(&mut rt, outcome_hint, "t-r39-s1");
-    assert!(
-        !result.is_empty(),
-        "success outcome must produce hint: {result}"
-    );
-    assert!(
-        result.contains("test-pass-rl"),
-        "must include test-pass-rl: {result}"
-    );
-    assert!(
-        result.contains("+0.5"),
-        "must mention RL reward amount: {result}"
-    );
-    assert!(
-        result.contains("diary"),
-        "must include diary write hint: {result}"
-    );
-}
-
-#[test]
-fn test_pass_rl_reward_empty_for_non_success_hint() {
-    // R39-S1: outcome_hint without "✓ success" → no RL injection, empty return
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::maybe_test_pass_rl_reward(&mut rt, " | ✗ failure detected", "t-r39-s1b");
-    assert!(
-        result.is_empty(),
-        "failure outcome must not inject RL: {result}"
-    );
-}
-
-#[test]
 fn task_sync_output_with_success_includes_test_pass_rl() {
     // R39-S1 integration: handle_task_sync_post_output with cargo test ok → test-pass-rl present
     let (_tmp, mut rt) = make_runtime();
@@ -4262,30 +2281,6 @@ fn task_sync_output_with_success_includes_test_pass_rl() {
 // R39-S2: task_id_session_recall_hint
 
 #[test]
-fn task_id_session_recall_hint_returns_none_for_missing_task_id() {
-    // R39-S2: input without task_id → None (no noise on fresh sessions)
-    let (_tmp, mut rt) = make_runtime();
-    let input = serde_json::json!({"description": "implement caching layer"});
-    let result = super::task_id_session_recall_hint(&mut rt, &input);
-    assert!(
-        result.is_none(),
-        "missing task_id must return None: {result:?}"
-    );
-}
-
-#[test]
-fn task_id_session_recall_hint_returns_none_for_unknown_task() {
-    // R39-S2: task_id not in memory → None (no hallucination of recall)
-    let (_tmp, mut rt) = make_runtime();
-    let input = serde_json::json!({"task_id": "t-r39-s2-unknown"});
-    let result = super::task_id_session_recall_hint(&mut rt, &input);
-    assert!(
-        result.is_none(),
-        "unknown task_id must return None (empty memory): {result:?}"
-    );
-}
-
-#[test]
 fn enter_plan_mode_with_task_id_does_not_panic() {
     // R39-S2 integration: handle_enter_plan_mode with task_id in input must not panic
     let (_tmp, mut rt) = make_runtime();
@@ -4303,37 +2298,6 @@ fn enter_plan_mode_with_task_id_does_not_panic() {
 }
 
 // R39-S3: auto_lesson_on_task_complete
-
-#[test]
-fn auto_lesson_on_task_complete_returns_lesson_hint() {
-    // R39-S3: fresh runtime → returns non-empty hint with "lesson" and "diary"
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::auto_lesson_on_task_complete(&mut rt, "t-r39-s3");
-    assert!(!result.is_empty(), "must return non-empty hint: {result}");
-    assert!(
-        result.contains("lesson"),
-        "must include lesson marker: {result}"
-    );
-    assert!(
-        result.contains("diary"),
-        "must include diary write hint: {result}"
-    );
-}
-
-#[test]
-fn auto_lesson_on_task_complete_contains_aaak_format() {
-    // R39-S3: returned hint must reference AAAK format with P:completed and R:1.0
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::auto_lesson_on_task_complete(&mut rt, "t-r39-s3-aaak");
-    assert!(
-        result.contains("#[P:completed]"),
-        "must include AAAK phase: {result}"
-    );
-    assert!(
-        result.contains("#[R:1.0]"),
-        "must include AAAK reward: {result}"
-    );
-}
 
 #[test]
 fn task_sync_update_completed_includes_lesson_hint() {
@@ -4359,73 +2323,7 @@ fn task_sync_update_completed_includes_lesson_hint() {
 
 // R40-S1: classify_file_to_generator_kind extended mappings
 
-#[test]
-fn classify_file_to_generator_kind_maps_sql_to_migration() {
-    // R40-S1: .sql files → Migration generator
-    assert_eq!(
-        super::classify_file_to_generator_kind("migrations/001_init_schema.sql"),
-        Some("Migration"),
-        ".sql must map to Migration"
-    );
-}
-
-#[test]
-fn classify_file_to_generator_kind_maps_sh_to_shell_completion() {
-    // R40-S1: .sh and .bash scripts → ShellCompletion generator
-    assert_eq!(
-        super::classify_file_to_generator_kind("scripts/setup.sh"),
-        Some("ShellCompletion"),
-        ".sh must map to ShellCompletion"
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("scripts/install.bash"),
-        Some("ShellCompletion"),
-        ".bash must map to ShellCompletion"
-    );
-}
-
-#[test]
-fn classify_file_to_generator_kind_maps_openapi_path() {
-    // R40-S1: paths containing "openapi" or "swagger" → OpenApiSpec
-    assert_eq!(
-        super::classify_file_to_generator_kind("docs/openapi.yaml"),
-        Some("OpenApiSpec"),
-        "openapi path must map to OpenApiSpec"
-    );
-    assert_eq!(
-        super::classify_file_to_generator_kind("api/swagger.json"),
-        Some("OpenApiSpec"),
-        "swagger path must map to OpenApiSpec"
-    );
-}
-
 // R40-S2: artifact_file_gen_hint
-
-#[test]
-fn artifact_file_gen_hint_returns_empty_for_no_file_paths() {
-    // R40-S2: output with no recognizable file paths → empty hint
-    let result = super::artifact_file_gen_hint("test result: ok. 235 passed; 0 failed");
-    assert!(
-        result.is_empty(),
-        "no file paths must return empty: {result}"
-    );
-}
-
-#[test]
-fn artifact_file_gen_hint_returns_hint_for_py_path() {
-    // R40-S2: output containing a .py path (in extract_file_paths list) → PythonScript hint
-    let output = "wrote scripts/data_pipeline/transform.py to disk";
-    let result = super::artifact_file_gen_hint(output);
-    assert!(!result.is_empty(), "py path must produce hint: {result}");
-    assert!(
-        result.contains("PythonScript"),
-        "must identify PythonScript kind: {result}"
-    );
-    assert!(
-        result.contains("artifact-gen"),
-        "must include artifact-gen marker: {result}"
-    );
-}
 
 #[test]
 fn task_sync_output_with_artifact_py_includes_gen_hint() {
@@ -4448,152 +2346,11 @@ fn task_sync_output_with_artifact_py_includes_gen_hint() {
 
 // R40-S3: maybe_implement_vgp_hint
 
-#[test]
-fn maybe_implement_vgp_hint_empty_for_invalid_dag_json() {
-    // R40-S3: malformed DAG JSON → empty hint (no panic)
-    let result = super::maybe_implement_vgp_hint("not-valid-json", "t-r40-s3");
-    assert!(
-        result.is_empty(),
-        "invalid JSON must return empty: {result}"
-    );
-}
-
-#[test]
-fn maybe_implement_vgp_hint_returns_hint_when_implement_pending() {
-    // R40-S3: DAG JSON with ::implement subtask pending → vgp-ready hint
-    let dag_json = serde_json::json!({
-        "task_id": "t-r40-s3",
-        "subtasks": [
-            {"id": "t-r40-s3::scout", "status": "completed"},
-            {"id": "t-r40-s3::implement", "status": "pending"},
-            {"id": "t-r40-s3::validate", "status": "pending"}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_implement_vgp_hint(&dag_json, "t-r40-s3");
-    assert!(
-        !result.is_empty(),
-        "pending implement must produce hint: {result}"
-    );
-    assert!(
-        result.contains("vgp-ready"),
-        "must include vgp-ready marker: {result}"
-    );
-    assert!(
-        result.contains("generate verify"),
-        "must include generate verify command: {result}"
-    );
-}
-
-#[test]
-fn maybe_implement_vgp_hint_empty_when_implement_in_progress() {
-    // R40-S3: ::implement already in_progress (coding started) → no duplicate hint
-    let dag_json = serde_json::json!({
-        "task_id": "t-r40-s3b",
-        "subtasks": [
-            {"id": "t-r40-s3b::scout", "status": "completed"},
-            {"id": "t-r40-s3b::implement", "status": "in_progress"}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_implement_vgp_hint(&dag_json, "t-r40-s3b");
-    assert!(
-        result.is_empty(),
-        "in_progress implement must not re-emit vgp hint: {result}"
-    );
-}
-
 // ── R41 tests ─────────────────────────────────────────────────────────────
 
 // R41-S1: maybe_index_stale_hint
 
-#[test]
-fn index_stale_hint_returns_none_for_non_rs_file() {
-    // R41-S1: Non-.rs file (e.g., .toml) must not emit index rebuild hint
-    let result = super::maybe_index_stale_hint("crates/touring-hooks/Cargo.toml", true);
-    assert!(
-        result.is_none(),
-        "non-rs file must not trigger index-stale hint: {result:?}"
-    );
-}
-
-#[test]
-fn index_stale_hint_returns_none_when_no_dependents() {
-    // R41-S1: .rs file with no dependents (new/isolated) → no rebuild hint (not stale)
-    let result = super::maybe_index_stale_hint("crates/touring-hooks/src/new_module.rs", false);
-    assert!(
-        result.is_none(),
-        "isolated .rs file must not trigger index-stale hint: {result:?}"
-    );
-}
-
-#[test]
-fn index_stale_hint_returns_rebuild_command_for_rs_with_dependents() {
-    // R41-S1: .rs file WITH dependents → emits targeted index rebuild for its crate dir
-    let result = super::maybe_index_stale_hint("crates/touring-hooks/src/lifecycle.rs", true);
-    assert!(
-        result.is_some(),
-        "rs file with dependents must produce index-stale hint"
-    );
-    let hint = result.expect("rs file with dependents must return Some");
-    assert!(
-        hint.contains("index-stale"),
-        "must include index-stale marker: {hint}"
-    );
-    assert!(
-        hint.contains("touring index rebuild"),
-        "must include rebuild command: {hint}"
-    );
-    assert!(
-        hint.contains("crates/touring-hooks"),
-        "must scope to crate dir: {hint}"
-    );
-}
-
 // R41-S2: pending_tasks_mcts_hint
-
-#[test]
-fn pending_tasks_mcts_hint_empty_when_fewer_than_3_pending() {
-    // R41-S2: 2 pending tasks → no MCTS hint (below threshold)
-    let input = serde_json::json!({
-        "tasks": [
-            {"status": "pending"},
-            {"status": "pending"},
-            {"status": "in_progress"}
-        ]
-    });
-    let result = super::pending_tasks_mcts_hint(&input);
-    assert!(
-        result.is_empty(),
-        "2 pending must not trigger mcts hint: {result}"
-    );
-}
-
-#[test]
-fn pending_tasks_mcts_hint_present_when_3_or_more_pending() {
-    // R41-S2: 3+ pending tasks → MCTS search hint emitted
-    let input = serde_json::json!({
-        "tasks": [
-            {"status": "pending"},
-            {"status": "pending"},
-            {"status": "pending"},
-            {"status": "in_progress"}
-        ]
-    });
-    let result = super::pending_tasks_mcts_hint(&input);
-    assert!(
-        !result.is_empty(),
-        "3 pending must trigger mcts hint: {result}"
-    );
-    assert!(
-        result.contains("mcts-plan"),
-        "must include mcts-plan marker: {result}"
-    );
-    assert!(
-        result.contains("touring mcts search"),
-        "must include mcts command: {result}"
-    );
-}
 
 #[test]
 fn pending_tasks_mcts_hint_integration_with_task_list() {
@@ -4618,34 +2375,6 @@ fn pending_tasks_mcts_hint_integration_with_task_list() {
 // R41-S3: task_create_wiring_hint
 
 #[test]
-fn task_create_wiring_hint_empty_for_blank_subject() {
-    // R41-S3: empty task_subject → empty hint (no noise)
-    let result = super::task_create_wiring_hint("");
-    assert!(
-        result.is_empty(),
-        "blank subject must return empty wiring hint: {result}"
-    );
-}
-
-#[test]
-fn task_create_wiring_hint_returns_wiring_suggest_command() {
-    // R41-S3: non-empty subject → wiring suggest command with stem derived from subject
-    let result = super::task_create_wiring_hint("implement auth service");
-    assert!(
-        !result.is_empty(),
-        "non-empty subject must produce wiring hint: {result}"
-    );
-    assert!(
-        result.contains("touring wiring suggest"),
-        "must include wiring suggest: {result}"
-    );
-    assert!(
-        result.contains("implement_auth_service"),
-        "must slugify subject: {result}"
-    );
-}
-
-#[test]
 fn task_create_wiring_hint_integration_with_post_create() {
     // R41-S3 integration: handle_task_sync_post_create with subject → wiring-opportunities in output
     let (_tmp, mut rt) = make_runtime();
@@ -4665,72 +2394,6 @@ fn task_create_wiring_hint_integration_with_post_create() {
 // ── Grupo 5 §1: jdm_routing_hint ──────────────────────────────────────────
 
 #[test]
-fn jdm_routing_hint_empty_for_short_subject() {
-    assert!(super::jdm_routing_hint("").is_empty());
-    assert!(super::jdm_routing_hint("ok").is_empty());
-}
-
-#[test]
-fn jdm_routing_hint_class_a_on_implement_keyword() {
-    let result = super::jdm_routing_hint("implement auth middleware");
-    assert!(
-        result.contains("[TOURING JDM]"),
-        "must contain JDM tag: {result}"
-    );
-    assert!(result.contains("class-A"), "implement → class-A: {result}");
-    assert!(
-        result.contains("generate plan-suggest"),
-        "class-A → generate plan-suggest: {result}"
-    );
-}
-
-#[test]
-fn jdm_routing_hint_class_b_on_deploy_keyword() {
-    let result = super::jdm_routing_hint("deploy kubernetes cluster with helm");
-    assert!(
-        result.contains("[TOURING JDM]"),
-        "must contain JDM tag: {result}"
-    );
-    assert!(result.contains("class-B"), "deploy → class-B: {result}");
-    assert!(
-        result.contains("jobs spawn"),
-        "class-B → jobs spawn: {result}"
-    );
-}
-
-#[test]
-fn jdm_routing_hint_class_c_on_design_keyword() {
-    let result = super::jdm_routing_hint("design new caching architecture");
-    assert!(
-        result.contains("[TOURING JDM]"),
-        "must contain JDM tag: {result}"
-    );
-    assert!(result.contains("class-C"), "design → class-C: {result}");
-    assert!(
-        result.contains("mcts search"),
-        "class-C → mcts search: {result}"
-    );
-}
-
-#[test]
-fn jdm_routing_hint_class_d_wins_over_others() {
-    // "orchestrate" (D) + "implement" (A) → D wins (D > C > B > A priority)
-    let result = super::jdm_routing_hint("orchestrate and implement parallel tasks");
-    assert!(
-        result.contains("[TOURING JDM]"),
-        "must contain JDM tag: {result}"
-    );
-    assert!(
-        result.contains("class-D"),
-        "orchestrate beats implement → class-D: {result}"
-    );
-    assert!(
-        result.contains("decompose ready"),
-        "class-D → decompose ready: {result}"
-    );
-}
-
-#[test]
 fn jdm_routing_hint_wired_in_post_create() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({
@@ -4747,44 +2410,6 @@ fn jdm_routing_hint_wired_in_post_create() {
 }
 
 // ── Grupo 3 §1: task_sharding_hint tests ─────────────────────────────────
-
-#[test]
-fn task_sharding_hint_empty_for_short_subject() {
-    let hint = super::task_sharding_hint("T-1", "add logger");
-    assert!(
-        hint.is_empty(),
-        "short subject must not trigger sharding: {hint}"
-    );
-}
-
-#[test]
-fn task_sharding_hint_fires_on_compound_goals() {
-    let subject = "implement auth service and add unit tests and update docs";
-    let hint = super::task_sharding_hint("T-2", subject);
-    assert!(
-        !hint.is_empty(),
-        "compound subject must trigger sharding hint"
-    );
-    assert!(
-        hint.contains("[TOURING SHARD]"),
-        "hint must contain TOURING SHARD marker"
-    );
-    assert!(
-        hint.contains("atomic subtasks"),
-        "hint must mention atomic subtasks"
-    );
-}
-
-#[test]
-fn task_sharding_hint_fires_on_long_multi_verb_subject() {
-    let subject =
-        "refactor the auth module, migrate all tests to the new API, and update integration docs";
-    let hint = super::task_sharding_hint("T-3", subject);
-    assert!(
-        !hint.is_empty(),
-        "long multi-verb subject must trigger sharding: {hint}"
-    );
-}
 
 #[test]
 fn task_sharding_hint_wired_in_post_create() {
@@ -4806,102 +2431,7 @@ fn task_sharding_hint_wired_in_post_create() {
 
 // R42-S1: maybe_validate_phase_hint + predicates
 
-#[test]
-fn is_validate_pending_matches_correctly() {
-    // R42-S1: predicate correctly identifies ::validate pending subtask
-    let s = serde_json::json!({"id": "T-1::validate", "status": "pending"});
-    assert!(
-        super::is_validate_pending(&s),
-        "must match validate pending: {s}"
-    );
-    let s2 = serde_json::json!({"id": "T-1::validate", "status": "completed"});
-    assert!(
-        !super::is_validate_pending(&s2),
-        "completed validate must not match: {s2}"
-    );
-}
-
-#[test]
-fn maybe_validate_phase_hint_emits_when_implement_done_and_validate_pending() {
-    // R42-S1: implement completed + validate pending → validate-ready hint
-    let dag_json = serde_json::json!({
-        "subtasks": [
-            {"id": "T-r42::scout", "status": "completed"},
-            {"id": "T-r42::implement", "status": "completed"},
-            {"id": "T-r42::validate", "status": "pending"}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_validate_phase_hint(&dag_json, "T-r42");
-    assert!(
-        !result.is_empty(),
-        "validate-ready hint must be emitted: {result}"
-    );
-    assert!(
-        result.contains("validate-ready"),
-        "must include validate-ready marker: {result}"
-    );
-    assert!(
-        result.contains("cargo test"),
-        "must include cargo test command: {result}"
-    );
-    assert!(
-        result.contains("T-r42::validate"),
-        "must reference the subtask: {result}"
-    );
-}
-
-#[test]
-fn maybe_validate_phase_hint_empty_when_implement_not_done() {
-    // R42-S1: implement still in_progress → no validate-ready hint
-    let dag_json = serde_json::json!({
-        "subtasks": [
-            {"id": "T-r42b::implement", "status": "in_progress"},
-            {"id": "T-r42b::validate", "status": "pending"}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_validate_phase_hint(&dag_json, "T-r42b");
-    assert!(
-        result.is_empty(),
-        "in_progress implement must not trigger validate-ready: {result}"
-    );
-}
-
 // R42-S2: maybe_diary_lesson_on_output_success
-
-#[test]
-fn diary_lesson_on_output_success_empty_when_no_success_marker() {
-    // R42-S2: outcome_hint without "✓ success" → no diary hint (no noise on failures)
-    let result = super::maybe_diary_lesson_on_output_success("failure: tests failed", "T-r42-s2");
-    assert!(
-        result.is_empty(),
-        "failure outcome must not emit diary hint: {result}"
-    );
-}
-
-#[test]
-fn diary_lesson_on_output_success_present_when_success_marker() {
-    // R42-S2: outcome_hint with "✓ success" → diary write hint with AAAK format
-    let outcome = " | ✓ success detected — consider `TaskUpdate T-r42 completed`";
-    let result = super::maybe_diary_lesson_on_output_success(outcome, "T-r42-s2");
-    assert!(
-        !result.is_empty(),
-        "success outcome must emit diary hint: {result}"
-    );
-    assert!(
-        result.contains("diary-lesson"),
-        "must include diary-lesson marker: {result}"
-    );
-    assert!(
-        result.contains("P:validate"),
-        "must include AAAK P:validate phase: {result}"
-    );
-    assert!(
-        result.contains("T-r42-s2"),
-        "must include task_id in lesson: {result}"
-    );
-}
 
 #[test]
 fn diary_lesson_on_output_success_integration_with_post_output() {
@@ -4920,39 +2450,6 @@ fn diary_lesson_on_output_success_integration_with_post_output() {
 }
 
 // R42-S3: maybe_diary_write_on_plan
-
-#[test]
-fn diary_write_on_plan_none_for_empty_intent() {
-    // R42-S3: empty intent → None (no diary noise on bare EnterPlanMode)
-    let result = super::maybe_diary_write_on_plan("");
-    assert!(
-        result.is_none(),
-        "empty intent must return None: {result:?}"
-    );
-}
-
-#[test]
-fn diary_write_on_plan_some_for_non_empty_intent() {
-    // R42-S3: non-empty intent → Some with AAAK diary write command
-    let result = super::maybe_diary_write_on_plan("implement auth service");
-    assert!(
-        result.is_some(),
-        "non-empty intent must return Some: {result:?}"
-    );
-    let hint = result.expect("must be Some");
-    assert!(
-        hint.contains("diary:"),
-        "must include diary: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("P:planning"),
-        "must include AAAK P:planning phase: {hint}"
-    );
-    assert!(
-        hint.contains("implement auth service"),
-        "must include intent text: {hint}"
-    );
-}
 
 #[test]
 fn diary_write_on_plan_integration_with_enter_plan_mode() {
@@ -4974,76 +2471,7 @@ fn diary_write_on_plan_integration_with_enter_plan_mode() {
 
 // R43-S1: maybe_mcts_unblock_hint
 
-#[test]
-fn mcts_unblock_hint_empty_for_unknown_task_id() {
-    // R43-S1: "unknown" task_id → empty (avoids noise on synthetic completions)
-    let result = super::maybe_mcts_unblock_hint("unknown");
-    assert!(
-        result.is_empty(),
-        "unknown task_id must return empty: {result}"
-    );
-}
-
-#[test]
-fn mcts_unblock_hint_returns_mcts_search_command() {
-    // R43-S1: real task_id → mcts search command for unblocking
-    let result = super::maybe_mcts_unblock_hint("T-r43-s1");
-    assert!(
-        result.contains("mcts search"),
-        "must include mcts search command: {result}"
-    );
-    assert!(
-        result.contains("T-r43-s1"),
-        "must include task_id in search query: {result}"
-    );
-    assert!(
-        result.contains("unblock"),
-        "must include unblock intent: {result}"
-    );
-}
-
-#[test]
-fn update_status_side_effects_blocked_includes_mcts_hint() {
-    // R43-S1 integration: blocked status → output includes mcts-unblock command
-    let (_tmp, mut rt) = make_runtime();
-    let result = super::update_status_side_effects(&mut rt, "T-r43-blk", "blocked");
-    assert!(result.contains("blocked"), "must mention blocked: {result}");
-    assert!(
-        result.contains("mcts"),
-        "blocked must include mcts-unblock hint: {result}"
-    );
-    assert!(
-        result.contains("T-r43-blk"),
-        "must reference task_id in mcts hint: {result}"
-    );
-}
-
 // R43-S2: plan_file_from_intent
-
-#[test]
-fn plan_file_from_intent_empty_for_blank_intent() {
-    // R43-S2: blank intent → empty (no spurious filename)
-    let result = super::plan_file_from_intent("");
-    assert!(
-        result.is_empty(),
-        "blank intent must return empty string: {result}"
-    );
-}
-
-#[test]
-fn plan_file_from_intent_returns_kebab_filename() {
-    // R43-S2: intent with words → plan-<kebab>.json
-    let result = super::plan_file_from_intent("implement auth module");
-    assert!(
-        result.starts_with("plan-"),
-        "must start with plan-: {result}"
-    );
-    assert!(result.ends_with(".json"), "must end with .json: {result}");
-    assert!(
-        result.contains("implement"),
-        "must include intent stem: {result}"
-    );
-}
 
 #[test]
 fn exit_plan_mode_uses_concrete_plan_filename_when_intent_present() {
@@ -5062,30 +2490,6 @@ fn exit_plan_mode_uses_concrete_plan_filename_when_intent_present() {
 }
 
 // R43-S3: maybe_wiring_orphan_hint_on_complete
-
-#[test]
-fn wiring_orphan_hint_on_complete_empty_for_unknown_task() {
-    // R43-S3: "unknown" task_id → empty (avoid noise on sentinel completions)
-    let result = super::maybe_wiring_orphan_hint_on_complete("unknown");
-    assert!(
-        result.is_empty(),
-        "unknown task_id must return empty: {result}"
-    );
-}
-
-#[test]
-fn wiring_orphan_hint_on_complete_returns_wiring_check() {
-    // R43-S3: real task_id → wiring orphans check command
-    let result = super::maybe_wiring_orphan_hint_on_complete("T-r43-s3");
-    assert!(
-        result.contains("wiring orphans"),
-        "must include wiring orphans command: {result}"
-    );
-    assert!(
-        result.contains("T-r43-s3"),
-        "must reference task_id: {result}"
-    );
-}
 
 #[test]
 fn task_sync_post_update_completed_includes_wiring_check() {
@@ -5107,31 +2511,6 @@ fn task_sync_post_update_completed_includes_wiring_check() {
 // R44-S1: maybe_wiring_chains_hint_for_handler_file
 
 #[test]
-fn wiring_chains_hint_none_for_non_handler_file() {
-    // R44-S1: non-handler files must return None (no noise for unrelated files)
-    let result = super::maybe_wiring_chains_hint_for_handler_file("src/main.rs");
-    assert!(
-        result.is_none(),
-        "non-handler file must return None: {result:?}"
-    );
-}
-
-#[test]
-fn wiring_chains_hint_some_for_lifecycle_file() {
-    // R44-S1: lifecycle.rs is a handler file → chains hint
-    let result = super::maybe_wiring_chains_hint_for_handler_file("src/lifecycle.rs");
-    assert!(
-        result.is_some(),
-        "lifecycle.rs must return Some: {result:?}"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("wiring chains"),
-        "hint must reference wiring chains command: {hint}"
-    );
-}
-
-#[test]
 fn file_changed_handler_includes_chains_hint_for_lifecycle() {
     // R44-S1 integration: handle_file_changed with lifecycle.rs path → chains hint in output
     let (_tmp, mut rt) = make_runtime();
@@ -5147,70 +2526,7 @@ fn file_changed_handler_includes_chains_hint_for_lifecycle() {
 
 // R44-S2: tantivy_search_for_inprogress_task
 
-#[test]
-fn tantivy_hint_empty_when_no_tasks() {
-    // R44-S2: empty input → empty string (no crash, no noise)
-    let input = serde_json::json!({});
-    let result = super::tantivy_search_for_inprogress_task(&input);
-    assert!(result.is_empty(), "no tasks → must return empty: {result}");
-}
-
-#[test]
-fn tantivy_hint_empty_when_no_inprogress_task() {
-    // R44-S2: all tasks pending → no in_progress task → empty
-    let input = serde_json::json!({
-        "tasks": [
-            {"status": "pending", "task_subject": "pending work"}
-        ]
-    });
-    let result = super::tantivy_search_for_inprogress_task(&input);
-    assert!(
-        result.is_empty(),
-        "pending-only tasks → must return empty: {result}"
-    );
-}
-
-#[test]
-fn tantivy_hint_returns_search_command_for_inprogress_task() {
-    // R44-S2: in_progress task → tantivy search command with subject
-    let input = serde_json::json!({
-        "tasks": [
-            {"status": "pending", "task_subject": "idle work"},
-            {"status": "in_progress", "task_subject": "implement wiring gate"}
-        ]
-    });
-    let result = super::tantivy_search_for_inprogress_task(&input);
-    assert!(
-        result.contains("tantivy search"),
-        "must include tantivy search command: {result}"
-    );
-    assert!(
-        result.contains("implement wiring"),
-        "must include task subject: {result}"
-    );
-}
-
 // R44-S3: maybe_evolution_drift_on_failure
-
-#[test]
-fn evolution_drift_hint_empty_on_success_output() {
-    // R44-S3: success outcome_hint → empty (no drift noise on happy path)
-    let result = super::maybe_evolution_drift_on_failure("✓ all tests passed");
-    assert!(
-        result.is_empty(),
-        "success output must return empty drift hint: {result}"
-    );
-}
-
-#[test]
-fn evolution_drift_hint_returns_drift_command_on_failure() {
-    // R44-S3: failure detected → evolution drift command emitted
-    let result = super::maybe_evolution_drift_on_failure("✗ failure detected: build error");
-    assert!(
-        result.contains("evolution drift"),
-        "failure output must include evolution drift command: {result}"
-    );
-}
 
 #[test]
 fn task_output_includes_drift_hint_on_failure() {
@@ -5233,34 +2549,6 @@ fn task_output_includes_drift_hint_on_failure() {
 // R45-S1: task_scaffold_render_hint
 
 #[test]
-fn task_scaffold_render_hint_empty_for_unknown_task_id() {
-    // R45-S1: sentinel task_id → empty (no noise for synthetic tasks)
-    let result = super::task_scaffold_render_hint("unknown", "implement auth");
-    assert!(
-        result.is_empty(),
-        "sentinel task_id must return empty: {result}"
-    );
-}
-
-#[test]
-fn task_scaffold_render_hint_returns_touring_generate_command() {
-    // R45-S1: valid task_id + subject → task_scaffold render command
-    let result = super::task_scaffold_render_hint("T-r45-s1", "implement wiring gate");
-    assert!(
-        result.contains("task_scaffold"),
-        "must reference task_scaffold template: {result}"
-    );
-    assert!(
-        result.contains("touring generate render"),
-        "must include generate render command: {result}"
-    );
-    assert!(
-        result.contains("T-r45-s1"),
-        "must include task_id in vars: {result}"
-    );
-}
-
-#[test]
 fn task_create_includes_scaffold_yaml_hint() {
     // R45-S1 integration: handle_task_sync_post_create with subject → scaffold-yaml in output
     let (_tmp, mut rt) = make_runtime();
@@ -5279,94 +2567,7 @@ fn task_create_includes_scaffold_yaml_hint() {
 
 // R45-S2: maybe_mcts_unblock_on_no_ready + predicates
 
-#[test]
-fn mcts_unblock_empty_when_all_tasks_complete() {
-    // R45-S2: all subtasks completed → no mcts-unblock hint
-    let dag = serde_json::json!({
-        "subtasks": [
-            {"status": "completed", "depends_on": []},
-            {"status": "completed", "depends_on": ["x"]}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_mcts_unblock_on_no_ready(&dag, "T-r45-s2");
-    assert!(
-        result.is_empty(),
-        "all-complete DAG must not emit mcts-unblock: {result}"
-    );
-}
-
-#[test]
-fn mcts_unblock_empty_when_pending_has_no_deps() {
-    // R45-S2: pending subtask with no deps is ready → no mcts-unblock hint
-    let dag = serde_json::json!({
-        "subtasks": [
-            {"status": "pending", "depends_on": []}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_mcts_unblock_on_no_ready(&dag, "T-r45-s2b");
-    assert!(
-        result.is_empty(),
-        "pending-no-deps subtask is ready → must not emit mcts-unblock: {result}"
-    );
-}
-
-#[test]
-fn mcts_unblock_returns_hint_when_all_pending_have_unmet_deps() {
-    // R45-S2: pending subtask with unmet deps (non-empty depends_on, no completed predecessors)
-    // → zero ready subtasks → mcts-unblock emitted
-    let dag = serde_json::json!({
-        "ready_count": 0,
-        "subtasks": [
-            {"status": "pending", "depends_on": ["T-r45-s2c::scout"]}
-        ]
-    })
-    .to_string();
-    let result = super::maybe_mcts_unblock_on_no_ready(&dag, "T-r45-s2c");
-    assert!(
-        !result.is_empty(),
-        "stuck DAG must emit mcts-unblock hint: {result}"
-    );
-    assert!(
-        result.contains("mcts-unblock"),
-        "must include mcts-unblock marker: {result}"
-    );
-    assert!(
-        result.contains("T-r45-s2c"),
-        "must reference task_id: {result}"
-    );
-}
-
 // R45-S3: diary_entry_hint_on_task_complete
-
-#[test]
-fn diary_entry_hint_empty_for_unknown_task() {
-    // R45-S3: sentinel task_id → empty (no noise on synthetic completions)
-    let result = super::diary_entry_hint_on_task_complete("unknown");
-    assert!(
-        result.is_empty(),
-        "unknown task_id must return empty diary hint: {result}"
-    );
-}
-
-#[test]
-fn diary_entry_hint_returns_generate_command() {
-    // R45-S3: real task_id → diary_entry render command via touring-generator
-    let result = super::diary_entry_hint_on_task_complete("T-r45-s3");
-    assert!(
-        result.contains("diary_entry"),
-        "must reference diary_entry template: {result}"
-    );
-    assert!(
-        result.contains("touring generate render"),
-        "must include generate render command: {result}"
-    );
-    assert!(
-        result.contains("T-r45-s3"),
-        "must include task_id in vars: {result}"
-    );
-}
 
 #[test]
 fn task_update_completed_includes_diary_entry_hint() {
@@ -5385,48 +2586,6 @@ fn task_update_completed_includes_diary_entry_hint() {
 
 // ── R46: plan-recall, tantivy-search, and plan-registry synergy ─────────
 
-// R46-S1: maybe_plan_recall_hint_for_intent helper
-#[test]
-fn plan_recall_hint_returns_none_for_empty_intent() {
-    // R46-S1: empty/short intent → None (no noise)
-    assert!(super::maybe_plan_recall_hint_for_intent("").is_none());
-    assert!(super::maybe_plan_recall_hint_for_intent("ab").is_none());
-}
-
-#[test]
-fn plan_recall_hint_returns_some_for_valid_intent() {
-    // R46-S1: real intent → Some with plan-recall command
-    let result = super::maybe_plan_recall_hint_for_intent("rust module generator");
-    assert!(result.is_some(), "should return hint for valid intent");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("plan-recall"),
-        "must reference plan-recall: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate plan-recall"),
-        "must contain CLI command: {hint}"
-    );
-    assert!(
-        hint.contains("rust module generator"),
-        "must embed intent in query: {hint}"
-    );
-}
-
-#[test]
-fn plan_recall_hint_truncates_long_intent() {
-    // R46-S1: intent > 60 chars is truncated in the query
-    let long_intent = "a".repeat(80);
-    let result = super::maybe_plan_recall_hint_for_intent(&long_intent);
-    assert!(result.is_some(), "should return hint for long intent");
-    let hint = result.unwrap();
-    // The embedded query must not exceed 60 chars for the intent portion
-    assert!(
-        !hint.contains(&"a".repeat(61)),
-        "must truncate long intent: {hint}"
-    );
-}
-
 #[test]
 fn enter_plan_mode_with_intent_includes_plan_recall_hint() {
     // R46-S1 integration: handle_enter_plan_mode with intent → plan-registry in output
@@ -5443,34 +2602,6 @@ fn enter_plan_mode_with_intent_includes_plan_recall_hint() {
     );
 }
 
-// R46-S2: maybe_tantivy_search_hint_on_exit helper
-#[test]
-fn tantivy_exit_hint_returns_none_for_empty_intent() {
-    // R46-S2: empty/short intent → None (no noise)
-    assert!(super::maybe_tantivy_search_hint_on_exit("").is_none());
-    assert!(super::maybe_tantivy_search_hint_on_exit("ab").is_none());
-}
-
-#[test]
-fn tantivy_exit_hint_returns_some_for_valid_intent() {
-    // R46-S2: real intent → Some with tantivy search command
-    let result = super::maybe_tantivy_search_hint_on_exit("lifecycle hook handler");
-    assert!(result.is_some(), "should return hint for valid intent");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("tantivy-search"),
-        "must reference tantivy-search: {hint}"
-    );
-    assert!(
-        hint.contains("touring tantivy search"),
-        "must contain CLI command: {hint}"
-    );
-    assert!(
-        hint.contains("lifecycle hook handler"),
-        "must embed intent in query: {hint}"
-    );
-}
-
 #[test]
 fn exit_plan_mode_with_intent_includes_tantivy_search_hint() {
     // R46-S2 integration: handle_exit_plan_mode with intent → tantivy-search in output
@@ -5480,32 +2611,6 @@ fn exit_plan_mode_with_intent_includes_tantivy_search_hint() {
     assert!(
         result.contains("tantivy-search"),
         "ExitPlanMode with intent must include tantivy-search hint: {result}"
-    );
-}
-
-// R46-S3: maybe_plan_recall_on_task_complete helper
-#[test]
-fn plan_recall_on_complete_empty_for_sentinel_task_id() {
-    // R46-S3: sentinel/empty task_id → empty string (no noise)
-    assert!(super::maybe_plan_recall_on_task_complete("").is_empty());
-    assert!(super::maybe_plan_recall_on_task_complete("unknown").is_empty());
-}
-
-#[test]
-fn plan_recall_on_complete_returns_command_for_real_task_id() {
-    // R46-S3: real task_id → plan-recall command via touring-generator registry
-    let result = super::maybe_plan_recall_on_task_complete("T-r46-s3");
-    assert!(
-        result.contains("plan-recall"),
-        "must reference plan-recall: {result}"
-    );
-    assert!(
-        result.contains("touring generate plan-recall"),
-        "must contain CLI command: {result}"
-    );
-    assert!(
-        result.contains("T-r46-s3"),
-        "must embed task_id in query: {result}"
     );
 }
 
@@ -5530,32 +2635,6 @@ fn task_update_completed_includes_plan_recall_hint() {
 
 // ── R47: CWD→generator, all-completed finalize, incremental_patch ────────
 
-// R47-S1: generator_kind_for_dir_pattern helper
-#[test]
-fn generator_kind_for_dir_pattern_rust_crate() {
-    // R47-S1: /crates/ → rust_module
-    let kind = super::generator_kind_for_dir_pattern("/home/user/project/crates/my-crate/src");
-    assert_eq!(
-        kind,
-        Some("rust_module"),
-        "crates/src path must map to rust_module"
-    );
-}
-
-#[test]
-fn generator_kind_for_dir_pattern_tests() {
-    // R47-S1: /tests → test
-    let kind = super::generator_kind_for_dir_pattern("/home/user/project/tests/integration");
-    assert_eq!(kind, Some("test"), "tests dir must map to test generator");
-}
-
-#[test]
-fn generator_kind_for_dir_pattern_unknown_returns_none() {
-    // R47-S1: generic directory → None (no noise)
-    let kind = super::generator_kind_for_dir_pattern("/home/user/project/build");
-    assert!(kind.is_none(), "unknown dir must return None: {kind:?}");
-}
-
 #[test]
 fn cwd_changed_with_crates_dir_includes_generator_hint() {
     // R47-S1 integration: handle_cwd_changed with a /crates/ path → generator hint in output
@@ -5569,44 +2648,6 @@ fn cwd_changed_with_crates_dir_includes_generator_hint() {
     assert!(
         result.contains("rust_module"),
         "must suggest rust_module for crates/: {result}"
-    );
-}
-
-// R47-S2: maybe_all_completed_finalize_hint helper
-#[test]
-fn all_completed_finalize_hint_none_when_not_all_done() {
-    // R47-S2: mixed statuses → None (not all done)
-    let input = serde_json::json!({
-        "tasks": [
-            {"status": "completed"},
-            {"status": "in_progress"}
-        ]
-    });
-    assert!(super::maybe_all_completed_finalize_hint(&input).is_none());
-}
-
-#[test]
-fn all_completed_finalize_hint_some_when_all_done() {
-    // R47-S2: all completed → Some with finalize command
-    let input = serde_json::json!({
-        "tasks": [
-            {"status": "completed"},
-            {"status": "completed"}
-        ]
-    });
-    let result = super::maybe_all_completed_finalize_hint(&input);
-    assert!(
-        result.is_some(),
-        "should return hint when all tasks completed"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("decompose finalize"),
-        "must suggest finalize: {hint}"
-    );
-    assert!(
-        hint.contains("2 task(s) completed"),
-        "must include count: {hint}"
     );
 }
 
@@ -5631,32 +2672,6 @@ fn task_list_all_completed_includes_finalize_hint() {
     );
 }
 
-// R47-S3: maybe_incremental_patch_hint_on_output helper
-#[test]
-fn incremental_patch_hint_none_for_plain_output() {
-    // R47-S3: no diff markers → None (no noise)
-    assert!(super::maybe_incremental_patch_hint_on_output("test result: ok. 5 passed").is_none());
-    assert!(super::maybe_incremental_patch_hint_on_output("").is_none());
-}
-
-#[test]
-fn incremental_patch_hint_some_for_diff_output() {
-    // R47-S3: diff markers → Some with incremental_patch command
-    let diff_output =
-        "diff --git a/src/lib.rs b/src/lib.rs\n--- a/src/lib.rs\n+++ b/src/lib.rs\n@@ -1,5 +1,6 @@";
-    let result = super::maybe_incremental_patch_hint_on_output(diff_output);
-    assert!(result.is_some(), "diff output must trigger hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("incremental-patch"),
-        "must reference incremental-patch: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render incremental_patch"),
-        "must contain CLI command: {hint}"
-    );
-}
-
 #[test]
 fn task_output_with_diff_includes_patch_hint() {
     // R47-S3 integration: handle_task_sync_post_output with diff content → patch hint in output
@@ -5674,31 +2689,6 @@ fn task_output_with_diff_includes_patch_hint() {
 
 // ── R48: schema-gen, ADR hint, changelog-entry ────────────────────────────
 
-// R48-S1: maybe_schema_generator_hint_on_output helper
-#[test]
-fn schema_generator_hint_none_for_plain_output() {
-    // R48-S1: no schema markers → None (no noise)
-    assert!(super::maybe_schema_generator_hint_on_output("test result: ok").is_none());
-    assert!(super::maybe_schema_generator_hint_on_output("").is_none());
-}
-
-#[test]
-fn schema_generator_hint_some_for_json_schema_output() {
-    // R48-S1: JSON Schema markers → Some with schema generator command
-    let output = r#"{"$schema": "http://json-schema.org/draft-07/schema", "type": "object", "properties": {"name": {"type": "string"}}}"#;
-    let result = super::maybe_schema_generator_hint_on_output(output);
-    assert!(result.is_some(), "JSON Schema output must trigger hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("schema-gen"),
-        "must reference schema-gen: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render schema"),
-        "must contain CLI command: {hint}"
-    );
-}
-
 #[test]
 fn task_output_with_schema_includes_schema_gen_hint() {
     // R48-S1 integration: handle_task_sync_post_output with JSON Schema → schema-gen in output
@@ -5711,30 +2701,6 @@ fn task_output_with_schema_includes_schema_gen_hint() {
     assert!(
         result.contains("schema-gen"),
         "schema output must trigger schema-gen hint: {result}"
-    );
-}
-
-// R48-S2: maybe_adr_hint_on_enter_plan helper
-#[test]
-fn adr_hint_none_for_non_architectural_intent() {
-    // R48-S2: regular intent → None (no noise for non-architectural tasks)
-    assert!(super::maybe_adr_hint_on_enter_plan("add logging to handler").is_none());
-    assert!(super::maybe_adr_hint_on_enter_plan("").is_none());
-}
-
-#[test]
-fn adr_hint_some_for_architectural_intent() {
-    // R48-S2: architectural keyword → Some with adr generator command
-    let result = super::maybe_adr_hint_on_enter_plan("design new database architecture pattern");
-    assert!(
-        result.is_some(),
-        "architectural intent must trigger ADR hint"
-    );
-    let hint = result.unwrap();
-    assert!(hint.contains("adr"), "must reference adr: {hint}");
-    assert!(
-        hint.contains("touring generate render adr"),
-        "must contain CLI command: {hint}"
     );
 }
 
@@ -5751,34 +2717,6 @@ fn enter_plan_mode_with_architecture_intent_includes_adr_hint() {
     assert!(
         result.contains("touring generate render adr"),
         "must contain CLI command: {result}"
-    );
-}
-
-// R48-S3: maybe_changelog_hint_on_exit_plan helper
-#[test]
-fn changelog_hint_none_for_empty_intent() {
-    // R48-S3: empty/short intent → None (no noise)
-    assert!(super::maybe_changelog_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_changelog_hint_on_exit_plan("ab").is_none());
-}
-
-#[test]
-fn changelog_hint_some_for_valid_intent() {
-    // R48-S3: non-trivial intent → Some with changelog_entry generator command
-    let result = super::maybe_changelog_hint_on_exit_plan("add touring generator integration");
-    assert!(result.is_some(), "valid intent must trigger changelog hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog-entry"),
-        "must reference changelog-entry: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render changelog_entry"),
-        "must contain CLI command: {hint}"
-    );
-    assert!(
-        hint.contains("add touring generator"),
-        "must embed intent in summary: {hint}"
     );
 }
 
@@ -5803,20 +2741,20 @@ fn exit_plan_mode_with_intent_includes_changelog_hint() {
 #[test]
 fn openapi_hint_none_for_empty_subject() {
     // R49-S1: empty subject → None (no noise on generic tasks)
-    assert!(super::maybe_openapi_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_openapi_hint_on_task_create("").is_none());
 }
 
 #[test]
 fn openapi_hint_none_for_non_api_subject() {
     // R49-S1: subject without API keywords → None
-    assert!(super::maybe_openapi_hint_on_task_create("implement caching layer").is_none());
-    assert!(super::maybe_openapi_hint_on_task_create("refactor database schema").is_none());
+    assert!(generator_hints::maybe_openapi_hint_on_task_create("implement caching layer").is_none());
+    assert!(generator_hints::maybe_openapi_hint_on_task_create("refactor database schema").is_none());
 }
 
 #[test]
 fn openapi_hint_some_for_api_keyword() {
     // R49-S1: "api" in subject → Some with openapi_spec CLI command
-    let result = super::maybe_openapi_hint_on_task_create("implement user api endpoint");
+    let result = generator_hints::maybe_openapi_hint_on_task_create("implement user api endpoint");
     assert!(result.is_some(), "API keyword must trigger openapi hint");
     let hint = result.unwrap();
     assert!(
@@ -5851,38 +2789,6 @@ fn task_create_with_api_subject_includes_openapi_hint() {
 // ── R49-S2: maybe_ci_workflow_hint_on_output ──────────────────────────────
 
 #[test]
-fn ci_workflow_hint_none_for_empty_output() {
-    // R49-S2: empty output → None (no CI/CD markers)
-    assert!(super::maybe_ci_workflow_hint_on_output("").is_none());
-}
-
-#[test]
-fn ci_workflow_hint_none_for_non_ci_output() {
-    // R49-S2: output without CI/CD keywords → None
-    assert!(super::maybe_ci_workflow_hint_on_output("cargo test result: ok. 42 passed").is_none());
-}
-
-#[test]
-fn ci_workflow_hint_some_for_github_actions() {
-    // R49-S2: "github actions" in output → Some with ci_workflow CLI command
-    let result =
-        super::maybe_ci_workflow_hint_on_output("added github actions workflow for CI/CD pipeline");
-    assert!(
-        result.is_some(),
-        "github actions keyword must trigger ci hint"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow"),
-        "must reference ci-workflow: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ci_workflow"),
-        "must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn task_output_with_pipeline_includes_ci_hint() {
     // R49-S2 integration: handle_task_sync_post_output with pipeline keyword → ci_workflow hint
     let (_tmp, mut rt) = make_runtime();
@@ -5898,26 +2804,6 @@ fn task_output_with_pipeline_includes_ci_hint() {
 }
 
 // ── R49-S3: maybe_asyncapi_hint_on_enter_plan ─────────────────────────────
-
-#[test]
-fn asyncapi_hint_none_for_non_async_intent() {
-    // R49-S3: intent without async/event keywords → None
-    assert!(super::maybe_asyncapi_hint_on_enter_plan("implement REST api endpoint").is_none());
-    assert!(super::maybe_asyncapi_hint_on_enter_plan("").is_none());
-}
-
-#[test]
-fn asyncapi_hint_some_for_kafka_intent() {
-    // R49-S3: "kafka" in intent → Some with asyncapi_spec CLI command
-    let result = super::maybe_asyncapi_hint_on_enter_plan("integrate kafka event streaming");
-    assert!(result.is_some(), "kafka keyword must trigger asyncapi hint");
-    let hint = result.unwrap();
-    assert!(hint.contains("asyncapi"), "must reference asyncapi: {hint}");
-    assert!(
-        hint.contains("touring generate render asyncapi_spec"),
-        "must contain CLI command: {hint}"
-    );
-}
 
 #[test]
 fn enter_plan_mode_with_queue_intent_includes_asyncapi_hint() {
@@ -5940,14 +2826,14 @@ fn enter_plan_mode_with_queue_intent_includes_asyncapi_hint() {
 #[test]
 fn protobuf_hint_none_for_empty_or_non_proto_subject() {
     // R50-S1: empty subject or non-proto keywords → None
-    assert!(super::maybe_protobuf_hint_on_task_create("").is_none());
-    assert!(super::maybe_protobuf_hint_on_task_create("add caching layer").is_none());
+    assert!(generator_hints::maybe_protobuf_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_protobuf_hint_on_task_create("add caching layer").is_none());
 }
 
 #[test]
 fn protobuf_hint_some_for_grpc_keyword() {
     // R50-S1: "grpc" in subject → Some with protobuf_schema CLI command
-    let result = super::maybe_protobuf_hint_on_task_create("implement grpc service for auth");
+    let result = generator_hints::maybe_protobuf_hint_on_task_create("implement grpc service for auth");
     assert!(result.is_some(), "grpc keyword must trigger protobuf hint");
     let hint = result.unwrap();
     assert!(
@@ -5982,29 +2868,6 @@ fn task_create_with_proto_subject_includes_protobuf_hint() {
 // ── R50-S2: maybe_migration_hint_on_output ────────────────────────────────
 
 #[test]
-fn migration_hint_none_for_empty_or_non_sql_output() {
-    // R50-S2: empty output or non-SQL content → None
-    assert!(super::maybe_migration_hint_on_output("").is_none());
-    assert!(super::maybe_migration_hint_on_output("cargo test result: ok").is_none());
-}
-
-#[test]
-fn migration_hint_some_for_create_table() {
-    // R50-S2: "create table" in output → Some with migration CLI command
-    let result = super::maybe_migration_hint_on_output("CREATE TABLE users (id INT PRIMARY KEY)");
-    assert!(result.is_some(), "CREATE TABLE must trigger migration hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration"),
-        "must reference migration: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render migration"),
-        "must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn task_output_with_alter_table_includes_migration_hint() {
     // R50-S2 integration: handle_task_sync_post_output with ALTER TABLE → migration hint
     let (_tmp, mut rt) = make_runtime();
@@ -6020,32 +2883,6 @@ fn task_output_with_alter_table_includes_migration_hint() {
 }
 
 // ── R50-S3: maybe_shell_completion_hint_on_exit_plan ─────────────────────
-
-#[test]
-fn shell_completion_hint_none_for_empty_or_non_cli_intent() {
-    // R50-S3: empty intent or non-CLI keywords → None
-    assert!(super::maybe_shell_completion_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_shell_completion_hint_on_exit_plan("add database migration").is_none());
-}
-
-#[test]
-fn shell_completion_hint_some_for_cli_keyword() {
-    // R50-S3: "cli" in intent → Some with shell_completion CLI command
-    let result = super::maybe_shell_completion_hint_on_exit_plan("build cli tool with subcommands");
-    assert!(
-        result.is_some(),
-        "cli keyword must trigger shell completion hint"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion"),
-        "must reference shell-completion: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render shell_completion"),
-        "must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn exit_plan_mode_with_zsh_intent_includes_shell_completion_hint() {
@@ -6068,14 +2905,14 @@ fn exit_plan_mode_with_zsh_intent_includes_shell_completion_hint() {
 #[test]
 fn fuzz_hint_none_for_empty_or_non_fuzz_subject() {
     // R51-S1: empty or non-fuzz subject → None
-    assert!(super::maybe_fuzz_target_hint_on_task_create("").is_none());
-    assert!(super::maybe_fuzz_target_hint_on_task_create("refactor auth module").is_none());
+    assert!(generator_hints::maybe_fuzz_target_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_fuzz_target_hint_on_task_create("refactor auth module").is_none());
 }
 
 #[test]
 fn fuzz_hint_some_for_fuzzing_keyword() {
     // R51-S1: "fuzzing" in subject → Some with fuzz_target CLI command
-    let result = super::maybe_fuzz_target_hint_on_task_create("add fuzzing for parser input");
+    let result = generator_hints::maybe_fuzz_target_hint_on_task_create("add fuzzing for parser input");
     assert!(result.is_some(), "fuzzing keyword must trigger fuzz hint");
     let hint = result.unwrap();
     assert!(
@@ -6110,33 +2947,6 @@ fn task_create_with_vulnerability_subject_includes_fuzz_hint() {
 // ── R51-S2: maybe_dockerfile_hint_on_output ───────────────────────────────
 
 #[test]
-fn dockerfile_hint_none_for_empty_or_non_docker_output() {
-    // R51-S2: empty or non-docker output → None
-    assert!(super::maybe_dockerfile_hint_on_output("").is_none());
-    assert!(super::maybe_dockerfile_hint_on_output("cargo test result: ok. 42 passed").is_none());
-}
-
-#[test]
-fn dockerfile_hint_some_for_docker_keyword() {
-    // R51-S2: "docker" in output → Some with dockerfile CLI command
-    let result =
-        super::maybe_dockerfile_hint_on_output("built docker image for production service");
-    assert!(
-        result.is_some(),
-        "docker keyword must trigger dockerfile hint"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile"),
-        "must reference dockerfile: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render dockerfile"),
-        "must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn task_output_with_container_includes_dockerfile_hint() {
     // R51-S2 integration: handle_task_sync_post_output with container keyword → dockerfile hint
     let (_tmp, mut rt) = make_runtime();
@@ -6152,32 +2962,6 @@ fn task_output_with_container_includes_dockerfile_hint() {
 }
 
 // ── R51-S3: maybe_error_catalog_hint_on_enter_plan ───────────────────────
-
-#[test]
-fn error_catalog_hint_none_for_empty_or_non_error_intent() {
-    // R51-S3: empty or non-error intent → None
-    assert!(super::maybe_error_catalog_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_error_catalog_hint_on_enter_plan("add kafka streaming").is_none());
-}
-
-#[test]
-fn error_catalog_hint_some_for_error_keyword() {
-    // R51-S3: "error" in intent → Some with error_catalog CLI command
-    let result = super::maybe_error_catalog_hint_on_enter_plan("design error handling strategy");
-    assert!(
-        result.is_some(),
-        "error keyword must trigger error catalog hint"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog"),
-        "must reference error-catalog: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render error_catalog"),
-        "must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn enter_plan_mode_with_exception_intent_includes_error_catalog_hint() {
@@ -6200,14 +2984,14 @@ fn enter_plan_mode_with_exception_intent_includes_error_catalog_hint() {
 #[test]
 fn benchmark_hint_none_for_empty_subject() {
     // R52-S1: empty subject → None (guard clause fires)
-    assert!(super::maybe_benchmark_hint_on_task_create("").is_none());
-    assert!(super::maybe_benchmark_hint_on_task_create("implement user auth").is_none());
+    assert!(generator_hints::maybe_benchmark_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_benchmark_hint_on_task_create("implement user auth").is_none());
 }
 
 #[test]
 fn benchmark_hint_some_for_perf_keyword() {
     // R52-S1: "benchmark" in subject → Some with benchmark CLI command
-    let result = super::maybe_benchmark_hint_on_task_create("benchmark latency of request handler");
+    let result = generator_hints::maybe_benchmark_hint_on_task_create("benchmark latency of request handler");
     assert!(result.is_some(), "perf keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -6219,7 +3003,7 @@ fn benchmark_hint_some_for_perf_keyword() {
         "must contain CLI: {hint}"
     );
     // "optimize" keyword also matches
-    let opt = super::maybe_benchmark_hint_on_task_create("optimize throughput for hot path");
+    let opt = generator_hints::maybe_benchmark_hint_on_task_create("optimize throughput for hot path");
     assert!(opt.is_some(), "optimize keyword must produce hint");
 }
 
@@ -6240,33 +3024,6 @@ fn benchmark_hint_integration_post_create() {
 }
 
 // ── R52-S2: maybe_k8s_manifest_hint_on_output ────────────────────────────
-
-#[test]
-fn k8s_hint_none_for_non_k8s_output() {
-    // R52-S2: unrelated output → None
-    assert!(super::maybe_k8s_manifest_hint_on_output("").is_none());
-    assert!(super::maybe_k8s_manifest_hint_on_output("all tests passed, 42 ok").is_none());
-}
-
-#[test]
-fn k8s_hint_some_for_kubectl_marker() {
-    // R52-S2: "kubectl" in output → Some with k8s_manifest CLI command
-    let result =
-        super::maybe_k8s_manifest_hint_on_output("kubectl apply -f deployment.yaml succeeded");
-    assert!(result.is_some(), "kubectl marker must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("k8s-manifest:"),
-        "hint must have k8s-manifest: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render k8s_manifest"),
-        "must contain CLI: {hint}"
-    );
-    // "kind: deployment" also matches
-    let dep = super::maybe_k8s_manifest_hint_on_output("kind: deployment\nmetadata:\n  name: app");
-    assert!(dep.is_some(), "kind: deployment marker must produce hint");
-}
 
 #[test]
 fn k8s_hint_integration_post_output() {
@@ -6290,33 +3047,6 @@ fn k8s_hint_integration_post_output() {
 // ── R52-S3: maybe_terraform_hint_on_exit_plan ────────────────────────────
 
 #[test]
-fn terraform_hint_none_for_empty_intent() {
-    // R52-S3: empty or non-IaC intent → None
-    assert!(super::maybe_terraform_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_terraform_hint_on_exit_plan("implement REST endpoint").is_none());
-}
-
-#[test]
-fn terraform_hint_some_for_aws_keyword() {
-    // R52-S3: "aws" in intent → Some with terraform_module CLI command
-    let result =
-        super::maybe_terraform_hint_on_exit_plan("provision AWS infrastructure for staging");
-    assert!(result.is_some(), "aws keyword must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform-module:"),
-        "hint must have terraform-module: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render terraform_module"),
-        "must contain CLI: {hint}"
-    );
-    // "iac" keyword also matches
-    let iac = super::maybe_terraform_hint_on_exit_plan("design IaC modules for GCP");
-    assert!(iac.is_some(), "iac keyword must produce hint");
-}
-
-#[test]
 fn terraform_hint_integration_exit_plan() {
     // R52-S3 integration: handle_exit_plan_mode with cloud intent → terraform_module hint
     let (_tmp, mut rt) = make_runtime();
@@ -6338,14 +3068,14 @@ fn terraform_hint_integration_exit_plan() {
 #[test]
 fn adr_hint_none_for_empty_or_unrelated_subject() {
     // R53-S1: empty or non-architecture subject → None
-    assert!(super::maybe_adr_hint_on_task_create("").is_none());
-    assert!(super::maybe_adr_hint_on_task_create("fix login button color").is_none());
+    assert!(generator_hints::maybe_adr_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_adr_hint_on_task_create("fix login button color").is_none());
 }
 
 #[test]
 fn adr_hint_some_for_architecture_keyword() {
     // R53-S1: "architecture" in subject → Some with adr CLI command
-    let result = super::maybe_adr_hint_on_task_create("define architecture for event bus");
+    let result = generator_hints::maybe_adr_hint_on_task_create("define architecture for event bus");
     assert!(result.is_some(), "architecture keyword must produce hint");
     let hint = result.unwrap();
     assert!(hint.contains("adr:"), "hint must have adr: prefix: {hint}");
@@ -6354,7 +3084,7 @@ fn adr_hint_some_for_architecture_keyword() {
         "must contain CLI: {hint}"
     );
     // "tradeoff" keyword also matches
-    let td = super::maybe_adr_hint_on_task_create("evaluate tradeoff between sync and async");
+    let td = generator_hints::maybe_adr_hint_on_task_create("evaluate tradeoff between sync and async");
     assert!(td.is_some(), "tradeoff keyword must produce hint");
 }
 
@@ -6378,32 +3108,6 @@ fn adr_hint_integration_post_create() {
 // ── R53-S2: maybe_rust_module_hint_on_output ─────────────────────────────
 
 #[test]
-fn rust_module_hint_none_for_non_rust_output() {
-    // R53-S2: output with no Rust markers → None
-    assert!(super::maybe_rust_module_hint_on_output("").is_none());
-    assert!(super::maybe_rust_module_hint_on_output("all tests passed, 42 ok").is_none());
-}
-
-#[test]
-fn rust_module_hint_some_for_pub_struct_marker() {
-    // R53-S2: "pub struct " in output → Some with rust_module CLI command
-    let result = super::maybe_rust_module_hint_on_output("pub struct Config { name: String }");
-    assert!(result.is_some(), "pub struct marker must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must have rust-module: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render rust_module"),
-        "must contain CLI: {hint}"
-    );
-    // "impl " also matches
-    let imp = super::maybe_rust_module_hint_on_output("impl Default for Config { }");
-    assert!(imp.is_some(), "impl marker must produce hint");
-}
-
-#[test]
 fn rust_module_hint_integration_post_output() {
     // R53-S2 integration: handle_task_sync_post_output with Rust code → rust_module hint
     let (_tmp, mut rt) = make_runtime();
@@ -6423,33 +3127,6 @@ fn rust_module_hint_integration_post_output() {
 }
 
 // ── R53-S3: maybe_skill_document_hint_on_exit_plan ───────────────────────
-
-#[test]
-fn skill_doc_hint_none_for_empty_or_unrelated_intent() {
-    // R53-S3: empty or non-documentation intent → None
-    assert!(super::maybe_skill_document_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_skill_document_hint_on_exit_plan("implement REST endpoint").is_none());
-}
-
-#[test]
-fn skill_doc_hint_some_for_guide_keyword() {
-    // R53-S3: "guide" in intent → Some with skill_document CLI command
-    let result =
-        super::maybe_skill_document_hint_on_exit_plan("write a developer guide for onboarding");
-    assert!(result.is_some(), "guide keyword must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must have skill-document: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render skill_document"),
-        "must contain CLI: {hint}"
-    );
-    // "runbook" also matches
-    let rb = super::maybe_skill_document_hint_on_exit_plan("create runbook for incident response");
-    assert!(rb.is_some(), "runbook keyword must produce hint");
-}
 
 #[test]
 fn skill_doc_hint_integration_exit_plan() {
@@ -6472,14 +3149,14 @@ fn skill_doc_hint_integration_exit_plan() {
 #[test]
 fn mcp_tool_hint_none_for_empty_or_unrelated_subject() {
     // R54-S1: empty or non-MCP subject → None
-    assert!(super::maybe_mcp_tool_hint_on_task_create("").is_none());
-    assert!(super::maybe_mcp_tool_hint_on_task_create("fix login form validation").is_none());
+    assert!(generator_hints::maybe_mcp_tool_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_mcp_tool_hint_on_task_create("fix login form validation").is_none());
 }
 
 #[test]
 fn mcp_tool_hint_some_for_mcp_keyword() {
     // R54-S1: "mcp" in subject → Some with mcp_tool CLI command
-    let result = super::maybe_mcp_tool_hint_on_task_create("build mcp server for file operations");
+    let result = generator_hints::maybe_mcp_tool_hint_on_task_create("build mcp server for file operations");
     assert!(result.is_some(), "mcp keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -6491,7 +3168,7 @@ fn mcp_tool_hint_some_for_mcp_keyword() {
         "must contain CLI: {hint}"
     );
     // "tool server" also matches
-    let ts = super::maybe_mcp_tool_hint_on_task_create("implement tool server endpoint");
+    let ts = generator_hints::maybe_mcp_tool_hint_on_task_create("implement tool server endpoint");
     assert!(ts.is_some(), "tool server keyword must produce hint");
 }
 
@@ -6512,32 +3189,6 @@ fn mcp_tool_hint_integration_post_create() {
 }
 
 // ── R54-S2: maybe_test_hint_on_output ────────────────────────────────────
-
-#[test]
-fn test_hint_none_for_non_test_output() {
-    // R54-S2: output with no test markers → None
-    assert!(super::maybe_test_hint_on_output("").is_none());
-    assert!(super::maybe_test_hint_on_output("kubectl apply completed successfully").is_none());
-}
-
-#[test]
-fn test_hint_some_for_test_attribute_marker() {
-    // R54-S2: "#[test]" in output → Some with test generator CLI command
-    let result = super::maybe_test_hint_on_output("#[test]\nfn it_works() { assert!(true); }");
-    assert!(result.is_some(), "#[test] marker must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("test-scaffold:"),
-        "hint must have test-scaffold: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render test"),
-        "must contain CLI: {hint}"
-    );
-    // "#[cfg(test)]" also matches
-    let cfg = super::maybe_test_hint_on_output("#[cfg(test)]\nmod tests { }");
-    assert!(cfg.is_some(), "#[cfg(test)] marker must produce hint");
-}
 
 #[test]
 fn test_hint_integration_post_output() {
@@ -6561,35 +3212,6 @@ fn test_hint_integration_post_output() {
 // ── R54-S3: maybe_task_scaffold_hint_on_enter_plan ───────────────────────
 
 #[test]
-fn task_scaffold_hint_none_for_empty_or_unrelated_intent() {
-    // R54-S3: empty or non-DAG intent → None
-    assert!(super::maybe_task_scaffold_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_task_scaffold_hint_on_enter_plan("fix button color").is_none());
-}
-
-#[test]
-fn task_scaffold_hint_some_for_dag_keyword() {
-    // R54-S3: "dag" in intent → Some with task_scaffold CLI command
-    let result =
-        super::maybe_task_scaffold_hint_on_enter_plan("design dag for code generation pipeline");
-    assert!(result.is_some(), "dag keyword must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must have task-scaffold: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render task_scaffold"),
-        "must contain CLI: {hint}"
-    );
-    // "decompose" also matches
-    let dec = super::maybe_task_scaffold_hint_on_enter_plan(
-        "decompose authentication feature into subtasks",
-    );
-    assert!(dec.is_some(), "decompose keyword must produce hint");
-}
-
-#[test]
 fn task_scaffold_hint_integration_enter_plan() {
     // R54-S3 integration: handle_enter_plan_mode with DAG intent → task_scaffold hint
     let (_tmp, mut rt) = make_runtime();
@@ -6610,15 +3232,15 @@ fn task_scaffold_hint_integration_enter_plan() {
 #[test]
 fn cli_handler_hint_none_for_empty_or_unrelated_subject() {
     // R55-S1: empty or non-CLI subject → None
-    assert!(super::maybe_cli_handler_hint_on_task_create("").is_none());
-    assert!(super::maybe_cli_handler_hint_on_task_create("fix login form validation").is_none());
+    assert!(generator_hints::maybe_cli_handler_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_cli_handler_hint_on_task_create("fix login form validation").is_none());
 }
 
 #[test]
 fn cli_handler_hint_some_for_clap_keyword() {
     // R55-S1: "clap" in subject → Some with cli_handler CLI command
     let result =
-        super::maybe_cli_handler_hint_on_task_create("add clap subcommand for index rebuild");
+        generator_hints::maybe_cli_handler_hint_on_task_create("add clap subcommand for index rebuild");
     assert!(result.is_some(), "clap keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -6631,7 +3253,7 @@ fn cli_handler_hint_some_for_clap_keyword() {
     );
     // "command handler" also matches
     let ch =
-        super::maybe_cli_handler_hint_on_task_create("implement command handler for session start");
+        generator_hints::maybe_cli_handler_hint_on_task_create("implement command handler for session start");
     assert!(ch.is_some(), "command handler keyword must produce hint");
 }
 
@@ -6652,36 +3274,6 @@ fn cli_handler_hint_integration_post_create() {
 }
 
 // ── R55-S2: maybe_python_script_hint_on_output ───────────────────────────
-
-#[test]
-fn python_hint_none_for_non_python_output() {
-    // R55-S2: output with no Python markers → None
-    assert!(super::maybe_python_script_hint_on_output("").is_none());
-    assert!(
-        super::maybe_python_script_hint_on_output("pub fn process() -> Result<(), Error> {}")
-            .is_none()
-    );
-}
-
-#[test]
-fn python_hint_some_for_main_guard_marker() {
-    // R55-S2: "if __name__" in output → Some with python_script CLI command
-    let result =
-        super::maybe_python_script_hint_on_output("if __name__ == \"__main__\":\n    main()");
-    assert!(result.is_some(), "if __name__ marker must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must have python-script: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render python_script"),
-        "must contain CLI: {hint}"
-    );
-    // "import asyncio" also matches
-    let aio = super::maybe_python_script_hint_on_output("import asyncio\nasync def main(): pass");
-    assert!(aio.is_some(), "import asyncio marker must produce hint");
-}
 
 #[test]
 fn python_hint_integration_post_output() {
@@ -6705,34 +3297,6 @@ fn python_hint_integration_post_output() {
 // ── R55-S3: maybe_hook_handler_hint_on_exit_plan ─────────────────────────
 
 #[test]
-fn hook_handler_hint_none_for_empty_or_unrelated_intent() {
-    // R55-S3: empty or non-hook intent → None
-    assert!(super::maybe_hook_handler_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_hook_handler_hint_on_exit_plan("provision AWS infrastructure").is_none());
-}
-
-#[test]
-fn hook_handler_hint_some_for_lifecycle_hook_keyword() {
-    // R55-S3: "lifecycle hook" in intent → Some with hook_handler CLI command
-    let result = super::maybe_hook_handler_hint_on_exit_plan(
-        "implement lifecycle hook for session tracking",
-    );
-    assert!(result.is_some(), "lifecycle hook keyword must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("hook-handler:"),
-        "hint must have hook-handler: prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render hook_handler"),
-        "must contain CLI: {hint}"
-    );
-    // "post_edit" also matches
-    let pe = super::maybe_hook_handler_hint_on_exit_plan("add post_edit handler for wiring check");
-    assert!(pe.is_some(), "post_edit keyword must produce hint");
-}
-
-#[test]
 fn hook_handler_hint_integration_exit_plan() {
     // R55-S3 integration: handle_exit_plan_mode with hook intent → hook_handler hint
     let (_tmp, mut rt) = make_runtime();
@@ -6754,14 +3318,14 @@ fn hook_handler_hint_integration_exit_plan() {
 #[test]
 fn derive_macro_hint_none_for_empty_or_unrelated_subject() {
     // R56-S1: empty or non-macro subject → None
-    assert!(super::maybe_derive_macro_hint_on_task_create("").is_none());
-    assert!(super::maybe_derive_macro_hint_on_task_create("add new REST endpoint").is_none());
+    assert!(generator_hints::maybe_derive_macro_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_derive_macro_hint_on_task_create("add new REST endpoint").is_none());
 }
 
 #[test]
 fn derive_macro_hint_some_for_proc_macro_keyword() {
     // R56-S1: "derive macro" in subject → Some with derive_macro CLI command
-    let result = super::maybe_derive_macro_hint_on_task_create("implement derive macro for serde");
+    let result = generator_hints::maybe_derive_macro_hint_on_task_create("implement derive macro for serde");
     assert!(result.is_some(), "derive macro keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -6773,7 +3337,7 @@ fn derive_macro_hint_some_for_proc_macro_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test proc-macro variant
-    let result2 = super::maybe_derive_macro_hint_on_task_create("write proc-macro for validation");
+    let result2 = generator_hints::maybe_derive_macro_hint_on_task_create("write proc-macro for validation");
     assert!(result2.is_some(), "proc-macro keyword must match");
 }
 
@@ -6797,34 +3361,6 @@ fn derive_macro_hint_integration_task_create() {
 // ── R56-S2: maybe_ffi_binding_hint_on_output ─────────────────────────────
 
 #[test]
-fn ffi_binding_hint_none_for_output_without_ffi_markers() {
-    // R56-S2: output with no FFI markers → None
-    assert!(super::maybe_ffi_binding_hint_on_output("").is_none());
-    assert!(
-        super::maybe_ffi_binding_hint_on_output("fn main() { println!(\"hello\"); }").is_none()
-    );
-}
-
-#[test]
-fn ffi_binding_hint_some_for_extern_c_in_output() {
-    // R56-S2: "extern \"C\"" in output → Some with ffi_binding CLI command
-    let result = super::maybe_ffi_binding_hint_on_output("pub extern \"C\" fn my_func() {}");
-    assert!(result.is_some(), "extern C must match FFI marker");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must have ffi-binding prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ffi_binding"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test no_mangle variant
-    let result2 = super::maybe_ffi_binding_hint_on_output("#[no_mangle] pub extern fn cb() {}");
-    assert!(result2.is_some(), "no_mangle must match FFI marker");
-}
-
-#[test]
 fn ffi_binding_hint_integration_task_output() {
     // R56-S2 integration: handle_task_sync_post_output with FFI output → ffi_binding hint
     let (_tmp, mut rt) = make_runtime();
@@ -6841,32 +3377,6 @@ fn ffi_binding_hint_integration_task_output() {
 }
 
 // ── R56-S3: maybe_man_page_hint_on_exit_plan ─────────────────────────────
-
-#[test]
-fn man_page_hint_none_for_empty_or_unrelated_intent() {
-    // R56-S3: empty or non-man-page intent → None
-    assert!(super::maybe_man_page_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_man_page_hint_on_exit_plan("deploy kubernetes cluster").is_none());
-}
-
-#[test]
-fn man_page_hint_some_for_man_page_keyword() {
-    // R56-S3: "man page" in intent → Some with man_page CLI command
-    let result = super::maybe_man_page_hint_on_exit_plan("write man page for touring CLI");
-    assert!(result.is_some(), "man page keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must have man-page prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render man_page"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test manpage variant
-    let result2 = super::maybe_man_page_hint_on_exit_plan("generate manpage for the tool");
-    assert!(result2.is_some(), "manpage keyword must match");
-}
 
 #[test]
 fn man_page_hint_integration_exit_plan() {
@@ -6890,14 +3400,14 @@ fn man_page_hint_integration_exit_plan() {
 #[test]
 fn schema_hint_none_for_empty_or_unrelated_subject() {
     // R57-S1: empty or non-schema subject → None
-    assert!(super::maybe_schema_hint_on_task_create("").is_none());
-    assert!(super::maybe_schema_hint_on_task_create("add new REST endpoint handler").is_none());
+    assert!(generator_hints::maybe_schema_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_schema_hint_on_task_create("add new REST endpoint handler").is_none());
 }
 
 #[test]
 fn schema_hint_some_for_json_schema_keyword() {
     // R57-S1: "json schema" in subject → Some with schema CLI command
-    let result = super::maybe_schema_hint_on_task_create("define json schema for user event");
+    let result = generator_hints::maybe_schema_hint_on_task_create("define json schema for user event");
     assert!(result.is_some(), "json schema keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -6909,7 +3419,7 @@ fn schema_hint_some_for_json_schema_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test avro variant
-    let result2 = super::maybe_schema_hint_on_task_create("create avro schema for kafka topic");
+    let result2 = generator_hints::maybe_schema_hint_on_task_create("create avro schema for kafka topic");
     assert!(result2.is_some(), "avro schema keyword must match");
 }
 
@@ -6933,35 +3443,6 @@ fn schema_hint_integration_task_create() {
 // ── R57-S2: maybe_changelog_hint_on_output ────────────────────────────────
 
 #[test]
-fn changelog_hint_none_for_output_without_release_markers() {
-    // R57-S2: output with no changelog markers → None
-    assert!(super::maybe_changelog_hint_on_output("").is_none());
-    assert!(
-        super::maybe_changelog_hint_on_output("cargo test result: ok. 42 passed; 0 failed")
-            .is_none()
-    );
-}
-
-#[test]
-fn changelog_hint_some_for_changelog_marker_in_output() {
-    // R57-S2: "CHANGELOG" in output → Some with changelog_entry CLI command
-    let result = super::maybe_changelog_hint_on_output("Updated CHANGELOG with new features");
-    assert!(result.is_some(), "CHANGELOG marker must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog-entry:"),
-        "hint must have changelog-entry prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render changelog_entry"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test semver variant
-    let result2 = super::maybe_changelog_hint_on_output("bump version to 1.2.0 with semver");
-    assert!(result2.is_some(), "semver keyword must match");
-}
-
-#[test]
 fn changelog_hint_integration_task_output() {
     // R57-S2 integration: handle_task_sync_post_output with changelog output → changelog_entry hint
     let (_tmp, mut rt) = make_runtime();
@@ -6978,34 +3459,6 @@ fn changelog_hint_integration_task_output() {
 }
 
 // ── R57-S3: maybe_asyncapi_hint_on_exit_plan ─────────────────────────────
-
-#[test]
-fn asyncapi_exit_hint_none_for_empty_or_unrelated_intent() {
-    // R57-S3: empty or non-async-API intent → None
-    assert!(super::maybe_asyncapi_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_asyncapi_hint_on_exit_plan("provision AWS ECS cluster").is_none());
-}
-
-#[test]
-fn asyncapi_exit_hint_some_for_event_driven_keyword() {
-    // R57-S3: "event-driven" in intent → Some with asyncapi_spec CLI command
-    let result =
-        super::maybe_asyncapi_hint_on_exit_plan("design event-driven architecture for orders");
-    assert!(result.is_some(), "event-driven keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("asyncapi-spec:"),
-        "hint must have asyncapi-spec prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render asyncapi_spec"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test asyncapi variant
-    let result2 =
-        super::maybe_asyncapi_hint_on_exit_plan("write asyncapi spec for notification service");
-    assert!(result2.is_some(), "asyncapi keyword must match");
-}
 
 #[test]
 fn asyncapi_exit_hint_integration_exit_plan() {
@@ -7029,9 +3482,9 @@ fn asyncapi_exit_hint_integration_exit_plan() {
 #[test]
 fn consumer_generator_hint_none_for_empty_or_unrelated_subject() {
     // R58-S1: empty or non-wiring subject → None
-    assert!(super::maybe_consumer_generator_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_consumer_generator_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_consumer_generator_hint_on_task_create("add REST endpoint for users")
+        generator_hints::maybe_consumer_generator_hint_on_task_create("add REST endpoint for users")
             .is_none()
     );
 }
@@ -7039,7 +3492,7 @@ fn consumer_generator_hint_none_for_empty_or_unrelated_subject() {
 #[test]
 fn consumer_generator_hint_some_for_wire_consumer_keyword() {
     // R58-S1: "wire consumer" in subject → Some with consumer_generator CLI command
-    let result = super::maybe_consumer_generator_hint_on_task_create(
+    let result = generator_hints::maybe_consumer_generator_hint_on_task_create(
         "wire consumer for orphan symbols in analysis crate",
     );
     assert!(result.is_some(), "wire consumer keyword must match");
@@ -7053,7 +3506,7 @@ fn consumer_generator_hint_some_for_wire_consumer_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test wire orphan variant
-    let result2 = super::maybe_consumer_generator_hint_on_task_create(
+    let result2 = generator_hints::maybe_consumer_generator_hint_on_task_create(
         "wire orphan pub symbols into new module",
     );
     assert!(result2.is_some(), "wire orphan keyword must match");
@@ -7081,14 +3534,14 @@ fn consumer_generator_hint_integration_task_create() {
 #[test]
 fn rust_module_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R58-S2: empty or non-module subject → None
-    assert!(super::maybe_rust_module_hint_on_task_create("").is_none());
-    assert!(super::maybe_rust_module_hint_on_task_create("fix database query timeout").is_none());
+    assert!(generator_hints::maybe_rust_module_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_rust_module_hint_on_task_create("fix database query timeout").is_none());
 }
 
 #[test]
 fn rust_module_task_create_hint_some_for_new_module_keyword() {
     // R58-S2: "new module" in subject → Some with rust_module CLI command
-    let result = super::maybe_rust_module_hint_on_task_create("create new module for cache layer");
+    let result = generator_hints::maybe_rust_module_hint_on_task_create("create new module for cache layer");
     assert!(result.is_some(), "new module keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -7100,7 +3553,7 @@ fn rust_module_task_create_hint_some_for_new_module_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test define trait variant
-    let result2 = super::maybe_rust_module_hint_on_task_create(
+    let result2 = generator_hints::maybe_rust_module_hint_on_task_create(
         "define trait for storage backend abstraction",
     );
     assert!(result2.is_some(), "define trait keyword must match");
@@ -7125,32 +3578,6 @@ fn rust_module_task_create_hint_integration() {
 // ── R58-S3: maybe_plan_md_hint_on_exit_plan ──────────────────────────────
 
 #[test]
-fn plan_md_hint_none_for_empty_or_unrelated_intent() {
-    // R58-S3: empty or non-planning intent → None
-    assert!(super::maybe_plan_md_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_plan_md_hint_on_exit_plan("fix compilation error in lib.rs").is_none());
-}
-
-#[test]
-fn plan_md_hint_some_for_roadmap_keyword() {
-    // R58-S3: "roadmap" in intent → Some with plan.md CLI command
-    let result = super::maybe_plan_md_hint_on_exit_plan("create product roadmap for Q3 features");
-    assert!(result.is_some(), "roadmap keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("plan-md:"),
-        "hint must have plan-md prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render plan.md"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test project plan variant
-    let result2 = super::maybe_plan_md_hint_on_exit_plan("write project plan for migration sprint");
-    assert!(result2.is_some(), "project plan keyword must match");
-}
-
-#[test]
 fn plan_md_hint_integration_exit_plan() {
     // R58-S3 integration: handle_exit_plan_mode with roadmap intent → plan.md hint
     let (_tmp, mut rt) = make_runtime();
@@ -7172,15 +3599,15 @@ fn plan_md_hint_integration_exit_plan() {
 #[test]
 fn terraform_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R59-S1: empty or non-IaC subject → None
-    assert!(super::maybe_terraform_hint_on_task_create("").is_none());
-    assert!(super::maybe_terraform_hint_on_task_create("fix Rust compilation errors").is_none());
+    assert!(generator_hints::maybe_terraform_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_terraform_hint_on_task_create("fix Rust compilation errors").is_none());
 }
 
 #[test]
 fn terraform_task_create_hint_some_for_terraform_keyword() {
     // R59-S1: "terraform" in subject → Some with terraform_module CLI command
     let result =
-        super::maybe_terraform_hint_on_task_create("create terraform module for VPC networking");
+        generator_hints::maybe_terraform_hint_on_task_create("create terraform module for VPC networking");
     assert!(result.is_some(), "terraform keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -7193,7 +3620,7 @@ fn terraform_task_create_hint_some_for_terraform_keyword() {
     );
     // Also test opentofu variant
     let result2 =
-        super::maybe_terraform_hint_on_task_create("provision infrastructure with opentofu");
+        generator_hints::maybe_terraform_hint_on_task_create("provision infrastructure with opentofu");
     assert!(result2.is_some(), "opentofu keyword must match");
 }
 
@@ -7219,9 +3646,9 @@ fn terraform_task_create_hint_integration() {
 #[test]
 fn ci_workflow_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R59-S2: empty or non-CI subject → None
-    assert!(super::maybe_ci_workflow_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_ci_workflow_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_ci_workflow_hint_on_task_create("refactor error handling module").is_none()
+        generator_hints::maybe_ci_workflow_hint_on_task_create("refactor error handling module").is_none()
     );
 }
 
@@ -7229,7 +3656,7 @@ fn ci_workflow_task_create_hint_none_for_empty_or_unrelated_subject() {
 fn ci_workflow_task_create_hint_some_for_github_actions_keyword() {
     // R59-S2: "github actions" in subject → Some with ci_workflow CLI command
     let result =
-        super::maybe_ci_workflow_hint_on_task_create("add github actions workflow for release");
+        generator_hints::maybe_ci_workflow_hint_on_task_create("add github actions workflow for release");
     assert!(result.is_some(), "github actions keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -7242,7 +3669,7 @@ fn ci_workflow_task_create_hint_some_for_github_actions_keyword() {
     );
     // Also test ci/cd variant
     let result2 =
-        super::maybe_ci_workflow_hint_on_task_create("set up ci/cd pipeline for deployment");
+        generator_hints::maybe_ci_workflow_hint_on_task_create("set up ci/cd pipeline for deployment");
     assert!(result2.is_some(), "ci/cd keyword must match");
 }
 
@@ -7267,15 +3694,15 @@ fn ci_workflow_task_create_hint_integration() {
 #[test]
 fn k8s_manifest_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R59-S3: empty or non-k8s subject → None
-    assert!(super::maybe_k8s_manifest_hint_on_task_create("").is_none());
-    assert!(super::maybe_k8s_manifest_hint_on_task_create("add JSON schema validation").is_none());
+    assert!(generator_hints::maybe_k8s_manifest_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_k8s_manifest_hint_on_task_create("add JSON schema validation").is_none());
 }
 
 #[test]
 fn k8s_manifest_task_create_hint_some_for_kubernetes_keyword() {
     // R59-S3: "kubernetes" in subject → Some with k8s_manifest CLI command
     let result =
-        super::maybe_k8s_manifest_hint_on_task_create("deploy service to kubernetes cluster");
+        generator_hints::maybe_k8s_manifest_hint_on_task_create("deploy service to kubernetes cluster");
     assert!(result.is_some(), "kubernetes keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -7288,7 +3715,7 @@ fn k8s_manifest_task_create_hint_some_for_kubernetes_keyword() {
     );
     // Also test helm chart variant
     let result2 =
-        super::maybe_k8s_manifest_hint_on_task_create("create helm chart for microservice");
+        generator_hints::maybe_k8s_manifest_hint_on_task_create("create helm chart for microservice");
     assert!(result2.is_some(), "helm chart keyword must match");
 }
 
@@ -7314,9 +3741,9 @@ fn k8s_manifest_task_create_hint_integration() {
 #[test]
 fn incremental_patch_task_create_hint_none_for_empty_or_unrelated() {
     // R60-S1: empty or non-patch subject → None
-    assert!(super::maybe_incremental_patch_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_incremental_patch_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_incremental_patch_hint_on_task_create("implement new feature endpoint")
+        generator_hints::maybe_incremental_patch_hint_on_task_create("implement new feature endpoint")
             .is_none()
     );
 }
@@ -7324,7 +3751,7 @@ fn incremental_patch_task_create_hint_none_for_empty_or_unrelated() {
 #[test]
 fn incremental_patch_task_create_hint_some_for_patch_keyword() {
     // R60-S1: "incremental patch" in subject → Some with incremental_patch CLI command
-    let result = super::maybe_incremental_patch_hint_on_task_create(
+    let result = generator_hints::maybe_incremental_patch_hint_on_task_create(
         "apply incremental patch for config migration",
     );
     assert!(result.is_some(), "incremental patch keyword must match");
@@ -7339,7 +3766,7 @@ fn incremental_patch_task_create_hint_some_for_patch_keyword() {
     );
     // Also test delta patch variant
     let result2 =
-        super::maybe_incremental_patch_hint_on_task_create("create delta patch for schema upgrade");
+        generator_hints::maybe_incremental_patch_hint_on_task_create("create delta patch for schema upgrade");
     assert!(result2.is_some(), "delta patch keyword must match");
 }
 
@@ -7363,36 +3790,6 @@ fn incremental_patch_task_create_hint_integration() {
 // ── R60-S2: maybe_shell_completion_hint_on_output ────────────────────────
 
 #[test]
-fn shell_completion_hint_none_for_output_without_completion_markers() {
-    // R60-S2: output with no completion markers → None
-    assert!(super::maybe_shell_completion_hint_on_output("").is_none());
-    assert!(
-        super::maybe_shell_completion_hint_on_output("cargo test result: ok. 42 passed").is_none()
-    );
-}
-
-#[test]
-fn shell_completion_hint_some_for_compdef_in_output() {
-    // R60-S2: "compdef" in output → Some with shell_completion CLI command
-    let result =
-        super::maybe_shell_completion_hint_on_output("#compdef touring\n_arguments '-h:help'");
-    assert!(result.is_some(), "compdef marker must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion:"),
-        "hint must have shell-completion prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render shell_completion"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test complete variant
-    let result2 =
-        super::maybe_shell_completion_hint_on_output("complete -W 'start stop status' touring");
-    assert!(result2.is_some(), "complete - marker must match");
-}
-
-#[test]
 fn shell_completion_hint_integration_task_output() {
     // R60-S2 integration: handle_task_sync_post_output with completion output → shell_completion hint
     let (_tmp, mut rt) = make_runtime();
@@ -7409,37 +3806,6 @@ fn shell_completion_hint_integration_task_output() {
 }
 
 // ── R60-S3: maybe_error_catalog_hint_on_exit_plan ────────────────────────
-
-#[test]
-fn error_catalog_exit_hint_none_for_empty_or_unrelated_intent() {
-    // R60-S3: empty or non-error-catalog intent → None
-    assert!(super::maybe_error_catalog_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_error_catalog_hint_on_exit_plan("implement caching layer for sessions")
-            .is_none()
-    );
-}
-
-#[test]
-fn error_catalog_exit_hint_some_for_error_catalog_keyword() {
-    // R60-S3: "error catalog" in intent → Some with error_catalog CLI command
-    let result =
-        super::maybe_error_catalog_hint_on_exit_plan("design error catalog for payment domain");
-    assert!(result.is_some(), "error catalog keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog:"),
-        "hint must have error-catalog prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render error_catalog"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test error taxonomy variant
-    let result2 =
-        super::maybe_error_catalog_hint_on_exit_plan("define error taxonomy for API responses");
-    assert!(result2.is_some(), "error taxonomy keyword must match");
-}
 
 #[test]
 fn error_catalog_exit_hint_integration_exit_plan() {
@@ -7460,47 +3826,6 @@ fn error_catalog_exit_hint_integration_exit_plan() {
 // ── R61-S1: generator_kind_for_dir_pattern expanded table ────────────────
 
 #[test]
-fn dir_pattern_none_for_unrecognized_path() {
-    // R61-S1: path with no matching pattern returns None
-    assert!(super::generator_kind_for_dir_pattern("").is_none());
-    assert!(super::generator_kind_for_dir_pattern("/home/user/random-workspace").is_none());
-    assert!(super::generator_kind_for_dir_pattern("/var/log/daemon").is_none());
-}
-
-#[test]
-fn dir_pattern_some_for_infra_paths() {
-    // R61-S1: new infra patterns resolve to correct GeneratorKind names
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/project/k8s/deploy"),
-        Some("k8s_manifest")
-    );
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/project/kubernetes/base"),
-        Some("k8s_manifest")
-    );
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/infra/terraform/modules"),
-        Some("terraform_module")
-    );
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/project/ci/pipelines"),
-        Some("ci_workflow")
-    );
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/project/proto/schema"),
-        Some("protobuf_schema")
-    );
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/project/hooks/pre-commit"),
-        Some("hook_handler")
-    );
-    assert_eq!(
-        super::generator_kind_for_dir_pattern("/project/api/v2"),
-        Some("openapi_spec")
-    );
-}
-
-#[test]
 fn dir_pattern_integration_cwd_changed_api_dir() {
     // R61-S1 integration: handle_cwd_changed with /api/v2 path includes openapi_spec hint
     let (_tmp, mut rt) = make_runtime();
@@ -7517,37 +3842,6 @@ fn dir_pattern_integration_cwd_changed_api_dir() {
 }
 
 // ── R61-S2: maybe_migration_hint_on_task_get ─────────────────────────────
-
-#[test]
-fn migration_hint_on_task_get_none_for_no_keywords() {
-    // R61-S2: DAG JSON with no DB keywords → None
-    assert!(super::maybe_migration_hint_on_task_get("{}").is_none());
-    assert!(
-        super::maybe_migration_hint_on_task_get(r#"{"status":"pending","subtasks":[]}"#).is_none()
-    );
-    assert!(super::maybe_migration_hint_on_task_get("implement caching layer").is_none());
-}
-
-#[test]
-fn migration_hint_on_task_get_some_for_migration_keywords() {
-    // R61-S2: DAG JSON containing migration keywords → Some with CLI hint
-    let result = super::maybe_migration_hint_on_task_get(
-        r#"{"description":"add users migration for auth schema"}"#,
-    );
-    assert!(result.is_some(), "migration keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration:"),
-        "hint must have migration prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render migration"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test alter table variant
-    let result2 = super::maybe_migration_hint_on_task_get("alter table users add column email");
-    assert!(result2.is_some(), "alter table must match: {result2:?}");
-}
 
 #[test]
 fn migration_hint_integration_task_get_with_migration_dag() {
@@ -7568,35 +3862,6 @@ fn migration_hint_integration_task_get_with_migration_dag() {
 }
 
 // ── R61-S3: maybe_mcts_hint_on_task_blocked ──────────────────────────────
-
-#[test]
-fn mcts_blocked_hint_none_for_non_blocked_status() {
-    // R61-S3: non-blocked statuses return None
-    assert!(super::maybe_mcts_hint_on_task_blocked("task-1", "in_progress").is_none());
-    assert!(super::maybe_mcts_hint_on_task_blocked("task-1", "completed").is_none());
-    assert!(super::maybe_mcts_hint_on_task_blocked("task-1", "pending").is_none());
-    assert!(super::maybe_mcts_hint_on_task_blocked("task-1", "").is_none());
-}
-
-#[test]
-fn mcts_blocked_hint_some_for_blocked_status() {
-    // R61-S3: blocked status → Some with MCTS search hint
-    let result = super::maybe_mcts_hint_on_task_blocked("task-abc", "blocked");
-    assert!(result.is_some(), "blocked status must produce MCTS hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcts-unblock:"),
-        "hint must have mcts-unblock prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring mcts search"),
-        "hint must contain mcts CLI: {hint}"
-    );
-    assert!(
-        hint.contains("task-abc"),
-        "hint must reference task_id: {hint}"
-    );
-}
 
 #[test]
 fn mcts_blocked_hint_integration_task_update_blocked() {
@@ -7623,13 +3888,13 @@ fn mcts_blocked_hint_integration_task_update_blocked() {
 #[test]
 fn task_scaffold_hint_none_for_non_dag_subject() {
     // R62-S1: subjects with no DAG/task planning keywords → None
-    assert!(super::maybe_task_scaffold_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_task_scaffold_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_task_scaffold_hint_on_task_create("implement REST endpoint for users")
+        generator_hints::maybe_task_scaffold_hint_on_task_create("implement REST endpoint for users")
             .is_none()
     );
     assert!(
-        super::maybe_task_scaffold_hint_on_task_create("fix clippy warnings in hooks crate")
+        generator_hints::maybe_task_scaffold_hint_on_task_create("fix clippy warnings in hooks crate")
             .is_none()
     );
 }
@@ -7638,7 +3903,7 @@ fn task_scaffold_hint_none_for_non_dag_subject() {
 fn task_scaffold_hint_some_for_dag_keywords() {
     // R62-S1: DAG/task planning keywords → Some with task_scaffold CLI
     let result =
-        super::maybe_task_scaffold_hint_on_task_create("create dag task for payment feature");
+        generator_hints::maybe_task_scaffold_hint_on_task_create("create dag task for payment feature");
     assert!(result.is_some(), "dag task keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -7651,7 +3916,7 @@ fn task_scaffold_hint_some_for_dag_keywords() {
     );
     // Also test taco phase variant
     let result2 =
-        super::maybe_task_scaffold_hint_on_task_create("plan subtasks for refactor phase");
+        generator_hints::maybe_task_scaffold_hint_on_task_create("plan subtasks for refactor phase");
     assert!(
         result2.is_some(),
         "plan subtasks keyword must match: {result2:?}"
@@ -7679,18 +3944,18 @@ fn task_scaffold_hint_integration_task_create() {
 #[test]
 fn diary_entry_hint_none_for_non_retrospective_subject() {
     // R62-S2: non-retrospective subjects → None
-    assert!(super::maybe_diary_entry_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_diary_entry_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_diary_entry_hint_on_task_create("add OpenAPI spec for payment API").is_none()
+        generator_hints::maybe_diary_entry_hint_on_task_create("add OpenAPI spec for payment API").is_none()
     );
-    assert!(super::maybe_diary_entry_hint_on_task_create("benchmark VGP engine latency").is_none());
+    assert!(generator_hints::maybe_diary_entry_hint_on_task_create("benchmark VGP engine latency").is_none());
 }
 
 #[test]
 fn diary_entry_hint_some_for_retrospective_keywords() {
     // R62-S2: retrospective/diary keywords → Some with diary_entry CLI
     let result =
-        super::maybe_diary_entry_hint_on_task_create("write retrospective for R60 implementation");
+        generator_hints::maybe_diary_entry_hint_on_task_create("write retrospective for R60 implementation");
     assert!(result.is_some(), "retrospective keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -7702,7 +3967,7 @@ fn diary_entry_hint_some_for_retrospective_keywords() {
         "hint must contain CLI: {hint}"
     );
     // Also test postmortem variant
-    let result2 = super::maybe_diary_entry_hint_on_task_create("postmortem after deploy incident");
+    let result2 = generator_hints::maybe_diary_entry_hint_on_task_create("postmortem after deploy incident");
     assert!(
         result2.is_some(),
         "postmortem keyword must match: {result2:?}"
@@ -7730,20 +3995,20 @@ fn diary_entry_hint_integration_task_create() {
 #[test]
 fn skill_document_hint_none_for_non_skill_subject() {
     // R62-S3: non-skill subjects → None
-    assert!(super::maybe_skill_document_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_skill_document_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_skill_document_hint_on_task_create("implement Kubernetes manifest for auth")
+        generator_hints::maybe_skill_document_hint_on_task_create("implement Kubernetes manifest for auth")
             .is_none()
     );
     assert!(
-        super::maybe_skill_document_hint_on_task_create("add benchmark for SIMD path").is_none()
+        generator_hints::maybe_skill_document_hint_on_task_create("add benchmark for SIMD path").is_none()
     );
 }
 
 #[test]
 fn skill_document_hint_some_for_skill_keywords() {
     // R62-S3: skill authoring keywords → Some with skill_document CLI
-    let result = super::maybe_skill_document_hint_on_task_create(
+    let result = generator_hints::maybe_skill_document_hint_on_task_create(
         "create claude skill for touring generator",
     );
     assert!(result.is_some(), "claude skill keyword must match");
@@ -7758,7 +4023,7 @@ fn skill_document_hint_some_for_skill_keywords() {
     );
     // Also test skill.md variant
     let result2 =
-        super::maybe_skill_document_hint_on_task_create("write skill.md for team-orchestrator");
+        generator_hints::maybe_skill_document_hint_on_task_create("write skill.md for team-orchestrator");
     assert!(
         result2.is_some(),
         "skill.md keyword must match: {result2:?}"
@@ -7784,39 +4049,6 @@ fn skill_document_hint_integration_task_create() {
 // ── R63-S1: maybe_ci_workflow_hint_on_enter_plan ──────────────────────────
 
 #[test]
-fn ci_workflow_enter_plan_hint_none_for_non_ci_intent() {
-    // R63-S1: intents with no CI/CD keywords → None
-    assert!(super::maybe_ci_workflow_hint_on_enter_plan("").is_none());
-    assert!(
-        super::maybe_ci_workflow_hint_on_enter_plan("add unit tests for parser module").is_none()
-    );
-    assert!(super::maybe_ci_workflow_hint_on_enter_plan("refactor database layer").is_none());
-}
-
-#[test]
-fn ci_workflow_enter_plan_hint_some_for_ci_keywords() {
-    // R63-S1: CI/CD keywords → Some with ci_workflow CLI
-    let result = super::maybe_ci_workflow_hint_on_enter_plan("set up github actions ci pipeline");
-    assert!(result.is_some(), "github actions keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow:"),
-        "hint must have ci-workflow prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ci_workflow"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test release pipeline variant
-    let result2 =
-        super::maybe_ci_workflow_hint_on_enter_plan("design release pipeline for touring-server");
-    assert!(
-        result2.is_some(),
-        "release pipeline keyword must match: {result2:?}"
-    );
-}
-
-#[test]
 fn ci_workflow_enter_plan_hint_integration_enter_plan() {
     // R63-S1 integration: handle_enter_plan_mode with CI/CD intent → ci_workflow hint
     let (_tmp, mut rt) = make_runtime();
@@ -7833,42 +4065,6 @@ fn ci_workflow_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R63-S2: maybe_dockerfile_hint_on_enter_plan ───────────────────────────
-
-#[test]
-fn dockerfile_enter_plan_hint_none_for_non_docker_intent() {
-    // R63-S2: intents with no Docker/container keywords → None
-    assert!(super::maybe_dockerfile_hint_on_enter_plan("").is_none());
-    assert!(
-        super::maybe_dockerfile_hint_on_enter_plan("implement gRPC service for auth").is_none()
-    );
-    assert!(
-        super::maybe_dockerfile_hint_on_enter_plan("add OpenAPI spec for payment API").is_none()
-    );
-}
-
-#[test]
-fn dockerfile_enter_plan_hint_some_for_docker_keywords() {
-    // R63-S2: Docker/container keywords → Some with dockerfile CLI
-    let result =
-        super::maybe_dockerfile_hint_on_enter_plan("create dockerfile for touring server image");
-    assert!(result.is_some(), "dockerfile keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile:"),
-        "hint must have dockerfile prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render dockerfile"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test container build variant
-    let result2 =
-        super::maybe_dockerfile_hint_on_enter_plan("container build for production docker image");
-    assert!(
-        result2.is_some(),
-        "container build keyword must match: {result2:?}"
-    );
-}
 
 #[test]
 fn dockerfile_enter_plan_hint_integration_enter_plan() {
@@ -7889,38 +4085,6 @@ fn dockerfile_enter_plan_hint_integration_enter_plan() {
 // ── R63-S3: maybe_terraform_hint_on_enter_plan ────────────────────────────
 
 #[test]
-fn terraform_enter_plan_hint_none_for_non_iac_intent() {
-    // R63-S3: intents with no IaC keywords → None
-    assert!(super::maybe_terraform_hint_on_enter_plan("").is_none());
-    assert!(
-        super::maybe_terraform_hint_on_enter_plan("implement benchmark for VGP engine").is_none()
-    );
-    assert!(super::maybe_terraform_hint_on_enter_plan("write retrospective for sprint").is_none());
-}
-
-#[test]
-fn terraform_enter_plan_hint_some_for_iac_keywords() {
-    // R63-S3: IaC/Terraform keywords → Some with terraform_module CLI
-    let result =
-        super::maybe_terraform_hint_on_enter_plan("design terraform module for EKS cluster");
-    assert!(result.is_some(), "terraform keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform:"),
-        "hint must have terraform prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render terraform_module"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test IaC variant
-    let result2 = super::maybe_terraform_hint_on_enter_plan(
-        "infrastructure as code for cloud infra provisioning",
-    );
-    assert!(result2.is_some(), "iac keyword must match: {result2:?}");
-}
-
-#[test]
 fn terraform_enter_plan_hint_integration_enter_plan() {
     // R63-S3 integration: handle_enter_plan_mode with IaC intent → terraform_module hint
     let (_tmp, mut rt) = make_runtime();
@@ -7937,39 +4101,6 @@ fn terraform_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R96-S1: maybe_rust_module_hint_on_enter_plan ─────────────────────────
-
-#[test]
-fn rust_module_enter_plan_hint_none_for_non_rust_intent() {
-    assert!(super::maybe_rust_module_hint_on_enter_plan("").is_none());
-    assert!(
-        super::maybe_rust_module_hint_on_enter_plan("design terraform module for cloud").is_none()
-    );
-    assert!(
-        super::maybe_rust_module_hint_on_enter_plan("write a diary entry for TACO session")
-            .is_none()
-    );
-}
-
-#[test]
-fn rust_module_enter_plan_hint_some_for_rust_keywords() {
-    let result =
-        super::maybe_rust_module_hint_on_enter_plan("create rust module for lifecycle hook wiring");
-    assert!(result.is_some(), "rust module intent must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must contain rust-module label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render RustModule"),
-        "hint must contain CLI: {hint}"
-    );
-    let result2 = super::maybe_rust_module_hint_on_enter_plan("implement trait for new module");
-    assert!(
-        result2.is_some(),
-        "trait implementation intent must produce hint"
-    );
-}
 
 #[test]
 fn rust_module_enter_plan_hint_integration_enter_plan() {
@@ -7989,34 +4120,6 @@ fn rust_module_enter_plan_hint_integration_enter_plan() {
 // ── R96-S2: maybe_migration_hint_on_enter_plan ────────────────────────────
 
 #[test]
-fn migration_enter_plan_hint_none_for_non_migration_intent() {
-    assert!(super::maybe_migration_hint_on_enter_plan("").is_none());
-    assert!(
-        super::maybe_migration_hint_on_enter_plan("implement rust module for VGP engine").is_none()
-    );
-    assert!(super::maybe_migration_hint_on_enter_plan("create asyncapi spec for events").is_none());
-}
-
-#[test]
-fn migration_enter_plan_hint_some_for_migration_keywords() {
-    let result =
-        super::maybe_migration_hint_on_enter_plan("plan database migration for schema change");
-    assert!(result.is_some(), "migration intent must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration:"),
-        "hint must contain migration label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Migration"),
-        "hint must contain CLI: {hint}"
-    );
-    let result2 =
-        super::maybe_migration_hint_on_enter_plan("add column sql migration for user table");
-    assert!(result2.is_some(), "sql migration intent must produce hint");
-}
-
-#[test]
 fn migration_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "design database migration for adding symbols to db schema"});
@@ -8032,39 +4135,6 @@ fn migration_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R96-S3: maybe_protobuf_hint_on_enter_plan ────────────────────────────
-
-#[test]
-fn protobuf_enter_plan_hint_none_for_non_proto_intent() {
-    assert!(super::maybe_protobuf_hint_on_enter_plan("").is_none());
-    assert!(
-        super::maybe_protobuf_hint_on_enter_plan("implement database migration for schema")
-            .is_none()
-    );
-    assert!(
-        super::maybe_protobuf_hint_on_enter_plan("create rust struct for hook runtime").is_none()
-    );
-}
-
-#[test]
-fn protobuf_enter_plan_hint_some_for_proto_keywords() {
-    let result = super::maybe_protobuf_hint_on_enter_plan(
-        "design grpc service with proto message definitions",
-    );
-    assert!(result.is_some(), "grpc intent must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf-schema:"),
-        "hint must contain protobuf-schema label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ProtobufSchema"),
-        "hint must contain CLI: {hint}"
-    );
-    let result2 = super::maybe_protobuf_hint_on_enter_plan(
-        "implement protocol buffer schema for touring telemetry",
-    );
-    assert!(result2.is_some(), "protobuf intent must produce hint");
-}
 
 #[test]
 fn protobuf_enter_plan_hint_integration_enter_plan() {
@@ -8084,29 +4154,6 @@ fn protobuf_enter_plan_hint_integration_enter_plan() {
 // ── R102-S1: maybe_k8s_hint_on_enter_plan ────────────────────────────────
 
 #[test]
-fn k8s_enter_plan_hint_none_for_non_k8s_intent() {
-    // R102-S1: non-Kubernetes intents → None
-    assert!(super::maybe_k8s_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_k8s_hint_on_enter_plan("implement REST API endpoint").is_none());
-}
-
-#[test]
-fn k8s_enter_plan_hint_some_for_k8s_keywords() {
-    // R102-S1: intent with "kubernetes" → Some with K8sManifest CLI hint
-    let result = super::maybe_k8s_hint_on_enter_plan("deploy kubernetes pod with helm chart");
-    assert!(result.is_some(), "k8s intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("k8s-manifest:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("K8sManifest"),
-        "hint must reference K8sManifest kind: {hint}"
-    );
-}
-
-#[test]
 fn k8s_enter_plan_hint_integration_enter_plan() {
     // R102-S1 integration: handle_enter_plan_mode with kubectl intent → k8s-manifest hint
     let (_tmp, mut rt) = make_runtime();
@@ -8122,29 +4169,6 @@ fn k8s_enter_plan_hint_integration_enter_plan() {
 // ── R102-S2: maybe_openapi_hint_on_enter_plan ────────────────────────────
 
 #[test]
-fn openapi_enter_plan_hint_none_for_non_api_intent() {
-    // R102-S2: non-API intents → None
-    assert!(super::maybe_openapi_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_openapi_hint_on_enter_plan("refactor database migration layer").is_none());
-}
-
-#[test]
-fn openapi_enter_plan_hint_some_for_openapi_keywords() {
-    // R102-S2: intent with "openapi" → Some with OpenApiSpec CLI hint
-    let result = super::maybe_openapi_hint_on_enter_plan("design openapi spec for user service");
-    assert!(result.is_some(), "openapi intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("openapi-spec:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("OpenApiSpec"),
-        "hint must reference OpenApiSpec kind: {hint}"
-    );
-}
-
-#[test]
 fn openapi_enter_plan_hint_integration_enter_plan() {
     // R102-S2 integration: handle_enter_plan_mode with api contract intent → openapi-spec hint
     let (_tmp, mut rt) = make_runtime();
@@ -8157,30 +4181,6 @@ fn openapi_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R102-S3: maybe_shell_completion_hint_on_enter_plan ───────────────────
-
-#[test]
-fn shell_completion_enter_plan_hint_none_for_non_cli_intent() {
-    // R102-S3: non-CLI intents → None
-    assert!(super::maybe_shell_completion_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_shell_completion_hint_on_enter_plan("create protobuf schema").is_none());
-}
-
-#[test]
-fn shell_completion_enter_plan_hint_some_for_completion_keywords() {
-    // R102-S3: intent with "shell completion" → Some with ShellCompletion CLI hint
-    let result =
-        super::maybe_shell_completion_hint_on_enter_plan("add bash completion for touring cli");
-    assert!(result.is_some(), "completion intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ShellCompletion"),
-        "hint must reference ShellCompletion kind: {hint}"
-    );
-}
 
 #[test]
 fn shell_completion_enter_plan_hint_integration_enter_plan() {
@@ -8198,27 +4198,6 @@ fn shell_completion_enter_plan_hint_integration_enter_plan() {
 // ── R105-S1: maybe_man_page_hint_on_enter_plan ───────────────────────────
 
 #[test]
-fn man_page_enter_plan_hint_none_for_non_man_intent() {
-    assert!(super::maybe_man_page_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_man_page_hint_on_enter_plan("implement kubernetes deployment").is_none());
-}
-
-#[test]
-fn man_page_enter_plan_hint_some_for_man_keywords() {
-    let result = super::maybe_man_page_hint_on_enter_plan("create linux man page for touring CLI");
-    assert!(result.is_some(), "man page intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ManPage"),
-        "hint must reference ManPage kind: {hint}"
-    );
-}
-
-#[test]
 fn man_page_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "write unix man manual page for groff document"});
@@ -8230,27 +4209,6 @@ fn man_page_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R105-S2: maybe_changelog_hint_on_enter_plan ──────────────────────────
-
-#[test]
-fn changelog_enter_plan_hint_none_for_non_release_intent() {
-    assert!(super::maybe_changelog_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_changelog_hint_on_enter_plan("refactor auth module").is_none());
-}
-
-#[test]
-fn changelog_enter_plan_hint_some_for_changelog_keywords() {
-    let result = super::maybe_changelog_hint_on_enter_plan("create release notes for version bump");
-    assert!(result.is_some(), "changelog intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ChangelogEntry"),
-        "hint must reference ChangelogEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn changelog_enter_plan_hint_integration_enter_plan() {
@@ -8266,29 +4224,6 @@ fn changelog_enter_plan_hint_integration_enter_plan() {
 // ── R105-S3: maybe_skill_document_hint_on_enter_plan ─────────────────────
 
 #[test]
-fn skill_document_enter_plan_hint_none_for_non_skill_intent() {
-    assert!(super::maybe_skill_document_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_skill_document_hint_on_enter_plan("create REST API endpoint").is_none());
-}
-
-#[test]
-fn skill_document_enter_plan_hint_some_for_skill_keywords() {
-    let result = super::maybe_skill_document_hint_on_enter_plan(
-        "write claude skill.md for agent skill scaffold",
-    );
-    assert!(result.is_some(), "skill intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("SkillDocument"),
-        "hint must reference SkillDocument kind: {hint}"
-    );
-}
-
-#[test]
 fn skill_document_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "create skill definition playbook guide document for touring agent"});
@@ -8300,29 +4235,6 @@ fn skill_document_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R108-S1: maybe_ffi_binding_hint_on_enter_plan ────────────────────────
-
-#[test]
-fn ffi_binding_enter_plan_hint_none_for_non_ffi_intent() {
-    assert!(super::maybe_ffi_binding_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_ffi_binding_hint_on_enter_plan("create REST API endpoint").is_none());
-}
-
-#[test]
-fn ffi_binding_enter_plan_hint_some_for_ffi_keywords() {
-    let result = super::maybe_ffi_binding_hint_on_enter_plan(
-        "create ffi binding for native library wrapper",
-    );
-    assert!(result.is_some(), "ffi intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FfiBinding"),
-        "hint must reference FfiBinding kind: {hint}"
-    );
-}
 
 #[test]
 fn ffi_binding_enter_plan_hint_integration_enter_plan() {
@@ -8338,28 +4250,6 @@ fn ffi_binding_enter_plan_hint_integration_enter_plan() {
 // ── R108-S2: maybe_python_script_hint_on_enter_plan ──────────────────────
 
 #[test]
-fn python_script_enter_plan_hint_none_for_non_python_intent() {
-    assert!(super::maybe_python_script_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_python_script_hint_on_enter_plan("create k8s deployment").is_none());
-}
-
-#[test]
-fn python_script_enter_plan_hint_some_for_python_keywords() {
-    let result =
-        super::maybe_python_script_hint_on_enter_plan("create python script for automation tool");
-    assert!(result.is_some(), "python intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("PythonScript"),
-        "hint must reference PythonScript kind: {hint}"
-    );
-}
-
-#[test]
 fn python_script_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "write python automation utility cli module"});
@@ -8373,29 +4263,6 @@ fn python_script_enter_plan_hint_integration_enter_plan() {
 // ── R108-S3: maybe_benchmark_hint_on_enter_plan ──────────────────────────
 
 #[test]
-fn benchmark_enter_plan_hint_none_for_non_bench_intent() {
-    assert!(super::maybe_benchmark_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_benchmark_hint_on_enter_plan("create ffi binding").is_none());
-}
-
-#[test]
-fn benchmark_enter_plan_hint_some_for_bench_keywords() {
-    let result = super::maybe_benchmark_hint_on_enter_plan(
-        "create criterion benchmark for performance test",
-    );
-    assert!(result.is_some(), "benchmark intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Benchmark"),
-        "hint must reference Benchmark kind: {hint}"
-    );
-}
-
-#[test]
 fn benchmark_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "implement cargo bench microbenchmark for throughput test"});
@@ -8407,43 +4274,6 @@ fn benchmark_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R64-S1: maybe_ci_workflow_hint_on_exit_plan ───────────────────────────
-
-#[test]
-fn ci_workflow_exit_hint_none_for_non_ci_intent() {
-    // R64-S1: non-CI/CD intents → None
-    assert!(super::maybe_ci_workflow_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_ci_workflow_hint_on_exit_plan("refactor VGP engine for performance").is_none()
-    );
-    assert!(
-        super::maybe_ci_workflow_hint_on_exit_plan("add Kubernetes ingress resource").is_none()
-    );
-}
-
-#[test]
-fn ci_workflow_exit_hint_some_for_ci_keywords() {
-    // R64-S1: CI/CD keywords → Some with ci_workflow CLI
-    let result =
-        super::maybe_ci_workflow_hint_on_exit_plan("set up github actions ci/cd for release");
-    assert!(result.is_some(), "github actions + ci/cd must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow:"),
-        "hint must have ci-workflow prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ci_workflow"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test release pipeline variant
-    let result2 = super::maybe_ci_workflow_hint_on_exit_plan(
-        "release pipeline automation for touring-server",
-    );
-    assert!(
-        result2.is_some(),
-        "release pipeline must match: {result2:?}"
-    );
-}
 
 #[test]
 fn ci_workflow_exit_hint_integration_exit_plan() {
@@ -8465,38 +4295,6 @@ fn ci_workflow_exit_hint_integration_exit_plan() {
 // ── R64-S2: maybe_dockerfile_hint_on_exit_plan ────────────────────────────
 
 #[test]
-fn dockerfile_exit_hint_none_for_non_docker_intent() {
-    // R64-S2: non-Docker intents → None
-    assert!(super::maybe_dockerfile_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_dockerfile_hint_on_exit_plan("design error catalog for API domain").is_none()
-    );
-    assert!(super::maybe_dockerfile_hint_on_exit_plan("write retrospective for sprint").is_none());
-}
-
-#[test]
-fn dockerfile_exit_hint_some_for_docker_keywords() {
-    // R64-S2: Docker/container keywords → Some with dockerfile CLI
-    let result = super::maybe_dockerfile_hint_on_exit_plan(
-        "build dockerfile for touring server container image",
-    );
-    assert!(result.is_some(), "dockerfile keyword must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile:"),
-        "hint must have dockerfile prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render dockerfile"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test container build variant
-    let result2 =
-        super::maybe_dockerfile_hint_on_exit_plan("container build for production docker registry");
-    assert!(result2.is_some(), "container build must match: {result2:?}");
-}
-
-#[test]
 fn dockerfile_exit_hint_integration_exit_plan() {
     // R64-S2 integration: handle_exit_plan_mode with Docker intent → dockerfile hint
     let (_tmp, mut rt) = make_runtime();
@@ -8514,41 +4312,6 @@ fn dockerfile_exit_hint_integration_exit_plan() {
 }
 
 // ── R64-S3: maybe_k8s_manifest_hint_on_exit_plan ─────────────────────────
-
-#[test]
-fn k8s_manifest_exit_hint_none_for_non_k8s_intent() {
-    // R64-S3: non-Kubernetes intents → None
-    assert!(super::maybe_k8s_manifest_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_k8s_manifest_hint_on_exit_plan("implement CI/CD pipeline with github actions")
-            .is_none()
-    );
-    assert!(
-        super::maybe_k8s_manifest_hint_on_exit_plan("add protobuf schema for auth service")
-            .is_none()
-    );
-}
-
-#[test]
-fn k8s_manifest_exit_hint_some_for_k8s_keywords() {
-    // R64-S3: Kubernetes keywords → Some with k8s_manifest CLI
-    let result =
-        super::maybe_k8s_manifest_hint_on_exit_plan("deploy to kubernetes cluster with helm chart");
-    assert!(result.is_some(), "kubernetes + helm chart must match");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("k8s-manifest:"),
-        "hint must have k8s-manifest prefix: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render k8s_manifest"),
-        "hint must contain CLI: {hint}"
-    );
-    // Also test ingress variant
-    let result2 =
-        super::maybe_k8s_manifest_hint_on_exit_plan("configure k8s ingress and pod spec for api");
-    assert!(result2.is_some(), "k8s ingress must match: {result2:?}");
-}
 
 #[test]
 fn k8s_manifest_exit_hint_integration_exit_plan() {
@@ -8569,41 +4332,6 @@ fn k8s_manifest_exit_hint_integration_exit_plan() {
 // ── R97-S1: maybe_rust_module_hint_on_exit_plan ──────────────────────────
 
 #[test]
-fn rust_module_exit_plan_hint_none_for_non_rust_intent() {
-    assert!(super::maybe_rust_module_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_rust_module_hint_on_exit_plan("design kubernetes cluster deployment")
-            .is_none()
-    );
-    assert!(
-        super::maybe_rust_module_hint_on_exit_plan("create grpc service for telemetry").is_none()
-    );
-}
-
-#[test]
-fn rust_module_exit_plan_hint_some_for_rust_keywords() {
-    let result =
-        super::maybe_rust_module_hint_on_exit_plan("create rust module for hook lifecycle wiring");
-    assert!(
-        result.is_some(),
-        "rust module exit intent must produce hint"
-    );
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must contain rust-module label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render RustModule"),
-        "hint must contain CLI: {hint}"
-    );
-    let result2 = super::maybe_rust_module_hint_on_exit_plan(
-        "implement trait for new rust crate integration",
-    );
-    assert!(result2.is_some(), "rust crate intent must produce hint");
-}
-
-#[test]
 fn rust_module_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "implement new module for rust struct trait in touring-generator"});
@@ -8619,42 +4347,6 @@ fn rust_module_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R97-S2: maybe_migration_hint_on_exit_plan ────────────────────────────
-
-#[test]
-fn migration_exit_plan_hint_none_for_non_migration_intent() {
-    assert!(super::maybe_migration_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_migration_hint_on_exit_plan("create rust module for lifecycle hooks")
-            .is_none()
-    );
-    assert!(
-        super::maybe_migration_hint_on_exit_plan("implement asyncapi spec for event bus").is_none()
-    );
-}
-
-#[test]
-fn migration_exit_plan_hint_some_for_migration_keywords() {
-    let result = super::maybe_migration_hint_on_exit_plan(
-        "plan database migration to add column for user table",
-    );
-    assert!(result.is_some(), "migration exit intent must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration:"),
-        "hint must contain migration label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Migration"),
-        "hint must contain CLI: {hint}"
-    );
-    let result2 = super::maybe_migration_hint_on_exit_plan(
-        "implement schema change via sql migration script",
-    );
-    assert!(
-        result2.is_some(),
-        "sql migration exit intent must produce hint"
-    );
-}
 
 #[test]
 fn migration_exit_plan_hint_integration_exit_plan() {
@@ -8674,39 +4366,6 @@ fn migration_exit_plan_hint_integration_exit_plan() {
 // ── R97-S3: maybe_protobuf_hint_on_exit_plan ─────────────────────────────
 
 #[test]
-fn protobuf_exit_plan_hint_none_for_non_proto_intent() {
-    assert!(super::maybe_protobuf_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_protobuf_hint_on_exit_plan("implement database migration for schema change")
-            .is_none()
-    );
-    assert!(super::maybe_protobuf_hint_on_exit_plan("create rust module for new crate").is_none());
-}
-
-#[test]
-fn protobuf_exit_plan_hint_some_for_proto_keywords() {
-    let result = super::maybe_protobuf_hint_on_exit_plan(
-        "design grpc service with proto message for telemetry",
-    );
-    assert!(result.is_some(), "grpc exit intent must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf-schema:"),
-        "hint must contain protobuf-schema label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ProtobufSchema"),
-        "hint must contain CLI: {hint}"
-    );
-    let result2 =
-        super::maybe_protobuf_hint_on_exit_plan("implement protocol buffer rpc service definition");
-    assert!(
-        result2.is_some(),
-        "protocol buffer exit intent must produce hint"
-    );
-}
-
-#[test]
 fn protobuf_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "create grpc protobuf schema for touring telemetry rpc service"});
@@ -8724,24 +4383,6 @@ fn protobuf_exit_plan_hint_integration_exit_plan() {
 // ── R103-S1: maybe_adr_hint_on_exit_plan ─────────────────────────────────
 
 #[test]
-fn adr_exit_plan_hint_none_for_non_adr_intent() {
-    // R103-S1: non-ADR intents → None
-    assert!(super::maybe_adr_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_adr_hint_on_exit_plan("implement REST API endpoint").is_none());
-}
-
-#[test]
-fn adr_exit_plan_hint_some_for_adr_keywords() {
-    // R103-S1: intent with "architecture decision" → Some with Adr CLI hint
-    let result =
-        super::maybe_adr_hint_on_exit_plan("create architecture decision record for auth strategy");
-    assert!(result.is_some(), "adr intent must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("adr:"), "hint must contain label: {hint}");
-    assert!(hint.contains("Adr"), "hint must reference Adr kind: {hint}");
-}
-
-#[test]
 fn adr_exit_plan_hint_integration_exit_plan() {
     // R103-S1 integration: handle_exit_plan_mode with design decision → adr hint
     let (_tmp, mut rt) = make_runtime();
@@ -8754,33 +4395,6 @@ fn adr_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R103-S2: maybe_task_scaffold_hint_on_exit_plan ───────────────────────
-
-#[test]
-fn task_scaffold_exit_plan_hint_none_for_non_decompose_intent() {
-    // R103-S2: non-decompose intents → None
-    assert!(super::maybe_task_scaffold_hint_on_exit_plan("").is_none());
-    assert!(
-        super::maybe_task_scaffold_hint_on_exit_plan("create unit tests for auth module").is_none()
-    );
-}
-
-#[test]
-fn task_scaffold_exit_plan_hint_some_for_decompose_keywords() {
-    // R103-S2: intent with "decompose" → Some with TaskScaffold CLI hint
-    let result = super::maybe_task_scaffold_hint_on_exit_plan(
-        "touring decompose dag breakdown for feature X",
-    );
-    assert!(result.is_some(), "decompose intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TaskScaffold"),
-        "hint must reference TaskScaffold kind: {hint}"
-    );
-}
 
 #[test]
 fn task_scaffold_exit_plan_hint_integration_exit_plan() {
@@ -8798,27 +4412,6 @@ fn task_scaffold_exit_plan_hint_integration_exit_plan() {
 // ── R103-S3: maybe_test_hint_on_exit_plan ────────────────────────────────
 
 #[test]
-fn test_exit_plan_hint_none_for_non_test_intent() {
-    // R103-S3: non-test intents → None
-    assert!(super::maybe_test_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_test_hint_on_exit_plan("deploy kubernetes service").is_none());
-}
-
-#[test]
-fn test_exit_plan_hint_some_for_test_keywords() {
-    // R103-S3: intent with "unit test" → Some with Test CLI hint
-    let result =
-        super::maybe_test_hint_on_exit_plan("create unit test suite for VGP engine module");
-    assert!(result.is_some(), "test intent must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("test:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Test"),
-        "hint must reference Test kind: {hint}"
-    );
-}
-
-#[test]
 fn test_exit_plan_hint_integration_exit_plan() {
     // R103-S3 integration: handle_exit_plan_mode with e2e test intent → test hint
     let (_tmp, mut rt) = make_runtime();
@@ -8831,28 +4424,6 @@ fn test_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R106-S1: maybe_openapi_hint_on_exit_plan ─────────────────────────────
-
-#[test]
-fn openapi_exit_plan_hint_none_for_non_api_intent() {
-    assert!(super::maybe_openapi_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_openapi_hint_on_exit_plan("refactor database layer").is_none());
-}
-
-#[test]
-fn openapi_exit_plan_hint_some_for_openapi_keywords() {
-    let result =
-        super::maybe_openapi_hint_on_exit_plan("design openapi spec for REST api contract");
-    assert!(result.is_some(), "openapi intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("openapi-spec:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("OpenApiSpec"),
-        "hint must reference OpenApiSpec kind: {hint}"
-    );
-}
 
 #[test]
 fn openapi_exit_plan_hint_integration_exit_plan() {
@@ -8868,29 +4439,6 @@ fn openapi_exit_plan_hint_integration_exit_plan() {
 // ── R106-S2: maybe_consumer_generator_hint_on_exit_plan ──────────────────
 
 #[test]
-fn consumer_generator_exit_plan_hint_none_for_non_consumer_intent() {
-    assert!(super::maybe_consumer_generator_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_consumer_generator_hint_on_exit_plan("create unit tests").is_none());
-}
-
-#[test]
-fn consumer_generator_exit_plan_hint_some_for_consumer_keywords() {
-    let result = super::maybe_consumer_generator_hint_on_exit_plan(
-        "implement kafka consumer for event handler",
-    );
-    assert!(result.is_some(), "consumer intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("consumer-generator:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "hint must reference ConsumerGenerator kind: {hint}"
-    );
-}
-
-#[test]
 fn consumer_generator_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "build async consumer to consume events from stream consumer"});
@@ -8902,28 +4450,6 @@ fn consumer_generator_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R106-S3: maybe_ffi_binding_hint_on_exit_plan ─────────────────────────
-
-#[test]
-fn ffi_binding_exit_plan_hint_none_for_non_ffi_intent() {
-    assert!(super::maybe_ffi_binding_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_ffi_binding_hint_on_exit_plan("implement REST API endpoint").is_none());
-}
-
-#[test]
-fn ffi_binding_exit_plan_hint_some_for_ffi_keywords() {
-    let result =
-        super::maybe_ffi_binding_hint_on_exit_plan("create ffi binding wrapper for native library");
-    assert!(result.is_some(), "ffi intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FfiBinding"),
-        "hint must reference FfiBinding kind: {hint}"
-    );
-}
 
 #[test]
 fn ffi_binding_exit_plan_hint_integration_exit_plan() {
@@ -8940,28 +4466,6 @@ fn ffi_binding_exit_plan_hint_integration_exit_plan() {
 // ── R109-S1: maybe_python_script_hint_on_exit_plan ───────────────────────
 
 #[test]
-fn python_script_exit_plan_hint_none_for_non_python_intent() {
-    assert!(super::maybe_python_script_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_python_script_hint_on_exit_plan("create kubernetes service").is_none());
-}
-
-#[test]
-fn python_script_exit_plan_hint_some_for_python_keywords() {
-    let result =
-        super::maybe_python_script_hint_on_exit_plan("write python automation tool utility script");
-    assert!(result.is_some(), "python intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("PythonScript"),
-        "hint must reference PythonScript kind: {hint}"
-    );
-}
-
-#[test]
 fn python_script_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input =
@@ -8974,28 +4478,6 @@ fn python_script_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R109-S2: maybe_benchmark_hint_on_exit_plan ───────────────────────────
-
-#[test]
-fn benchmark_exit_plan_hint_none_for_non_bench_intent() {
-    assert!(super::maybe_benchmark_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_benchmark_hint_on_exit_plan("create protobuf schema").is_none());
-}
-
-#[test]
-fn benchmark_exit_plan_hint_some_for_bench_keywords() {
-    let result =
-        super::maybe_benchmark_hint_on_exit_plan("create criterion benchmark for latency measure");
-    assert!(result.is_some(), "benchmark intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Benchmark"),
-        "hint must reference Benchmark kind: {hint}"
-    );
-}
 
 #[test]
 fn benchmark_exit_plan_hint_integration_exit_plan() {
@@ -9011,28 +4493,6 @@ fn benchmark_exit_plan_hint_integration_exit_plan() {
 // ── R109-S3: maybe_incremental_patch_hint_on_exit_plan ───────────────────
 
 #[test]
-fn incremental_patch_exit_plan_hint_none_for_non_patch_intent() {
-    assert!(super::maybe_incremental_patch_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_incremental_patch_hint_on_exit_plan("create API spec").is_none());
-}
-
-#[test]
-fn incremental_patch_exit_plan_hint_some_for_patch_keywords() {
-    let result =
-        super::maybe_incremental_patch_hint_on_exit_plan("apply incremental patch for hotfix");
-    assert!(result.is_some(), "patch intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("incremental-patch:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("IncrementalPatch"),
-        "hint must reference IncrementalPatch kind: {hint}"
-    );
-}
-
-#[test]
 fn incremental_patch_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "create delta patch bugfix patch for apply patch mechanism"});
@@ -9044,27 +4504,6 @@ fn incremental_patch_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R111-S1: maybe_fuzz_target_hint_on_enter_plan ────────────────────────
-
-#[test]
-fn fuzz_target_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_fuzz_target_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_fuzz_target_hint_on_enter_plan("write unit tests").is_none());
-}
-
-#[test]
-fn fuzz_target_enter_plan_hint_some_for_fuzz_keywords() {
-    let result = super::maybe_fuzz_target_hint_on_enter_plan("create cargo fuzz target for parser");
-    assert!(result.is_some(), "fuzz intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FuzzTarget"),
-        "hint must reference FuzzTarget kind: {hint}"
-    );
-}
 
 #[test]
 fn fuzz_target_enter_plan_hint_integration_enter_plan() {
@@ -9081,29 +4520,6 @@ fn fuzz_target_enter_plan_hint_integration_enter_plan() {
 // ── R111-S2: maybe_derive_macro_hint_on_enter_plan ───────────────────────
 
 #[test]
-fn derive_macro_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_derive_macro_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_derive_macro_hint_on_enter_plan("implement struct").is_none());
-}
-
-#[test]
-fn derive_macro_enter_plan_hint_some_for_macro_keywords() {
-    let result = super::maybe_derive_macro_hint_on_enter_plan(
-        "create derive macro for custom serialization",
-    );
-    assert!(result.is_some(), "macro intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DeriveMacro"),
-        "hint must reference DeriveMacro kind: {hint}"
-    );
-}
-
-#[test]
 fn derive_macro_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "implement proc macro for procedural macro derive trait"});
@@ -9115,28 +4531,6 @@ fn derive_macro_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R111-S3: maybe_diary_entry_hint_on_enter_plan ────────────────────────
-
-#[test]
-fn diary_entry_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_diary_entry_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_diary_entry_hint_on_enter_plan("implement feature").is_none());
-}
-
-#[test]
-fn diary_entry_enter_plan_hint_some_for_diary_keywords() {
-    let result =
-        super::maybe_diary_entry_hint_on_enter_plan("write diary entry for lesson learned");
-    assert!(result.is_some(), "diary intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DiaryEntry"),
-        "hint must reference DiaryEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn diary_entry_enter_plan_hint_integration_enter_plan() {
@@ -9153,29 +4547,6 @@ fn diary_entry_enter_plan_hint_integration_enter_plan() {
 // ── R115-S1: maybe_cli_handler_hint_on_enter_plan ────────────────────────
 
 #[test]
-fn cli_handler_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_cli_handler_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_cli_handler_hint_on_enter_plan("design MCP server").is_none());
-}
-
-#[test]
-fn cli_handler_enter_plan_hint_some_for_cli_keywords() {
-    let result = super::maybe_cli_handler_hint_on_enter_plan(
-        "design cli tool with subcommand and arg parse",
-    );
-    assert!(result.is_some(), "cli intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("cli-handler:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CliHandler"),
-        "hint must reference CliHandler kind: {hint}"
-    );
-}
-
-#[test]
 fn cli_handler_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "build cli command handler with clap command subcommand"});
@@ -9187,28 +4558,6 @@ fn cli_handler_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R115-S2: maybe_mcp_tool_hint_on_enter_plan ───────────────────────────
-
-#[test]
-fn mcp_tool_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_mcp_tool_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_mcp_tool_hint_on_enter_plan("build cli handler").is_none());
-}
-
-#[test]
-fn mcp_tool_enter_plan_hint_some_for_mcp_keywords() {
-    let result =
-        super::maybe_mcp_tool_hint_on_enter_plan("design mcp tool with mcp server endpoint");
-    assert!(result.is_some(), "mcp intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcp-tool:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("McpTool"),
-        "hint must reference McpTool kind: {hint}"
-    );
-}
 
 #[test]
 fn mcp_tool_enter_plan_hint_integration_enter_plan() {
@@ -9224,29 +4573,6 @@ fn mcp_tool_enter_plan_hint_integration_enter_plan() {
 // ── R115-S3: maybe_hook_handler_hint_on_enter_plan ───────────────────────
 
 #[test]
-fn hook_handler_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_hook_handler_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_hook_handler_hint_on_enter_plan("design REST API").is_none());
-}
-
-#[test]
-fn hook_handler_enter_plan_hint_some_for_hook_keywords() {
-    let result = super::maybe_hook_handler_hint_on_enter_plan(
-        "design lifecycle hook handler for pre-edit hook",
-    );
-    assert!(result.is_some(), "hook intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("hook-handler:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("HookHandler"),
-        "hint must reference HookHandler kind: {hint}"
-    );
-}
-
-#[test]
 fn hook_handler_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "implement claude code hook with hook registry and session hook"});
@@ -9258,25 +4584,6 @@ fn hook_handler_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R116-S1: maybe_plan_md_hint_on_enter_plan ────────────────────────────
-
-#[test]
-fn plan_md_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_plan_md_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_plan_md_hint_on_enter_plan("implement feature").is_none());
-}
-
-#[test]
-fn plan_md_enter_plan_hint_some_for_plan_keywords() {
-    let result =
-        super::maybe_plan_md_hint_on_enter_plan("create project plan with roadmap plan milestone");
-    assert!(result.is_some(), "plan intent must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("plan-md:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("PlanMd"),
-        "hint must reference PlanMd kind: {hint}"
-    );
-}
 
 #[test]
 fn plan_md_enter_plan_hint_integration_enter_plan() {
@@ -9292,25 +4599,6 @@ fn plan_md_enter_plan_hint_integration_enter_plan() {
 // ── R116-S2: maybe_schema_hint_on_enter_plan ─────────────────────────────
 
 #[test]
-fn schema_enter_plan_hint_none_for_empty() {
-    assert!(super::maybe_schema_hint_on_enter_plan("").is_none());
-    assert!(super::maybe_schema_hint_on_enter_plan("write unit tests").is_none());
-}
-
-#[test]
-fn schema_enter_plan_hint_some_for_schema_keywords() {
-    let result =
-        super::maybe_schema_hint_on_enter_plan("design data schema with json schema definition");
-    assert!(result.is_some(), "schema intent must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("schema:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Schema"),
-        "hint must reference Schema kind: {hint}"
-    );
-}
-
-#[test]
 fn schema_enter_plan_hint_integration_enter_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "implement schema validator for validate schema type schema"});
@@ -9322,29 +4610,6 @@ fn schema_enter_plan_hint_integration_enter_plan() {
 }
 
 // ── R117-S1: maybe_diary_entry_hint_on_exit_plan ─────────────────────────
-
-#[test]
-fn diary_entry_exit_plan_hint_none_for_empty() {
-    assert!(super::maybe_diary_entry_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_diary_entry_hint_on_exit_plan("implement feature").is_none());
-}
-
-#[test]
-fn diary_entry_exit_plan_hint_some_for_diary_keywords() {
-    let result = super::maybe_diary_entry_hint_on_exit_plan(
-        "write diary entry for lesson learned session note",
-    );
-    assert!(result.is_some(), "diary intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DiaryEntry"),
-        "hint must reference DiaryEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn diary_entry_exit_plan_hint_integration_exit_plan() {
@@ -9361,29 +4626,6 @@ fn diary_entry_exit_plan_hint_integration_exit_plan() {
 // ── R117-S2: maybe_fuzz_target_hint_on_exit_plan ─────────────────────────
 
 #[test]
-fn fuzz_target_exit_plan_hint_none_for_empty() {
-    assert!(super::maybe_fuzz_target_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_fuzz_target_hint_on_exit_plan("write unit tests").is_none());
-}
-
-#[test]
-fn fuzz_target_exit_plan_hint_some_for_fuzz_keywords() {
-    let result = super::maybe_fuzz_target_hint_on_exit_plan(
-        "create cargo fuzz target with fuzz corpus libfuzzer",
-    );
-    assert!(result.is_some(), "fuzz intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FuzzTarget"),
-        "hint must reference FuzzTarget kind: {hint}"
-    );
-}
-
-#[test]
 fn fuzz_target_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "implement afl fuzz harness with fuzzing and fuzz test coverage"});
@@ -9395,29 +4637,6 @@ fn fuzz_target_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R117-S3: maybe_derive_macro_hint_on_exit_plan ────────────────────────
-
-#[test]
-fn derive_macro_exit_plan_hint_none_for_empty() {
-    assert!(super::maybe_derive_macro_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_derive_macro_hint_on_exit_plan("implement struct").is_none());
-}
-
-#[test]
-fn derive_macro_exit_plan_hint_some_for_macro_keywords() {
-    let result = super::maybe_derive_macro_hint_on_exit_plan(
-        "create derive macro for proc-macro derive trait",
-    );
-    assert!(result.is_some(), "macro intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DeriveMacro"),
-        "hint must reference DeriveMacro kind: {hint}"
-    );
-}
 
 #[test]
 fn derive_macro_exit_plan_hint_integration_exit_plan() {
@@ -9433,28 +4652,6 @@ fn derive_macro_exit_plan_hint_integration_exit_plan() {
 // ── R112-S1: maybe_cli_handler_hint_on_exit_plan ─────────────────────────
 
 #[test]
-fn cli_handler_exit_plan_hint_none_for_empty() {
-    assert!(super::maybe_cli_handler_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_cli_handler_hint_on_exit_plan("design MCP server").is_none());
-}
-
-#[test]
-fn cli_handler_exit_plan_hint_some_for_cli_keywords() {
-    let result =
-        super::maybe_cli_handler_hint_on_exit_plan("build cli command for arg parse subcommand");
-    assert!(result.is_some(), "cli intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("cli-handler:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CliHandler"),
-        "hint must reference CliHandler kind: {hint}"
-    );
-}
-
-#[test]
 fn cli_handler_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "design cli tool with subcommand and clap command structure"});
@@ -9466,28 +4663,6 @@ fn cli_handler_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R112-S2: maybe_mcp_tool_hint_on_exit_plan ────────────────────────────
-
-#[test]
-fn mcp_tool_exit_plan_hint_none_for_empty() {
-    assert!(super::maybe_mcp_tool_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_mcp_tool_hint_on_exit_plan("create cli handler").is_none());
-}
-
-#[test]
-fn mcp_tool_exit_plan_hint_some_for_mcp_keywords() {
-    let result =
-        super::maybe_mcp_tool_hint_on_exit_plan("design mcp tool with tool schema for rmcp tool");
-    assert!(result.is_some(), "mcp intent must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcp-tool:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("McpTool"),
-        "hint must reference McpTool kind: {hint}"
-    );
-}
 
 #[test]
 fn mcp_tool_exit_plan_hint_integration_exit_plan() {
@@ -9503,25 +4678,6 @@ fn mcp_tool_exit_plan_hint_integration_exit_plan() {
 // ── R112-S3: maybe_schema_hint_on_exit_plan ──────────────────────────────
 
 #[test]
-fn schema_exit_plan_hint_none_for_empty() {
-    assert!(super::maybe_schema_hint_on_exit_plan("").is_none());
-    assert!(super::maybe_schema_hint_on_exit_plan("write integration tests").is_none());
-}
-
-#[test]
-fn schema_exit_plan_hint_some_for_schema_keywords() {
-    let result =
-        super::maybe_schema_hint_on_exit_plan("design data schema with json schema validator");
-    assert!(result.is_some(), "schema intent must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("schema:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Schema"),
-        "hint must reference Schema kind: {hint}"
-    );
-}
-
-#[test]
 fn schema_exit_plan_hint_integration_exit_plan() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"description": "create schema design with schema definition and validate schema"});
@@ -9533,34 +4689,6 @@ fn schema_exit_plan_hint_integration_exit_plan() {
 }
 
 // ── R65-S1: maybe_benchmark_hint_on_output ────────────────────────────────
-
-#[test]
-fn benchmark_hint_none_for_non_bench_output() {
-    // R65-S1: output without benchmark keywords → None
-    let result = super::maybe_benchmark_hint_on_output("test result: ok. 12 passed");
-    assert!(
-        result.is_none(),
-        "non-bench output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn benchmark_hint_some_for_criterion_output() {
-    // R65-S1: output with criterion keyword → Some with CLI hint
-    let result = super::maybe_benchmark_hint_on_output(
-        "criterion benchmark: hash_map/insert   time: [1.23 µs 1.25 µs 1.27 µs]",
-    );
-    assert!(result.is_some(), "criterion output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render benchmark"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn benchmark_hint_integration_task_output() {
@@ -9580,34 +4708,6 @@ fn benchmark_hint_integration_task_output() {
 // ── R65-S2: maybe_fuzz_target_hint_on_output ──────────────────────────────
 
 #[test]
-fn fuzz_target_hint_none_for_non_fuzz_output() {
-    // R65-S2: output without fuzzing keywords → None
-    let result = super::maybe_fuzz_target_hint_on_output("all 42 tests passed successfully");
-    assert!(
-        result.is_none(),
-        "non-fuzz output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn fuzz_target_hint_some_for_libfuzzer_output() {
-    // R65-S2: output with libfuzzer keyword → Some with CLI hint
-    let result = super::maybe_fuzz_target_hint_on_output(
-        "libfuzzer: running fuzz_target! corpus: 128 inputs, 3 crashes found",
-    );
-    assert!(result.is_some(), "libfuzzer output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render fuzz_target"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn fuzz_target_hint_integration_task_output() {
     // R65-S2 integration: handle_task_sync_post_output with cargo fuzz output → fuzz_target hint
     let (_tmp, mut rt) = make_runtime();
@@ -9623,34 +4723,6 @@ fn fuzz_target_hint_integration_task_output() {
 }
 
 // ── R65-S3: maybe_derive_macro_hint_on_output ─────────────────────────────
-
-#[test]
-fn derive_macro_hint_none_for_non_macro_output() {
-    // R65-S3: output without proc-macro keywords → None
-    let result = super::maybe_derive_macro_hint_on_output("implementing standard Display trait");
-    assert!(
-        result.is_none(),
-        "non-macro output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn derive_macro_hint_some_for_proc_macro_output() {
-    // R65-S3: output with proc_macro_derive keyword → Some with CLI hint
-    let result = super::maybe_derive_macro_hint_on_output(
-        "proc_macro_derive: expanding #[derive(MyTrait)] via syn::derive + quote::quote",
-    );
-    assert!(result.is_some(), "proc_macro output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render derive_macro"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn derive_macro_hint_integration_task_output() {
@@ -9670,35 +4742,6 @@ fn derive_macro_hint_integration_task_output() {
 // ── R66-S1: maybe_openapi_hint_on_task_list ───────────────────────────────
 
 #[test]
-fn openapi_hint_none_for_non_api_tasks() {
-    // R66-S1: tasks without API keywords → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "fix cargo test failures", "status": "in_progress"}]}
-    });
-    let result = super::maybe_openapi_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "non-API tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn openapi_hint_some_for_openapi_task() {
-    // R66-S1: task with "openapi" in title → Some with CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "design openapi spec for auth service", "status": "pending"}]}
-    });
-    let result = super::maybe_openapi_hint_on_task_list(&input);
-    assert!(result.is_some(), "openapi task must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("openapi:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("touring generate render openapi_spec"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn openapi_hint_integration_task_list() {
     // R66-S1 integration: handle_task_sync_post_list with REST API task → openapi_spec hint
     let (_tmp, mut rt) = make_runtime();
@@ -9715,35 +4758,6 @@ fn openapi_hint_integration_task_list() {
 // ── R66-S2: maybe_adr_hint_on_task_list ──────────────────────────────────
 
 #[test]
-fn adr_hint_none_for_non_adr_tasks() {
-    // R66-S2: tasks without ADR keywords → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "implement caching layer", "status": "pending"}]}
-    });
-    let result = super::maybe_adr_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "non-ADR tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn adr_hint_some_for_adr_task() {
-    // R66-S2: task with "architecture decision" in title → Some with CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "document architecture decision for event sourcing", "status": "pending"}]}
-    });
-    let result = super::maybe_adr_hint_on_task_list(&input);
-    assert!(result.is_some(), "ADR task must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("adr:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("touring generate render adr"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn adr_hint_integration_task_list() {
     // R66-S2 integration: handle_task_sync_post_list with tech-decision task → adr hint
     let (_tmp, mut rt) = make_runtime();
@@ -9758,38 +4772,6 @@ fn adr_hint_integration_task_list() {
 }
 
 // ── R66-S3: maybe_error_catalog_hint_on_task_list ────────────────────────
-
-#[test]
-fn error_catalog_hint_none_for_non_error_tasks() {
-    // R66-S3: tasks without error-catalog keywords → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "add logging to daemon", "status": "pending"}]}
-    });
-    let result = super::maybe_error_catalog_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "non-error tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn error_catalog_hint_some_for_error_catalog_task() {
-    // R66-S3: task with "error catalog" in title → Some with CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "build error catalog with thiserror enum", "status": "pending"}]}
-    });
-    let result = super::maybe_error_catalog_hint_on_task_list(&input);
-    assert!(result.is_some(), "error-catalog task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render error_catalog"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn error_catalog_hint_integration_task_list() {
@@ -9810,14 +4792,14 @@ fn error_catalog_hint_integration_task_list() {
 #[test]
 fn asyncapi_hint_none_for_non_asyncapi_subject() {
     // R67-S1: non-event-driven subject → None
-    assert!(super::maybe_asyncapi_hint_on_task_create("").is_none());
-    assert!(super::maybe_asyncapi_hint_on_task_create("implement rest api endpoint").is_none());
+    assert!(generator_hints::maybe_asyncapi_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_asyncapi_hint_on_task_create("implement rest api endpoint").is_none());
 }
 
 #[test]
 fn asyncapi_hint_some_for_asyncapi_keywords() {
     // R67-S1: asyncapi keyword → Some with CLI hint
-    let result = super::maybe_asyncapi_hint_on_task_create("design asyncapi spec for order events");
+    let result = generator_hints::maybe_asyncapi_hint_on_task_create("design asyncapi spec for order events");
     assert!(result.is_some(), "asyncapi keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -9829,7 +4811,7 @@ fn asyncapi_hint_some_for_asyncapi_keywords() {
         "hint must contain CLI: {hint}"
     );
     // amqp keyword also matches
-    let amqp = super::maybe_asyncapi_hint_on_task_create("define amqp message contracts");
+    let amqp = generator_hints::maybe_asyncapi_hint_on_task_create("define amqp message contracts");
     assert!(amqp.is_some(), "amqp keyword must produce hint");
 }
 
@@ -9851,14 +4833,14 @@ fn asyncapi_hint_integration_task_create() {
 #[test]
 fn man_page_hint_none_for_non_doc_subject() {
     // R67-S2: non-man-page subject → None
-    assert!(super::maybe_man_page_hint_on_task_create("").is_none());
-    assert!(super::maybe_man_page_hint_on_task_create("implement caching layer").is_none());
+    assert!(generator_hints::maybe_man_page_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_man_page_hint_on_task_create("implement caching layer").is_none());
 }
 
 #[test]
 fn man_page_hint_some_for_man_page_keywords() {
     // R67-S2: "man page" keyword → Some with CLI hint
-    let result = super::maybe_man_page_hint_on_task_create("write man page for touring binary");
+    let result = generator_hints::maybe_man_page_hint_on_task_create("write man page for touring binary");
     assert!(result.is_some(), "man page keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -9870,7 +4852,7 @@ fn man_page_hint_some_for_man_page_keywords() {
         "hint must contain CLI: {hint}"
     );
     // manual page also matches
-    let mp = super::maybe_man_page_hint_on_task_create("create manual page for cli tool");
+    let mp = generator_hints::maybe_man_page_hint_on_task_create("create manual page for cli tool");
     assert!(mp.is_some(), "manual page keyword must produce hint");
 }
 
@@ -9892,9 +4874,9 @@ fn man_page_hint_integration_task_create() {
 #[test]
 fn error_catalog_task_create_hint_none_for_generic_subject() {
     // R67-S3: generic subject → None
-    assert!(super::maybe_error_catalog_hint_on_task_create("").is_none());
+    assert!(generator_hints::maybe_error_catalog_hint_on_task_create("").is_none());
     assert!(
-        super::maybe_error_catalog_hint_on_task_create("add feature flag for dark mode").is_none()
+        generator_hints::maybe_error_catalog_hint_on_task_create("add feature flag for dark mode").is_none()
     );
 }
 
@@ -9902,7 +4884,7 @@ fn error_catalog_task_create_hint_none_for_generic_subject() {
 fn error_catalog_task_create_hint_some_for_error_keywords() {
     // R67-S3: "error catalog" keyword → Some with CLI hint
     let result =
-        super::maybe_error_catalog_hint_on_task_create("build error catalog for api module");
+        generator_hints::maybe_error_catalog_hint_on_task_create("build error catalog for api module");
     assert!(result.is_some(), "error catalog keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -9915,7 +4897,7 @@ fn error_catalog_task_create_hint_some_for_error_keywords() {
     );
     // thiserror keyword also matches
     let te =
-        super::maybe_error_catalog_hint_on_task_create("define thiserror enum for parse failures");
+        generator_hints::maybe_error_catalog_hint_on_task_create("define thiserror enum for parse failures");
     assert!(te.is_some(), "thiserror keyword must produce hint");
 }
 
@@ -9932,34 +4914,6 @@ fn error_catalog_task_create_hint_integration() {
 }
 
 // ── R68-S1: maybe_asyncapi_hint_on_output ────────────────────────────────
-
-#[test]
-fn asyncapi_output_hint_none_for_non_asyncapi_output() {
-    // R68-S1: output without async API markers → None
-    let result = super::maybe_asyncapi_hint_on_output("all 14 tests passed successfully");
-    assert!(
-        result.is_none(),
-        "non-asyncapi output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn asyncapi_output_hint_some_for_asyncapi_markers() {
-    // R68-S1: asyncapi keyword in output → Some with CLI hint
-    let result = super::maybe_asyncapi_hint_on_output(
-        "asyncapi spec validated: channels/orders defined with amqp binding",
-    );
-    assert!(result.is_some(), "asyncapi output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("asyncapi:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render asyncapi_spec"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn asyncapi_output_hint_integration_task_output() {
@@ -9979,31 +4933,6 @@ fn asyncapi_output_hint_integration_task_output() {
 // ── R68-S2: maybe_adr_hint_on_output ─────────────────────────────────────
 
 #[test]
-fn adr_output_hint_none_for_non_adr_output() {
-    // R68-S2: output without ADR markers → None
-    let result = super::maybe_adr_hint_on_output("cargo build completed in 2.3s");
-    assert!(
-        result.is_none(),
-        "non-ADR output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn adr_output_hint_some_for_adr_markers() {
-    // R68-S2: "architecture decision" in output → Some with CLI hint
-    let result = super::maybe_adr_hint_on_output(
-        "architecture decision: adopt event sourcing over CRUD for audit trail",
-    );
-    assert!(result.is_some(), "ADR output must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("adr:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("touring generate render adr"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn adr_output_hint_integration_task_output() {
     // R68-S2 integration: handle_task_sync_post_output with decision record → adr hint
     let (_tmp, mut rt) = make_runtime();
@@ -10019,34 +4948,6 @@ fn adr_output_hint_integration_task_output() {
 }
 
 // ── R68-S3: maybe_man_page_hint_on_output ────────────────────────────────
-
-#[test]
-fn man_page_output_hint_none_for_non_man_output() {
-    // R68-S3: output without man-page markers → None
-    let result = super::maybe_man_page_hint_on_output("running clippy — 0 warnings");
-    assert!(
-        result.is_none(),
-        "non-man-page output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn man_page_output_hint_some_for_groff_markers() {
-    // R68-S3: "groff" in output → Some with CLI hint
-    let result = super::maybe_man_page_hint_on_output(
-        "groff -man output: rendering man page section .TH touring 1",
-    );
-    assert!(result.is_some(), "groff output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render man_page"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn man_page_output_hint_integration_task_output() {
@@ -10066,34 +4967,6 @@ fn man_page_output_hint_integration_task_output() {
 // ── R69-S1: maybe_error_catalog_hint_on_output ───────────────────────────
 
 #[test]
-fn error_catalog_output_hint_none_for_non_error_output() {
-    // R69-S1: output without error-catalog markers → None
-    let result = super::maybe_error_catalog_hint_on_output("running cargo fmt — done");
-    assert!(
-        result.is_none(),
-        "non-error output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn error_catalog_output_hint_some_for_thiserror_output() {
-    // R69-S1: thiserror keyword in output → Some with CLI hint
-    let result = super::maybe_error_catalog_hint_on_output(
-        "thiserror: expanding error enum ParseError with #[error( display format",
-    );
-    assert!(result.is_some(), "thiserror output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render error_catalog"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn error_catalog_output_hint_integration_task_output() {
     // R69-S1 integration: handle_task_sync_post_output with error enum → error_catalog hint
     let (_tmp, mut rt) = make_runtime();
@@ -10109,34 +4982,6 @@ fn error_catalog_output_hint_integration_task_output() {
 }
 
 // ── R69-S2: maybe_task_scaffold_hint_on_output ───────────────────────────
-
-#[test]
-fn task_scaffold_output_hint_none_for_non_decompose_output() {
-    // R69-S2: output without decompose markers → None
-    let result = super::maybe_task_scaffold_hint_on_output("cargo test: 42 passed");
-    assert!(
-        result.is_none(),
-        "non-decompose output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn task_scaffold_output_hint_some_for_decompose_output() {
-    // R69-S2: "touring decompose" keyword in output → Some with CLI hint
-    let result = super::maybe_task_scaffold_hint_on_output(
-        "touring decompose create intent 'implement auth' returned task_id=abc123",
-    );
-    assert!(result.is_some(), "decompose output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render task_scaffold"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn task_scaffold_output_hint_integration_task_output() {
@@ -10156,34 +5001,6 @@ fn task_scaffold_output_hint_integration_task_output() {
 // ── R69-S3: maybe_diary_entry_hint_on_output ─────────────────────────────
 
 #[test]
-fn diary_entry_output_hint_none_for_non_diary_output() {
-    // R69-S3: output without diary markers → None
-    let result = super::maybe_diary_entry_hint_on_output("index rebuilt: 134k symbols indexed");
-    assert!(
-        result.is_none(),
-        "non-diary output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn diary_entry_output_hint_some_for_lesson_output() {
-    // R69-S3: "lesson learned" keyword in output → Some with CLI hint
-    let result = super::maybe_diary_entry_hint_on_output(
-        "touring diary write engineer 'lesson learned: always run cargo check before commit' --aaak",
-    );
-    assert!(result.is_some(), "diary output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render diary_entry"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn diary_entry_output_hint_integration_task_output() {
     // R69-S3 integration: handle_task_sync_post_output with retrospective output → diary_entry hint
     let (_tmp, mut rt) = make_runtime();
@@ -10199,28 +5016,6 @@ fn diary_entry_output_hint_integration_task_output() {
 }
 
 // ── R98-S1: maybe_openapi_hint_on_output ─────────────────────────────────
-
-#[test]
-fn openapi_hint_none_for_non_openapi_output() {
-    assert!(super::maybe_openapi_hint_on_output("test result: ok. 12 passed").is_none());
-    assert!(super::maybe_openapi_hint_on_output("").is_none());
-}
-
-#[test]
-fn openapi_hint_some_for_openapi_output() {
-    let result =
-        super::maybe_openapi_hint_on_output("generated openapi oas3 rest api spec for daemon");
-    assert!(result.is_some(), "openapi output must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("openapi-spec:"),
-        "hint must contain openapi-spec label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render OpenApiSpec"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn openapi_hint_integration_task_output() {
@@ -10239,29 +5034,6 @@ fn openapi_hint_integration_task_output() {
 // ── R98-S2: maybe_hook_handler_hint_on_output ────────────────────────────
 
 #[test]
-fn hook_handler_hint_none_for_non_hook_output() {
-    assert!(super::maybe_hook_handler_hint_on_output("cargo test passed 45 tests").is_none());
-    assert!(super::maybe_hook_handler_hint_on_output("").is_none());
-}
-
-#[test]
-fn hook_handler_hint_some_for_hook_output() {
-    let result = super::maybe_hook_handler_hint_on_output(
-        "implemented hook handler for pre-read lifecycle hook",
-    );
-    assert!(result.is_some(), "hook handler output must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("hook-handler:"),
-        "hint must contain hook-handler label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render HookHandler"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn hook_handler_hint_integration_task_output() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({
@@ -10278,29 +5050,6 @@ fn hook_handler_hint_integration_task_output() {
 // ── R98-S3: maybe_mcp_tool_hint_on_output ────────────────────────────────
 
 #[test]
-fn mcp_tool_hint_none_for_non_mcp_output() {
-    assert!(super::maybe_mcp_tool_hint_on_output("test result: 20 passed").is_none());
-    assert!(super::maybe_mcp_tool_hint_on_output("").is_none());
-}
-
-#[test]
-fn mcp_tool_hint_some_for_mcp_output() {
-    let result = super::maybe_mcp_tool_hint_on_output(
-        "new mcp tool added to touring server with #[tool] macro",
-    );
-    assert!(result.is_some(), "mcp output must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcp-tool:"),
-        "hint must contain mcp-tool label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render McpTool"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn mcp_tool_hint_integration_task_output() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({
@@ -10315,32 +5064,6 @@ fn mcp_tool_hint_integration_task_output() {
 }
 
 // ── R99-S1: maybe_terraform_hint_on_output ───────────────────────────────
-
-#[test]
-fn terraform_hint_none_for_plain_output() {
-    // R99-S1: output with no IaC markers → None
-    let result = super::maybe_terraform_hint_on_output("cargo test passed successfully");
-    assert!(
-        result.is_none(),
-        "plain output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn terraform_hint_some_for_terraform_output() {
-    // R99-S1: output containing "terraform apply" → Some with TerraformModule CLI hint
-    let result = super::maybe_terraform_hint_on_output("running terraform apply on module vpc");
-    assert!(result.is_some(), "terraform output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform-module:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TerraformModule"),
-        "hint must reference TerraformModule kind: {hint}"
-    );
-}
 
 #[test]
 fn terraform_hint_integration_task_output() {
@@ -10360,32 +5083,6 @@ fn terraform_hint_integration_task_output() {
 // ── R99-S2: maybe_cli_handler_hint_on_output ─────────────────────────────
 
 #[test]
-fn cli_handler_hint_none_for_plain_output() {
-    // R99-S2: output with no CLI markers → None
-    let result = super::maybe_cli_handler_hint_on_output("running tests for http client");
-    assert!(
-        result.is_none(),
-        "plain output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn cli_handler_hint_some_for_clap_output() {
-    // R99-S2: output containing "clap" → Some with CliHandler CLI hint
-    let result = super::maybe_cli_handler_hint_on_output("adding clap subcommand for list action");
-    assert!(result.is_some(), "clap output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("cli-handler:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CliHandler"),
-        "hint must reference CliHandler kind: {hint}"
-    );
-}
-
-#[test]
 fn cli_handler_hint_integration_task_output() {
     // R99-S2 integration: handle_task_sync_post_output with command_table → cli-handler hint
     let (_tmp, mut rt) = make_runtime();
@@ -10401,29 +5098,6 @@ fn cli_handler_hint_integration_task_output() {
 }
 
 // ── R99-S3: maybe_plan_md_hint_on_output ─────────────────────────────────
-
-#[test]
-fn plan_md_hint_none_for_plain_output() {
-    // R99-S3: output with no plan markers → None
-    let result = super::maybe_plan_md_hint_on_output("cargo build succeeded");
-    assert!(
-        result.is_none(),
-        "plain output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn plan_md_hint_some_for_plan_output() {
-    // R99-S3: output containing "implementation plan" → Some with PlanMd CLI hint
-    let result = super::maybe_plan_md_hint_on_output("creating implementation plan for feature X");
-    assert!(result.is_some(), "plan output must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("plan-md:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("PlanMd"),
-        "hint must reference PlanMd kind: {hint}"
-    );
-}
 
 #[test]
 fn plan_md_hint_integration_task_output() {
@@ -10443,33 +5117,6 @@ fn plan_md_hint_integration_task_output() {
 // ── R100-S1: maybe_skill_document_hint_on_output ─────────────────────────
 
 #[test]
-fn skill_document_hint_none_for_plain_output() {
-    // R100-S1: output with no skill markers → None
-    let result = super::maybe_skill_document_hint_on_output("cargo test passed");
-    assert!(
-        result.is_none(),
-        "plain output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn skill_document_hint_some_for_skill_output() {
-    // R100-S1: output containing "skill.md" → Some with SkillDocument CLI hint
-    let result =
-        super::maybe_skill_document_hint_on_output("creating skill.md for touring-generator agent");
-    assert!(result.is_some(), "skill output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("SkillDocument"),
-        "hint must reference SkillDocument kind: {hint}"
-    );
-}
-
-#[test]
 fn skill_document_hint_integration_task_output() {
     // R100-S1 integration: handle_task_sync_post_output with "claude skill" → skill-document hint
     let (_tmp, mut rt) = make_runtime();
@@ -10487,34 +5134,6 @@ fn skill_document_hint_integration_task_output() {
 // ── R100-S2: maybe_protobuf_schema_hint_on_output ────────────────────────
 
 #[test]
-fn protobuf_schema_hint_none_for_plain_output() {
-    // R100-S2: output with no proto markers → None
-    let result = super::maybe_protobuf_schema_hint_on_output("REST API endpoint added");
-    assert!(
-        result.is_none(),
-        "plain output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn protobuf_schema_hint_some_for_proto_output() {
-    // R100-S2: output containing "protobuf" → Some with ProtobufSchema CLI hint
-    let result = super::maybe_protobuf_schema_hint_on_output(
-        "defining protobuf message type for UserRequest",
-    );
-    assert!(result.is_some(), "protobuf output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf-schema:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ProtobufSchema"),
-        "hint must reference ProtobufSchema kind: {hint}"
-    );
-}
-
-#[test]
 fn protobuf_schema_hint_integration_task_output() {
     // R100-S2 integration: handle_task_sync_post_output with "grpc service" → protobuf-schema hint
     let (_tmp, mut rt) = make_runtime();
@@ -10530,34 +5149,6 @@ fn protobuf_schema_hint_integration_task_output() {
 }
 
 // ── R100-S3: maybe_consumer_generator_hint_on_output — TaskOutput 30/30 ──
-
-#[test]
-fn consumer_generator_hint_none_for_plain_output() {
-    // R100-S3: output with no consumer markers → None
-    let result = super::maybe_consumer_generator_hint_on_output("database migration applied");
-    assert!(
-        result.is_none(),
-        "plain output must return None: {result:?}"
-    );
-}
-
-#[test]
-fn consumer_generator_hint_some_for_consumer_output() {
-    // R100-S3: output containing "kafka consumer" → Some with ConsumerGenerator CLI hint
-    let result = super::maybe_consumer_generator_hint_on_output(
-        "kafka consumer group registered for topic events",
-    );
-    assert!(result.is_some(), "consumer output must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("consumer-generator:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "hint must reference ConsumerGenerator kind: {hint}"
-    );
-}
 
 #[test]
 fn consumer_generator_hint_integration_task_output() {
@@ -10578,29 +5169,6 @@ fn consumer_generator_hint_integration_task_output() {
 // ── R70-S1: maybe_asyncapi_hint_on_file_changed ───────────────────────────
 
 #[test]
-fn asyncapi_file_hint_none_for_plain_rs() {
-    // R70-S1: regular .rs path with no event-driven markers → None
-    let result = super::maybe_asyncapi_hint_on_file_changed("src/main.rs");
-    assert!(result.is_none(), "plain .rs must return None: {result:?}");
-}
-
-#[test]
-fn asyncapi_file_hint_some_for_events_path() {
-    // R70-S1: path containing "/events/" → Some with AsyncApiSpec CLI hint
-    let result = super::maybe_asyncapi_hint_on_file_changed("src/events/notification.rs");
-    assert!(result.is_some(), "events path must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("asyncapi:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("AsyncApiSpec"),
-        "hint must reference AsyncApiSpec kind: {hint}"
-    );
-}
-
-#[test]
 fn asyncapi_file_hint_integration_file_changed() {
     // R70-S1 integration: handle_file_changed with asyncapi path → surfaces asyncapi hint
     let (_tmp, mut rt) = make_runtime();
@@ -10615,29 +5183,6 @@ fn asyncapi_file_hint_integration_file_changed() {
 }
 
 // ── R70-S2: maybe_error_catalog_hint_on_file_changed ─────────────────────
-
-#[test]
-fn error_catalog_file_hint_none_for_plain_path() {
-    // R70-S2: path with no error-type markers → None
-    let result = super::maybe_error_catalog_hint_on_file_changed("src/lib.rs");
-    assert!(result.is_none(), "plain path must return None: {result:?}");
-}
-
-#[test]
-fn error_catalog_file_hint_some_for_errors_dir() {
-    // R70-S2: path containing "/errors/" → Some with ErrorCatalog CLI hint
-    let result = super::maybe_error_catalog_hint_on_file_changed("src/errors/error_types.rs");
-    assert!(result.is_some(), "errors dir must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ErrorCatalog"),
-        "hint must reference ErrorCatalog kind: {hint}"
-    );
-}
 
 #[test]
 fn error_catalog_file_hint_integration_file_changed() {
@@ -10656,23 +5201,6 @@ fn error_catalog_file_hint_integration_file_changed() {
 // ── R70-S3: maybe_adr_hint_on_file_changed ───────────────────────────────
 
 #[test]
-fn adr_file_hint_none_for_plain_doc() {
-    // R70-S3: regular doc path with no ADR markers → None
-    let result = super::maybe_adr_hint_on_file_changed("docs/readme.md");
-    assert!(result.is_none(), "plain doc must return None: {result:?}");
-}
-
-#[test]
-fn adr_file_hint_some_for_decisions_path() {
-    // R70-S3: path containing "/decisions/" → Some with Adr CLI hint
-    let result = super::maybe_adr_hint_on_file_changed("docs/decisions/adr-001-db-choice.md");
-    assert!(result.is_some(), "decisions path must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("adr:"), "hint must contain label: {hint}");
-    assert!(hint.contains("Adr"), "hint must reference Adr kind: {hint}");
-}
-
-#[test]
 fn adr_file_hint_integration_file_changed() {
     // R70-S3 integration: handle_file_changed with /adr/ path → surfaces adr hint
     let (_tmp, mut rt) = make_runtime();
@@ -10687,29 +5215,6 @@ fn adr_file_hint_integration_file_changed() {
 }
 
 // ── R77-S1: maybe_terraform_hint_on_file_changed ─────────────────────────
-
-#[test]
-fn terraform_file_hint_none_for_rust_source() {
-    // R77-S1: .rs path with no Terraform markers → None
-    let result = super::maybe_terraform_hint_on_file_changed("src/lifecycle.rs");
-    assert!(result.is_none(), "rust source must return None: {result:?}");
-}
-
-#[test]
-fn terraform_file_hint_some_for_tf_path() {
-    // R77-S1: path containing ".tf" → Some with TerraformModule CLI hint
-    let result = super::maybe_terraform_hint_on_file_changed("infra/main.tf");
-    assert!(result.is_some(), "tf file must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TerraformModule"),
-        "hint must reference TerraformModule kind: {hint}"
-    );
-}
 
 #[test]
 fn terraform_file_hint_integration_file_changed() {
@@ -10728,29 +5233,6 @@ fn terraform_file_hint_integration_file_changed() {
 // ── R77-S2: maybe_ci_workflow_hint_on_file_changed ───────────────────────
 
 #[test]
-fn ci_workflow_file_hint_none_for_plain_yaml() {
-    // R77-S2: generic yaml path with no CI markers → None
-    let result = super::maybe_ci_workflow_hint_on_file_changed("config/settings.yaml");
-    assert!(result.is_none(), "plain yaml must return None: {result:?}");
-}
-
-#[test]
-fn ci_workflow_file_hint_some_for_github_workflow_path() {
-    // R77-S2: path containing ".github/workflows/" → Some with CiWorkflow CLI hint
-    let result = super::maybe_ci_workflow_hint_on_file_changed(".github/workflows/ci.yml");
-    assert!(result.is_some(), "github workflow path must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CiWorkflow"),
-        "hint must reference CiWorkflow kind: {hint}"
-    );
-}
-
-#[test]
 fn ci_workflow_file_hint_integration_file_changed() {
     // R77-S2 integration: handle_file_changed with pipeline.yml path → surfaces ci hint
     let (_tmp, mut rt) = make_runtime();
@@ -10765,32 +5247,6 @@ fn ci_workflow_file_hint_integration_file_changed() {
 }
 
 // ── R77-S3: maybe_k8s_hint_on_file_changed ───────────────────────────────
-
-#[test]
-fn k8s_file_hint_none_for_unrelated_yaml() {
-    // R77-S3: docker-compose yaml with no K8s markers → None
-    let result = super::maybe_k8s_hint_on_file_changed("docker-compose.yml");
-    assert!(
-        result.is_none(),
-        "docker-compose must return None: {result:?}"
-    );
-}
-
-#[test]
-fn k8s_file_hint_some_for_k8s_path() {
-    // R77-S3: path containing "/k8s/" → Some with K8sManifest CLI hint
-    let result = super::maybe_k8s_hint_on_file_changed("deploy/k8s/deployment.yaml");
-    assert!(result.is_some(), "k8s path must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("k8s-manifest:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("K8sManifest"),
-        "hint must reference K8sManifest kind: {hint}"
-    );
-}
 
 #[test]
 fn k8s_file_hint_integration_file_changed() {
@@ -10809,29 +5265,6 @@ fn k8s_file_hint_integration_file_changed() {
 // ── R80-S1: maybe_rust_module_hint_on_file_changed ───────────────────────
 
 #[test]
-fn rust_module_file_hint_none_for_non_rust_file() {
-    // R80-S1: non-.rs path → None
-    let result = super::maybe_rust_module_hint_on_file_changed("config/settings.yaml");
-    assert!(result.is_none(), "yaml file must return None: {result:?}");
-}
-
-#[test]
-fn rust_module_file_hint_some_for_lib_rs() {
-    // R80-S1: lib.rs path → Some with RustModule CLI hint
-    let result = super::maybe_rust_module_hint_on_file_changed("crates/touring-hooks/src/lib.rs");
-    assert!(result.is_some(), "lib.rs must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("RustModule"),
-        "hint must reference RustModule kind: {hint}"
-    );
-}
-
-#[test]
 fn rust_module_file_hint_integration_file_changed() {
     // R80-S1 integration: handle_file_changed with mod.rs path → surfaces rust-module hint
     let (_tmp, mut rt) = make_runtime();
@@ -10846,30 +5279,6 @@ fn rust_module_file_hint_integration_file_changed() {
 }
 
 // ── R80-S2: maybe_test_hint_on_file_changed ───────────────────────────────
-
-#[test]
-fn test_file_hint_none_for_non_test_file() {
-    // R80-S2: regular source path with no test markers → None
-    let result = super::maybe_test_hint_on_file_changed("src/lifecycle.rs");
-    assert!(
-        result.is_none(),
-        "non-test file must return None: {result:?}"
-    );
-}
-
-#[test]
-fn test_file_hint_some_for_tests_dir() {
-    // R80-S2: path containing "/tests/" → Some with Test CLI hint
-    let result =
-        super::maybe_test_hint_on_file_changed("crates/touring-hooks/tests/wave2_4_e2e.rs");
-    assert!(result.is_some(), "tests/ path must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("test:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Test"),
-        "hint must reference Test kind: {hint}"
-    );
-}
 
 #[test]
 fn test_file_hint_integration_file_changed() {
@@ -10888,29 +5297,6 @@ fn test_file_hint_integration_file_changed() {
 // ── R80-S3: maybe_schema_hint_on_file_changed ─────────────────────────────
 
 #[test]
-fn schema_file_hint_none_for_unrelated_file() {
-    // R80-S3: regular source path with no schema markers → None
-    let result = super::maybe_schema_hint_on_file_changed("src/daemon.rs");
-    assert!(
-        result.is_none(),
-        "non-schema file must return None: {result:?}"
-    );
-}
-
-#[test]
-fn schema_file_hint_some_for_schema_json() {
-    // R80-S3: path containing ".schema.json" → Some with Schema CLI hint
-    let result = super::maybe_schema_hint_on_file_changed("specs/generator.schema.json");
-    assert!(result.is_some(), "schema.json must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("schema:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Schema"),
-        "hint must reference Schema kind: {hint}"
-    );
-}
-
-#[test]
 fn schema_file_hint_integration_file_changed() {
     // R80-S3 integration: handle_file_changed with /schema/ path → surfaces schema hint
     let (_tmp, mut rt) = make_runtime();
@@ -10925,27 +5311,6 @@ fn schema_file_hint_integration_file_changed() {
 }
 
 // ── R95-S1: maybe_migration_hint_on_file_changed ─────────────────────────
-
-#[test]
-fn migration_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_migration_hint_on_file_changed("src/main.rs").is_none());
-    assert!(super::maybe_migration_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn migration_file_changed_hint_some_for_sql_path() {
-    let result = super::maybe_migration_hint_on_file_changed("db/migrations/0042_add_users.sql");
-    assert!(result.is_some(), "migration path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration:"),
-        "hint must contain migration label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Migration"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn migration_file_changed_hint_integration_file_changed() {
@@ -10963,27 +5328,6 @@ fn migration_file_changed_hint_integration_file_changed() {
 // ── R95-S2: maybe_protobuf_hint_on_file_changed ──────────────────────────
 
 #[test]
-fn protobuf_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_protobuf_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_protobuf_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn protobuf_file_changed_hint_some_for_proto_path() {
-    let result = super::maybe_protobuf_hint_on_file_changed("proto/touring/telemetry.proto");
-    assert!(result.is_some(), "proto path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf-schema:"),
-        "hint must contain protobuf-schema label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ProtobufSchema"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn protobuf_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({
@@ -10999,27 +5343,6 @@ fn protobuf_file_changed_hint_integration_file_changed() {
 // ── R95-S3: maybe_dockerfile_hint_on_file_changed ────────────────────────
 
 #[test]
-fn dockerfile_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_dockerfile_hint_on_file_changed("src/main.rs").is_none());
-    assert!(super::maybe_dockerfile_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn dockerfile_file_changed_hint_some_for_docker_path() {
-    let result = super::maybe_dockerfile_hint_on_file_changed("deploy/Dockerfile");
-    assert!(result.is_some(), "dockerfile path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile:"),
-        "hint must contain dockerfile label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Dockerfile"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn dockerfile_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({
@@ -11033,29 +5356,6 @@ fn dockerfile_file_changed_hint_integration_file_changed() {
 }
 
 // ── R101-S1: maybe_openapi_hint_on_file_changed ──────────────────────────
-
-#[test]
-fn openapi_file_changed_hint_none_for_plain_path() {
-    // R101-S1: regular source file → None
-    assert!(super::maybe_openapi_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_openapi_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn openapi_file_changed_hint_some_for_api_spec_path() {
-    // R101-S1: path containing "openapi" → Some with OpenApiSpec CLI hint
-    let result = super::maybe_openapi_hint_on_file_changed("docs/openapi/v1.yaml");
-    assert!(result.is_some(), "openapi path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("openapi-spec:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("OpenApiSpec"),
-        "hint must reference OpenApiSpec kind: {hint}"
-    );
-}
 
 #[test]
 fn openapi_file_changed_hint_integration_file_changed() {
@@ -11074,29 +5374,6 @@ fn openapi_file_changed_hint_integration_file_changed() {
 // ── R101-S2: maybe_shell_completion_hint_on_file_changed ─────────────────
 
 #[test]
-fn shell_completion_file_changed_hint_none_for_plain_path() {
-    // R101-S2: regular source file → None
-    assert!(super::maybe_shell_completion_hint_on_file_changed("src/main.rs").is_none());
-}
-
-#[test]
-fn shell_completion_file_changed_hint_some_for_completion_path() {
-    // R101-S2: path containing "completions/" → Some with ShellCompletion CLI hint
-    let result =
-        super::maybe_shell_completion_hint_on_file_changed("scripts/completions/touring.bash");
-    assert!(result.is_some(), "completion path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ShellCompletion"),
-        "hint must reference ShellCompletion kind: {hint}"
-    );
-}
-
-#[test]
 fn shell_completion_file_changed_hint_integration_file_changed() {
     // R101-S2 integration: handle_file_changed with bash_completion path → shell-completion hint
     let (_tmp, mut rt) = make_runtime();
@@ -11111,28 +5388,6 @@ fn shell_completion_file_changed_hint_integration_file_changed() {
 }
 
 // ── R101-S3: maybe_changelog_hint_on_file_changed ────────────────────────
-
-#[test]
-fn changelog_file_changed_hint_none_for_plain_path() {
-    // R101-S3: regular source file → None
-    assert!(super::maybe_changelog_hint_on_file_changed("src/lib.rs").is_none());
-}
-
-#[test]
-fn changelog_file_changed_hint_some_for_changelog_path() {
-    // R101-S3: path containing "changelog" → Some with ChangelogEntry CLI hint
-    let result = super::maybe_changelog_hint_on_file_changed("CHANGELOG.md");
-    assert!(result.is_some(), "CHANGELOG.md must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ChangelogEntry"),
-        "hint must reference ChangelogEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn changelog_file_changed_hint_integration_file_changed() {
@@ -11151,27 +5406,6 @@ fn changelog_file_changed_hint_integration_file_changed() {
 // ── R104-S1: maybe_ffi_binding_hint_on_file_changed ──────────────────────
 
 #[test]
-fn ffi_binding_file_changed_hint_none_for_plain_path() {
-    assert!(super::maybe_ffi_binding_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_ffi_binding_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn ffi_binding_file_changed_hint_some_for_ffi_path() {
-    let result = super::maybe_ffi_binding_hint_on_file_changed("src/ffi/bindings.rs");
-    assert!(result.is_some(), "ffi path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FfiBinding"),
-        "hint must reference FfiBinding kind: {hint}"
-    );
-}
-
-#[test]
 fn ffi_binding_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/project/src/sys/libffi_bindings.rs"});
@@ -11183,26 +5417,6 @@ fn ffi_binding_file_changed_hint_integration_file_changed() {
 }
 
 // ── R104-S2: maybe_python_script_hint_on_file_changed ────────────────────
-
-#[test]
-fn python_script_file_changed_hint_none_for_plain_path() {
-    assert!(super::maybe_python_script_hint_on_file_changed("src/lib.rs").is_none());
-}
-
-#[test]
-fn python_script_file_changed_hint_some_for_py_path() {
-    let result = super::maybe_python_script_hint_on_file_changed("scripts/automation/deploy.py");
-    assert!(result.is_some(), "python path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("PythonScript"),
-        "hint must reference PythonScript kind: {hint}"
-    );
-}
 
 #[test]
 fn python_script_file_changed_hint_integration_file_changed() {
@@ -11218,26 +5432,6 @@ fn python_script_file_changed_hint_integration_file_changed() {
 // ── R104-S3: maybe_benchmark_hint_on_file_changed ────────────────────────
 
 #[test]
-fn benchmark_file_changed_hint_none_for_plain_path() {
-    assert!(super::maybe_benchmark_hint_on_file_changed("src/lib.rs").is_none());
-}
-
-#[test]
-fn benchmark_file_changed_hint_some_for_bench_path() {
-    let result = super::maybe_benchmark_hint_on_file_changed("benches/vgp_bench.rs");
-    assert!(result.is_some(), "bench path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Benchmark"),
-        "hint must reference Benchmark kind: {hint}"
-    );
-}
-
-#[test]
 fn benchmark_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/project/benches/criterion_template_engine.rs"});
@@ -11249,27 +5443,6 @@ fn benchmark_file_changed_hint_integration_file_changed() {
 }
 
 // ── R107-S1: maybe_fuzz_target_hint_on_file_changed ──────────────────────
-
-#[test]
-fn fuzz_target_file_changed_hint_none_for_plain_path() {
-    assert!(super::maybe_fuzz_target_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_fuzz_target_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn fuzz_target_file_changed_hint_some_for_fuzz_path() {
-    let result = super::maybe_fuzz_target_hint_on_file_changed("fuzz_targets/fuzz_vgp.rs");
-    assert!(result.is_some(), "fuzz path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FuzzTarget"),
-        "hint must reference FuzzTarget kind: {hint}"
-    );
-}
 
 #[test]
 fn fuzz_target_file_changed_hint_integration_file_changed() {
@@ -11285,26 +5458,6 @@ fn fuzz_target_file_changed_hint_integration_file_changed() {
 // ── R107-S2: maybe_derive_macro_hint_on_file_changed ─────────────────────
 
 #[test]
-fn derive_macro_file_changed_hint_none_for_plain_path() {
-    assert!(super::maybe_derive_macro_hint_on_file_changed("src/lib.rs").is_none());
-}
-
-#[test]
-fn derive_macro_file_changed_hint_some_for_macro_path() {
-    let result = super::maybe_derive_macro_hint_on_file_changed("crates/derive_touring/src/lib.rs");
-    assert!(result.is_some(), "derive path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DeriveMacro"),
-        "hint must reference DeriveMacro kind: {hint}"
-    );
-}
-
-#[test]
 fn derive_macro_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/project/crates/proc_macro_derive/src/lib.rs"});
@@ -11316,26 +5469,6 @@ fn derive_macro_file_changed_hint_integration_file_changed() {
 }
 
 // ── R107-S3: maybe_incremental_patch_hint_on_file_changed ────────────────
-
-#[test]
-fn incremental_patch_file_changed_hint_none_for_plain_path() {
-    assert!(super::maybe_incremental_patch_hint_on_file_changed("src/lib.rs").is_none());
-}
-
-#[test]
-fn incremental_patch_file_changed_hint_some_for_patch_path() {
-    let result = super::maybe_incremental_patch_hint_on_file_changed("patches/fix_auth.patch");
-    assert!(result.is_some(), "patch path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("incremental-patch:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("IncrementalPatch"),
-        "hint must reference IncrementalPatch kind: {hint}"
-    );
-}
 
 #[test]
 fn incremental_patch_file_changed_hint_integration_file_changed() {
@@ -11351,24 +5484,6 @@ fn incremental_patch_file_changed_hint_integration_file_changed() {
 // ── R113-S1: maybe_plan_md_hint_on_file_changed ───────────────────────────
 
 #[test]
-fn plan_md_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_plan_md_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_plan_md_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn plan_md_file_changed_hint_some_for_plan_path() {
-    let result = super::maybe_plan_md_hint_on_file_changed("plans/sprint_plan.md");
-    assert!(result.is_some(), "plan path must produce hint");
-    let hint = result.unwrap();
-    assert!(hint.contains("plan-md:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("PlanMd"),
-        "hint must reference PlanMd kind: {hint}"
-    );
-}
-
-#[test]
 fn plan_md_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/project/plans/roadmap.md"});
@@ -11380,27 +5495,6 @@ fn plan_md_file_changed_hint_integration_file_changed() {
 }
 
 // ── R113-S2: maybe_man_page_hint_on_file_changed ─────────────────────────
-
-#[test]
-fn man_page_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_man_page_hint_on_file_changed("src/main.rs").is_none());
-    assert!(super::maybe_man_page_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn man_page_file_changed_hint_some_for_man_path() {
-    let result = super::maybe_man_page_hint_on_file_changed("man/touring.1.md");
-    assert!(result.is_some(), "man page path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ManPage"),
-        "hint must reference ManPage kind: {hint}"
-    );
-}
 
 #[test]
 fn man_page_file_changed_hint_integration_file_changed() {
@@ -11416,27 +5510,6 @@ fn man_page_file_changed_hint_integration_file_changed() {
 // ── R113-S3: maybe_skill_document_hint_on_file_changed ───────────────────
 
 #[test]
-fn skill_document_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_skill_document_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_skill_document_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn skill_document_file_changed_hint_some_for_skill_path() {
-    let result = super::maybe_skill_document_hint_on_file_changed("skills/touring/SKILL.md");
-    assert!(result.is_some(), "skill path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("SkillDocument"),
-        "hint must reference SkillDocument kind: {hint}"
-    );
-}
-
-#[test]
 fn skill_document_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/home/user/.claude/skills/debug/SKILL.md"});
@@ -11448,27 +5521,6 @@ fn skill_document_file_changed_hint_integration_file_changed() {
 }
 
 // ── R114-S1: maybe_diary_entry_hint_on_file_changed ──────────────────────
-
-#[test]
-fn diary_entry_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_diary_entry_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_diary_entry_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn diary_entry_file_changed_hint_some_for_diary_path() {
-    let result = super::maybe_diary_entry_hint_on_file_changed("diary/session_notes.md");
-    assert!(result.is_some(), "diary path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DiaryEntry"),
-        "hint must reference DiaryEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn diary_entry_file_changed_hint_integration_file_changed() {
@@ -11484,28 +5536,6 @@ fn diary_entry_file_changed_hint_integration_file_changed() {
 // ── R114-S2: maybe_consumer_generator_hint_on_file_changed ───────────────
 
 #[test]
-fn consumer_generator_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_consumer_generator_hint_on_file_changed("src/lib.rs").is_none());
-    assert!(super::maybe_consumer_generator_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn consumer_generator_file_changed_hint_some_for_consumer_path() {
-    let result =
-        super::maybe_consumer_generator_hint_on_file_changed("consumers/payment_consumer.rs");
-    assert!(result.is_some(), "consumer path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("consumer-generator:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "hint must reference ConsumerGenerator kind: {hint}"
-    );
-}
-
-#[test]
 fn consumer_generator_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/project/src/event_consumer.rs"});
@@ -11519,27 +5549,6 @@ fn consumer_generator_file_changed_hint_integration_file_changed() {
 // ── R114-S3: maybe_task_scaffold_hint_on_file_changed ────────────────────
 
 #[test]
-fn task_scaffold_file_changed_hint_none_for_unrelated_path() {
-    assert!(super::maybe_task_scaffold_hint_on_file_changed("src/main.rs").is_none());
-    assert!(super::maybe_task_scaffold_hint_on_file_changed("").is_none());
-}
-
-#[test]
-fn task_scaffold_file_changed_hint_some_for_task_path() {
-    let result = super::maybe_task_scaffold_hint_on_file_changed("tasks/decompose_plan.yaml");
-    assert!(result.is_some(), "task path must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TaskScaffold"),
-        "hint must reference TaskScaffold kind: {hint}"
-    );
-}
-
-#[test]
 fn task_scaffold_file_changed_hint_integration_file_changed() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"file_path": "/project/touring_task_dag.yaml"});
@@ -11551,36 +5560,6 @@ fn task_scaffold_file_changed_hint_integration_file_changed() {
 }
 
 // ── R71-S1: maybe_changelog_hint_on_task_get ──────────────────────────────
-
-#[test]
-fn changelog_task_get_hint_none_for_unrelated_dag() {
-    // R71-S1: DAG JSON with no release/changelog markers → None
-    let result = super::maybe_changelog_hint_on_task_get(
-        r#"{"task_id":"T1","subtasks":[{"status":"pending","description":"refactor auth module"}]}"#,
-    );
-    assert!(
-        result.is_none(),
-        "unrelated dag must return None: {result:?}"
-    );
-}
-
-#[test]
-fn changelog_task_get_hint_some_for_release_dag() {
-    // R71-S1: DAG JSON mentioning "changelog" → Some with ChangelogEntry CLI hint
-    let result = super::maybe_changelog_hint_on_task_get(
-        r#"{"task_id":"T2","subtasks":[{"description":"write changelog for v2.0 release notes"}]}"#,
-    );
-    assert!(result.is_some(), "release dag must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ChangelogEntry"),
-        "hint must reference ChangelogEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn changelog_task_get_hint_integration_task_get() {
@@ -11604,33 +5583,6 @@ fn changelog_task_get_hint_integration_task_get() {
 // ── R71-S2: maybe_k8s_hint_on_task_get ───────────────────────────────────
 
 #[test]
-fn k8s_task_get_hint_none_for_unrelated_dag() {
-    // R71-S2: DAG JSON with no kubernetes markers → None
-    let result = super::maybe_k8s_hint_on_task_get(
-        r#"{"task_id":"T3","subtasks":[{"description":"implement error handling"}]}"#,
-    );
-    assert!(
-        result.is_none(),
-        "unrelated dag must return None: {result:?}"
-    );
-}
-
-#[test]
-fn k8s_task_get_hint_some_for_k8s_dag() {
-    // R71-S2: DAG JSON mentioning "kubernetes" → Some with K8sManifest CLI hint
-    let result = super::maybe_k8s_hint_on_task_get(
-        r#"{"task_id":"T4","subtasks":[{"description":"create kubernetes deployment for api service"}]}"#,
-    );
-    assert!(result.is_some(), "k8s dag must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("k8s:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("K8sManifest"),
-        "hint must reference K8sManifest kind: {hint}"
-    );
-}
-
-#[test]
 fn k8s_task_get_hint_integration_task_get() {
     // R71-S2 integration: handle_task_sync_post_get with helm dag → surfaces k8s hint
     let (_tmp, mut rt) = make_runtime();
@@ -11648,36 +5600,6 @@ fn k8s_task_get_hint_integration_task_get() {
 }
 
 // ── R71-S3: maybe_consumer_hint_on_task_get ───────────────────────────────
-
-#[test]
-fn consumer_task_get_hint_none_for_unrelated_dag() {
-    // R71-S3: DAG JSON with no wiring/consumer markers → None
-    let result = super::maybe_consumer_hint_on_task_get(
-        r#"{"task_id":"T5","subtasks":[{"description":"write unit tests for auth"}]}"#,
-    );
-    assert!(
-        result.is_none(),
-        "unrelated dag must return None: {result:?}"
-    );
-}
-
-#[test]
-fn consumer_task_get_hint_some_for_consumer_dag() {
-    // R71-S3: DAG JSON mentioning "orphan symbol" → Some with ConsumerGenerator CLI hint
-    let result = super::maybe_consumer_hint_on_task_get(
-        r#"{"task_id":"T6","subtasks":[{"description":"wire orphan symbol handle_cwd_changed into consumers"}]}"#,
-    );
-    assert!(result.is_some(), "consumer dag must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("consumer:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "hint must reference ConsumerGenerator kind: {hint}"
-    );
-}
 
 #[test]
 fn consumer_task_get_hint_integration_task_get() {
@@ -11699,36 +5621,6 @@ fn consumer_task_get_hint_integration_task_get() {
 // ── R76-S1: maybe_rust_module_hint_on_task_get ────────────────────────────
 
 #[test]
-fn rust_module_task_get_hint_none_for_unrelated_dag() {
-    // R76-S1: DAG with no Rust module markers → None
-    let result = super::maybe_rust_module_hint_on_task_get(
-        r#"{"task_id":"t1","description":"deploy kubernetes service","status":"in_progress"}"#,
-    );
-    assert!(
-        result.is_none(),
-        "unrelated DAG must return None: {result:?}"
-    );
-}
-
-#[test]
-fn rust_module_task_get_hint_some_for_rust_module_dag() {
-    // R76-S1: DAG description with "rust module" → Some with RustModule CLI hint
-    let result = super::maybe_rust_module_hint_on_task_get(
-        r#"{"task_id":"t1","description":"create rust module for wiring analysis","status":"in_progress"}"#,
-    );
-    assert!(result.is_some(), "rust module DAG must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("RustModule"),
-        "hint must reference RustModule kind: {hint}"
-    );
-}
-
-#[test]
 fn rust_module_task_get_hint_integration_task_get() {
     // R76-S1 integration: handle_task_sync_post_get with rust module DAG → surfaces rust hint
     let (_tmp, mut rt) = make_runtime();
@@ -11746,36 +5638,6 @@ fn rust_module_task_get_hint_integration_task_get() {
 }
 
 // ── R76-S2: maybe_mcp_tool_hint_on_task_get ───────────────────────────────
-
-#[test]
-fn mcp_tool_task_get_hint_none_for_unrelated_dag() {
-    // R76-S2: DAG with no MCP tool markers → None
-    let result = super::maybe_mcp_tool_hint_on_task_get(
-        r#"{"task_id":"t1","description":"add benchmark for VGP engine","status":"pending"}"#,
-    );
-    assert!(
-        result.is_none(),
-        "unrelated DAG must return None: {result:?}"
-    );
-}
-
-#[test]
-fn mcp_tool_task_get_hint_some_for_mcp_tool_dag() {
-    // R76-S2: DAG description with "mcp tool" → Some with McpTool CLI hint
-    let result = super::maybe_mcp_tool_hint_on_task_get(
-        r#"{"task_id":"t1","description":"expose mcp tool for tantivy search","status":"in_progress"}"#,
-    );
-    assert!(result.is_some(), "mcp tool DAG must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcp-tool:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("McpTool"),
-        "hint must reference McpTool kind: {hint}"
-    );
-}
 
 #[test]
 fn mcp_tool_task_get_hint_integration_task_get() {
@@ -11797,33 +5659,6 @@ fn mcp_tool_task_get_hint_integration_task_get() {
 // ── R76-S3: maybe_schema_hint_on_task_get ─────────────────────────────────
 
 #[test]
-fn schema_task_get_hint_none_for_unrelated_dag() {
-    // R76-S3: DAG with no schema markers → None
-    let result = super::maybe_schema_hint_on_task_get(
-        r#"{"task_id":"t1","description":"refactor session lifecycle","status":"pending"}"#,
-    );
-    assert!(
-        result.is_none(),
-        "unrelated DAG must return None: {result:?}"
-    );
-}
-
-#[test]
-fn schema_task_get_hint_some_for_schema_dag() {
-    // R76-S3: DAG description with "json schema" → Some with Schema CLI hint
-    let result = super::maybe_schema_hint_on_task_get(
-        r#"{"task_id":"t1","description":"define json schema for generator plan","status":"in_progress"}"#,
-    );
-    assert!(result.is_some(), "schema DAG must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("schema:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Schema"),
-        "hint must reference Schema kind: {hint}"
-    );
-}
-
-#[test]
 fn schema_task_get_hint_integration_task_get() {
     // R76-S3 integration: handle_task_sync_post_get with validation schema DAG → surfaces schema hint
     let (_tmp, mut rt) = make_runtime();
@@ -11841,34 +5676,6 @@ fn schema_task_get_hint_integration_task_get() {
 }
 
 // ── R87-S1: maybe_openapi_hint_on_task_get ────────────────────────────────
-
-#[test]
-fn openapi_task_get_hint_none_for_unrelated_dag() {
-    // R87-S1: DAG with no OpenAPI markers → None
-    let result = super::maybe_openapi_hint_on_task_get(
-        r#"{"status":"pending","description":"implement rust module for data processing"}"#,
-    );
-    assert!(result.is_none());
-    assert!(super::maybe_openapi_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn openapi_task_get_hint_some_for_openapi_dag() {
-    // R87-S1: DAG description with "openapi" → Some with OpenApiSpec CLI hint
-    let result = super::maybe_openapi_hint_on_task_get(
-        r#"{"description":"generate openapi 3.0 spec for user management API"}"#,
-    );
-    assert!(result.is_some(), "openapi DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("openapi:"),
-        "hint must contain openapi label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render OpenApiSpec"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn openapi_task_get_hint_integration_task_get() {
@@ -11890,31 +5697,6 @@ fn openapi_task_get_hint_integration_task_get() {
 // ── R87-S2: maybe_adr_hint_on_task_get ───────────────────────────────────
 
 #[test]
-fn adr_task_get_hint_none_for_unrelated_dag() {
-    // R87-S2: DAG with no ADR markers → None
-    let result = super::maybe_adr_hint_on_task_get(
-        r#"{"status":"pending","description":"add unit tests for wiring module"}"#,
-    );
-    assert!(result.is_none());
-    assert!(super::maybe_adr_hint_on_task_get("{}").is_none());
-}
-
-#[test]
-fn adr_task_get_hint_some_for_adr_dag() {
-    // R87-S2: DAG description with "architecture decision" → Some with Adr CLI hint
-    let result = super::maybe_adr_hint_on_task_get(
-        r#"{"description":"document architecture decision for actor pattern refactor"}"#,
-    );
-    assert!(result.is_some(), "ADR DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(hint.contains("adr:"), "hint must contain adr label: {hint}");
-    assert!(
-        hint.contains("touring generate render Adr"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn adr_task_get_hint_integration_task_get() {
     // R87-S2 integration: handle_task_sync_post_get with design decision DAG → surfaces adr hint
     let (_tmp, mut rt) = make_runtime();
@@ -11932,34 +5714,6 @@ fn adr_task_get_hint_integration_task_get() {
 }
 
 // ── R87-S3: maybe_changelog_entry_hint_on_task_get ───────────────────────
-
-#[test]
-fn changelog_entry_task_get_hint_none_for_unrelated_dag() {
-    // R87-S3: DAG with no changelog entry markers → None
-    let result = super::maybe_changelog_entry_hint_on_task_get(
-        r#"{"status":"pending","description":"refactor hook runtime to use actor pattern"}"#,
-    );
-    assert!(result.is_none());
-    assert!(super::maybe_changelog_entry_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn changelog_entry_task_get_hint_some_for_release_entry_dag() {
-    // R87-S3: DAG description with "changelog entry" → Some with ChangelogEntry CLI hint
-    let result = super::maybe_changelog_entry_hint_on_task_get(
-        r#"{"description":"write changelog entry for v30.3.0 release with tantivy FTS"}"#,
-    );
-    assert!(result.is_some(), "changelog entry DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog-entry:"),
-        "hint must contain changelog-entry label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ChangelogEntry"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn changelog_entry_task_get_hint_integration_task_get() {
@@ -11981,34 +5735,6 @@ fn changelog_entry_task_get_hint_integration_task_get() {
 // ── R88-S1: maybe_terraform_hint_on_task_get ──────────────────────────────
 
 #[test]
-fn terraform_task_get_hint_none_for_unrelated_dag() {
-    // R88-S1: DAG with no Terraform markers → None
-    let result = super::maybe_terraform_hint_on_task_get(
-        r#"{"status":"pending","description":"implement async job spawner for background workers"}"#,
-    );
-    assert!(result.is_none());
-    assert!(super::maybe_terraform_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn terraform_task_get_hint_some_for_terraform_dag() {
-    // R88-S1: DAG with "terraform" in description → Some with TerraformModule CLI hint
-    let result = super::maybe_terraform_hint_on_task_get(
-        r#"{"description":"create terraform module for EKS cluster provisioning"}"#,
-    );
-    assert!(result.is_some(), "terraform DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform:"),
-        "hint must contain terraform label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render TerraformModule"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn terraform_task_get_hint_integration_task_get() {
     // R88-S1 integration: handle_task_sync_post_get with IaC DAG → surfaces terraform hint
     let (_tmp, mut rt) = make_runtime();
@@ -12026,34 +5752,6 @@ fn terraform_task_get_hint_integration_task_get() {
 }
 
 // ── R88-S2: maybe_ci_workflow_hint_on_task_get ────────────────────────────
-
-#[test]
-fn ci_workflow_task_get_hint_none_for_unrelated_dag() {
-    // R88-S2: DAG with no CI markers → None
-    let result = super::maybe_ci_workflow_hint_on_task_get(
-        r#"{"status":"pending","description":"add memory tier for semantic recall queries"}"#,
-    );
-    assert!(result.is_none());
-    assert!(super::maybe_ci_workflow_hint_on_task_get("{}").is_none());
-}
-
-#[test]
-fn ci_workflow_task_get_hint_some_for_ci_dag() {
-    // R88-S2: DAG with "github actions" in description → Some with CiWorkflow CLI hint
-    let result = super::maybe_ci_workflow_hint_on_task_get(
-        r#"{"description":"configure github actions workflow for cargo test and clippy"}"#,
-    );
-    assert!(result.is_some(), "CI DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow:"),
-        "hint must contain ci-workflow label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render CiWorkflow"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn ci_workflow_task_get_hint_integration_task_get() {
@@ -12075,34 +5773,6 @@ fn ci_workflow_task_get_hint_integration_task_get() {
 // ── R88-S3: maybe_dockerfile_hint_on_task_get ─────────────────────────────
 
 #[test]
-fn dockerfile_task_get_hint_none_for_unrelated_dag() {
-    // R88-S3: DAG with no Docker markers → None
-    let result = super::maybe_dockerfile_hint_on_task_get(
-        r#"{"status":"pending","description":"optimize tantivy full-text index performance"}"#,
-    );
-    assert!(result.is_none());
-    assert!(super::maybe_dockerfile_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn dockerfile_task_get_hint_some_for_docker_dag() {
-    // R88-S3: DAG with "dockerfile" in description → Some with Dockerfile CLI hint
-    let result = super::maybe_dockerfile_hint_on_task_get(
-        r#"{"description":"write dockerfile for multi-stage touring server build"}"#,
-    );
-    assert!(result.is_some(), "docker DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile:"),
-        "hint must contain dockerfile label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Dockerfile"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn dockerfile_task_get_hint_integration_task_get() {
     // R88-S3 integration: handle_task_sync_post_get with container DAG → surfaces dockerfile hint
     let (_tmp, mut rt) = make_runtime();
@@ -12120,31 +5790,6 @@ fn dockerfile_task_get_hint_integration_task_get() {
 }
 
 // ── R89-S1: maybe_benchmark_hint_on_task_get ──────────────────────────────
-
-#[test]
-fn benchmark_task_get_hint_none_for_unrelated_dag() {
-    // R89-S1: DAG with no benchmark markers → None
-    assert!(super::maybe_benchmark_hint_on_task_get("implement async job spawner").is_none());
-    assert!(super::maybe_benchmark_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn benchmark_task_get_hint_some_for_benchmark_dag() {
-    // R89-S1: DAG with "criterion" → Some with Benchmark CLI hint
-    let result = super::maybe_benchmark_hint_on_task_get(
-        r#"{"description":"add criterion benchmark for template engine render latency"}"#,
-    );
-    assert!(result.is_some(), "benchmark DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain benchmark label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Benchmark"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn benchmark_task_get_hint_integration_task_get() {
@@ -12166,34 +5811,6 @@ fn benchmark_task_get_hint_integration_task_get() {
 // ── R89-S2: maybe_fuzz_target_hint_on_task_get ────────────────────────────
 
 #[test]
-fn fuzz_target_task_get_hint_none_for_unrelated_dag() {
-    // R89-S2: DAG with no fuzz markers → None
-    assert!(
-        super::maybe_fuzz_target_hint_on_task_get("add integration tests for memory recall")
-            .is_none()
-    );
-    assert!(super::maybe_fuzz_target_hint_on_task_get("{}").is_none());
-}
-
-#[test]
-fn fuzz_target_task_get_hint_some_for_fuzz_dag() {
-    // R89-S2: DAG with "cargo fuzz" → Some with FuzzTarget CLI hint
-    let result = super::maybe_fuzz_target_hint_on_task_get(
-        r#"{"description":"set up cargo fuzz target for parser input validation"}"#,
-    );
-    assert!(result.is_some(), "fuzz DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain fuzz-target label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render FuzzTarget"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn fuzz_target_task_get_hint_integration_task_get() {
     // R89-S2 integration: handle_task_sync_post_get with fuzzing DAG → surfaces fuzz_target hint
     let (_tmp, mut rt) = make_runtime();
@@ -12211,31 +5828,6 @@ fn fuzz_target_task_get_hint_integration_task_get() {
 }
 
 // ── R89-S3: maybe_derive_macro_hint_on_task_get ───────────────────────────
-
-#[test]
-fn derive_macro_task_get_hint_none_for_unrelated_dag() {
-    // R89-S3: DAG with no derive macro markers → None
-    assert!(super::maybe_derive_macro_hint_on_task_get("refactor session handler logic").is_none());
-    assert!(super::maybe_derive_macro_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn derive_macro_task_get_hint_some_for_proc_macro_dag() {
-    // R89-S3: DAG with "proc macro" → Some with DeriveMacro CLI hint
-    let result = super::maybe_derive_macro_hint_on_task_get(
-        r#"{"description":"implement proc macro for automatic touring trait derivation"}"#,
-    );
-    assert!(result.is_some(), "derive macro DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain derive-macro label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render DeriveMacro"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn derive_macro_task_get_hint_integration_task_get() {
@@ -12257,31 +5849,6 @@ fn derive_macro_task_get_hint_integration_task_get() {
 // ── R90-S1: maybe_cli_handler_hint_on_task_get ────────────────────────────
 
 #[test]
-fn cli_handler_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_cli_handler_hint_on_task_get("implement fuzzer for payload parsing").is_none()
-    );
-    assert!(super::maybe_cli_handler_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn cli_handler_task_get_hint_some_for_cli_dag() {
-    let result = super::maybe_cli_handler_hint_on_task_get(
-        r#"{"description":"add new subcommand to touring CLI for generate pipeline"}"#,
-    );
-    assert!(result.is_some(), "CLI DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("cli-handler:"),
-        "hint must contain cli-handler label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render CliHandler"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn cli_handler_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12298,32 +5865,6 @@ fn cli_handler_task_get_hint_integration_task_get() {
 }
 
 // ── R90-S2: maybe_hook_handler_hint_on_task_get ───────────────────────────
-
-#[test]
-fn hook_handler_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_hook_handler_hint_on_task_get("benchmark template engine performance")
-            .is_none()
-    );
-    assert!(super::maybe_hook_handler_hint_on_task_get("{}").is_none());
-}
-
-#[test]
-fn hook_handler_task_get_hint_some_for_hook_dag() {
-    let result = super::maybe_hook_handler_hint_on_task_get(
-        r#"{"description":"implement hook handler for pre-edit hook lifecycle event"}"#,
-    );
-    assert!(result.is_some(), "hook DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("hook-handler:"),
-        "hint must contain hook-handler label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render HookHandler"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn hook_handler_task_get_hint_integration_task_get() {
@@ -12344,29 +5885,6 @@ fn hook_handler_task_get_hint_integration_task_get() {
 // ── R90-S3: maybe_plan_md_hint_on_task_get ────────────────────────────────
 
 #[test]
-fn plan_md_task_get_hint_none_for_unrelated_dag() {
-    assert!(super::maybe_plan_md_hint_on_task_get("add shell completion for zsh").is_none());
-    assert!(super::maybe_plan_md_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn plan_md_task_get_hint_some_for_plan_dag() {
-    let result = super::maybe_plan_md_hint_on_task_get(
-        r#"{"description":"write implementation plan for multi-crate generator refactor"}"#,
-    );
-    assert!(result.is_some(), "plan DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("plan-md:"),
-        "hint must contain plan-md label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render PlanMd"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn plan_md_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12383,29 +5901,6 @@ fn plan_md_task_get_hint_integration_task_get() {
 }
 
 // ── R91-S1: maybe_test_hint_on_task_get ───────────────────────────────────
-
-#[test]
-fn test_task_get_hint_none_for_unrelated_dag() {
-    assert!(super::maybe_test_hint_on_task_get("implement ffi binding for sqlite").is_none());
-    assert!(super::maybe_test_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn test_task_get_hint_some_for_test_dag() {
-    let result = super::maybe_test_hint_on_task_get(
-        r#"{"description":"write tests for hook runtime session lifecycle integration"}"#,
-    );
-    assert!(result.is_some(), "test DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("test:"),
-        "hint must contain test label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Test"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn test_task_get_hint_integration_task_get() {
@@ -12426,32 +5921,6 @@ fn test_task_get_hint_integration_task_get() {
 // ── R91-S2: maybe_python_script_hint_on_task_get ──────────────────────────
 
 #[test]
-fn python_script_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_python_script_hint_on_task_get("add derive macro for trait implementation")
-            .is_none()
-    );
-    assert!(super::maybe_python_script_hint_on_task_get("{}").is_none());
-}
-
-#[test]
-fn python_script_task_get_hint_some_for_python_dag() {
-    let result = super::maybe_python_script_hint_on_task_get(
-        r#"{"description":"write python script for VGP batch symbol verification"}"#,
-    );
-    assert!(result.is_some(), "python DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must contain python-script label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render PythonScript"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn python_script_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12468,32 +5937,6 @@ fn python_script_task_get_hint_integration_task_get() {
 }
 
 // ── R91-S3: maybe_shell_completion_hint_on_task_get ───────────────────────
-
-#[test]
-fn shell_completion_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_shell_completion_hint_on_task_get("optimize wiring orphan detection")
-            .is_none()
-    );
-    assert!(super::maybe_shell_completion_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn shell_completion_task_get_hint_some_for_completion_dag() {
-    let result = super::maybe_shell_completion_hint_on_task_get(
-        r#"{"description":"generate bash completion script for touring CLI commands"}"#,
-    );
-    assert!(result.is_some(), "completion DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion:"),
-        "hint must contain shell-completion label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ShellCompletion"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn shell_completion_task_get_hint_integration_task_get() {
@@ -12514,31 +5957,6 @@ fn shell_completion_task_get_hint_integration_task_get() {
 // ── R92-S1: maybe_man_page_hint_on_task_get ───────────────────────────────
 
 #[test]
-fn man_page_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_man_page_hint_on_task_get("implement rust module for ast parsing").is_none()
-    );
-    assert!(super::maybe_man_page_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn man_page_task_get_hint_some_for_man_dag() {
-    let result = super::maybe_man_page_hint_on_task_get(
-        r#"{"description":"write manual page for touring CLI man section 1"}"#,
-    );
-    assert!(result.is_some(), "man page DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must contain man-page label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ManPage"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn man_page_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12555,32 +5973,6 @@ fn man_page_task_get_hint_integration_task_get() {
 }
 
 // ── R92-S2: maybe_error_catalog_hint_on_task_get ──────────────────────────
-
-#[test]
-fn error_catalog_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_error_catalog_hint_on_task_get("scaffold kubernetes manifest for daemon")
-            .is_none()
-    );
-    assert!(super::maybe_error_catalog_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn error_catalog_task_get_hint_some_for_error_dag() {
-    let result = super::maybe_error_catalog_hint_on_task_get(
-        r#"{"description":"define error catalog with all error codes for touring-hooks"}"#,
-    );
-    assert!(result.is_some(), "error catalog DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog:"),
-        "hint must contain error-catalog label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ErrorCatalog"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn error_catalog_task_get_hint_integration_task_get() {
@@ -12601,32 +5993,6 @@ fn error_catalog_task_get_hint_integration_task_get() {
 // ── R92-S3: maybe_incremental_patch_hint_on_task_get ──────────────────────
 
 #[test]
-fn incremental_patch_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_incremental_patch_hint_on_task_get("build openapi spec for touring server")
-            .is_none()
-    );
-    assert!(super::maybe_incremental_patch_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn incremental_patch_task_get_hint_some_for_patch_dag() {
-    let result = super::maybe_incremental_patch_hint_on_task_get(
-        r#"{"description":"apply patch file to upgrade schema migration for prod rollout"}"#,
-    );
-    assert!(result.is_some(), "patch DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("incremental-patch:"),
-        "hint must contain incremental-patch label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render IncrementalPatch"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn incremental_patch_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12643,32 +6009,6 @@ fn incremental_patch_task_get_hint_integration_task_get() {
 }
 
 // ── R93-S1: maybe_skill_document_hint_on_task_get ────────────────────────
-
-#[test]
-fn skill_document_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_skill_document_hint_on_task_get("implement error catalog for hook failures")
-            .is_none()
-    );
-    assert!(super::maybe_skill_document_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn skill_document_task_get_hint_some_for_skill_dag() {
-    let result = super::maybe_skill_document_hint_on_task_get(
-        r#"{"description":"create claude skill document for touring generator auto-invocation"}"#,
-    );
-    assert!(result.is_some(), "skill DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must contain skill-document label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render SkillDocument"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn skill_document_task_get_hint_integration_task_get() {
@@ -12689,32 +6029,6 @@ fn skill_document_task_get_hint_integration_task_get() {
 // ── R93-S2: maybe_diary_entry_hint_on_task_get ────────────────────────────
 
 #[test]
-fn diary_entry_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_diary_entry_hint_on_task_get("implement asyncapi spec for event bus")
-            .is_none()
-    );
-    assert!(super::maybe_diary_entry_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn diary_entry_task_get_hint_some_for_diary_dag() {
-    let result = super::maybe_diary_entry_hint_on_task_get(
-        r#"{"description":"write agent diary entry for TACO session lesson learned aaak entry"}"#,
-    );
-    assert!(result.is_some(), "diary DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain diary-entry label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render DiaryEntry"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn diary_entry_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12731,31 +6045,6 @@ fn diary_entry_task_get_hint_integration_task_get() {
 }
 
 // ── R93-S3: maybe_asyncapi_spec_hint_on_task_get ─────────────────────────
-
-#[test]
-fn asyncapi_spec_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_asyncapi_spec_hint_on_task_get("generate man page for touring CLI").is_none()
-    );
-    assert!(super::maybe_asyncapi_spec_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn asyncapi_spec_task_get_hint_some_for_async_dag() {
-    let result = super::maybe_asyncapi_spec_hint_on_task_get(
-        r#"{"description":"define asyncapi spec for event-driven kafka message broker api"}"#,
-    );
-    assert!(result.is_some(), "asyncapi DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("asyncapi-spec:"),
-        "hint must contain asyncapi-spec label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render AsyncApiSpec"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn asyncapi_spec_task_get_hint_integration_task_get() {
@@ -12776,32 +6065,6 @@ fn asyncapi_spec_task_get_hint_integration_task_get() {
 // ── R94-S1: maybe_ffi_binding_hint_on_task_get ────────────────────────────
 
 #[test]
-fn ffi_binding_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_ffi_binding_hint_on_task_get("scaffold asyncapi spec for kafka broker")
-            .is_none()
-    );
-    assert!(super::maybe_ffi_binding_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn ffi_binding_task_get_hint_some_for_ffi_dag() {
-    let result = super::maybe_ffi_binding_hint_on_task_get(
-        r#"{"description":"create ffi binding wrapper for sqlite unsafe extern c interop"}"#,
-    );
-    assert!(result.is_some(), "ffi DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must contain ffi-binding label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render FfiBinding"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn ffi_binding_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12818,32 +6081,6 @@ fn ffi_binding_task_get_hint_integration_task_get() {
 }
 
 // ── R94-S2: maybe_protobuf_schema_hint_on_task_get ────────────────────────
-
-#[test]
-fn protobuf_schema_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_protobuf_schema_hint_on_task_get("implement skill document for TACO agent")
-            .is_none()
-    );
-    assert!(super::maybe_protobuf_schema_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn protobuf_schema_task_get_hint_some_for_proto_dag() {
-    let result = super::maybe_protobuf_schema_hint_on_task_get(
-        r#"{"description":"define protobuf schema for grpc proto message service definition"}"#,
-    );
-    assert!(result.is_some(), "proto DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf-schema:"),
-        "hint must contain protobuf-schema label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ProtobufSchema"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn protobuf_schema_task_get_hint_integration_task_get() {
@@ -12865,32 +6102,6 @@ fn protobuf_schema_task_get_hint_integration_task_get() {
 // 30/30 GeneratorKind coverage for TaskGet — COMPLETE
 
 #[test]
-fn task_scaffold_task_get_hint_none_for_unrelated_dag() {
-    assert!(
-        super::maybe_task_scaffold_hint_on_task_get("implement ffi binding for native lib")
-            .is_none()
-    );
-    assert!(super::maybe_task_scaffold_hint_on_task_get("").is_none());
-}
-
-#[test]
-fn task_scaffold_task_get_hint_some_for_scaffold_dag() {
-    let result = super::maybe_task_scaffold_hint_on_task_get(
-        r#"{"description":"create taco scaffold for new decompose dag task boilerplate"}"#,
-    );
-    assert!(result.is_some(), "task scaffold DAG must produce hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must contain task-scaffold label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render TaskScaffold"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn task_scaffold_task_get_hint_integration_task_get() {
     let (_tmp, mut rt) = make_runtime();
     let task_id = create_intent_task(
@@ -12907,40 +6118,6 @@ fn task_scaffold_task_get_hint_integration_task_get() {
 }
 
 // ── R72-S1: maybe_benchmark_hint_on_task_list ─────────────────────────────
-
-#[test]
-fn benchmark_task_list_hint_none_for_unrelated_tasks() {
-    // R72-S1: task list with no performance markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "implement login", "status": "in_progress"}]}
-    });
-    let result = super::maybe_benchmark_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn benchmark_task_list_hint_some_for_criterion_task() {
-    // R72-S1: task with "criterion" in title → Some with Benchmark CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "add criterion benchmark for template engine", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_benchmark_hint_on_task_list(&input);
-    assert!(result.is_some(), "criterion task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Benchmark"),
-        "hint must reference Benchmark kind: {hint}"
-    );
-}
 
 #[test]
 fn benchmark_task_list_hint_integration_task_list() {
@@ -12961,40 +6138,6 @@ fn benchmark_task_list_hint_integration_task_list() {
 // ── R72-S2: maybe_terraform_hint_on_task_list ─────────────────────────────
 
 #[test]
-fn terraform_task_list_hint_none_for_unrelated_tasks() {
-    // R72-S2: task list with no IaC markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "write tests for auth", "status": "pending"}]}
-    });
-    let result = super::maybe_terraform_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn terraform_task_list_hint_some_for_iac_task() {
-    // R72-S2: task with "terraform" in description → Some with TerraformModule CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "create terraform module for vpc", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_terraform_hint_on_task_list(&input);
-    assert!(result.is_some(), "terraform task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TerraformModule"),
-        "hint must reference TerraformModule kind: {hint}"
-    );
-}
-
-#[test]
 fn terraform_task_list_hint_integration_task_list() {
     // R72-S2 integration: handle_task_sync_post_list with iac task → surfaces terraform hint
     let (_tmp, mut rt) = make_runtime();
@@ -13011,40 +6154,6 @@ fn terraform_task_list_hint_integration_task_list() {
 }
 
 // ── R72-S3: maybe_ci_workflow_hint_on_task_list ───────────────────────────
-
-#[test]
-fn ci_workflow_task_list_hint_none_for_unrelated_tasks() {
-    // R72-S3: task list with no CI/CD markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "refactor error handling", "status": "pending"}]}
-    });
-    let result = super::maybe_ci_workflow_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn ci_workflow_task_list_hint_some_for_github_actions_task() {
-    // R72-S3: task with "github actions" in title → Some with CiWorkflow CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "set up github actions pipeline for CI", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_ci_workflow_hint_on_task_list(&input);
-    assert!(result.is_some(), "ci task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CiWorkflow"),
-        "hint must reference CiWorkflow kind: {hint}"
-    );
-}
 
 #[test]
 fn ci_workflow_task_list_hint_integration_task_list() {
@@ -13065,38 +6174,6 @@ fn ci_workflow_task_list_hint_integration_task_list() {
 // ── R78-S1: maybe_rust_module_hint_on_task_list ───────────────────────────
 
 #[test]
-fn rust_module_task_list_hint_none_for_unrelated_tasks() {
-    // R78-S1: task list with no Rust module markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "deploy kubernetes ingress", "status": "in_progress"}]}
-    });
-    let result = super::maybe_rust_module_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn rust_module_task_list_hint_some_for_rust_module_task() {
-    // R78-S1: task with "rust module" in title → Some with RustModule CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "create rust module for wiring analysis", "status": "pending"}]}
-    });
-    let result = super::maybe_rust_module_hint_on_task_list(&input);
-    assert!(result.is_some(), "rust module task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("RustModule"),
-        "hint must reference RustModule kind: {hint}"
-    );
-}
-
-#[test]
 fn rust_module_task_list_hint_integration_task_list() {
     // R78-S1 integration: handle_task_sync_post_list with rust trait task → surfaces rust hint
     let (_tmp, mut rt) = make_runtime();
@@ -13113,38 +6190,6 @@ fn rust_module_task_list_hint_integration_task_list() {
 }
 
 // ── R78-S2: maybe_protobuf_hint_on_task_list ──────────────────────────────
-
-#[test]
-fn protobuf_task_list_hint_none_for_unrelated_tasks() {
-    // R78-S2: task list with no protobuf markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "refactor session handler", "status": "pending"}]}
-    });
-    let result = super::maybe_protobuf_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn protobuf_task_list_hint_some_for_grpc_task() {
-    // R78-S2: task with "grpc" in title → Some with ProtobufSchema CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "define grpc service for user api", "status": "in_progress"}]}
-    });
-    let result = super::maybe_protobuf_hint_on_task_list(&input);
-    assert!(result.is_some(), "grpc task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ProtobufSchema"),
-        "hint must reference ProtobufSchema kind: {hint}"
-    );
-}
 
 #[test]
 fn protobuf_task_list_hint_integration_task_list() {
@@ -13165,38 +6210,6 @@ fn protobuf_task_list_hint_integration_task_list() {
 // ── R78-S3: maybe_derive_macro_hint_on_task_list ──────────────────────────
 
 #[test]
-fn derive_macro_task_list_hint_none_for_unrelated_tasks() {
-    // R78-S3: task list with no derive macro markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "add E2E tests for session module", "status": "pending"}]}
-    });
-    let result = super::maybe_derive_macro_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn derive_macro_task_list_hint_some_for_proc_macro_task() {
-    // R78-S3: task with "proc macro" in title → Some with DeriveMacro CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "implement proc macro for serde derive", "status": "in_progress"}]}
-    });
-    let result = super::maybe_derive_macro_hint_on_task_list(&input);
-    assert!(result.is_some(), "proc macro task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DeriveMacro"),
-        "hint must reference DeriveMacro kind: {hint}"
-    );
-}
-
-#[test]
 fn derive_macro_task_list_hint_integration_task_list() {
     // R78-S3 integration: handle_task_sync_post_list with derive macro task → surfaces derive hint
     let (_tmp, mut rt) = make_runtime();
@@ -13213,38 +6226,6 @@ fn derive_macro_task_list_hint_integration_task_list() {
 }
 
 // ── R79-S1: maybe_fuzz_target_hint_on_task_list ───────────────────────────
-
-#[test]
-fn fuzz_target_task_list_hint_none_for_unrelated_tasks() {
-    // R79-S1: task list with no fuzzing markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "add REST endpoint for user login", "status": "pending"}]}
-    });
-    let result = super::maybe_fuzz_target_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn fuzz_target_task_list_hint_some_for_fuzzing_task() {
-    // R79-S1: task with "fuzz target" in title → Some with FuzzTarget CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "create fuzz target for parser module", "status": "pending"}]}
-    });
-    let result = super::maybe_fuzz_target_hint_on_task_list(&input);
-    assert!(result.is_some(), "fuzz target task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FuzzTarget"),
-        "hint must reference FuzzTarget kind: {hint}"
-    );
-}
 
 #[test]
 fn fuzz_target_task_list_hint_integration_task_list() {
@@ -13265,38 +6246,6 @@ fn fuzz_target_task_list_hint_integration_task_list() {
 // ── R79-S2: maybe_migration_hint_on_task_list ─────────────────────────────
 
 #[test]
-fn migration_task_list_hint_none_for_unrelated_tasks() {
-    // R79-S2: task list with no migration markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "refactor wiring module logic", "status": "pending"}]}
-    });
-    let result = super::maybe_migration_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn migration_task_list_hint_some_for_db_migration_task() {
-    // R79-S2: task with "db migration" in title → Some with Migration CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "write db migration for sessions table", "status": "in_progress"}]}
-    });
-    let result = super::maybe_migration_hint_on_task_list(&input);
-    assert!(result.is_some(), "migration task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Migration"),
-        "hint must reference Migration kind: {hint}"
-    );
-}
-
-#[test]
 fn migration_task_list_hint_integration_task_list() {
     // R79-S2 integration: handle_task_sync_post_list with alter table task → surfaces migration hint
     let (_tmp, mut rt) = make_runtime();
@@ -13313,35 +6262,6 @@ fn migration_task_list_hint_integration_task_list() {
 }
 
 // ── R79-S3: maybe_schema_hint_on_task_list ────────────────────────────────
-
-#[test]
-fn schema_task_list_hint_none_for_unrelated_tasks() {
-    // R79-S3: task list with no schema markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "implement session lifecycle hook", "status": "pending"}]}
-    });
-    let result = super::maybe_schema_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn schema_task_list_hint_some_for_json_schema_task() {
-    // R79-S3: task with "json schema" in title → Some with Schema CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "define json schema for generator plan input", "status": "in_progress"}]}
-    });
-    let result = super::maybe_schema_hint_on_task_list(&input);
-    assert!(result.is_some(), "json schema task must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("schema:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Schema"),
-        "hint must reference Schema kind: {hint}"
-    );
-}
 
 #[test]
 fn schema_task_list_hint_integration_task_list() {
@@ -13362,38 +6282,6 @@ fn schema_task_list_hint_integration_task_list() {
 // ── R81-S1: maybe_changelog_hint_on_task_list ─────────────────────────────
 
 #[test]
-fn changelog_task_list_hint_none_for_unrelated_tasks() {
-    // R81-S1: task list with no release markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "refactor auth module", "status": "pending"}]}
-    });
-    let result = super::maybe_changelog_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn changelog_task_list_hint_some_for_release_task() {
-    // R81-S1: task with "changelog" in title → Some with ChangelogEntry CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "write changelog for v3.0 release notes", "status": "in_progress"}]}
-    });
-    let result = super::maybe_changelog_hint_on_task_list(&input);
-    assert!(result.is_some(), "changelog task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ChangelogEntry"),
-        "hint must reference ChangelogEntry kind: {hint}"
-    );
-}
-
-#[test]
 fn changelog_task_list_hint_integration_task_list() {
     // R81-S1 integration: handle_task_sync_post_list with semver task → surfaces changelog hint
     let (_tmp, mut rt) = make_runtime();
@@ -13410,38 +6298,6 @@ fn changelog_task_list_hint_integration_task_list() {
 }
 
 // ── R81-S2: maybe_dockerfile_hint_on_task_list ────────────────────────────
-
-#[test]
-fn dockerfile_task_list_hint_none_for_unrelated_tasks() {
-    // R81-S2: task list with no Docker markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "implement unit tests for wiring", "status": "pending"}]}
-    });
-    let result = super::maybe_dockerfile_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn dockerfile_task_list_hint_some_for_docker_task() {
-    // R81-S2: task with "dockerfile" in title → Some with Dockerfile CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "create dockerfile for touring-server service", "status": "in_progress"}]}
-    });
-    let result = super::maybe_dockerfile_hint_on_task_list(&input);
-    assert!(result.is_some(), "dockerfile task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Dockerfile"),
-        "hint must reference Dockerfile kind: {hint}"
-    );
-}
 
 #[test]
 fn dockerfile_task_list_hint_integration_task_list() {
@@ -13462,38 +6318,6 @@ fn dockerfile_task_list_hint_integration_task_list() {
 // ── R81-S3: maybe_k8s_hint_on_task_list ──────────────────────────────────
 
 #[test]
-fn k8s_task_list_hint_none_for_unrelated_tasks() {
-    // R81-S3: task list with no K8s markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "add benchmarks for SIMD path", "status": "pending"}]}
-    });
-    let result = super::maybe_k8s_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn k8s_task_list_hint_some_for_kubernetes_task() {
-    // R81-S3: task with "kubernetes" in title → Some with K8sManifest CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "deploy kubernetes service for api gateway", "status": "in_progress"}]}
-    });
-    let result = super::maybe_k8s_hint_on_task_list(&input);
-    assert!(result.is_some(), "k8s task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("k8s-manifest:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("K8sManifest"),
-        "hint must reference K8sManifest kind: {hint}"
-    );
-}
-
-#[test]
 fn k8s_task_list_hint_integration_task_list() {
     // R81-S3 integration: handle_task_sync_post_list with helm chart task → surfaces k8s hint
     let (_tmp, mut rt) = make_runtime();
@@ -13510,38 +6334,6 @@ fn k8s_task_list_hint_integration_task_list() {
 }
 
 // ── R82-S1: maybe_asyncapi_hint_on_task_list ──────────────────────────────
-
-#[test]
-fn asyncapi_task_list_hint_none_for_unrelated_tasks() {
-    // R82-S1: task list with no event-driven markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "add benchmarks for wiring module", "status": "pending"}]}
-    });
-    let result = super::maybe_asyncapi_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn asyncapi_task_list_hint_some_for_kafka_task() {
-    // R82-S1: task with "kafka" in title → Some with AsyncApiSpec CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "define kafka event-driven messaging contract", "status": "in_progress"}]}
-    });
-    let result = super::maybe_asyncapi_hint_on_task_list(&input);
-    assert!(result.is_some(), "kafka task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("asyncapi:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("AsyncApiSpec"),
-        "hint must reference AsyncApiSpec kind: {hint}"
-    );
-}
 
 #[test]
 fn asyncapi_task_list_hint_integration_task_list() {
@@ -13562,38 +6354,6 @@ fn asyncapi_task_list_hint_integration_task_list() {
 // ── R82-S2: maybe_consumer_hint_on_task_list ──────────────────────────────
 
 #[test]
-fn consumer_task_list_hint_none_for_unrelated_tasks() {
-    // R82-S2: task list with no consumer/orphan markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "implement session lifecycle hooks", "status": "pending"}]}
-    });
-    let result = super::maybe_consumer_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn consumer_task_list_hint_some_for_wiring_gap_task() {
-    // R82-S2: task with "wire orphan" in title → Some with ConsumerGenerator CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "wire orphan symbol from lifecycle module", "status": "in_progress"}]}
-    });
-    let result = super::maybe_consumer_hint_on_task_list(&input);
-    assert!(result.is_some(), "wiring gap task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("consumer:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "hint must reference ConsumerGenerator kind: {hint}"
-    );
-}
-
-#[test]
 fn consumer_task_list_hint_integration_task_list() {
     // R82-S2 integration: handle_task_sync_post_list with integration bridge task → surfaces consumer hint
     let (_tmp, mut rt) = make_runtime();
@@ -13610,38 +6370,6 @@ fn consumer_task_list_hint_integration_task_list() {
 }
 
 // ── R82-S3: maybe_task_scaffold_hint_on_task_list ─────────────────────────
-
-#[test]
-fn task_scaffold_task_list_hint_none_for_unrelated_tasks() {
-    // R82-S3: task list with no task scaffold markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "add E2E tests for tantivy module", "status": "pending"}]}
-    });
-    let result = super::maybe_task_scaffold_hint_on_task_list(&input);
-    assert!(
-        result.is_none(),
-        "unrelated tasks must return None: {result:?}"
-    );
-}
-
-#[test]
-fn task_scaffold_task_list_hint_some_for_dag_task() {
-    // R82-S3: task with "task scaffold" in title → Some with TaskScaffold CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [{"title": "create task scaffold for new feature dag", "status": "in_progress"}]}
-    });
-    let result = super::maybe_task_scaffold_hint_on_task_list(&input);
-    assert!(result.is_some(), "task scaffold task must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TaskScaffold"),
-        "hint must reference TaskScaffold kind: {hint}"
-    );
-}
 
 #[test]
 fn task_scaffold_task_list_hint_integration_task_list() {
@@ -13662,39 +6390,6 @@ fn task_scaffold_task_list_hint_integration_task_list() {
 // ── R83-S1: maybe_man_page_hint_on_task_list ──────────────────────────────
 
 #[test]
-fn man_page_task_list_hint_none_for_unrelated_tasks() {
-    // R83-S1: task list with no man-page markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "implement REST endpoint for user auth", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_man_page_hint_on_task_list(&input).is_none());
-    assert!(super::maybe_man_page_hint_on_task_list(&serde_json::json!({"tasks": []})).is_none());
-}
-
-#[test]
-fn man_page_task_list_hint_some_for_man_page_task() {
-    // R83-S1: task with "man page" in title → Some with ManPage CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write man page for touring CLI", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_man_page_hint_on_task_list(&input);
-    assert!(result.is_some(), "man page task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must contain man-page label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ManPage"),
-        "hint must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn man_page_task_list_hint_integration_task_list() {
     // R83-S1 integration: handle_task_sync_post_list with man page task → surfaces man_page hint
     let (_tmp, mut rt) = make_runtime();
@@ -13711,42 +6406,6 @@ fn man_page_task_list_hint_integration_task_list() {
 }
 
 // ── R83-S2: maybe_incremental_patch_hint_on_task_list ─────────────────────
-
-#[test]
-fn incremental_patch_task_list_hint_none_for_unrelated_tasks() {
-    // R83-S2: task list with no patch markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "add integration tests for auth module", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_incremental_patch_hint_on_task_list(&input).is_none());
-    assert!(
-        super::maybe_incremental_patch_hint_on_task_list(&serde_json::json!({"result": {}}))
-            .is_none()
-    );
-}
-
-#[test]
-fn incremental_patch_task_list_hint_some_for_patch_task() {
-    // R83-S2: task with "incremental patch" in title → Some with IncrementalPatch CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "apply incremental patch for config migration hotfix", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_incremental_patch_hint_on_task_list(&input);
-    assert!(result.is_some(), "patch task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("incremental-patch:"),
-        "hint must contain incremental-patch label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render IncrementalPatch"),
-        "hint must contain CLI: {hint}"
-    );
-}
 
 #[test]
 fn incremental_patch_task_list_hint_integration_task_list() {
@@ -13767,39 +6426,6 @@ fn incremental_patch_task_list_hint_integration_task_list() {
 // ── R83-S3: maybe_skill_document_hint_on_task_list ────────────────────────
 
 #[test]
-fn skill_document_task_list_hint_none_for_unrelated_tasks() {
-    // R83-S3: task list with no skill-doc markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "fix clippy warnings in touring-hooks", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_skill_document_hint_on_task_list(&input).is_none());
-    assert!(super::maybe_skill_document_hint_on_task_list(&serde_json::Value::Null).is_none());
-}
-
-#[test]
-fn skill_document_task_list_hint_some_for_skill_task() {
-    // R83-S3: task with "skill document" in title → Some with SkillDocument CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write skill document for touring-generator auto-invocation", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_skill_document_hint_on_task_list(&input);
-    assert!(result.is_some(), "skill doc task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must contain skill-document label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render SkillDocument"),
-        "hint must contain CLI: {hint}"
-    );
-}
-
-#[test]
 fn skill_document_task_list_hint_integration_task_list() {
     // R83-S3 integration: handle_task_sync_post_list with skill.md task → surfaces skill_document hint
     let (_tmp, mut rt) = make_runtime();
@@ -13816,41 +6442,6 @@ fn skill_document_task_list_hint_integration_task_list() {
 }
 
 // ── R84-S1: maybe_cli_handler_hint_on_task_list ───────────────────────────
-
-#[test]
-fn cli_handler_task_list_hint_none_for_unrelated_tasks() {
-    // R84-S1: task list with no CLI markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write unit tests for database layer", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_cli_handler_hint_on_task_list(&input).is_none());
-    assert!(
-        super::maybe_cli_handler_hint_on_task_list(&serde_json::json!({"tasks": []})).is_none()
-    );
-}
-
-#[test]
-fn cli_handler_task_list_hint_some_for_cli_task() {
-    // R84-S1: task with "subcommand" in title → Some with CliHandler CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "add new subcommand for touring generate pipeline", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_cli_handler_hint_on_task_list(&input);
-    assert!(result.is_some(), "cli task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("cli-handler:"),
-        "hint must contain cli-handler label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render CliHandler"),
-        "hint must contain CLI command: {hint}"
-    );
-}
 
 #[test]
 fn cli_handler_task_list_hint_integration_task_list() {
@@ -13871,39 +6462,6 @@ fn cli_handler_task_list_hint_integration_task_list() {
 // ── R84-S2: maybe_mcp_tool_hint_on_task_list ──────────────────────────────
 
 #[test]
-fn mcp_tool_task_list_hint_none_for_unrelated_tasks() {
-    // R84-S2: task list with no MCP markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "refactor error handling in analysis pipeline", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_mcp_tool_hint_on_task_list(&input).is_none());
-    assert!(super::maybe_mcp_tool_hint_on_task_list(&serde_json::Value::Null).is_none());
-}
-
-#[test]
-fn mcp_tool_task_list_hint_some_for_mcp_task() {
-    // R84-S2: task with "mcp tool" in title → Some with McpTool CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "implement mcp tool for wiring audit integration", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_mcp_tool_hint_on_task_list(&input);
-    assert!(result.is_some(), "mcp task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcp-tool:"),
-        "hint must contain mcp-tool label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render McpTool"),
-        "hint must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn mcp_tool_task_list_hint_integration_task_list() {
     // R84-S2 integration: handle_task_sync_post_list with MCP task → surfaces mcp_tool hint
     let (_tmp, mut rt) = make_runtime();
@@ -13922,41 +6480,6 @@ fn mcp_tool_task_list_hint_integration_task_list() {
 // ── R84-S3: maybe_hook_handler_hint_on_task_list ──────────────────────────
 
 #[test]
-fn hook_handler_task_list_hint_none_for_unrelated_tasks() {
-    // R84-S3: task list with no hook markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "optimize tantivy index rebuild performance", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_hook_handler_hint_on_task_list(&input).is_none());
-    assert!(
-        super::maybe_hook_handler_hint_on_task_list(&serde_json::json!({"result": {}})).is_none()
-    );
-}
-
-#[test]
-fn hook_handler_task_list_hint_some_for_hook_task() {
-    // R84-S3: task with "hook handler" in title → Some with HookHandler CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "implement hook handler for post-edit lifecycle event", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_hook_handler_hint_on_task_list(&input);
-    assert!(result.is_some(), "hook task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("hook-handler:"),
-        "hint must contain hook-handler label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render HookHandler"),
-        "hint must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn hook_handler_task_list_hint_integration_task_list() {
     // R84-S3 integration: handle_task_sync_post_list with hook event task → surfaces hook_handler hint
     let (_tmp, mut rt) = make_runtime();
@@ -13973,39 +6496,6 @@ fn hook_handler_task_list_hint_integration_task_list() {
 }
 
 // ── R85-S1: maybe_plan_md_hint_on_task_list ───────────────────────────────
-
-#[test]
-fn plan_md_task_list_hint_none_for_unrelated_tasks() {
-    // R85-S1: task list with no plan markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "optimize SIMD matrix multiply loop unrolling", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_plan_md_hint_on_task_list(&input).is_none());
-    assert!(super::maybe_plan_md_hint_on_task_list(&serde_json::json!({"result": {}})).is_none());
-}
-
-#[test]
-fn plan_md_task_list_hint_some_for_plan_task() {
-    // R85-S1: task with "implementation plan" in title → Some with PlanMd CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write implementation plan for generator integration", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_plan_md_hint_on_task_list(&input);
-    assert!(result.is_some(), "plan task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("plan-md:"),
-        "hint must contain plan-md label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render PlanMd"),
-        "hint must contain CLI command: {hint}"
-    );
-}
 
 #[test]
 fn plan_md_task_list_hint_integration_task_list() {
@@ -14035,39 +6525,6 @@ fn plan_md_task_list_hint_integration_task_list() {
 // ── R85-S2: maybe_test_hint_on_task_list ──────────────────────────────────
 
 #[test]
-fn test_task_list_hint_none_for_unrelated_tasks() {
-    // R85-S2: task list with no test markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "add memory store tier for semantic entries", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_test_hint_on_task_list(&input).is_none());
-    assert!(super::maybe_test_hint_on_task_list(&serde_json::Value::Null).is_none());
-}
-
-#[test]
-fn test_task_list_hint_some_for_test_task() {
-    // R85-S2: task with "write tests" in title → Some with Test CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write tests for the lifecycle.rs handler functions", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_test_hint_on_task_list(&input);
-    assert!(result.is_some(), "test task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("test:"),
-        "hint must contain test label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render Test"),
-        "hint must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn test_task_list_hint_integration_task_list() {
     // R85-S2 integration: handle_task_sync_post_list with test coverage task → surfaces test hint
     let (_tmp, mut rt) = make_runtime();
@@ -14084,41 +6541,6 @@ fn test_task_list_hint_integration_task_list() {
 }
 
 // ── R85-S3: maybe_python_script_hint_on_task_list ─────────────────────────
-
-#[test]
-fn python_script_task_list_hint_none_for_unrelated_tasks() {
-    // R85-S3: task list with no Python markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "implement Rust async runtime for job spawning", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_python_script_hint_on_task_list(&input).is_none());
-    assert!(
-        super::maybe_python_script_hint_on_task_list(&serde_json::json!({"tasks": []})).is_none()
-    );
-}
-
-#[test]
-fn python_script_task_list_hint_some_for_python_task() {
-    // R85-S3: task with "python script" in title → Some with PythonScript CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write python script for VGP batch verification", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_python_script_hint_on_task_list(&input);
-    assert!(result.is_some(), "python task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must contain python-script label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render PythonScript"),
-        "hint must contain CLI command: {hint}"
-    );
-}
 
 #[test]
 fn python_script_task_list_hint_integration_task_list() {
@@ -14139,39 +6561,6 @@ fn python_script_task_list_hint_integration_task_list() {
 // ── R86-S1: maybe_ffi_binding_hint_on_task_list ───────────────────────────
 
 #[test]
-fn ffi_binding_task_list_hint_none_for_unrelated_tasks() {
-    // R86-S1: task list with no FFI markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "implement async retry logic for daemon queries", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_ffi_binding_hint_on_task_list(&input).is_none());
-    assert!(super::maybe_ffi_binding_hint_on_task_list(&serde_json::Value::Null).is_none());
-}
-
-#[test]
-fn ffi_binding_task_list_hint_some_for_ffi_task() {
-    // R86-S1: task with "ffi binding" in title → Some with FfiBinding CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "create ffi binding for libsqlite native interface", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_ffi_binding_hint_on_task_list(&input);
-    assert!(result.is_some(), "ffi task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must contain ffi-binding label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render FfiBinding"),
-        "hint must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn ffi_binding_task_list_hint_integration_task_list() {
     // R86-S1 integration: handle_task_sync_post_list with C interop task → surfaces ffi_binding hint
     let (_tmp, mut rt) = make_runtime();
@@ -14190,42 +6579,6 @@ fn ffi_binding_task_list_hint_integration_task_list() {
 // ── R86-S2: maybe_shell_completion_hint_on_task_list ─────────────────────
 
 #[test]
-fn shell_completion_task_list_hint_none_for_unrelated_tasks() {
-    // R86-S2: task list with no completion markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "add wiring score tracking for module analytics", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_shell_completion_hint_on_task_list(&input).is_none());
-    assert!(
-        super::maybe_shell_completion_hint_on_task_list(&serde_json::json!({"tasks": []}))
-            .is_none()
-    );
-}
-
-#[test]
-fn shell_completion_task_list_hint_some_for_completion_task() {
-    // R86-S2: task with "bash completion" in title → Some with ShellCompletion CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "generate bash completion script for touring CLI", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_shell_completion_hint_on_task_list(&input);
-    assert!(result.is_some(), "completion task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion:"),
-        "hint must contain shell-completion label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render ShellCompletion"),
-        "hint must contain CLI command: {hint}"
-    );
-}
-
-#[test]
 fn shell_completion_task_list_hint_integration_task_list() {
     // R86-S2 integration: handle_task_sync_post_list with shell completion task → surfaces shell_completion hint
     let (_tmp, mut rt) = make_runtime();
@@ -14242,41 +6595,6 @@ fn shell_completion_task_list_hint_integration_task_list() {
 }
 
 // ── R86-S3: maybe_diary_entry_hint_on_task_list ───────────────────────────
-
-#[test]
-fn diary_entry_task_list_hint_none_for_unrelated_tasks() {
-    // R86-S3: task list with no diary markers → None
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "implement tantivy BM25 ranking for symbol search", "status": "pending"}
-        ]}
-    });
-    assert!(super::maybe_diary_entry_hint_on_task_list(&input).is_none());
-    assert!(
-        super::maybe_diary_entry_hint_on_task_list(&serde_json::json!({"result": {}})).is_none()
-    );
-}
-
-#[test]
-fn diary_entry_task_list_hint_some_for_diary_task() {
-    // R86-S3: task with "diary entry" in title → Some with DiaryEntry CLI hint
-    let input = serde_json::json!({
-        "tool_result": {"tasks": [
-            {"title": "write diary entry for architect agent phase completion", "status": "pending"}
-        ]}
-    });
-    let result = super::maybe_diary_entry_hint_on_task_list(&input);
-    assert!(result.is_some(), "diary task must produce Some hint");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain diary-entry label: {hint}"
-    );
-    assert!(
-        hint.contains("touring generate render DiaryEntry"),
-        "hint must contain CLI command: {hint}"
-    );
-}
 
 #[test]
 fn diary_entry_task_list_hint_integration_task_list() {
@@ -14300,7 +6618,7 @@ fn diary_entry_task_list_hint_integration_task_list() {
 #[test]
 fn changelog_task_create_hint_none_for_unrelated_subject() {
     // R73-S1: subject with no release markers → None
-    let result = super::maybe_changelog_hint_on_task_create("refactor auth module");
+    let result = generator_hints::maybe_changelog_hint_on_task_create("refactor auth module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14311,7 +6629,7 @@ fn changelog_task_create_hint_none_for_unrelated_subject() {
 fn changelog_task_create_hint_some_for_release_subject() {
     // R73-S1: "changelog" in subject → Some with ChangelogEntry CLI hint
     let result =
-        super::maybe_changelog_hint_on_task_create("write changelog for v2.1.0 release notes");
+        generator_hints::maybe_changelog_hint_on_task_create("write changelog for v2.1.0 release notes");
     assert!(result.is_some(), "changelog subject must return Some");
     let hint = result.unwrap();
     assert!(
@@ -14343,7 +6661,7 @@ fn changelog_task_create_hint_integration_task_create() {
 #[test]
 fn dockerfile_task_create_hint_none_for_unrelated_subject() {
     // R73-S2: subject with no container markers → None
-    let result = super::maybe_dockerfile_hint_on_task_create("implement REST endpoint");
+    let result = generator_hints::maybe_dockerfile_hint_on_task_create("implement REST endpoint");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14353,7 +6671,7 @@ fn dockerfile_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn dockerfile_task_create_hint_some_for_docker_subject() {
     // R73-S2: "dockerfile" in subject → Some with Dockerfile CLI hint
-    let result = super::maybe_dockerfile_hint_on_task_create("create dockerfile for api service");
+    let result = generator_hints::maybe_dockerfile_hint_on_task_create("create dockerfile for api service");
     assert!(result.is_some(), "dockerfile subject must return Some");
     let hint = result.unwrap();
     assert!(
@@ -14385,7 +6703,7 @@ fn dockerfile_task_create_hint_integration_task_create() {
 #[test]
 fn migration_task_create_hint_none_for_unrelated_subject() {
     // R73-S3: subject with no DB migration markers → None
-    let result = super::maybe_migration_hint_on_task_create("add unit tests for wiring module");
+    let result = generator_hints::maybe_migration_hint_on_task_create("add unit tests for wiring module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14395,7 +6713,7 @@ fn migration_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn migration_task_create_hint_some_for_db_migration_subject() {
     // R73-S3: "db migration" in subject → Some with Migration CLI hint
-    let result = super::maybe_migration_hint_on_task_create(
+    let result = generator_hints::maybe_migration_hint_on_task_create(
         "write db migration for user profile schema change",
     );
     assert!(result.is_some(), "migration subject must return Some");
@@ -14429,7 +6747,7 @@ fn migration_task_create_hint_integration_task_create() {
 #[test]
 fn python_script_task_create_hint_none_for_unrelated_subject() {
     // R74-S1: subject with no python markers → None
-    let result = super::maybe_python_script_hint_on_task_create("implement REST endpoint in Rust");
+    let result = generator_hints::maybe_python_script_hint_on_task_create("implement REST endpoint in Rust");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14440,7 +6758,7 @@ fn python_script_task_create_hint_none_for_unrelated_subject() {
 fn python_script_task_create_hint_some_for_python_subject() {
     // R74-S1: "python script" in subject → Some with PythonScript CLI hint
     let result =
-        super::maybe_python_script_hint_on_task_create("write python script for data ingestion");
+        generator_hints::maybe_python_script_hint_on_task_create("write python script for data ingestion");
     assert!(result.is_some(), "python subject must return Some");
     let hint = result.unwrap();
     assert!(hint.contains("python:"), "hint must contain label: {hint}");
@@ -14469,7 +6787,7 @@ fn python_script_task_create_hint_integration_task_create() {
 #[test]
 fn test_hint_task_create_hint_none_for_unrelated_subject() {
     // R74-S2: subject with no testing markers → None
-    let result = super::maybe_test_hint_on_task_create("implement new feature for wiring module");
+    let result = generator_hints::maybe_test_hint_on_task_create("implement new feature for wiring module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14479,7 +6797,7 @@ fn test_hint_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn test_hint_task_create_hint_some_for_test_subject() {
     // R74-S2: "unit test" in subject → Some with Test CLI hint
-    let result = super::maybe_test_hint_on_task_create("add unit test for lifecycle handler");
+    let result = generator_hints::maybe_test_hint_on_task_create("add unit test for lifecycle handler");
     assert!(result.is_some(), "test subject must return Some");
     let hint = result.unwrap();
     assert!(hint.contains("test:"), "hint must contain label: {hint}");
@@ -14508,7 +6826,7 @@ fn test_hint_task_create_hint_integration_task_create() {
 #[test]
 fn shell_completion_task_create_hint_none_for_unrelated_subject() {
     // R74-S3: subject with no completion markers → None
-    let result = super::maybe_shell_completion_hint_on_task_create("add benchmark for VGP engine");
+    let result = generator_hints::maybe_shell_completion_hint_on_task_create("add benchmark for VGP engine");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14519,7 +6837,7 @@ fn shell_completion_task_create_hint_none_for_unrelated_subject() {
 fn shell_completion_task_create_hint_some_for_completion_subject() {
     // R74-S3: "bash completion" in subject → Some with ShellCompletion CLI hint
     let result =
-        super::maybe_shell_completion_hint_on_task_create("add bash completion for touring CLI");
+        generator_hints::maybe_shell_completion_hint_on_task_create("add bash completion for touring CLI");
     assert!(
         result.is_some(),
         "shell completion subject must return Some"
@@ -14554,7 +6872,7 @@ fn shell_completion_task_create_hint_integration_task_create() {
 #[test]
 fn hook_handler_task_create_hint_none_for_unrelated_subject() {
     // R75-S1: subject with no hook lifecycle markers → None
-    let result = super::maybe_hook_handler_hint_on_task_create("implement REST endpoint");
+    let result = generator_hints::maybe_hook_handler_hint_on_task_create("implement REST endpoint");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14564,7 +6882,7 @@ fn hook_handler_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn hook_handler_task_create_hint_some_for_hook_subject() {
     // R75-S1: "hook handler" in subject → Some with HookHandler CLI hint
-    let result = super::maybe_hook_handler_hint_on_task_create(
+    let result = generator_hints::maybe_hook_handler_hint_on_task_create(
         "implement hook handler for pre-edit hook event",
     );
     assert!(result.is_some(), "hook subject must return Some");
@@ -14598,7 +6916,7 @@ fn hook_handler_task_create_hint_integration_task_create() {
 #[test]
 fn plan_md_task_create_hint_none_for_unrelated_subject() {
     // R75-S2: subject with no planning markers → None
-    let result = super::maybe_plan_md_hint_on_task_create("add bash completion for touring CLI");
+    let result = generator_hints::maybe_plan_md_hint_on_task_create("add bash completion for touring CLI");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14609,7 +6927,7 @@ fn plan_md_task_create_hint_none_for_unrelated_subject() {
 fn plan_md_task_create_hint_some_for_plan_subject() {
     // R75-S2: "implementation plan" in subject → Some with PlanMd CLI hint
     let result =
-        super::maybe_plan_md_hint_on_task_create("write implementation plan for new auth module");
+        generator_hints::maybe_plan_md_hint_on_task_create("write implementation plan for new auth module");
     assert!(result.is_some(), "plan subject must return Some");
     let hint = result.unwrap();
     assert!(hint.contains("plan-md:"), "hint must contain label: {hint}");
@@ -14638,7 +6956,7 @@ fn plan_md_task_create_hint_integration_task_create() {
 #[test]
 fn ffi_binding_task_create_hint_none_for_unrelated_subject() {
     // R75-S3: subject with no FFI markers → None
-    let result = super::maybe_ffi_binding_hint_on_task_create("add unit test for wiring module");
+    let result = generator_hints::maybe_ffi_binding_hint_on_task_create("add unit test for wiring module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -14649,7 +6967,7 @@ fn ffi_binding_task_create_hint_none_for_unrelated_subject() {
 fn ffi_binding_task_create_hint_some_for_ffi_subject() {
     // R75-S3: "ffi binding" in subject → Some with FfiBinding CLI hint
     let result =
-        super::maybe_ffi_binding_hint_on_task_create("create ffi binding for libssl c interop");
+        generator_hints::maybe_ffi_binding_hint_on_task_create("create ffi binding for libssl c interop");
     assert!(result.is_some(), "ffi subject must return Some");
     let hint = result.unwrap();
     assert!(
@@ -14679,28 +6997,6 @@ fn ffi_binding_task_create_hint_integration_task_create() {
 // ── R118-S1: maybe_rust_module_hint_on_task_update ───────────────────────
 
 #[test]
-fn rust_module_task_update_hint_none_for_empty() {
-    assert!(super::maybe_rust_module_hint_on_task_update("").is_none());
-    assert!(super::maybe_rust_module_hint_on_task_update("deploy container image").is_none());
-}
-
-#[test]
-fn rust_module_task_update_hint_some_for_rust_keywords() {
-    let result =
-        super::maybe_rust_module_hint_on_task_update("implement rust module with rust struct");
-    assert!(result.is_some(), "rust subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("rust-module:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("RustModule"),
-        "hint must reference RustModule kind: {hint}"
-    );
-}
-
-#[test]
 fn rust_module_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-rust", "status": "in_progress", "task_subject": "implement rust crate module"});
@@ -14712,28 +7008,6 @@ fn rust_module_task_update_hint_integration() {
 }
 
 // ── R118-S2: maybe_cli_handler_hint_on_task_update ──────────────────────
-
-#[test]
-fn cli_handler_task_update_hint_none_for_empty() {
-    assert!(super::maybe_cli_handler_hint_on_task_update("").is_none());
-    assert!(super::maybe_cli_handler_hint_on_task_update("write diary entry for agent").is_none());
-}
-
-#[test]
-fn cli_handler_task_update_hint_some_for_cli_keywords() {
-    let result =
-        super::maybe_cli_handler_hint_on_task_update("build cli command with clap subcommand");
-    assert!(result.is_some(), "cli subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("cli-handler:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CliHandler"),
-        "hint must reference CliHandler kind: {hint}"
-    );
-}
 
 #[test]
 fn cli_handler_task_update_hint_integration() {
@@ -14749,28 +7023,6 @@ fn cli_handler_task_update_hint_integration() {
 // ── R118-S3: maybe_mcp_tool_hint_on_task_update ─────────────────────────
 
 #[test]
-fn mcp_tool_task_update_hint_none_for_empty() {
-    assert!(super::maybe_mcp_tool_hint_on_task_update("").is_none());
-    assert!(super::maybe_mcp_tool_hint_on_task_update("run benchmark for throughput").is_none());
-}
-
-#[test]
-fn mcp_tool_task_update_hint_some_for_mcp_keywords() {
-    let result =
-        super::maybe_mcp_tool_hint_on_task_update("build mcp tool for mcp server endpoint");
-    assert!(result.is_some(), "mcp subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("mcp-tool:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("McpTool"),
-        "hint must reference McpTool kind: {hint}"
-    );
-}
-
-#[test]
 fn mcp_tool_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-mcp", "status": "in_progress", "task_subject": "create mcp tool definition for model context"});
@@ -14782,29 +7034,6 @@ fn mcp_tool_task_update_hint_integration() {
 }
 
 // ── R118-S4: maybe_hook_handler_hint_on_task_update ─────────────────────
-
-#[test]
-fn hook_handler_task_update_hint_none_for_empty() {
-    assert!(super::maybe_hook_handler_hint_on_task_update("").is_none());
-    assert!(super::maybe_hook_handler_hint_on_task_update("write changelog for release").is_none());
-}
-
-#[test]
-fn hook_handler_task_update_hint_some_for_hook_keywords() {
-    let result = super::maybe_hook_handler_hint_on_task_update(
-        "implement hook handler for claude code hook",
-    );
-    assert!(result.is_some(), "hook subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("hook-handler:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("HookHandler"),
-        "hint must reference HookHandler kind: {hint}"
-    );
-}
 
 #[test]
 fn hook_handler_task_update_hint_integration() {
@@ -14820,25 +7049,6 @@ fn hook_handler_task_update_hint_integration() {
 // ── R118-S5: maybe_plan_md_hint_on_task_update ──────────────────────────
 
 #[test]
-fn plan_md_task_update_hint_none_for_empty() {
-    assert!(super::maybe_plan_md_hint_on_task_update("").is_none());
-    assert!(super::maybe_plan_md_hint_on_task_update("fuzz test for parser").is_none());
-}
-
-#[test]
-fn plan_md_task_update_hint_some_for_plan_keywords() {
-    let result =
-        super::maybe_plan_md_hint_on_task_update("create project plan as planning document");
-    assert!(result.is_some(), "plan subject must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("plan-md:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("PlanMd"),
-        "hint must reference PlanMd kind: {hint}"
-    );
-}
-
-#[test]
 fn plan_md_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-plan", "status": "in_progress", "task_subject": "write roadmap plan as plan markdown"});
@@ -14850,25 +7060,6 @@ fn plan_md_task_update_hint_integration() {
 }
 
 // ── R118-S6: maybe_test_hint_on_task_update ──────────────────────────────
-
-#[test]
-fn test_task_update_hint_none_for_empty() {
-    assert!(super::maybe_test_hint_on_task_update("").is_none());
-    assert!(super::maybe_test_hint_on_task_update("deploy kubernetes pod").is_none());
-}
-
-#[test]
-fn test_task_update_hint_some_for_test_keywords() {
-    let result =
-        super::maybe_test_hint_on_task_update("write unit test for integration test suite");
-    assert!(result.is_some(), "test subject must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("test:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Test"),
-        "hint must reference Test kind: {hint}"
-    );
-}
 
 #[test]
 fn test_task_update_hint_integration() {
@@ -14884,30 +7075,6 @@ fn test_task_update_hint_integration() {
 // ── R118-S7: maybe_python_script_hint_on_task_update ─────────────────────
 
 #[test]
-fn python_script_task_update_hint_none_for_empty() {
-    assert!(super::maybe_python_script_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_python_script_hint_on_task_update("build terraform module for vpc").is_none()
-    );
-}
-
-#[test]
-fn python_script_task_update_hint_some_for_python_keywords() {
-    let result =
-        super::maybe_python_script_hint_on_task_update("write python script for python automation");
-    assert!(result.is_some(), "python subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("python-script:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("PythonScript"),
-        "hint must reference PythonScript kind: {hint}"
-    );
-}
-
-#[test]
 fn python_script_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-py", "status": "in_progress", "task_subject": "create python tool as python module"});
@@ -14919,27 +7086,6 @@ fn python_script_task_update_hint_integration() {
 }
 
 // ── R118-S8: maybe_schema_hint_on_task_update ────────────────────────────
-
-#[test]
-fn schema_task_update_hint_none_for_empty() {
-    assert!(super::maybe_schema_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_schema_hint_on_task_update("run ci workflow for release pipeline").is_none()
-    );
-}
-
-#[test]
-fn schema_task_update_hint_some_for_schema_keywords() {
-    let result =
-        super::maybe_schema_hint_on_task_update("design json schema for data schema validation");
-    assert!(result.is_some(), "schema subject must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("schema:"), "hint must contain label: {hint}");
-    assert!(
-        hint.contains("Schema"),
-        "hint must reference Schema kind: {hint}"
-    );
-}
 
 #[test]
 fn schema_task_update_hint_integration() {
@@ -14955,31 +7101,6 @@ fn schema_task_update_hint_integration() {
 // ── R118-S9: maybe_benchmark_hint_on_task_update ─────────────────────────
 
 #[test]
-fn benchmark_task_update_hint_none_for_empty() {
-    assert!(super::maybe_benchmark_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_benchmark_hint_on_task_update("write adr for architecture decision").is_none()
-    );
-}
-
-#[test]
-fn benchmark_task_update_hint_some_for_benchmark_keywords() {
-    let result = super::maybe_benchmark_hint_on_task_update(
-        "add benchmark with criterion for performance test",
-    );
-    assert!(result.is_some(), "benchmark subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("benchmark:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Benchmark"),
-        "hint must reference Benchmark kind: {hint}"
-    );
-}
-
-#[test]
 fn benchmark_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-bench", "status": "in_progress", "task_subject": "run cargo bench microbenchmark for latency measure"});
@@ -14991,31 +7112,6 @@ fn benchmark_task_update_hint_integration() {
 }
 
 // ── R118-S10: maybe_fuzz_target_hint_on_task_update ─────────────────────
-
-#[test]
-fn fuzz_target_task_update_hint_none_for_empty() {
-    assert!(super::maybe_fuzz_target_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_fuzz_target_hint_on_task_update("create asyncapi event stream spec").is_none()
-    );
-}
-
-#[test]
-fn fuzz_target_task_update_hint_some_for_fuzz_keywords() {
-    let result = super::maybe_fuzz_target_hint_on_task_update(
-        "create fuzz target with cargo fuzz libfuzzer",
-    );
-    assert!(result.is_some(), "fuzz subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("fuzz-target:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FuzzTarget"),
-        "hint must reference FuzzTarget kind: {hint}"
-    );
-}
 
 #[test]
 fn fuzz_target_task_update_hint_integration() {
@@ -15031,31 +7127,6 @@ fn fuzz_target_task_update_hint_integration() {
 // ── R119-S1: maybe_derive_macro_hint_on_task_update ─────────────────────
 
 #[test]
-fn derive_macro_task_update_hint_none_for_empty() {
-    assert!(super::maybe_derive_macro_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_derive_macro_hint_on_task_update("deploy to kubernetes cluster").is_none()
-    );
-}
-
-#[test]
-fn derive_macro_task_update_hint_some_for_macro_keywords() {
-    let result = super::maybe_derive_macro_hint_on_task_update(
-        "implement derive macro as proc macro for custom derive",
-    );
-    assert!(result.is_some(), "macro subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("derive-macro:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DeriveMacro"),
-        "hint must reference DeriveMacro kind: {hint}"
-    );
-}
-
-#[test]
 fn derive_macro_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-derive", "status": "in_progress", "task_subject": "write proc-macro attribute macro for macro crate"});
@@ -15067,31 +7138,6 @@ fn derive_macro_task_update_hint_integration() {
 }
 
 // ── R119-S2: maybe_migration_hint_on_task_update ────────────────────────
-
-#[test]
-fn migration_task_update_hint_none_for_empty() {
-    assert!(super::maybe_migration_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_migration_hint_on_task_update("build ci workflow for github actions")
-            .is_none()
-    );
-}
-
-#[test]
-fn migration_task_update_hint_some_for_migration_keywords() {
-    let result =
-        super::maybe_migration_hint_on_task_update("create sql migration for database schema");
-    assert!(result.is_some(), "migration subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("migration:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Migration"),
-        "hint must reference Migration kind: {hint}"
-    );
-}
 
 #[test]
 fn migration_task_update_hint_integration() {
@@ -15107,32 +7153,6 @@ fn migration_task_update_hint_integration() {
 // ── R119-S3: maybe_ffi_binding_hint_on_task_update ──────────────────────
 
 #[test]
-fn ffi_binding_task_update_hint_none_for_empty() {
-    assert!(super::maybe_ffi_binding_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_ffi_binding_hint_on_task_update("publish changelog entry for release")
-            .is_none()
-    );
-}
-
-#[test]
-fn ffi_binding_task_update_hint_some_for_ffi_keywords() {
-    let result = super::maybe_ffi_binding_hint_on_task_update(
-        "create ffi binding with cbindgen for native binding",
-    );
-    assert!(result.is_some(), "ffi subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ffi-binding:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("FfiBinding"),
-        "hint must reference FfiBinding kind: {hint}"
-    );
-}
-
-#[test]
 fn ffi_binding_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-ffi", "status": "in_progress", "task_subject": "wrap c binding via bindgen for ffi wrapper"});
@@ -15144,30 +7164,6 @@ fn ffi_binding_task_update_hint_integration() {
 }
 
 // ── R119-S4: maybe_protobuf_hint_on_task_update ─────────────────────────
-
-#[test]
-fn protobuf_task_update_hint_none_for_empty() {
-    assert!(super::maybe_protobuf_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_protobuf_hint_on_task_update("implement rust struct for data model").is_none()
-    );
-}
-
-#[test]
-fn protobuf_task_update_hint_some_for_proto_keywords() {
-    let result =
-        super::maybe_protobuf_hint_on_task_update("define protobuf proto schema for grpc proto");
-    assert!(result.is_some(), "proto subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("protobuf-schema:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ProtobufSchema"),
-        "hint must reference ProtobufSchema kind: {hint}"
-    );
-}
 
 #[test]
 fn protobuf_task_update_hint_integration() {
@@ -15183,30 +7179,6 @@ fn protobuf_task_update_hint_integration() {
 // ── R119-S5: maybe_openapi_hint_on_task_update ──────────────────────────
 
 #[test]
-fn openapi_task_update_hint_none_for_empty() {
-    assert!(super::maybe_openapi_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_openapi_hint_on_task_update("write diary entry for lesson learned").is_none()
-    );
-}
-
-#[test]
-fn openapi_task_update_hint_some_for_openapi_keywords() {
-    let result =
-        super::maybe_openapi_hint_on_task_update("create openapi spec for rest api endpoint");
-    assert!(result.is_some(), "openapi subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("openapi-spec:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("OpenApiSpec"),
-        "hint must reference OpenApiSpec kind: {hint}"
-    );
-}
-
-#[test]
 fn openapi_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-oapi", "status": "in_progress", "task_subject": "design swagger api spec for http api oas3"});
@@ -15218,32 +7190,6 @@ fn openapi_task_update_hint_integration() {
 }
 
 // ── R119-S6: maybe_shell_completion_hint_on_task_update ─────────────────
-
-#[test]
-fn shell_completion_task_update_hint_none_for_empty() {
-    assert!(super::maybe_shell_completion_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_shell_completion_hint_on_task_update("create k8s manifest deployment yaml")
-            .is_none()
-    );
-}
-
-#[test]
-fn shell_completion_task_update_hint_some_for_completion_keywords() {
-    let result = super::maybe_shell_completion_hint_on_task_update(
-        "add shell completion for bash completion zsh completion",
-    );
-    assert!(result.is_some(), "completion subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("shell-completion:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ShellCompletion"),
-        "hint must reference ShellCompletion kind: {hint}"
-    );
-}
 
 #[test]
 fn shell_completion_task_update_hint_integration() {
@@ -15259,31 +7205,6 @@ fn shell_completion_task_update_hint_integration() {
 // ── R119-S7: maybe_man_page_hint_on_task_update ─────────────────────────
 
 #[test]
-fn man_page_task_update_hint_none_for_empty() {
-    assert!(super::maybe_man_page_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_man_page_hint_on_task_update("create consumer worker for kafka queue")
-            .is_none()
-    );
-}
-
-#[test]
-fn man_page_task_update_hint_some_for_man_keywords() {
-    let result =
-        super::maybe_man_page_hint_on_task_update("write man page for unix manual cli manual");
-    assert!(result.is_some(), "man page subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("man-page:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ManPage"),
-        "hint must reference ManPage kind: {hint}"
-    );
-}
-
-#[test]
 fn man_page_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-man", "status": "in_progress", "task_subject": "generate manpage groff troff command manual"});
@@ -15295,32 +7216,6 @@ fn man_page_task_update_hint_integration() {
 }
 
 // ── R119-S8: maybe_error_catalog_hint_on_task_update ────────────────────
-
-#[test]
-fn error_catalog_task_update_hint_none_for_empty() {
-    assert!(super::maybe_error_catalog_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_error_catalog_hint_on_task_update("scaffold task dag for taco workflow")
-            .is_none()
-    );
-}
-
-#[test]
-fn error_catalog_task_update_hint_some_for_error_keywords() {
-    let result = super::maybe_error_catalog_hint_on_task_update(
-        "define error catalog with error types error enum",
-    );
-    assert!(result.is_some(), "error catalog subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("error-catalog:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ErrorCatalog"),
-        "hint must reference ErrorCatalog kind: {hint}"
-    );
-}
 
 #[test]
 fn error_catalog_task_update_hint_integration() {
@@ -15336,32 +7231,6 @@ fn error_catalog_task_update_hint_integration() {
 // ── R119-S9: maybe_incremental_patch_hint_on_task_update ─────────────────
 
 #[test]
-fn incremental_patch_task_update_hint_none_for_empty() {
-    assert!(super::maybe_incremental_patch_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_incremental_patch_hint_on_task_update("run openapi spec for rest endpoint")
-            .is_none()
-    );
-}
-
-#[test]
-fn incremental_patch_task_update_hint_some_for_patch_keywords() {
-    let result = super::maybe_incremental_patch_hint_on_task_update(
-        "apply incremental patch as bugfix patch delta patch",
-    );
-    assert!(result.is_some(), "patch subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("incremental-patch:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("IncrementalPatch"),
-        "hint must reference IncrementalPatch kind: {hint}"
-    );
-}
-
-#[test]
 fn incremental_patch_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-patch", "status": "in_progress", "task_subject": "create hotfix patch with diff apply incremental update"});
@@ -15373,32 +7242,6 @@ fn incremental_patch_task_update_hint_integration() {
 }
 
 // ── R119-S10: maybe_skill_document_hint_on_task_update ──────────────────
-
-#[test]
-fn skill_document_task_update_hint_none_for_empty() {
-    assert!(super::maybe_skill_document_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_skill_document_hint_on_task_update("setup docker container build layer")
-            .is_none()
-    );
-}
-
-#[test]
-fn skill_document_task_update_hint_some_for_skill_keywords() {
-    let result = super::maybe_skill_document_hint_on_task_update(
-        "write skill document as playbook tutorial how-to guide",
-    );
-    assert!(result.is_some(), "skill doc subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("skill-document:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("SkillDocument"),
-        "hint must reference SkillDocument kind: {hint}"
-    );
-}
 
 #[test]
 fn skill_document_task_update_hint_integration() {
@@ -15414,32 +7257,6 @@ fn skill_document_task_update_hint_integration() {
 // ── R120-S1: maybe_diary_entry_hint_on_task_update ──────────────────────
 
 #[test]
-fn diary_entry_task_update_hint_none_for_empty() {
-    assert!(super::maybe_diary_entry_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_diary_entry_hint_on_task_update("run benchmark criterion performance")
-            .is_none()
-    );
-}
-
-#[test]
-fn diary_entry_task_update_hint_some_for_diary_keywords() {
-    let result = super::maybe_diary_entry_hint_on_task_update(
-        "write diary entry as lesson learned session note",
-    );
-    assert!(result.is_some(), "diary subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("diary-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("DiaryEntry"),
-        "hint must reference DiaryEntry kind: {hint}"
-    );
-}
-
-#[test]
 fn diary_entry_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-diary", "status": "in_progress", "task_subject": "record aaak entry as agent diary memory entry"});
@@ -15451,32 +7268,6 @@ fn diary_entry_task_update_hint_integration() {
 }
 
 // ── R120-S2: maybe_dockerfile_hint_on_task_update ───────────────────────
-
-#[test]
-fn dockerfile_task_update_hint_none_for_empty() {
-    assert!(super::maybe_dockerfile_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_dockerfile_hint_on_task_update("add mcp endpoint tool schema plugin")
-            .is_none()
-    );
-}
-
-#[test]
-fn dockerfile_task_update_hint_some_for_docker_keywords() {
-    let result = super::maybe_dockerfile_hint_on_task_update(
-        "create dockerfile for docker image multi-stage build",
-    );
-    assert!(result.is_some(), "docker subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("dockerfile:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("Dockerfile"),
-        "hint must reference Dockerfile kind: {hint}"
-    );
-}
 
 #[test]
 fn dockerfile_task_update_hint_integration() {
@@ -15492,32 +7283,6 @@ fn dockerfile_task_update_hint_integration() {
 // ── R120-S3: maybe_k8s_manifest_hint_on_task_update ─────────────────────
 
 #[test]
-fn k8s_manifest_task_update_hint_none_for_empty() {
-    assert!(super::maybe_k8s_manifest_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_k8s_manifest_hint_on_task_update("add hook handler for session hook")
-            .is_none()
-    );
-}
-
-#[test]
-fn k8s_manifest_task_update_hint_some_for_k8s_keywords() {
-    let result = super::maybe_k8s_manifest_hint_on_task_update(
-        "create k8s manifest for kubernetes deployment yaml",
-    );
-    assert!(result.is_some(), "k8s subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("k8s-manifest:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("K8sManifest"),
-        "hint must reference K8sManifest kind: {hint}"
-    );
-}
-
-#[test]
 fn k8s_manifest_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-k8s", "status": "in_progress", "task_subject": "apply kubectl apply k8s pod k8s ingress helm chart"});
@@ -15529,32 +7294,6 @@ fn k8s_manifest_task_update_hint_integration() {
 }
 
 // ── R120-S4: maybe_terraform_hint_on_task_update ─────────────────────────
-
-#[test]
-fn terraform_task_update_hint_none_for_empty() {
-    assert!(super::maybe_terraform_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_terraform_hint_on_task_update("add e2e test for integration test coverage")
-            .is_none()
-    );
-}
-
-#[test]
-fn terraform_task_update_hint_some_for_terraform_keywords() {
-    let result = super::maybe_terraform_hint_on_task_update(
-        "create terraform module for infrastructure as code hcl module",
-    );
-    assert!(result.is_some(), "terraform subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("terraform-module:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TerraformModule"),
-        "hint must reference TerraformModule kind: {hint}"
-    );
-}
 
 #[test]
 fn terraform_task_update_hint_integration() {
@@ -15570,32 +7309,6 @@ fn terraform_task_update_hint_integration() {
 // ── R120-S5: maybe_ci_workflow_hint_on_task_update ──────────────────────
 
 #[test]
-fn ci_workflow_task_update_hint_none_for_empty() {
-    assert!(super::maybe_ci_workflow_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_ci_workflow_hint_on_task_update("add sql migration for alembic migration")
-            .is_none()
-    );
-}
-
-#[test]
-fn ci_workflow_task_update_hint_some_for_ci_keywords() {
-    let result = super::maybe_ci_workflow_hint_on_task_update(
-        "create ci workflow for github actions ci pipeline",
-    );
-    assert!(result.is_some(), "ci subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("ci-workflow:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("CiWorkflow"),
-        "hint must reference CiWorkflow kind: {hint}"
-    );
-}
-
-#[test]
 fn ci_workflow_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-ci", "status": "in_progress", "task_subject": "build release workflow cd pipeline ci/cd config"});
@@ -15607,34 +7320,6 @@ fn ci_workflow_task_update_hint_integration() {
 }
 
 // ── R120-S6: maybe_changelog_hint_on_task_update ────────────────────────
-
-#[test]
-fn changelog_task_update_hint_none_for_empty() {
-    assert!(super::maybe_changelog_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_changelog_hint_on_task_update(
-            "write shell completion for zsh fish autocomplete"
-        )
-        .is_none()
-    );
-}
-
-#[test]
-fn changelog_task_update_hint_some_for_changelog_keywords() {
-    let result = super::maybe_changelog_hint_on_task_update(
-        "write changelog for release notes release entry",
-    );
-    assert!(result.is_some(), "changelog subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("changelog-entry:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ChangelogEntry"),
-        "hint must reference ChangelogEntry kind: {hint}"
-    );
-}
 
 #[test]
 fn changelog_task_update_hint_integration() {
@@ -15650,25 +7335,6 @@ fn changelog_task_update_hint_integration() {
 // ── R120-S7: maybe_adr_hint_on_task_update ──────────────────────────────
 
 #[test]
-fn adr_task_update_hint_none_for_empty() {
-    assert!(super::maybe_adr_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_adr_hint_on_task_update("create python script for py script automation")
-            .is_none()
-    );
-}
-
-#[test]
-fn adr_task_update_hint_some_for_adr_keywords() {
-    let result =
-        super::maybe_adr_hint_on_task_update("write adr for architecture decision decision record");
-    assert!(result.is_some(), "adr subject must return Some");
-    let hint = result.unwrap();
-    assert!(hint.contains("adr:"), "hint must contain label: {hint}");
-    assert!(hint.contains("Adr"), "hint must reference Adr kind: {hint}");
-}
-
-#[test]
 fn adr_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-adr", "status": "in_progress", "task_subject": "document architectural record nygard adr madr decision doc"});
@@ -15680,32 +7346,6 @@ fn adr_task_update_hint_integration() {
 }
 
 // ── R120-S8: maybe_asyncapi_hint_on_task_update ─────────────────────────
-
-#[test]
-fn asyncapi_task_update_hint_none_for_empty() {
-    assert!(super::maybe_asyncapi_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_asyncapi_hint_on_task_update("implement rust trait for rust library source")
-            .is_none()
-    );
-}
-
-#[test]
-fn asyncapi_task_update_hint_some_for_asyncapi_keywords() {
-    let result = super::maybe_asyncapi_hint_on_task_update(
-        "define asyncapi spec for event-driven message broker",
-    );
-    assert!(result.is_some(), "asyncapi subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("asyncapi-spec:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("AsyncApiSpec"),
-        "hint must reference AsyncApiSpec kind: {hint}"
-    );
-}
 
 #[test]
 fn asyncapi_task_update_hint_integration() {
@@ -15721,34 +7361,6 @@ fn asyncapi_task_update_hint_integration() {
 // ── R120-S9: maybe_consumer_generator_hint_on_task_update ───────────────
 
 #[test]
-fn consumer_generator_task_update_hint_none_for_empty() {
-    assert!(super::maybe_consumer_generator_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_consumer_generator_hint_on_task_update(
-            "write man page for command manual troff"
-        )
-        .is_none()
-    );
-}
-
-#[test]
-fn consumer_generator_task_update_hint_some_for_consumer_keywords() {
-    let result = super::maybe_consumer_generator_hint_on_task_update(
-        "create event consumer as message consumer for kafka consumer",
-    );
-    assert!(result.is_some(), "consumer subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("consumer-generator:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("ConsumerGenerator"),
-        "hint must reference ConsumerGenerator kind: {hint}"
-    );
-}
-
-#[test]
 fn consumer_generator_task_update_hint_integration() {
     let (_tmp, mut rt) = make_runtime();
     let input = serde_json::json!({"task_id": "t-consumer", "status": "in_progress", "task_subject": "implement consumer worker stream consumer queue consumer"});
@@ -15760,34 +7372,6 @@ fn consumer_generator_task_update_hint_integration() {
 }
 
 // ── R120-S10: maybe_task_scaffold_hint_on_task_update ───────────────────
-
-#[test]
-fn task_scaffold_task_update_hint_none_for_empty() {
-    assert!(super::maybe_task_scaffold_hint_on_task_update("").is_none());
-    assert!(
-        super::maybe_task_scaffold_hint_on_task_update(
-            "add error catalog thiserror error enum variants"
-        )
-        .is_none()
-    );
-}
-
-#[test]
-fn task_scaffold_task_update_hint_some_for_scaffold_keywords() {
-    let result = super::maybe_task_scaffold_hint_on_task_update(
-        "create task scaffold for taco task dag scaffold",
-    );
-    assert!(result.is_some(), "scaffold subject must return Some");
-    let hint = result.unwrap();
-    assert!(
-        hint.contains("task-scaffold:"),
-        "hint must contain label: {hint}"
-    );
-    assert!(
-        hint.contains("TaskScaffold"),
-        "hint must reference TaskScaffold kind: {hint}"
-    );
-}
 
 #[test]
 fn task_scaffold_task_update_hint_integration() {
@@ -15864,39 +7448,6 @@ fn collect_subject_generator_hints_covers_task_scaffold_domain() {
             .iter()
             .any(|h| h.contains("task-scaffold") || h.contains("task_scaffold")),
         "task scaffold domain must surface task_scaffold hint: {hints:?}"
-    );
-}
-
-/// R122-U5: collect_update_generator_hints returns empty for blank (mirrors create behaviour).
-#[test]
-fn collect_update_generator_hints_returns_empty_for_blank() {
-    let hints = super::collect_update_generator_hints("");
-    assert!(
-        hints.is_empty(),
-        "empty subject must return no hints: {hints:?}"
-    );
-}
-
-/// R122-U6: collect_update_generator_hints returns multiple hints for multi-domain subject.
-/// "rust module" → RustModule hint + "mcp tool" → McpTool hint → ≥2 hints.
-#[test]
-fn collect_update_generator_hints_returns_multiple_for_multi_domain() {
-    // Choose keywords that are unambiguous in their respective update matchers
-    let hints =
-        super::collect_update_generator_hints("update rust module to expose new mcp tool endpoint");
-    assert!(
-        hints.len() >= 2,
-        "multi-domain update subject must return ≥2 hints, got {}: {hints:?}",
-        hints.len()
-    );
-    let joined = hints.join(" | ");
-    assert!(
-        joined.contains("rust-module") || joined.contains("RustModule"),
-        "must include rust-module hint: {joined}"
-    );
-    assert!(
-        joined.contains("mcp-tool") || joined.contains("McpTool"),
-        "must include mcp-tool hint: {joined}"
     );
 }
 
@@ -16266,55 +7817,6 @@ fn r127_task_stop_capture_hint_includes_task_id_in_vars() {
 }
 
 // ── R128 tests: maybe_wiring_orphan_hint_on_complete (pub(crate)) ─────────
-
-#[test]
-fn r128_wiring_orphan_hint_returns_empty_for_unknown() {
-    // R128: "unknown" sentinel → empty (avoids noise on synthetic completions).
-    let result = maybe_wiring_orphan_hint_on_complete("unknown");
-    assert!(
-        result.is_empty(),
-        "R128: 'unknown' task_id must return empty: {result}"
-    );
-}
-
-#[test]
-fn r128_wiring_orphan_hint_returns_empty_for_blank() {
-    // R128: blank task_id → empty.
-    let result = maybe_wiring_orphan_hint_on_complete("");
-    assert!(
-        result.is_empty(),
-        "R128: blank task_id must return empty: {result}"
-    );
-}
-
-#[test]
-fn r128_wiring_orphan_hint_emits_wiring_check_for_real_task() {
-    // R128: real task_id → wiring orphans check command surfaces.
-    let result = maybe_wiring_orphan_hint_on_complete("T-r128-real");
-    assert!(
-        !result.is_empty(),
-        "R128: real task_id must emit wiring check: {result}"
-    );
-    assert!(
-        result.contains("wiring") && result.contains("orphan"),
-        "R128: hint must reference wiring orphans: {result}"
-    );
-    assert!(
-        result.contains("touring wiring orphans"),
-        "R128: hint must surface the exact CLI command: {result}"
-    );
-}
-
-#[test]
-fn r128_wiring_orphan_hint_is_pub_crate_callable() {
-    // R128: pub(crate) visibility — confirm it can be called from hook_registry.rs context.
-    // Verifies the function is accessible without explicit import inside the crate.
-    let result = crate::lifecycle::maybe_wiring_orphan_hint_on_complete("T-r128-pub");
-    assert!(
-        !result.is_empty(),
-        "R128: pub(crate) maybe_wiring_orphan_hint_on_complete must be callable cross-module: {result}"
-    );
-}
 
 // ── R129 tests: file-changed → cli_memory_store knowledge persistence ─────
 

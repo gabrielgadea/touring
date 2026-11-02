@@ -183,7 +183,7 @@ pub(crate) fn handle_exit_plan_mode(rt: &mut HookRuntime, input: &Value) -> Stri
 /// the result for ExitPlanMode context — surfaces a parameterized `render` command
 /// the user can copy-paste immediately after exiting plan mode.
 /// Returns empty string if intent is empty or no keyword matches.
-pub(crate) fn exit_plan_mode_generator_hint(intent: &str) -> String {
+fn exit_plan_mode_generator_hint(intent: &str) -> String {
     if intent.is_empty() {
         return String::new();
     }
@@ -203,7 +203,7 @@ pub(crate) fn exit_plan_mode_generator_hint(intent: &str) -> String {
 /// new artifacts. This bridges the ExitPlanMode event to the Tantivy BM25 index — ensuring
 /// the generator knows what symbols already exist and can avoid reimplementing them.
 /// Returns `None` when intent is empty or too short to produce a useful search query.
-pub(crate) fn maybe_tantivy_search_hint_on_exit(intent: &str) -> Option<String> {
+fn maybe_tantivy_search_hint_on_exit(intent: &str) -> Option<String> {
     if intent.len() < 3 {
         return None;
     }
@@ -219,7 +219,7 @@ pub(crate) fn maybe_tantivy_search_hint_on_exit(intent: &str) -> Option<String> 
 /// Calls `cli_session_assess` for the session referenced in the input (field `session_id`
 /// or `task_id`). On success, surfaces the quality score inline. No-op if no session id
 /// is present or if assessment returns no score field.
-pub(crate) fn assess_plan_session(rt: &mut HookRuntime, input: &Value) -> String {
+fn assess_plan_session(rt: &mut HookRuntime, input: &Value) -> String {
     // R168: Fall back to plan_session:current memory recall when no session_id in input.
     // ExitPlanMode inputs rarely carry session_id — they carry intent/description.
     // Without this fallback, assess_plan_session was always a no-op for plan sessions created
@@ -251,7 +251,7 @@ pub(crate) fn assess_plan_session(rt: &mut HookRuntime, input: &Value) -> String
 /// Separated from [`assess_plan_session`] so the parse step can be tested deterministically
 /// without any I/O or daemon dependency. Returns empty string when the recall result is
 /// empty, malformed JSON, or contains no `entries[0].value` field.
-pub(crate) fn assess_session_id_from_recall(recall: &str) -> String {
+fn assess_session_id_from_recall(recall: &str) -> String {
     serde_json::from_str::<serde_json::Value>(recall)
         .ok()
         .and_then(|v| {
@@ -270,7 +270,7 @@ pub(crate) fn assess_session_id_from_recall(recall: &str) -> String {
 ///
 /// Separated from [`assess_plan_session`] so the formatting path can be tested
 /// deterministically without any I/O or daemon dependency.
-pub(crate) fn assess_hint_from_session_result(session_id: &str, result: &str) -> String {
+fn assess_hint_from_session_result(session_id: &str, result: &str) -> String {
     match serde_json::from_str::<serde_json::Value>(result) {
         Ok(v) => {
             if let Some(score) = v.get("quality_score").and_then(|s| s.as_f64()) {
@@ -289,7 +289,7 @@ pub(crate) fn assess_hint_from_session_result(session_id: &str, result: &str) ->
 /// When found, suggests `touring generate plan-critique --plan-file plan.json` so Claude Code
 /// can get quality feedback before committing the plan. Returns empty string when no plan
 /// task is active (fresh sessions or sessions without EnterPlanMode entry).
-pub(crate) fn plan_critique_hint_on_exit(rt: &mut HookRuntime) -> String {
+fn plan_critique_hint_on_exit(rt: &mut HookRuntime) -> String {
     let recall_payload = serde_json::json!({"query": "plan_session:current", "limit": 1});
     let recall = crate::cli_handlers::cli_memory_recall(rt, &recall_payload);
     plan_critique_hint_from_recall(&recall)
@@ -302,7 +302,7 @@ pub(crate) fn plan_critique_hint_on_exit(rt: &mut HookRuntime) -> String {
 /// deterministically without any I/O or daemon dependency.
 /// Returns empty string when the recall result does not contain a `"value"` field
 /// (i.e. no plan session is currently active).
-pub(crate) fn plan_critique_hint_from_recall(recall: &str) -> String {
+fn plan_critique_hint_from_recall(recall: &str) -> String {
     if !recall.contains("\"value\"") {
         return String::new();
     }
@@ -315,7 +315,7 @@ pub(crate) fn plan_critique_hint_from_recall(recall: &str) -> String {
 /// the task_id, then calls `cli_decompose_finalize`. When all subtasks are complete the DAG
 /// is archived automatically — no manual `touring decompose finalize` needed. Returns empty
 /// string when no plan session is active or finalize returns neither "archived" nor "ready:false".
-pub(crate) fn auto_finalize_plan_on_exit(rt: &mut HookRuntime) -> String {
+fn auto_finalize_plan_on_exit(rt: &mut HookRuntime) -> String {
     let recall_payload = serde_json::json!({"query": "plan_session:current", "limit": 1});
     let recall = crate::cli_handlers::cli_memory_recall(rt, &recall_payload);
     let v = match serde_json::from_str::<serde_json::Value>(&recall) {
@@ -351,7 +351,7 @@ pub(crate) fn auto_finalize_plan_on_exit(rt: &mut HookRuntime) -> String {
 /// ExitPlanMode calls this helper to recall that ID and emit a `decompose update completed`
 /// hint, closing the plan session in the Touring DAG without requiring manual CLI invocation.
 /// Returns empty string when no plan session is stored or recall JSON is malformed.
-pub(crate) fn plan_session_link_hint(rt: &mut HookRuntime) -> String {
+fn plan_session_link_hint(rt: &mut HookRuntime) -> String {
     let recall_payload = serde_json::json!({"query": "plan_session:current", "limit": 1});
     let recall_result = crate::cli_handlers::cli_memory_recall(rt, &recall_payload);
     plan_session_link_hint_from_recall(&recall_result)
@@ -364,7 +364,7 @@ pub(crate) fn plan_session_link_hint(rt: &mut HookRuntime) -> String {
 /// deterministically without any I/O or daemon dependency.
 /// Returns empty string when the recall result is empty, malformed JSON, or contains no
 /// `entries[0].value` field.
-pub(crate) fn plan_session_link_hint_from_recall(recall_result: &str) -> String {
+fn plan_session_link_hint_from_recall(recall_result: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(recall_result) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -392,7 +392,7 @@ pub(crate) fn plan_session_link_hint_from_recall(recall_result: &str) -> String 
 ///
 /// Rules: alphanumeric chars are lowercased; non-alphanumeric become `-`; leading/trailing
 /// dashes are stripped. Returns empty string when intent is blank or normalises to nothing.
-pub(crate) fn plan_file_from_intent(intent: &str) -> String {
+fn plan_file_from_intent(intent: &str) -> String {
     if intent.is_empty() {
         return String::new();
     }
@@ -419,7 +419,7 @@ pub(crate) fn plan_file_from_intent(intent: &str) -> String {
 /// ExitPlanMode is the ideal moment to surface this hint: the plan just closed and the
 /// ready subtasks represent independent work units that can be fanned out to parallel
 /// subagents, reducing wall-clock time. Returns empty string when ready_count < 2.
-pub(crate) fn maybe_parallel_subagent_hint(ready_json: &str) -> String {
+fn maybe_parallel_subagent_hint(ready_json: &str) -> String {
     let parsed = match serde_json::from_str::<serde_json::Value>(ready_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -450,4 +450,166 @@ pub(crate) fn maybe_parallel_subagent_hint(ready_json: &str) -> String {
         " | [TOURING PARALLEL] {ready_count} independent subtasks ready{id_hint} \
         \u{2014} parallelize: spawn subagents per subtask to reduce wall-clock time"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // R18-S3 pure: assess_session_id_from_recall — deterministic branch coverage
+    #[test]
+    fn assess_session_id_from_recall_empty_input_returns_empty() {
+        // Empty string → malformed JSON → returns ""
+        assert_eq!(
+            super::assess_session_id_from_recall(""),
+            "",
+            "empty recall must return empty session id"
+        );
+    }
+
+    #[test]
+    fn assess_session_id_from_recall_no_entries_field_returns_empty() {
+        // Valid JSON but no `entries` key → returns ""
+        let json = r#"{"count":0,"query":"plan_session:current"}"#;
+        assert_eq!(
+            super::assess_session_id_from_recall(json),
+            "",
+            "missing entries field must return empty session id"
+        );
+    }
+
+    #[test]
+    fn assess_hint_from_session_result_no_quality_score_returns_empty() {
+        // Session assess JSON without quality_score → empty hint
+        let json = r#"{"session_id":"plan-abc","status":"ok"}"#;
+        assert_eq!(
+            super::assess_hint_from_session_result("plan-abc", json),
+            "",
+            "missing quality_score must return empty hint"
+        );
+    }
+
+    #[test]
+    fn assess_hint_from_session_result_with_quality_score_returns_hint() {
+        // Session assess JSON with quality_score → formatted hint
+        let json = r#"{"session_id":"plan-abc","quality_score":0.85}"#;
+        let hint = super::assess_hint_from_session_result("plan-abc", json);
+        assert!(
+            hint.contains("session-assessed"),
+            "must contain session-assessed: {hint}"
+        );
+        assert!(
+            hint.contains("plan-abc"),
+            "must reference session id: {hint}"
+        );
+        assert!(hint.contains("0.85"), "must include quality score: {hint}");
+    }
+
+    #[test]
+    fn assess_hint_from_session_result_malformed_json_returns_empty() {
+        // Malformed JSON → parse fails → empty hint (no panic)
+        assert_eq!(
+            super::assess_hint_from_session_result("plan-abc", "not json at all"),
+            "",
+            "malformed JSON must return empty hint"
+        );
+    }
+
+    // R30-S2 pure: plan_session_link_hint_from_recall — deterministic branch coverage
+    #[test]
+    fn plan_session_link_hint_from_recall_empty_string_returns_empty() {
+        assert_eq!(
+            super::plan_session_link_hint_from_recall(""),
+            "",
+            "empty recall must return empty hint"
+        );
+    }
+
+    #[test]
+    fn plan_session_link_hint_from_recall_malformed_json_returns_empty() {
+        assert_eq!(
+            super::plan_session_link_hint_from_recall("not valid json"),
+            "",
+            "malformed JSON must return empty hint"
+        );
+    }
+
+    #[test]
+    fn plan_session_link_hint_from_recall_no_entries_returns_empty() {
+        let json = r#"{"count":0,"query":"plan_session:current"}"#;
+        assert_eq!(
+            super::plan_session_link_hint_from_recall(json),
+            "",
+            "missing entries field must return empty hint"
+        );
+    }
+
+    // R35-S2 pure: plan_critique_hint_from_recall — deterministic branch coverage
+    #[test]
+    fn plan_critique_hint_from_recall_empty_string_returns_empty() {
+        assert_eq!(
+            super::plan_critique_hint_from_recall(""),
+            "",
+            "empty recall must return empty hint"
+        );
+    }
+
+    #[test]
+    fn parallel_hint_empty_on_zero_ready() {
+        let json = r#"{"ready_count":0,"ready_subtasks":[]}"#;
+        let hint = maybe_parallel_subagent_hint(json);
+        assert!(
+            hint.is_empty(),
+            "ready_count=0 must suppress parallel hint: {hint:?}"
+        );
+    }
+
+    #[test]
+    fn parallel_hint_empty_on_one_ready() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"subtask_id":"S-1"}]}"#;
+        let hint = maybe_parallel_subagent_hint(json);
+        assert!(
+            hint.is_empty(),
+            "ready_count=1 must suppress parallel hint: {hint:?}"
+        );
+    }
+
+    #[test]
+    fn parallel_hint_emitted_on_two_ready() {
+        let json = r#"{"ready_count":2,"ready_subtasks":[{"subtask_id":"S-1"},{"subtask_id":"S-2"}]}"#;
+        let hint = maybe_parallel_subagent_hint(json);
+        assert!(
+            hint.contains("[TOURING PARALLEL]"),
+            "ready_count=2 must emit parallel hint: {hint:?}"
+        );
+        assert!(
+            hint.contains("S-1"),
+            "must include first subtask ID: {hint:?}"
+        );
+        assert!(
+            hint.contains("S-2"),
+            "must include second subtask ID: {hint:?}"
+        );
+    }
+
+    #[test]
+    fn parallel_hint_caps_subtask_ids_at_four() {
+        let json = r#"{"ready_count":6,"ready_subtasks":[
+            {"subtask_id":"S-1"},{"subtask_id":"S-2"},{"subtask_id":"S-3"},
+            {"subtask_id":"S-4"},{"subtask_id":"S-5"},{"subtask_id":"S-6"}
+        ]}"#;
+        let hint = maybe_parallel_subagent_hint(json);
+        assert!(
+            hint.contains("[TOURING PARALLEL]"),
+            "ready_count=6 must emit hint: {hint:?}"
+        );
+        assert!(!hint.contains("S-5"), "must cap subtask IDs at 4: {hint:?}");
+        assert!(!hint.contains("S-6"), "must cap subtask IDs at 4: {hint:?}");
+    }
+
+    #[test]
+    fn parallel_hint_tolerates_invalid_json() {
+        let hint = maybe_parallel_subagent_hint("not-valid-json{{");
+        assert!(hint.is_empty(), "invalid JSON must return empty: {hint:?}");
+    }
 }

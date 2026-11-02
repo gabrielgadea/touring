@@ -16,28 +16,6 @@
 
 mod hints;
 
-// Re-export all hint functions so that inline tests in `lifecycle.rs` can reach
-// them via `super::maybe_*`. Gated #[cfg(test)] — none are called from outside
-// handle_file_changed in production code.
-#[cfg(test)]
-pub(crate) use hints::{
-    maybe_adr_hint_on_file_changed, maybe_asyncapi_hint_on_file_changed,
-    maybe_benchmark_hint_on_file_changed, maybe_cargo_toml_hint,
-    maybe_changelog_hint_on_file_changed, maybe_ci_workflow_hint_on_file_changed,
-    maybe_consumer_generator_hint_on_file_changed, maybe_derive_macro_hint_on_file_changed,
-    maybe_diary_entry_hint_on_file_changed, maybe_dockerfile_hint_on_file_changed,
-    maybe_error_catalog_hint_on_file_changed, maybe_ffi_binding_hint_on_file_changed,
-    maybe_fuzz_target_hint_on_file_changed, maybe_incremental_patch_hint_on_file_changed,
-    maybe_index_stale_hint, maybe_k8s_hint_on_file_changed, maybe_man_page_hint_on_file_changed,
-    maybe_migration_hint_on_file_changed, maybe_openapi_hint_on_file_changed,
-    maybe_plan_md_hint_on_file_changed, maybe_protobuf_hint_on_file_changed,
-    maybe_python_script_hint_on_file_changed, maybe_rust_module_hint_on_file_changed,
-    maybe_schema_hint_on_file_changed, maybe_shell_completion_hint_on_file_changed,
-    maybe_skill_document_hint_on_file_changed, maybe_task_scaffold_hint_on_file_changed,
-    maybe_tera_template_hint, maybe_terraform_hint_on_file_changed, maybe_test_file_hint,
-    maybe_test_hint_on_file_changed, maybe_wiring_chains_hint_for_handler_file,
-};
-
 use crate::runtime::HookRuntime;
 use serde_json::Value;
 use touring_foundation::truncate_str;
