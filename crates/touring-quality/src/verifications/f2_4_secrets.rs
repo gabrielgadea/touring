@@ -516,7 +516,7 @@ fn is_readable_placeholder(v: &str) -> bool {
     // digit or a header colon — the vocabulary is "decisive regardless of length",
     // the digit bar only existed to keep opaque tokens out. A token beside the word
     // (`test-4eC39Hq…`) is not a phrase and keeps blocking.
-    if has_placeholder_word(v) && is_word_number_phrase(v) {
+    if is_word_number_phrase(v) && is_placeholder_vocabulary_phrase(v) {
         return true;
     }
     // Letters plus separators only — any digit or other symbol means the value
@@ -567,6 +567,68 @@ const PLACEHOLDER_WORDS: &[&str] = &[
 fn has_placeholder_word(v: &str) -> bool {
     let lower = v.to_ascii_lowercase();
     PLACEHOLDER_WORDS.iter().any(|w| lower.contains(w))
+}
+
+/// Words that name WHAT a credential is (`api`, `key`, `token`…) without being
+/// one — the filler of `X-API-Key: your-api-key-here` around the placeholder word.
+const CREDENTIAL_NOUNS: &[&str] = &[
+    "a",
+    "access",
+    "account",
+    "api",
+    "apikey",
+    "app",
+    "auth",
+    "bearer",
+    "change",
+    "client",
+    "credential",
+    "credentials",
+    "db",
+    "header",
+    "id",
+    "key",
+    "keys",
+    "me",
+    "my",
+    "pass",
+    "passwd",
+    "password",
+    "private",
+    "pwd",
+    "secret",
+    "service",
+    "string",
+    "the",
+    "token",
+    "user",
+    "username",
+    "value",
+    "x",
+];
+
+/// Every alphabetic segment of `v` IS (not merely contains) a word of
+/// [`PLACEHOLDER_WORDS`] or [`CREDENTIAL_NOUNS`], and at least one is a placeholder
+/// word. A substring hit is not enough (security review of 1305ff40, 02/11/2026):
+/// `protest-heaven-sample-castle` holds `test` and `sample` yet is a passphrase, and
+/// a single vocabulary segment must not launder the real words around it.
+fn is_placeholder_vocabulary_phrase(v: &str) -> bool {
+    let mut saw_placeholder = false;
+    for seg in v
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+    {
+        if seg.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        let lower = seg.to_ascii_lowercase();
+        if PLACEHOLDER_WORDS.contains(&lower.as_str()) {
+            saw_placeholder = true;
+        } else if !CREDENTIAL_NOUNS.contains(&lower.as_str()) {
+            return false;
+        }
+    }
+    saw_placeholder
 }
 
 /// Words (any case) and short numbers (≤4 digits) joined only by ` - _ . :` —
@@ -3326,6 +3388,9 @@ mod tests {
             r##"    password = "correct-horse-battery-staple-123""##,
             // a long digit run is a numeric secret, not a short ordinal
             r##"        apiKey: "test-api-key-12345678","##,
+            // a vocabulary word INSIDE a real word, or beside real words, launders nothing
+            r##"    password = "protest-heaven-sample-castle-12""##,
+            r##"    password = "test-orange-violin-harbor-7""##,
         ] {
             assert_eq!(rule_of(real), Some("secret-named-assignment"), "{real}");
         }
