@@ -44,8 +44,9 @@ pub enum FailureKind {
 }
 
 impl FailureKind {
-    /// Every class, in declaration order.
-    pub const ALL: [Self; 7] = [
+    /// Every class, in declaration order — what the exhaustiveness tests iterate.
+    #[cfg(test)]
+    pub(crate) const ALL: [Self; 7] = [
         Self::Exception,
         Self::Timeout,
         Self::Abort,
