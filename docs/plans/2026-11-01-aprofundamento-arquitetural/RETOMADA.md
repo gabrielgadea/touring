@@ -30,7 +30,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | 6 | Gates do code mode fora do cli_suggester | feito | 1aee80af a63ad737 db9b22d7 21c6533d | touring-cli lib 720/0 (base 815/1: testes por cenário viraram 114 linhas de tabela), cli_suggester_e2e 20/20, g10 3/3, clippy --all-features limpo, server --tests e dispatch check ok; replay 114 sequências/444 passos + digest de 30.406 chamadas, JUSTIFIED_DIFFERENCES vazio; 29/29 mutantes mortos; latência sem mudança; 0 aresta Cargo nova |
 | 7 | touring-dispatch: testes pelos handle_* | feito | 221082d4 343912cd 893eea1a c65a2edb 0874659b | dispatch lib 746/0 (base 1353 com 1 falha pré-existente em updated_input_writers, corrigida), touring-hooks 1216/0, clippy --all-features limpo, check --workspace --tests ok; replay 629 cenários idênticos, JUSTIFIED_DIFFERENCES vazio; 1.247 testes antigos mapeados (0 sem destino); 15/15 mutantes mortos; 6 deps removidas sem mudar a unificação de features |
 | 8 | VGP: leitura contida em caminho.rs | feito | 3bc6831e 93baea2d | touring-code 1708/0 (base 1689/0), clippy --all-features limpo, check --workspace --tests ok; replay 86 casos adversariais: 79 idênticos + 7 diferenças justificadas, todas FECHANDO escape; 28/29 mutantes mortos (1 equivalente: dupla contenção); guarda estrutural `vgp_guarda_disco.rs`; 0 aresta Cargo |
-| 9 | adw.py: interface de nó tipada | fila | — | — |
+| 9 | adw.py: interface de nó tipada | patch pronto (aplicar após 08/11) | f27d81a6 (só `adw-node/` no bundle) | patch aplicado numa cópia do vivo (sha 91f8ac2a87d49ab8): 507 passam + 1 xfail estrito; replay 99 fluxos × 5 saídas = 495/495 idênticos; 28/28 mutantes; o `adw.py` vivo não foi tocado |
 | 10 | Crates de passagem (capnp-server, contracts) | fila | — | — |
 
 ## Achados que nasceram da execução
@@ -83,8 +83,19 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   existência fora das raízes. Custo: p50 +15% / p95 +7,7% em debug (pior absoluto TS p95 0,147 → 0,210 ms, contra
   orçamento de 150 ms); medir em release antes da fusão. Mudanças fora do replay, fixadas por teste unitário: overlays
   consultados antes da contenção em rust/python; html sugere a raiz; pacote TS que resolve fora conta como instalado.
+- #9: entrega é patch (`adw-node/adw.patch` + `test_adw.patch` + `test_adw_node.py`), porque o vivo está congelado
+  pelo AB34. Uma tabela `NODE_FIELDS` (56 linhas) alimenta o lint (chave desconhecida = erro com did-you-mean; tipo
+  TOML errado = erro) e duas guardas amarram tabela × código nos dois sentidos; uma gramática `{{nodes.X}}` substitui
+  4 regex + 2 testes de substring. Drift medido: 10 chaves que o runtime lê e o lint não conhece; dos 41 formatos de
+  referência, 33 fazem algum parser do lint discordar do runtime (`nodes.rev` casava dentro de `nodes.review` → ERRO
+  falso; `full_ref`/`facts` lidos como nome de nó → 2 avisos falsos). Achado real: o fragmento `skilling-pack` usa
+  `env`, que o runner nunca repassa ao subprocesso (o agente nunca roda; nenhum fluxo publicado o compõe).
+  Aplicar após 08/11: patch → `sync-client-skills.py --apply` no repo.
 
 ## Decisões do Gabriel pendentes
+
+- #9: `env` no `skilling-pack` — (A) implementar `env` no `run_code_node` ou (B, recomendado pelo engenheiro)
+  reescrever o comando do fragmento sem `env`; chave desconhecida como ERRO (bloqueia o run) ou aviso no início.
 
 - #8: `sombra.rs` (lê `.touring/touring.toml`) e o cache CDN seguem como as duas exceções documentadas à guarda ou
   passam por `caminho`?
