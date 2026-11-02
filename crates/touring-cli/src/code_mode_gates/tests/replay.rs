@@ -64,6 +64,12 @@ fn run_isolated(s: &Scn) -> Entry {
     run(s, &mut |r, se, t, i, c, p| drive(&state, r, se, t, i, c, p))
 }
 
+/// Play one scenario on a fresh store without asserting its own expectations.
+pub(super) fn play_isolated(s: &Scn) -> Entry {
+    let state = GateState::new();
+    play(s, &mut |r, se, t, i, c, p| drive(&state, r, se, t, i, c, p))
+}
+
 // ── The composition of G7 × G3 × G9 (a generated state space) ────────────────────────────
 
 const RETOMADA_REL: &str = "docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md";

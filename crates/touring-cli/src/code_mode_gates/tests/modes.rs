@@ -7,7 +7,9 @@
 //! environment — the 15 tests the hermeticity matrix (08/10) found red under
 //! `TOURING_CODE_MODE=native` read it by accident.
 
-use crate::code_mode_gates::mode::{project_presentation, resolve_presentation};
+use crate::code_mode_gates::mode::{
+    code_gates_disabled_from, project_presentation, resolve_presentation,
+};
 use crate::code_mode_gates::{CodeModeEnv, CodeModePresentation};
 use CodeModePresentation::{Both, Code, Native};
 
@@ -254,4 +256,14 @@ fn the_project_section_is_read_as_the_project_level_and_only_that() {
         None,
         "only [code_mode] decides"
     );
+}
+
+/// The human kill switch reads exactly `1`: a typo or a truthy-looking word must not turn the
+/// gates off (and an unset variable must leave them on).
+#[test]
+fn the_kill_switch_is_exactly_the_value_one() {
+    assert!(code_gates_disabled_from(Some("1")));
+    for off in [None, Some(""), Some("0"), Some("true"), Some("yes"), Some("01"), Some(" 1")] {
+        assert!(!code_gates_disabled_from(off), "{off:?} must not disable the gates");
+    }
 }

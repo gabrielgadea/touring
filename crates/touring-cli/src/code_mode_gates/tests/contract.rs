@@ -71,6 +71,13 @@ fn the_documented_windows_and_thresholds_are_these() {
     assert_eq!(G11_MAX_SINCE_ROUTE, 2, "G11: a third bypass without the route is the deny");
     assert_eq!(M3_DELEGATION_AT, 10, "M3: the 10th distinct file");
     assert_eq!(SUGGESTION_TTL_SECS, 300, "G6 window");
+    assert_eq!(CODE_MODE_WINDOW_SECS, 180, "G1 burst window");
+    assert_eq!(PENDING_DENY_TTL_SECS, 60, "a deny waits 60 s for its follow-through");
+    assert_eq!(SESSION_STATE_TTL_SECS, 3600, "G3 / G5 / G7 / M3 session memory");
+    assert_eq!(G4_LOCATE_TTL_SECS, 120, "G4 locate window");
+    assert_eq!(G1_SIMILARITY_AT, 0.5, "G1: similarity that fires on the 2nd");
+    assert_eq!(G1_DEMOTE_FLOOR, 0.70, "G1 demotion precision floor");
+    assert_eq!(G1_DEMOTE_MIN_EVENTS, 100, "G1 demotion needs this many events");
 }
 
 struct OldTest<'a> {

@@ -440,6 +440,16 @@ fn build_portfolio(dir: &Path) {
 /// Run one scenario against `drive`, asserting every step's expectation, and return the
 /// normalized transcript (what the corpus records).
 pub(crate) fn run(scn: &Scn, drive: Drive) -> Entry {
+    execute(scn, drive, true)
+}
+
+/// Play a scenario's events and return the transcript WITHOUT asserting the row's own
+/// expectations — for properties that re-run the table under another configuration.
+pub(crate) fn play(scn: &Scn, drive: Drive) -> Entry {
+    execute(scn, drive, false)
+}
+
+fn execute(scn: &Scn, drive: Drive, checked: bool) -> Entry {
     let root_dir = tempfile::tempdir().expect("project root");
     let root2_dir = tempfile::tempdir().expect("second project root");
     let out_dir = tempfile::tempdir().expect("outside dir");
@@ -492,12 +502,14 @@ pub(crate) fn run(scn: &Scn, drive: Drive) -> Entry {
                     .ok()
                     .and_then(|t| serde_json::from_str(&t).ok())
                     .unwrap_or(Value::Null);
-                assert_eq!(
-                    v.pointer(pointer).and_then(Value::as_u64),
-                    *want,
-                    "[{} probe {path}{pointer}] {v}",
-                    scn.name
-                );
+                if checked {
+                    assert_eq!(
+                        v.pointer(pointer).and_then(Value::as_u64),
+                        *want,
+                        "[{} probe {path}{pointer}] {v}",
+                        scn.name
+                    );
+                }
             }
             Ev::Call {
                 proj,
@@ -516,7 +528,9 @@ pub(crate) fn run(scn: &Scn, drive: Drive) -> Entry {
                 w.lacks = w.lacks.iter().map(|s| subst(s, root, out)).collect();
                 // The expectation is stated with real paths; the transcript with `{ROOT}`.
                 let resp_real = resp.as_ref().map(|r| subst(r, root, out));
-                check(scn.name, i, &w, &resp_real);
+                if checked {
+                    check(scn.name, i, &w, &resp_real);
+                }
                 steps.push(Step {
                     tool: tool.to_string(),
                     input: input.clone(),
