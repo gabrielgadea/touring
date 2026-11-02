@@ -31,7 +31,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | 7 | touring-dispatch: testes pelos handle_* | feito | 221082d4 343912cd 893eea1a c65a2edb 0874659b | dispatch lib 746/0 (base 1353 com 1 falha pré-existente em updated_input_writers, corrigida), touring-hooks 1216/0, clippy --all-features limpo, check --workspace --tests ok; replay 629 cenários idênticos, JUSTIFIED_DIFFERENCES vazio; 1.247 testes antigos mapeados (0 sem destino); 15/15 mutantes mortos; 6 deps removidas sem mudar a unificação de features |
 | 8 | VGP: leitura contida em caminho.rs | feito | 3bc6831e 93baea2d | touring-code 1708/0 (base 1689/0), clippy --all-features limpo, check --workspace --tests ok; replay 86 casos adversariais: 79 idênticos + 7 diferenças justificadas, todas FECHANDO escape; 28/29 mutantes mortos (1 equivalente: dupla contenção); guarda estrutural `vgp_guarda_disco.rs`; 0 aresta Cargo |
 | 9 | adw.py: interface de nó tipada | patch pronto (aplicar após 08/11) | f27d81a6 (só `adw-node/` no bundle) | patch aplicado numa cópia do vivo (sha 91f8ac2a87d49ab8): 507 passam + 1 xfail estrito; replay 99 fluxos × 5 saídas = 495/495 idênticos; 28/28 mutantes; o `adw.py` vivo não foi tocado |
-| 10 | Crates de passagem (capnp-server, contracts) | fila | — | — |
+| 10 | Crates de passagem (capnp-server, contracts) | feito | 53835062 ea11244b | `touring-capnp-server` deletado (era `pub use` + 3 exemplos duplicados de touring-bindings); `touring-contracts` dobrado em `touring-ceg::gateway::deps` (1 trait, 1 consumidor). check --workspace --tests ok, clippy --workspace limpo, ceg 619/0, hooks 1216/0, hook-runtime 559/0, hooks-core +capnp-server 487/0, hooks --no-default-features ok; grafo resolvido idêntico exceto os 2 crates; flag `capnp-server` preservada |
 
 ## Achados que nasceram da execução
 
@@ -91,6 +91,16 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   falso; `full_ref`/`facts` lidos como nome de nó → 2 avisos falsos). Achado real: o fragmento `skilling-pack` usa
   `env`, que o runner nunca repassa ao subprocesso (o agente nunca roda; nenhum fluxo publicado o compõe).
   Aplicar após 08/11: patch → `sync-client-skills.py --apply` no repo.
+
+- #10: a tabela gerada de crates do `ARCHITECTURE.md` ainda lista os 2 crates removidos; não regenerada à mão porque
+  `docs/sync_metrics.py --sync` reescreve ~40 linhas alheias (última sync 19/08) e o job `sync-architecture` do CI a
+  regenera após a fusão. Na fusão: deixar o CI regenerar ou rodar o sync como commit de docs próprio.
+
+## Fusão (depois de 08/11 00:10)
+
+Todos os 10 fechados no worktree. Antes do push/fusão: (1) reescrever `343912cd` (nome do usuário, ritual REGRA
+#11 v2 + confirmação); (2) latência do #8 em release; (3) regenerar a tabela de crates; (4) gates completos do
+`propagate-release.sh --dry-run` na branch integrada.
 
 ## Decisões do Gabriel pendentes
 
