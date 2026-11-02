@@ -429,9 +429,24 @@ fn ends_statement(after: &str) -> bool {
 fn introduces_module_specifier(before: &str) -> bool {
     if let Some(callee) = before.strip_suffix('(') {
         let callee = callee.trim_end();
-        return ["require", "import"]
-            .iter()
-            .any(|name| ends_with_word(callee, name));
+        // The test runners resolve these exactly like `import` (Vitest / Jest module
+        // mocking API): the literal is a module specifier, never a file opened at run time.
+        return [
+            "require",
+            "import",
+            "vi.mock",
+            "vi.doMock",
+            "vi.unmock",
+            "vi.importActual",
+            "vi.importMock",
+            "jest.mock",
+            "jest.doMock",
+            "jest.unmock",
+            "jest.requireActual",
+            "jest.requireMock",
+        ]
+        .iter()
+        .any(|name| ends_with_word(callee, name));
     }
     ends_with_word(before, "from") || ends_with_word(before, "import")
 }

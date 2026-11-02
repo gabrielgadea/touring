@@ -761,6 +761,10 @@ fn a_constant_module_specifier_is_not_path_traversal() {
         // CommonJS and dynamic import with a constant literal
         "const m = require(\"../../lib/m\");\n",
         "const m = await import(\"../../lib/m.js\");\n",
+        // test-runner module mocking (analise frontend/create_remaining_tests.sh:229)
+        "vi.mock(\"../../services/geminiService\");\n",
+        "jest.mock('../../lib/api');\n",
+        "const real = await vi.importActual(\"../../lib/real\");\n",
     ] {
         for lang in ["typescript", "javascript"] {
             assert!(!traversal(specifier, lang), "{lang}: {specifier}");
@@ -798,6 +802,8 @@ fn a_module_specifier_inside_a_quoted_heredoc_is_not_path_traversal() {
 #[test]
 fn the_module_specifier_exemption_is_narrow_and_real_traversal_still_counts() {
     for sink in [
+        // a method merely NAMED mock on another object is not the runner's API
+        "store.mock(\"../../etc/passwd\");\n",
         // a file API with a constant climb
         "const s = fs.readFileSync(\"../../etc/passwd\", \"utf8\");\n",
         // input-built paths
