@@ -24,7 +24,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 |---|---|---|---|---|
 | 1 | Transcript reader dono da política | feito | 2f5f178b 94a71cba e2a9d87d | touring-cli 813/0 (base 802), clippy limpo, 0 consumidor lendo isMeta/sidechain |
 | 2 | Veredito de comando destrutivo | feito | c3ce28ac 0791ff32 dee9718a | shared 544+1+1, core 484, handlers 809 (0 falhas), clippy --all-features limpo, dispatch/ceg check ok; replay 643 comandos com JUSTIFIED_DIFFERENCES vazio; divergência block_git 3/3 |
-| 3 | Desfecho de run (tipo + journal) | fila | — | — |
+| 3 | Desfecho de run (tipo + journal) | feito | 2d9474e2 251c8ec3 0395912d 74de54e9 0c41991e 9257f3c5 | 7 crates rc=0 (foundation, code, quality, ceg, hooks-core, cli, server), clippy limpo (server sem --all-features: alocadores exclusivos, igual à base), dispatch check ok; replay de 49.757 linhas reais idêntico byte a byte |
 | 4 | Nomes de evento de hook: fonte única | fase 1 feita | df57547b 8a4d9e3e | dispatch 1352/0, touring-server check ok, clippy limpo |
 | 5 | Árvores-gêmeas não compiladas | feito | c03484d6 | 5.424 linhas removidas; nada as incluía |
 | 6 | Gates do code mode fora do cli_suggester | fila | — | — |
@@ -48,7 +48,16 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   com veredito oposto. O CEG (`pre_exec.rs:180`) só pergunta a leitura estrutural (não vê dd/mkfs). Superfície morta:
   `HookRuntime.ctx.pre_tool_validator` sem chamador de produção.
 
+- #3: `touring_foundation::run_outcome` — `FailureKind` único, `ExitStatus {Code, TimedOut, NoExitCode}` (o -1/-2 só
+  no fio), três predicados nomeados (`is_success`, `exited_zero`, `has_failure`) porque as definições antigas
+  divergem (1 de 49.258 runs: exit 0 com `output-limit`). O denominador do KPI conta 58 eventos de recusa e 3 linhas
+  não-objeto como runs falhos (0,92729 medido; 0,92844 sem eles). O touring-ceg ainda tem um terceiro formato
+  (`SandboxOutcome` com `timed_out` bool; 32 refs `exit_code: i32`).
+
 ## Decisões do Gabriel pendentes
+
+- #3: denominador do `code_mode_adherence` (excluir eventos de recusa?) antes de recalibrar o piso; tipar
+  `SandboxResult.exit_code` no touring-ceg (próximo passo do mesmo aprofundamento).
 
 - #2: fechar as lacunas `pkill -9`/`sudo rm`; CEG passar a chamar `judge()`; remover a superfície morta do
   `PreToolValidator` em touring-hook-runtime; reconciliar block_git (começar por `--force-with-lease`) depois de 08/11.
