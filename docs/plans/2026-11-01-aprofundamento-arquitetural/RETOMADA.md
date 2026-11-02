@@ -27,7 +27,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | 3 | Desfecho de run (tipo + journal) | feito | 2d9474e2 251c8ec3 0395912d 74de54e9 0c41991e 9257f3c5 | 7 crates rc=0 (foundation, code, quality, ceg, hooks-core, cli, server), clippy limpo (server sem --all-features: alocadores exclusivos, igual à base), dispatch check ok; replay de 49.757 linhas reais idêntico byte a byte |
 | 4 | Nomes de evento de hook: fonte única | feito (fases 1 e 2) | df57547b 8a4d9e3e 3c0acc32 e422e156 8e27fd33 | dispatch 1353/0, touring-hooks 1216/0, hooks-core 485/0, handlers 809/0, clippy --all-features limpo, touring-server --tests check ok; 29 nomes × 52 payloads idênticos byte a byte ao binário anterior |
 | 5 | Árvores-gêmeas não compiladas | feito | c03484d6 | 5.424 linhas removidas; nada as incluía |
-| 6 | Gates do code mode fora do cli_suggester | fila | — | — |
+| 6 | Gates do code mode fora do cli_suggester | feito | 1aee80af a63ad737 db9b22d7 21c6533d | touring-cli lib 720/0 (base 815/1: testes por cenário viraram 114 linhas de tabela), cli_suggester_e2e 20/20, g10 3/3, clippy --all-features limpo, server --tests e dispatch check ok; replay 114 sequências/444 passos + digest de 30.406 chamadas, JUSTIFIED_DIFFERENCES vazio; 29/29 mutantes mortos; latência sem mudança; 0 aresta Cargo nova |
 | 7 | touring-dispatch: testes pelos handle_* | fila | — | — |
 | 8 | VGP: leitura contida em caminho.rs | fila | — | — |
 | 9 | adw.py: interface de nó tipada | fila | — | — |
