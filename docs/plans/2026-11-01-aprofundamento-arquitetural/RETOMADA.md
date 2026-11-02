@@ -25,7 +25,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | 1 | Transcript reader dono da política | feito | 2f5f178b 94a71cba e2a9d87d | touring-cli 813/0 (base 802), clippy limpo, 0 consumidor lendo isMeta/sidechain |
 | 2 | Veredito de comando destrutivo | feito | c3ce28ac 0791ff32 dee9718a | shared 544+1+1, core 484, handlers 809 (0 falhas), clippy --all-features limpo, dispatch/ceg check ok; replay 643 comandos com JUSTIFIED_DIFFERENCES vazio; divergência block_git 3/3 |
 | 3 | Desfecho de run (tipo + journal) | feito | 2d9474e2 251c8ec3 0395912d 74de54e9 0c41991e 9257f3c5 | 7 crates rc=0 (foundation, code, quality, ceg, hooks-core, cli, server), clippy limpo (server sem --all-features: alocadores exclusivos, igual à base), dispatch check ok; replay de 49.757 linhas reais idêntico byte a byte |
-| 4 | Nomes de evento de hook: fonte única | fase 1 feita | df57547b 8a4d9e3e | dispatch 1352/0, touring-server check ok, clippy limpo |
+| 4 | Nomes de evento de hook: fonte única | feito (fases 1 e 2) | df57547b 8a4d9e3e 3c0acc32 e422e156 8e27fd33 | dispatch 1353/0, touring-hooks 1216/0, hooks-core 485/0, handlers 809/0, clippy --all-features limpo, touring-server --tests check ok; 29 nomes × 52 payloads idênticos byte a byte ao binário anterior |
 | 5 | Árvores-gêmeas não compiladas | feito | c03484d6 | 5.424 linhas removidas; nada as incluía |
 | 6 | Gates do code mode fora do cli_suggester | fila | — | — |
 | 7 | touring-dispatch: testes pelos handle_* | fila | — | — |
@@ -54,7 +54,16 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   não-objeto como runs falhos (0,92729 medido; 0,92844 sem eles). O touring-ceg ainda tem um terceiro formato
   (`SandboxOutcome` com `timed_out` bool; 32 refs `exit_code: i32`).
 
+- #4 fase 2: a rota standalone do `touring-hook` deriva de `dispatch_table()` (13 overrides com motivo, 18 nomes só
+  standalone fora da tabela, 200 `cli-*` recusados como endpoint RPC). Os 18 eventos sem braço agora rodam sem daemon.
+  `cli-suggest` standalone descartava a sugestão (`let _ =`): com o daemon fora, o PreToolUse (9 registros) não
+  responde nada. 11 handlers da tabela devolvem prosa em vez de JSON (viram `{}` em toda rota, inclusive o daemon).
+  `pre-compact` standalone regrava o estado do bandit a partir de um runtime recém-carregado.
+
 ## Decisões do Gabriel pendentes
+
+- #4: remover o override do `cli-suggest` (passa a sugerir com o daemon fora); os 11 handlers em prosa (embrulhar
+  em Context ou remover as dicas); convergir os 13 overrides; `pre-compact` standalone regravando o bandit.
 
 - #3: denominador do `code_mode_adherence` (excluir eventos de recusa?) antes de recalibrar o piso; tipar
   `SandboxResult.exit_code` no touring-ceg (próximo passo do mesmo aprofundamento).
