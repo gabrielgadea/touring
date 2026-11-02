@@ -59,6 +59,29 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
     names
 }
 
+/// The namespace of the table's CLI query handlers: `cli-learning-status`, `cli-doctor`, ….
+///
+/// They answer the `touring` CLI over the daemon's socket (`daemon_query`); no Claude Code
+/// event is ever named `cli-…`. The handlers' own module says so ("these are NOT Claude Code
+/// hooks"). The table holds them next to the hooks because one socket, one dispatch loop and
+/// one runtime serve both kinds of caller — which is also why the table cannot tell, by
+/// itself, which of its keys are events. [`is_rpc_endpoint`] is that distinction.
+const RPC_NAMESPACE_PREFIX: &str = "cli-";
+
+/// Keys inside [`RPC_NAMESPACE_PREFIX`] that ARE Claude Code hooks (settings.json registers
+/// `touring-hook cli-suggest` on every PreToolUse). The only exception to the prefix rule.
+const HOOKS_IN_RPC_NAMESPACE: &[&str] = &["cli-suggest"];
+
+/// `true` when `name` answers the `touring` CLI rather than a Claude Code hook event.
+///
+/// The standalone route of `touring-hook` asks it: a hook event the daemon serves can also
+/// run in the client process when the daemon is down, but a CLI query handler's caller is the
+/// daemon socket itself — there is no hook payload to run it on. A prefix rule rather than a
+/// list, so adding a `cli-…` handler to [`build_dispatch_table`] needs no second edit.
+pub fn is_rpc_endpoint(name: &str) -> bool {
+    name.starts_with(RPC_NAMESPACE_PREFIX) && !HOOKS_IN_RPC_NAMESPACE.contains(&name)
+}
+
 /// Hooks that can DENY a tool call — the GUARDS (C4, 2026-10-17).
 ///
 /// A guard that cannot read its input must fail CLOSED (the thin client denies with the

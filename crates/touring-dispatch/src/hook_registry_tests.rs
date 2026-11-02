@@ -142,6 +142,44 @@ fn stateless_subcommands_are_not_daemon_hooks() {
     }
 }
 
+/// The table holds hook events AND the CLI's query handlers (`cli-…`); `is_rpc_endpoint` is
+/// the line between them. The namespace is the rule, `cli-suggest` its only hook, and a stale
+/// exception (an entry that is no table key, or not in the namespace) must fail here rather
+/// than silently turn a hook into an "endpoint" — or the reverse.
+#[test]
+fn rpc_endpoints_are_the_cli_namespace_minus_its_hooks() {
+    let names = all_daemon_hook_names();
+    let rpc: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|n| is_rpc_endpoint(n))
+        .collect();
+    assert!(
+        !rpc.is_empty() && rpc.contains(&"cli-doctor"),
+        "the CLI query handlers are RPC endpoints (an empty set would pass vacuously)"
+    );
+    for name in HOOKS_IN_RPC_NAMESPACE {
+        assert!(
+            name.starts_with(RPC_NAMESPACE_PREFIX),
+            "'{name}' is listed as an exception to the prefix rule but is outside the prefix"
+        );
+        assert!(
+            is_daemon_hook(name),
+            "'{name}' is listed as a hook in the cli- namespace but is no table key"
+        );
+        assert!(!is_rpc_endpoint(name), "'{name}' is a hook, not an endpoint");
+    }
+    for name in names.iter().filter(|n| !n.starts_with(RPC_NAMESPACE_PREFIX)) {
+        assert!(
+            !is_rpc_endpoint(name),
+            "'{name}' is outside the cli- namespace and cannot be an RPC endpoint"
+        );
+    }
+    for name in ["pre-bash", "session-start", "user_prompt_submit", "no-such-hook", ""] {
+        assert!(!is_rpc_endpoint(name), "'{name}' is no RPC endpoint");
+    }
+}
+
 /// Answering membership builds the table in the short-lived `touring-hook` process, so the
 /// cost is measured, not assumed: the median of 101 builds, in the (pessimistic) debug test
 /// profile, stays under 1 ms — the line above which a compile-time name list would be
