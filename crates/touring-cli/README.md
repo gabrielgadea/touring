@@ -18,7 +18,8 @@ Owns every daemon-side cli handler the dispatch table calls:
 |---|---|
 | Handler tree | `cli/` (55 files — kpi, evolution, repo_score, repo_health, polyglot, scout, memory, decompose, mpatch, acp, saga, execute, viz, health, …) |
 | Handler hubs | `cli_handlers{,_decompose,_entity,_index,_file_knowledge,_wiring_repair,_semantics,_session,_mcp,_mutation_test}` (the `#[path = "cli/handlers/*.rs"]` decls) |
-| Suggestion engine | `cli_suggester` (PreToolUse classifier — best Touring command per (tool, input)) |
+| Suggestion engine | `cli_suggester` (PreToolUse classifier — best Touring command per (tool, input)); it asks the gates below and only FORMATS their verdict (`gate_response`) |
+| Code-mode gates | `code_mode_gates` (one interface: `evaluate(&GateState, &ToolEvent, &GateConfig) -> Decision`; every window and threshold in `spec.rs`, every ledger in `GateState`, the presentation precedence in `mode.rs`; proofs in `code_mode_gates/tests/` — scenario table, recorded replay corpus, contract) |
 | E2E | `cli_e2e` (comprehensive code analysis handler) |
 | Workflow Intelligence | `workflow/` (CEG Pln2 P8 stage/antipattern/advise — moved with its single consumer, cli_suggester) |
 

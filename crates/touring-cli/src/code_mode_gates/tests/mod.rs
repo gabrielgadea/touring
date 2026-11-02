@@ -8,6 +8,7 @@
 //! * `contract` — the declared windows against the ones the ledgers enforce, and the map of
 //!   the old tests to the rows.
 //! * `switch` — the kill switch silences every row of the table.
+//! * `telemetry` — the `gate_metrics` counters a gate bumps next to its decision.
 //! * `unit` / `arm_unit` — the pure parts and the A/B arm, moved verbatim.
 //!
 //! [`evaluate`]: super::evaluate
@@ -20,4 +21,5 @@ mod rows;
 mod scenarios;
 mod support;
 mod switch;
+mod telemetry;
 mod unit;

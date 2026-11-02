@@ -16,6 +16,7 @@ use super::scenarios::{Cfg, K, observe};
 const NOT_GOVERNED_BY_THE_SWITCH: &[&str] = &["[G5 telemetria]", "[E3 contrafactual"];
 
 #[test]
+#[serial_test::serial(gate_metrics)]
 fn the_kill_switch_silences_every_row_of_the_table() {
     let mut speaking = Vec::new();
     let mut survivors = 0usize;

@@ -328,6 +328,7 @@ struct Corpus {
 /// RECORD: `GATE_REPLAY_RECORD=<path> cargo test -p touring-cli record_the_gate_replay_corpus
 /// -- --ignored`. Run against the implementation whose behavior is to be preserved.
 #[test]
+#[serial_test::serial(gate_metrics)]
 #[ignore = "writes the corpus; run on purpose, against the reference implementation"]
 fn record_the_gate_replay_corpus() {
     let path = std::env::var("GATE_REPLAY_RECORD").expect("GATE_REPLAY_RECORD=<path>");
@@ -342,6 +343,7 @@ fn record_the_gate_replay_corpus() {
 }
 
 #[test]
+#[serial_test::serial(gate_metrics)]
 fn the_scenario_table_holds_its_contract() {
     let rows = scenarios();
     let names: std::collections::BTreeSet<_> = rows.iter().map(|s| s.name).collect();
@@ -365,6 +367,7 @@ fn the_scenario_table_holds_its_contract() {
 }
 
 #[test]
+#[serial_test::serial(gate_metrics)]
 fn the_recorded_corpus_is_reproduced_exactly() {
     let text = std::fs::read_to_string(CORPUS).expect("tests/fixtures/gate_replay_corpus.json");
     let want: Corpus = serde_json::from_str(&text).expect("corpus json");
@@ -401,6 +404,7 @@ fn the_recorded_corpus_is_reproduced_exactly() {
 /// the old suite shared have capacity 4096: two such explorations at once evicted each other's
 /// live entries, which is what made the original test flaky next to its neighbours).
 #[test]
+#[serial_test::serial(gate_metrics)]
 fn the_composition_of_g7_g3_g9_always_leaves_an_edit_route() {
     let text = std::fs::read_to_string(CORPUS).expect("tests/fixtures/gate_replay_corpus.json");
     let want: Corpus = serde_json::from_str(&text).expect("corpus json");
@@ -455,6 +459,7 @@ fn names_next_command(reason: &str) -> bool {
 }
 
 #[test]
+#[serial_test::serial(gate_metrics)]
 fn every_gate_reason_names_the_next_command() {
     let mut reasons: Vec<(String, String)> = Vec::new();
     for s in scenarios() {
@@ -507,6 +512,7 @@ fn every_gate_reason_names_the_next_command() {
 /// `cargo test -p touring-cli gate_decision_latency -- --ignored --nocapture`, before and
 /// after a change to the gates, under the SAME profile.
 #[test]
+#[serial_test::serial(gate_metrics)]
 #[ignore = "benchmark; prints, asserts only a sanity ceiling"]
 fn gate_decision_latency() {
     let root = tempfile::tempdir().expect("root");
