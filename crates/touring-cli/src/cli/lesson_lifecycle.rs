@@ -38,7 +38,7 @@
 
 use crate::cli::context_budget::transcript_dir_for;
 use crate::cli::context_cost::{merge, round_to, scan_meta};
-use crate::cli::transcript_scan::{SHADOW_CAPS, ScanCaps, scan_dir};
+use crate::cli::transcript_scan::{AssistantTurn, Event, SHADOW_CAPS, ScanCaps, ToolResult, scan_dir};
 use regex::Regex;
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
@@ -83,105 +83,52 @@ fn truncate_chars(s: &str, max: usize) -> String {
     s.chars().take(max).collect()
 }
 
-/// A tool result's content as the miner flattens it: a string; else the `text` blocks joined with
-/// nothing; else the JSON of the whole.
-fn flatten_result(v: &Value) -> String {
-    if let Some(s) = v.as_str() {
-        return s.to_string();
-    }
-    if let Some(items) = v.as_array() {
-        let parts: Vec<&str> = items
-            .iter()
-            .filter(|i| i.get("type").and_then(Value::as_str) == Some("text"))
-            .filter_map(|i| i.get("text").and_then(Value::as_str))
-            .collect();
-        if !parts.is_empty() {
-            return parts.join("");
-        }
-    }
-    v.to_string()
-}
-
-/// Walks one session's records and collects the resolved failure runs.
+/// Walks one session's events and collects the resolved failure runs.
 #[derive(Debug, Default)]
 pub struct LessonTracker {
-    /// First stream position of each tool-use id (`entry().or_insert`).
-    uses: HashMap<String, usize>,
-    /// Tool-use ids per tool, one per occurrence, in stream order.
+    /// Tool-use ids per tool in stream order, one per call: the reader hands each call out once.
     by_tool: BTreeMap<String, Vec<String>>,
     /// First result of each id: `(is_error, text)`. The text is kept only for a failure — it is
     /// all a lesson ever reads.
     results: HashMap<String, (bool, String)>,
-    pos: usize,
 }
 
 impl LessonTracker {
-    /// Fold one transcript record in. Only user and assistant lines with a block list are read,
-    /// as the miner's `parse_transcript_line` reads them.
-    pub fn observe(&mut self, rec: &Value) {
-        if !matches!(
-            rec.get("type").and_then(Value::as_str),
-            Some("user" | "assistant")
-        ) {
-            return;
-        }
-        let Some(blocks) = rec.pointer("/message/content").and_then(Value::as_array) else {
-            return;
-        };
-        self.pos += 1;
-        for block in blocks {
-            match block.get("type").and_then(Value::as_str) {
-                Some("tool_use") => self.note_use(block),
-                Some("tool_result") => self.note_result(block),
-                _ => {}
-            }
+    /// Fold one event of the main thread in: the calls and the results, as the miner's
+    /// `parse_transcript_line` reads them from user and assistant lines.
+    pub fn observe(&mut self, event: &Event<'_>) {
+        match event {
+            Event::Assistant(turn) => self.note_uses(turn),
+            Event::ToolResult(result) => self.note_result(result),
+            _ => {}
         }
     }
 
-    /// [`observe`](Self::observe) over raw JSONL lines; a line that is not JSON is skipped.
-    #[cfg(test)]
-    pub fn observe_lines<'a>(&mut self, lines: impl Iterator<Item = &'a str>) {
-        for line in lines {
-            if let Ok(rec) = serde_json::from_str::<Value>(line) {
-                self.observe(&rec);
-            }
+    fn note_uses(&mut self, turn: &AssistantTurn<'_>) {
+        for call in turn.tool_calls() {
+            self.by_tool
+                .entry(call.name.to_string())
+                .or_default()
+                .push(call.id.unwrap_or("").to_string());
         }
     }
 
-    fn note_use(&mut self, block: &Value) {
-        let text = |k: &str| block.get(k).and_then(Value::as_str).unwrap_or("").to_string();
-        let (id, name) = (text("id"), text("name"));
-        self.uses.entry(id.clone()).or_insert(self.pos);
-        self.by_tool.entry(name).or_default().push(id);
-    }
-
-    fn note_result(&mut self, block: &Value) {
-        let id = block
-            .get("tool_use_id")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        let is_error = block
-            .get("is_error")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let text = if is_error {
-            truncate_chars(
-                &block.get("content").map(flatten_result).unwrap_or_default(),
-                ERROR_TEXT_MAX,
-            )
+    fn note_result(&mut self, result: &ToolResult<'_>) {
+        let text = if result.is_error {
+            truncate_chars(&result.text, ERROR_TEXT_MAX)
         } else {
             String::new()
         };
-        self.results.entry(id).or_insert((is_error, text));
+        self.results
+            .entry(result.tool_use_id.unwrap_or("").to_string())
+            .or_insert((result.is_error, text));
     }
 
     /// The session's lessons: the chain scan of the miner over every tool.
     #[must_use]
     pub fn finish(self) -> SessionLessons {
         let mut pairs = Vec::new();
-        for (tool, mut ids) in self.by_tool {
-            ids.sort_by_key(|id| self.uses.get(id).copied().unwrap_or(0));
+        for (tool, ids) in self.by_tool {
             let mut chain_start: Option<&str> = None;
             let mut chain_len = 0usize;
             for id in &ids {
@@ -466,11 +413,11 @@ pub fn lesson_lifecycle(project_root: &Path) -> Value {
 #[must_use]
 pub fn lesson_lifecycle_in(home: &Path, project_root: &Path, caps: &ScanCaps) -> Value {
     let dir = transcript_dir_for(home, project_root);
-    let scan = match scan_dir::<LessonTracker>(&dir, caps, &mut |t, rec| t.observe(rec)) {
+    let scan = match scan_dir::<LessonTracker>(&dir, caps, &mut |t, event| t.observe(event)) {
         Ok(scan) => scan,
         Err(reason) => return json!({"available": false, "reason": reason}),
     };
-    let malformed: u64 = scan.sessions.iter().map(|s| s.malformed_lines).sum();
+    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
     let meta = scan_meta(
         scan.sessions.len(),
         scan.bytes_scanned,

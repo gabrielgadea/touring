@@ -40,7 +40,7 @@
 use crate::cli::context_budget::{attributed_family, hook_injections, transcript_dir_for};
 use crate::cli::surface_usage::{SurfaceTracker, surface_report};
 use crate::cli::transcript_scan::{
-    KPI_CAPS, ScanCaps, is_sidechain, parse_announcement, scan_dir,
+    AssistantTurn, Block, Event, KPI_CAPS, ScanCaps, Usage, parse_announcement, scan_dir,
 };
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -151,21 +151,16 @@ struct CallUsage {
 }
 
 impl CallUsage {
-    fn from_message(msg: &Value) -> Self {
-        let u = msg.get("usage").unwrap_or(&Value::Null);
-        let n = |k: &str| u.get(k).and_then(Value::as_u64).unwrap_or(0);
+    fn from_usage(u: &Usage<'_>) -> Self {
         Self {
             tokens: TokenTotals {
-                input: n("input_tokens"),
-                cache_creation: n("cache_creation_input_tokens"),
-                cache_read: n("cache_read_input_tokens"),
-                output: n("output_tokens"),
+                input: u.input_tokens,
+                cache_creation: u.cache_creation_tokens,
+                cache_read: u.cache_read_tokens,
+                output: u.output_tokens,
             },
-            cache_creation_1h: u
-                .pointer("/cache_creation/ephemeral_1h_input_tokens")
-                .and_then(Value::as_u64)
-                .unwrap_or(0),
-            speed: u.get("speed").and_then(Value::as_str).map(str::to_string),
+            cache_creation_1h: u.cache_creation_1h_tokens,
+            speed: u.speed.map(str::to_string),
         }
     }
 
@@ -301,25 +296,7 @@ const LEAF_OTHER: &str = "other_attachments";
 pub struct CostTracker {
     /// Bytes now in the window, per leaf category.
     window: BTreeMap<String, u64>,
-    /// Message ids already billed.
-    seen: BTreeSet<String>,
     summary: CostSummary,
-}
-
-/// Bytes of a tool result: a string as is, a list of text blocks by their text, anything else
-/// by its serialisation.
-fn result_bytes(content: &Value) -> u64 {
-    match content {
-        Value::String(s) => s.len() as u64,
-        Value::Array(blocks) => blocks
-            .iter()
-            .map(|b| match b.get("text").and_then(Value::as_str) {
-                Some(t) => t.len() as u64,
-                None => b.to_string().len() as u64,
-            })
-            .sum(),
-        other => other.to_string().len() as u64,
-    }
 }
 
 /// Bytes of the text an attachment carries that is not an announcement or a hook injection.
@@ -336,25 +313,12 @@ fn other_attachment_bytes(att: &Value) -> u64 {
 }
 
 /// Bytes of the blocks an assistant record adds to the window.
-fn assistant_bytes(msg: &Value) -> u64 {
-    let Some(content) = msg.get("content") else {
-        return 0;
-    };
-    if let Some(s) = content.as_str() {
-        return s.len() as u64;
-    }
-    content
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|b| match b.get("type").and_then(Value::as_str) {
-            Some("text") => b.get("text").and_then(Value::as_str).map_or(0, str::len) as u64,
-            Some("thinking") => b.get("thinking").and_then(Value::as_str).map_or(0, str::len) as u64,
-            Some("tool_use") => {
-                b.get("input").map_or(0, |i| i.to_string().len()) as u64
-                    + b.get("name").and_then(Value::as_str).map_or(0, str::len) as u64
-            }
-            _ => 0,
+fn assistant_bytes(turn: &AssistantTurn<'_>) -> u64 {
+    turn.blocks
+        .iter()
+        .map(|b| match b {
+            Block::Text(t) | Block::Thinking(t) => t.len() as u64,
+            Block::ToolUse(call) => (call.input.to_string().len() + call.name.len()) as u64,
         })
         .sum()
 }
@@ -366,45 +330,30 @@ impl CostTracker {
         }
     }
 
-    /// Fold one transcript record into the window and the totals.
-    pub fn observe(&mut self, rec: &Value) {
-        if is_sidechain(rec) {
-            self.summary.sidechain_skipped += 1;
-            return;
-        }
-        match rec.get("type").and_then(Value::as_str) {
-            Some("system") => self.observe_system(rec),
-            Some("attachment") => self.observe_attachment(rec),
-            Some("user") => self.observe_user(rec),
-            Some("assistant") => self.observe_assistant(rec),
-            Some("cost-state") => self.summary.cost_state = Some(CostState::from_record(rec)),
-            _ => {}
-        }
-    }
-
-    /// [`observe`](Self::observe) over raw JSONL lines; a line that is not JSON is skipped.
-    #[cfg(test)]
-    pub fn observe_lines<'a>(&mut self, lines: impl Iterator<Item = &'a str>) {
-        for line in lines {
-            if let Ok(rec) = serde_json::from_str::<Value>(line) {
-                self.observe(&rec);
+    /// Fold one event of the main thread into the window and the totals.
+    pub fn observe(&mut self, event: &Event<'_>) {
+        match event {
+            Event::CompactBoundary => {
+                self.window.clear();
+                self.summary.compactions += 1;
             }
+            Event::Attachment(att) => self.observe_attachment(att),
+            Event::User(user) => {
+                for text in &user.texts {
+                    self.add_bytes(LEAF_USER, text.len() as u64);
+                }
+            }
+            Event::ToolResult(result) => {
+                self.add_bytes(LEAF_TOOL_RESULTS, result.text.len() as u64);
+            }
+            Event::Assistant(turn) => self.observe_assistant(turn),
+            Event::CostState(rec) => self.summary.cost_state = Some(CostState::from_record(rec)),
         }
     }
 
-    fn observe_system(&mut self, rec: &Value) {
-        if rec.get("subtype").and_then(Value::as_str) == Some("compact_boundary") {
-            self.window.clear();
-            self.summary.compactions += 1;
-        }
-    }
-
-    fn observe_attachment(&mut self, rec: &Value) {
-        let Some(att) = rec.get("attachment") else {
-            return;
-        };
+    fn observe_attachment(&mut self, att: &Value) {
         if att.get("type").and_then(Value::as_str) == Some("hook_success") {
-            for inj in hook_injections(rec) {
+            for inj in hook_injections(att) {
                 let family = attributed_family(&inj.text, inj.emitter.as_deref());
                 self.add_bytes(&format!("hook/{family}"), inj.text.len() as u64);
             }
@@ -415,45 +364,18 @@ impl CostTracker {
         }
     }
 
-    fn observe_user(&mut self, rec: &Value) {
-        let Some(content) = rec.pointer("/message/content") else {
-            return;
-        };
-        if let Some(text) = content.as_str() {
-            self.add_bytes(LEAF_USER, text.len() as u64);
-            return;
-        }
-        for b in content.as_array().into_iter().flatten() {
-            match b.get("type").and_then(Value::as_str) {
-                Some("tool_result") => {
-                    self.add_bytes(LEAF_TOOL_RESULTS, b.get("content").map_or(0, result_bytes));
-                }
-                Some("text") => {
-                    let text = b.get("text").and_then(Value::as_str).unwrap_or("");
-                    self.add_bytes(LEAF_USER, text.len() as u64);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn observe_assistant(&mut self, rec: &Value) {
-        let Some(msg) = rec.get("message") else {
-            return;
-        };
-        if let Some(id) = msg.get("id").and_then(Value::as_str)
-            && self.seen.insert(id.to_string())
-        {
-            self.bill_call(msg);
+    fn observe_assistant(&mut self, turn: &AssistantTurn<'_>) {
+        if let Some(usage) = &turn.usage {
+            self.bill_call(usage);
         }
         // What the assistant wrote enters the window AFTER the call that wrote it.
-        self.add_bytes(LEAF_ASSISTANT, assistant_bytes(msg));
+        self.add_bytes(LEAF_ASSISTANT, assistant_bytes(turn));
     }
 
     /// Count one API call and attribute the input it was billed for.
-    fn bill_call(&mut self, msg: &Value) {
-        let model = msg.get("model").and_then(Value::as_str).unwrap_or("unknown");
-        let usage = CallUsage::from_message(msg);
+    fn bill_call(&mut self, call: &Usage<'_>) {
+        let model = call.model.unwrap_or("unknown");
+        let usage = CallUsage::from_usage(call);
         if model == "<synthetic>" || usage.tokens.input_total() == 0 {
             return;
         }
@@ -501,10 +423,14 @@ impl CostTracker {
         }
     }
 
-    /// The session's accumulators.
+    /// The session's accumulators; `sidechain_dropped` is the subagent records the reader left
+    /// out of the main thread (`ReadStats::sidechain_dropped` of the reader).
     #[must_use]
-    pub fn finish(self) -> CostSummary {
-        self.summary
+    pub fn finish(self, sidechain_dropped: u64) -> CostSummary {
+        CostSummary {
+            sidechain_skipped: sidechain_dropped,
+            ..self.summary
+        }
     }
 }
 
@@ -781,9 +707,9 @@ pub fn context_cost_and_surface_in(
     caps: &ScanCaps,
 ) -> (Value, Value) {
     let dir = transcript_dir_for(home, project_root);
-    let scan = scan_dir::<(CostTracker, SurfaceTracker)>(&dir, caps, &mut |state, rec| {
-        state.0.observe(rec);
-        state.1.observe(rec);
+    let scan = scan_dir::<(CostTracker, SurfaceTracker)>(&dir, caps, &mut |state, event| {
+        state.0.observe(event);
+        state.1.observe(event);
     });
     let scan = match scan {
         Ok(scan) => scan,
@@ -792,7 +718,7 @@ pub fn context_cost_and_surface_in(
             return (absent.clone(), absent);
         }
     };
-    let malformed: u64 = scan.sessions.iter().map(|s| s.malformed_lines).sum();
+    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
     let meta = scan_meta(
         scan.sessions.len(),
         scan.bytes_scanned,
@@ -805,7 +731,7 @@ pub fn context_cost_and_surface_in(
     let mut surfaces = Vec::new();
     for s in scan.sessions {
         let (cost, surface) = s.state;
-        let summary = cost.finish();
+        let summary = cost.finish(s.read.sidechain_dropped);
         project.absorb(&summary);
         let mut row = cost_payload(&summary);
         merge(

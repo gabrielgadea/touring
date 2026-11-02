@@ -7,7 +7,7 @@
 //! the probe, not here.
 
 use super::*;
-use crate::cli::transcript_scan::{KPI_CAPS, fixtures::*};
+use crate::cli::transcript_scan::{KPI_CAPS, fixtures::*, read_lines};
 use rusqlite::Connection;
 use serde_json::json;
 
@@ -18,7 +18,7 @@ const WIDE: &str = "€";
 
 fn lessons(lines: &[String]) -> Vec<RawPair> {
     let mut t = LessonTracker::default();
-    t.observe_lines(lines.iter().map(String::as_str));
+    read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
     t.finish().pairs
 }
 

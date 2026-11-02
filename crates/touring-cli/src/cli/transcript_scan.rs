@@ -1,18 +1,41 @@
-//! The shared, read-only walk over Claude Code transcripts behind the `context_cost` (B5) and
-//! `surface_usage` (B3) KPI sections (01/11/2026).
+//! The transcript READER behind the `context_budget`, `context_cost` (B5), `surface_usage` (B3),
+//! `family_gate` (B2) and `lesson_lifecycle` (B1) KPI sections (01/11/2026).
 //!
 //! `context_budget` measures BYTES per hook family; bytes are not cost, because the prefix is
-//! cached and a cache read bills a fraction of a fresh token. These two sections read the same
+//! cached and a cache read bills a fraction of a fresh token. The other sections read the same
 //! transcripts (`~/.claude/projects/<slug>/*.jsonl`) for what bytes cannot say: the tokens the
-//! provider billed (`usage`) and what the harness announced against what the model used.
+//! provider billed (`usage`), what the harness announced against what the model used, how each
+//! hook family was followed, and which failures were resolved.
 //!
-//! One walk serves both, so a `touring kpi` call parses each transcript once. The walk is
-//! bounded exactly as `context_budget` bounds its own: newest first, a transcript cap and a byte
-//! cap, and BOTH are reported — a partial scan must never read as a complete one.
+//! # The reader owns the record-kind policy
 //!
-//! Nothing here keeps transcript text. The parsers return names and byte counts.
+//! A transcript record is a loose JSON object; what it MEANS (is this a person typing? is it a
+//! subagent's window? is this the same API call repeated?) used to be decided again in every
+//! consumer, and the consumers disagreed — five rulers read one corpus under five different
+//! definitions of "a turn". Now the policy is decided HERE, once, and consumers receive typed
+//! [`Event`]s and never a raw record:
+//!
+//! * **main thread only** — a record written by a subagent (`isSidechain`) is another window, not
+//!   this one: it is dropped before any consumer sees it, and counted in
+//!   [`ReadStats::sidechain_dropped`] so the drop is displayed, never hidden;
+//! * **a human prompt** is a user record that is not `isMeta`, carries no `tool_result` block and
+//!   whose text holds none of [`NON_HUMAN_TURN_MARKERS`]; string content and a text-only block
+//!   array are both read (a bare string is the common shape: 893 of the 898 prompts of 219 real
+//!   transcripts);
+//! * **usage is billed once per API call** — Claude Code writes one assistant record per content
+//!   block and every record repeats the call's `usage`, so [`AssistantTurn::usage`] is `Some`
+//!   only on the first record of a message id of the session;
+//! * **a `tool_use` block counts once per id** — a call repeated across records is one call.
+//!
+//! The walk is bounded: newest first, a transcript cap and a byte cap, and BOTH are reported — a
+//! partial scan must never read as a complete one. One walk serves every section, so a `touring
+//! kpi` call parses each transcript once.
+//!
+//! Nothing here keeps transcript text beyond the event it is handed to. The parsers return names
+//! and byte counts.
 
 use serde_json::Value;
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -49,10 +72,10 @@ pub struct SessionScan<T> {
     pub id: String,
     /// Bytes of transcript read.
     pub bytes: u64,
-    /// What the observer folded out of the records.
+    /// What the observer folded out of the events.
     pub state: T,
-    /// Lines that were not JSON: counted, never hidden.
-    pub malformed_lines: u64,
+    /// What the reader saw besides the events: malformed lines, dropped records, the start date.
+    pub read: ReadStats,
 }
 
 /// The result of one walk.
@@ -85,8 +108,8 @@ fn transcripts_newest_first(dir: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(files.into_iter().map(|(_, p)| p).collect())
 }
 
-/// Walk the transcripts of `dir` newest first, handing every parsed record of a session to
-/// `observe` together with that session's own state.
+/// Walk the transcripts of `dir` newest first, handing every [`Event`] of a session to `observe`
+/// together with that session's own state.
 ///
 /// # Errors
 ///
@@ -95,7 +118,7 @@ fn transcripts_newest_first(dir: &Path) -> Result<Vec<PathBuf>, String> {
 pub fn scan_dir<T: Default>(
     dir: &Path,
     caps: &ScanCaps,
-    observe: &mut dyn FnMut(&mut T, &Value),
+    observe: &mut dyn FnMut(&mut T, &Event<'_>),
 ) -> Result<Scan<T>, String> {
     let files = transcripts_newest_first(dir)?;
     let mut scan = Scan {
@@ -113,13 +136,7 @@ pub fn scan_dir<T: Default>(
             continue;
         };
         let mut state = T::default();
-        let mut malformed_lines = 0;
-        for line in content.lines() {
-            match serde_json::from_str::<Value>(line) {
-                Ok(rec) => observe(&mut state, &rec),
-                Err(_) => malformed_lines += 1,
-            }
-        }
+        let read = read_lines(content.lines(), &mut |event| observe(&mut state, event));
         scan.bytes_scanned += content.len() as u64;
         scan.sessions.push(SessionScan {
             id: path
@@ -128,7 +145,7 @@ pub fn scan_dir<T: Default>(
                 .unwrap_or_default(),
             bytes: content.len() as u64,
             state,
-            malformed_lines,
+            read,
         });
     }
     Ok(scan)
@@ -185,8 +202,7 @@ fn announced_name<'a>(line: &'a str, names: &BTreeSet<String>) -> Option<&'a str
 }
 
 /// Bytes per announced name over listing `lines` (each line also costs its newline).
-#[must_use]
-pub fn attribute_lines<'a>(
+fn attribute_lines<'a>(
     lines: impl Iterator<Item = &'a str>,
     names: &BTreeSet<String>,
 ) -> BTreeMap<String, u64> {
@@ -282,10 +298,128 @@ pub fn typed_commands(text: &str) -> Vec<String> {
     out
 }
 
-/// One `tool_use` block of an assistant record.
+/// Texts the HARNESS files as user records, not the person: the output of a slash command, its
+/// caveat banner, and the summary injected when a context is compacted. They carry no
+/// `tool_result`, so the obvious predicate ("a user record without tool results is a human turn")
+/// counts them — and the human-turn count is the DENOMINATOR of the ruler's headline metric.
+///
+/// Measured 04/09/2026 over 5 real transcripts: **35 of 172** counted turns (20,3%) were one of
+/// these — 13 caveats, 13 command outputs, 9 compaction summaries. The denominator was inflated
+/// 25,5%, so `injected_bytes_per_turn` read ~25% LOWER than the truth. This list stops adding fake
+/// turns; reading string content as a turn stopped dropping real ones. A denominator has two ways
+/// to be wrong and both were live. `isMeta` closes a third: measured 01/11/2026 over 219
+/// transcripts, 883 user records that passed the marker list were `isMeta` — Claude Code's own
+/// expansions (a skill body, a command's caveat) — and 862 of them still counted as a turn.
+///
+/// A genuine turn may carry an appended `<system-reminder>`, so that is deliberately NOT a marker:
+/// the predicate stays narrow, and a doubtful record counts as human (a larger denominator
+/// understates the problem, which is the conservative direction for a cost metric).
+///
+/// `scripts/test_human_turn_predicate_parity.py` reads this array out of THIS source file with a
+/// regex and demands the same list in the Python hook that cuts turn records
+/// (`loop_turn_record.py`): keep the declaration in the `const NAME: [&str; N] = [ … ];` shape.
+pub(crate) const NON_HUMAN_TURN_MARKERS: [&str; 4] = [
+    "This session is being continued from a previous conversation",
+    "<local-command-stdout>",
+    "<local-command-caveat>",
+    "Caveat: The messages below were generated by the user while running local commands",
+];
+
+/// Did a person write this text, or the harness? See [`NON_HUMAN_TURN_MARKERS`].
+fn is_human_turn_text(text: &str) -> bool {
+    !NON_HUMAN_TURN_MARKERS.iter().any(|m| text.contains(m))
+}
+
+/// `YYYY-MM-DD` when `ts` starts with one.
+fn date_prefix(ts: &str) -> Option<&str> {
+    let d = ts.get(..10)?;
+    let shaped = d.bytes().enumerate().all(|(i, b)| {
+        if i == 4 || i == 7 {
+            b == b'-'
+        } else {
+            b.is_ascii_digit()
+        }
+    });
+    shaped.then_some(d)
+}
+
+/// What the reader says about a record, after the policy of the module docs.
+#[derive(Debug)]
+pub enum Event<'a> {
+    /// The text a user record carried (string content or its text blocks).
+    User(UserTurn<'a>),
+    /// One `tool_result` block of a user record.
+    ToolResult(ToolResult<'a>),
+    /// One assistant record: its blocks in order, and the call's usage when this record is the
+    /// first of its message id.
+    Assistant(AssistantTurn<'a>),
+    /// The payload of an `attachment` record (the object under `attachment`). What the payload
+    /// means — a hook injection, an announcement, an `invoked_skills` list — stays a domain
+    /// concern of the consumer ([`parse_announcement`] reads the announcements).
+    Attachment(&'a Value),
+    /// The system record Claude Code writes when it compacts: the window starts over.
+    CompactBoundary,
+    /// Claude Code's own running cost total, the whole `cost-state` record.
+    CostState(&'a Value),
+}
+
+/// The text of one user record.
+#[derive(Debug)]
+pub struct UserTurn<'a> {
+    /// Every text of the record, in order. Bytes of these are window bytes whoever wrote them.
+    pub texts: Vec<&'a str>,
+    /// A PERSON wrote it: not `isMeta`, no `tool_result` block, no harness marker in any text.
+    pub is_prompt: bool,
+}
+
+/// One `tool_result` block, flattened.
+#[derive(Debug)]
+pub struct ToolResult<'a> {
+    /// The call this answers (`None` in a block that does not say).
+    pub tool_use_id: Option<&'a str>,
+    /// The call failed.
+    pub is_error: bool,
+    /// The result as text: a string as is; else the `text` blocks joined with nothing; else the
+    /// JSON of the whole. One flattening for every consumer — it used to be three.
+    pub text: Cow<'a, str>,
+}
+
+/// One assistant record.
+#[derive(Debug)]
+pub struct AssistantTurn<'a> {
+    /// The API call's usage, on the FIRST record of its message id in the session and `None` on
+    /// every later record of it (each repeats the usage; summing records bills a call once per
+    /// block). `None` also for a record with no message id.
+    pub usage: Option<Usage<'a>>,
+    /// The record's blocks in order. A `tool_use` already seen under its id is not repeated.
+    pub blocks: Vec<Block<'a>>,
+}
+
+impl<'a> AssistantTurn<'a> {
+    /// The tool calls of the record, in order.
+    pub fn tool_calls(&self) -> impl Iterator<Item = ToolCall<'a>> + '_ {
+        self.blocks.iter().filter_map(|b| match b {
+            Block::ToolUse(call) => Some(*call),
+            _ => None,
+        })
+    }
+}
+
+/// One content block of an assistant record (a bare-string content is one `Text`).
+#[derive(Debug)]
+pub enum Block<'a> {
+    /// Prose.
+    Text(&'a str),
+    /// Extended thinking.
+    Thinking(&'a str),
+    /// A tool call.
+    ToolUse(ToolCall<'a>),
+}
+
+/// One `tool_use` block.
 #[derive(Debug, Clone, Copy)]
 pub struct ToolCall<'a> {
-    /// The block's id (`None` in a record that does not carry one).
+    /// The block's id (`None` in a block that does not carry one).
     pub id: Option<&'a str>,
     /// The tool's name.
     pub name: &'a str,
@@ -293,28 +427,231 @@ pub struct ToolCall<'a> {
     pub input: &'a Value,
 }
 
-static NO_INPUT: Value = Value::Null;
-
-/// The tool calls of an assistant record.
-pub fn tool_calls(rec: &Value) -> impl Iterator<Item = ToolCall<'_>> {
-    rec.pointer("/message/content")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter(|b| b.get("type").and_then(Value::as_str) == Some("tool_use"))
-        .filter_map(|b| {
-            Some(ToolCall {
-                id: b.get("id").and_then(Value::as_str),
-                name: b.get("name")?.as_str()?,
-                input: b.get("input").unwrap_or(&NO_INPUT),
-            })
-        })
+/// The `usage` of one API call, as the message states it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Usage<'a> {
+    /// The model that answered.
+    pub model: Option<&'a str>,
+    /// Uncached input tokens.
+    pub input_tokens: u64,
+    /// Tokens written to the cache.
+    pub cache_creation_tokens: u64,
+    /// Tokens read from the cache.
+    pub cache_read_tokens: u64,
+    /// Output tokens (thinking included).
+    pub output_tokens: u64,
+    /// Of `cache_creation_tokens`, the part written with the 1-hour TTL.
+    pub cache_creation_1h_tokens: u64,
+    /// The speed tier (`fast`…) when the message names one.
+    pub speed: Option<&'a str>,
 }
 
-/// A record written by a subagent in the main transcript: another window, not this one.
-#[must_use]
-pub fn is_sidechain(rec: &Value) -> bool {
-    rec.get("isSidechain").and_then(Value::as_bool) == Some(true)
+impl<'a> Usage<'a> {
+    fn of(msg: &'a Value) -> Self {
+        let u = msg.get("usage").unwrap_or(&Value::Null);
+        let n = |k: &str| u.get(k).and_then(Value::as_u64).unwrap_or(0);
+        Self {
+            model: msg.get("model").and_then(Value::as_str),
+            input_tokens: n("input_tokens"),
+            cache_creation_tokens: n("cache_creation_input_tokens"),
+            cache_read_tokens: n("cache_read_input_tokens"),
+            output_tokens: n("output_tokens"),
+            cache_creation_1h_tokens: u
+                .pointer("/cache_creation/ephemeral_1h_input_tokens")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
+            speed: u.get("speed").and_then(Value::as_str),
+        }
+    }
+}
+
+/// What the reader saw besides the events of one session.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReadStats {
+    /// Lines that were not JSON: counted, never hidden.
+    pub malformed_lines: u64,
+    /// Subagent records dropped from the main thread: counted, never hidden.
+    pub sidechain_dropped: u64,
+    /// `YYYY-MM-DD` of the first main-thread record that carries a `timestamp` shaped like one;
+    /// `None` when none does.
+    pub started_on: Option<String>,
+}
+
+static NO_INPUT: Value = Value::Null;
+
+/// A `tool_result` content as text: a string; else the `text` blocks joined with nothing; else the
+/// JSON of the whole.
+fn flatten_result(content: &Value) -> Cow<'_, str> {
+    if let Some(s) = content.as_str() {
+        return Cow::Borrowed(s);
+    }
+    if let Some(items) = content.as_array() {
+        let mut parts = items
+            .iter()
+            .filter(|i| i.get("type").and_then(Value::as_str) == Some("text"))
+            .filter_map(|i| i.get("text").and_then(Value::as_str));
+        if let Some(first) = parts.next() {
+            return match parts.next() {
+                None => Cow::Borrowed(first),
+                Some(second) => Cow::Owned([first, second].into_iter().chain(parts).collect()),
+            };
+        }
+    }
+    Cow::Owned(content.to_string())
+}
+
+/// The state the policy needs across the records of one session.
+#[derive(Default)]
+struct Reader {
+    stats: ReadStats,
+    /// Message ids whose usage was already handed out.
+    seen_messages: BTreeSet<String>,
+    /// `tool_use` ids already handed out.
+    seen_tool_uses: BTreeSet<String>,
+}
+
+/// One `tool_result` block, flattened.
+fn tool_result_of(b: &Value) -> ToolResult<'_> {
+    ToolResult {
+        tool_use_id: b.get("tool_use_id").and_then(Value::as_str),
+        is_error: b.get("is_error").and_then(Value::as_bool).unwrap_or(false),
+        text: b.get("content").map_or(Cow::Borrowed(""), flatten_result),
+    }
+}
+
+/// The texts and the tool results of a user record's `content` (a bare string is one text).
+fn user_content(content: &Value) -> (Vec<&str>, Vec<ToolResult<'_>>) {
+    let mut texts = Vec::new();
+    let mut results = Vec::new();
+    match content {
+        Value::String(s) => texts.push(s.as_str()),
+        Value::Array(blocks) => {
+            for b in blocks {
+                match b.get("type").and_then(Value::as_str) {
+                    Some("tool_result") => results.push(tool_result_of(b)),
+                    Some("text") => texts.extend(b.get("text").and_then(Value::as_str)),
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+    (texts, results)
+}
+
+impl Reader {
+    /// Apply the policy to one record, handing the events it yields to `sink`.
+    fn feed(&mut self, rec: &Value, sink: &mut dyn FnMut(&Event<'_>)) {
+        if rec.get("isSidechain").and_then(Value::as_bool) == Some(true) {
+            self.stats.sidechain_dropped += 1;
+            return;
+        }
+        self.note_start(rec);
+        match rec.get("type").and_then(Value::as_str) {
+            Some("system") => {
+                if rec.get("subtype").and_then(Value::as_str) == Some("compact_boundary") {
+                    sink(&Event::CompactBoundary);
+                }
+            }
+            Some("attachment") => {
+                if let Some(att) = rec.get("attachment") {
+                    sink(&Event::Attachment(att));
+                }
+            }
+            Some("user") => Self::read_user(rec, sink),
+            Some("assistant") => self.read_assistant(rec, sink),
+            Some("cost-state") => sink(&Event::CostState(rec)),
+            _ => {}
+        }
+    }
+
+    /// The first record that carries a dated `timestamp` dates the session.
+    fn note_start(&mut self, rec: &Value) {
+        if self.stats.started_on.is_none() {
+            self.stats.started_on = rec
+                .get("timestamp")
+                .and_then(Value::as_str)
+                .and_then(date_prefix)
+                .map(str::to_string);
+        }
+    }
+
+    fn read_user(rec: &Value, sink: &mut dyn FnMut(&Event<'_>)) {
+        let Some(content) = rec.pointer("/message/content") else {
+            return;
+        };
+        let (texts, results) = user_content(content);
+        let carries_result = !results.is_empty();
+        for result in results {
+            sink(&Event::ToolResult(result));
+        }
+        if texts.is_empty() {
+            return;
+        }
+        let is_prompt = !carries_result
+            && rec.get("isMeta").and_then(Value::as_bool) != Some(true)
+            && texts.iter().all(|t| is_human_turn_text(t));
+        sink(&Event::User(UserTurn { texts, is_prompt }));
+    }
+
+    fn read_assistant<'a>(&mut self, rec: &'a Value, sink: &mut dyn FnMut(&Event<'_>)) {
+        let Some(msg) = rec.get("message") else {
+            return;
+        };
+        let usage = msg
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|id| self.seen_messages.insert((*id).to_string()))
+            .map(|_| Usage::of(msg));
+        let mut blocks: Vec<Block<'a>> = Vec::new();
+        match msg.get("content") {
+            Some(Value::String(s)) => blocks.push(Block::Text(s)),
+            Some(Value::Array(items)) => {
+                blocks.extend(items.iter().filter_map(|b| self.block_of(b)));
+            }
+            _ => {}
+        }
+        sink(&Event::Assistant(AssistantTurn { usage, blocks }));
+    }
+
+    fn block_of<'a>(&mut self, b: &'a Value) -> Option<Block<'a>> {
+        match b.get("type").and_then(Value::as_str)? {
+            "text" => b.get("text").and_then(Value::as_str).map(Block::Text),
+            "thinking" => b.get("thinking").and_then(Value::as_str).map(Block::Thinking),
+            "tool_use" => {
+                let name = b.get("name")?.as_str()?;
+                let id = b.get("id").and_then(Value::as_str);
+                if let Some(id) = id
+                    && !self.seen_tool_uses.insert(id.to_string())
+                {
+                    return None;
+                }
+                Some(Block::ToolUse(ToolCall {
+                    id,
+                    name,
+                    input: b.get("input").unwrap_or(&NO_INPUT),
+                }))
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Read one session's JSONL `lines`, handing every [`Event`] to `sink` in order. This is the
+/// single door from a transcript to a consumer: [`scan_dir`] reads a file through it, and a
+/// consumer that already holds the lines does the same.
+pub fn read_lines<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    sink: &mut dyn FnMut(&Event<'_>),
+) -> ReadStats {
+    let mut reader = Reader::default();
+    for line in lines {
+        match serde_json::from_str::<Value>(line) {
+            Ok(rec) => reader.feed(&rec, sink),
+            Err(_) => reader.stats.malformed_lines += 1,
+        }
+    }
+    reader.stats
 }
 
 /// Synthetic transcript records shared by the B5/B3 tests.
@@ -389,6 +726,27 @@ pub(crate) mod fixtures {
     /// A human user turn (string content).
     pub fn user_text(t: &str) -> String {
         json!({"type": "user", "message": {"content": t}}).to_string()
+    }
+
+    /// A user record whose `content` is the block list `blocks`.
+    pub fn user_blocks(blocks: Value) -> String {
+        json!({"type": "user", "message": {"content": blocks}}).to_string()
+    }
+
+    /// The same record flagged `isMeta` (Claude Code's own expansion, not the person's text).
+    pub fn meta(line: &str) -> String {
+        flagged(line, "isMeta")
+    }
+
+    /// The same record flagged `isSidechain` (written by a subagent).
+    pub fn sidechain(line: &str) -> String {
+        flagged(line, "isSidechain")
+    }
+
+    fn flagged(line: &str, flag: &str) -> String {
+        let mut rec: Value = serde_json::from_str(line).unwrap_or(Value::Null);
+        rec[flag] = json!(true);
+        rec.to_string()
     }
 
     /// A user record carrying one tool result.

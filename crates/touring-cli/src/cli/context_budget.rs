@@ -255,12 +255,10 @@ pub(crate) struct Injection {
     pub(crate) text: String,
 }
 
-/// Every text a hook injected in one transcript record, or an empty vec. Shared with the
-/// `context_cost` ruler (B5), which prices the same blocks this module counts in bytes.
-pub(crate) fn hook_injections(rec: &Value) -> Vec<Injection> {
-    let Some(att) = rec.get("attachment") else {
-        return Vec::new();
-    };
+/// Every text a hook injected in one attachment payload (the object under `attachment`, as the
+/// reader hands it over), or an empty vec. Shared with the `context_cost` and `family_gate`
+/// rulers, which price and attribute the same blocks this module counts in bytes.
+pub(crate) fn hook_injections(att: &Value) -> Vec<Injection> {
     if att.get("type").and_then(Value::as_str) != Some("hook_success") {
         return Vec::new();
     }
@@ -686,7 +684,7 @@ pub fn aggregate_session_lines<'a>(
         };
         let kind = rec.get("type").and_then(Value::as_str).unwrap_or_default();
 
-        for Injection { emitter, text } in hook_injections(&rec) {
+        for Injection { emitter, text } in hook_injections(&rec["attachment"]) {
             record_injection(
                 &text,
                 emitter.as_deref(),
@@ -2098,7 +2096,7 @@ mod tests {
         let text_only_other: usize = emitter_fixture_lines()
             .iter()
             .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-            .flat_map(|rec| hook_injections(&rec))
+            .flat_map(|rec| hook_injections(&rec["attachment"]))
             .filter(|i| injection_family(&i.text) == "other")
             .map(|i| i.text.len())
             .sum();
@@ -2149,7 +2147,7 @@ mod tests {
                 .iter()
                 .filter_map(|l| serde_json::from_str::<Value>(l).ok())
             {
-                for inj in hook_injections(&rec) {
+                for inj in hook_injections(&rec["attachment"]) {
                     if inj.emitter.as_deref().is_some_and(|e| e.contains(mark)) {
                         seen += 1;
                         assert_eq!(
