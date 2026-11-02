@@ -9,6 +9,11 @@
 //! `all-hooks` only forwarded to `touring-dispatch/all-hooks` — so every arm
 //! was compiled out and the daemon became a silent single point of failure.
 //!
+//! 02/11/2026: the standalone route is derived from the dispatch table
+//! (`src/standalone.rs`, guarded by `standalone_table_parity.rs`); this crate's own
+//! `pre-hooks`/`post-hooks`/… features now gate only the override bodies declared
+//! there, and the table's hooks follow `touring-dispatch`'s features.
+//!
 //! Two layers, D8-cruzado style: the DECLARATION (cfg) and the EXECUTOR (the
 //! real binary, spawned) must agree.
 
@@ -29,8 +34,8 @@ fn test_project() -> tempfile::TempDir {
 fn default_build_enables_standalone_hook_arms() {
     assert!(
         cfg!(feature = "pre-hooks"),
-        "feature `pre-hooks` is OFF in the default build — every standalone pre-hook arm \
-         in main.rs is compiled out (all-hooks must enable the crate's own features)"
+        "feature `pre-hooks` is OFF in the default build — every standalone pre-hook override \
+         in standalone.rs is compiled out (all-hooks must enable the crate's own features)"
     );
     assert!(
         cfg!(feature = "post-hooks"),

@@ -6,29 +6,22 @@
 //!
 //! Usage: touring-hook \<subcommand\>
 //!
-//! Subcommands (pre/post hooks):
-//!   pre-read, post-read, pre-bash, post-bash,
-//!   pre-edit, post-edit, post-tool-rl, pre-edit-prevention, pre-write, post-write
+//! Which subcommands exist is NOT listed here (nor anywhere in this file): a subcommand is
+//! either a key of the daemon's dispatch table (`touring_hooks::hook_registry::dispatch_table`)
+//! — answered by the daemon when it is up, by the same handler in this process when it is not —
+//! or one of the explicit standalone declarations in [`standalone`] (stateless utilities,
+//! hook events the daemon never serves, and the few table keys whose standalone behavior
+//! deliberately differs). `touring-hook help` prints the user-facing list.
 //!
-//! Session & stateless:
-//!   session-start, session-stop, prompt-enhance, qa-syntax,
-//!   classify, pii-scan, session-audit, session-insights
-//!
-//! Agent Teams hooks:
-//!   teammate-idle, task-completed, task-created
-//!
-//! Lifecycle passthrough (hyphen→underscore event name, all share run_lifecycle_event):
-//!   post-tool-failure, subagent-start, subagent-stop, pre-compact, post-compact,
-//!   session-end, config-change, permission-request, instructions-loaded,
-//!   worktree-create, worktree-remove, notification, setup, elicitation,
-//!   elicitation-result, cwd-changed, file-changed, stop-failure
+//! Handled before routing, in `main`:
+//!   help, dedup-stdin, --start-daemon (deprecated), --daemon-health
 //!
 //! Daemon management:
-//!   --start-daemon  (runs daemon in-process via run_daemon_async)
 //!   --daemon-health (direct socket probe, bypasses circuit breaker)
 
+mod standalone;
+
 use std::process;
-use touring_foundation::truncate_str;
 
 use serde_json::Value;
 use touring_hooks::ipc::{DaemonRequest, DaemonResponse, daemon_socket_path};
@@ -206,20 +199,11 @@ fn main() {
     }
 
     // Stateless subcommands — no HookRuntime needed.
-    // These diverge (call process::exit internally) so we match and never fall through.
-    match subcommand {
-        "prompt-enhance" => {
-            touring_hook_runtime::hook_trace::set_route("stateless");
-            touring_hook_runtime::hook_trace::set_reason("prompt-enhance");
-            run_prompt_enhance(&input)
-        }
-        #[cfg(feature = "utilities")]
-        "qa-syntax" => {
-            touring_hook_runtime::hook_trace::set_route("stateless");
-            touring_hook_runtime::hook_trace::set_reason("qa-syntax");
-            run_qa_syntax(&input)
-        }
-        _ => {}
+    // These diverge (call process::exit internally), so nothing falls through.
+    if let standalone::Route::Stateless(stateless) = standalone::route(subcommand) {
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason(stateless.name);
+        standalone::run_stateless(stateless, &input)
     }
 
     // F0.3a: from here on the hook executes STANDALONE — daemon skipped
@@ -249,16 +233,6 @@ fn main() {
     }
 
     // Initialize HookRuntime (shared state: SQLite, classifier, PII scanner)
-    // `&mut runtime` is taken only by feature-gated arms (pre/post/session hooks):
-    // the allow applies exactly when none of them is compiled in.
-    #[cfg_attr(
-        not(any(
-            feature = "pre-hooks",
-            feature = "post-hooks",
-            feature = "session-hooks"
-        )),
-        allow(unused_mut)
-    )]
     let mut runtime = match HookRuntime::new(&project_root) {
         Ok(rt) => rt,
         Err(e) => {
@@ -269,141 +243,12 @@ fn main() {
         }
     };
 
-    // Dispatch to the appropriate hook module
-    let result = match subcommand {
-        // Pre-hooks (inject context before tool execution)
-        #[cfg(feature = "pre-hooks")]
-        "pre-read" => touring_hooks::pre_read::run(&runtime, &input),
-        #[cfg(feature = "pre-hooks")]
-        "pre-bash" => touring_hooks::pre_bash::run(&runtime, &input),
-        #[cfg(feature = "pre-hooks")]
-        "pre-edit" => touring_hooks::pre_edit::run(&runtime, &input),
-        #[cfg(feature = "pre-hooks")]
-        "pre-edit-prevention" => touring_hooks::pre_edit_prevention::run(&runtime, &input),
-        #[cfg(feature = "pre-hooks")]
-        "pre-grep" => touring_hooks::pre_grep::run(&runtime, &input),
-        #[cfg(feature = "pre-hooks")]
-        "pre-glob" => touring_hooks::pre_glob::run(&runtime, &input),
-        // CEG Pln2 P3.7 — the Code Execution Gateway pre-exec hook. Advisory by
-        // default (observe mode); `CEG_ENFORCE=1` opts into hard deny.
-        #[cfg(feature = "pre-hooks")]
-        "pre-exec" => touring_hooks::ceg_adapter::run(&mut runtime, &input),
-        // S-01 (elite-harness 2026-05-29) — the universal CEG observability
-        // hook. Wired in settings.json against *every* Bash; routes the action
-        // through X0..X7 for `ceg_*` counter side-effects only, fail-open, and
-        // never alters the response. Makes `touring gate-metrics -j` reflect
-        // the whole action stream, not just `touring exec`.
-        #[cfg(feature = "pre-hooks")]
-        "ceg-observe" => touring_hooks::ceg_adapter::run_observe_only(&input).emit(),
-        #[cfg(feature = "pre-hooks")]
-        "pre-write" => touring_hooks::pre_write::run(&mut runtime, &input),
-        // PreToolUse classifier: suggests the best Touring CLI command(s) for
-        // (tool_name, tool_input). Runs as a `pre-*` event from settings.json
-        // wired on Bash|Grep|Glob|Read|Edit|Write.
-        #[cfg(feature = "pre-hooks")]
-        "cli-suggest" => {
-            let _ = touring_hooks::cli_suggester::run(&runtime, &input);
-            Ok(())
-        }
+    // Answer the subcommand. The routing — the dispatch table by default, the explicit
+    // overrides, the standalone-only names — lives in `standalone`: there is no list of hook
+    // names in this file. Handlers that emit exit the process themselves; the rest return here.
+    let result = standalone::dispatch(subcommand, &mut runtime, &input);
 
-        // Post-hooks (capture outcomes after tool execution)
-        #[cfg(feature = "post-hooks")]
-        "post-read" => touring_hooks::post_read::run(&runtime, &input),
-        #[cfg(feature = "post-hooks")]
-        "post-bash" => touring_hooks::post_bash::run(&mut runtime, &input),
-        #[cfg(feature = "post-hooks")]
-        "post-edit" => touring_hooks::post_edit::run(&mut runtime, &input),
-        #[cfg(feature = "post-hooks")]
-        "post-write" => touring_hooks::post_write::run(&runtime, &input),
-        #[cfg(feature = "post-hooks")]
-        "post-tool-batch" => {
-            touring_hooks::post_tool_batch::run_post_tool_batch(&mut runtime, &input).emit()
-        }
-        #[cfg(feature = "post-hooks")]
-        "post-tool-rl" => touring_hooks::post_tool_rl::run(&mut runtime, &input),
-
-        // Session lifecycle
-        #[cfg(feature = "session-hooks")]
-        "session-start" => touring_hooks::session_hooks::run_session_start(&mut runtime, &input)
-            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
-        #[cfg(feature = "session-hooks")]
-        "session-stop" => touring_hooks::session_hooks::run_session_stop(&mut runtime, &input)
-            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
-
-        // Permission-request hook — VGP auto-approve for low-risk tool invocations.
-        "permission-request" => touring_hooks::permission_request::run(&runtime, &input),
-
-        // Lifecycle passthrough subcommands — record events in knowledge DB.
-        // All share the same handler; event name is normalized (hyphens → underscores).
-        // Adding a new lifecycle event = one line in this pattern, zero new branches.
-        "post-tool-failure"
-        | "subagent-start"
-        | "post-compact"
-        | "session-end"
-        | "config-change"
-        | "instructions-loaded"
-        | "worktree-create"
-        | "worktree-remove"
-        | "notification"
-        | "setup"
-        | "elicitation"
-        | "elicitation-result"
-        | "cwd-changed"
-        | "file-changed"
-        | "stop-failure" => {
-            // Normalize hyphen-separated subcommand name → underscore DB event key.
-            let event_name = subcommand.replace('-', "_");
-            run_lifecycle_event(&runtime, &input, &event_name)
-        }
-
-        // Agent Teams hooks — dedicated handlers (not simple lifecycle passthrough)
-        "teammate-idle" => touring_hooks::team_hooks::run_teammate_idle(&mut runtime, &input)
-            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
-        "task-completed" => run_task_completed_standalone(&mut runtime, &input),
-        "task-created" => touring_hooks::team_hooks::run_task_created(&mut runtime, &input)
-            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
-        "subagent-stop" => {
-            let result = touring_hooks::team_hooks::run_subagent_stop_gate(&mut runtime, &input);
-            if !result.feedback.is_empty() {
-                eprintln!("{}", result.feedback);
-            }
-            process::exit(result.exit_code as i32);
-        }
-        "task-validation" => {
-            let resp =
-                touring_hooks::hooks_task_lifecycle::run_task_validation(&mut runtime, &input);
-            match resp.to_json().is_empty() {
-                true => Ok(()),
-                false => {
-                    print_standalone(&resp.to_json());
-                    Ok(())
-                }
-            }
-        }
-
-        // Utility subcommands
-        "classify" => run_classify(&runtime, &input),
-        "pii-scan" => run_pii_scan(&runtime, &input),
-        #[cfg(feature = "utilities")]
-        "session-audit" => run_session_audit(&input),
-        "metrics" => run_metrics(&runtime),
-        #[cfg(feature = "session-hooks")]
-        "session-insights" => run_session_insights(&runtime, &input),
-
-        // S-3: Decompose-event subcommand — session-scoped task lifecycle
-        "decompose-event" => run_decompose_event(&mut runtime, &input),
-
-        unknown => {
-            touring_hook_runtime::hook_trace::set_reason("standalone-unknown");
-            eprintln!("[touring-hook] unknown subcommand: {unknown}");
-            eprintln!("Run `touring-hook help` for usage.");
-            // Fail open — never block Claude Code, even for unknown hooks.
-            // Claude Code may register new hook events before we add handlers.
-            process::exit(0);
-        }
-    };
-
-    // Handle result — post-hooks return Ok(()), pre-hooks exit internally
+    // Handle result — a body that did not emit returns Ok(()) (or its Err) here
     match result {
         Ok(()) => {
             touring_hook_runtime::hook_trace::set_reason("standalone-ok");
@@ -416,280 +261,6 @@ fn main() {
             process::exit(0);
         }
     }
-}
-
-/// Prompt enhancement — stateless, no HookRuntime needed.
-/// Diverges: prints JSON to stdout and exits.
-fn run_prompt_enhance(input: &Value) -> ! {
-    // UserPromptSubmit sends {"prompt": "...", "session_id": "..."} at root level.
-    // Fallback: nested format {"input": {"message": "..."}} used by some older integrations.
-    let prompt = input
-        .get("prompt")
-        .or_else(|| input.pointer("/input/message"))
-        .or_else(|| input.get("input"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if prompt.is_empty() {
-        // No prompt to enhance — pass through
-        process::exit(0);
-    }
-
-    // P3/S-3.3 (2026-09-04) — a fronteira do turno. Este é o ÚNICO evento que
-    // significa "o humano falou de novo", então é aqui que o orçamento de
-    // injeção do turno recomeça. Funciona atravessando processos porque o
-    // estado vive em disco (ver `turn_budget::turn_file`): este binário é
-    // efêmero e o suggester vive no daemon.
-    if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
-        let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        touring_hook_runtime::turn_budget::reset_turn(&root, session);
-    }
-
-    let output = touring_hooks::prompt_enhance::compose_json(prompt);
-    print_standalone(&serde_json::to_string(&output).unwrap_or_default());
-    process::exit(0);
-}
-
-/// Python syntax validation — stateless.
-/// Diverges: prints JSON to stdout and exits.
-#[cfg(feature = "utilities")]
-fn run_qa_syntax(input: &Value) -> ! {
-    let source = input
-        .pointer("/tool_input/content")
-        .or_else(|| input.get("source"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    let result = touring_hooks::qa_syntax::validate_python_syntax(source);
-    let output = serde_json::json!({
-        "valid": result.valid,
-        "error": result.error,
-    });
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
-    process::exit(0);
-}
-
-/// Intent classification utility.
-fn run_classify(
-    runtime: &HookRuntime,
-    input: &Value,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    // One source for the field name (`prompt_from_input`) — this entry point used to
-    // accept only "text"/"input" while every other consumer sent "userMessage"/"prompt",
-    // so it answered L0 with an empty pattern for every realistic payload.
-    let text = touring_hooks::classifier::prompt_from_input(input);
-
-    let cila = runtime.ctx.classifier.classify(text);
-    let techniques: Vec<touring_hooks::classifier::CognitiveTechnique> =
-        touring_hooks::classifier::IntentClassifier::get_techniques(cila.level);
-    let output = serde_json::json!({
-        "level": cila.level,
-        "level_name": cila.level_name,
-        "routing_strategy": cila.routing_strategy,
-        "requires_pipeline": cila.requires_pipeline,
-        "requires_code_first": cila.requires_code_first,
-        "matched_pattern": cila.matched_pattern,
-        "techniques": techniques.iter().map(|t| t.hint()).collect::<Vec<_>>(),
-    });
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
-    Ok(())
-}
-
-/// PII scanning utility.
-fn run_pii_scan(
-    runtime: &HookRuntime,
-    input: &Value,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let content = input.get("content").and_then(|v| v.as_str()).unwrap_or("");
-
-    let findings = runtime.ctx.pii_scanner.scan_text(content);
-    let output = serde_json::json!({
-        "pii_detected": !findings.is_empty(),
-        "count": findings.len(),
-        "findings": findings.iter().map(|f| serde_json::json!({
-            "pattern_name": f.pattern_name,
-            "line_number": f.line_number,
-            "matched_text": f.matched_text,
-            "column": f.column,
-            "severity": f.severity,
-        })).collect::<Vec<_>>(),
-    });
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
-    Ok(())
-}
-
-/// Session audit — hash CLAUDE.md and .claude/rules/ and report drift. Gated
-/// like `touring_hooks_core::audit`, the module it drives.
-#[cfg(feature = "utilities")]
-fn run_session_audit(
-    input: &Value,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    use std::path::PathBuf;
-    use touring_hooks::audit;
-
-    let session_id = input
-        .get("session_id")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
-    let agent_type = input
-        .get("agent_type")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
-
-    // Canonical instruction files to audit
-    let home = std::env::var("HOME").unwrap_or_default();
-    let claude_dir = PathBuf::from(&home).join(".claude");
-    let mut files: Vec<PathBuf> = vec![
-        claude_dir.join("CLAUDE.md"),
-        claude_dir.join("rules").join("00-core-governance.md"),
-        claude_dir.join("rules").join("taco-identity.md"),
-    ];
-
-    // Include any .md files in .claude/rules/ that exist
-    if let Ok(entries) = std::fs::read_dir(claude_dir.join("rules")) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.extension().and_then(|e| e.to_str()) == Some("md") && !files.contains(&p) {
-                files.push(p);
-            }
-        }
-    }
-    files.sort();
-
-    let event = audit::build_event(&files, session_id, agent_type);
-    let file_hashes: Vec<serde_json::Value> = event
-        .files
-        .iter()
-        .map(|fh| {
-            serde_json::json!({
-                "path": fh.path.display().to_string(),
-                "hash": fh.hash,
-            })
-        })
-        .collect();
-
-    let output = serde_json::json!({
-        "timestamp": event.timestamp,
-        "session_id": event.session_id,
-        "agent_type": event.agent_type,
-        "composite_hash": event.composite_hash,
-        "files": file_hashes,
-        "files_audited": event.files.len(),
-    });
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
-    Ok(())
-}
-
-/// S-3: Decompose-event handler for standalone binary invocation.
-/// Bridges to cli_decompose_event handler via HookRuntime state.
-/// Input: {event_type, session_id, task_data}
-fn run_decompose_event(
-    runtime: &mut HookRuntime,
-    input: &Value,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let output = touring_hooks::cli_handlers::cli_decompose_event(runtime, input);
-    println!("{}", output);
-    Ok(())
-}
-
-/// R19: Export consolidated runtime metrics as JSON.
-fn run_metrics(
-    runtime: &HookRuntime,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let metrics = runtime.export_metrics(None);
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&metrics).unwrap_or_default()
-    );
-    Ok(())
-}
-
-/// Session insights utility.
-#[cfg(feature = "session-hooks")]
-fn run_session_insights(
-    runtime: &HookRuntime,
-    input: &Value,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    let session_id = input
-        .get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("current");
-
-    let insights = touring_hooks::session_insights::extract_session_insights(
-        &runtime.ctx.knowledge,
-        session_id,
-    );
-    let output = serde_json::json!({
-        "session_id": insights.session_id,
-        "timestamp": insights.timestamp,
-        "total_edits": insights.total_edits,
-        "total_bash_commands": insights.total_bash_commands,
-        "success_rate": insights.success_rate,
-        "top_gotchas": insights.top_gotchas.iter().map(|g| serde_json::json!({
-            "pattern": g.pattern,
-            "gotcha": g.gotcha,
-            "hit_count": g.hit_count,
-        })).collect::<Vec<Value>>(),
-        "top_error_patterns": insights.top_error_patterns.iter().map(|e| serde_json::json!({
-            "pattern": e.pattern,
-            "occurrences": e.occurrences,
-        })).collect::<Vec<Value>>(),
-        "top_edited_files": insights.top_edited_files.iter().map(|f| serde_json::json!({
-            "file_path": f.file_path,
-            "edit_count": f.edit_count,
-        })).collect::<Vec<Value>>(),
-    });
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
-    Ok(())
-}
-
-/// Lifecycle event passthrough — records the event in the knowledge DB.
-///
-/// For events that have full Cortex handlers in touring-server, this provides
-/// a lightweight persistence path via the touring-hook binary. It records the
-/// event type and key metadata into the knowledge DB for session analytics.
-fn run_lifecycle_event(
-    runtime: &touring_hooks::runtime::HookRuntime,
-    input: &Value,
-    event_name: &str,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    // Record the lifecycle event in knowledge DB
-    let session_id = input
-        .get("session_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
-
-    let _ = runtime
-        .ctx
-        .knowledge
-        .record_access(&format!("__{}__", event_name), session_id);
-
-    // Extract and log any summary information
-    let summary = input
-        .get("message")
-        .or_else(|| input.get("description"))
-        .or_else(|| input.get("result_summary"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if !summary.is_empty() {
-        let _ = runtime
-            .ctx
-            .knowledge
-            .record_bash_outcome(&touring_hooks::knowledge::BashOutcome {
-                command: format!("{}:{}", event_name, truncate_str(summary, 200)),
-                command_short: event_name.to_string(),
-                exit_code: 0,
-                success: true,
-                error_pattern: None,
-                file_context: None,
-                command_hash: String::new(),
-                executed_at: String::new(),
-            });
-    }
-
-    tracing::debug!(event = event_name, "Lifecycle event recorded");
-    Ok(())
 }
 
 /// Forward the daemon's answer to Claude Code.
@@ -950,34 +521,6 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
 /// Returns `Some(DaemonResponse)` on success, `None` if the daemon is
 /// unavailable or the request times out. The caller falls back to standalone
 /// execution on `None` — the invariant "hooks never block Claude Code" is preserved.
-/// S219 (25/09/2026): standalone `task-completed` runs the SAME handler the daemon runs.
-/// A cold daemon past the client's 3 s read timeout lands in the standalone path, whose
-/// arm ran only the knowledge/ACO recording — no DAG finalize, no RL reward, no lesson,
-/// and a 0-byte receipt. Same dispatch table, same forwarding: parity by construction.
-fn run_task_completed_standalone(
-    runtime: &mut HookRuntime,
-    input: &serde_json::Value,
-) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    // The shared per-process table — the one `is_daemon_hook` already built for the fast-path
-    // check above — instead of building a second copy.
-    let table = touring_hooks::hook_registry::dispatch_table();
-    if let Some(handler) = table.get("task-completed") {
-        // O handler local não tem como «recusar» como o daemon: a saída é de sucesso.
-        // S-4p (26/10/2026): a saída standalone passa pela MESMA dedupe de época
-        // do daemon — o escopo foi gravado na entrada da rota standalone
-        // (sem escopo, os bytes saem intactos: fail-open).
-        let out = handler(runtime, input);
-        let out = match touring_hook_runtime::hook_runtime::dedup_scope() {
-            Some((root, session)) => {
-                touring_hooks_shared::injection_dedup::dedup_hook_output(root, session, &out)
-            }
-            None => out,
-        };
-        forward_daemon_output(&out, true);
-    }
-    Ok(())
-}
-
 fn try_daemon_request(req: &DaemonRequest) -> Option<DaemonResponse> {
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::net::UnixStream;

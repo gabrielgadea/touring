@@ -1,0 +1,988 @@
+{
+ "about": "Captured 02/11/2026 from the touring-hook binary built BEFORE the standalone route was derived from the dispatch table (hand-written arms), daemon skipped, cleared environment, one fresh project per entry. `equivalence` = the 29 subcommands that had an arm (a key `name#variant` is a second payload for `name`): the table-derived route must print byte-identical stdout/stderr and exit 0. `newly_reachable` = the 18 table hooks that had no arm and answered `unknown subcommand`: payloads only, asserted structurally. `<PROJECT>` stands for the temp project's path.",
+ "equivalence": {
+  "ceg-observe": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "ls -la"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "ceg-observe#bash": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "echo hi > out.txt"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "cli-suggest": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "grep -rn demo ."
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "cli-suggest#bash-cat": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cat src/lib.rs"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "cli-suggest#read-rust": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Read",
+    "tool_input": {
+     "file_path": "<PROJECT>/src/lib.rs"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "cwd-changed": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "CwdChanged",
+    "cwd": "<PROJECT>",
+    "old_cwd": "<PROJECT>",
+    "new_cwd": "<PROJECT>/src"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "file-changed": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "FileChanged",
+    "cwd": "<PROJECT>",
+    "file_path": "src/lib.rs",
+    "event": "change"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "instructions-loaded": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "InstructionsLoaded",
+    "cwd": "<PROJECT>",
+    "file_path": "CLAUDE.md",
+    "memory_type": "Project",
+    "load_reason": "session_start"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-bash": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cargo test -p demo"
+    },
+    "tool_response": {
+     "stdout": "test result: ok. 1 passed",
+     "stderr": "",
+     "exit_code": 0
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-bash#fail": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cargo build"
+    },
+    "tool_response": {
+     "stdout": "",
+     "stderr": "error[E0425]: cannot find value `x` in this scope\n --> src/lib.rs:1:1",
+     "exit_code": 101
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"`cargo` failed (exit 101): error[E0425]: cannot find value `x` in this scope\",\"hookEventName\":\"PostToolUse\"}}\n",
+   "stderr": ""
+  },
+  "post-bash#long": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cat big.log"
+    },
+    "tool_response": {
+     "stdout": "line 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\nline 10\nline 11\nline 12\nline 13\nline 14\nline 15\nline 16\nline 17\nline 18\nline 19\nline 20\nline 21\nline 22\nline 23\nline 24\nline 25\nline 26\nline 27\nline 28\nline 29\nline 30\nline 31\nline 32\nline 33\nline 34\nline 35\nline 36\nline 37\nline 38\nline 39\nline 40\nline 41\nline 42\nline 43\nline 44\nline 45\nline 46\nline 47\nline 48\nline 49\nline 50\n",
+     "stderr": "",
+     "exit_code": 0
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-compact": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostCompact",
+    "cwd": "<PROJECT>",
+    "trigger": "manual",
+    "compact_summary": "eq summary"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-edit": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Edit",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "old_string": "demo",
+     "new_string": "demo2"
+    },
+    "tool_response": {
+     "success": true
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"post-edit verification: 2 issue(s) | HEALTH ALERT [wiring] score=0.60 | WIRING: 1 orphan pub symbol(s) [demo] — wire into consumers | ℹ ⚙ rust-workflow: pub_surface=1 complexity=0.00 (simple) unsafe=0 async_fns=0 health=1.00 | ⚙ health-delta: first-observation new=1.00\\nS28 abstained: this edit's pre-state could not be reconstructed, so NEW anti-patterns were not counted (pre-existing ones are indistinguishable from introduced ones).\",\"hookEventName\":\"PostToolUse\"}}\n",
+   "stderr": ""
+  },
+  "post-edit#rust": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Edit",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "old_string": "pub fn demo() {}",
+     "new_string": "pub fn demo() -> u8 { 1 }"
+    },
+    "tool_response": {
+     "success": true
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"post-edit verification: 2 issue(s) | HEALTH ALERT [wiring] score=0.60 | WIRING: 1 orphan pub symbol(s) [demo] — wire into consumers | ℹ ⚙ rust-workflow: pub_surface=1 complexity=0.00 (simple) unsafe=0 async_fns=0 health=1.00 | ⚙ health-delta: first-observation new=1.00\\nS28 abstained: this edit's pre-state could not be reconstructed, so NEW anti-patterns were not counted (pre-existing ones are indistinguishable from introduced ones).\",\"hookEventName\":\"PostToolUse\"}}\n",
+   "stderr": ""
+  },
+  "post-read": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Read",
+    "tool_input": {
+     "file_path": "src/lib.rs"
+    },
+    "tool_response": {
+     "content": "pub fn demo() {}\n"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-tool-batch": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolBatch",
+    "cwd": "<PROJECT>",
+    "tool_calls": [
+     {
+      "tool_name": "Write",
+      "tool_input": {
+       "file_path": "src/lib.rs"
+      }
+     }
+    ]
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"post-tool-batch: 1 arquivo(s) que podem carregar símbolo público editados: src/lib.rs\\nMUST touring wiring orphans -j   // REGRA #0 — ligue todo pub novo a um consumidor\",\"hookEventName\":\"PostToolBatch\"}}\n",
+   "stderr": ""
+  },
+  "post-tool-batch#two": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolBatch",
+    "cwd": "<PROJECT>",
+    "tool_calls": [
+     {
+      "tool_name": "Write",
+      "tool_input": {
+       "file_path": "src/a.rs"
+      }
+     },
+     {
+      "tool_name": "Edit",
+      "tool_input": {
+       "file_path": "src/lib.rs"
+      }
+     }
+    ]
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"post-tool-batch: 2 arquivo(s) que podem carregar símbolo público editados: src/a.rs, src/lib.rs\\nMUST touring wiring orphans -j   // REGRA #0 — ligue todo pub novo a um consumidor\",\"hookEventName\":\"PostToolBatch\"}}\n",
+   "stderr": ""
+  },
+  "post-tool-failure": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUseFailure",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "false"
+    },
+    "error": "exit status 1"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-tool-rl": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cargo build"
+    },
+    "tool_response": {
+     "stdout": "",
+     "stderr": "error[E0425]: cannot find value",
+     "exit_code": 101
+    },
+    "exit_code": 101
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "post-write": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Write",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "content": "pub fn demo() {}\n"
+    },
+    "tool_response": {
+     "success": true
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"post-write: 1 issue(s) | wiring(0%): 1 orphan pub symbol(s) [demo] — run: touring generate plan-suggest --intent \\\"wire demo into a consumer cal | ℹ ⚙ health-delta: first-observation new=1.00\\nS28 abstained: no pre-write armed this file in any process — NEW anti-patterns were not counted for this write (pre-existing ones are indistinguishable from introduced ones).\",\"hookEventName\":\"PostToolUse\"}}\n",
+   "stderr": ""
+  },
+  "pre-bash": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cargo test -p demo"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-bash#git-force": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "git push --force origin main"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-bash#nopayload": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {}
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"validation_failed: unknown: missing field `command`\"}}\n",
+   "stderr": ""
+  },
+  "pre-bash#pipe": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "cargo build 2>&1 | tail -5"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-bash#rm": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "rm -rf src"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"rm -rf — destructive recursive delete; remove named files with `rm <file>` or empty directories with `rmdir <dir>`; empty a file in place with `: > <file>` or remove a single entry with `unlink <file>`; a recursive or forced delete is the user's to run (`! rm -r <path>`)\"}}\n",
+   "stderr": ""
+  },
+  "pre-bash#touring": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "touring index find Demo -j"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-edit": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Edit",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "old_string": "demo",
+     "new_string": "demo2"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"project: healthy | Analysis: health=1.00 (healthy) | trend=Stable | orphans=0 | [rust] semantic 0.00 · pub API 1 (+1/-1)\",\"hookEventName\":\"PreToolUse\"}}\n",
+   "stderr": ""
+  },
+  "pre-edit-prevention": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Edit",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "old_string": "demo",
+     "new_string": "demo2"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-edit-prevention#absent": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Edit",
+    "tool_input": {
+     "file_path": "src/missing.rs",
+     "old_string": "a",
+     "new_string": "b"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"Pre-edit prevention for src/missing.rs (1 signal):\\nSYNTAX (new_string fragment only, advisory): 1 syntax error(s) detected\",\"hookEventName\":\"PreToolUse\"}}\n",
+   "stderr": ""
+  },
+  "pre-edit-prevention#long": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Edit",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "old_string": "pub fn demo() {}",
+     "new_string": "pub fn demo() { if true { if true { if true { if true { if true { if true { println!(\"deep\"); } } } } } } }"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-glob": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Glob",
+    "tool_input": {
+     "pattern": "**/*.rs"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-glob#src": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Glob",
+    "tool_input": {
+     "pattern": "src/**/*.rs",
+     "path": "."
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-grep": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Grep",
+    "tool_input": {
+     "pattern": "demo",
+     "path": "."
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-grep#symbol": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Grep",
+    "tool_input": {
+     "pattern": "fn demo",
+     "path": "src",
+     "output_mode": "content"
+    }
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "pre-read": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Read",
+    "tool_input": {
+     "file_path": "src/lib.rs"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"health: healthy 1.00 [wiring:1.00]\",\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"file_path\":\"<PROJECT>/src/lib.rs\"}}}\n",
+   "stderr": ""
+  },
+  "pre-read#absent": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Read",
+    "tool_input": {
+     "file_path": "src/does_not_exist.rs"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"health: healthy 1.00 [wiring:1.00]\",\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"file_path\":\"<PROJECT>/src/does_not_exist.rs\"}}}\n",
+   "stderr": ""
+  },
+  "pre-write": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Write",
+    "tool_input": {
+     "file_path": "src/new.rs",
+     "content": "pub fn added() {}\n"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"pre_write: new file (rust, 1L) [L7B:fast-path cila=3]\",\"hookEventName\":\"PreToolUse\"}}\n",
+   "stderr": ""
+  },
+  "pre-write#existing": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Write",
+    "tool_input": {
+     "file_path": "src/lib.rs",
+     "content": "pub fn demo() {}\npub fn more() {}\n"
+    }
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"pre_write: new file (rust, 2L) [L7B:fast-path cila=3]\",\"hookEventName\":\"PreToolUse\"}}\n",
+   "stderr": ""
+  },
+  "session-start": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "SessionStart",
+    "cwd": "<PROJECT>",
+    "source": "startup"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "session-start#clear": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "SessionStart",
+    "cwd": "<PROJECT>",
+    "source": "clear"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "session-start#nosession": {
+   "payload": {
+    "hook_event_name": "SessionStart",
+    "cwd": "<PROJECT>",
+    "source": "startup"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "session-start#resume": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "SessionStart",
+    "cwd": "<PROJECT>",
+    "source": "resume"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "session-stop": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "Stop",
+    "cwd": "<PROJECT>"
+   },
+   "exit": 0,
+   "stdout": "{\"event\":\"session_end\",\"session_id\":\"eq-s\",\"stats\":{\"access_count\":1,\"bash_count\":0,\"edit_count\":0,\"file_count\":0,\"gotcha_count\":0,\"relation_count\":0,\"task_metrics_count\":0}}\n",
+   "stderr": ""
+  },
+  "subagent-start": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "SubagentStart",
+    "cwd": "<PROJECT>",
+    "agent_id": "agent-eq",
+    "agent_type": "general-purpose"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "subagent-stop": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "SubagentStop",
+    "cwd": "<PROJECT>",
+    "agent_id": "agent-eq",
+    "agent_type": "general-purpose",
+    "stop_hook_active": false
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "task-completed": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TaskCompleted",
+    "cwd": "<PROJECT>",
+    "task_id": "t-eq",
+    "task_subject": "Equivalence subject",
+    "success": true
+   },
+   "exit": 0,
+   "stdout": "{}\n",
+   "stderr": "{\"RL\":\"reward_signal\",\"assess_hint\":\"| session-assessed: quality=0.00\",\"consumer_gen_hint\":\"| consumer-wire: run `touring generate render ConsumerGenerator --vars '{\\\"source_module\\\":\\\"t-eq\\\",\\\"event\\\":\\\"task:t-eq:completed\\\"}'` to scaffold consumer for new artifacts if orphans detected\",\"diary_hint\":\"| diary: run `touring diary write claude_code \\\"#t-eq:success\\\" --aaak` to persist agent memory\",\"event\":\"task-completed\",\"finalize_status\":\"DAG partial (pending subtasks)\",\"generator_hint\":\"\",\"lesson_stored\":true,\"outcome\":\"success\",\"plan_replay_hint\":\"| replay: run `touring generate plan-recall --query \\\"Equivalence subject\\\"` to find and replay generator plan on a new subject\",\"rl_reward\":1.0,\"task_id\":\"t-eq\",\"verify_cmd\":\"touring decompose get t-eq\",\"wiring_orphan_hint\":\"| wiring-check: run `touring wiring orphans -j` to find new orphan pub symbols introduced by t-eq — wire or remove before next task\"}\n"
+  },
+  "task-completed#failed": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TaskCompleted",
+    "cwd": "<PROJECT>",
+    "task_id": "t-eq2",
+    "task_subject": "Fail it",
+    "success": false
+   },
+   "exit": 0,
+   "stdout": "{}\n",
+   "stderr": "{\"assess_hint\":\"| session-assessed: quality=0.00\",\"diary_hint\":\"| diary: run `touring diary write claude_code \\\"#t-eq2:failed\\\" --aaak` to persist agent memory\",\"event\":\"task-completed(failed)\",\"finalize_status\":\"failed\",\"generator_hint\":\"\",\"lesson_stored\":true,\"outcome\":\"failed\",\"recovery_hints\":\"| error-catalog: run `touring generate render ErrorCatalog --vars '{\\\"crate_name\\\":\\\"t-eq2\\\",\\\"error_codes\\\":[]}'` to document failure pattern | recovery: run `touring generate plan-suggest --intent \\\"recover: t-eq2\\\"` to scaffold recovery plan | drift: run `touring evolution drift -j` to detect systemic degradation\",\"review_cmd\":\"touring memory recall \\\"task:t-eq2\\\"\",\"rl_reward\":-0.5,\"task_id\":\"t-eq2\"}\n"
+  },
+  "task-created": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TaskCreated",
+    "cwd": "<PROJECT>",
+    "task_id": "t-eq",
+    "task_subject": "Equivalence subject"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "task-validation": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TaskValidation",
+    "cwd": "<PROJECT>",
+    "task_id": "t-eq"
+   },
+   "exit": 0,
+   "stdout": "{\"hookSpecificOutput\":{\"additionalContext\":\"Task t-eq validation: {\\\"error\\\":\\\"task not found in this project's decompose store\\\",\\\"hint\\\":\\\"decompose data is per-project — verify the cwd/project the task was created from\\\",\\\"task_id\\\":\\\"t-eq\\\",\\\"valid\\\":false}\",\"hookEventName\":\"TaskValidation\"}}\n",
+   "stderr": ""
+  },
+  "teammate-idle": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TeammateIdle",
+    "cwd": "<PROJECT>",
+    "teammate_name": "worker-1",
+    "team_name": "eq-team"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "teammate-idle#tasks": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TeammateIdle",
+    "cwd": "<PROJECT>",
+    "teammate_name": "worker-1",
+    "team_name": "eq-team",
+    "tasks_completed": 3,
+    "tasks_failed": 1
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  },
+  "worktree-create": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "WorktreeCreate",
+    "cwd": "<PROJECT>",
+    "name": "eq-wt"
+   },
+   "exit": 0,
+   "stdout": "",
+   "stderr": ""
+  }
+ },
+ "newly_reachable": {
+  "enter-plan-mode": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "EnterPlanMode",
+    "tool_input": {},
+    "tool_response": {
+     "message": "Entered plan mode"
+    }
+   }
+  },
+  "exit-plan-mode": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "ExitPlanMode",
+    "tool_input": {
+     "plan": "1. add the handler\n2. test it"
+    },
+    "tool_response": {
+     "plan": "1. add the handler\n2. test it"
+    }
+   }
+  },
+  "post-tool-use": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "ls"
+    },
+    "tool_response": {
+     "stdout": "src\n",
+     "stderr": "",
+     "exit_code": 0
+    }
+   }
+  },
+  "pre-compact": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreCompact",
+    "cwd": "<PROJECT>",
+    "trigger": "manual",
+    "custom_instructions": ""
+   }
+  },
+  "pre-tool-use": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PreToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "Bash",
+    "tool_input": {
+     "command": "ls -la"
+    }
+   }
+  },
+  "stop": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "Stop",
+    "cwd": "<PROJECT>",
+    "stop_hook_active": false
+   }
+  },
+  "subagent-bootstrap": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "SubagentStart",
+    "cwd": "<PROJECT>",
+    "agent_id": "agent-eq",
+    "agent_type": "general-purpose"
+   }
+  },
+  "task-escalation": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TaskEscalation",
+    "cwd": "<PROJECT>",
+    "task_id": "t-eq",
+    "failure_reason": "blocked on a timeout"
+   }
+  },
+  "task-metrics": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TaskMetrics",
+    "cwd": "<PROJECT>",
+    "task_id": "t-eq",
+    "quality_score": 0.9,
+    "success_rate": 1.0
+   }
+  },
+  "task-sync-create": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskCreate",
+    "tool_input": {
+     "subject": "Equivalence subject",
+     "description": "d",
+     "activeForm": "Testing"
+    },
+    "tool_response": {
+     "task": {
+      "id": "1",
+      "subject": "Equivalence subject"
+     }
+    }
+   }
+  },
+  "task-sync-delete": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskDelete",
+    "tool_input": {
+     "taskId": "1"
+    },
+    "tool_response": {
+     "success": true
+    }
+   }
+  },
+  "task-sync-get": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskGet",
+    "tool_input": {
+     "taskId": "1"
+    },
+    "tool_response": {
+     "task": {
+      "id": "1",
+      "subject": "Equivalence subject",
+      "status": "pending"
+     }
+    }
+   }
+  },
+  "task-sync-list": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskList",
+    "tool_input": {},
+    "tool_response": {
+     "tasks": [
+      {
+       "id": "1",
+       "subject": "Equivalence subject",
+       "status": "pending"
+      }
+     ]
+    }
+   }
+  },
+  "task-sync-output": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskOutput",
+    "tool_input": {
+     "task_id": "1"
+    },
+    "tool_response": {
+     "output": "done"
+    }
+   }
+  },
+  "task-sync-stop": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskStop",
+    "tool_input": {
+     "task_id": "1"
+    },
+    "tool_response": {
+     "message": "stopped"
+    }
+   }
+  },
+  "task-sync-update": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "PostToolUse",
+    "cwd": "<PROJECT>",
+    "tool_name": "TaskUpdate",
+    "tool_input": {
+     "taskId": "1",
+     "status": "in_progress"
+    },
+    "tool_response": {
+     "success": true
+    }
+   }
+  },
+  "teammate-idle-gate": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "TeammateIdle",
+    "cwd": "<PROJECT>",
+    "teammate_name": "worker-1",
+    "team_name": "eq-team"
+   }
+  },
+  "user_prompt_submit": {
+   "payload": {
+    "session_id": "eq-s",
+    "hook_event_name": "UserPromptSubmit",
+    "cwd": "<PROJECT>",
+    "prompt": "fix the failing test in src/lib.rs"
+   }
+  }
+ }
+}

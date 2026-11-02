@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 398**
+**Count: 400**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -194,6 +194,8 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hook-runtime::wiring`
 - `touring-hook-runtime::wiring_tests`
 - `touring-hooks::daemon_main`
+- `touring-hooks::standalone`
+- `touring-hooks::standalone_tests`
 - `touring-hooks::token_meter`
 - `touring-hooks-core::aco_processor`
 - `touring-hooks-core::aco_wiring`
