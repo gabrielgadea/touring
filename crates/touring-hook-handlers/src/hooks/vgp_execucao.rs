@@ -29,7 +29,7 @@ use std::path::{Path, PathBuf};
 use touring_code::vgp::politica::roda_agora;
 use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check_em, vgp_mode};
 use touring_code::vgp::{CheckInput, CheckOutput, Contexto, lang_do_caminho};
-use touring_hooks_core::pre_tool_validator::{command_of, shell_pipelines};
+use touring_hooks_shared::command_policy::{command_of, shell_pipelines};
 
 use super::runtime::{HookResponse, HookRuntime};
 

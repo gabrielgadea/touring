@@ -177,8 +177,8 @@ pub mod shared {
     pub use touring_hook_runtime::shared::{quality, reindex, session_context, signals};
     pub use touring_hooks_shared::{
         antipatterns, api_cascade_bridge, ast_grep_signal, bash_ast_validator, cila, command_hash,
-        detect_language, doc_symbol_signal, feature_flags, gate_metrics, job_registry,
-        metadata_dedup, mpatch_preview, parser_cache_global, patterns, qa_syntax, query_cache,
-        result_ext, risk_patterns, span_context, thread_pool,
+        command_policy, detect_language, doc_symbol_signal, feature_flags, gate_metrics,
+        job_registry, metadata_dedup, mpatch_preview, parser_cache_global, patterns, qa_syntax,
+        query_cache, result_ext, risk_patterns, span_context, thread_pool,
     };
 }

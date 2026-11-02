@@ -101,47 +101,23 @@ fn run_chain(
         }
     }
 
-    // Wave v4.29.0 — S2: structural bash validation. Strips quoted strings
-    // and # comments before rule evaluation, so `echo "rm -rf"` and
-    // `# rm -rf` correctly do NOT block. Runs BEFORE PreToolValidator so
-    // its precise reason text wins on overlap.
-    match crate::shared::bash_ast_validator::validate_command(command) {
-        crate::shared::bash_ast_validator::Verdict::Block { reason } => {
-            tracing::warn!(
-                "bash_ast_validator blocked: command={} reason={}",
-                command,
-                reason
-            );
-            return HookResponse::Deny {
-                reason,
-                context: None,
-                event_name: Some("PreToolUse".to_string()),
-            };
-        }
-        crate::shared::bash_ast_validator::Verdict::Warn { .. }
-        | crate::shared::bash_ast_validator::Verdict::Allow => {
-            // Warn is left to flow through — the existing PreToolValidator
-            // path may produce a richer warning context, and we don't want
-            // to surface two different warnings for the same command.
-        }
-    }
-
-    // SECURITY: PreToolValidator gate — block dangerous commands before execution.
-    // Validate the tool invocation against known dangerous patterns (rm -rf, git reset --hard, etc.).
-    // Every simple command of the line, each by its own words (18/09/2026): the
-    // old split validated ONE tool with the text after it at the start of the
-    // line — empty for `cd x && git push -f`, raw text for everything else.
-    let validation = runtime.ctx.pre_tool_validator.validate_command(command);
-    if validation.is_blocked() {
+    // SECURITY: ONE owner decides whether the command is destructive —
+    // `command_policy::judge`: the structural reading first (quoted strings and
+    // `#` comments stripped, so `echo "rm -rf"` and `# rm -rf` do NOT block; its
+    // precise reason wins on overlap), then the lexical one (every simple command
+    // of the line by its own words, 18/09/2026). Only a `Block` stops here: a
+    // structural `Warn` is left to flow through — git is `block_git.sh`'s, and we
+    // don't want to surface two different warnings for the same command.
+    if let crate::shared::command_policy::Verdict::Block { reason } =
+        crate::shared::command_policy::judge(command)
+    {
         tracing::warn!(
-            "PreToolValidator blocked: command={} reason={}",
+            "command_policy blocked: command={} reason={}",
             command,
-            validation.reason.as_deref().unwrap_or("unknown")
+            reason
         );
         return HookResponse::Deny {
-            reason: validation
-                .reason
-                .unwrap_or_else(|| "Dangerous tool blocked".to_string()),
+            reason,
             context: None,
             event_name: Some("PreToolUse".to_string()),
         };
@@ -1203,6 +1179,35 @@ mod vgp_ordem_tests {
                 assert!(context.contains(AVISO), "{context}");
             }
             outra => panic!("só o aviso: {outra:?}"),
+        }
+    }
+
+    /// `pre_bash` pergunta ao dono ÚNICO (`command_policy::judge`): uma recusa só estrutural,
+    /// uma só léxica (com e sem rota) e um aviso estrutural são respondidos exatamente como a
+    /// política diz — o texto do deny é o da política, sem acréscimo.
+    #[test]
+    fn pre_bash_responde_o_que_a_command_policy_julga() {
+        use crate::shared::command_policy::{Verdict, judge};
+        for (cmd, nega) in [
+            ("find build -name stale.log -delete", true),
+            ("rm -f stale.done", true),
+            ("dd if=/dev/zero of=/dev/sda", true),
+            ("git reset --hard HEAD", false),
+            ("ls docs", false),
+        ] {
+            let julgado = judge(cmd);
+            assert_eq!(
+                matches!(julgado, Verdict::Block { .. }),
+                nega,
+                "{cmd}: {julgado:?}"
+            );
+            match roda(cmd, &nada) {
+                HookResponse::Deny { reason, .. } => {
+                    assert!(nega, "{cmd}: negado, mas a política diz {julgado:?}");
+                    assert_eq!(Some(reason.as_str()), julgado.reason(), "{cmd}");
+                }
+                _ => assert!(!nega, "{cmd}: a política bloqueia e o hook não negou"),
+            }
         }
     }
 
