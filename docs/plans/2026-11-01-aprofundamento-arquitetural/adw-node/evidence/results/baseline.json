@@ -1,0 +1,307 @@
+{
+ "adw_py_sha256_16": "91f8ac2a87d49ab8",
+ "adw_py_lines": 5093,
+ "tests": {
+  "command": "pytest test_adw.py test_adw_gate_rejection.py",
+  "passed": 365,
+  "failed": 0,
+  "seconds": 2.67
+ },
+ "raw_reads": 181,
+ "functions_touching_raw": 65,
+ "keys_runtime": 55,
+ "keys_lint": 45,
+ "keys_specs": 42,
+ "key_sets": {
+  "runtime": [
+   "add_dirs",
+   "allowed_tools",
+   "bad_input",
+   "body",
+   "branches",
+   "budget_tokens",
+   "budget_usd",
+   "churn_limit",
+   "command",
+   "control_waived",
+   "driver",
+   "dry_rounds",
+   "findings_contract",
+   "good_input",
+   "idempotent",
+   "max_branches",
+   "max_iters",
+   "max_major",
+   "max_retries",
+   "mcp",
+   "merge",
+   "message",
+   "min_discovered",
+   "must_read",
+   "on_branch_fail",
+   "on_calibrated",
+   "on_covered",
+   "on_dry",
+   "on_escalate",
+   "on_fail",
+   "on_pass",
+   "on_stable",
+   "output_schema",
+   "permission_mode",
+   "persona",
+   "policy",
+   "predicate",
+   "prompt",
+   "readonly",
+   "retries",
+   "sandbox",
+   "session",
+   "session_persistence",
+   "skill",
+   "stable_rounds",
+   "stagnation_rounds",
+   "template",
+   "tier",
+   "timeout_ms",
+   "tools",
+   "triage_of",
+   "type",
+   "verdict_contract",
+   "zte",
+   "zte_warmup"
+  ],
+  "lint": [
+   "allowed_tools",
+   "bad_input",
+   "body",
+   "branches",
+   "budget_tokens",
+   "churn_limit",
+   "command",
+   "control_waived",
+   "driver",
+   "findings_contract",
+   "good_input",
+   "idempotent",
+   "max_branches",
+   "max_iters",
+   "max_major",
+   "mcp",
+   "merge",
+   "min_discovered",
+   "must_read",
+   "on_branch_fail",
+   "on_calibrated",
+   "on_covered",
+   "on_dry",
+   "on_escalate",
+   "on_fail",
+   "on_pass",
+   "on_stable",
+   "output_schema",
+   "permission_mode",
+   "persona",
+   "policy",
+   "predicate",
+   "prompt",
+   "readonly",
+   "retries",
+   "sandbox",
+   "session",
+   "session_persistence",
+   "skill",
+   "template",
+   "tier",
+   "tools",
+   "triage_of",
+   "type",
+   "verdict_contract"
+  ],
+  "specs": [
+   "allowed_tools",
+   "bad_input",
+   "body",
+   "branches",
+   "budget_usd",
+   "command",
+   "control_waived",
+   "driver",
+   "dry_rounds",
+   "env",
+   "good_input",
+   "idempotent",
+   "max_branches",
+   "max_iters",
+   "max_retries",
+   "merge",
+   "message",
+   "min_discovered",
+   "on_branch_fail",
+   "on_covered",
+   "on_dry",
+   "on_escalate",
+   "on_fail",
+   "on_pass",
+   "on_stable",
+   "permission_mode",
+   "persona",
+   "predicate",
+   "prompt",
+   "readonly",
+   "retries",
+   "sandbox",
+   "session",
+   "skill",
+   "stable_rounds",
+   "template",
+   "tier",
+   "timeout_ms",
+   "type",
+   "verdict_contract",
+   "zte",
+   "zte_warmup"
+  ]
+ },
+ "drift": {
+  "specs_not_read_by_runtime": [
+   "env"
+  ],
+  "runtime_not_in_any_spec": [
+   "add_dirs",
+   "budget_tokens",
+   "churn_limit",
+   "findings_contract",
+   "max_major",
+   "mcp",
+   "must_read",
+   "on_calibrated",
+   "output_schema",
+   "policy",
+   "session_persistence",
+   "stagnation_rounds",
+   "tools",
+   "triage_of"
+  ],
+  "runtime_not_seen_by_lint": [
+   "add_dirs",
+   "budget_usd",
+   "dry_rounds",
+   "max_retries",
+   "message",
+   "stable_rounds",
+   "stagnation_rounds",
+   "timeout_ms",
+   "zte",
+   "zte_warmup"
+  ],
+  "lint_not_in_exec_path": [],
+  "exec_not_seen_by_lint": [
+   "add_dirs",
+   "budget_usd",
+   "dry_rounds",
+   "max_retries",
+   "message",
+   "stable_rounds",
+   "stagnation_rounds",
+   "timeout_ms",
+   "zte",
+   "zte_warmup"
+  ]
+ },
+ "spec_files_scanned_with_nodes": 161,
+ "flows_replayed": 99,
+ "nodes_checked": 508,
+ "regex_grammar_sites": {
+  "regexes": 4,
+  "substring_tests": 2,
+  "agree_with_runtime": [
+   "render_template (runtime)",
+   "_namespace_node_refs"
+  ],
+  "disagree_with_runtime": [
+   "NODE_REF_RE (data graph)",
+   "_AGENT_TEXT_REF_RE (sandbox text)",
+   "_lint_persona f'nodes.{hidden}' in prompt",
+   "_lint_gate_feedback f'nodes.{name}' in prompt"
+  ]
+ },
+ "regex_differential": {
+  "inputs": 41,
+  "inputs_where_a_lint_parser_disagrees_with_runtime": 33,
+  "data_graph_forms_missed": [
+   ".full_ref",
+   ".omitted_bytes",
+   ".facts.K",
+   ".facts.summary",
+   ".facts."
+  ],
+  "agent_text_forms_missed": [
+   "bare {{nodes.X}} (= summary at runtime)",
+   "unknown-suffix bare",
+   "node literally named summary"
+  ],
+  "substring_prefix_confusions": [
+   [
+    "rev",
+    "review",
+    true,
+    false
+   ],
+   [
+    "a",
+    "ab",
+    true,
+    false
+   ],
+   [
+    "check",
+    "check2",
+    true,
+    false
+   ]
+  ],
+  "substring_accepts_brace_less_mention": true
+ },
+ "ref_forms_in_real_specs": {
+  "X.summary": 133,
+  "X.full_ref": 11,
+  "X.facts.k": 2,
+  "bare": 0
+ },
+ "default_disagreement": {
+  "keys_with_more_than_one_default_or_access_style": 20,
+  "of": 49,
+  "notable": {
+   "timeout_ms": [
+    0,
+    120000,
+    600000
+   ],
+   "max_iters": [
+    0,
+    1
+   ],
+   "max_branches": [
+    0,
+    1
+   ],
+   "merge": [
+    "",
+    "collect"
+   ],
+   "tier": [
+    "",
+    "unspecified",
+    null
+   ],
+   "on_escalate": [
+    null,
+    "__fail__"
+   ],
+   "max_major": [
+    null,
+    0
+   ]
+  }
+ }
+}

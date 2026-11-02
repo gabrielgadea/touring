@@ -1,0 +1,773 @@
+{
+ "rows": [
+  {
+   "input": "{{nodes.a}}",
+   "runtime": [
+    "a",
+    "summary"
+   ],
+   "data_graph": "a",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.summary}}",
+   "runtime": [
+    "a",
+    "summary"
+   ],
+   "data_graph": "a",
+   "agent_text": "a",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.full_ref}}",
+   "runtime": [
+    "a",
+    "full_ref"
+   ],
+   "data_graph": "a.full_ref",
+   "agent_text": "a",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.omitted_bytes}}",
+   "runtime": [
+    "a",
+    "omitted_bytes"
+   ],
+   "data_graph": "a.omitted_bytes",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.facts.K}}",
+   "runtime": [
+    "a",
+    "facts"
+   ],
+   "data_graph": "a.facts.K",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.facts.summary}}",
+   "runtime": [
+    "a",
+    "facts"
+   ],
+   "data_graph": "a.facts",
+   "agent_text": "a.facts",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.rev}}",
+   "runtime": [
+    "rev",
+    "summary"
+   ],
+   "data_graph": "rev",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.rev.summary}}",
+   "runtime": [
+    "rev",
+    "summary"
+   ],
+   "data_graph": "rev",
+   "agent_text": "rev",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.rev.full_ref}}",
+   "runtime": [
+    "rev",
+    "full_ref"
+   ],
+   "data_graph": "rev.full_ref",
+   "agent_text": "rev",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.rev.omitted_bytes}}",
+   "runtime": [
+    "rev",
+    "omitted_bytes"
+   ],
+   "data_graph": "rev.omitted_bytes",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.rev.facts.K}}",
+   "runtime": [
+    "rev",
+    "facts"
+   ],
+   "data_graph": "rev.facts.K",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.rev.facts.summary}}",
+   "runtime": [
+    "rev",
+    "facts"
+   ],
+   "data_graph": "rev.facts",
+   "agent_text": "rev.facts",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.review}}",
+   "runtime": [
+    "review",
+    "summary"
+   ],
+   "data_graph": "review",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.review.summary}}",
+   "runtime": [
+    "review",
+    "summary"
+   ],
+   "data_graph": "review",
+   "agent_text": "review",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.review.full_ref}}",
+   "runtime": [
+    "review",
+    "full_ref"
+   ],
+   "data_graph": "review.full_ref",
+   "agent_text": "review",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.review.omitted_bytes}}",
+   "runtime": [
+    "review",
+    "omitted_bytes"
+   ],
+   "data_graph": "review.omitted_bytes",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.review.facts.K}}",
+   "runtime": [
+    "review",
+    "facts"
+   ],
+   "data_graph": "review.facts.K",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.review.facts.summary}}",
+   "runtime": [
+    "review",
+    "facts"
+   ],
+   "data_graph": "review.facts",
+   "agent_text": "review.facts",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.b}}",
+   "runtime": [
+    "a.b",
+    "summary"
+   ],
+   "data_graph": "a.b",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.b.summary}}",
+   "runtime": [
+    "a.b",
+    "summary"
+   ],
+   "data_graph": "a.b",
+   "agent_text": "a.b",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.b.full_ref}}",
+   "runtime": [
+    "a.b",
+    "full_ref"
+   ],
+   "data_graph": "a.b.full_ref",
+   "agent_text": "a.b",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.b.omitted_bytes}}",
+   "runtime": [
+    "a.b",
+    "omitted_bytes"
+   ],
+   "data_graph": "a.b.omitted_bytes",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.b.facts.K}}",
+   "runtime": [
+    "a.b",
+    "facts"
+   ],
+   "data_graph": "a.b.facts.K",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.b.facts.summary}}",
+   "runtime": [
+    "a.b",
+    "facts"
+   ],
+   "data_graph": "a.b.facts",
+   "agent_text": "a.b.facts",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.x-y}}",
+   "runtime": [
+    "x-y",
+    "summary"
+   ],
+   "data_graph": "x-y",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.x-y.summary}}",
+   "runtime": [
+    "x-y",
+    "summary"
+   ],
+   "data_graph": "x-y",
+   "agent_text": "x-y",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.x-y.full_ref}}",
+   "runtime": [
+    "x-y",
+    "full_ref"
+   ],
+   "data_graph": "x-y.full_ref",
+   "agent_text": "x-y",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.x-y.omitted_bytes}}",
+   "runtime": [
+    "x-y",
+    "omitted_bytes"
+   ],
+   "data_graph": "x-y.omitted_bytes",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.x-y.facts.K}}",
+   "runtime": [
+    "x-y",
+    "facts"
+   ],
+   "data_graph": "x-y.facts.K",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.x-y.facts.summary}}",
+   "runtime": [
+    "x-y",
+    "facts"
+   ],
+   "data_graph": "x-y.facts",
+   "agent_text": "x-y.facts",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.A1}}",
+   "runtime": [
+    "A1",
+    "summary"
+   ],
+   "data_graph": "A1",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.A1.summary}}",
+   "runtime": [
+    "A1",
+    "summary"
+   ],
+   "data_graph": "A1",
+   "agent_text": "A1",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.A1.full_ref}}",
+   "runtime": [
+    "A1",
+    "full_ref"
+   ],
+   "data_graph": "A1.full_ref",
+   "agent_text": "A1",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.A1.omitted_bytes}}",
+   "runtime": [
+    "A1",
+    "omitted_bytes"
+   ],
+   "data_graph": "A1.omitted_bytes",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.A1.facts.K}}",
+   "runtime": [
+    "A1",
+    "facts"
+   ],
+   "data_graph": "A1.facts.K",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.A1.facts.summary}}",
+   "runtime": [
+    "A1",
+    "facts"
+   ],
+   "data_graph": "A1.facts",
+   "agent_text": "A1.facts",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.summary.summary}}",
+   "runtime": [
+    "a.summary",
+    "summary"
+   ],
+   "data_graph": "a.summary",
+   "agent_text": "a.summary",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.full_ref.summary}}",
+   "runtime": [
+    "a.full_ref",
+    "summary"
+   ],
+   "data_graph": "a.full_ref",
+   "agent_text": "a.full_ref",
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.summary}}",
+   "runtime": [
+    "summary",
+    "summary"
+   ],
+   "data_graph": "summary",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.facts.}}",
+   "runtime": [
+    "a",
+    "facts"
+   ],
+   "data_graph": "a.facts.",
+   "agent_text": null,
+   "namespaced": true
+  },
+  {
+   "input": "{{nodes.a.bogus}}",
+   "runtime": [
+    "a.bogus",
+    "summary"
+   ],
+   "data_graph": "a.bogus",
+   "agent_text": null,
+   "namespaced": true
+  }
+ ],
+ "disagree": [
+  [
+   "{{nodes.a}}",
+   [
+    "a",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'a'"
+   ]
+  ],
+  [
+   "{{nodes.a.full_ref}}",
+   [
+    "a",
+    "full_ref"
+   ],
+   [
+    "data_graph sees 'a.full_ref'"
+   ]
+  ],
+  [
+   "{{nodes.a.omitted_bytes}}",
+   [
+    "a",
+    "omitted_bytes"
+   ],
+   [
+    "data_graph sees 'a.omitted_bytes'"
+   ]
+  ],
+  [
+   "{{nodes.a.facts.K}}",
+   [
+    "a",
+    "facts"
+   ],
+   [
+    "data_graph sees 'a.facts.K'"
+   ]
+  ],
+  [
+   "{{nodes.a.facts.summary}}",
+   [
+    "a",
+    "facts"
+   ],
+   [
+    "data_graph sees 'a.facts'",
+    "agent_text sees 'a.facts', runtime says None"
+   ]
+  ],
+  [
+   "{{nodes.rev}}",
+   [
+    "rev",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'rev'"
+   ]
+  ],
+  [
+   "{{nodes.rev.full_ref}}",
+   [
+    "rev",
+    "full_ref"
+   ],
+   [
+    "data_graph sees 'rev.full_ref'"
+   ]
+  ],
+  [
+   "{{nodes.rev.omitted_bytes}}",
+   [
+    "rev",
+    "omitted_bytes"
+   ],
+   [
+    "data_graph sees 'rev.omitted_bytes'"
+   ]
+  ],
+  [
+   "{{nodes.rev.facts.K}}",
+   [
+    "rev",
+    "facts"
+   ],
+   [
+    "data_graph sees 'rev.facts.K'"
+   ]
+  ],
+  [
+   "{{nodes.rev.facts.summary}}",
+   [
+    "rev",
+    "facts"
+   ],
+   [
+    "data_graph sees 'rev.facts'",
+    "agent_text sees 'rev.facts', runtime says None"
+   ]
+  ],
+  [
+   "{{nodes.review}}",
+   [
+    "review",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'review'"
+   ]
+  ],
+  [
+   "{{nodes.review.full_ref}}",
+   [
+    "review",
+    "full_ref"
+   ],
+   [
+    "data_graph sees 'review.full_ref'"
+   ]
+  ],
+  [
+   "{{nodes.review.omitted_bytes}}",
+   [
+    "review",
+    "omitted_bytes"
+   ],
+   [
+    "data_graph sees 'review.omitted_bytes'"
+   ]
+  ],
+  [
+   "{{nodes.review.facts.K}}",
+   [
+    "review",
+    "facts"
+   ],
+   [
+    "data_graph sees 'review.facts.K'"
+   ]
+  ],
+  [
+   "{{nodes.review.facts.summary}}",
+   [
+    "review",
+    "facts"
+   ],
+   [
+    "data_graph sees 'review.facts'",
+    "agent_text sees 'review.facts', runtime says None"
+   ]
+  ],
+  [
+   "{{nodes.a.b}}",
+   [
+    "a.b",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'a.b'"
+   ]
+  ],
+  [
+   "{{nodes.a.b.full_ref}}",
+   [
+    "a.b",
+    "full_ref"
+   ],
+   [
+    "data_graph sees 'a.b.full_ref'"
+   ]
+  ],
+  [
+   "{{nodes.a.b.omitted_bytes}}",
+   [
+    "a.b",
+    "omitted_bytes"
+   ],
+   [
+    "data_graph sees 'a.b.omitted_bytes'"
+   ]
+  ],
+  [
+   "{{nodes.a.b.facts.K}}",
+   [
+    "a.b",
+    "facts"
+   ],
+   [
+    "data_graph sees 'a.b.facts.K'"
+   ]
+  ],
+  [
+   "{{nodes.a.b.facts.summary}}",
+   [
+    "a.b",
+    "facts"
+   ],
+   [
+    "data_graph sees 'a.b.facts'",
+    "agent_text sees 'a.b.facts', runtime says None"
+   ]
+  ],
+  [
+   "{{nodes.x-y}}",
+   [
+    "x-y",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'x-y'"
+   ]
+  ],
+  [
+   "{{nodes.x-y.full_ref}}",
+   [
+    "x-y",
+    "full_ref"
+   ],
+   [
+    "data_graph sees 'x-y.full_ref'"
+   ]
+  ],
+  [
+   "{{nodes.x-y.omitted_bytes}}",
+   [
+    "x-y",
+    "omitted_bytes"
+   ],
+   [
+    "data_graph sees 'x-y.omitted_bytes'"
+   ]
+  ],
+  [
+   "{{nodes.x-y.facts.K}}",
+   [
+    "x-y",
+    "facts"
+   ],
+   [
+    "data_graph sees 'x-y.facts.K'"
+   ]
+  ],
+  [
+   "{{nodes.x-y.facts.summary}}",
+   [
+    "x-y",
+    "facts"
+   ],
+   [
+    "data_graph sees 'x-y.facts'",
+    "agent_text sees 'x-y.facts', runtime says None"
+   ]
+  ],
+  [
+   "{{nodes.A1}}",
+   [
+    "A1",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'A1'"
+   ]
+  ],
+  [
+   "{{nodes.A1.full_ref}}",
+   [
+    "A1",
+    "full_ref"
+   ],
+   [
+    "data_graph sees 'A1.full_ref'"
+   ]
+  ],
+  [
+   "{{nodes.A1.omitted_bytes}}",
+   [
+    "A1",
+    "omitted_bytes"
+   ],
+   [
+    "data_graph sees 'A1.omitted_bytes'"
+   ]
+  ],
+  [
+   "{{nodes.A1.facts.K}}",
+   [
+    "A1",
+    "facts"
+   ],
+   [
+    "data_graph sees 'A1.facts.K'"
+   ]
+  ],
+  [
+   "{{nodes.A1.facts.summary}}",
+   [
+    "A1",
+    "facts"
+   ],
+   [
+    "data_graph sees 'A1.facts'",
+    "agent_text sees 'A1.facts', runtime says None"
+   ]
+  ],
+  [
+   "{{nodes.summary}}",
+   [
+    "summary",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'summary'"
+   ]
+  ],
+  [
+   "{{nodes.a.facts.}}",
+   [
+    "a",
+    "facts"
+   ],
+   [
+    "data_graph sees 'a.facts.'"
+   ]
+  ],
+  [
+   "{{nodes.a.bogus}}",
+   [
+    "a.bogus",
+    "summary"
+   ],
+   [
+    "agent_text sees None, runtime says 'a.bogus'"
+   ]
+  ]
+ ],
+ "prefix": [
+  [
+   "rev",
+   "review",
+   true,
+   false
+  ],
+  [
+   "a",
+   "ab",
+   true,
+   false
+  ],
+  [
+   "check",
+   "check2",
+   true,
+   false
+  ]
+ ],
+ "braceless": true
+}

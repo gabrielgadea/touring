@@ -1,0 +1,170 @@
+[
+ {
+  "id": "M01",
+  "desc": "schema row dropped: `retries`",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_wrong_toml_kind_is_an_error[code-retries-3]"
+ },
+ {
+  "id": "M02",
+  "desc": "kind check always true",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_wrong_toml_kind_is_an_error[code-retries-3]"
+ },
+ {
+  "id": "M03",
+  "desc": "boolean accepted as integer",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_wrong_toml_kind_is_an_error[code-retries-True]"
+ },
+ {
+  "id": "M04",
+  "desc": "regex variant: hyphen dropped from the node-name class",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_node_refs_reads_nodes_only_and_only_well_formed_references"
+ },
+ {
+  "id": "M05",
+  "desc": "parser order: facts yields to a trailing `.summary`",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_parse_node_ref_forms[a.facts.summary-expected6]"
+ },
+ {
+  "id": "M06",
+  "desc": "RESULT_FIELDS loses omitted_bytes",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_parse_node_ref_forms[a.omitted_bytes-expected3]"
+ },
+ {
+  "id": "M07",
+  "desc": "accessor default changed: bare reference is full_ref",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_parse_node_ref_forms[a-expected0]"
+ },
+ {
+  "id": "M08",
+  "desc": "unknown keys accepted silently",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_an_unknown_key_is_an_error_with_a_suggestion"
+ },
+ {
+  "id": "M09",
+  "desc": "session vocabulary shrinks",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_session_has_a_closed_vocabulary"
+ },
+ {
+  "id": "M10",
+  "desc": "namespacer rewrites vars too",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_namespacer_rewrites_every_form_of_a_local_node_and_nothing_else"
+ },
+ {
+  "id": "M11",
+  "desc": "sandbox text lint: only full_ref counts as text",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_sandbox_text_lint_follows_the_runtime_meaning_of_the_reference[{{nodes.writer}}-True]"
+ },
+ {
+  "id": "M12",
+  "desc": "placement warning removed",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_key_another_node_type_reads_is_only_a_warning"
+ },
+ {
+  "id": "M13",
+  "desc": "refused rows stop refusing",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_policy_keeps_its_refusal_message"
+ },
+ {
+  "id": "M14",
+  "desc": "control_waived back to boolean only",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_the_kinds_the_shipped_flows_use_are_accepted[gate-control_waived-quorum de cr\\xedticos independentes \\xe9 o controle deste gate]"
+ },
+ {
+  "id": "M15",
+  "desc": "blind_to back to a substring test",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_blind_to_is_a_node_name_not_a_prefix"
+ },
+ {
+  "id": "M16",
+  "desc": "gate feedback back to a substring test",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_gate_feedback_is_not_satisfied_by_a_prefix_name"
+ },
+ {
+  "id": "M17",
+  "desc": "persona row loses `dedicated` (double report)",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_dedicated_keys_get_no_second_message_from_the_table"
+ },
+ {
+  "id": "M18",
+  "desc": "did-you-mean cutoff 0 (suggests anything)",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_key_the_runner_never_reads_is_refused_without_a_made_up_suggestion"
+ },
+ {
+  "id": "M19",
+  "desc": "reserved key becomes an error",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_reserved_key_is_accepted_with_a_warning"
+ },
+ {
+  "id": "M20",
+  "desc": "list element kind unchecked",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_wrong_toml_kind_is_an_error[code-command-value7]"
+ },
+ {
+  "id": "M21",
+  "desc": "data graph ignores non-summary fields",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_the_data_graph_sees_every_result_field_of_a_node[full_ref]"
+ },
+ {
+  "id": "M22",
+  "desc": "runtime ignores facts",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_render_template_resolves_every_form_through_the_same_parser"
+ },
+ {
+  "id": "M23",
+  "desc": "`dedicated` rows are validated again (double report)",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_dedicated_keys_get_no_second_message_from_the_table"
+ },
+ {
+  "id": "M24",
+  "desc": "lint_spec does not run the schema",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_lint_spec_runs_the_schema_before_the_other_node_lints"
+ },
+ {
+  "id": "M25",
+  "desc": "dead row added to the table",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_every_row_of_the_table_is_referenced_by_the_code"
+ },
+ {
+  "id": "M26",
+  "desc": "schema row dropped: `dry_rounds`",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_a_wrong_toml_kind_is_an_error[loop-dry_rounds-2]"
+ },
+ {
+  "id": "M27",
+  "desc": "RAW_EDGE row dropped: on_calibrated edges lose their row",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_node_schema_covers_every_key_the_runtime_reads"
+ },
+ {
+  "id": "M28",
+  "desc": "`timeout_ms` row loses the agent type (placement false warning)",
+  "status": "KILLED",
+  "by": "test_adw_node.py::test_shipped_library_files_have_no_schema_findings[adw-library/adw-curation.toml]"
+ }
+]

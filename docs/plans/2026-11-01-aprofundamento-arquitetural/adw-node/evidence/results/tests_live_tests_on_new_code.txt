@@ -1,0 +1,5 @@
+.....                                                                    [100%]
+=========================== short test summary info ============================
+FAILED test_adw.py::test_worker_critic_pair_composes_and_the_critic_never_reads_the_worker
+FAILED test_adw.py::test_worker_critic_pair_composes_n_times_under_n_aliases
+2 failed, 363 passed in 2.00s
