@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 400**
+**Count: 396**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -105,13 +105,11 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::cila`
 - `touring-foundation::code_mode`
 - `touring-foundation::config`
-- `touring-foundation::conflict`
 - `touring-foundation::daemon_spawn`
 - `touring-foundation::daemon_spawn_tests`
 - `touring-foundation::diagnostic`
 - `touring-foundation::drift`
 - `touring-foundation::error`
-- `touring-foundation::failover`
 - `touring-foundation::feedback`
 - `touring-foundation::gate_metrics`
 - `touring-foundation::gate_metrics_snapshot`
@@ -140,7 +138,6 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::schema_guard`
 - `touring-foundation::security`
 - `touring-foundation::semantic`
-- `touring-foundation::sentinel`
 - `touring-foundation::shared`
 - `touring-foundation::shutdown`
 - `touring-foundation::so_what`
@@ -214,7 +211,6 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-core::dependency_cache`
 - `touring-hooks-core::ecosystem`
 - `touring-hooks-core::error_predictor`
-- `touring-hooks-core::functional_wiring`
 - `touring-hooks-core::generator_hints`
 - `touring-hooks-core::health_delta`
 - `touring-hooks-core::health_delta_audit`
