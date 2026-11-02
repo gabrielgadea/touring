@@ -28,7 +28,7 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
 | 4 | Nomes de evento de hook: fonte única | feito (fases 1 e 2) | df57547b 8a4d9e3e 3c0acc32 e422e156 8e27fd33 | dispatch 1353/0, touring-hooks 1216/0, hooks-core 485/0, handlers 809/0, clippy --all-features limpo, touring-server --tests check ok; 29 nomes × 52 payloads idênticos byte a byte ao binário anterior |
 | 5 | Árvores-gêmeas não compiladas | feito | c03484d6 | 5.424 linhas removidas; nada as incluía |
 | 6 | Gates do code mode fora do cli_suggester | feito | 1aee80af a63ad737 db9b22d7 21c6533d | touring-cli lib 720/0 (base 815/1: testes por cenário viraram 114 linhas de tabela), cli_suggester_e2e 20/20, g10 3/3, clippy --all-features limpo, server --tests e dispatch check ok; replay 114 sequências/444 passos + digest de 30.406 chamadas, JUSTIFIED_DIFFERENCES vazio; 29/29 mutantes mortos; latência sem mudança; 0 aresta Cargo nova |
-| 7 | touring-dispatch: testes pelos handle_* | fila | — | — |
+| 7 | touring-dispatch: testes pelos handle_* | feito | 221082d4 343912cd 893eea1a c65a2edb 0874659b | dispatch lib 746/0 (base 1353 com 1 falha pré-existente em updated_input_writers, corrigida), touring-hooks 1216/0, clippy --all-features limpo, check --workspace --tests ok; replay 629 cenários idênticos, JUSTIFIED_DIFFERENCES vazio; 1.247 testes antigos mapeados (0 sem destino); 15/15 mutantes mortos; 6 deps removidas sem mudar a unificação de features |
 | 8 | VGP: leitura contida em caminho.rs | fila | — | — |
 | 9 | adw.py: interface de nó tipada | fila | — | — |
 | 10 | Crates de passagem (capnp-server, contracts) | fila | — | — |
@@ -66,7 +66,18 @@ e "aproveite e de uma geral no touring"). DAG: `task_1793579505824457457`.
   explícita em `switch.rs`, não corrigido. Replay de trace real impossível: `hook_trace.jsonl` não grava input nem
   veredito. Janelas (TTL) fixadas por constante; um relógio injetável no `GateState` deixaria testar expiração.
 
+- #7: o módulo tem 14 `handle_*` (não 16). Parcela de chamadas de teste a helpers: 69,2% → 8,4%; 311 helpers
+  saíram de `pub(crate)`; 10 blocos `#[cfg(test)] pub(crate) use` removidos. Sete defeitos latentes de chave entre
+  produtor e leitor (não corrigidos, mudam a saída do hook), por exemplo `cli_decompose_get` emite `subtask_id` e
+  quatro hints leem `id`; `cli_decompose_status` emite `total_tasks` e o handler lê `task_count` (DAG sempre 0,
+  `dag-gap:` espúrio); o wayfinder não emite `ready_count`. Os 28 testes-folha que documentam isso ficam como unidade.
+  61 testes de classificador de `generator_hints` ficariam melhor em touring-hooks-core.
+- **Pré-condição de publicação da branch**: o commit `343912cd` contém o nome do usuário em `surface_tests.rs`
+  (removido em `893eea1a`). Antes de push ou fusão, reescrever esse commit (ritual REGRA #11 v2 + confirmação).
+
 ## Decisões do Gabriel pendentes
+
+- #7: corrigir os defeitos de chave produtor × leitor (os hints passam a disparar: muda a saída do hook).
 
 - #6: o kill switch deve calar também G5 e E3?; gravar (tool, classe, veredito, gate) sem caminhos no trace do hook
   para permitir replay real.
