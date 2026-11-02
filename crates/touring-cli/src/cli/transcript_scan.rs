@@ -20,8 +20,8 @@
 //!   [`ReadStats::sidechain_dropped`] so the drop is displayed, never hidden;
 //! * **a human prompt** is a user record that is not `isMeta`, carries no `tool_result` block and
 //!   whose text holds none of [`NON_HUMAN_TURN_MARKERS`]; string content and a text-only block
-//!   array are both read (a bare string is the common shape: 893 of the 898 prompts of 219 real
-//!   transcripts);
+//!   array are both read (a bare string is the common shape: 893 of the 898 non-meta user
+//!   records without a tool result, in 219 real transcripts);
 //! * **usage is billed once per API call** — Claude Code writes one assistant record per content
 //!   block and every record repeats the call's `usage`, so [`AssistantTurn::usage`] is `Some`
 //!   only on the first record of a message id of the session;
@@ -308,8 +308,8 @@ pub fn typed_commands(text: &str) -> Vec<String> {
 /// 25,5%, so `injected_bytes_per_turn` read ~25% LOWER than the truth. This list stops adding fake
 /// turns; reading string content as a turn stopped dropping real ones. A denominator has two ways
 /// to be wrong and both were live. `isMeta` closes a third: measured 01/11/2026 over 219
-/// transcripts, 883 user records that passed the marker list were `isMeta` — Claude Code's own
-/// expansions (a skill body, a command's caveat) — and 862 of them still counted as a turn.
+/// transcripts, 883 user records are `isMeta` — Claude Code's own expansions (a skill body, a
+/// command's caveat) — and 862 of them passed the marker list and still counted as a turn.
 ///
 /// A genuine turn may carry an appended `<system-reminder>`, so that is deliberately NOT a marker:
 /// the predicate stays narrow, and a doubtful record counts as human (a larger denominator
