@@ -227,7 +227,9 @@ impl VulnerabilityPattern for CmdInjectionPattern {
 /// `option_env!`). Such a `../` is a build-time literal, never untrusted input,
 /// so it is not a CWE-22 traversal. Bounded backward scan (the `regex` crate has
 /// no lookbehind): the macro opener must be within 64 bytes and still open (no
-/// `)` or newline between the opener and the match).
+/// `)` or newline between the opener and the match) — or, the rustfmt shape
+/// (02/11/2026, analise kazuba-legal), the literal is the macro's FIRST argument on
+/// the next line: nothing but whitespace and the opening quote between them.
 fn in_compile_time_include(input: &str, match_start: usize) -> bool {
     const MACROS: [&str; 5] = [
         "include_str!(",
@@ -240,7 +242,10 @@ fn in_compile_time_include(input: &str, match_start: usize) -> bool {
     MACROS.iter().any(|m| {
         before.rfind(m).is_some_and(|pos| {
             let after_opener = &before[pos + m.len()..];
-            after_opener.len() <= 64 && !after_opener.contains(')') && !after_opener.contains('\n')
+            let same_line = after_opener.len() <= 64
+                && !after_opener.contains(')')
+                && !after_opener.contains('\n');
+            same_line || after_opener.trim_start() == "\""
         })
     })
 }
@@ -1438,6 +1443,21 @@ mod tests {
         // (find_iter skips the suppressed macro literal, reports the real climb).
         assert!(
             p.detect("include_str!(\"../../ok\"); let evil = \"../../../etc/passwd\";")
+                .is_some()
+        );
+        // 02/11/2026 (analise repo, kazuba-legal): rustfmt splits a long include so the literal
+        // starts on the next line — still the macro's first argument, still compile-time.
+        assert!(
+            p.detect("const J: &str = include_str!(\n    \"../../../../data/lei_10233_2001_structured.json\"\n);")
+                .is_none()
+        );
+        // ...but a newline does not make ANY later literal part of the macro.
+        assert!(
+            p.detect("include_str!(\n    \"x.json\"\n); let p = \"../../../etc/passwd\";")
+                .is_some()
+        );
+        assert!(
+            p.detect("concat!(\n    env!(\"A\"),\n    \"../../../etc/passwd\"\n)")
                 .is_some()
         );
         assert_eq!(p.name(), "PathTraversal");
