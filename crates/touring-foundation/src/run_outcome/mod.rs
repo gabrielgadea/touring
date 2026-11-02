@@ -37,12 +37,17 @@
 
 mod journal;
 mod outcome;
+mod reader;
+mod recurrence;
 
-pub use journal::{
-    EntryScan, Journal, JournalEntry, JournalHint, Line, PriorSearch, PriorSimilar, RunLog,
-    RunRecord, SimhashVersion, classify_line, count_runs, journal_path, scan_entries,
-};
+pub use journal::{Journal, RunLog, journal_path};
 pub use outcome::{ExitStatus, FailureKind, RunOutcome};
+pub use reader::{
+    EntryScan, JournalEntry, JournalHint, Line, RunRecord, classify_line, count_runs, scan_entries,
+};
+pub use recurrence::{PriorSearch, PriorSimilar, SimhashVersion};
 
 #[cfg(test)]
 mod replay;
+#[cfg(test)]
+mod tests;
