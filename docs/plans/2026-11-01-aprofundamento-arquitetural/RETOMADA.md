@@ -104,8 +104,14 @@ Todos os 10 fechados no worktree. Antes do push/fusão: (1) reescrever `343912cd
 
 ## Decisões do Gabriel pendentes
 
-- #9: `env` no `skilling-pack` — (A) implementar `env` no `run_code_node` ou (B, recomendado pelo engenheiro)
-  reescrever o comando do fragmento sem `env`; chave desconhecida como ERRO (bloqueia o run) ou aviso no início.
+- #9: **DECIDIDO 02/11 (Gabriel aprovou o canvas)** — `env`: B′, a contagem vai como argv[1]
+  (`["bash","-c","test \"$1\" -ge 2","_","{{inputs.recurrence}}"]`); a B original injetava o valor
+  renderizado na string `-c` (injeção de shell) e a A com `os.environ` vazaria o ambiente. Chave
+  desconhecida: E, ERRO. Entregue no bundle como `adw-node/skilling-pack.patch` + teste de comportamento
+  (5/2 passam, 1/`abc` falham, 2 payloads de injeção falham sem efeito); `KNOWN_FINDINGS` vazio.
+  Verificado numa cópia: 365 + 144 = 509 passed; fluxo-sonda compondo o fragmento → `lint valid: true`
+  com a biblioteca corrigida e `unknown key env` com a viva. Aplicar os 3 patches juntos após 08/11.
+  Fora do repo: a cópia em `~/omarchy-kit/` tem o mesmo `env` morto.
 
 - #8: `sombra.rs` (lê `.touring/touring.toml`) e o cache CDN seguem como as duas exceções documentadas à guarda ou
   passam por `caminho`?
