@@ -52,12 +52,12 @@ impl Pending {
 }
 
 /// Pending offers by actor key. A struct (not a bare static) so a test can own one.
-pub(super) struct Registry {
+pub(in crate::code_mode_gates) struct Registry {
     map: Mutex<HashMap<String, Pending>>,
 }
 
 impl Registry {
-    pub(super) fn new() -> Self {
+    pub(in crate::code_mode_gates) fn new() -> Self {
         Self {
             map: Mutex::new(HashMap::new()),
         }
@@ -65,7 +65,7 @@ impl Registry {
 
     /// A new offer for `key`. A still-pending one closes as `replaced` — exactly one
     /// line for it — and the new one starts accumulating.
-    pub(super) fn offer(
+    pub(in crate::code_mode_gates) fn offer(
         &self,
         key: &str,
         session: &str,
@@ -108,7 +108,7 @@ impl Registry {
     /// Not a Bash call (empty `cmd`) ⇒ nothing to count. Otherwise the head joins the
     /// pending offer; a verdict closes it `consumed`, the K-th verdict-less call closes
     /// it `window`. The lock is released before the sink runs (it does file I/O).
-    pub(super) fn outcome(
+    pub(in crate::code_mode_gates) fn outcome(
         &self,
         key: &str,
         cmd: &str,
@@ -143,7 +143,7 @@ impl Registry {
 
     /// Is an offer pending for `key`? (tests; also the OFF-flag "nothing recorded" proof)
     #[cfg(test)]
-    pub(super) fn is_pending(&self, key: &str) -> bool {
+    pub(in crate::code_mode_gates) fn is_pending(&self, key: &str) -> bool {
         self.map
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -152,14 +152,14 @@ impl Registry {
 
     /// Offers held right now (tests: the cap).
     #[cfg(test)]
-    pub(super) fn len(&self) -> usize {
+    pub(in crate::code_mode_gates) fn len(&self) -> usize {
         self.map.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 }
 
 /// Is an offer pending for this actor in the PROCESS registry? (tests)
 #[cfg(test)]
-pub(super) fn pending_for(project_root: &Path, actor: &str) -> bool {
+pub(in crate::code_mode_gates) fn pending_for(project_root: &Path, actor: &str) -> bool {
     registry().is_pending(&actor_key(project_root, actor))
 }
 
@@ -169,7 +169,7 @@ fn registry() -> &'static Registry {
 }
 
 /// The same actor key production uses for its own offer cache (`project\u{2}actor`).
-pub(super) fn actor_key(project_root: &Path, actor: &str) -> String {
+pub(in crate::code_mode_gates) fn actor_key(project_root: &Path, actor: &str) -> String {
     format!("{}\u{2}{actor}", project_root.display())
 }
 
@@ -189,7 +189,7 @@ fn emit(event: &Value) {
 }
 
 /// Hook for `record_route_offer`: a route was just offered to `actor`.
-pub(super) fn on_offer(project_root: &Path, actor: &str, mode: &str, offered_secs: u64) {
+pub(in crate::code_mode_gates) fn on_offer(project_root: &Path, actor: &str, mode: &str, offered_secs: u64) {
     if !r3_shadow_enabled(project_root) {
         return;
     }
@@ -200,7 +200,7 @@ pub(super) fn on_offer(project_root: &Path, actor: &str, mode: &str, offered_sec
 }
 
 /// Hook for `claim_route_reward`: a PostToolUse finished with production's `verdict`.
-pub(super) fn on_outcome(project_root: &Path, payload: &Value, cmd: &str, verdict: Option<f64>) {
+pub(in crate::code_mode_gates) fn on_outcome(project_root: &Path, payload: &Value, cmd: &str, verdict: Option<f64>) {
     if !r3_shadow_enabled(project_root) {
         return;
     }
@@ -213,7 +213,7 @@ pub(super) fn on_outcome(project_root: &Path, payload: &Value, cmd: &str, verdic
 /// and never races a parallel test over a global (each test runs on its own thread, and
 /// the code under test is synchronous on it).
 #[cfg(test)]
-pub(super) mod test_sink {
+pub(in crate::code_mode_gates) mod test_sink {
     use serde_json::Value;
     use std::cell::RefCell;
 
@@ -224,11 +224,11 @@ pub(super) mod test_sink {
     }
 
     /// Route every event of THIS thread to `f` (its `bool` is the emitter's "written").
-    pub(in crate::cli_suggester) fn install(f: impl FnMut(&Value) -> bool + 'static) {
+    pub(in crate::code_mode_gates) fn install(f: impl FnMut(&Value) -> bool + 'static) {
         SINK.with(|s| *s.borrow_mut() = Some(Box::new(f)));
     }
 
-    pub(super) fn offer(event: &Value) -> bool {
+    pub(in crate::code_mode_gates) fn offer(event: &Value) -> bool {
         SINK.with(|s| match s.borrow_mut().as_mut() {
             Some(f) => {
                 let _ = f(event);

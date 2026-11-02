@@ -1,14 +1,19 @@
 //! The gate scenario table, driven through the implementation under test.
 //!
 //! `drive` is the only implementation-specific function: when the gates moved out of
-//! `cli_suggester` it was re-pointed, and every other line of this proof — the rows, the
-//! recorded corpus, the expectations — stayed byte for byte. A refactor that changes any
-//! response (a window, a threshold, the order of the chain, one character of a reason) fails
+//! `cli_suggester` it was re-pointed (from `code_mode_gates_with` to `evaluate` + the
+//! suggester's formatter), and every other line of this proof — the rows, the recorded corpus,
+//! the expectations — stayed byte for byte. A refactor that changes any response (a window, a
+//! threshold, the order of the chain, one character of a reason) fails
 //! `the_recorded_corpus_is_reproduced_exactly`.
+//!
+//! Every scenario runs on its OWN [`GateState`]: nothing is shared between rows, between tests,
+//! or with the daemon's store.
 
-use super::gate_rows::scenarios;
-use super::gate_scenarios::*;
-use super::{CodeModeEnv, GateOverrides, code_mode_gates_with};
+use super::rows::scenarios;
+use super::scenarios::*;
+use crate::cli_suggester::gate_response;
+use crate::code_mode_gates::{CodeModeEnv, GateConfig, GateState, ToolEvent, evaluate};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
@@ -23,6 +28,7 @@ const JUSTIFIED_DIFFERENCES: &[(&str, usize, &str)] = &[];
 
 /// The implementation under test.
 fn drive(
+    state: &GateState,
     root: &Path,
     session: &str,
     tool: &str,
@@ -30,7 +36,7 @@ fn drive(
     cfg: &Cfg,
     portfolio: &Path,
 ) -> Option<String> {
-    let ovr = GateOverrides {
+    let cfg = GateConfig {
         g2_rewrite_disabled: cfg.g2_rewrite_disabled,
         g1_rewrite_disabled: cfg.g1_rewrite_disabled,
         portfolio_dir: Some(portfolio.to_path_buf()),
@@ -43,7 +49,19 @@ fn drive(
         g1_precision: Some(cfg.g1_precision),
         r1_skeleton: Some(cfg.r1_skeleton.map(PathBuf::from)),
     };
-    code_mode_gates_with(root, session, tool, input, &ovr)
+    let event = ToolEvent {
+        project_root: root,
+        session,
+        tool_name: tool,
+        tool_input: input,
+    };
+    gate_response(evaluate(state, &event, &cfg))
+}
+
+/// Run one scenario on a fresh store.
+fn run_isolated(s: &Scn) -> Entry {
+    let state = GateState::new();
+    run(s, &mut |r, se, t, i, c, p| drive(&state, r, se, t, i, c, p))
 }
 
 // ── The composition of G7 × G3 × G9 (a generated state space) ────────────────────────────
@@ -264,8 +282,9 @@ fn explore_composition() -> (usize, u64) {
     std::fs::create_dir_all(fp.parent().expect("parent")).expect("mkdir");
     std::fs::write(&fp, "base").expect("write");
     let cfg = Cfg::default();
+    let state = GateState::new();
     let mut d = |root: &Path, sess: &str, tool: &str, input: &Value| {
-        drive(root, sess, tool, input, &cfg, port.path())
+        drive(&state, root, sess, tool, input, &cfg, port.path())
     };
     let mut c = Composition {
         drive: &mut d,
@@ -289,7 +308,7 @@ fn explore_composition() -> (usize, u64) {
 fn run_all() -> Vec<Entry> {
     scenarios()
         .iter()
-        .map(|s| run(s, &mut |r, se, t, i, c, p| drive(r, se, t, i, c, p)))
+        .map(run_isolated)
         .collect()
 }
 
@@ -325,7 +344,7 @@ fn the_scenario_table_holds_its_contract() {
     let mut failed = Vec::new();
     for s in &rows {
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run(s, &mut |r, se, t, i, c, p| drive(r, se, t, i, c, p))
+            run_isolated(s)
         }));
         if let Err(e) = r {
             let msg = e
@@ -372,10 +391,10 @@ fn the_recorded_corpus_is_reproduced_exactly() {
     assert!(diffs.is_empty(), "{} difference(s):\n{}", diffs.len(), diffs.join("\n"));
 }
 
-/// ~30 000 gate calls, each a fresh session: on the process-global ledgers (capacity 4096) two
-/// such explorations at once evict each other's live entries. Serial with the original test.
+/// ~30 000 gate calls, each a fresh session, on a store of its own (the process-global ledgers
+/// the old suite shared have capacity 4096: two such explorations at once evicted each other's
+/// live entries, which is what made the original test flaky next to its neighbours).
 #[test]
-#[serial_test::serial(gate_metrics, t3_env)]
 fn the_composition_of_g7_g3_g9_always_leaves_an_edit_route() {
     let text = std::fs::read_to_string(CORPUS).expect("tests/fixtures/gate_replay_corpus.json");
     let want: Corpus = serde_json::from_str(&text).expect("corpus json");
@@ -445,7 +464,7 @@ fn every_gate_reason_names_the_next_command() {
         if tagged.is_empty() {
             continue;
         }
-        let e = run(&s, &mut |r, se, t, i, c, p| drive(r, se, t, i, c, p));
+        let e = run_isolated(&s);
         let denies = e
             .steps
             .iter()
@@ -483,11 +502,11 @@ fn every_gate_reason_names_the_next_command() {
 /// after a change to the gates, under the SAME profile.
 #[test]
 #[ignore = "benchmark; prints, asserts only a sanity ceiling"]
-#[serial_test::serial(gate_metrics, t3_env)]
 fn gate_decision_latency() {
     let root = tempfile::tempdir().expect("root");
     let port = tempfile::tempdir().expect("portfolio");
     let cfg = Cfg::default();
+    let state = GateState::new();
     let workloads: [(&str, Box<dyn Fn(usize) -> (&'static str, Value)>); 3] = [
         (
             "bash-no-gate",
@@ -508,7 +527,7 @@ fn gate_decision_latency() {
             .map(|i| {
                 let (tool, input) = make(i);
                 let t = std::time::Instant::now();
-                let _ = drive(root.path(), &session, tool, &input, &cfg, port.path());
+                let _ = drive(&state, root.path(), &session, tool, &input, &cfg, port.path());
                 t.elapsed().as_nanos()
             })
             .collect();

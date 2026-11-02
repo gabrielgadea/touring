@@ -49,6 +49,9 @@ pub mod cli_handlers_session;
 #[path = "cli/handlers/wiring_repair.rs"]
 pub mod cli_handlers_wiring_repair;
 pub mod cli_suggester;
+// The code-mode gates (deny / rewrite / advise), carved out of `cli_suggester`: one interface,
+// every window and threshold behind it.
+pub(crate) mod code_mode_gates;
 pub mod hook_rewrite;
 // CEG Pln2 P8 Workflow Intelligence Layer (stage/antipattern/advise) — moved
 // with its single consumer (cli_suggester); its `crate::gateway` refs resolve

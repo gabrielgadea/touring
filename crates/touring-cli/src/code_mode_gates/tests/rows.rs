@@ -2,7 +2,7 @@
 //! subsumes in `covers`; the sequences, the sessions and the expectations are the ones those
 //! tests drove — restated as data against the public entry point.
 
-use super::gate_scenarios::*;
+use super::scenarios::*;
 use serde_json::json;
 
 const MARK: &str = "[CODE MODE · rajada]";
@@ -215,7 +215,13 @@ fn g6_rows() -> Vec<Scn> {
 
 fn g1_rows() -> Vec<Scn> {
     let budget = |name: &'static str, base: usize, input: serde_json::Value, want: W| {
-        scn(name, &[])
+        // The three variants are the three assertions of ONE old test.
+        let covers: &'static [&'static str] = if base == 0 {
+            &["g1_reescrita_preserva_o_orcamento_e_os_campos_da_chamada"]
+        } else {
+            &[]
+        };
+        scn(name, covers)
             .each(base, base + 2, |s, i| s.bash("s-orc", &insp(i), any()))
             .call("s-orc", "Bash", input, want)
     };
