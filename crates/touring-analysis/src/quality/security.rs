@@ -309,7 +309,17 @@ fn is_constant_handler_attribute(source: &str, m: &VulnMatch) -> bool {
 /// same quote, carry no `${`, and be the argument of one of those forms — a
 /// string that only CONTAINS `from` is not a specifier.
 fn is_constant_module_specifier(source: &str, lang: &str, m: &VulnMatch) -> bool {
-    if m.pattern_name != "PathTraversal" || !matches!(lang, "javascript" | "typescript") {
+    if m.pattern_name != "PathTraversal" {
+        return false;
+    }
+    let host_is_module_language = matches!(lang, "javascript" | "typescript");
+    // 02/11/2026 (analise `frontend/create_remaining_tests.sh`): a shell script that writes
+    // `.test.tsx` files through `cat > X << 'EOF'`. The body of a QUOTED heredoc is
+    // literal data the shell never expands nor opens; the `import … from "../../x"`
+    // inside it is TypeScript, judged by the TypeScript rule.
+    if !host_is_module_language
+        && !(super::code_regions::is_shell_language(lang) && in_quoted_heredoc(source, m.span.0))
+    {
         return false;
     }
     let Some((open, close, line_end)) = enclosing_constant_literal(source, m) else {
@@ -324,6 +334,63 @@ fn is_constant_module_specifier(source: &str, lang: &str, m: &VulnMatch) -> bool
         // `from "x"` / `import "x"`: nothing but the statement's end may follow.
         ends_statement(after) && introduces_module_specifier(before)
     }
+}
+
+/// True when `at` lies in the body of a QUOTED shell heredoc — `<< 'EOF'`,
+/// `<<"EOF"`, `<<-'EOF'`, `<< \EOF` — whose text the shell passes on verbatim
+/// (no parameter, command or arithmetic expansion). An unquoted heredoc expands
+/// `$(…)`, so it is never data here. The body ends at the line equal to the tag
+/// (leading tabs stripped for `<<-`).
+fn in_quoted_heredoc(source: &str, at: usize) -> bool {
+    let mut offset = 0;
+    let mut open_tag: Option<(String, bool)> = None;
+    for line in source.split_inclusive('\n') {
+        let body = line.trim_end_matches(['\n', '\r']);
+        if let Some((tag, strip_tabs)) = &open_tag {
+            let candidate = if *strip_tabs {
+                body.trim_start_matches('\t')
+            } else {
+                body
+            };
+            if candidate == tag {
+                open_tag = None;
+            } else if (offset..offset + line.len()).contains(&at) {
+                return true;
+            }
+        } else {
+            open_tag = quoted_heredoc_tag(body);
+        }
+        offset += line.len();
+        if offset > at && open_tag.is_none() {
+            return false;
+        }
+    }
+    false
+}
+
+/// The tag of a quoted heredoc opened on `line`, and whether it is `<<-`.
+fn quoted_heredoc_tag(line: &str) -> Option<(String, bool)> {
+    let pos = line.find("<<")?;
+    let rest = &line[pos + 2..];
+    if rest.starts_with('<') {
+        return None; // `<<<` is a here-string
+    }
+    let (strip_tabs, rest) = match rest.strip_prefix('-') {
+        Some(r) => (true, r),
+        None => (false, rest),
+    };
+    let rest = rest.trim_start();
+    let tag: String = if let Some(r) = rest.strip_prefix('\'') {
+        r.split('\'').next()?.to_string()
+    } else if let Some(r) = rest.strip_prefix('"') {
+        r.split('"').next()?.to_string()
+    } else {
+        let r = rest.strip_prefix('\\')?;
+        r.chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .collect()
+    };
+    (!tag.is_empty()).then_some((tag, strip_tabs))
 }
 
 /// The `"…"` / `'…'` literal that encloses the match on its own line, as

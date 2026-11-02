@@ -768,6 +768,32 @@ fn a_constant_module_specifier_is_not_path_traversal() {
     }
 }
 
+/// A shell script writing a `.tsx` through a QUOTED heredoc: the body is data, and the
+/// TypeScript rule judges the `import` in it (analise `frontend/create_remaining_tests.sh`).
+#[test]
+fn a_module_specifier_inside_a_quoted_heredoc_is_not_path_traversal() {
+    for script in [
+        "#!/bin/bash\ncat > a.test.tsx << 'EOF'\nimport { r } from \"../../__tests__/u\";\nEOF\n",
+        "cat > a.ts <<\"EOF\"\nimport \"../../x\";\nEOF\n",
+        "cat > a.ts <<-'END'\n\timport x from '../../x';\n\tEND\n",
+        "cat > a.ts << \\EOF\nexport * from \"../../lib/c\";\nEOF\n",
+    ] {
+        assert!(!traversal(script, "shell"), "{script}");
+    }
+    for sink in [
+        // an UNQUOTED heredoc expands, so it is not data
+        "cat > a.ts << EOF\nimport { r } from \"../../$X\";\nEOF\n",
+        // the heredoc closed: the next line is shell again
+        "cat > a.ts << 'EOF'\nok\nEOF\ncat \"../../etc/passwd\"\n",
+        // a traversal in the heredoc that is not a module specifier
+        "cat > a.txt << 'EOF'\nopen(\"../../etc/passwd\")\nEOF\n",
+        // the same import outside any heredoc in a shell script
+        "import { r } from \"../../__tests__/u\";\n",
+    ] {
+        assert!(traversal(sink, "shell"), "{sink}");
+    }
+}
+
 /// The positive control for the module-specifier exemption.
 #[test]
 fn the_module_specifier_exemption_is_narrow_and_real_traversal_still_counts() {
