@@ -292,7 +292,10 @@ fn a_commented_payload_does_not_hide_the_real_sink_below_it() {
         xss[0].span.0 > source.find('\n').expect("two lines"),
         "the sink, not the comment"
     );
-    let twice = "let a = \"<script>x()</script>\";\nlet b = \"<script>y()</script>\";\n";
+    // Two TAINTED sinks (02/11/2026: a constant `<script>` literal is no longer a
+    // sink — `a_constant_script_tag_is_not_xss` — so the dedup is measured on real ones).
+    let twice =
+        "let a = format!(\"<script>{x}</script>\");\nlet b = format!(\"<script>{y}</script>\");\n";
     let report = SecurityAnalyzer::new().analyze(twice, "rust");
     assert_eq!(
         report
@@ -732,5 +735,101 @@ fn the_dom_sink_arm_reads_only_the_js_family() {
             "{lang}: {:?}",
             report.advisories
         );
+    }
+}
+
+/// 02/11/2026 (analise-2a, the analise repo's `quality_gold`): 164 of the 193
+/// F2.1 findings of `frontend/` were a relative ES/TS import —
+/// `import type { AccountUsage } from "../../types/security.types";` — read as
+/// CWE-22. A module specifier is resolved by the bundler / module loader at
+/// build time from a CONSTANT literal; no input chooses it. The exemption is
+/// the specifier form and nothing wider: a template literal, a concatenation
+/// or a path handed to a file API still counts.
+#[test]
+fn a_constant_module_specifier_is_not_path_traversal() {
+    for specifier in [
+        // Verbatim from analise: frontend/components/account/AccountUsageCard.tsx:6
+        "import type { AccountUsage } from \"../../types/security.types\";\n",
+        // packages/kazuba-browser/.plasmo/static/options.tsx:7 and background/index.ts:1
+        "import * as Component from \"../../src/options/index.tsx\"\n",
+        "import \"../../../src/background/index\"\n",
+        // single quotes, re-export, a multi-line import closing on its own line
+        "import { a } from '../../lib/a';\n",
+        "export { b } from \"../../lib/b\";\n",
+        "export * from \"../../lib/c\";\n",
+        "import {\n  a,\n  b,\n} from \"../../lib/ab\";\n",
+        // CommonJS and dynamic import with a constant literal
+        "const m = require(\"../../lib/m\");\n",
+        "const m = await import(\"../../lib/m.js\");\n",
+    ] {
+        for lang in ["typescript", "javascript"] {
+            assert!(!traversal(specifier, lang), "{lang}: {specifier}");
+        }
+    }
+}
+
+/// The positive control for the module-specifier exemption.
+#[test]
+fn the_module_specifier_exemption_is_narrow_and_real_traversal_still_counts() {
+    for sink in [
+        // a file API with a constant climb
+        "const s = fs.readFileSync(\"../../etc/passwd\", \"utf8\");\n",
+        // input-built paths
+        "const s = fs.readFileSync(\"../../\" + userInput);\n",
+        "const s = fs.readFileSync(`../../${p}`);\n",
+        // a dynamic import whose specifier carries input
+        "const m = await import(`../../plugins/${name}.js`);\n",
+        // a string that merely CONTAINS the word `from`
+        "const msg = \"copied from ../../etc/passwd\";\nfs.readFileSync(msg);\n",
+        // an import line first, a real sink further down: the sink survives
+        "import x from \"../../lib/x\";\nconst s = fs.readFileSync(\"../../etc/passwd\");\n",
+    ] {
+        assert!(traversal(sink, "typescript"), "{sink}");
+    }
+    // The exemption is ES module syntax: the same line in Python still counts.
+    assert!(traversal(
+        "p = 'from \"../../etc/passwd\"'\nopen(p)\n",
+        "python"
+    ));
+}
+
+/// 02/11/2026: ~130 F2.1 findings in the analise repo were a `<script` TAG —
+/// static HTML pages (`<script>` in a wireframe) and constant HTML built in
+/// Python (`return """<script src="https://cdn…/chart.umd.min.js">"""`). A tag
+/// is document structure; untrusted data reaching a script context is what
+/// CWE-79 names. In an `.html` document the tag is never the sink (the DOM
+/// sinks are measured by `dom_sinks`, as advisories); in code that BUILDS
+/// HTML, the tag counts only when its line carries taint (interpolation,
+/// `.format(`, concatenation with an identifier) — the rule the constant
+/// event-handler exemption already applies.
+#[test]
+fn a_constant_script_tag_is_not_xss() {
+    assert_eq!(
+        xss_findings(
+            "<html><head>\n<script>\nvar a = 1;\n</script>\n</head></html>\n",
+            "html"
+        ),
+        0
+    );
+    assert_eq!(
+        xss_findings(
+            "<script src=\"https://cdn.example/x.js\"></script>\n",
+            "html"
+        ),
+        0
+    );
+    let built = "def head():\n    return \"\"\"<script src=\"https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js\"></script>\"\"\"\n";
+    assert_eq!(xss_findings(built, "python"), 0, "{built}");
+}
+
+/// The positive control for the script-tag exemption.
+#[test]
+fn a_tainted_script_tag_built_in_code_is_still_xss() {
+    for sink in [
+        "def page(user):\n    return f\"<script>var u = '{user}';</script>\"\n",
+        "def page(user):\n    return \"<script>var u = '\" + user + \"';</script>\"\n",
+        "def page(user):\n    return \"<script>var u = '{}';</script>\".format(user)\n",
+    ] {
+        assert!(xss_findings(sink, "python") > 0, "{sink}");
     }
 }

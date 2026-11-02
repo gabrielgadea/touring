@@ -154,18 +154,7 @@ fn retain_exploitable(source: &str, lang: &str, vuln_matches: &mut Vec<VulnMatch
     if super::code_regions::is_shell_language(lang) {
         vuln_matches.retain(|v| !is_shell_idiom(source, v));
     }
-    // 27/10/2026: a Cargo build-script directive is read by cargo, never opened as a
-    // path by the program. The `println!("cargo:…")` form is Rust-only syntax, so the
-    // predicate needs no language gate (and adds no branch to this function).
-    vuln_matches.retain(|v| !is_cargo_build_directive(source, v));
-    // 25/09/2026 (touring-36, the analise-50 judge): an HTML event-handler attribute
-    // with a CONSTANT value is inline JS, not CWE-79 — no untrusted data reaches it
-    // (`onclick="rodar('preset')"` in a Python-generated template failed P0 on a file
-    // of 05/09 nobody touched). A handler is a sink only when the value carries
-    // interpolation or a variable. This filter lives HERE, in the code judge — never
-    // in the shared `XssPattern`, because the concolic / payload path measures INPUT,
-    // where the handler IS the attack.
-    vuln_matches.retain(|v| !is_constant_handler_attribute(source, v));
+    vuln_matches.retain(|v| !is_inert_constant(source, lang, v));
     // One finding per pattern, the first that survived: the score keeps the meaning it
     // had when each pattern reported a single match.
     let mut seen: Vec<String> = Vec::new();
@@ -176,6 +165,25 @@ fn retain_exploitable(source: &str, lang: &str, vuln_matches: &mut Vec<VulnMatch
         }
         first
     });
+}
+
+/// The constant-literal exemptions of the precision pass: a match whose text no
+/// input can reach. Each predicate is narrow and carries its own positive control
+/// in `tests/security_analyzer_test.rs`. They live HERE, in the code judge — never
+/// in the shared patterns, because the concolic / payload path measures INPUT,
+/// where the same text IS the attack.
+fn is_inert_constant(source: &str, lang: &str, v: &VulnMatch) -> bool {
+    // 27/10/2026: a Cargo build-script directive is read by cargo, never opened as
+    // a path by the program (Rust-only syntax, so no language gate).
+    is_cargo_build_directive(source, v)
+        // 25/09/2026 (touring-36, the analise-50 judge): an HTML event-handler
+        // attribute with a CONSTANT value is inline JS, not CWE-79.
+        || is_constant_handler_attribute(source, v)
+        // 02/11/2026 (analise-2a, the analise repo's `quality_gold`): 164 of 193 F2.1
+        // findings of analise `frontend/` were `import … from "../../x"`, and ~130
+        // more a `<script` tag in a static page or a constant HTML string.
+        || is_constant_module_specifier(source, lang, v)
+        || is_constant_script_tag(source, lang, v)
 }
 
 /// A CMDi match that is ordinary shell syntax in a shell script.
@@ -288,6 +296,91 @@ fn is_constant_handler_attribute(source: &str, m: &VulnMatch) -> bool {
     let tail = &source[m.span.1..line_end];
     let has_taint = tail.contains('{') || tail.contains(".format(") || has_concat_with_ident(tail);
     !has_taint
+}
+
+/// True when a `PathTraversal` match in JavaScript/TypeScript sits inside a
+/// CONSTANT module specifier: `import … from "../../x"`, `import "../../x"`,
+/// `export … from "../../x"`, `require("../../x")`, `import("../../x")`.
+///
+/// The bundler / module loader resolves the specifier at build time from the
+/// literal itself; no input chooses it (02/11/2026: 164 of the 193 F2.1
+/// findings of the analise `frontend/`). The literal must open with `"` or `'`
+/// on the match's line (a backtick template is never exempt), close with the
+/// same quote, carry no `${`, and be the argument of one of those forms — a
+/// string that only CONTAINS `from` is not a specifier.
+fn is_constant_module_specifier(source: &str, lang: &str, m: &VulnMatch) -> bool {
+    if m.pattern_name != "PathTraversal" || !matches!(lang, "javascript" | "typescript") {
+        return false;
+    }
+    let head = &source[..m.span.0];
+    let line_start = head.rfind('\n').map_or(0, |p| p + 1);
+    let Some(open) = head[line_start..]
+        .rfind(['"', '\''])
+        .map(|q| line_start + q)
+    else {
+        return false;
+    };
+    let quote = source.as_bytes()[open] as char;
+    let line_end = source[m.span.1..]
+        .find('\n')
+        .map_or(source.len(), |i| m.span.1 + i);
+    let Some(close) = source[m.span.1..line_end].find(quote).map(|i| m.span.1 + i) else {
+        return false;
+    };
+    let literal = &source[open + 1..close];
+    if literal.contains("${") || literal.contains(['"', '\'']) {
+        return false;
+    }
+    introduces_module_specifier(source[..open].trim_end())
+}
+
+/// True when `before` (the source up to a string literal's opening quote,
+/// trimmed) ends in a module-specifier introducer: the keyword `from` or
+/// `import` (not part of a longer identifier), or a `require(` / `import(` call.
+fn introduces_module_specifier(before: &str) -> bool {
+    if let Some(callee) = before.strip_suffix('(') {
+        let callee = callee.trim_end();
+        return ["require", "import"]
+            .iter()
+            .any(|name| ends_with_word(callee, name));
+    }
+    ends_with_word(before, "from") || ends_with_word(before, "import")
+}
+
+/// `text` ends with `word`, and the character before it is not part of an identifier.
+fn ends_with_word(text: &str, word: &str) -> bool {
+    text.strip_suffix(word).is_some_and(|before| {
+        !before.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '.')
+    })
+}
+
+/// True when an `XSS` match is a `<script` TAG that is not a sink.
+///
+/// In an `.html` document the tag is structure, never the place untrusted data
+/// enters (the DOM sinks are measured by `dom_sinks`, as advisories). In code
+/// that BUILDS HTML, the tag counts only when its line carries taint — a `{…}`
+/// hole, a `.format(` call or a concatenation with an identifier — the same rule
+/// as [`is_constant_handler_attribute`] (02/11/2026: ~130 F2.1 findings of the
+/// analise repo were static wireframes and `return """<script src="https://cdn…">"""`).
+fn is_constant_script_tag(source: &str, lang: &str, m: &VulnMatch) -> bool {
+    if m.pattern_name != "XSS" {
+        return false;
+    }
+    let Some(text) = source.get(m.span.0..m.span.1.min(source.len())) else {
+        return false;
+    };
+    if !text.starts_with("<script") {
+        return false;
+    }
+    if lang == "html" {
+        return true;
+    }
+    let line_start = source[..m.span.0].rfind('\n').map_or(0, |p| p + 1);
+    let line_end = source[m.span.1..]
+        .find('\n')
+        .map_or(source.len(), |i| m.span.1 + i);
+    let line = &source[line_start..line_end];
+    !(line.contains('{') || line.contains(".format(") || has_concat_with_ident(line))
 }
 
 /// A string concatenation with an identifier: `" + nome`, `' + nome`,
