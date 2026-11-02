@@ -1404,10 +1404,31 @@ fn is_go_struct_tag_field(line: &str) -> bool {
     if !(is_ident(name) && is_type(ty)) || !tag.ends_with('`') || tag.len() < 2 {
         return false;
     }
-    // Every space-separated pair of the tag is `key:"value"`.
+    // Every space-separated pair of the tag is `key:"value"` with a WIRE-NAME key. A
+    // value-bearing key (`default`, `envDefault`, `example`…) can carry a literal secret,
+    // so its presence keeps the line under the assignment rules (security review of
+    // 44869807).
+    const WIRE_KEYS: &[&str] = &[
+        "json",
+        "yaml",
+        "xml",
+        "db",
+        "toml",
+        "form",
+        "mapstructure",
+        "bson",
+        "msgpack",
+        "query",
+        "url",
+        "header",
+        "gorm",
+        "validate",
+        "binding",
+        "protobuf",
+    ];
     tag[1..tag.len() - 1].split_whitespace().all(|pair| {
         pair.split_once(':').is_some_and(|(k, v)| {
-            is_ident(k) && v.len() >= 2 && v.starts_with('"') && v.ends_with('"')
+            WIRE_KEYS.contains(&k) && v.len() >= 2 && v.starts_with('"') && v.ends_with('"')
         })
     })
 }
@@ -2943,6 +2964,9 @@ mod tests {
             "\tcfg.Password = \"Tr0ub4dor&3xK9\"",
             // a token inside the tag is still a token
             "\tToken string `default:\"ghp_0123456789abcdef0123456789abcdef0123\"`",
+            // a value-bearing key keeps the line under the assignment rules (security review)
+            "\tPassword string `json:\"password\" default:\"Tr0ub4dor&3xK9\"`",
+            "\tPassword string `envDefault:\"Tr0ub4dor&3xK9\"`",
         ] {
             assert!(rule_of(real).is_some(), "{real}");
         }

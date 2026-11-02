@@ -511,15 +511,17 @@ fn spliced_names(line: &str) -> Option<Vec<&str>> {
         names.push(body);
         i = close + 1;
     }
+    // Every operand of every `+` (security review of 49fb4552: `'…' + URL + x + '…'` hid
+    // `x` between two `+` with no quote beside it). A side that is a string literal is
+    // constant; any other side must be a bare name, and it is collected.
     for (at, _) in line.match_indices('+') {
         let left = line[..at].trim_end();
         let right = line[at + 1..].trim_start();
-        let left_quote = left.ends_with(['"', '\'']);
-        let right_quote = right.starts_with(['"', '\'']);
-        if left_quote && !right_quote {
-            names.push(leading_token(right));
-        } else if right_quote && !left_quote {
+        if !left.ends_with(['"', '\'', '`']) {
             names.push(trailing_token(left));
+        }
+        if !right.starts_with(['"', '\'', '`']) {
+            names.push(leading_token(right));
         }
     }
     names
@@ -542,9 +544,13 @@ fn leading_token(s: &str) -> &str {
 }
 
 fn trailing_token(s: &str) -> &str {
+    // Advance by the matched char's own length: a multibyte char before the name must
+    // not put the slice off a char boundary (security review of 49fb4552).
     let start = s
-        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
-        .map_or(0, |p| p + 1);
+        .char_indices()
+        .rev()
+        .find(|(_, c)| !(c.is_ascii_alphanumeric() || *c == '_'))
+        .map_or(0, |(p, c)| p + c.len_utf8());
     &s[start..]
 }
 

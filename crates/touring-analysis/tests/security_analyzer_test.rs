@@ -861,6 +861,15 @@ fn a_constant_script_tag_is_not_xss() {
 }
 
 /// The positive control for the script-tag exemption.
+/// Non-ASCII before a spliced name must not panic (byte slice off a char boundary).
+#[test]
+fn a_script_tag_line_with_multibyte_text_does_not_panic() {
+    let line = "título = 'ação <script src=\"' + CDN_URL + 'ção\"></script>'\n";
+    let _ = xss_findings(line, "python");
+    let line = "é + '<script src=\"x\"></script>' + ñ\n";
+    let _ = xss_findings(line, "python");
+}
+
 /// A tag spliced only from SCREAMING_SNAKE module constants (analise `pei/pei_skills/gsap.py`).
 #[test]
 fn a_script_tag_spliced_only_from_module_constants_is_not_xss() {
@@ -884,6 +893,9 @@ fn a_script_tag_spliced_only_from_module_constants_is_not_xss() {
         "tag = '<script src=\"' + CDN.url + '\"></script>'\n",
         "tag = f'<script src=\"{URL()}\"></script>'\n",
         "tag = '<script src=\"{u}\">'.format(u=URL)\n",
+        // a lowercase name between two `+` with no quote beside it (security review)
+        "tag = '<script src=\"' + CDN_URL + x + '\"></script>'\n",
+        "tag = '<script src=\"' + CDN_URL + (x) + '\"></script>'\n",
     ] {
         assert!(xss_findings(line, "python") > 0, "{line}");
     }
