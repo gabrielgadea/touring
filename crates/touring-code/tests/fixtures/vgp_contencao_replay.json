@@ -1,0 +1,1152 @@
+{
+  "css_folha_ausente": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 4,
+        "nome": "css/ausente.css",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `css/ausente.css` (link href) — resolvido como `<TMP>/proj/site/css/ausente.css`"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "classe_css: folha `css/ausente.css` (linha 4) não resolvida: arquivo inexistente: <TMP>/proj/site/css/ausente.css",
+    "verdict": "warn"
+  },
+  "css_folha_com_import": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 7,
+        "nome": "fantasma-imp",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-imp` não é definida por nenhuma folha carregada (2 lida(s))"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "css_folha_escape_dotdot": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "referência fora das raízes permitidas; classe_css: folha `../../../fora/estilo.css` (linha 4) não resolvida: arquivo inexistente: ../../../fora/estilo.css",
+    "verdict": "unknown"
+  },
+  "css_folha_nao_utf8": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "classe_css: folha <TMP>/proj/site/css/ruim.css não resolvida: <TMP>/proj/site/css/ruim.css: stream did not contain valid UTF-8",
+    "verdict": "unknown"
+  },
+  "css_folha_no_projeto": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 7,
+        "nome": "fantasma-css",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-css` não é definida por nenhuma folha carregada (1 lida(s))"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "css_folha_raiz_relativa": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 7,
+        "nome": "fantasma-rr",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-rr` não é definida por nenhuma folha carregada (1 lida(s))"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "css_folha_symlink_fora": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "referência fora das raízes permitidas; classe_css: folha `css/link_fora.css` (linha 4) não resolvida: arquivo inexistente: css/link_fora.css",
+    "verdict": "unknown"
+  },
+  "css_gerador_no_package_json": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "classe_css: projeto com tailwindcss (<TMP>/tw/package.json): as classes utilitárias são geradas, não definidas em folha",
+    "verdict": "unknown"
+  },
+  "css_import_aponta_para_fora": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "classe_css: @import `../../../fora/estilo.css` em <TMP>/proj/site/css/imp_fora.css não resolvida: arquivo inexistente: ../../../fora/estilo.css",
+    "verdict": "unknown"
+  },
+  "css_overlay_dentro": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 7,
+        "nome": "fantasma-ovc",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-ovc` não é definida por nenhuma folha carregada (1 lida(s))"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "css_pagina_fora_da_raiz": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "referência fora das raízes permitidas; classe_css: folha `../estilo.css` (linha 4) não resolvida: arquivo inexistente: ../estilo.css",
+    "verdict": "unknown"
+  },
+  "html_absoluto_fora": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "<TMP>/fora/segredo.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `<TMP>/fora/segredo.png` (img src) — resolvido como `<TMP>/proj<TMP>/fora/segredo.png`. O diretório `<TMP>/proj<TMP>/fora` não existe"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "html_base_href_local": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "ghost4.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `ghost4.png` (img src) — resolvido como `<TMP>/proj/site/img/ghost4.png`"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "html_escape_dotdot": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "referência fora das raízes permitidas",
+    "verdict": "unknown"
+  },
+  "html_fragmento_fora": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "ghost3.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `ghost3.png` (img src) — resolvido como `<TMP>/fora/pagina/ghost3.png`"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "html_no_projeto": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 6,
+        "nome": "js/ausente.js",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `js/ausente.js` (script src) — resolvido como `<TMP>/proj/site/js/ausente.js`"
+      },
+      {
+        "classe": "recurso",
+        "linha": 9,
+        "nome": "img/ghost.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `img/ghost.png` (img src) — resolvido como `<TMP>/proj/site/img/ghost.png`"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "html_overlay_dentro": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "img/ghost5.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `img/ghost5.png` (img src) — resolvido como `<TMP>/proj/site/img/ghost5.png`"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "html_raiz_relativa": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "/site/img/ghost2.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `/site/img/ghost2.png` (img src) — resolvido como `<TMP>/proj/site/img/ghost2.png`"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "html_raiz_relativa_com_dotdot": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "html_symlink_fora": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "referência fora das raízes permitidas",
+    "verdict": "unknown"
+  },
+  "html_typo_em_dir_symlink_fora": {
+    "findings": [],
+    "lang": "html",
+    "layer": 1,
+    "motivo": "referência fora das raízes permitidas",
+    "verdict": "unknown"
+  },
+  "html_typo_sugere_vizinho": {
+    "findings": [
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "img/logoo.png",
+        "reais": [
+          "logo.png"
+        ],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `img/logoo.png` (img src) — resolvido como `<TMP>/proj/site/img/logoo.png`. Você quis dizer `img/logo.png`?"
+      },
+      {
+        "classe": "recurso",
+        "linha": 7,
+        "nome": "nodir/x.png",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "recurso local inexistente: `nodir/x.png` (img src) — resolvido como `<TMP>/proj/site/nodir/x.png`. O diretório `<TMP>/proj/site/nodir` não existe"
+      }
+    ],
+    "lang": "html",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "js_no_projeto": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaJs",
+        "reais": [
+          "realJs"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./util.js` não exporta `fantasmaJs`"
+      },
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "sem_js",
+        "reais": [
+          "enorme",
+          "link_fora",
+          "pkgesc",
+          "pkgok",
+          "ruim",
+          "util"
+        ],
+        "severidade": "warn",
+        "sugestao": "módulo `./sem_js` não existe (nenhum arquivo `.ts`/`.tsx`/`.js`/… nem `index.*` casa a partir de `<TMP>/proj/web/src`)"
+      }
+    ],
+    "lang": "javascript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "jsx_alias_que_escapa_da_raiz": {
+    "findings": [],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "1 pacote(s) externo(s) importado(s), não verificados na camada 1: @/.. (a camada 2 do projeto verifica); classe_css: import `@/../../fora/estilo.css` não resolvido: pacote não instalado (node_modules/@/../../fora/estilo.css)",
+    "verdict": "unknown"
+  },
+  "jsx_folha_acima_do_limite": {
+    "findings": [],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "classe_css: folha <TMP>/jx_gigante/src/enorme.css não resolvida: <TMP>/jx_gigante/src/enorme.css: 4194312 bytes, acima do limite de 4194304",
+    "verdict": "unknown"
+  },
+  "jsx_folha_do_projeto": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 1,
+        "nome": "fantasma-j1",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-j1` não é definida por nenhuma folha carregada (1 lida(s))"
+      }
+    ],
+    "lang": "tsx",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "jsx_folha_nao_utf8": {
+    "findings": [],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "classe_css: folha <TMP>/jx_nao_utf8/src/ruim.css não resolvida: <TMP>/jx_nao_utf8/src/ruim.css: stream did not contain valid UTF-8",
+    "verdict": "unknown"
+  },
+  "jsx_html_de_entrada_com_import": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 1,
+        "nome": "fantasma-j4",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-j4` não é definida por nenhuma folha carregada (2 lida(s))"
+      }
+    ],
+    "lang": "tsx",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "jsx_import_aponta_para_fora": {
+    "findings": [],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "classe_css: @import `../../../fora/estilo.css` em <TMP>/jx_import_fora/src/ui.css não resolvida: arquivo inexistente: ../../../fora/estilo.css",
+    "verdict": "unknown"
+  },
+  "jsx_importa_folha_de_pacote": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 2,
+        "nome": "fantasma-j5",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-j5` não é definida por nenhuma folha carregada (1 lida(s))"
+      }
+    ],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "1 pacote(s) externo(s) importado(s), não verificados na camada 1: lib-ui (a camada 2 do projeto verifica)",
+    "verdict": "warn"
+  },
+  "jsx_importa_folha_por_alias": {
+    "findings": [
+      {
+        "classe": "classe_css",
+        "linha": 2,
+        "nome": "fantasma-j6",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "a classe `fantasma-j6` não é definida por nenhuma folha carregada (1 lida(s))"
+      }
+    ],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "1 pacote(s) externo(s) importado(s), não verificados na camada 1: @/styles (a camada 2 do projeto verifica)",
+    "verdict": "warn"
+  },
+  "jsx_pacote_que_escapa_da_raiz": {
+    "findings": [],
+    "lang": "tsx",
+    "layer": 1,
+    "motivo": "1 pacote(s) externo(s) importado(s), não verificados na camada 1: lib-ui (a camada 2 do projeto verifica); classe_css: import `lib-ui/../../../../fora/estilo.css` não resolvido: pacote não instalado (node_modules/lib-ui/../../../../fora/estilo.css)",
+    "verdict": "unknown"
+  },
+  "python_arquivo_vazio": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "algo",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`from pkg.vazio import algo` — `algo` não é ligação de topo nem submódulo de `pkg.vazio`"
+      }
+    ],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "python_ausente": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_diretorio_como_arquivo": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_extensao_em_dir_symlink": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_extensao_no_projeto": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_extensao_no_venv": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_fragmento_irmao": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasma_fr",
+        "reais": [
+          "helper_fn"
+        ],
+        "severidade": "warn",
+        "sugestao": "`from frag_helper import fantasma_fr` — `fantasma_fr` não é ligação de topo nem submódulo de `frag_helper`"
+      }
+    ],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "python_fragmento_no_pai": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_nao_utf8": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_no_projeto": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasma_py",
+        "reais": [
+          "RealCls",
+          "real_fn"
+        ],
+        "severidade": "warn",
+        "sugestao": "`from pkg.mod import fantasma_py` — `fantasma_py` não é ligação de topo nem submódulo de `pkg.mod`"
+      }
+    ],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "python_overlay_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasma_ovp",
+        "reais": [
+          "real_nv"
+        ],
+        "severidade": "warn",
+        "sugestao": "`from pkg.novo_mod import fantasma_ovp` — `fantasma_ovp` não é ligação de topo nem submódulo de `pkg.novo_mod`"
+      }
+    ],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "python_relativo_fundo": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "fantasma_rel",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`from pkg import fantasma_rel` — `fantasma_rel` não é ligação de topo nem submódulo de `pkg`"
+      }
+    ],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "python_symlink_fora": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "python_venv_site_packages": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasma_sp",
+        "reais": [
+          "sp_fn"
+        ],
+        "severidade": "warn",
+        "sugestao": "`from sitepkg import fantasma_sp` — `fantasma_sp` não é ligação de topo nem submódulo de `sitepkg`"
+      }
+    ],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "python_venv_symlink_fora": {
+    "findings": [],
+    "lang": "python",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "rust_arquivo_ausente": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "inexistente",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `inexistente` declarado sem arquivo (`inexistente.rs` | `inexistente/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_arquivo_nao_utf8": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "binario",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `binario` declarado sem arquivo (`binario.rs` | `binario/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_include_str_fora": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 2,
+        "nome": "fantasma_inc",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "nome usado sem definição em nenhum escopo"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_lib_path_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "nada",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `nada` declarado sem arquivo (`nada.rs` | `nada/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "motivo": "1 caminho(s) sem resolução estática: `crate::fantasma_lp` (módulo do projeto ilegível ou com erro de sintaxe)",
+    "verdict": "warn"
+  },
+  "rust_modulo_dir_mod": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "fantasma_sub",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`fantasma_sub` não encontrado ao resolver `sub::fantasma_sub`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_modulo_no_disco": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "fantasma_a",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`fantasma_a` não encontrado ao resolver `a::fantasma_a`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_overlay_de_arquivo_fora_da_raiz": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "ov",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `ov` declarado sem arquivo (`ov.rs` | `ov/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_overlay_de_modulo_novo_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "fantasma_nv",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`fantasma_nv` não encontrado ao resolver `novo::fantasma_nv`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_path_absoluto_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "c",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `c` declarado sem arquivo (`c.rs` | `c/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_path_absoluto_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "x",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `x` declarado sem arquivo (`x.rs` | `x/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_path_dotdot_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "x",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `x` declarado sem arquivo (`x.rs` | `x/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_path_relativo_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 3,
+        "nome": "fantasma_b",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`fantasma_b` não encontrado ao resolver `b::fantasma_b`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_symlink_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "link_fora",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `link_fora` declarado sem arquivo (`link_fora.rs` | `link_fora/mod.rs`)"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_use_crate": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "a",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`a` não encontrado ao resolver `crate::a::real_a`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_vizinhos_declarante": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "fantasma_super",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`fantasma_super` não encontrado ao resolver `super::fantasma_super`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "rust_vizinhos_fora_da_raiz": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 2,
+        "nome": "fantasma_solto",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "nome usado sem definição em nenhum escopo"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "motivo": "1 caminho(s) sem resolução estática: `super::x` (posição do arquivo na árvore de módulos desconhecida)",
+    "verdict": "warn"
+  },
+  "rust_workspace_membro_fora": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 1,
+        "nome": "outro_externo",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "nome usado sem definição em nenhum escopo"
+      },
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "y",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`y` não encontrado ao resolver `member::y`"
+      }
+    ],
+    "lang": "rust",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_ausente": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "nao_existe",
+        "reais": [
+          "enorme",
+          "link_fora",
+          "pkgesc",
+          "pkgok",
+          "ruim",
+          "util"
+        ],
+        "severidade": "warn",
+        "sugestao": "módulo `./nao_existe` não existe (nenhum arquivo `.ts`/`.tsx`/`.js`/… nem `index.*` casa a partir de `<TMP>/proj/web/src`)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_base_url_aponta_para_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaBase",
+        "reais": [
+          "realExt"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `externo` não exporta `fantasmaBase`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_enorme": {
+    "findings": [],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "ts_extends_aponta_para_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaExt",
+        "reais": [
+          "realExt"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `@b/externo` não exporta `fantasmaExt`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_fragmento_irmao": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaFrag",
+        "reais": [
+          "realExt"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./externo` não exporta `fantasmaFrag`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_global_em_types_acima_da_raiz": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 2,
+        "nome": "globalInexistenteAlto",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`globalInexistenteAlto` não está declarado neste arquivo nem é um global conhecido (script clássico: a página ou o executor que o carrega pode fornecê-lo)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_global_em_types_dentro": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 2,
+        "nome": "globalInexistenteTipos",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`globalInexistenteTipos` não está declarado neste arquivo nem é um global conhecido (script clássico: a página ou o executor que o carrega pode fornecê-lo)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_global_na_lib_acima_da_raiz": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 2,
+        "nome": "globalInexistenteLibAlto",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`globalInexistenteLibAlto` não está declarado neste arquivo nem é um global conhecido (script clássico: a página ou o executor que o carrega pode fornecê-lo)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_global_na_lib_do_typescript": {
+    "findings": [
+      {
+        "classe": "nome",
+        "linha": 2,
+        "nome": "globalInexistenteLib",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "`globalInexistenteLib` não está declarado neste arquivo nem é um global conhecido (script clássico: a página ou o executor que o carrega pode fornecê-lo)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_nao_utf8": {
+    "findings": [],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "allow"
+  },
+  "ts_no_projeto": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaFn",
+        "reais": [
+          "REAL",
+          "realFn"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./util` não exporta `fantasmaFn`"
+      },
+      {
+        "classe": "import",
+        "linha": 2,
+        "nome": "sem_modulo",
+        "reais": [
+          "enorme",
+          "link_fora",
+          "pkgesc",
+          "pkgok",
+          "ruim",
+          "util"
+        ],
+        "severidade": "warn",
+        "sugestao": "módulo `./sem_modulo` não existe (nenhum arquivo `.ts`/`.tsx`/`.js`/… nem `index.*` casa a partir de `<TMP>/proj/web/src`)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_overlay_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaOvt",
+        "reais": [
+          "realNovo"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./novo` não exporta `fantasmaOvt`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_package_json_main_aponta_para_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaMain",
+        "reais": [
+          "realExt"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./pkgesc` não exporta `fantasmaMain`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_package_json_types_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaTipo",
+        "reais": [
+          "realTipo"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./pkgok` não exporta `fantasmaTipo`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_pacote_dentro": {
+    "findings": [],
+    "lang": "typescript",
+    "layer": 1,
+    "motivo": "2 pacote(s) externo(s) importado(s), não verificados na camada 1: instalado, react (a camada 2 do projeto verifica)",
+    "verdict": "unknown"
+  },
+  "ts_paths_apontam_para_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaPaths",
+        "reais": [
+          "realExt"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `@o/externo` não exporta `fantasmaPaths`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_paths_dentro": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaAlias",
+        "reais": [
+          "REAL",
+          "realFn"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `@app/util` não exporta `fantasmaAlias`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_paths_node_modules_acima_da_raiz": {
+    "findings": [],
+    "lang": "typescript",
+    "layer": 1,
+    "motivo": "1 pacote(s) externo(s) importado(s), não verificados na camada 1: alto (a camada 2 do projeto verifica)",
+    "verdict": "unknown"
+  },
+  "ts_paths_sem_pacote_instalado": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "x",
+        "reais": [],
+        "severidade": "warn",
+        "sugestao": "módulo `hoist/x` não existe (nenhum arquivo `.ts`/`.tsx`/`.js`/… nem `index.*` casa a partir de `<TMP>/proj/web/src`)"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "ts_relativo_fora": {
+    "findings": [],
+    "lang": "typescript",
+    "layer": 1,
+    "motivo": "`../../../fora/ts/externo`: caminho fora das raízes permitidas",
+    "verdict": "unknown"
+  },
+  "ts_symlink_fora": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaLn",
+        "reais": [
+          "realExt"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./link_fora` não exporta `fantasmaLn`"
+      }
+    ],
+    "lang": "typescript",
+    "layer": 1,
+    "verdict": "warn"
+  },
+  "tsx_no_projeto": {
+    "findings": [
+      {
+        "classe": "import",
+        "linha": 1,
+        "nome": "fantasmaTsx",
+        "reais": [
+          "REAL",
+          "realFn"
+        ],
+        "severidade": "warn",
+        "sugestao": "o módulo `./util` não exporta `fantasmaTsx`"
+      }
+    ],
+    "lang": "tsx",
+    "layer": 1,
+    "verdict": "warn"
+  }
+}
