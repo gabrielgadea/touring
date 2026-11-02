@@ -484,7 +484,76 @@ fn is_constant_script_tag(source: &str, lang: &str, m: &VulnMatch) -> bool {
         .find('\n')
         .map_or(source.len(), |i| m.span.1 + i);
     let line = &source[line_start..line_end];
-    !(line.contains('{') || line.contains(".format(") || has_concat_with_ident(line))
+    if !(line.contains('{') || line.contains(".format(") || has_concat_with_ident(line)) {
+        return true;
+    }
+    // 02/11/2026 (analise `pei/pei_skills/gsap.py`): `'<script src="' + GSAP_CDN_URL + '"></script>'`.
+    // A name in SCREAMING_SNAKE_CASE is a module constant by convention in Python, JS/TS and Rust;
+    // when EVERY interpolated or concatenated name on the line is one, no input reaches the tag.
+    // A single lowercase name, a call or an attribute keeps the line tainted.
+    !line.contains(".format(")
+        && spliced_names(line).is_some_and(|names| {
+            !names.is_empty() && names.iter().all(|n| is_screaming_constant(n))
+        })
+}
+
+/// The names spliced into string literals on `line`: the bodies of `{…}` / `${…}`
+/// interpolations and the identifiers joined to a quote by `+`. `None` when a splice
+/// is not a bare name (a call, an attribute, an index, an expression) — the caller
+/// then keeps the line tainted.
+fn spliced_names(line: &str) -> Option<Vec<&str>> {
+    let mut names = Vec::new();
+    let mut i = 0;
+    while let Some(off) = line[i..].find('{') {
+        let open = i + off;
+        let close = open + line[open..].find('}')?;
+        let body = line[open + 1..close].trim();
+        names.push(body);
+        i = close + 1;
+    }
+    for (at, _) in line.match_indices('+') {
+        let left = line[..at].trim_end();
+        let right = line[at + 1..].trim_start();
+        let left_quote = left.ends_with(['"', '\'']);
+        let right_quote = right.starts_with(['"', '\'']);
+        if left_quote && !right_quote {
+            names.push(leading_token(right));
+        } else if right_quote && !left_quote {
+            names.push(trailing_token(left));
+        }
+    }
+    names
+        .iter()
+        .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+        .then_some(names)
+}
+
+fn leading_token(s: &str) -> &str {
+    let end = s
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .unwrap_or(s.len());
+    let token = &s[..end];
+    // `NAME(` / `NAME.` / `NAME[` is a call, attribute or index, not a bare name.
+    if s[end..].starts_with(['(', '.', '[']) {
+        ""
+    } else {
+        token
+    }
+}
+
+fn trailing_token(s: &str) -> &str {
+    let start = s
+        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .map_or(0, |p| p + 1);
+    &s[start..]
+}
+
+/// `GSAP_CDN_URL`, `API_V2`: an uppercase letter first, then uppercase, digits or `_`.
+fn is_screaming_constant(name: &str) -> bool {
+    name.bytes().next().is_some_and(|b| b.is_ascii_uppercase())
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
 }
 
 /// A string concatenation with an identifier: `" + nome`, `' + nome`,

@@ -861,6 +861,34 @@ fn a_constant_script_tag_is_not_xss() {
 }
 
 /// The positive control for the script-tag exemption.
+/// A tag spliced only from SCREAMING_SNAKE module constants (analise `pei/pei_skills/gsap.py`).
+#[test]
+fn a_script_tag_spliced_only_from_module_constants_is_not_xss() {
+    for line in [
+        "GSAP_TAG = '<script src=\"' + GSAP_CDN_URL + '\"></script>'\n",
+        "tag = f'<script src=\"{GSAP_CDN_URL}\" integrity=\"{GSAP_SRI}\"></script>'\n",
+        "const t = `<script src=\"${CDN_URL}\"></script>`;\n",
+    ] {
+        let lang = if line.starts_with("const") {
+            "javascript"
+        } else {
+            "python"
+        };
+        assert_eq!(xss_findings(line, lang), 0, "{line}");
+    }
+    for line in [
+        // one lowercase name is enough to taint the line
+        "tag = f'<script src=\"{GSAP_CDN_URL}\"{sri_attr}></script>'\n",
+        "tag = '<script src=\"' + url + '\"></script>'\n",
+        // a call or an attribute is not a bare constant
+        "tag = '<script src=\"' + CDN.url + '\"></script>'\n",
+        "tag = f'<script src=\"{URL()}\"></script>'\n",
+        "tag = '<script src=\"{u}\">'.format(u=URL)\n",
+    ] {
+        assert!(xss_findings(line, "python") > 0, "{line}");
+    }
+}
+
 #[test]
 fn a_tainted_script_tag_built_in_code_is_still_xss() {
     for sink in [
