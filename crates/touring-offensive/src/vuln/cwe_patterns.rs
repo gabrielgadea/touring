@@ -938,7 +938,11 @@ impl VulnerabilityPattern for XmlInjectionPattern {
             // `touring-web/index.html`); bare `<![CDATA` is a legit XML construct,
             // not injection. Requiring `<!ENTITY` or a DOCTYPE-with-`[` keeps the
             // real XXE payload while clearing the HTML doctype FP.
-            Regex::new(r"(<!ENTITY|<!DOCTYPE[^>]*\[)").expect("valid static regex")
+            // 02/11/2026 (analise repo): the subset arm needs the subset SHAPE — a root
+            // name after `<!DOCTYPE`, then `[` on the SAME line. `[^>]*` used to run
+            // across lines and into a regex class, so a doctype DETECTOR
+            // (`r"<!DOCTYPE[^>]*>"`, `b"<!DOCTYPE"` above a `ClassVar[…]`) scored as XXE.
+            Regex::new(r"(<!ENTITY|<!DOCTYPE\s+[A-Za-z_][^>\n\[]*\[)").expect("valid static regex")
         });
         re.find_iter(input)
             .map(|m| VulnMatch::new("XMLInjection".into(), (m.start(), m.end()), 7.2, 91))
@@ -1562,6 +1566,19 @@ mod tests {
         assert!(p.detect("<!DOCTYPE html>").is_none()); // HTML5 doctype (was FP)
         assert!(p.detect("<![CDATA[some data]]>").is_none()); // legit XML construct
         assert!(p.detect("<root>text</root>").is_none());
+        // FP (02/11/2026, analise repo): the subset arm must not run across lines or
+        // eat a regex character class — a doctype DETECTOR is not an XXE payload.
+        assert!(
+            p.detect(r#"PATTERNS = [r"<!DOCTYPE[^>]*>", r"<html[^>]*>"]"#)
+                .is_none()
+        );
+        assert!(
+            p.detect("SIGS = (\n    b\"<!DOCTYPE\",\n    b\"<html\",\n)\nX: ClassVar[tuple[bytes, ...]] = ()\n")
+                .is_none()
+        );
+        // ...while the real internal subset, with or without spacing, still counts.
+        assert!(p.detect("<!DOCTYPE  foo  [ ]>").is_some());
+        assert!(p.detect("<!DOCTYPE note SYSTEM \"note.dtd\" [").is_some());
         assert_eq!(p.name(), "XMLInjection");
         assert_eq!(p.cwe_id(), 91);
     }
