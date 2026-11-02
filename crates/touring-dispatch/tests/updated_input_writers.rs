@@ -63,6 +63,11 @@ fn is_production(path: &Path) -> bool {
 }
 
 /// A line that constructs the variant or writes the JSON key (comments excluded).
+///
+/// The `insert("updatedInput"` needle covers the key written through a `serde_json::Map`
+/// (`cli_suggester::verdict_json`, since the gates left `cli_suggester` for `code_mode_gates`
+/// on 02/11/2026): the literal-object forms above no longer matched it, so the pin stopped
+/// seeing a writer that still exists.
 fn produces(text: &str) -> bool {
     produces_any(
         text,
@@ -70,6 +75,7 @@ fn produces(text: &str) -> bool {
             "ContextWithUpdatedInput {",
             "\"updatedInput\":",
             "\"updatedInput\" :",
+            "insert(\"updatedInput\"",
         ],
     )
 }
