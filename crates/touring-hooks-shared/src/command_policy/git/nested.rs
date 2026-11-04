@@ -288,10 +288,11 @@ fn scan_stdin(args: &[String], ctx: ScanCtx<'_>, language: Option<Language>) -> 
             if let Some(code) = args.get(i + 1) {
                 run_stdin_code(code, ctx, language)?;
             }
-        } else if arg == "<<" && args.get(i + 1).is_some_and(|next| next == "<") {
-            if let Some(code) = args.get(i + 2) {
-                run_stdin_code(code, ctx, language)?;
-            }
+        } else if arg == "<<"
+            && args.get(i + 1).is_some_and(|next| next == "<")
+            && let Some(code) = args.get(i + 2)
+        {
+            run_stdin_code(code, ctx, language)?;
         }
     }
     scan_previous_stdin(ctx, language)

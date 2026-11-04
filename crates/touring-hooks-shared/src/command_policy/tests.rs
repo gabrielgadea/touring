@@ -858,13 +858,13 @@ const JUSTIFIED_DIFFERENCES_JSON: &str =
 
 /// `(command, field, before, after, justification)` — every intentional change
 /// introduced by C2. Anything outside this list fails the replay.
-static JUSTIFIED_DIFFERENCES: std::sync::LazyLock<Vec<(String, String, String, String, String)>> =
+type JustifiedDifference = (String, String, String, String, String);
+static JUSTIFIED_DIFFERENCES: std::sync::LazyLock<Vec<JustifiedDifference>> =
     std::sync::LazyLock::new(|| {
         JUSTIFIED_DIFFERENCES_JSON
             .lines()
             .map(|line| {
-                serde_json::from_str::<(String, String, String, String, String)>(line)
-                    .expect("justified difference row")
+                serde_json::from_str::<JustifiedDifference>(line).expect("justified difference row")
             })
             .collect()
     });
