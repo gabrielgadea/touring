@@ -245,8 +245,8 @@ def test_attributed_family_emitter_owns_or_defers_to_the_text() -> None:
     assert kpi.attributed_family("[CODE MODE · rajada] x", cli) == "code-mode-deny"
     assert kpi.attributed_family("MUST    touring ast meta x", cli) == "touring-suggest"
     # sem marca, ou marca desconhecida: só o texto, nunca inventa família
-    assert kpi.attributed_family("[gabrielgadea]", None) == kpi.OTHER
-    assert kpi.attributed_family("[gabrielgadea]", "some-new-hook.sh") == kpi.OTHER
+    assert kpi.attributed_family("[user]", None) == kpi.OTHER
+    assert kpi.attributed_family("[user]", "some-new-hook.sh") == kpi.OTHER
     assert kpi.attributed_family("[TOURING SUGGEST] x", None) == "touring-suggest"
 
 

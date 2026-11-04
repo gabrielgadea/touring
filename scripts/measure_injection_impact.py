@@ -24,7 +24,12 @@ import os
 import re
 import sys
 
-BASE = "/home/gabrielgadea/.claude/projects"
+BASE = os.path.expanduser("~/.claude/projects")
+
+
+def project_dir(name: str) -> str:
+    """Transcript dir Claude Code uses for ~/projects/<name>: every non-alphanumeric char of the path becomes '-'."""
+    return re.sub(r"[^A-Za-z0-9]", "-", os.path.expanduser(f"~/projects/{name}"))
 
 #: NOME DA CHAVE DE FAMÍLIA — constante, e NÃO literal repetido.
 #: A lição do repo ("predicado escrito duas vezes nunca se encontra":
@@ -381,7 +386,7 @@ def parse_cli(argv, default_dirs):
 
 
 def main(argv):
-    window, max_sessions, dirs = parse_cli(argv, ["-home-gabrielgadea-projects-touring"])
+    window, max_sessions, dirs = parse_cli(argv, [project_dir("touring")])
     files = []
     for d in dirs:
         files.extend(sorted(globmod.glob(os.path.join(BASE, d, "*.jsonl"))))

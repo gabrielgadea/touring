@@ -46,6 +46,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 
@@ -296,8 +297,9 @@ def _pct(x: float | None) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--dir", default=os.path.expanduser(
-        "~/.claude/projects/-home-gabrielgadea-projects-touring"))
+    ap.add_argument("--dir", default=os.path.join(
+        os.path.expanduser("~/.claude/projects"),
+        re.sub(r"[^A-Za-z0-9]", "-", os.path.expanduser("~/projects/touring"))))
     ap.add_argument("--since", default=None, help="YYYY-MM-DD (inclusive)")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--report", default=None, help="grava relatório markdown")

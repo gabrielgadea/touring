@@ -30,7 +30,7 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path("/home/gabrielgadea/projects/touring")
+REPO = Path(__file__).resolve().parents[1]
 
 # A tarefa real do benchmark: para cada crate, contar arquivos .rs e LOC.
 # É exatamente o tipo de varredura que esta sessão fez dezenas de vezes.

@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import r3_scan_rater_transcript as sc  # noqa: E402
 
-R = "/home/gabrielgadea/.claude/touring/r3-data"
+R = "/home/u/.claude/touring/r3-data"   # synthetic: only the path shape matters
 PACK = f"{R}/adj_pack/rater_view/pack_blind.jsonl"
 INSTR = f"{R}/adj_pack/rater_view/INSTRUCOES.md"
 OUT = f"{R}/adj_out/adj_minimax.jsonl"

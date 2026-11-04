@@ -6,8 +6,8 @@
 set -u
 ROUNDS="${1:-15}"
 ROUND_TIMEOUT="${2:-90}"
-EVIDENCE="${3:-/tmp/claude-1000/-home-gabrielgadea-projects-touring/a718151d-1737-4b66-bcb2-af9717c37686/scratchpad/lifecycle_hang_evidence.txt}"
-cd /home/gabrielgadea/projects/touring || exit 2
+EVIDENCE="${3:-${TMPDIR:-/tmp}/lifecycle_hang_evidence.txt}"
+cd "$(cd "$(dirname "$0")/.." && pwd)" || exit 2
 
 for round in $(seq 1 "$ROUNDS"); do
     echo "[round $round/$ROUNDS] $(date +%H:%M:%S)"

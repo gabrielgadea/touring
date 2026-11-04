@@ -64,7 +64,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-ROOT = Path("/home/gabrielgadea/projects/touring")
+ROOT = Path(__file__).resolve().parents[1]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ def gt_actual_cli_commands() -> set[str]:
 
 
 def gt_actual_hooks() -> list[str]:
-    hooks_dir = Path("/home/gabrielgadea/.claude/hooks")
+    hooks_dir = Path.home() / ".claude" / "hooks"
     if not hooks_dir.is_dir():
         return []
     return sorted([p.name for p in hooks_dir.glob("touring*") if p.is_file()])
