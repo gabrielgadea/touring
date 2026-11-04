@@ -149,6 +149,30 @@ def test_c6_ground_truth_inclui_ts() -> None:
     assert mods == ["zz"], mods
 
 
+def test_root_is_the_checkout_the_scanner_lives_in() -> None:
+    """ROOT deriva do próprio arquivo (11ª reconciliação, 04/11/2026).
+
+    Antes era o caminho absoluto do checkout principal: rodado de um git worktree (ou do CI) o
+    scanner lia OUTRA árvore — os arquivos não rastreados de outra sessão — e o juiz, que mede o
+    doc ao lado dele, acusava sinais que não existiam em arquivo rastreado algum. Hermético: copia
+    o scanner para uma árvore sintética com 1 doc e exige que ele enxergue SÓ essa árvore.
+    """
+    assert dss.ROOT == SCANNER.parents[1], dss.ROOT
+    with tempfile.TemporaryDirectory() as d:
+        raiz = Path(d).resolve()
+        (raiz / "scripts").mkdir()
+        (raiz / "docs").mkdir()
+        copia = raiz / "scripts" / SCANNER.name
+        copia.write_text(SCANNER.read_text(encoding="utf-8"), encoding="utf-8")
+        (raiz / "docs" / "so-nesta-arvore.md").write_text("# doc sintético\n", encoding="utf-8")
+        spec = importlib.util.spec_from_file_location("dss_copia", copia)
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert mod.ROOT == raiz, mod.ROOT
+        assert mod.collect_scope_files() == ["docs/so-nesta-arvore.md"], mod.collect_scope_files()
+
+
 def test_c1_negativo_inteiro_com_separador_de_milhar() -> None:
     """NEGATIVO: '30.973.693 B' (30 milhões, pt-BR) casa o padrão mas não é versão."""
     out = dss.scan_c1_versions({"doc.md": "janela de 30.973.693 B e de 30.644.663 B\n"}, "30.4.102")

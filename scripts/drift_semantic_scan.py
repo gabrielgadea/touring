@@ -64,7 +64,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-ROOT = Path("/home/gabrielgadea/projects/touring")
+# The checkout this script lives in (scripts/ -> repo root), never a fixed absolute path.
+# A hard-coded main-checkout path made every other checkout (a git worktree, CI, a clone)
+# scan SOMEONE ELSE'S tree: scripts/test_drift_coverage.py, which asserts against the doc
+# it sits next to, measured the main checkout's untracked files instead (11/2026: three
+# signals that existed in no tracked file of the tree under test).
+ROOT = Path(__file__).resolve().parent.parent
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -171,7 +176,7 @@ def gt_actual_cli_commands() -> set[str]:
 
 
 def gt_actual_hooks() -> list[str]:
-    hooks_dir = Path("/home/gabrielgadea/.claude/hooks")
+    hooks_dir = Path.home() / ".claude" / "hooks"
     if not hooks_dir.is_dir():
         return []
     return sorted([p.name for p in hooks_dir.glob("touring*") if p.is_file()])
