@@ -66,7 +66,7 @@ pub fn vgp_mode(project_root: &Path) -> Mode {
     {
         return *m;
     }
-    let text = std::fs::read_to_string(project_root.join(".touring/touring.toml")).ok();
+    let text = touring_toml(project_root);
     let mode = text
         .as_deref()
         .and_then(toml_declares_mode)
@@ -121,13 +121,22 @@ fn toml_declares_mode(text: &str) -> Option<Mode> {
 /// (RELATORIO-VL0-camada2-generica §5), so they are a project's opt-in, never a code default.
 const CAMADA2_LANGS_PADRAO: &[&str] = &["python"];
 
+/// The project's `.touring/touring.toml`, read through the one containment rule
+/// (`caminho::ler_contido`, C8 04/11/2026) instead of a bare `std::fs` read. Absent, unreadable or
+/// outside the root is `None` — the same answer the old `.ok()` gave. A relative root is made
+/// absolute first (no filesystem access), because containment is judged on absolute paths.
+fn touring_toml(project_root: &Path) -> Option<String> {
+    let root = std::path::absolute(project_root).unwrap_or_else(|_| project_root.to_path_buf());
+    let alvo = root.join(".touring/touring.toml");
+    crate::vgp::lang::caminho::ler_contido(&[root.as_path()], &alvo).ok()
+}
+
 /// Languages whose layer 2 (a language-server verifier, `touring-pyright`) runs for `project_root`:
 /// `[vgp] camada2_langs = ["python", "rust"]` in `.touring/touring.toml` — the declared list
 /// REPLACES the default (`[]` turns layer 2 off), names are the `lang` of VL0 §2 — else only
 /// `["python"]`. A value that is not a one-line `[...]` list is ignored (the default stands).
 pub fn camada2_langs(project_root: &Path) -> Vec<String> {
-    std::fs::read_to_string(project_root.join(".touring/touring.toml"))
-        .ok()
+    touring_toml(project_root)
         .as_deref()
         .and_then(toml_declares_camada2_langs)
         .unwrap_or_else(|| CAMADA2_LANGS_PADRAO.iter().map(|l| l.to_string()).collect())

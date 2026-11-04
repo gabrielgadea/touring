@@ -1895,6 +1895,26 @@ mod tests {
         assert_eq!(vazio["runs_total"], json!(0));
         assert_eq!(vazio["success_rate"], Value::Null);
     }
+
+    /// C3a (04/11/2026, aprofundamento #3): a refusal of the repeat-gate (the program never
+    /// started) and a JSON line that is not an object are not runs — out of the denominator and
+    /// the numerator, counted apart. Before, both entered as FAILED runs.
+    #[test]
+    fn c3a_refusals_and_non_object_lines_are_not_runs() {
+        let journal = [
+            r#"{"exit_code":0,"failure_kind":null,"language":"python","ts":1000}"#,
+            r#"{"exit_code":1,"failure_kind":"proc-exit","language":"bash","ts":5000}"#,
+            r#"{"repeat_blocked":true,"language":"python","ts":6000}"#,
+            "123",
+        ];
+        let v = adherence_from_lines(journal.iter().copied());
+        assert_eq!(v["runs_total"], json!(2), "{v}");
+        assert_eq!(v["runs_ok"], json!(1), "{v}");
+        assert_eq!(v["success_rate"], json!(0.5), "{v}");
+        assert_eq!(v["refused_events"], json!(1), "{v}");
+        assert_eq!(v["non_object_lines"], json!(1), "{v}");
+        assert_eq!(v["malformed_lines"], json!(0), "{v}");
+    }
     #[test]
     fn yaml_round_trip_preserves_commitment() {
         let yaml = "version: '1.0'\nschema: kpi-v1\ncommitments:\n  - id: a.b\n    name: T\n    threshold: 1.0\n    direction: gte\n    source: 'daemon:x:/y'\n";

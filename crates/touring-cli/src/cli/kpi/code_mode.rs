@@ -6,7 +6,7 @@
 //! inspecao, aderencia, reuso da escada e uso do sinal do SDK.
 
 use super::*;
-use touring_foundation::run_outcome::{Journal, Line, classify_line};
+use touring_foundation::run_outcome::{Familia, Journal, Line, classify_line};
 /// P5b (achado de Gabriel, 2026-08-26) — dos programas que o modelo rodou,
 /// qual fração FUNDIU round-trips.
 ///
@@ -709,6 +709,11 @@ pub(crate) fn hooks_complement_from<'a>(
 }
 
 /// A agregação pura por trás de [`code_mode_adherence`] — testável sem FS.
+///
+/// C3a (04/11/2026): uma RECUSA e uma LINHA NÃO-OBJETO saem do denominador
+/// e do numerador — recusa não é run (o programa nunca arrancou) e `123` não é
+/// registro nenhum. As duas famílias são CONTADAS e EXPOSTAS
+/// (`refused_events`, `non_object_lines`): nada some em silêncio.
 pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
     let mut total = 0u64;
     let mut ok = 0u64;
@@ -720,6 +725,9 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
     // em silêncio, ela escondia a corrupção do journal — e o denominador de
     // `runs_total` ficava menor sem ninguém saber.
     let mut malformed_lines = 0u64;
+    // C3a (04/11/2026): as duas famílias que NÃO são runs, contadas à parte.
+    let mut refused_events = 0u64;
+    let mut non_object_lines = 0u64;
     for line in lines {
         let run = match classify_line(line) {
             Line::Record(run) => run,
@@ -732,6 +740,20 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
                 continue;
             }
         };
+        // C3a: a FAMÍLIA da linha decide se ela é run. A recusa do repeat-gate
+        // tem `repeat_blocked` e a linha não-objeto nem é objeto — nenhuma das
+        // duas descreve um processo que rodou.
+        match run.familia() {
+            Familia::Recusa => {
+                refused_events += 1;
+                continue;
+            }
+            Familia::NaoObjeto => {
+                non_object_lines += 1;
+                continue;
+            }
+            Familia::Run => {}
+        }
         total += 1;
         let lang = run.language().unwrap_or("?").to_string();
         *by_lang.entry(lang.clone()).or_default() += 1;
@@ -765,7 +787,9 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
         "by_language": by_lang,
         "source": "run_journal.jsonl",
         "malformed_lines": malformed_lines,
-        "note": "wasted = run da mesma linguagem <120s após uma falha (proxy); malformed_lines = linhas do journal que não parsearam (escrita concorrente) — contadas, nunca puladas em silêncio",
+        "refused_events": refused_events,
+        "non_object_lines": non_object_lines,
+        "note": "wasted = run da mesma linguagem <120s após uma falha (proxy); malformed_lines = linhas do journal que não parsearam (escrita concorrente) — contadas, nunca puladas em silêncio; refused_events = recusas do repeat-gate (o programa nunca arrancou) e non_object_lines = JSON que não é objeto — fora do denominador E do numerador, mas CONTADAS e expostas aqui: nada some em silêncio",
     })
 }
 

@@ -38,6 +38,32 @@ pub enum Line {
     Record(RunRecord),
 }
 
+/// What a valid-JSON line IS, for the rulers that must not count a refusal as
+/// a failed run.
+///
+/// The lenient view ([`classify_line`]) answers only "is this parseable"; a
+/// ruler that counts RUNS also has to say which of the parseable lines were
+/// runs at all. Two families are not:
+///
+/// - [`Familia::Recusa`] — the repeat-gate's refusal event: the program was
+///   never started, so it is not a failed run, it is NO run;
+/// - [`Familia::NaoObjeto`] — valid JSON that is not an object (`123`, `"x"`):
+///   it carries no record at all.
+///
+/// Everything else is a run record — INCLUDING a record whose every field is
+/// absent (the lenient view has always counted it) and a record whose exit
+/// code is unusable (`0.0`, `"0"`): the family says what the line IS, the
+/// outcome says how it went.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Familia {
+    /// A run record: the line describes a process that ran.
+    Run,
+    /// The repeat-gate's refusal event (`repeat_blocked`) — the program never ran.
+    Recusa,
+    /// Valid JSON that is not an object (`123`, `"x"`) — no record at all.
+    NaoObjeto,
+}
+
 /// Classify one line (a `str::lines()` item or a `BufRead::lines()` item).
 #[must_use]
 pub fn classify_line(line: &str) -> Line {
@@ -97,6 +123,23 @@ impl RunRecord {
     #[must_use]
     pub fn outcome(&self) -> RunOutcome {
         RunOutcome::new(self.exit(), self.failure_kind())
+    }
+
+    /// What this line IS — a run record, a refusal event, or a line that is
+    /// not even an object.
+    ///
+    /// The classification lives HERE, next to the reader that parses the line:
+    /// the same question asked in two places gets two answers. A ruler that
+    /// counts RUNS asks the family first and the outcome second.
+    #[must_use]
+    pub fn familia(&self) -> Familia {
+        if !self.value.is_object() {
+            return Familia::NaoObjeto;
+        }
+        if self.value.get("repeat_blocked").is_some() {
+            return Familia::Recusa;
+        }
+        Familia::Run
     }
 }
 
