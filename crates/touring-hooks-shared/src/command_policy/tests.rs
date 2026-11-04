@@ -30,8 +30,8 @@ fn a_flag_is_a_word_never_a_substring_of_one() {
     // …while the flag itself, alone or in a cluster, still is.
     assert!(judge_lexical("rm -fr build").is_block());
     assert!(judge_lexical("rm -f important.txt").is_block());
-    // git's flags are block_git.sh's to judge (S25) — not this validator's.
-    assert!(judge_lexical("git clean -fd").is_allowed());
+    // Destructive git follows block_git.sh (REGRA #11 v2).
+    assert!(judge_lexical("git clean -fd").is_block());
 }
 
 #[test]
@@ -307,37 +307,32 @@ const TABLE: &[(&str, Want, &str)] = &[
     // such word, so it still refuses (kept as measured).
     ("rm -rf --help", Block, "Recursive force delete"),
     (r#"echo "rm -rf is dangerous""#, Allow, ""),
-    // ── what is flagged, not refused ────────────────────────────────────
-    ("git push --force origin main", Warn, "--force-with-lease"),
+    // ── git destructive forms follow block_git.sh (REGRA #11 v2) ──────────
+    ("git push --force origin main", Block, "git push"),
     (
         "git push --force origin main # --force-with-lease",
-        Warn,
-        "git push --force",
+        Block,
+        "git push",
     ),
-    ("git push --force-with-lease origin main", Allow, ""),
+    ("git push --force-with-lease origin main", Block, "git push"),
     (
         "git push --force --force-with-lease=main origin main",
-        Allow,
-        "",
+        Block,
+        "git push",
     ),
     ("chmod -R 777 /var/www", Warn, "chmod -R 777"),
-    ("git reset --hard HEAD~1", Warn, "git reset --hard"),
-    // Git is the shell guard's: no assignment of its is read here, and none of
-    // them waives a Rust row.
-    (
-        "GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD",
-        Warn,
-        "git reset --hard",
-    ),
+    ("git reset --hard HEAD~1", Block, "git reset"),
+    // The destructive token is an executable assignment, not text in a comment.
+    ("GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD", Allow, ""),
     ("GIT_DESTRUCTIVE_OK=1 rm -rf /", Block, "rm -rf"),
     (
         "GIT_HOOKS_BYPASS_OK=1 rm -f x",
         Block,
         "Force without confirmation",
     ),
-    ("git clean -fd", Allow, ""),
-    ("git stash pop", Allow, ""),
-    ("git rebase main", Allow, ""),
+    ("git clean -fd", Block, "git clean"),
+    ("git stash pop", Block, "git stash"),
+    ("git rebase main", Block, "git rebase"),
     // ── what is refused: lexical rows ───────────────────────────────────
     (
         "rm -f important.txt",
@@ -390,7 +385,7 @@ const TABLE: &[(&str, Want, &str)] = &[
     ("iptables -F", Block, "Firewall rules flush"),
     ("iptables --flush", Block, "Firewall rules flush"),
     ("ufw disable", Block, "Firewall disable"),
-    ("kill -9 1", Block, "kill -9 PID 1 is init"),
+    ("kill -9 1", Block, "kill -9 force terminates a process"),
     (
         "sysctl -w kernel.panic=0",
         Block,
@@ -589,12 +584,15 @@ fn a_structural_block_wins_over_a_lexical_one_on_overlap() {
 
 #[test]
 fn a_structural_warn_survives_only_when_nothing_blocks() {
-    assert!(matches!(judge("git reset --hard"), Verdict::Warn { .. }));
+    assert!(matches!(
+        judge("chmod -R 777 /var/www"),
+        Verdict::Warn { .. }
+    ));
     // …and a lexical block on the same line outranks it.
-    let verdict = judge("git reset --hard && rm -f x");
+    let verdict = judge("chmod -R 777 /var/www && rm -f x");
     assert!(verdict.is_block(), "{verdict:?}");
-    // The lexical reading alone never warns.
-    assert_eq!(judge_lexical("git reset --hard"), Verdict::Allow);
+    // The lexical reading alone never warns; destructive git is a block now.
+    assert!(judge_lexical("git reset --hard").is_block());
     assert_eq!(judge_lexical("chmod -R 777 /var/www"), Verdict::Allow);
 }
 
@@ -602,9 +600,8 @@ fn a_structural_warn_survives_only_when_nothing_blocks() {
 fn the_two_readings_keep_their_own_intent_grammar() {
     // Structural: `--word=<v>` is the word, for any of a row's bypass words.
     assert_eq!(judge_structural("rm -rf x --dry-run=1"), Verdict::Allow);
-    // Lexical: only `--force-with-lease` takes a value; `--dry-run=1` is not
-    // the universal intent word, so the lexical reading still refuses —
-    // and the pipeline therefore does too.
+    // Lexical: `--dry-run=1` is not the universal intent word, so the lexical
+    // reading still refuses — and the pipeline therefore does too.
     assert!(judge_lexical("rm -rf x --dry-run=1").is_block());
     assert!(judge("rm -rf x --dry-run=1").is_block());
     // The universal word reaches the simple command that carries it only.
@@ -832,10 +829,22 @@ fn the_vocabulary_is_well_formed() {
 
 const BASELINE: &str = include_str!("../../tests/fixtures/command_policy/baseline.jsonl");
 const SURFACES: &str = include_str!("../../tests/fixtures/command_policy/surfaces.jsonl");
+const JUSTIFIED_DIFFERENCES_JSON: &str =
+    include_str!("../../tests/fixtures/command_policy/justified_differences.jsonl");
 
-/// `(command, field, before, after, justification)` — none: the module is a
-/// pure consolidation.
-const JUSTIFIED_DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[];
+/// `(command, field, before, after, justification)` — every intentional change
+/// introduced by C2. Anything outside this list fails the replay.
+static JUSTIFIED_DIFFERENCES: std::sync::LazyLock<Vec<(String, String, String, String, String)>> =
+    std::sync::LazyLock::new(|| {
+        JUSTIFIED_DIFFERENCES_JSON
+            .lines()
+            .map(|line| {
+                serde_json::from_str::<(String, String, String, String, String)>(line)
+                    .expect("justified difference row")
+            })
+            .collect()
+    });
+
 
 /// The baseline stores the three shared routes as placeholders.
 fn expand(reason: &str) -> String {
@@ -909,7 +918,7 @@ fn the_corpus_gets_the_verdicts_it_got_before_the_module_existed() {
     }
     assert!(checked >= 600, "the corpus shrank: {checked}");
     let justified = |cmd: &str, field: &str, before: &str, after: &str| {
-        JUSTIFIED_DIFFERENCES.iter().any(|&(c, f, b, a, _)| {
+        JUSTIFIED_DIFFERENCES.iter().any(|(c, f, b, a, _)| {
             c == cmd && f == field && expand(b) == before && expand(a) == after
         })
     };
@@ -922,7 +931,7 @@ fn the_corpus_gets_the_verdicts_it_got_before_the_module_existed() {
         "{} verdict(s) changed: {unjustified:#?}",
         unjustified.len()
     );
-    for &(cmd, field, ..) in JUSTIFIED_DIFFERENCES {
+    for (cmd, field, ..) in &*JUSTIFIED_DIFFERENCES {
         assert!(
             differences.iter().any(|(c, f, ..)| c == cmd && *f == field),
             "justified difference no longer happens: {cmd:?} {field}"

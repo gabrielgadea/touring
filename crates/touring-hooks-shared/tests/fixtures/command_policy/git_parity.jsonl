@@ -1,0 +1,279 @@
+{"cmd":"git push --force origin main # --force-with-lease","shell":"block"}
+{"cmd":"git push --force --force-with-lease=main origin main","shell":"block"}
+{"cmd":"git push --force-with-lease origin main","shell":"block"}
+{"cmd":"git status","shell":"allow"}
+{"cmd":"git push --force origin main","shell":"block"}
+{"cmd":"git reset --hard HEAD~1","shell":"block"}
+{"cmd":"git add crates/touring-foundation/src/types.rs","shell":"allow"}
+{"cmd":"git commit -F /tmp/msg.txt","shell":"allow"}
+{"cmd":"git clean -fd","shell":"block"}
+{"cmd":"sudo -u root git status","shell":"allow"}
+{"cmd":"cd /repo && git status && git log -1","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD","shell":"allow"}
+{"cmd":"git commit -m \"handle the -f flag\"","shell":"allow"}
+{"cmd":"git push origin --delete feature/old-branch","shell":"block"}
+{"cmd":"git push origin -d feature/old-branch","shell":"block"}
+{"cmd":"git push origin :feature/old-branch","shell":"block"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git push origin --delete feature/old-branch","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git push origin -d feature/old-branch","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git push origin :feature/old-branch","shell":"allow"}
+{"cmd":"git push origin main","shell":"allow"}
+{"cmd":"git push origin feature/new-branch","shell":"allow"}
+{"cmd":"git push","shell":"allow"}
+{"cmd":"git push origin main --force","shell":"block"}
+{"cmd":"git push -n origin main","shell":"allow"}
+{"cmd":"cat > /tmp/test_git_ops.rs <<'EOF'\n// This test verifies git clean -fd removes untracked files\nfn test_git_clean() { assert!(run_git_clean_fd()); }\nEOF","shell":"allow"}
+{"cmd":"cat > patch.py <<EOF\n# Run: git reset --hard HEAD~1 to undo\nprint('done')\nEOF","shell":"allow"}
+{"cmd":"echo \"git reset --hard\"","shell":"allow"}
+{"cmd":"echo 'git clean -fd is what you need'","shell":"allow"}
+{"cmd":"git clean -fd\ncat > f <<EOF\nsome content\nEOF","shell":"block"}
+{"cmd":"echo \"saving: $(git stash)\"","shell":"block"}
+{"cmd":"git clean -fd\ncat > /tmp/notes.txt <<'EOF'\nTo override, set: GIT_DESTRUCTIVE_OK=1 git clean -fd\nEOF","shell":"block"}
+{"cmd":"git restore src/foo.rs","shell":"block"}
+{"cmd":"git restore .","shell":"block"}
+{"cmd":"git restore src/a.rs src/b.rs","shell":"block"}
+{"cmd":"git restore --source HEAD~1 src/foo.rs","shell":"block"}
+{"cmd":"git restore --staged src/foo.rs","shell":"allow"}
+{"cmd":"git restore --staged .","shell":"allow"}
+{"cmd":"git restore --staged src/a.rs src/b.rs","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git restore src/foo.rs","shell":"allow"}
+{"cmd":"git stash list","shell":"allow"}
+{"cmd":"git stash show -p stash@{0}","shell":"allow"}
+{"cmd":"git -C . status && git stash list","shell":"allow"}
+{"cmd":"git stash","shell":"block"}
+{"cmd":"git stash pop","shell":"block"}
+{"cmd":"git stash push -m wip","shell":"block"}
+{"cmd":"git stash drop stash@{0}","shell":"block"}
+{"cmd":"git stash -p","shell":"block"}
+{"cmd":"git stash list && git stash pop","shell":"block"}
+{"cmd":"git stash list; git stash drop","shell":"block"}
+{"cmd":"echo \"$(git stash)\"","shell":"block"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git stash pop","shell":"allow"}
+{"cmd":"git restore --staged foo && git restore bar","shell":"block"}
+{"cmd":"git restore -S foo; git restore .","shell":"block"}
+{"cmd":"git restore --staged --worktree foo","shell":"block"}
+{"cmd":"git restore -S -W foo","shell":"block"}
+{"cmd":"git restore --staged foo","shell":"allow"}
+{"cmd":"git restore -S foo bar","shell":"allow"}
+{"cmd":"git restore --staged a && git status","shell":"allow"}
+{"cmd":"git stashboard --help","shell":"allow"}
+{"cmd":"tool add S25b \"block_git: git stash pop is now judged per occurrence\"","shell":"allow"}
+{"cmd":"true || git stash pop","shell":"block"}
+{"cmd":"bash -c 'git reset --hard HEAD'","shell":"block"}
+{"cmd":"sh -c \"git clean -fd\"","shell":"block"}
+{"cmd":"zsh -c 'git stash'","shell":"block"}
+{"cmd":"dash -c 'git reset --hard'","shell":"block"}
+{"cmd":"bash -lc 'git reset --hard'","shell":"block"}
+{"cmd":"sh -ec 'git clean -fd'","shell":"block"}
+{"cmd":"bash -o pipefail -c 'git reset --hard'","shell":"block"}
+{"cmd":"bash --login -c 'git reset --hard'","shell":"block"}
+{"cmd":"/bin/bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"bash -c 'git reset --hard' arg0","shell":"block"}
+{"cmd":"bash -c \"sh -c 'git reset --hard'\"","shell":"block"}
+{"cmd":"bash -c \"sh -c \\\"bash -c 'git reset --hard'\\\"\"","shell":"block"}
+{"cmd":"eval \"git stash\"","shell":"block"}
+{"cmd":"eval 'git reset' '--hard'","shell":"block"}
+{"cmd":"bash <<'EOF'\ngit reset --hard HEAD\nEOF","shell":"block"}
+{"cmd":"bash <<EOF\ngit clean -fd\nEOF","shell":"block"}
+{"cmd":"sh -s <<'EOF'\ngit stash\nEOF","shell":"block"}
+{"cmd":"bash -s -- arg <<'EOF'\ngit reset --hard\nEOF","shell":"block"}
+{"cmd":"bash <<-'EOF'\n\tgit reset --hard\n\tEOF","shell":"block"}
+{"cmd":"cat <<'EOF' | bash\ngit reset --hard\nEOF","shell":"block"}
+{"cmd":"bash <<< 'git reset --hard'","shell":"block"}
+{"cmd":"echo 'git reset --hard' | sh","shell":"block"}
+{"cmd":"printf '%s\\n' 'git clean -fd' | bash","shell":"block"}
+{"cmd":"echo \"$(bash -c 'git reset --hard')\"","shell":"block"}
+{"cmd":"echo `git stash`","shell":"block"}
+{"cmd":"cat <<EOF\n$(git reset --hard)\nEOF","shell":"block"}
+{"cmd":"diff <(git stash) /dev/null","shell":"block"}
+{"cmd":"env X=1 bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"env -i bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"env -u HOME bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"env -S 'git reset --hard'","shell":"block"}
+{"cmd":"timeout 60 bash -c \"git reset --hard\"","shell":"block"}
+{"cmd":"timeout -k 5 60 sh -c 'git clean -fd'","shell":"block"}
+{"cmd":"nice -n 5 bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"nohup sh -c 'git clean -fd' &","shell":"block"}
+{"cmd":"command bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"exec bash -c 'git stash'","shell":"block"}
+{"cmd":"sudo -u root bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"sudo -s 'git reset --hard'","shell":"block"}
+{"cmd":"time bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"setsid bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"ionice -c 3 bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"stdbuf -o0 bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"hw-slot --class rust -- bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"hw-slot --label ecc-py -- bash -c 'git clean -fd'","shell":"block"}
+{"cmd":"env X=1 timeout 60 nice -n 5 hw-slot -- bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"busybox sh -c 'git reset --hard'","shell":"block"}
+{"cmd":"su -c 'git reset --hard' root","shell":"block"}
+{"cmd":"flock /tmp/lock -c 'git reset --hard'","shell":"block"}
+{"cmd":"find . -name x -exec bash -c 'git reset --hard' \\;","shell":"block"}
+{"cmd":"find . -name x -exec sh -c 'git clean -fd' +","shell":"block"}
+{"cmd":"touring exec 'git reset --hard'","shell":"block"}
+{"cmd":"touring run --lang bash --code 'git reset --hard'","shell":"block"}
+{"cmd":"touring run --lang python --code \"import os; os.system('git reset --hard')\"","shell":"block"}
+{"cmd":"echo --hard | xargs git reset","shell":"block"}
+{"cmd":"ls | xargs git clean","shell":"block"}
+{"cmd":"ls | xargs -n1 git checkout --","shell":"block"}
+{"cmd":"ls | xargs -I{} bash -c 'git reset --hard {}'","shell":"block"}
+{"cmd":"echo x | xargs git stash","shell":"block"}
+{"cmd":"echo reset --hard | xargs git","shell":"block"}
+{"cmd":"find . -print0 | xargs -0 git restore","shell":"block"}
+{"cmd":"python3 -c \"import os; os.system('git reset --hard')\"","shell":"block"}
+{"cmd":"python3 -c \"import subprocess; subprocess.run(['git','reset','--hard'])\"","shell":"block"}
+{"cmd":"python3 -c \"import subprocess; subprocess.run('git clean -fd', shell=True)\"","shell":"block"}
+{"cmd":"python3 -c \"import subprocess; subprocess.Popen(['git', 'stash'])\"","shell":"block"}
+{"cmd":"python3 -c \"import subprocess; subprocess.run(['bash', '-c', \\\"echo hi; git 'reset' '--hard'\\\"])\"","shell":"block"}
+{"cmd":"python3 -c \"import subprocess; subprocess.run(['sh', '-c', \\\"bash -c 'git reset --hard'\\\"])\"","shell":"block"}
+{"cmd":"python3 -Ic \"import os; os.system('git reset --hard')\"","shell":"block"}
+{"cmd":"python3 <<'EOF'\nimport os\nos.system('git reset --hard')\nEOF","shell":"block"}
+{"cmd":"python3 - <<'EOF'\nimport subprocess\nsubprocess.check_call(['git', 'reset', '--hard'])\nEOF","shell":"block"}
+{"cmd":"echo \"import os; os.system('git reset --hard')\" | python3","shell":"block"}
+{"cmd":"perl -e 'system(\"git clean -fd\")'","shell":"block"}
+{"cmd":"perl -e 'system(\"git\", \"reset\", \"--hard\")'","shell":"block"}
+{"cmd":"perl -e 'print `git stash`'","shell":"block"}
+{"cmd":"ruby -e 'system(\"git reset --hard\")'","shell":"block"}
+{"cmd":"node -e \"require('child_process').execSync('git reset --hard')\"","shell":"block"}
+{"cmd":"node -e \"require('child_process').spawnSync('git', ['reset', '--hard'])\"","shell":"block"}
+{"cmd":"awk 'BEGIN { system(\"git reset --hard\") }'","shell":"block"}
+{"cmd":"php -r 'shell_exec(\"git clean -fd\");'","shell":"block"}
+{"cmd":"git -C /tmp/x reset --hard","shell":"block"}
+{"cmd":"git -c core.x=1 clean -fd","shell":"block"}
+{"cmd":"git --no-pager reset --hard","shell":"block"}
+{"cmd":"git --git-dir=/tmp/x/.git reset --hard","shell":"block"}
+{"cmd":"git -C /tmp/x stash","shell":"block"}
+{"cmd":"git -C /tmp/x push origin :main","shell":"block"}
+{"cmd":"git \"reset\" --hard","shell":"block"}
+{"cmd":"git reset '--hard'","shell":"block"}
+{"cmd":"git clean \"-fd\"","shell":"block"}
+{"cmd":"git reset $'--hard'","shell":"block"}
+{"cmd":"'git' reset --hard","shell":"block"}
+{"cmd":"\\git reset --hard","shell":"block"}
+{"cmd":"cat <<EOF && git reset --hard\nbody\nEOF","shell":"block"}
+{"cmd":"cat <<EOF | git clean -fd\nbody\nEOF","shell":"block"}
+{"cmd":"cat <<< \"x\"\ngit reset --hard","shell":"block"}
+{"cmd":"echo \"<<EOF\"\ngit reset --hard","shell":"block"}
+{"cmd":"git commit -m \"don't\" && git reset --hard HEAD~1 && echo 'ok'","shell":"block"}
+{"cmd":"echo $((1<<2))\ngit reset --hard","shell":"block"}
+{"cmd":"(( x = 1 << 2 ))\ngit reset --hard","shell":"block"}
+{"cmd":"FOO=1 bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"PATH=\"$PATH:/x\" bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"# fine\ngit reset --hard","shell":"block"}
+{"cmd":"echo a#b; git reset --hard","shell":"block"}
+{"cmd":"bash -c 'git status'","shell":"allow"}
+{"cmd":"bash -c \"sh -c 'git status'\"","shell":"allow"}
+{"cmd":"echo 'git clean -fd'","shell":"allow"}
+{"cmd":"cat <<'EOF' > notas.md\ntexto citando git reset --hard\nEOF","shell":"allow"}
+{"cmd":"cat > notas.md <<EOF\ntexto citando git reset --hard\nEOF","shell":"allow"}
+{"cmd":"tee f.txt <<EOF\ngit reset --hard\nEOF","shell":"allow"}
+{"cmd":"cat <<'EOF' | grep reset\ngit reset --hard\nEOF","shell":"allow"}
+{"cmd":"cat <<EOF\nuse git reset --hard with care\nEOF","shell":"allow"}
+{"cmd":"cat <<'EOF'\n$(git reset --hard)\nEOF","shell":"allow"}
+{"cmd":"rg 'git stash'","shell":"allow"}
+{"cmd":"git commit -m \"doc: explica git reset --hard\"","shell":"allow"}
+{"cmd":"git commit -m \"$(cat <<'EOF'\nFix don't break; explica git reset --hard\nEOF\n)\"","shell":"allow"}
+{"cmd":"git -C /tmp/x commit -m 'nota sobre git clean -fd'","shell":"allow"}
+{"cmd":"git log --grep='git reset --hard'","shell":"allow"}
+{"cmd":"git log --grep=\"git stash\"","shell":"allow"}
+{"cmd":"bash -c 'echo \"git reset --hard\"'","shell":"allow"}
+{"cmd":"bash -c \"grep -n 'git clean -fd' notes.md\"","shell":"allow"}
+{"cmd":"bash script.sh <<'EOF'\ngit reset --hard\nEOF","shell":"allow"}
+{"cmd":"python3 script.py <<'EOF'\nos.system('git reset --hard')\nEOF","shell":"allow"}
+{"cmd":"bash -c 'echo hi' 'git reset --hard'","shell":"allow"}
+{"cmd":"python3 -c \"print('git reset --hard')\"","shell":"allow"}
+{"cmd":"python3 <<'EOF'\nopen('x', 'w').write('git reset --hard')\nEOF","shell":"allow"}
+{"cmd":"python3 -c \"import subprocess; subprocess.run(['git', 'status'])\"","shell":"allow"}
+{"cmd":"python3 script.py -c \"import os; os.system('git reset --hard')\"","shell":"allow"}
+{"cmd":"python3 -m pytest -k 'git reset --hard'","shell":"allow"}
+{"cmd":"node -e \"console.log('git reset --hard')\"","shell":"allow"}
+{"cmd":"perl -e 'print \"git clean -fd\"'","shell":"allow"}
+{"cmd":"awk 'BEGIN { print \"git reset --hard\" }'","shell":"allow"}
+{"cmd":"timeout 60 git status","shell":"allow"}
+{"cmd":"ls | xargs git add","shell":"allow"}
+{"cmd":"ls | xargs git status -s","shell":"allow"}
+{"cmd":"ls | xargs git restore --staged","shell":"allow"}
+{"cmd":"echo x | xargs git stash list","shell":"allow"}
+{"cmd":"git -C /tmp/x status","shell":"allow"}
+{"cmd":"git -C /tmp/x stash list","shell":"allow"}
+{"cmd":"git -C /tmp/x restore --staged f","shell":"allow"}
+{"cmd":"git --no-pager log -3","shell":"allow"}
+{"cmd":"git -c core.pager=cat status","shell":"allow"}
+{"cmd":"git branch -d merged-topic","shell":"allow"}
+{"cmd":"git status # nunca rode git reset --hard","shell":"allow"}
+{"cmd":"# git reset --hard\nls","shell":"allow"}
+{"cmd":"git commit -m \"don't\" && git status && echo 'ok'","shell":"allow"}
+{"cmd":"(( x = 1 << 2 ))\ngit status","shell":"allow"}
+{"cmd":"command -v git","shell":"allow"}
+{"cmd":"touring run --lang python --code \"print('git reset --hard')\"","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 bash -c 'git reset --hard'","shell":"allow"}
+{"cmd":"bash -c 'GIT_DESTRUCTIVE_OK=1 git reset --hard'","shell":"allow"}
+{"cmd":"bash -c \"sh -c 'GIT_DESTRUCTIVE_OK=1 git reset --hard'\"","shell":"allow"}
+{"cmd":"env GIT_DESTRUCTIVE_OK=1 bash -c 'git clean -fd'","shell":"allow"}
+{"cmd":"echo --hard | GIT_DESTRUCTIVE_OK=1 xargs git reset","shell":"allow"}
+{"cmd":"python3 -c \"import os; os.system('GIT_DESTRUCTIVE_OK=1 git reset --hard')\"","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git -C /tmp/x reset --hard","shell":"allow"}
+{"cmd":"echo 'GIT_DESTRUCTIVE_OK=1'; bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"cat > f <<'EOF'\nGIT_DESTRUCTIVE_OK=1\nEOF\nbash -c 'git reset --hard'","shell":"block"}
+{"cmd":"bash -c \"echo 'GIT_DESTRUCTIVE_OK=1'; git reset --hard\"","shell":"block"}
+{"cmd":"bash -c 'bash -c '\"'\"'bash -c '\"'\"'\"'\"'\"'\"'\"'\"'bash -c '\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'git reset --hard'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"''\"'\"'\"'\"'\"'\"'\"'\"''\"'\"''","shell":"block"}
+{"cmd":"bash -c 'bash -c '\"'\"'bash -c '\"'\"'\"'\"'\"'\"'\"'\"'bash -c '\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'git status'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"'\"''\"'\"'\"'\"'\"'\"'\"'\"''\"'\"''","shell":"allow"}
+{"cmd":"git reset --hard HEAD","shell":"block"}
+{"cmd":"bash -c 'git reset --hard'","shell":"block"}
+{"cmd":"echo 'git reset --hard'","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git reset --hard","shell":"allow"}
+{"cmd":"git checkout -- .","shell":"block"}
+{"cmd":"git branch -D topic","shell":"block"}
+{"cmd":"git restore src/lib.rs","shell":"block"}
+{"cmd":"git rebase main","shell":"block"}
+{"cmd":"git log --oneline -5","shell":"allow"}
+{"cmd":"git reset --hard","shell":"block"}
+{"cmd":"git commit -m x","shell":"allow"}
+{"cmd":"git commit --amend -m x","shell":"allow"}
+{"cmd":"git commit -am x","shell":"allow"}
+{"cmd":"git push --dry-run origin main","shell":"allow"}
+{"cmd":"git merge -n topic","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 git rebase -n main","shell":"allow"}
+{"cmd":"git cherry-pick -n abc123","shell":"allow"}
+{"cmd":"git revert -n HEAD","shell":"allow"}
+{"cmd":"git log -n 5","shell":"allow"}
+{"cmd":"git commit -m -n","shell":"allow"}
+{"cmd":"git commit -mn","shell":"allow"}
+{"cmd":"git commit -m x -- -n","shell":"allow"}
+{"cmd":"git commit --message=-n","shell":"allow"}
+{"cmd":"git commit -F -n","shell":"allow"}
+{"cmd":"git commit -c -n","shell":"allow"}
+{"cmd":"git commit -C -n","shell":"allow"}
+{"cmd":"git commit -t -n","shell":"allow"}
+{"cmd":"git commit -am -n","shell":"allow"}
+{"cmd":"GIT_CONFIG_PARAMETERS=\"'user.name=t'\" git commit -m x","shell":"allow"}
+{"cmd":"git commit -m 'use --no-verify only if told'","shell":"allow"}
+{"cmd":"git commit -m 'git commit -n'","shell":"allow"}
+{"cmd":"echo git commit --no-verify","shell":"allow"}
+{"cmd":"git commit -m x # --no-verify","shell":"allow"}
+{"cmd":"git -c user.name=t -c core.pager=cat commit -m x","shell":"allow"}
+{"cmd":"git -c my.core.hooksPath=1 commit -m x","shell":"allow"}
+{"cmd":"git config --get core.hooksPath","shell":"allow"}
+{"cmd":"git commit --no-ver -m x","shell":"allow"}
+{"cmd":"SKIP=black git status","shell":"allow"}
+{"cmd":"HUSKY=0 git log","shell":"allow"}
+{"cmd":"PRE_COMMIT_ALLOW_NO_CONFIG=1 git diff","shell":"allow"}
+{"cmd":"SKIP= git commit -m x","shell":"allow"}
+{"cmd":"HUSKY=1 git commit -m x","shell":"allow"}
+{"cmd":"PRE_COMMIT_ALLOW_NO_CONFIG=0 git commit -m x","shell":"allow"}
+{"cmd":"GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=t git commit -m x","shell":"allow"}
+{"cmd":"SKIP=black true; git commit -m x","shell":"allow"}
+{"cmd":"bash -c 'export SKIP=black'; git commit -m x","shell":"allow"}
+{"cmd":"echo SKIP=black; git commit -m x","shell":"allow"}
+{"cmd":"x=$(export SKIP=black); git commit -m x","shell":"allow"}
+{"cmd":"git commit -m SKIP=black","shell":"allow"}
+{"cmd":"GIT_HOOKS_BYPASS_OK=1 git commit --no-verify -m x","shell":"allow"}
+{"cmd":"bash -c 'GIT_HOOKS_BYPASS_OK=1 git commit -n -m x'","shell":"allow"}
+{"cmd":"GIT_HOOKS_BYPASS_OK=1 bash -c 'git commit -n -m x'","shell":"allow"}
+{"cmd":"GIT_DESTRUCTIVE_OK=1 GIT_HOOKS_BYPASS_OK=1 git commit --no-verify -m x","shell":"allow"}
+{"cmd":"GIT_HOOKS_BYPASS_OK=1 git -c core.hooksPath=/dev/null commit -m x","shell":"allow"}
+{"cmd":"GIT_HOOKS_BYPASS_OK=1 git reset --hard HEAD","shell":"block"}
+{"cmd":"GIT_HOOKS_BYPASS_OK=1 GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD","shell":"allow"}
+{"cmd":"git commit --no-verify -m x && git reset --hard","shell":"block"}
+{"cmd":"git","shell":"allow"}
+{"cmd":"git restore --staged a && git restore b","shell":"block"}

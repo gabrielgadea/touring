@@ -23,6 +23,10 @@ use std::sync::LazyLock;
 use super::lexer::{flag_matches, option_words};
 use super::{DD_ROUTE, DELETE_ROUTE, DELETE_ROUTE_EXAMPLES, PIPE_SHELL_ROUTE};
 
+/// The road back from a destructive git verdict (REGRA #11 v2).
+pub(super) const GIT_ROUTE: &str = "push without force; if history rewriting is intentional, follow \
+     REGRA #11 (MEDIR→SNAPSHOT→CONFIRMAR) and put `GIT_DESTRUCTIVE_OK=1` in the same command";
+
 /// Severity of a structural row: does the line stop, or only get flagged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Severity {
@@ -207,30 +211,6 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
                 tail_token: None,
                 severity: Severity::Warn,
                 bypass_words: &[],
-            },
-        },
-        Rule {
-            reason: "git push --force — overwrites remote history",
-            route: Some("use `git push --force-with-lease`, which refuses when the remote moved"),
-            route_examples: &["git push --force-with-lease origin main"],
-            prompt: &[],
-            matcher: Matcher::Signature {
-                tokens: &["git", "push", "--force"],
-                tail_token: None,
-                severity: Severity::Warn,
-                bypass_words: &["--force-with-lease", "--help"],
-            },
-        },
-        Rule {
-            reason: "git reset --hard — discards uncommitted changes",
-            route: Some("run `git status` first and commit what must survive"),
-            route_examples: &["git status"],
-            prompt: &[],
-            matcher: Matcher::Signature {
-                tokens: &["git", "reset", "--hard"],
-                tail_token: None,
-                severity: Severity::Warn,
-                bypass_words: &["--help"],
             },
         },
         // ── LEXICAL, fixed command prefix (O(m) `starts_with`, no regex engine) ───

@@ -193,10 +193,10 @@ mod tests {
         assert!(report.findings.iter().any(|f| f.starts_with("structural:")));
     }
     #[test]
-    fn analyze_force_push_is_warn() {
+    fn analyze_force_push_is_block() {
         let report =
             StaticReport::analyze("git push --force origin main", Some(SandboxLanguage::Shell));
-        assert_eq!(report.severity, StaticSeverity::Warn);
+        assert_eq!(report.severity, StaticSeverity::Block);
     }
     #[test]
     fn analyze_destructive_pattern_in_string_literal_is_not_flagged() {
