@@ -89,15 +89,13 @@ pub fn run_session_start_returning(
     // Loads all *.yaml/*.yml rules under the gotchas/ directory into the knowledge DB
     // so that pre_read/pre_edit hooks can surface them as GOTCHA signals.
     {
-        use crate::gotcha_loader::sync_to_sqlite;
+        use crate::gotcha_loader::{default_gotcha_dir, sync_to_sqlite};
         // Productization Fase 0: follow the canonical workspace root
-        // (`TOURING_WORKSPACE_ROOT` override → historical global default).
-        let gotcha_root = std::env::var("TOURING_WORKSPACE_ROOT")
-            .map(|r| format!("{}/docs/gotchas", r.trim_end_matches('/')))
-            .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring/docs/gotchas".to_string());
-        let gotcha_dir = std::path::Path::new(&gotcha_root);
+        // (`TOURING_WORKSPACE_ROOT` override → this project's own root). A project
+        // without a `docs/gotchas` directory simply has no YAML library to sync.
+        let gotcha_dir = default_gotcha_dir(&runtime.project_root);
         if gotcha_dir.is_dir() {
-            let _ = sync_to_sqlite(runtime, gotcha_dir);
+            let _ = sync_to_sqlite(runtime, &gotcha_dir);
         }
     }
 

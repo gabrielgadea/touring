@@ -2,9 +2,9 @@
 /**
  * Crates Size Via CLI Wrapper — returns crate size distribution.
  *
- * Input:  {"workspace": "/home/gabrielgadea/.claude/rust"}
+ * Input:  {"workspace": "/path/to/workspace"}   (default: $TOURING_WORKSPACE_ROOT)
  * Output: {"total_crates": 24, "median_loc": 1847, "largest": {"name": "touring-core", "loc": 48200}}
- * Return: 1 always (output always available)
+ * Return: 1 always (output always available); 2 when no workspace is derivable
  */
 
 // Security (OWASP A03 / CWE-78): use execFileSync with an argv array, never a
@@ -92,7 +92,15 @@ function main() {
     inputObj = JSON.parse(stdin);
   }
 
-  const workspace = inputObj.workspace || "/home/gabrielgadea/.claude/rust";
+  // The workspace is derived, never compiled in: the input field, else the
+  // environment. Nothing derivable → fail loud, never a guessed path.
+  const workspace = inputObj.workspace || process.env.TOURING_WORKSPACE_ROOT;
+  if (!workspace) {
+    console.error(
+      'crates_size_via_cli_wrapper: no workspace — pass {"workspace": "<path>"} or set TOURING_WORKSPACE_ROOT'
+    );
+    process.exit(2);
+  }
   const dist = computeSizeDistribution(workspace);
   console.log(JSON.stringify(dist));
   process.exit(1);

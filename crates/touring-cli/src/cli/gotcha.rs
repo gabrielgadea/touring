@@ -201,13 +201,13 @@ pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
 }
 /// Wave Q3: Sync gotchas from YAML rule library to SQLite cache.
 ///
-/// Payload: `{"dir": "/path/to/gotchas/"}` (default: `~/.claude/rust/docs/gotchas/`)
+/// Payload: `{"dir": "/path/to/gotchas/"}` (default: `<workspace root>/docs/gotchas/`)
 pub fn cli_gotcha_sync(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     // Productization Fase 0: the gotcha library follows the canonical workspace
-    // (`TOURING_WORKSPACE_ROOT` override → historical global default).
-    let default_dir = std::env::var("TOURING_WORKSPACE_ROOT")
-        .map(|r| format!("{}/docs/gotchas", r.trim_end_matches('/')))
-        .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring/docs/gotchas".to_string());
+    // (`TOURING_WORKSPACE_ROOT` override → this project's own root).
+    let default_dir = crate::gotcha_loader::default_gotcha_dir(&rt.project_root)
+        .to_string_lossy()
+        .into_owned();
     let dir_str = str_or(payload, "dir", &default_dir);
     let dir = std::path::Path::new(dir_str);
     if !dir.is_dir() {

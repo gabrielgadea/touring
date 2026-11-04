@@ -57,18 +57,21 @@ enum SnapshotCmd {
     },
 }
 
-/// Snapshot directory.
-fn snapshot_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/gabrielgadea".to_string());
-    PathBuf::from(home)
-        .join(".claude")
-        .join("touring")
-        .join("snapshots")
+/// Snapshot directory (`~/.claude/touring/snapshots`). Errors when no home directory
+/// can be derived — snapshots are never written to a guessed location.
+fn snapshot_dir() -> anyhow::Result<PathBuf> {
+    touring_foundation::user_home::claude_home()
+        .map(|claude| claude.join("touring").join("snapshots"))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "no home directory derivable ($HOME unset, no passwd entry) — cannot locate the snapshots directory"
+            )
+        })
 }
 
 /// Ensure snapshot directory exists.
 fn ensure_snapshot_dir() -> anyhow::Result<PathBuf> {
-    let dir = snapshot_dir();
+    let dir = snapshot_dir()?;
     if !dir.exists() {
         fs::create_dir_all(&dir)?;
     }
@@ -105,7 +108,7 @@ pub struct SnapshotData {
 impl SnapshotData {
     /// Load a snapshot by name.
     fn load(name: &str) -> anyhow::Result<Self> {
-        let path = snapshot_dir().join(format!("{name}.json"));
+        let path = snapshot_dir()?.join(format!("{name}.json"));
         let content = fs::read_to_string(&path)?;
         serde_json::from_str(&content).map_err(|e| {
             anyhow::anyhow!(
@@ -271,7 +274,7 @@ fn run_create(name: &str) -> anyhow::Result<()> {
 
 /// `snapshot list` — list all available snapshots.
 fn run_list() -> anyhow::Result<()> {
-    let dir = snapshot_dir();
+    let dir = snapshot_dir()?;
     if !dir.exists() {
         println!("[]");
         return Ok(());
@@ -527,10 +530,13 @@ mod tests {
 
     #[test]
     fn snapshot_dir_path() {
-        let dir = snapshot_dir();
-        assert!(dir.to_string_lossy().contains(".claude"));
-        assert!(dir.to_string_lossy().contains("touring"));
-        assert!(dir.to_string_lossy().contains("snapshots"));
+        // `Err` only without a derivable home directory (stripped container): there is
+        // no path to check then, and the error itself is the specified behavior.
+        if let Ok(dir) = snapshot_dir() {
+            assert!(dir.to_string_lossy().contains(".claude"));
+            assert!(dir.to_string_lossy().contains("touring"));
+            assert!(dir.to_string_lossy().contains("snapshots"));
+        }
     }
 
     #[test]

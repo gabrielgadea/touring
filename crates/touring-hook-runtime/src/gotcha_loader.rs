@@ -62,6 +62,29 @@ pub struct SyncReport {
     pub yaml_dir_hash: String,
 }
 
+/// Directory of the YAML gotcha library for the project served by `project_root`.
+///
+/// The library follows the canonical workspace: `TOURING_WORKSPACE_ROOT` when set,
+/// otherwise the project root itself — `<root>/docs/gotchas`. There is no compiled-in
+/// fallback (a developer's checkout is not a default); a project without that
+/// directory simply has no library, which callers report or skip by name.
+#[must_use]
+pub fn default_gotcha_dir(project_root: &Path) -> PathBuf {
+    gotcha_dir_in(
+        std::env::var("TOURING_WORKSPACE_ROOT").ok().as_deref(),
+        project_root,
+    )
+}
+
+/// [`default_gotcha_dir`] with the environment value passed in — the pure core,
+/// testable without mutating the process environment.
+fn gotcha_dir_in(workspace_root: Option<&str>, project_root: &Path) -> PathBuf {
+    workspace_root
+        .filter(|root| !root.is_empty())
+        .map_or(project_root, Path::new)
+        .join("docs/gotchas")
+}
+
 /// Walk a directory recursively and load every `*.yaml` / `*.yml` file as
 /// a `YamlGotcha`.
 ///
@@ -316,6 +339,24 @@ severity: high
         let h = yaml_dir_hash(&dir);
         assert_eq!(h.len(), 64);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn gotcha_dir_follows_the_workspace_env_then_the_project_root() {
+        let project = Path::new("/home/u/proj");
+        assert_eq!(
+            gotcha_dir_in(Some("/ws/touring/"), project),
+            Path::new("/ws/touring/docs/gotchas")
+        );
+        assert_eq!(
+            gotcha_dir_in(None, project),
+            Path::new("/home/u/proj/docs/gotchas")
+        );
+        // An empty env value is "unset", not the filesystem root.
+        assert_eq!(
+            gotcha_dir_in(Some(""), project),
+            Path::new("/home/u/proj/docs/gotchas")
+        );
     }
 
     #[test]

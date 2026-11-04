@@ -84,18 +84,17 @@
         shellMeshes: {} // shell_level → [solidMesh, wireframeMesh]
     };
 
-    const WORKSPACE_PREFIXES = [
-        '/home/gabrielgadea/.claude/rust/',
-        '/home/gabrielgadea/.claude/rust'
-    ];
+    // The workspace root is DERIVED from the ids, never compiled in (it used to be one
+    // developer's checkout path — a root that exists on no other machine): a workspace
+    // node id is an absolute path whose repo-relative part starts at `crates/`, so the
+    // root is whatever precedes that first segment. Ids that are already relative, or
+    // that carry no `/crates/` segment, pass through unchanged.
+    const WORKSPACE_ROOT_RE = /^\/.*?\/(?=crates\/)/;
     function normalizePath(p) {
         if (!p) return p;
         // Preserve synthetic external-crate IDs (`ext:tokio`, `ext:serde`, …).
         if (p.startsWith('ext:')) return p;
-        for (let i = 0; i < WORKSPACE_PREFIXES.length; i++) {
-            if (p.startsWith(WORKSPACE_PREFIXES[i])) return p.slice(WORKSPACE_PREFIXES[i].length);
-        }
-        return p;
+        return p.replace(WORKSPACE_ROOT_RE, '');
     }
     /* Extract the crate name from a node path.
        Workspace nodes match `/crates/<name>/...` (e.g. `crates/touring-web/src/lib.rs`).

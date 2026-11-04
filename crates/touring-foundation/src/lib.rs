@@ -126,6 +126,8 @@ pub mod task_lifecycle;
 /// `crate::TodoKind`, `crate::EdgeConfidence`, and the
 /// `truncate_str` UTF-8 safe string helper.
 pub mod types;
+/// The user's home directory and `~/.claude` — one resolver, no compiled-in fallback.
+pub mod user_home;
 
 // D39: Multi-Resolution Knowledge Layer (MVKL)
 pub mod mvkl;

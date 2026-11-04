@@ -91,7 +91,9 @@ pub trait ResourceGovernor {
 
 /// Default governor backed by daemon queries and the process's own RSS.
 pub struct DefaultResourceGovernor {
-    config_path: PathBuf,
+    /// Where the limits were (or would be) read from; `None` when no home directory
+    /// can be derived and `TOURING_GOVERNOR_CONFIG` is unset — limits are the defaults.
+    config_path: Option<PathBuf>,
     limits: GovernorLimits,
 }
 
@@ -105,19 +107,27 @@ impl DefaultResourceGovernor {
     /// Create a new governor, loading limits from `~/.claude/touring/governor.toml`.
     pub fn new() -> Self {
         let config_path = Self::config_path();
-        let limits = Self::load_config(&config_path);
+        let limits = match &config_path {
+            Some(path) => Self::load_config(path),
+            None => {
+                eprintln!(
+                    "governor: no home directory derivable and TOURING_GOVERNOR_CONFIG unset — using default limits"
+                );
+                GovernorLimits::default()
+            }
+        };
         Self {
             config_path,
             limits,
         }
     }
 
-    fn config_path() -> PathBuf {
+    fn config_path() -> Option<PathBuf> {
         if let Ok(p) = std::env::var("TOURING_GOVERNOR_CONFIG") {
-            return PathBuf::from(p);
+            return Some(PathBuf::from(p));
         }
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/home/gabrielgadea".to_string());
-        PathBuf::from(home).join(".claude/touring/governor.toml")
+        touring_foundation::user_home::claude_home()
+            .map(|claude| claude.join("touring/governor.toml"))
     }
 
     fn load_config(path: &PathBuf) -> GovernorLimits {
@@ -328,13 +338,11 @@ impl ResourceGovernor for DefaultResourceGovernor {
             lines.push("Within budget.".to_string());
         }
 
-        if self.config_path.exists() {
-            lines.push(format!("Config: {}", self.config_path.display()));
-        } else {
-            lines.push(format!(
-                "Config: (defaults, no file at {})",
-                self.config_path.display()
-            ));
+        match &self.config_path {
+            Some(path) if path.exists() => lines.push(format!("Config: {}", path.display())),
+            Some(path) => lines.push(format!("Config: (defaults, no file at {})", path.display())),
+            None => lines
+                .push("Config: (defaults, no home directory to locate governor.toml)".to_string()),
         }
 
         Ok(lines.join("\n"))
