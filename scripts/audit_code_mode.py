@@ -155,11 +155,13 @@ registrar(
     f"{len(gates)} sítio(s) em {len({curto(l).split(':')[0] for l in gates})} arquivo(s)",
     "gate que só existe em prosa é persuasão — D8 exige o executor",
 )
-teeth = rg(r"burst_gate|G1_DENY_AT", glob="cli_suggester.rs")
+# The gates live in code_mode_gates/ since 02/11/2026; reading cli_suggester.rs matched only a
+# comment there and never found g1_should_deny, so this item failed on a gate that has teeth.
+teeth = rg(r"burst_gate|G1_DENY_AT", glob="**/code_mode_gates/*.rs")
 registrar(
     "plano:g1-teeth",
     "o contador de rajada NEGA (teeth) com autodemote por dado?",
-    bool(teeth) and bool(rg(r"g1_should_deny", glob="cli_suggester.rs")),
+    bool(teeth) and bool(rg(r"fn g1_should_deny", glob="**/code_mode_gates/*.rs")),
     f"{len(teeth)} sítio(s) + autodemote puro",
     "a 3ª sugestão ignorada era o teto da persuasão; o deny muda U(a)",
 )
