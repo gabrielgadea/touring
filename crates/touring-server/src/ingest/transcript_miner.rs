@@ -2617,4 +2617,62 @@ mod tests {
             (0, 1, 4)
         );
     }
+
+    // C1 measurement over the REAL corpus (`$HOME/.claude/projects/*/*.jsonl`, the newest N
+    // files, N = TOURING_MINER_MEASURE_FILES, default 200). READ-ONLY: it runs the miner's own
+    // read path (`mine_new_lines`, shadow) from offset 0 and never touches a MemoryStore. It
+    // prints counts and dedup keys only — never transcript content.
+    //   cargo test -p touring-server --lib corpus_shadow_measurement -- --ignored --nocapture
+    #[test]
+    #[ignore = "reads the real transcript corpus under $HOME/.claude/projects"]
+    fn corpus_shadow_measurement() {
+        let home = std::env::var_os("HOME").expect("HOME is set");
+        let root = PathBuf::from(home).join(".claude").join("projects");
+        let cap: usize = std::env::var("TOURING_MINER_MEASURE_FILES")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(200);
+
+        let mut files: Vec<(std::time::SystemTime, PathBuf)> = discover_transcript_paths(&root)
+            .into_iter()
+            .filter_map(|p| Some((std::fs::metadata(&p).ok()?.modified().ok()?, p)))
+            .collect();
+        files.sort_by_key(|(mtime, _)| std::cmp::Reverse(*mtime));
+        let discovered = files.len();
+
+        let (mut measured, mut skipped, mut lines_read) = (0usize, 0usize, 0usize);
+        let mut total = ShadowComparison::default();
+        let mut diverging_files = 0usize;
+        for (_, path) in files.into_iter().take(cap) {
+            match mine_new_lines(&path, 0, ReaderMode::Shadow) {
+                Ok(Some(chunk)) => {
+                    measured += 1;
+                    lines_read += chunk.lines_read;
+                    let c = chunk.mined.comparison;
+                    if c.only_legacy > 0 || c.only_reader > 0 {
+                        diverging_files += 1;
+                    }
+                    total.absorb(c);
+                }
+                Ok(None) => {}
+                Err(_) => skipped += 1,
+            }
+        }
+
+        let report = json!({
+            "files_discovered": discovered,
+            "files": measured,
+            "files_skipped_unreadable": skipped,
+            "files_with_a_difference": diverging_files,
+            "lines": lines_read,
+            "legacy_pairs": total.legacy_pairs,
+            "reader_pairs": total.reader_pairs,
+            "only_legacy": total.only_legacy,
+            "only_reader": total.only_reader,
+            "dropped_sidechain": total.sidechain_dropped,
+            "sample_only_legacy_keys": total.sample_only_legacy,
+            "sample_only_reader_keys": total.sample_only_reader,
+        });
+        println!("CORPUS_MEASUREMENT {report}");
+    }
 }
