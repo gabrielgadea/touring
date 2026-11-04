@@ -1,13 +1,13 @@
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 03s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_analysis-ba1361b97a93e5d3)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_analysis-ba1361b97a93e5d3)
 
 running 1046 tests
 test blast_radius::bfs::tests::test_bfs_depth_limit ... ok
@@ -1059,7 +1059,7 @@ test security::tests::try_open_never_panics_even_when_db_missing ... ok
 
 test result: ok. 1046 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.56s
 
-     Running tests/cache_moka_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cache_moka_e2e-0f469e24c492da63)
+     Running tests/cache_moka_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/cache_moka_e2e-0f469e24c492da63)
 
 running 6 tests
 test e2e_repeated_hits_do_not_inflate_entry_count ... ok
@@ -1071,7 +1071,7 @@ test e2e_tiered_caches_do_not_cross_contaminate ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/e2e_integration.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_integration-3cb69b87a999ccd0)
+     Running tests/e2e_integration.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_integration-3cb69b87a999ccd0)
 
 running 48 tests
 test test_e2e_analysis_config_builder_methods ... ok
@@ -1125,7 +1125,7 @@ test test_e2e_wiring_map_column_correctness ... ok
 
 test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
 
-     Running tests/rules_engine_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/rules_engine_e2e-9a5574977bdc9a3c)
+     Running tests/rules_engine_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/rules_engine_e2e-9a5574977bdc9a3c)
 
 running 3 tests
 test empty_workspace_produces_zero_violations_for_workspace_metrics ... ok
@@ -1134,7 +1134,7 @@ test end_to_end_pipeline_detects_breaches ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/security_analyzer_test.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/security_analyzer_test-8798b9cebbb8c38e)
+     Running tests/security_analyzer_test.rs (~/projects/touring/target/wt-int97/debug/deps/security_analyzer_test-8798b9cebbb8c38e)
 
 running 21 tests
 test a_commented_payload_does_not_hide_the_real_sink_below_it ... ok
@@ -1161,7 +1161,7 @@ test the_word_javascript_in_a_log_message_is_not_xss_but_a_javascript_url_is ...
 
 test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/stringzilla_quality_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/stringzilla_quality_e2e-e8a0058375b1b81b)
+     Running tests/stringzilla_quality_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/stringzilla_quality_e2e-e8a0058375b1b81b)
 
 running 13 tests
 test test_count_lines_single_line_no_newline ... ok

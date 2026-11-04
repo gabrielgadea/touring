@@ -3,4 +3,4 @@ recall de símbolo · arquivo 12/13 · inline 23/27 | forma (fora) {'arquivo': [
   falso deny (inline): 0/274 · taxa 0.000% · limite_superior_95 1.09% (teto 1%; o n=274 não prova o teto nem com 0 falsos; exige n ≥ 299) · limite acima do teto (só reprova com --exigir-limite-superior)
   PENDENTE: p95 1008.8 ms > 1000.0 ms
 veredito: NÃO PRONTO
-[pareado] 738 ids × 8 chamadas em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97-integrado/fase-d-2026-10-18/v3_ev/pareado_aa.json (rc do juiz 1)
+[pareado] 738 ids × 8 chamadas em ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97-integrado/fase-d-2026-10-18/v3_ev/pareado_aa.json (rc do juiz 1)

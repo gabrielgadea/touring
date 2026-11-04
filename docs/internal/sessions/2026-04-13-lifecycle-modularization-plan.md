@@ -481,7 +481,7 @@ cargo test -p touring-hooks --lib 2>&1 | tail -3  # → 2735+ passed, 0 failed
 cargo clippy -p touring-hooks --lib -- -D warnings 2>&1 | tail -5
 
 # 4. Wiring integrity
-touring wiring score /home/gabrielgadea/.claude/rust/crates/touring-hooks/src/lifecycle.rs -j | \
+touring wiring score ~/.claude/rust/crates/touring-hooks/src/lifecycle.rs -j | \
   jq '.[] | select(.file_path | endswith("lifecycle.rs")) | .integration_score'
 # → ≥ 0.85
 

@@ -1,6 +1,6 @@
 # Wave Konverter Touring Bugs — 2026-05-03
 
-> **Trigger**: Diagnóstico relatado por Gabriel sobre indexação Touring em `/home/gabrielgadea/projects/konverter` com 9 sintomas críticos.
+> **Trigger**: Diagnóstico relatado por Gabriel sobre indexação Touring em `~/projects/konverter` com 9 sintomas críticos.
 > **Outcome**: 7 bugs corrigidos + 1 collateral. Workspace compila, daemon healthy 5/5, E2E validado em produção.
 > **Duração total**: ~5h (scout + analysis + implementation + rebuild + validação).
 > **CILA Level**: L4+ (multi-crate refactor, 5 arquivos modificados).
@@ -110,12 +110,12 @@ touring index files "" --limit 5
 # {"count":5,"files":[...],"limit":5,"pattern":""}  ✅
 
 # Bug 2
-touring ast meta /home/gabrielgadea/.claude/rust/crates/touring-embeddings/src/adapter.rs --depth summary -j
+touring ast meta ~/.claude/rust/crates/touring-embeddings/src/adapter.rs --depth summary -j
 # {"cognitive_score":0.99, "enrichment_source":"on_disk_fallback", "language":"rust",
 #  "line_count":322, "pub_symbols":[12 symbols], "summary_source":"on_disk_fallback"}  ✅
 
 # Bug 3  
-touring ast overview /home/gabrielgadea/projects/konverter/lexcore-br/src/lexcore_br/models.py -j
+touring ast overview ~/projects/konverter/lexcore-br/src/lexcore_br/models.py -j
 # {"language":"python", "symbol_count":0, "symbols":[]}  ✅
 
 # Daemon

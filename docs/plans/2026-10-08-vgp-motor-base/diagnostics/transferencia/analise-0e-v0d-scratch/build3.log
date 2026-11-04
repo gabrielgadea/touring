@@ -1,6 +1,6 @@
 <unknown>:13: SyntaxWarning: invalid escape sequence '\$'
 /tmp/eleitoral_probe/fase2_purpose.py:76: SyntaxWarning: invalid escape sequence '\d'
-/home/gabrielgadea/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: invalid escape sequence '\|'
+~/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: invalid escape sequence '\|'
   [
 {
  "gerado_em": "2026-10-09T12:50:42-0300",

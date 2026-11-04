@@ -55,7 +55,7 @@ O RETOMAR-AQUI original (`/RETOMAR-AQUI.md`) lista explicitamente o que **NÃO**
 
 ## CCE — 27 findings (1 explore cycle, 2 rounds)
 
-**Lens institutional (12)** memórias relevantes citadas no ledger (`/home/gabrielgadea/projects/touring/.touring-explore/retomar-item--4-documentacao-touring.ledger.json`):
+**Lens institutional (12)** memórias relevantes citadas no ledger (`~/projects/touring/.touring-explore/retomar-item--4-documentacao-touring.ledger.json`):
 
 - `strategy:doc-rewriting:2026-08-20` — estratégia original 10 ondas W1-W10 (ainda a referência estratégica)
 - `decomp:task_1787234572792401084` — W1 docs raiz (decompose)
@@ -237,11 +237,11 @@ O `loop_converged.py` tem limitação conhecida: marca symbols FFI de crates WAS
 
 | Item | Local |
 |---|---|
-| RETOMAR-AQUI original | `/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-documentacao-touring/RETOMAR-AQUI.md` |
-| Strategy 26/08 | `/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-26-documentacao-sistema.md` |
-| Inventário F1 | `/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-documentacao-touring/f1-inventario.json` |
-| Diagnostic 31/08 09:47 | `/home/gabrielgadea/projects/touring/docs/plans/2026-08-26-documentacao-touring/diagnostics/touring-20260831T094725.md` |
-| CCE Ledger | `/home/gabrielgadea/projects/touring/.touring-explore/retomar-item--4-documentacao-touring.ledger.json` |
+| RETOMAR-AQUI original | `~/projects/touring/docs/plans/2026-08-26-documentacao-touring/RETOMAR-AQUI.md` |
+| Strategy 26/08 | `~/projects/touring/docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-26-documentacao-sistema.md` |
+| Inventário F1 | `~/projects/touring/docs/plans/2026-08-26-documentacao-touring/f1-inventario.json` |
+| Diagnostic 31/08 09:47 | `~/projects/touring/docs/plans/2026-08-26-documentacao-touring/diagnostics/touring-20260831T094725.md` |
+| CCE Ledger | `~/projects/touring/.touring-explore/retomar-item--4-documentacao-touring.ledger.json` |
 | Estratégia original 10 ondas | `~/.claude/projects/.../memory/strategy:doc-rewriting:2026-08-20` |
 | Loop anterior DAG | `task_1787743226070943011` (5/5 done) |
 | Strategy 20/08 (W1-W10) | `docs/plans/2026-08-20-doc-rewriting-strategy/` (10 ondas W1-W10) |

@@ -134,7 +134,7 @@
    "evidencia_ecc": "agents/opensource-sanitizer.md:19 — 'you **never trust the forker's work**. Verify everything independently.' scripts/ci/validate-no-personal-paths.js:6 cobre só /Users e C:\\Users.",
    "como_funciona": "7 passos: segredos, PII, referências internas, arquivos perigosos (.env, *.pem, .claude/settings.json, *.map), completude do .env.example, histórico git e arquivos não legíveis. Gera relatório PASS/FAIL. Os passos 1-3 do agent usam /home/<user> como padrão; o validador de CI não.",
    "touring_estado": "parcial",
-   "touring_evidencia": "`git grep /home/gabrielgadea` fora de docs/plans: 452 arquivos e 1.423 ocorrências (232 em docs/kpi, 17 em client/skills, 12 em crates/inferlets). `git ls-files` não lista nomes tipo .env/.pem/credentials.json. `touring scan-pii` é hook de Write, sem varredura de árvore nem de histórico. Visibilidade do repo: memória touring-repo-publico-2026-08-02 (não reverificada).",
+   "touring_evidencia": "`git grep ~` fora de docs/plans: 452 arquivos e 1.423 ocorrências (232 em docs/kpi, 17 em client/skills, 12 em crates/inferlets). `git ls-files` não lista nomes tipo .env/.pem/credentials.json. `touring scan-pii` é hook de Write, sem varredura de árvore nem de histórico. Visibilidade do repo: memória touring-repo-publico-2026-08-02 (não reverificada).",
    "licao_tipo": "complementar",
    "proposta": "scripts/sanitize_check.py somente leitura: padrões de segredo, /home/<user>, arquivos perigosos, grep no histórico. Entra no propagate-release. Higienizar o gerador de docs/kpi (232 arquivos).",
    "valor": "medio",
@@ -240,6 +240,6 @@
    "docs/{MCP-CONNECTOR-POLICY,SKILL-PLACEMENT-POLICY,skill-adaptation-policy,SELECTIVE-INSTALL-ARCHITECTURE,stale-pr-salvage-ledger}.md",
    ".github/workflows/{ci,pr-burst-guard,maintenance,supply-chain-watch}.yml"
   ],
-  "nao_lidos": "Só cabeçalhos ou trechos: gateguard-fact-force.js (2.574 linhas), block-no-verify.js, platform-audit.js, discussion-audit.js, harness-audit.js, catalog.js, release-approval-gate.js, mcp-health-check.js, install-state.schema.json, tests/test_docs_governance_audit.py (110 de 905 linhas). Outras skills security-* só por título. As 311 skills só em estatísticas agregadas (scripts em /tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/e/)."
+  "nao_lidos": "Só cabeçalhos ou trechos: gateguard-fact-force.js (2.574 linhas), block-no-verify.js, platform-audit.js, discussion-audit.js, harness-audit.js, catalog.js, release-approval-gate.js, mcp-health-check.js, install-state.schema.json, tests/test_docs_governance_audit.py (110 de 905 linhas). Outras skills security-* só por título. As 311 skills só em estatísticas agregadas (scripts em /tmp/claude-1000/-home-<user>-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/e/)."
  }
 }

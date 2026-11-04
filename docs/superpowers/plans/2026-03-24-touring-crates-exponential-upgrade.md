@@ -10,7 +10,7 @@
 
 **Tech Stack:** Rust 1.75+, tree-sitter, petgraph, rkyv, tokio, rusqlite, touring-simd, touring-core
 
-**Workspace root:** `/home/gabrielgadea/.claude/rust/`
+**Workspace root:** `~/.claude/rust/`
 
 **Build & test commands:**
 ```bash
@@ -1691,8 +1691,8 @@ This task replaces `touring_graph_indexer.py` and `touring_batch_indexer.py`.
 - [ ] **Step 1: Read the Python indexers to understand their functionality**
 
 ```bash
-head -50 /home/gabrielgadea/.claude/hooks/touring_graph_indexer.py
-head -50 /home/gabrielgadea/.claude/hooks/touring_batch_indexer.py
+head -50 ~/.claude/hooks/touring_graph_indexer.py
+head -50 ~/.claude/hooks/touring_batch_indexer.py
 ```
 
 - [ ] **Step 2: Create Rust indexer module**

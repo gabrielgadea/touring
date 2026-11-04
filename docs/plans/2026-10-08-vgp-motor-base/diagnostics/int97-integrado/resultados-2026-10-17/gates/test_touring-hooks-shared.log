@@ -10,21 +10,21 @@
    Compiling hyper-rustls v0.27.9
    Compiling reqwest v0.12.28
    Compiling ast-grep-core v0.42.3
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
    Compiling ast-grep-language v0.42.3
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling notify-debouncer-mini v0.5.0
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling candle-nn v0.8.4
    Compiling candle-transformers v0.8.4
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 08s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hooks_shared-56cc6f4d3706feed)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_hooks_shared-56cc6f4d3706feed)
 
 running 490 tests
 test action_signature::tests::from_post_tool_error_sets_gotcha_active ... ok
@@ -520,7 +520,7 @@ test doc_symbol_signal::tests::estourar_o_orcamento_mata_o_filho_e_emite_nada ..
 
 test result: ok. 490 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
 
-     Running tests/s8_corpus_ab.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/s8_corpus_ab-fec243c8d997c0cb)
+     Running tests/s8_corpus_ab.rs (~/projects/touring/target/wt-int97/debug/deps/s8_corpus_ab-fec243c8d997c0cb)
 
 running 1 test
 test corpus_ab_queda_e_controle_positivo ... ok

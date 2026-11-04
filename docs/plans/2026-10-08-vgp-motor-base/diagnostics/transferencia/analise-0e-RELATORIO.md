@@ -195,7 +195,7 @@ lacuna/irredutível; a classificação dela prevalece.
 - **Aferição da touring-09**: `defaultdict`/`__version__` como defeito de corpus é a medição
   dela — não re-verifiquei os snaps.
 - **Ficou na memória local (disco, mas fora do bundle)**: entrada da sessão em
-  `~/.claude/projects/-home-gabrielgadea-projects-analise/memory/MEMORY.md` (ponto de retomada +
+  `~/.claude/projects/-home-<user>-projects-analise/memory/MEMORY.md` (ponto de retomada +
   proibições); os backups de mutação e `vereditos.sh` em `/tmp/v0d/` (reapagáveis).
 - **Não verificado fora do escopo**: a prova com `--so 1` cobre as 8 células P4; cenários com
   overlays do manifesto em volume (os 182 módulos sobrepostos) foram exercidos PELO JUIZ nas 762

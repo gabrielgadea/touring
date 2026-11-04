@@ -72,7 +72,7 @@ The PURPOSE of this audit: verify that the 35 CONFORME CAH rows are real (not P3
 
 ```bash
 $ python3 scan_debt.py ~/.claude/rust
-== debt scan: /home/gabrielgadea/.claude/rust ==
+== debt scan: ~/.claude/rust ==
 total debt markers: 208
   todo_marker      58
   suppression      79

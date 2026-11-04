@@ -68,7 +68,7 @@
   {
    "id": "0e48b5ce9591",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/b6_sizing.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/b6_sizing.py",
    "achados": [
     {
      "classe": "nome",
@@ -83,7 +83,7 @@
   {
    "id": "f7bd1c497347",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/medir_telefone_rodape.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/medir_telefone_rodape.py",
    "achados": [
     {
      "classe": "atributo",
@@ -124,7 +124,7 @@
   {
    "id": "4ea3ea29072a",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_l6.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_l6.py",
    "achados": [
     {
      "classe": "nome",
@@ -155,7 +155,7 @@
   {
    "id": "ddc0a56fb49f",
    "balde": "arquivo",
-   "path": "/home/gabrielgadea/projects/analise/docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/tentativas_dirigidas_sem_rota.py",
+   "path": "~/projects/analise/docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/tentativas_dirigidas_sem_rota.py",
    "achados": [
     {
      "classe": "atributo",
@@ -170,7 +170,7 @@
   {
    "id": "056b54167b0b",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/sonda_nota_metodologica.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/sonda_nota_metodologica.py",
    "achados": [
     {
      "classe": "atributo",
@@ -185,7 +185,7 @@
   {
    "id": "e4833baaf33f",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/sonda_registro_2022.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/sonda_registro_2022.py",
    "achados": [
     {
      "classe": "nome",
@@ -215,7 +215,7 @@
   {
    "id": "4c61e165b27a",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l9/chamadas_run.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l9/chamadas_run.py",
    "achados": [
     {
      "classe": "membro",
@@ -230,7 +230,7 @@
   {
    "id": "f17e1a2c9a95",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/commits_executar.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/commits_executar.py",
    "achados": [
     {
      "classe": "nome",

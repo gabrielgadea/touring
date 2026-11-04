@@ -600,7 +600,7 @@ Daemon reconciles `announced_capabilities` (from manifest) with what it can actu
 Claude Code sessions have a `cwd`. Autopilot uses this to infer the active workspace:
 
 ```
-cwd = /home/gabrielgadea/projects/analise/scripts/process_analysis/
+cwd = ~/projects/analise/scripts/process_analysis/
 ↑
 walk up looking for nearest .autopilot/manifest.toml or .holon/manifest.toml or Cargo.toml
 ↑
@@ -679,11 +679,11 @@ Sub-deliverables:
 - J5: Refactor 3 existing MVP detectors (D02, D08, D15) to use `WorkspaceProfile`
 - J6: 10+ unit tests for registry + capability negotiation
 
-**Acceptance**: `touring autopilot workspace register /home/gabrielgadea/.claude/rust` works; existing scans return identical findings to pre-J world.
+**Acceptance**: `touring autopilot workspace register ~/.claude/rust` works; existing scans return identical findings to pre-J world.
 
 ### Phase K — First external workspace + polyglot detectors — **XL size, 2 semanas**
 
-**Goal**: enable `touring autopilot workspace register /home/gabrielgadea/projects/analise` (Python). Implement `LanguageQualityProvider` dispatch. D01 + D12 + D15 + D16 work for Python.
+**Goal**: enable `touring autopilot workspace register ~/projects/analise` (Python). Implement `LanguageQualityProvider` dispatch. D01 + D12 + D15 + D16 work for Python.
 
 Sub-deliverables:
 - K1: `LanguageQualityProvider` trait + `TreeSitterQualityProvider` impl

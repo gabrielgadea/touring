@@ -1,8 +1,8 @@
 2026-10-10T02:40:19Z
-751583touring -> /home/gabrielgadea/projects/touring/target/release/touring
-touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
-touring-hook -> /home/gabrielgadea/projects/touring/target/release/touring-hook
-update-touring -> /home/gabrielgadea/projects/touring/scripts/update-touring
+751583touring -> ~/projects/touring/target/release/touring
+touring-daemon -> ~/projects/touring/target/release/touring-daemon
+touring-hook -> ~/projects/touring/target/release/touring-hook
+update-touring -> ~/projects/touring/scripts/update-touring
 30.4.42
 30.4.43
 30.4.44

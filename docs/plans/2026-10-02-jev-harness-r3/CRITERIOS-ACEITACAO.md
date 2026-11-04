@@ -496,7 +496,7 @@ regras que decorrem deles; nenhum muda limiar nem veredito.
 (a) **Hooks comparados:** `pre-bash`, `cli-suggest`, `post-bash` e `post-tool-rl` (os quatro que uma chamada Bash toca), cada um
 com a sua `n_nonempty`/força (E9.4); o veredito do S4 forte é o AND dos quatro, e a força é reportada por hook.
 (b) **O daemon por projeto recusa pedidos que nomeiam caminhos fora da sua árvore** (`daemon.rs:1905-1922`, `pin_admits`). Regra
-única para os três braços: `/home/gabrielgadea/projects/touring` → `<raiz>`, `/home/gabrielgadea` → `<raiz>/home`,
+única para os três braços: `~/projects/touring` → `<raiz>`, `~` → `<raiz>/home`,
 `cwd` = `<raiz>`, `transcript_path` = `<raiz>/t.jsonl`; a ÚNICA normalização da saída é `<raiz>` → `@ROOT@`.
 (c) **Ambiente:** todo `TOURING_*` da sessão é removido, exceto `TOURING_PILLAR_INDUCTION_ARMED`; `CLAUDE_PROJECT_DIR=<raiz>` (como
 o Claude Code faz; sem ela o cliente infere a raiz errada); só o ON recebe `TOURING_R3_EVENTS_FILE=/tmp/r3s4/on-events.jsonl`
@@ -548,7 +548,7 @@ O que prova a ordem são os commits (`-03:00`): `8d82fc77` 17:03:02 (E9.1–E9.7
 (E9.8-i), `ca0d2559` 17:13:10 (E9.8-j/k/l/m); a rodada 1 começou às 17:15:03. A ordem declarada ("antes de qualquer comparação") era verdadeira;
 os horários, não.
 **(4) Regra da rodada 2** (única mudança de procedimento): o texto do comando é **byte-idêntico nos três braços** — caminhos reais viram
-**relativos** (`/home/gabrielgadea/projects/touring/x` → `x`; `/home/gabrielgadea/x` → `home/x`), e só `cwd` e `transcript_path` carregam a raiz
+**relativos** (`~/projects/touring/x` → `x`; `~/x` → `home/x`), e só `cwd` e `transcript_path` carregam a raiz
 do braço. Base nova e virgem `/tmp/r3s4g/{on,off,ctl}`; a rodada 2 grava `s4-ab.json`. **Não mudam:** E9.3, E9.4, E9.5, E9.7, os limiares, as
 200 entradas (`s4_inputs.jsonl`, sha256 `7af62ab0390fb933…`), a pausa de 0,2 s, a rotação, a máscara, a leitura "vs ruído".
 **(5) Divulgação.** A decisão de reexecutar foi tomada **depois** de ver os números da rodada 1, inclusive ON×OFF; o diagnóstico usou só o
@@ -595,9 +595,9 @@ qualquer diferença, os dois resultados são reportados lado a lado, o S4 passa 
 
 **E10.1 — desenho.** Juiz R3 = subagente (ferramenta `Agent`, `model: sonnet`, contexto limpo), cego a: decisão do B0, rótulos dos outros avaliadores, `key.jsonl`,
 gold. Prompt EXATO (a sessão-mãe não rotula, não resume itens e não influencia além dele): *"Leia
-`/home/gabrielgadea/.claude/touring/r3-data/adj_pack/rater_view/INSTRUCOES.md` e rotule os 179 itens de
-`/home/gabrielgadea/.claude/touring/r3-data/adj_pack/rater_view/pack_blind.jsonl` seguindo exatamente as instruções. Grave uma linha JSON por item em
-`/home/gabrielgadea/.claude/touring/r3-data/adj_out/adj_sonnet3.jsonl`, no formato {"item_id": "...", "label": "..."}, e confirme no fim a contagem de linhas
+`~/.claude/touring/r3-data/adj_pack/rater_view/INSTRUCOES.md` e rotule os 179 itens de
+`~/.claude/touring/r3-data/adj_pack/rater_view/pack_blind.jsonl` seguindo exatamente as instruções. Grave uma linha JSON por item em
+`~/.claude/touring/r3-data/adj_out/adj_sonnet3.jsonl`, no formato {"item_id": "...", "label": "..."}, e confirme no fim a contagem de linhas
 (deve ser 179). Regras: não leia nenhum outro arquivo e não liste outros diretórios; não use a ferramenta Agent nem delegue a ninguém; não pule nem resuma
 itens; rotule cada item você mesmo, lendo-o."* É da **mesma família** do agente julgado (limitação E3.3, não resolvida por este juiz).
 

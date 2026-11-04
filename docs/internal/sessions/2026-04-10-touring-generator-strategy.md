@@ -1169,7 +1169,7 @@ assert result["status"] == "committed"
 ## Gotchas Ativos
 
 - **G104** — `plan-baseline-hook-count`: `ALL_DAEMON_HOOK_NAMES.len()==98` at `hook_registry.rs:729`. W6 MUST update to 108 (10 novos handlers). Gate: `grep "assert_eq" hook_registry.rs` antes de merge.
-- **G18** — `touring-hooks exit 101`: build from workspace root `/home/gabrielgadea/.claude/rust` não de crate dir
+- **G18** — `touring-hooks exit 101`: build from workspace root `~/.claude/rust` não de crate dir
 - **G1** — touring-hooks exit code 2 on bash failures (1229 hits históricos): any new handler MUST handle non-zero exit robustly
 
 ---

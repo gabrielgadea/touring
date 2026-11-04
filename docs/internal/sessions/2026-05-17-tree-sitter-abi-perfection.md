@@ -292,7 +292,7 @@ touring memory store "ast-grep-abi-migration:pre-bump:$(date +%s)" \
 
 ### Step S-2: Verify current test baseline
 ```bash
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 cargo test -p touring-code 2>&1 | tail -5
 cargo test -p touring-hooks 2>&1 | tail -5
 cargo +nightly fuzz build 2>&1 | tail -5   # W11.6 fuzz targets
@@ -412,7 +412,7 @@ fallback is now a performance optimization, not a necessity.
 
 ### Step S-10: Verify Cargo.lock deduplication
 ```bash
-grep "tree-sitter-bash\|tree-sitter-go\|tree-sitter-css" /home/gabrielgadea/.claude/rust/Cargo.lock | grep "^name"
+grep "tree-sitter-bash\|tree-sitter-go\|tree-sitter-css" ~/.claude/rust/Cargo.lock | grep "^name"
 # Must show EXACTLY ONE version per grammar — no more duplicate pairs.
 ```
 
@@ -516,7 +516,7 @@ No git is available. Rollback strategy:
 
 ## Summary for Gabriel
 
-**File**: `/home/gabrielgadea/.claude/rust/docs/2026-05-17-tree-sitter-abi-perfection.md`
+**File**: `~/.claude/rust/docs/2026-05-17-tree-sitter-abi-perfection.md`
 
 **Recommended target**: `ast-grep-core + ast-grep-language = 0.42.2` + `tree-sitter = 0.26`
 + all grammar crates at ABI-15-compatible releases (0.25.x for most). Single ABI plane: **15**.

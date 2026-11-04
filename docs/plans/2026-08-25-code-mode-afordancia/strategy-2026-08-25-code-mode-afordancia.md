@@ -35,7 +35,7 @@ Uma afordância só está provada quando o code mode executa numa chamada que eu
 
 ## §1 — O que o harness do DeepSeek realmente faz
 
-Fonte primária, clone em disco: `/home/gabrielgadea/references/code-mode-2026-08-23/deepseek-harness`.
+Fonte primária, clone em disco: `~/references/code-mode-2026-08-23/deepseek-harness`.
 Lidos integralmente: a nota-base do transporte (`feature/2026-06-15-code-mode.md`), o
 postmortem do colapso (`bug-fix/2026-08-07-code-mode-executor-collapse.md`), a nota de
 apresentação por agente (`feature/2026-08-05-per-agent-tool-presentation.md`) e o README

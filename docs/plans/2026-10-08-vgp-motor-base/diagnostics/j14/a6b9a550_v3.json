@@ -72,7 +72,7 @@
   {
    "id": "f2fe38f67432",
    "balde": "arquivo",
-   "path": "/home/gabrielgadea/projects/analise/backend/tests/unit/services/test_hybrid_pipeline_flags.py",
+   "path": "~/projects/analise/backend/tests/unit/services/test_hybrid_pipeline_flags.py",
    "achados": [
     {
      "classe": "atributo",

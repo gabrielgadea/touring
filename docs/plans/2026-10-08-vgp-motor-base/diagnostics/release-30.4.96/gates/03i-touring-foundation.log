@@ -69,7 +69,7 @@ hw-slot: aguardando — temp 90C > 88C
    Compiling regex v1.12.4
    Compiling unarray v0.1.4
    Compiling proptest v1.11.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 35.08s
      Running unittests src/lib.rs (target/debug/deps/touring_foundation-d345fcf104d4b49e)
 

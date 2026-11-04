@@ -1,7 +1,7 @@
 ---
 title: "Diagnóstico do gate OUTER — pedágio na saída, contrato móvel e laço fechado"
 date: 2026-09-03
-scope: /home/gabrielgadea/projects/touring
+scope: ~/projects/touring
 kind: diagnostic-strategy
 status: aguardando decisão de Gabriel
 author: TACO (sessão 00fc1e5d)

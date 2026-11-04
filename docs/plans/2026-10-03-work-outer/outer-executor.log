@@ -1,5 +1,5 @@
 {
-  "scope": "/home/gabrielgadea/projects/touring",
+  "scope": "~/projects/touring",
   "health": {
     "available": true,
     "composite_health": 0.698,
@@ -41,16 +41,16 @@
   "structure": {
     "available": true,
     "source": "touring-map",
-    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753633\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52085  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
+    "excerpt": "==============================================\nWORKSPACE  ~/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753633\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52085  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
   },
-  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T212245.md"
+  "okf_doc": "~/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T212245.md"
 }
 NEW_FINDINGS=45
 
 ========================================
 explore --until-dry — lifecycle.rs
 ========================================
-  scope                    /home/gabrielgadea/projects/touring
+  scope                    ~/projects/touring
   findings                 45
   rounds                   12
   new-per-round            24 → 7 → 5 → 0 → 0 → 0 → 1 → 0 → 0 → 3 → 5 → 0
@@ -76,7 +76,7 @@ verdict
   ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
   ✗ lens 'external' pending — mark visited/waived (--mark-lens)
 {
-  "scope": "/home/gabrielgadea/projects/touring",
+  "scope": "~/projects/touring",
   "health": {
     "available": true,
     "composite_health": 0.6038,
@@ -118,15 +118,15 @@ verdict
   "structure": {
     "available": true,
     "source": "touring-map",
-    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753666\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52088  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
+    "excerpt": "==============================================\nWORKSPACE  ~/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753666\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52088  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
   },
-  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T212544.md"
+  "okf_doc": "~/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T212544.md"
 }
 
 ========================================
 explore --until-dry — ast_bridge.rs
 ========================================
-  scope                    /home/gabrielgadea/projects/touring
+  scope                    ~/projects/touring
   findings                 36
   rounds                   12
   new-per-round            26 → 10 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
@@ -151,7 +151,7 @@ verdict
   statement                exploration incomplete
   ✗ lens 'external' pending — mark visited/waived (--mark-lens)
 {
-  "scope": "/home/gabrielgadea/projects/touring",
+  "scope": "~/projects/touring",
   "health": {
     "available": true,
     "composite_health": 0.5881,
@@ -193,16 +193,16 @@ verdict
   "structure": {
     "available": true,
     "source": "touring-map",
-    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753727\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52088  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
+    "excerpt": "==============================================\nWORKSPACE  ~/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753727\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52088  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
   },
-  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T212923.md"
+  "okf_doc": "~/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T212923.md"
 }
 NEW_FINDINGS=64
 
 ========================================
 explore --until-dry — wiring.rs
 ========================================
-  scope                    /home/gabrielgadea/projects/touring
+  scope                    ~/projects/touring
   findings                 64
   rounds                   12
   new-per-round            28 → 12 → 1 → 4 → 3 → 9 → 1 → 3 → 0 → 0 → 3 → 0
@@ -228,7 +228,7 @@ verdict
   ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
   ✗ lens 'external' pending — mark visited/waived (--mark-lens)
 {
-  "scope": "/home/gabrielgadea/projects/touring",
+  "scope": "~/projects/touring",
   "health": {
     "available": true,
     "composite_health": 0.585,
@@ -270,15 +270,15 @@ verdict
   "structure": {
     "available": true,
     "source": "touring-map",
-    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753735\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52088  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
+    "excerpt": "==============================================\nWORKSPACE  ~/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      753735\n  pub_symbols (est.)       11965\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52088  79     421    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39314  37     36     \n  touring-founda"
   },
-  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T234149.md"
+  "okf_doc": "~/projects/touring/docs/plans/2026-10-03-work-outer/diagnostics/touring-20261003T234149.md"
 }
 
 ========================================
 explore --until-dry — lifecycle.rs
 ========================================
-  scope                    /home/gabrielgadea/projects/touring
+  scope                    ~/projects/touring
   findings                 45
   rounds                   12
   new-per-round            24 → 7 → 5 → 0 → 0 → 0 → 1 → 0 → 0 → 3 → 5 → 0

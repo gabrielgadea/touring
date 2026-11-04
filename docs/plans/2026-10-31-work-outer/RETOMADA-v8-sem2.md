@@ -299,7 +299,7 @@ remoto — as branches já publicadas são `main` e a de trabalho.
 
 ### 8.1 O vazamento que a reescrita NÃO pegou
 
-`scripts/rotular_oss.py:47` tinha `TSC = Path("/home/gabrielgadea/projects/analise/frontend/
+`scripts/rotular_oss.py:47` tinha `TSC = Path("~/projects/analise/frontend/
 node_modules/.bin/tsc")` — o caminho absoluto desta máquina, **versionado num repo público**, e
 ele **continua no `origin/main`** depois da reescrita. Um caminho com o nome do usuário não tem
 porque estar no histórico. O `tsc` não precisa de caminho fixo: agora ele é resolvido por

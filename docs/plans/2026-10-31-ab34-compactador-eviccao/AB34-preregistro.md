@@ -309,7 +309,7 @@ impressor/seletor e passe de 2.400 bytes, por exemplo
 vocabulário de falha; `echo`, `printf`, `cat`, `touring` etc. são "payload" e nunca são compactados,
 e uma saída diferente de 0 também não: `result_compactor.rs:246-260,270-274`). Confira que há
 arquivo novo em `~/.claude/touring/compacted/` **e** que o `tool_result` do transcrito (em
-`~/.claude/projects/-home-gabrielgadea-projects-touring/<sessão>.jsonl`) termina no rodapé
+`~/.claude/projects/-home-<user>-projects-touring/<sessão>.jsonl`) termina no rodapé
 `[touring result-compactor] stdout was …`. Arquivo no disco **sem** rodapé no transcrito = o
 transcrito guarda o original: o primário não enxerga C, **pare** e redesenhe o desfecho.
 

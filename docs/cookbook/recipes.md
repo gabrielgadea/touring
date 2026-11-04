@@ -14,7 +14,7 @@ documented.
 **Solution**: Use `scripts/doc-coverage.py` (W6 deliverable).
 
 ```bash
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 python3 scripts/doc-coverage.py              # all crates (28 measured)
 python3 scripts/doc-coverage.py --crate touring-hooks  # one crate
 python3 scripts/doc-coverage.py --top 10    # top 10 by coverage %

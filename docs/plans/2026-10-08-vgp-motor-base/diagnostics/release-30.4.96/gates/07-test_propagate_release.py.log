@@ -13,14 +13,14 @@ _________________ test_the_guard_passes_against_the_real_repo __________________
         r = _guard_alone()
         out = r.stdout + r.stderr
 >       assert r.returncode == 0, f"the real repo must pass: {out[-400:]}"
-E       AssertionError: the real repo must pass: [1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+E       AssertionError: the real repo must pass: [1m[propagate][0m workspace : ~/projects/touring
 E         [1m[propagate][0m versão    : 30.4.96
 E         [33m[propagate] WARN[0m gates pulados (--skip-gates)
 E         [33m[propagate] WARN[0m build pulado (--skip-build)
 E         [31m[propagate] ERRO[0m rótulo divergente: o binário construído declara '30.4.95', alvo '30.4.96' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar
 E         
 E       assert 1 == 0
-E        +  where 1 = CompletedProcess(args=['bash', '/home/gabrielgadea/projects/touring/scripts/propagate-release.sh', '30.4.96', '--skip-...lara \'30.4.95\', alvo \'30.4.96\' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar\n').returncode
+E        +  where 1 = CompletedProcess(args=['bash', '~/projects/touring/scripts/propagate-release.sh', '30.4.96', '--skip-...lara \'30.4.95\', alvo \'30.4.96\' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar\n').returncode
 
 scripts/test_propagate_release_label.py:233: AssertionError
 __________________ test_a_mutated_inheriting_lock_entry_dies ___________________
@@ -44,7 +44,7 @@ __________________ test_a_mutated_inheriting_lock_entry_dies ___________________
             out = r.stdout + r.stderr
             assert r.returncode == 1, f"a mutated inheriting entry must die: {out[-300:]}"
 >           assert "Cargo.lock fora do rótulo" in out
-E           assert 'Cargo.lock fora do rótulo' in '\x1b[1m[propagate]\x1b[0m workspace : /home/gabrielgadea/projects/touring\n\x1b[1m[propagate]\x1b[0m versão    : 30.4...clara \'30.4.95\', alvo \'30.4.96\' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar\n'
+E           assert 'Cargo.lock fora do rótulo' in '\x1b[1m[propagate]\x1b[0m workspace : ~/projects/touring\n\x1b[1m[propagate]\x1b[0m versão    : 30.4...clara \'30.4.95\', alvo \'30.4.96\' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar\n'
 
 scripts/test_propagate_release_label.py:255: AssertionError
 =========================== short test summary info ============================

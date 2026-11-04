@@ -192,7 +192,7 @@ comparando valor, status e `blockers`. "Corpus do gate" = as regras de
 `enumerate_security_files` (sem diretório com ponto, sem `SKIP_DIRS`, sem `*.min.*`; `vendor/`
 e `third_party/` entram).
 
-| | workspace touring | `/home/gabrielgadea/projects/analise` |
+| | workspace touring | `~/projects/analise` |
 |---|---|---|
 | arquivos JS/TS listados / no corpus do gate | 21 / 14 | 1050 / 598 |
 | `score <dir> --dims F2.1` ANTES | 1,000 Pass, blockers `[]` (4099 arquivos) | 0,000 Fail, blockers `[F2_1]` (192 de 10853 falham) |

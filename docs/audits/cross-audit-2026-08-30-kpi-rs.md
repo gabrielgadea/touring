@@ -27,14 +27,14 @@ VERDICT=PASS
 
 ## MAP+HARMONY (harmony_map)
 
-python3: can't open file '/home/gabrielgadea/.claude/skills/TACO-cross-audit/scripts/harmony_map.py': [Errno 13] Permission denied
+python3: can't open file '~/.claude/skills/TACO-cross-audit/scripts/harmony_map.py': [Errno 13] Permission denied
 
 
 ## DEBT (scan_debt)
 
-python3: can't open file '/home/gabrielgadea/.claude/skills/TACO-cross-audit/scripts/scan_debt.py': [Errno 13] Permission denied
+python3: can't open file '~/.claude/skills/TACO-cross-audit/scripts/scan_debt.py': [Errno 13] Permission denied
 
 
 ## E2E PROOF (prove_invariants)
 
-error: not a directory: /home/gabrielgadea/projects/touring/crates/touring-cli/src/cli/kpi.rs
+error: not a directory: ~/projects/touring/crates/touring-cli/src/cli/kpi.rs

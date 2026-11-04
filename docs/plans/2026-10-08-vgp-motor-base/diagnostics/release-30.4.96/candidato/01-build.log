@@ -467,7 +467,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling typeid v1.0.3
    Compiling option-ext v0.2.0
    Compiling glob v0.3.3
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling dirs-sys v0.5.0
    Compiling spm_precompiled v0.1.4
    Compiling macro_rules_attribute v0.2.2
@@ -521,7 +521,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling wgpu-core-deps-windows-linux-android v26.0.0
    Compiling simba v0.8.1
    Compiling wasm-bindgen-futures v0.4.76
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring/crates/touring-rkyv)
    Compiling safetensors v0.8.0
    Compiling hashlink v0.9.1
    Compiling wgpu v26.0.1
@@ -533,7 +533,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling proc-macro2-diagnostics v0.10.1
    Compiling tree-sitter-yaml v0.7.2
    Compiling tree-sitter-typescript v0.23.2
-   Compiling tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-bash)
+   Compiling tree-sitter-bash v0.25.1 (~/projects/touring/third_party/tree-sitter-bash)
    Compiling tree-sitter-php v0.24.2
    Compiling tree-sitter-swift v0.7.3
    Compiling tree-sitter-hcl v1.1.0
@@ -575,7 +575,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling fs-err v3.3.0
    Compiling tree-sitter-toml-ng v0.7.0
    Compiling tree-sitter-json v0.24.8
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling toml_datetime v0.7.5+spec-1.1.0
    Compiling pollster v0.3.0
    Compiling cranelift-srcgen v0.133.3
@@ -587,7 +587,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling statrs v0.17.1
    Compiling derive_more-impl v2.1.1
    Compiling notify v7.0.0
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring/crates/touring-storage)
    Compiling ast-grep-core v0.42.3
    Compiling faster-hex v0.10.0
    Compiling gemm-f32 v0.18.2
@@ -614,7 +614,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling z3 v0.20.1
    Compiling derive_more v2.1.1
    Compiling notify-debouncer-mini v0.5.0
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
    Compiling cargo-lock v11.0.1
    Compiling gemm-f32 v0.17.1
    Compiling gemm-f64 v0.18.2
@@ -638,11 +638,11 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling rustsec v0.33.0
    Compiling yoke v0.7.5
    Compiling sha1-checked v0.10.0
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring/crates/touring-code)
    Compiling gemm v0.18.2
    Compiling gemm-f16 v0.17.1
    Compiling cranelift-bitset v0.133.3
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
    Compiling pyo3-build-config v0.29.0
    Compiling const_format v0.2.36
    Compiling hydration_context v0.3.1
@@ -826,13 +826,13 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling gix-chunk v0.7.2
    Compiling gix-fs v0.21.2
    Compiling wasm-encoder v0.252.0
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
    Compiling capnp-futures v0.24.0
    Compiling wast v252.0.0
    Compiling gix-tempfile v23.0.2
    Compiling leptos_integration_utils v0.8.8
    Compiling pest_generator v2.8.6
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+   Compiling touring-bindings v30.4.96 (~/projects/touring/crates/touring-bindings)
    Compiling wasmtime-internal-jit-icache-coherence v46.0.3
    Compiling gix-quote v0.7.2
    Compiling gethostname v1.1.0
@@ -893,7 +893,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling tantivy-query-grammar v0.22.0
    Compiling darling_core v0.23.0
    Compiling lru v0.12.5
-   Compiling touring-contracts v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-contracts)
+   Compiling touring-contracts v30.4.96 (~/projects/touring/crates/touring-contracts)
    Compiling sketches-ddsketch v0.2.2
    Compiling tantivy-tokenizer-api v0.3.0
    Compiling rust-stemmers v1.2.0
@@ -906,7 +906,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling darling_macro v0.23.0
    Compiling gix-ref v0.65.0
    Compiling gix-traverse v0.59.0
-   Compiling touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-orchestration)
+   Compiling touring-orchestration v30.4.96 (~/projects/touring/crates/touring-orchestration)
    Compiling gix-packetline v0.21.5
    Compiling gix-bitmap v0.3.2
    Compiling validator_derive v0.20.0
@@ -914,15 +914,15 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling validator v0.20.0
    Compiling darling v0.23.0
    Compiling gix-ignore v0.21.1
-   Compiling touring-hooks-saga v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-saga)
+   Compiling touring-hooks-saga v30.4.96 (~/projects/touring/crates/touring-hooks-saga)
    Compiling gix-worktree v0.54.0
    Compiling gix-pathspec v0.18.1
    Compiling gix-url v0.36.1
-   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
+   Compiling touring-pyright v30.4.96 (~/projects/touring/crates/touring-pyright)
    Compiling gix-filter v0.32.0
    Compiling zstd v0.13.3
    Compiling gix-revision v0.47.0
-   Compiling touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+   Compiling touring-resilience v30.4.96 (~/projects/touring/crates/touring-resilience)
    Compiling tantivy-sstable v0.3.0
    Compiling tantivy-columnar v0.3.0
    Compiling prost-derive v0.14.4
@@ -973,22 +973,22 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling matchit v0.7.3
    Compiling axum v0.7.9
    Compiling inferno v0.12.6
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
    Compiling async-stream v0.3.6
-   Compiling touring-identity v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-identity)
+   Compiling touring-identity v30.4.96 (~/projects/touring/crates/touring-identity)
    Compiling gix v0.85.0
    Compiling tonic v0.14.6
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.96 (~/projects/touring/crates/touring-quality)
    Compiling tower v0.4.13
    Compiling socket2 v0.5.10
    Compiling tonic v0.12.3
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
    Compiling tonic-prost v0.14.6
    Compiling pprof_util v0.8.2
-   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-ceg v30.4.96 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-hooks-rl v30.4.96 (~/projects/touring/crates/touring-hooks-rl)
    Compiling opentelemetry_sdk v0.31.0
    Compiling prost-types v0.13.5
    Compiling crossbeam v0.8.4
@@ -1002,7 +1002,7 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling console-api v0.8.1
    Compiling opentelemetry-proto v0.31.0
    Compiling mappings v0.7.2
-   Compiling touring-server v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-server)
+   Compiling touring-server v30.4.96 (~/projects/touring/crates/touring-server)
    Compiling opentelemetry-http v0.31.0
    Compiling rmcp-macros v1.8.0
    Compiling roff v1.1.1
@@ -1017,39 +1017,39 @@ warning: spurious network error (3 tries remaining): transfer too slow: failed t
    Compiling opentelemetry-otlp v0.31.1
    Compiling ciborium v0.2.2
    Compiling plotters v0.3.7
-   Compiling touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
+   Compiling touring-server-visual v30.0.0 (~/projects/touring/crates/touring-server-visual)
    Compiling tracing-opentelemetry v0.32.1
    Compiling syntect v5.3.0
-   Compiling touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
-   Compiling touring-server-session v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-session)
+   Compiling touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
+   Compiling touring-server-session v30.0.0 (~/projects/touring/crates/touring-server-session)
    Compiling clap_complete v4.6.5
-   Compiling touring-license v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-license)
+   Compiling touring-license v30.4.96 (~/projects/touring/crates/touring-license)
    Compiling tinytemplate v1.2.1
    Compiling is-terminal v0.4.17
    Compiling termtree v0.5.1
    Compiling anes v0.1.6
    Compiling oorandom v11.1.5
    Compiling criterion v0.5.1
-   Compiling touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring/benches)
-   Compiling touring-lsp v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
-   Compiling touring-loom-proofs v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-loom-proofs)
+   Compiling touring-search-fusion-bench v0.1.0 (~/projects/touring/benches)
+   Compiling touring-lsp v30.4.96 (~/projects/touring/crates/touring-lsp)
+   Compiling touring-loom-proofs v0.1.0 (~/projects/touring/crates/touring-loom-proofs)
    Compiling tikv-jemalloc-ctl v0.6.1
    Compiling tikv-jemallocator v0.6.1
    Compiling jemalloc_pprof v0.8.2
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
-   Compiling touring-web-server v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
-   Compiling touring-web v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-web)
-   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
-   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
-   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
-   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
-   Compiling touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+   Compiling touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+   Compiling touring-web-server v30.4.96 (~/projects/touring/crates/touring-web-server)
+   Compiling touring-web v30.4.96 (~/projects/touring/crates/touring-web)
+   Compiling touring-hooks-core v30.4.96 (~/projects/touring/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.96 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-assists v0.1.0 (~/projects/touring/crates/touring-assists)
+   Compiling touring-cli v30.4.96 (~/projects/touring/crates/touring-cli)
+   Compiling touring-python v0.1.0 (~/projects/touring/crates/touring-python)
+   Compiling touring-hook-handlers v30.4.96 (~/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
+   Compiling touring-integration-tests v0.1.0 (~/projects/touring/crates/touring-integration-tests)
     Finished `release` profile [optimized + debuginfo] target(s) in 18m 48s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

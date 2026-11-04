@@ -13,7 +13,7 @@ Environment=LAYA_STUDENT_PORT=8971
 Environment=LAYA_STUDENT_HOST=127.0.0.1
 Environment=LAYA_DEVICE=cuda
 Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-ExecStart=/usr/bin/python3 /home/gabrielgadea/projects/touring/scripts/laya_student_server.py
+ExecStart=/usr/bin/python3 ~/projects/touring/scripts/laya_student_server.py
 Restart=on-failure
 RestartSec=5
 MemoryMax=6G

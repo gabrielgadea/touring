@@ -119,7 +119,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
 
-   Compiling touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-code v30.4.102 (~/projects/touring/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 49.58s
      Running unittests src/lib.rs (target/debug/deps/touring_code-91c008abebc4bd9a)
      Running tests/bash_scanner_ctype.rs (target/debug/deps/bash_scanner_ctype-ee30e61836f37f8c)

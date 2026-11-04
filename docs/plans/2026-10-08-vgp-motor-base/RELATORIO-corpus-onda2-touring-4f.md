@@ -26,8 +26,8 @@ tags: ["#kind:relatorio", "#status:active", "#domain:harness"]
 | sessão | `touring-4f` (MiniMax-M3.1-Flash-Preview) |
 | mandada por | `touring-09`, 09/10, `briefs/2026-10-09-touring-4f-onda2.md` |
 | onda 1 | ACEITA (sha `f2f0f33c6656b686a118`); §5 corrigido de 250/250 para **296/296** |
-| worktree Rust | `/home/gabrielgadea/projects/touring-wt-semeado` no `88c7cc8b`, `git status` vazio |
-| `CARGO_TARGET_DIR` | `/home/gabrielgadea/projects/touring/target/semeado-rust` |
+| worktree Rust | `~/projects/touring-wt-semeado` no `88c7cc8b`, `git status` vazio |
+| `CARGO_TARGET_DIR` | `~/projects/touring/target/semeado-rust` |
 | arquivos meus | `scripts/corpus_semeado.py` · `scripts/oraculo_ls.js` · `scripts/construir_holdout_web.py` · `scripts/coleta_git_web.py` · este relatório |
 | nada commitado | commit/push é proibido pelo brief |
 
@@ -271,9 +271,9 @@ analise-68, por pid.
 | `~/.cache/vgp-semeado/proj-*/` | 65 sombras | cópias por hardlink | `rm -rf` — **decisão do Gabriel** (o hook recusa) |
 | `~/.claude/touring/vgp/work-4f/analise-vgp-semeado/` | 24 GB | movido do repo do analise | idem |
 | `~/.claude/touring/vgp/oss/` | 4 clones + `node_modules` | repos OSS | idem |
-| `/home/gabrielgadea/projects/touring-wt-semeado/` | worktree | Rust | `git worktree remove` |
+| `~/projects/touring-wt-semeado/` | worktree | Rust | `git worktree remove` |
 | `~/.claude/touring/vgp/corpus_holdout_web_20261012/` | **selado** | 83 html + 21 js | **não remover** — é o entregável |
-| `/home/gabrielgadea/projects/touring/target/semeado-rust/` | cache do cargo | alvo do check | idem |
+| `~/projects/touring/target/semeado-rust/` | cache do cargo | alvo do check | idem |
 
 ---
 
@@ -340,15 +340,15 @@ Não toquei em `crates/**` da árvore principal nem em worktree de outra sessão
 ## 8. Retomada
 
 ```bash
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=~/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 O=~/.claude/touring/vgp/oss
 
 # 1. selftest final (o que falta: 37/37)
 VGP_SEMEADO_TMP=$HOME/.cache/vgp-semeado python3 -I $B/scripts/corpus_semeado.py --selftest
 
 # 2. tarefa A (Rust), quando o hw-slot liberar
-cd /home/gabrielgadea/projects/touring-wt-semeado
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/semeado-rust
+cd ~/projects/touring-wt-semeado
+export CARGO_TARGET_DIR=~/projects/touring/target/semeado-rust
 hw-slot --class heavy -- bash -c 'time cargo check -p touring-identity'
 
 # 3. tarefa C no corpus canônico, com os filtros corrigidos

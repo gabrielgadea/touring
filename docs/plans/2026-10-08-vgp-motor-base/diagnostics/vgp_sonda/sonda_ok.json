@@ -3,7 +3,7 @@
     "time": "1791484109148",
     "generalDiagnostics": [
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
             "severity": "error",
             "message": "Function declaration \"campo\" is obscured by a declaration of the same name",
             "range": {
@@ -19,7 +19,7 @@
             "rule": "reportRedeclaration"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
             "severity": "error",
             "message": "Function with declared return type \"str\" must return value on all code paths\n  \"None\" is not assignable to \"str\"",
             "range": {
@@ -35,7 +35,7 @@
             "rule": "reportReturnType"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
             "severity": "error",
             "message": "Expected indented block",
             "range": {
@@ -50,7 +50,7 @@
             }
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
             "severity": "error",
             "message": "Operator \"+=\" not supported for types \"Counter[Unknown] | defaultdict[Unknown, Counter[Unknown]] | int\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"Counter[Unknown]\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"defaultdict[Unknown, Counter[Unknown]]\" and \"Literal[1]\"",
             "range": {
@@ -66,7 +66,7 @@
             "rule": "reportOperatorIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
             "severity": "error",
             "message": "Cannot access attribute \"most_common\" for class \"defaultdict[Unknown, Counter[Unknown]]\"\n  Attribute \"most_common\" is unknown",
             "range": {
@@ -82,7 +82,7 @@
             "rule": "reportAttributeAccessIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
             "severity": "error",
             "message": "Cannot access attribute \"most_common\" for class \"int\"\n  Attribute \"most_common\" is unknown",
             "range": {

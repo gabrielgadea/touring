@@ -5,4 +5,4 @@ timeouts da camada 2: 0/1064 · taxa 0.00% · patamar 20% · sinal nao_aplicavel
   falso deny (inline): 1/400 · taxa 0.250% · limite_superior_95 1.18% (teto 1%; o n=400 admite até 0 falso(s)) · LIMITE ACIMA DO TETO
   PENDENTE: falso deny (inline) limite superior 95% 1.18% > 1% (1/400, taxa 0.250%) — com n=400 o teto admite no máximo 0 falso(s)
 veredito: NÃO PRONTO
-[instrumentado] 1064 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14/a6b9a550_v2.porid.json
+[instrumentado] 1064 veredictos do motor gravados em ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14/a6b9a550_v2.porid.json

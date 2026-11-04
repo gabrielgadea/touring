@@ -3,9 +3,9 @@
 # inicio_utc=2026-10-09T22:36:43Z
 # disco_livre_gb=417
 hw-slot: aguardando — temp 89C > 88C
-   Compiling touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+   Compiling touring-bindings v30.4.95 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hook-runtime v30.4.95 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.95 (~/projects/touring/crates/touring-cli)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 16.23s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

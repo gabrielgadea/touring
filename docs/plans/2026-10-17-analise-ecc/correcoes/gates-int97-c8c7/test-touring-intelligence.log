@@ -1,4 +1,4 @@
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 57.84s
      Running unittests src/lib.rs (target/debug/deps/touring_intelligence-5d0b1ff2de8f45c5)
 

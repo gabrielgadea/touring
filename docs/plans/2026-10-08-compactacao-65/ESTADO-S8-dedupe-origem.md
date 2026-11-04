@@ -50,9 +50,9 @@ PreToolUse:Edit 324 por chamada (2.405 por bloco) · PreToolUse:Write 160 (1.664
 bloco) · PreToolUse:Bash 110 (338) · PreToolUse:Read 93 (1.679) · PostToolBatch 55 ·
 PostToolUse:Edit 52 · PostToolUse:Bash 43. Esse texto fica no contexto até a próxima
 compactação e perde a utilidade quando a chamada termina. Instrumento pronto:
-`python3 /tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/medir_conselho.py 12 --no-bundle`
+`python3 /tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/medir_conselho.py 12 --no-bundle`
 (⚠ caminho de scratchpad da sessão DELA — se não existir mais, reextrair de
-`~/.claude/projects/-home-gabrielgadea-projects-analise/*.jsonl`).
+`~/.claude/projects/-home-<user>-projects-analise/*.jsonl`).
 
 O QUE JÁ EXISTE (leia antes de criar):
 - `crates/touring-cli/src/cli_suggester.rs:106-164`, repeat_reference: dedupe por
@@ -104,7 +104,7 @@ ENTREGAR (política: emitir só quando algo muda):
 ACEITE (cada item por exit code):
 A1 cargo test dos crates tocados verde; clippy sem warning novo.
 A2 Antes→depois em corpus reproduzível: N≥200 payloads PreToolUse/PostToolUse reais de
-   ~/.claude/projects/-home-gabrielgadea-projects-analise/*.jsonl, em sequência, pelo
+   ~/.claude/projects/-home-<user>-projects-analise/*.jsonl, em sequência, pelo
    binário antigo e pelo novo com o MESMO session_id. Reporte chars/chamada por
    hookName. Meta: queda ≥ 40% no total, SEM perder nenhuma diretiva MUST na primeira
    emissão. Controle positivo: a primeira ocorrência de cada seção continua presente.
@@ -232,7 +232,7 @@ touring-foundation 8/8 · touring-cli context_budget 19/19 · env_prefix 1/1 ·
 must_echo 1/1 · lessons_verb 1/1.
 
 **PRÓXIMO PASSO EXATO**: A2 — corpus A/B N≥200 payloads reais de
-`~/.claude/projects/-home-gabrielgadea-projects-analise/*.jsonl` pelo binário antigo
+`~/.claude/projects/-home-<user>-projects-analise/*.jsonl` pelo binário antigo
 e o novo (mesmo session_id), meta queda ≥40 % sem perder nenhuma diretiva MUST na
 1ª emissão (controle positivo). Depois: A1 completo (4 crates + f9 + clippy), A4
 (parágrafo datado em cli_suggester.rs — fixes a/c — e docs/economia-de-creditos-e-

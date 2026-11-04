@@ -1,6 +1,6 @@
 {
  "session": "j14-hot-2544670-1793483403250462117",
- "corpus": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b",
+ "corpus": "/tmp/claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b",
  "metodo": "duas chamadas consecutivas por entrada no shim; a 1ª aquece e a 2ª mede; elapsed_ms da sombra VGP (L1+L2), p95 por posto mais próximo; trace comprova a rota",
  "denominador": {
   "entradas_esperadas": 1064,

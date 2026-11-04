@@ -1,4 +1,4 @@
-[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m workspace : ~/projects/touring
 [1m[propagate][0m versão    : 30.4.97
 
 [1m── 1/6 GATES — cargo check + clippy + espelho client/ + referência + rito + testes dos crates tocados ──[0m
@@ -6,7 +6,7 @@
   2910 arquivo(s) tocados desde o release (commits + árvore de trabalho); 2650 fora de qualquer pacote
   AVISO: .cargo/mutants.toml, Cargo.lock, Cargo.toml mudou - a raiz não pertence a pacote algum e NÃO é mapeada pelo gate
    Compiling ring v0.17.14
-   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+   Compiling touring-server v30.4.97 (~/projects/touring/crates/touring-server)
    Compiling rustls v0.23.41
     Checking rustls-webpki v0.103.13
     Checking tokio-rustls v0.26.4
@@ -14,84 +14,84 @@
     Checking hyper-rustls v0.27.9
     Checking reqwest v0.12.28
     Checking hf-hub v0.5.0
-    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-    Checking touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+    Checking touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+    Checking touring-resilience v30.4.97 (~/projects/touring/crates/touring-resilience)
     Checking opentelemetry-http v0.31.0
     Checking opentelemetry-otlp v0.31.1
-    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
+    Checking touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
    Compiling ort-sys v2.0.0-rc.12
     Checking ort v2.0.0-rc.12
     Checking fastembed v5.17.2
-    Checking touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-    Checking touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-    Checking touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring/benches)
-    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-    Checking touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-    Checking touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-    Checking touring-lsp v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
-    Checking touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
-    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-    Checking touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-    Checking touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
-    Checking touring-web-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
-    Checking touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
-    Checking touring-web v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web)
-    Checking touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-    Checking touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
-    Checking touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-    Checking touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
-    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
-    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Checking touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+    Checking touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+    Checking touring-search-fusion-bench v0.1.0 (~/projects/touring/benches)
+    Checking touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.97 (~/projects/touring/crates/touring-lsp)
+    Checking touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+    Checking touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (~/projects/touring/crates/touring-server-visual)
+    Checking touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+    Checking touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+    Checking touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.97 (~/projects/touring/crates/touring-web-server)
+    Checking touring-python v0.1.0 (~/projects/touring/crates/touring-python)
+    Checking touring-web v30.4.97 (~/projects/touring/crates/touring-web)
+    Checking touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+    Checking touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+    Checking touring-assists v0.1.0 (~/projects/touring/crates/touring-assists)
+    Checking touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (~/projects/touring/crates/touring-integration-tests)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.02s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
     Checking tokio-rustls v0.26.4
-   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+   Compiling touring-server v30.4.97 (~/projects/touring/crates/touring-server)
     Checking hyper-rustls v0.27.9
     Checking reqwest v0.12.28
-    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-    Checking touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+    Checking touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+    Checking touring-resilience v30.4.97 (~/projects/touring/crates/touring-resilience)
     Checking opentelemetry-http v0.31.0
     Checking opentelemetry-otlp v0.31.1
-    Checking touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
-    Checking touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-    Checking touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring/benches)
-    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-    Checking touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-    Checking touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-    Checking touring-lsp v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
-    Checking touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
-    Checking touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-    Checking touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
-    Checking touring-web-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
-    Checking touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
-    Checking touring-web v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web)
-    Checking touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
-    Checking touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-    Checking touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-    Checking touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
-    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
-    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Checking touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
+    Checking touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+    Checking touring-search-fusion-bench v0.1.0 (~/projects/touring/benches)
+    Checking touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.97 (~/projects/touring/crates/touring-lsp)
+    Checking touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+    Checking touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (~/projects/touring/crates/touring-server-visual)
+    Checking touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+    Checking touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+    Checking touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.97 (~/projects/touring/crates/touring-web-server)
+    Checking touring-python v0.1.0 (~/projects/touring/crates/touring-python)
+    Checking touring-web v30.4.97 (~/projects/touring/crates/touring-web)
+    Checking touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+    Checking touring-assists v0.1.0 (~/projects/touring/crates/touring-assists)
+    Checking touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+    Checking touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (~/projects/touring/crates/touring-integration-tests)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 12s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -120,12 +120,12 @@ OK: reference docs in sync
 2 passed in 0.03s
 ....                                                                     [100%]
 4 passed in 0.08s
-hw-slot: aguardando — slot — rust+heavy ocupado: rust-1=bash /tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/lote_b.sh (pid 91459), heavy-1=bash /tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/lote_b.sh (pid 91459), heavy-2=livre
+hw-slot: aguardando — slot — rust+heavy ocupado: rust-1=bash /tmp/claude-1000/-home-<user>-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/lote_b.sh (pid 91459), heavy-1=bash /tmp/claude-1000/-home-<user>-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/lote_b.sh (pid 91459), heavy-2=livre
 hw-slot: sem vaga após 600s: temp 94C > 88C
 r3-s1a-gate: S1a reprovou na 1ª tentativa — UMA re-medição (ruído térmico vira atraso; regressão reprova de novo)
 hw-slot: aguardando — temp 95C > 88C
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 14.39s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -146,9 +146,9 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; fini
 
 all doctests ran in 0.25s; merged doctests compilation took 0.25s
 r3-s1a-gate: S1a ok na re-medição
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p inferlets --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p inferlets --no-fail-fast
 hw-slot: aguardando — temp 96C > 88C
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.78s
      Running unittests src/lib.rs (target/debug/deps/inferlets-203cdeb1d2aa44bd)
 
@@ -279,7 +279,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-analysis --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-analysis --no-fail-fast
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.37s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -1491,10 +1491,10 @@ test crates/touring-analysis/src/quality/security.rs - quality::security (line 1
 test result: ok. 24 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
 all doctests ran in 2.77s; merged doctests compilation took 2.75s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-bindings --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-bindings --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1.35s
      Running unittests src/lib.rs (target/debug/deps/touring_bindings-ab67dad2125e8ef3)
 
@@ -1524,7 +1524,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-ceg --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-ceg --no-fail-fast
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
      Running unittests src/lib.rs (target/debug/deps/touring_ceg-b7c6e9cc9fd4a8e6)
 
@@ -2156,12 +2156,12 @@ test crates/touring-ceg/src/gateway/typestate.rs - gateway::typestate::Execution
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
 
 all doctests ran in 3.45s; merged doctests compilation took 3.17s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-cli --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-cli --no-fail-fast
 hw-slot: aguardando — temp 91C > 88C
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 13.05s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -2904,7 +2904,7 @@ test crates/touring-cli/src/cli/handlers/entity.rs - cli_handlers_entity::cli_en
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.24s; merged doctests compilation took 0.23s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-code --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-code --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
      Running unittests src/lib.rs (target/debug/deps/touring_code-75cc59d45fd5454f)
@@ -4292,7 +4292,7 @@ test crates/touring-code/src/semantics/semantics.rs - semantics::semantics (line
 test result: ok. 12 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
 all doctests ran in 2.93s; merged doctests compilation took 2.91s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-cortex --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-cortex --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
    Compiling ring v0.17.14
    Compiling ort-sys v2.0.0-rc.12
@@ -4304,29 +4304,29 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling hyper-rustls v0.27.9
    Compiling reqwest v0.12.28
    Compiling hf-hub v0.5.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling fastembed v5.17.2
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
-   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-resilience v30.4.97 (~/projects/touring/crates/touring-resilience)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 49.17s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -5235,27 +5235,27 @@ test crates/touring-cortex/src/fascicles/evidence_adapter.rs - fascicles::eviden
 test result: ok. 4 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 5.23s; merged doctests compilation took 5.22s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-dispatch --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-dispatch --no-fail-fast
 hw-slot: aguardando — temp 95C > 88C
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 42.41s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -6642,7 +6642,7 @@ test crates/touring-dispatch/src/shared/mod.rs - shared::federation (line 77) ..
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.28s; merged doctests compilation took 0.28s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-foundation --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-foundation --no-fail-fast
 hw-slot: aguardando — temp 93C > 88C
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
      Running unittests src/lib.rs (target/debug/deps/touring_foundation-d345fcf104d4b49e)
@@ -7335,10 +7335,10 @@ test crates/touring-foundation/src/shared/domain_circuit.rs - shared::domain_cir
 test result: ok. 8 passed; 0 failed; 22 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.66s; merged doctests compilation took 0.65s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-generator --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-generator --no-fail-fast
 hw-slot: aguardando — temp 96C > 88C
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 33.73s
      Running unittests src/lib.rs (target/debug/deps/touring_generator-b275dd11d6e1813c)
 
@@ -7852,12 +7852,12 @@ test crates/touring-generator/src/vgp/engine.rs - vgp::engine::VgpEngine::with_i
 test result: ok. 0 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.28s; merged doctests compilation took 0.27s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hook-handlers --no-fail-fast --features pre-hooks,post-hooks
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hook-handlers --no-fail-fast --features pre-hooks,post-hooks
 hw-slot: aguardando — temp 92C > 88C
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 20.09s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -8666,9 +8666,9 @@ test crates/touring-hook-handlers/src/shared/signal_pipeline.rs - shared::signal
 test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.29s; merged doctests compilation took 0.29s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hook-runtime --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hook-runtime --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 10.61s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -9244,27 +9244,27 @@ test crates/touring-hook-runtime/src/shared/signals.rs - shared::signals::wilson
 test result: ok. 0 passed; 0 failed; 7 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.25s; merged doctests compilation took 0.25s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks --no-fail-fast
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-   Compiling touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks --no-fail-fast
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 07s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -10892,7 +10892,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks-core --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks-core --no-fail-fast
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
      Running unittests src/lib.rs (target/debug/deps/touring_hooks_core-d003a00ed622ac6b)
 
@@ -11456,25 +11456,25 @@ test crates/touring-hooks-core/src/workflow_templates.rs - workflow_templates (l
 test result: ok. 0 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.39s; merged doctests compilation took 0.38s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks-shared --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks-shared --no-fail-fast
 hw-slot: aguardando — temp 95C > 88C
 hw-slot: sem vaga após 600s: temp 95C > 88C
 [33m[propagate] WARN[0m sem vaga no hw-slot (rc 75) para touring-hooks-shared — nada foi testado; repetindo 1×
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks-shared --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks-shared --no-fail-fast
 hw-slot: aguardando — temp 95C > 88C
    Compiling h2 v0.4.19
    Compiling hyper v1.10.1
    Compiling hyper-util v0.1.20
    Compiling hyper-rustls v0.27.9
    Compiling reqwest v0.12.28
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 47.28s
      Running unittests src/lib.rs (target/debug/deps/touring_hooks_shared-484850670c10ed07)
 
@@ -11995,7 +11995,7 @@ test crates/touring-hooks-shared/src/rfc100_emission.rs - rfc100_emission (line 
 test result: ok. 1 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 2.91s; merged doctests compilation took 2.90s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-integration-tests --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-integration-tests --no-fail-fast
    Compiling rustix v1.1.4
    Compiling ring v0.17.14
    Compiling similar v2.7.0
@@ -12013,44 +12013,44 @@ all doctests ran in 2.91s; merged doctests compilation took 2.90s
    Compiling ureq v3.3.0
    Compiling wasmtime-c-api-impl v36.0.12
    Compiling tree-sitter v0.26.9
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling ort-sys v2.0.0-rc.12
    Compiling hf-hub v0.5.0
    Compiling ort v2.0.0-rc.12
    Compiling ast-grep-core v0.42.3
    Compiling fastembed v5.17.2
    Compiling ast-grep-language v0.42.3
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling notify-debouncer-mini v0.5.0
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
    Compiling gethostname v1.1.0
    Compiling x11rb v0.13.2
    Compiling arboard v3.6.1
    Compiling wasmtime v46.0.3
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
    Compiling mpatch v1.6.4
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
    Compiling tantivy v0.22.1
-   Compiling touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
-   Compiling touring-identity v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-identity)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-   Compiling touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
-   Compiling touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+   Compiling touring-resilience v30.4.97 (~/projects/touring/crates/touring-resilience)
+   Compiling touring-identity v30.4.97 (~/projects/touring/crates/touring-identity)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+   Compiling touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+   Compiling touring-integration-tests v0.1.0 (~/projects/touring/crates/touring-integration-tests)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 43s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -12400,14 +12400,14 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-intelligence --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-intelligence --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
    Compiling h2 v0.4.19
    Compiling naga v26.0.0
    Compiling tree-sitter v0.26.9
    Compiling rusty-fork v0.3.1
    Compiling ast-grep-core v0.42.3
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling hyper v1.10.1
    Compiling ast-grep-language v0.42.3
    Compiling hyper-util v0.1.20
@@ -12416,16 +12416,16 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling wgpu-hal v26.0.6
    Compiling reqwest v0.12.28
    Compiling wgpu-core-deps-windows-linux-android v26.0.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling wgpu-core v26.0.1
    Compiling proptest v1.11.0
    Compiling wgpu v26.0.1
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 42s
      Running unittests src/lib.rs (target/debug/deps/touring_intelligence-f7c5cc3b9bec7eb1)
 
@@ -14457,16 +14457,16 @@ test crates/touring-intelligence/src/rl/rl/tiny_transformer.rs - rl::rl::tiny_tr
 test result: ok. 26 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
 all doctests ran in 3.05s; merged doctests compilation took 2.99s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-lsp --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-lsp --no-fail-fast
 hw-slot: aguardando — temp 96C > 88C
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-lsp v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+   Compiling touring-lsp v30.4.97 (~/projects/touring/crates/touring-lsp)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 20.14s
      Running unittests src/lib.rs (target/debug/deps/touring_lsp-5081b26a5f4a053d)
 
@@ -14499,7 +14499,7 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-offensive --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-offensive --no-fail-fast
 hw-slot: aguardando — temp 93C > 88C
    Compiling regex-syntax v0.8.11
    Compiling reqwest v0.12.28
@@ -14507,8 +14507,8 @@ hw-slot: aguardando — temp 93C > 88C
    Compiling globset v0.4.18
    Compiling regex v1.12.4
    Compiling ignore v0.4.26
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 16.74s
      Running unittests src/lib.rs (target/debug/deps/touring_offensive-afbb732ce893ea01)
 
@@ -14844,9 +14844,9 @@ test crates/touring-offensive/src/lib.rs - (line 19) ... ok
 test result: ok. 18 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
 all doctests ran in 0.88s; merged doctests compilation took 0.86s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-pyright --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-pyright --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
-   Compiling touring-pyright v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
+   Compiling touring-pyright v30.4.97 (~/projects/touring/crates/touring-pyright)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 8.23s
      Running unittests src/lib.rs (target/debug/deps/touring_pyright-7a37f84f8424d47a)
 
@@ -15113,9 +15113,9 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-quality --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-quality --no-fail-fast
 hw-slot: aguardando — temp 95C > 88C
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 11.35s
      Running unittests src/lib.rs (target/debug/deps/touring_quality-a44e8d1a4a060b42)
 
@@ -15655,7 +15655,7 @@ test crates/touring-quality/src/lib.rs - (line 17) - compile ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 2.42s; merged doctests compilation took 2.42s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-rkyv --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-rkyv --no-fail-fast
 hw-slot: aguardando — temp 96C > 88C
    Compiling syn v2.0.118
    Compiling crossbeam-epoch v0.9.20
@@ -15682,7 +15682,7 @@ hw-slot: aguardando — temp 96C > 88C
    Compiling half v2.7.1
    Compiling ppv-lite86 v0.2.21
    Compiling tinytemplate v1.2.1
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring/crates/touring-rkyv)
    Compiling ciborium-ll v0.2.2
    Compiling rand_chacha v0.9.0
    Compiling ciborium v0.2.2
@@ -15758,54 +15758,54 @@ test crates/touring-rkyv/src/lib.rs - (line 15) ... ignored
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 0.28s; merged doctests compilation took 0.28s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-server --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-server --no-fail-fast
 hw-slot: aguardando — temp 92C > 88C
    Compiling ring v0.17.14
    Compiling ort v2.0.0-rc.12
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
-   Compiling touring-contracts v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-contracts)
-   Compiling touring-orchestration v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-orchestration)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
+   Compiling touring-contracts v30.4.97 (~/projects/touring/crates/touring-contracts)
+   Compiling touring-orchestration v30.4.97 (~/projects/touring/crates/touring-orchestration)
    Compiling rustls-webpki v0.103.13
    Compiling rustls v0.23.41
-   Compiling touring-hooks-saga v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-saga)
-   Compiling touring-pyright v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
-   Compiling touring-identity v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-identity)
-   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+   Compiling touring-hooks-saga v30.4.97 (~/projects/touring/crates/touring-hooks-saga)
+   Compiling touring-pyright v30.4.97 (~/projects/touring/crates/touring-pyright)
+   Compiling touring-identity v30.4.97 (~/projects/touring/crates/touring-identity)
+   Compiling touring-server v30.4.97 (~/projects/touring/crates/touring-server)
    Compiling tokio-rustls v0.26.4
    Compiling ureq v3.3.0
    Compiling hyper-rustls v0.27.9
    Compiling reqwest v0.12.28
    Compiling hf-hub v0.5.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling fastembed v5.17.2
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
-   Compiling touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+   Compiling touring-resilience v30.4.97 (~/projects/touring/crates/touring-resilience)
    Compiling opentelemetry-http v0.31.0
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
    Compiling opentelemetry-otlp v0.31.1
-   Compiling touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-license v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-license)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-   Compiling touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
-   Compiling touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
-   Compiling touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
-   Compiling touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
-   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+   Compiling touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.97 (~/projects/touring/crates/touring-quality)
+   Compiling touring-license v30.4.97 (~/projects/touring/crates/touring-license)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-server-visual v30.0.0 (~/projects/touring/crates/touring-server-visual)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.97 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.97 (~/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring/crates/touring-capnp-server)
+   Compiling touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+   Compiling touring-hooks-core v30.4.97 (~/projects/touring/crates/touring-hooks-core)
+   Compiling touring-assists v0.1.0 (~/projects/touring/crates/touring-assists)
+   Compiling touring-hook-runtime v30.4.97 (~/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.97 (~/projects/touring/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.97 (~/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 52s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -17814,11 +17814,11 @@ all doctests ran in 5.54s; merged doctests compilation took 5.52s
 error: 1 target failed:
     `-p touring-server --test binary_e2e`
 [33m[propagate] WARN[0m testes de touring-server falharam (rc 101)
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-server-reasoning --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-server-reasoning --no-fail-fast
 hw-slot: aguardando — temp 94C > 88C
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling serial_test v3.5.0
-   Compiling touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
+   Compiling touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 11.58s
      Running unittests src/lib.rs (target/debug/deps/touring_server_reasoning-24d44a104b3a05f8)
 
@@ -17951,9 +17951,9 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-storage --no-fail-fast
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-storage --no-fail-fast
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 17.06s
      Running unittests src/lib.rs (target/debug/deps/touring_storage-5631a7deef08a927)
 
@@ -18180,7 +18180,7 @@ test crates/touring-storage/src/hybrid_search/hybrid.rs - hybrid_search::hybrid 
 test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 all doctests ran in 1.50s; merged doctests compilation took 1.48s
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-web --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-web --no-fail-fast
    Compiling serde v1.0.228
    Compiling zerocopy v0.8.52
    Compiling indexmap v2.14.0
@@ -18359,7 +18359,7 @@ all doctests ran in 1.50s; merged doctests compilation took 1.48s
    Compiling server_fn v0.8.13
    Compiling ravif v0.13.0
    Compiling config v0.15.24
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling tiff v0.11.3
    Compiling exr v1.74.0
    Compiling tree-sitter v0.26.9
@@ -18421,21 +18421,21 @@ all doctests ran in 1.50s; merged doctests compilation took 1.48s
    Compiling zip v1.1.4
    Compiling statrs v0.17.1
    Compiling ast-grep-core v0.42.3
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring/crates/touring-rkyv)
    Compiling deadpool-runtime v0.3.1
    Compiling rustdoc-types v0.39.0
    Compiling cargo-platform v0.2.0
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
    Compiling public-api v0.47.1
    Compiling petgraph v0.6.5
    Compiling ropey v1.6.1
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling touring-storage v30.4.97 (~/projects/touring/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling candle-core v0.8.4
    Compiling notify-debouncer-mini v0.5.0
    Compiling derive_more v2.1.1
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling cargo-lock v11.0.1
    Compiling tracing-error v0.2.1
    Compiling sprs v0.11.1
@@ -18446,9 +18446,9 @@ all doctests ran in 1.50s; merged doctests compilation took 1.48s
    Compiling leptos_router v0.8.14
    Compiling rustsec v0.33.0
    Compiling argmin v0.9.0
-   Compiling touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-code v30.4.97 (~/projects/touring/crates/touring-code)
    Compiling linfa v0.7.1
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
    Compiling candle-nn v0.8.4
    Compiling deadpool v0.13.1
    Compiling deadpool-sync v0.2.0
@@ -18461,16 +18461,16 @@ all doctests ran in 1.50s; merged doctests compilation took 1.48s
    Compiling linfa-ftrl v0.7.1
    Compiling leptos_integration_utils v0.8.8
    Compiling deadpool-sqlite v0.14.0
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
    Compiling crdts v7.3.2
    Compiling ndarray v0.16.1
-   Compiling touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
-   Compiling touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+   Compiling touring-bindings v30.4.97 (~/projects/touring/crates/touring-bindings)
+   Compiling touring-intelligence v30.4.97 (~/projects/touring/crates/touring-intelligence)
    Compiling leptos_axum v0.8.10
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
    Compiling serde-wasm-bindgen v0.4.5
    Compiling tokio-stream v0.1.18
-   Compiling touring-web v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web)
+   Compiling touring-web v30.4.97 (~/projects/touring/crates/touring-web)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4m 33s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
@@ -18486,9 +18486,9 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-  [1m$[0m /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-web-server --no-fail-fast
+  [1m$[0m ~/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-web-server --no-fail-fast
 hw-slot: aguardando — temp 96C > 88C
-   Compiling touring-web-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
+   Compiling touring-web-server v30.4.97 (~/projects/touring/crates/touring-web-server)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.92s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

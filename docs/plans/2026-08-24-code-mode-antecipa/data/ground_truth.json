@@ -42,7 +42,7 @@
       {
         "name": "project_db",
         "status": "ok",
-        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (191209472 bytes)"
+        "detail": "~/projects/touring/.claude/touring/symbols.db (191209472 bytes)"
       },
       {
         "name": "project_actor",
@@ -52,7 +52,7 @@
       {
         "name": "wiring_diagnostic",
         "status": "warning",
-        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=111589 producers=11635 consumers=99954 pub=10845 kind_unknown=38239 non_wireable=0 unread=0 abs_paths=0"
+        "detail": "root=~/projects/touring/ polyglot=off rows=111589 producers=11635 consumers=99954 pub=10845 kind_unknown=38239 non_wireable=0 unread=0 abs_paths=0"
       }
     ]
   },
@@ -356,7 +356,7 @@
         "total_functions": 14157,
         "total_nodes": 1344
       },
-      "root": "/home/gabrielgadea/projects/touring",
+      "root": "~/projects/touring",
       "root_causes": {
         "acyclicity": 0.058823529411764705,
         "depth": 0.4,
@@ -540,7 +540,7 @@
   },
   "e2e": {
     "version": "30.4.14",
-    "target": "/home/gabrielgadea/projects/touring",
+    "target": "~/projects/touring",
     "depth": "standard",
     "timestamp": "1787614365",
     "overall_score": 0.857803234989404,

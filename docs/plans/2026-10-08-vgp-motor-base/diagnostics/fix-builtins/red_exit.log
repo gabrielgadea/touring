@@ -1,8 +1,8 @@
 hw-slot: aguardando — temp 97C > 88C
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
-   Compiling touring-storage v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+   Compiling touring-storage v30.4.102 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-code v30.4.102 (~/projects/touring/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 27.57s
      Running unittests src/lib.rs (target/debug/deps/touring_code-91c008abebc4bd9a)
 

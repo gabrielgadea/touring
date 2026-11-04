@@ -40,12 +40,12 @@
       {
         "name": "circuit_breaker",
         "status": "ok",
-        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{\"Medium\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0}},\"by_project\":{\"/home/gabrielgadea/projects/analise\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0,\"weighted_score\":1.0}},\"by_session\":{\"9105f79c-7d21-4688-89c5-2a57a0ba1b29\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0}}}"
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{\"Medium\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0}},\"by_project\":{\"~/projects/analise\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0,\"weighted_score\":1.0}},\"by_session\":{\"9105f79c-7d21-4688-89c5-2a57a0ba1b29\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0}}}"
       },
       {
         "name": "project_db",
         "status": "ok",
-        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (503709696 bytes)"
+        "detail": "~/projects/touring/.claude/touring/symbols.db (503709696 bytes)"
       },
       {
         "name": "project_actor",
@@ -55,7 +55,7 @@
       {
         "name": "wiring_diagnostic",
         "status": "ok",
-        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=100346 producers=12508 consumers=87838 pub=11554 kind_unknown=0 non_wireable=0 unread=0 abs_paths=0"
+        "detail": "root=~/projects/touring/ polyglot=off rows=100346 producers=12508 consumers=87838 pub=11554 kind_unknown=0 non_wireable=0 unread=0 abs_paths=0"
       },
       {
         "name": "index_generation",
@@ -644,7 +644,7 @@
         "total_functions": 15510,
         "total_nodes": 1401
       },
-      "root": "/home/gabrielgadea/projects/touring",
+      "root": "~/projects/touring",
       "root_causes": {
         "acyclicity": 0.058823529411764705,
         "depth": 0.4,
@@ -828,7 +828,7 @@
   },
   "e2e": {
     "version": "30.4.87",
-    "target": "/home/gabrielgadea/projects/touring",
+    "target": "~/projects/touring",
     "depth": "standard",
     "timestamp": "1790818188",
     "overall_score": 0.856520147420714,
@@ -1205,28 +1205,28 @@
       "score": 0.28041696548461914,
       "source": "tfidf:memory",
       "stored_at": "2026-09-22 17:48:43",
-      "value": "report:phase:task_1790097198101133178:S5 OKF: S5 — phase report (2026-09-22-jev-system-one) — /home/gabrielgadea/projects/touring/docs/plans/2026-09-22-jev-system-one/phases/S5.md"
+      "value": "report:phase:task_1790097198101133178:S5 OKF: S5 — phase report (2026-09-22-jev-system-one) — ~/projects/touring/docs/plans/2026-09-22-jev-system-one/phases/S5.md"
     },
     {
       "key": "report:diagnostic:touring-20260923T185710",
       "score": 0.3021365764303916,
       "source": "ann",
       "stored_at": "2026-09-23 21:57:10",
-      "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T185710.md"
+      "value": "OKF: Diagnostic — ~/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T185710.md"
     },
     {
       "key": "report:phase:task_1790097198101133178:G0",
       "score": 0.28041696548461914,
       "source": "tfidf:memory",
       "stored_at": "2026-09-23 00:48:48",
-      "value": "report:phase:task_1790097198101133178:G0 OKF: G0 — phase report (2026-09-22-jev-system-one) — /home/gabrielgadea/projects/touring/docs/plans/2026-09-22-jev-system-one/phases/G0.md"
+      "value": "report:phase:task_1790097198101133178:G0 OKF: G0 — phase report (2026-09-22-jev-system-one) — ~/projects/touring/docs/plans/2026-09-22-jev-system-one/phases/G0.md"
     },
     {
       "key": "report:diagnostic:touring-20260923T200801",
       "score": 0.2993178187174365,
       "source": "ann",
       "stored_at": "2026-09-23 23:08:01",
-      "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T200801.md"
+      "value": "OKF: Diagnostic — ~/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T200801.md"
     },
     {
       "key": "report:phase:task_1790203324709596117:N1",
@@ -1240,7 +1240,7 @@
       "score": 0.29776772856713185,
       "source": "ann",
       "stored_at": "2026-09-23 23:22:00",
-      "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T202200.md"
+      "value": "OKF: Diagnostic — ~/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T202200.md"
     }
   ],
   "gotcha_per_file": {},

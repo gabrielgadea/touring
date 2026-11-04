@@ -13,8 +13,8 @@
    "ok": true,
    "pct": 99.84,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-architect.md",
-    "/home/gabrielgadea/.claude/agents/touring-architect.md"
+    "~/projects/touring/client/agents/touring-architect.md",
+    "~/.claude/agents/touring-architect.md"
    ],
    "copias_divergentes": []
   },
@@ -29,8 +29,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-auditor.md",
-    "/home/gabrielgadea/.claude/agents/touring-auditor.md"
+    "~/projects/touring/client/agents/touring-auditor.md",
+    "~/.claude/agents/touring-auditor.md"
    ],
    "copias_divergentes": []
   },
@@ -49,8 +49,8 @@
    "ok": true,
    "pct": 99.52,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-engineer.md",
-    "/home/gabrielgadea/.claude/agents/touring-engineer.md"
+    "~/projects/touring/client/agents/touring-engineer.md",
+    "~/.claude/agents/touring-engineer.md"
    ],
    "copias_divergentes": []
   },
@@ -70,8 +70,8 @@
    "ok": true,
    "pct": 99.38,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-scouter.md",
-    "/home/gabrielgadea/.claude/agents/touring-scouter.md"
+    "~/projects/touring/client/agents/touring-scouter.md",
+    "~/.claude/agents/touring-scouter.md"
    ],
    "copias_divergentes": []
   },
@@ -86,8 +86,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-scriber.md",
-    "/home/gabrielgadea/.claude/agents/touring-scriber.md"
+    "~/projects/touring/client/agents/touring-scriber.md",
+    "~/.claude/agents/touring-scriber.md"
    ],
    "copias_divergentes": []
   },
@@ -102,7 +102,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/agents/antt-vote-drafter.md"
+    "~/projects/analise/.claude/agents/antt-vote-drafter.md"
    ],
    "copias_divergentes": []
   },
@@ -117,7 +117,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/agents/erickson-paradox-reformulator.md"
+    "~/projects/analise/.claude/agents/erickson-paradox-reformulator.md"
    ],
    "copias_divergentes": []
   },
@@ -132,7 +132,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/agents/transformational-narrative-architect.md"
+    "~/projects/analise/.claude/agents/transformational-narrative-architect.md"
    ],
    "copias_divergentes": []
   }

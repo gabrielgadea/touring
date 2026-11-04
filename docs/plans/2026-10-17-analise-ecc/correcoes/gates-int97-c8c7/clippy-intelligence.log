@@ -21,14 +21,14 @@
     Checking deadpool-runtime v0.3.1
     Checking zip v1.1.4
     Checking hyper-util v0.1.20
-    Checking touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+    Checking touring-rkyv v0.1.0 (~/projects/touring-wt-int97/crates/touring-rkyv)
     Checking hyper-rustls v0.27.9
     Checking wgpu-core-deps-windows-linux-android v26.0.0
     Checking wgpu-core v26.0.1
     Checking cargo_metadata v0.21.0
     Checking reqwest v0.12.28
     Checking candle-core v0.8.4
-    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+    Checking touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
     Checking notify-debouncer-mini v0.5.0
     Checking wgpu v26.0.1
     Checking cargo-lock v11.0.1
@@ -39,10 +39,10 @@
     Checking rustsec v0.33.0
     Checking candle-nn v0.8.4
     Checking deadpool v0.13.1
-    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
-    Checking touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Checking touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+    Checking touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
     Checking wasmtime v36.0.14
-    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+    Checking touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
     Checking deadpool-sync v0.2.0
     Checking wait-timeout v0.2.1
     Checking rusty-fork v0.3.1
@@ -55,9 +55,9 @@
     Checking wasmtime-c-api-impl v36.0.12
     Checking tree-sitter v0.26.9
     Checking ast-grep-core v0.42.3
-    Checking tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+    Checking tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
     Checking ast-grep-language v0.42.3
-    Checking touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
-    Checking touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+    Checking touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+    Checking touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
+    Checking touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 01s

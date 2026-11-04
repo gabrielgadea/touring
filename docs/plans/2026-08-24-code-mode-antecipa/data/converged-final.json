@@ -28,7 +28,7 @@
     "clean": true
   },
   "task": "task_1787614930715946363",
-  "scope": "/home/gabrielgadea/projects/touring",
+  "scope": "~/projects/touring",
   "rust_scope": true,
   "clauses": {
     "judge_intact": {

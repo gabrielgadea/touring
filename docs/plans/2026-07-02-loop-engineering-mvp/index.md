@@ -43,5 +43,5 @@ human-readable, diffable mirror.
 ## Skill
 
 The engine itself lives at `~/.claude/skills/loop-engineering/`
-([SKILL.md](file:///home/gabrielgadea/.claude/skills/loop-engineering/SKILL.md),
-[AGENTS.md](file:///home/gabrielgadea/.claude/skills/loop-engineering/AGENTS.md)).
+([SKILL.md](file://~/.claude/skills/loop-engineering/SKILL.md),
+[AGENTS.md](file://~/.claude/skills/loop-engineering/AGENTS.md)).

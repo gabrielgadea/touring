@@ -135,7 +135,7 @@ nunca por linha de comando (REGRA #19):
 
 ```
 PID 3274868  PPID 3269720  exe="touring (deleted)"  inode 22260413  mtime 27-09 15:28:25
-  → cmdline: /home/gabrielgadea/.local/bin/touring serve
+  → cmdline: ~/.local/bin/touring serve
 
 FONTE  target/release/touring          inode 23049013  mtime 01-10 11:37:54
 DEV    ~/.local/bin/touring -> target/release/touring  (mesmo inode 23049013)

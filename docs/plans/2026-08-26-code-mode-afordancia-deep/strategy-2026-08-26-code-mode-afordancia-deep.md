@@ -42,7 +42,7 @@ três classificadores lê além do primeiro token.**
 ### R1 — Furo de classificação: o primeiro token (CONFIRMADA, 72/91 comandos)
 
 Na sessão-problema: 91 Bash, 4 `touring run`, **70 comandos começam com `cd`**
-(69× `cd /home/gabrielgadea/projects/analise` + 3× um subdir de plano) e a ação
+(69× `cd ~/projects/analise` + 3× um subdir de plano) e a ação
 real vem na linha seguinte ou após `&&` (`.venv/bin/python3 …`, `for …`,
 `grep …`). Os três classificadores leem só o primeiro token:
 

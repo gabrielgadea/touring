@@ -228,7 +228,7 @@ touring-quality check --gate F2.1 --target <FILE>       # + F2.4 F2.5 F2.6 F4.3 
 touring-quality score <target> --workspace --fail-below 0.80
 touring e2e -j                                          # por componente (ast/wiring/index/knowledge/quality constantes)
 # convergência
-python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task <id> --scope /home/gabrielgadea/projects/touring --rust-full   # exit 0
+python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task <id> --scope ~/projects/touring --rust-full   # exit 0
 ```
 
 ## 6. Potentiation Matrix

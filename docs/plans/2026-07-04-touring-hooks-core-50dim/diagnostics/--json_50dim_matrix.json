@@ -2,7 +2,7 @@
  "meta": {
   "root": "touring-hooks-core",
   "slug": "--json",
-  "bin": "/home/gabrielgadea/.claude/rust/target/release/touring-quality",
+  "bin": "~/.claude/rust/target/release/touring-quality",
   "schema": "complete-raw",
   "file_scopes": 0,
   "path_scopes": 0,

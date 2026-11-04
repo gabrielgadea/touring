@@ -38,7 +38,7 @@ Release 30.4.91 (commit `d4f62279`), daemon `touring-daemon` PID 2546525 reinici
 
 ```bash
 ls /nonexistent-r3-probe-a1-second          # exit 2, SEM pipe (um `| head` mascara o exit e o hook vê 0)
-ls /home/gabrielgadea/projects/touring/.touring   # mesma forma de comando
+ls ~/projects/touring/.touring   # mesma forma de comando
 tail -n 2 ~/.claude/touring/logs/r3_events.jsonl
 ```
 

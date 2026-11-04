@@ -11,7 +11,7 @@ tags: ["#kind:plan", "#status:active", "#domain:harness"]
 
 Ordem do Gabriel (/goal 09/10): «prossiga com a implementação completa de proposta.md e VL0-multilinguagem-spec.md e
 ao final, me prove, na prática, que tudo funciona de forma completa e perfeita». B =
-`/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+`~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 
 ## Juízo da onda 1 (coordenadora, 09/10 ~22:50Z): ACEITA
 
@@ -36,7 +36,7 @@ pegou no Python (0/700 no ajuste, CP 1,74% fora dele; memória `juiz-taxa-pontua
 `~/.claude/touring/vgp/corpus_rust/` tem n < 20 em `atributo` (3) e `kwarg` (1), e `import` está no limite (13).
 Faça `--lang rust` no `corpus_semeado.py` com ≥ 20 positivos por classe: `nome` E0425 · `import` E0432/E0433 ·
 `atributo` E0609/E0599 · `kwarg` E0560. A mutação é em arquivo REAL de crate pequeno, e o oráculo é o `cargo check`
-do crate com `CARGO_TARGET_DIR` dedicado (`/home/gabrielgadea/projects/touring/target/semeado-rust`) e incremental,
+do crate com `CARGO_TARGET_DIR` dedicado (`~/projects/touring/target/semeado-rust`) e incremental,
 por `scripts/hw-slot --class rust`. Escolha crates-folha (`touring-pyright`, `touring-foundation` ou crates de
 `~/projects` com poucas dependências) para cada check custar segundos; meça e cite o custo. O código do rustc tem de
 estar na `mensagem` (o `classe_erro` exige para Rust). Os negativos de Rust já existem (307 no natural).
@@ -77,8 +77,8 @@ Arquivos exclusivos: `B/scripts/corpus_semeado.py` (e testes ao lado), `~/.claud
 
 commit/push; `update-touring`/`propagate`; `kill`/`pkill` em processo touring; `git stash`; `rm -rf`;
 `~/.claude/settings.json`; editar `crates/**` da árvore principal ou dos worktrees dos outros. A mutação Rust acontece
-num worktree SEU: `git -C /home/gabrielgadea/projects/touring worktree add --detach
-/home/gabrielgadea/projects/touring-wt-semeado 88c7cc8b` (aditivo). Entre uma mutação e outra, restaure regravando o
+num worktree SEU: `git -C ~/projects/touring worktree add --detach
+~/projects/touring-wt-semeado 88c7cc8b` (aditivo). Entre uma mutação e outra, restaure regravando o
 conteúdo original que você salvou; `git checkout --`/`restore` estão proibidos. O worktree termina limpo
 (`git status --porcelain` vazio) e é o `project_root` das entradas Rust; os juízes `B/scripts/juiz_*.py`, `corpus_v0d.py` e `shell_inline.py` (só leitura); os
 corpora `corpus_v0d*`, `corpus_rust` e `corpus_holdout_disjunto*` (só leitura, e o held-out Python nem isso).

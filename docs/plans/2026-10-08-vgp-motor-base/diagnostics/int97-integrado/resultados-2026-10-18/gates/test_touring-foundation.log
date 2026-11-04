@@ -3,12 +3,12 @@
    Compiling reqwest v0.12.28
    Compiling rand v0.9.4
    Compiling regex v1.12.4
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling ppv-lite86 v0.2.21
    Compiling rand_chacha v0.9.0
    Compiling proptest v1.11.0
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 36s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_foundation-d345fcf104d4b49e)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_foundation-d345fcf104d4b49e)
 
 running 546 tests
 test activity::event::tests::event_action_display ... ok
@@ -560,7 +560,7 @@ test governor::tests::test_timeout_exceeded ... ok
 
 test result: ok. 546 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
 
-     Running tests/activity_integration_test.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/activity_integration_test-a19f9a56e625b857)
+     Running tests/activity_integration_test.rs (~/projects/touring/target/wt-int97/debug/deps/activity_integration_test-a19f9a56e625b857)
 
 running 5 tests
 test integration_event_id_new_and_parse ... ok
@@ -571,7 +571,7 @@ test integration_store_monotonic_seq ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/activity_proptests.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/activity_proptests-dd662fa3a57512f9)
+     Running tests/activity_proptests.rs (~/projects/touring/target/wt-int97/debug/deps/activity_proptests-dd662fa3a57512f9)
 
 running 3 tests
 test proptest_empty_then_first_seq ... ok
@@ -580,7 +580,7 @@ test proptest_monotonic_seq_append ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.19s
 
-     Running tests/cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cross_audit-b9608dd6cc3dea3b)
+     Running tests/cross_audit.rs (~/projects/touring/target/wt-int97/debug/deps/cross_audit-b9608dd6cc3dea3b)
 
 running 29 tests
 test circuit_breaker_half_open_probe_failure_reopens ... ok
@@ -615,7 +615,7 @@ test backup_all_three_domains_e2e_cycle ... ok
 
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/governor_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/governor_e2e-070d12bbe052d390)
+     Running tests/governor_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/governor_e2e-070d12bbe052d390)
 
 running 4 tests
 test test_integration_chunk_limit_enforcement ... ok
@@ -625,7 +625,7 @@ test test_integration_timeout_enforcement ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
 
-     Running tests/migration_e2e_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/migration_e2e_audit-7326af814549de44)
+     Running tests/migration_e2e_audit.rs (~/projects/touring/target/wt-int97/debug/deps/migration_e2e_audit-7326af814549de44)
 
 running 6 tests
 test audit_migrate_data_got_snapshots_table_name_mismatch ... ok
@@ -637,7 +637,7 @@ test audit_migrate_data_happy_path_tables ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/session_2026_05_10_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/session_2026_05_10_audit-265a00b937459e6e)
+     Running tests/session_2026_05_10_audit.rs (~/projects/touring/target/wt-int97/debug/deps/session_2026_05_10_audit-265a00b937459e6e)
 
 running 10 tests
 test circuit_breaker_impl_public_surface_is_reachable_via_reexport ... ok
@@ -653,7 +653,7 @@ test shared_guard_async_releases_lock_across_await ... ok
 
 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/utf8_truncation_guard.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/utf8_truncation_guard-81f4d202777c55b7)
+     Running tests/utf8_truncation_guard.rs (~/projects/touring/target/wt-int97/debug/deps/utf8_truncation_guard-81f4d202777c55b7)
 
 running 2 tests
 test the_detector_still_recognizes_the_pattern_it_guards_against ... ok

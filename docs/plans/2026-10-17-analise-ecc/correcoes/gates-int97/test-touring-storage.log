@@ -66,10 +66,10 @@
    Compiling hashlink v0.9.1
    Compiling hdrhistogram v7.5.4
    Compiling salsa v0.18.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling fastembed v5.17.2
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring-wt-int97/crates/touring-rkyv)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 33s
      Running unittests src/lib.rs (target/debug/deps/touring_storage-a2fc86bb775cb5b6)
 

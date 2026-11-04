@@ -10,8 +10,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/git-safety-protocol.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/git-safety-protocol.md"
+    "~/.claude/rules/git-safety-protocol.md",
+    "~/.claude/skills/Touring/references/git-safety-protocol.md"
    ]
   },
   {
@@ -24,8 +24,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/touring-process-hygiene.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-process-hygiene.md"
+    "~/.claude/rules/touring-process-hygiene.md",
+    "~/.claude/skills/Touring/references/touring-process-hygiene.md"
    ]
   },
   {
@@ -38,8 +38,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/touring-per-project.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-per-project.md"
+    "~/.claude/rules/touring-per-project.md",
+    "~/.claude/skills/Touring/references/touring-per-project.md"
    ]
   },
   {
@@ -52,8 +52,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/touring-elite.md",
-    "/home/gabrielgadea/.claude/skills/touring-elite/references/auto-load-rule.md"
+    "~/.claude/rules/touring-elite.md",
+    "~/.claude/skills/touring-elite/references/auto-load-rule.md"
    ]
   },
   {
@@ -66,8 +66,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/touring-cli-index.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-index-tiers-2-3.md"
+    "~/.claude/rules/touring-cli-index.md",
+    "~/.claude/skills/Touring/references/touring-cli-index-tiers-2-3.md"
    ]
   },
   {
@@ -80,8 +80,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/touring-4-pillars.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-4-pillars-provenance.md"
+    "~/.claude/rules/touring-4-pillars.md",
+    "~/.claude/skills/Touring/references/touring-4-pillars-provenance.md"
    ]
   },
   {
@@ -94,7 +94,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/rules/disk-hygiene.md"
+    "~/.claude/rules/disk-hygiene.md"
    ]
   },
   {
@@ -107,7 +107,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/rules/vgp-protocol.md"
+    "~/projects/analise/.claude/rules/vgp-protocol.md"
    ]
   },
   {
@@ -120,8 +120,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/rules/00-core-governance.md",
-    "/home/gabrielgadea/projects/analise/.claude/docs/rules-provenance/00-core-governance-restauracao.md"
+    "~/projects/analise/.claude/rules/00-core-governance.md",
+    "~/projects/analise/.claude/docs/rules-provenance/00-core-governance-restauracao.md"
    ]
   }
  ],
@@ -136,8 +136,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-architect.md",
-    "/home/gabrielgadea/.claude/agents/touring-architect.md"
+    "~/projects/touring/client/agents/touring-architect.md",
+    "~/.claude/agents/touring-architect.md"
    ],
    "copias_divergentes": []
   },
@@ -151,8 +151,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-auditor.md",
-    "/home/gabrielgadea/.claude/agents/touring-auditor.md"
+    "~/projects/touring/client/agents/touring-auditor.md",
+    "~/.claude/agents/touring-auditor.md"
    ],
    "copias_divergentes": []
   },
@@ -166,8 +166,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-engineer.md",
-    "/home/gabrielgadea/.claude/agents/touring-engineer.md"
+    "~/projects/touring/client/agents/touring-engineer.md",
+    "~/.claude/agents/touring-engineer.md"
    ],
    "copias_divergentes": []
   },
@@ -181,8 +181,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-scouter.md",
-    "/home/gabrielgadea/.claude/agents/touring-scouter.md"
+    "~/projects/touring/client/agents/touring-scouter.md",
+    "~/.claude/agents/touring-scouter.md"
    ],
    "copias_divergentes": []
   },
@@ -196,8 +196,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/touring/client/agents/touring-scriber.md",
-    "/home/gabrielgadea/.claude/agents/touring-scriber.md"
+    "~/projects/touring/client/agents/touring-scriber.md",
+    "~/.claude/agents/touring-scriber.md"
    ],
    "copias_divergentes": []
   },
@@ -211,7 +211,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/agents/antt-vote-drafter.md"
+    "~/projects/analise/.claude/agents/antt-vote-drafter.md"
    ],
    "copias_divergentes": []
   },
@@ -225,7 +225,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/agents/erickson-paradox-reformulator.md"
+    "~/projects/analise/.claude/agents/erickson-paradox-reformulator.md"
    ],
    "copias_divergentes": []
   },
@@ -239,7 +239,7 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/agents/transformational-narrative-architect.md"
+    "~/projects/analise/.claude/agents/transformational-narrative-architect.md"
    ],
    "copias_divergentes": []
   }

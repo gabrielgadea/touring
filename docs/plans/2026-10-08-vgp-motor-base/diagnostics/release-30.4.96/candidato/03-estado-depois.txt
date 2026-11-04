@@ -1,18 +1,18 @@
 == pid do daemon global: 751583
-== /proc/751583/comm: touring-daemon  exe: /home/gabrielgadea/projects/touring/target/release/touring-daemon  start_ticks: 1056008
+== /proc/751583/comm: touring-daemon  exe: ~/projects/touring/target/release/touring-daemon  start_ticks: 1056008
 == symlinks (readlink -f):
-  ~/.local/bin/touring -> /home/gabrielgadea/projects/touring/target/release/touring
-  ~/.local/bin/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
-  ~/.local/bin/touring-hook -> /home/gabrielgadea/projects/touring/target/release/touring-hook
-  ~/.local/bin/update-touring -> /home/gabrielgadea/projects/touring/scripts/update-touring
-  ~/.claude/hooks/touring -> /home/gabrielgadea/projects/touring/target/release/touring
-  ~/.claude/hooks/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
-  ~/.claude/hooks/touring-hook -> /home/gabrielgadea/.claude/hooks/touring-hook
+  ~/.local/bin/touring -> ~/projects/touring/target/release/touring
+  ~/.local/bin/touring-daemon -> ~/projects/touring/target/release/touring-daemon
+  ~/.local/bin/touring-hook -> ~/projects/touring/target/release/touring-hook
+  ~/.local/bin/update-touring -> ~/projects/touring/scripts/update-touring
+  ~/.claude/hooks/touring -> ~/projects/touring/target/release/touring
+  ~/.claude/hooks/touring-daemon -> ~/projects/touring/target/release/touring-daemon
+  ~/.claude/hooks/touring-hook -> ~/.claude/hooks/touring-hook
 == sha256 do shim e dos binarios de target/release:
-d2bf9550b3925d3cd5345f4eb5bc07c00c10406698d41275be3bcda1e19eb2f0  /home/gabrielgadea/.claude/hooks/touring-hook
-a33c60007f386f39ddcb3c253c74405501d223538197a963e4adc907a9c0bf1a  /home/gabrielgadea/projects/touring/target/release/touring
-de97f6c0f8118ec592c014477cc477a34b0000adc2367fb11772da16e5ffdebe  /home/gabrielgadea/projects/touring/target/release/touring-daemon
-8db69590231fa74569e517069bff7a6061ad22c200b3fad16c84196a7c1007c7  /home/gabrielgadea/projects/touring/target/release/touring-hook
+d2bf9550b3925d3cd5345f4eb5bc07c00c10406698d41275be3bcda1e19eb2f0  ~/.claude/hooks/touring-hook
+a33c60007f386f39ddcb3c253c74405501d223538197a963e4adc907a9c0bf1a  ~/projects/touring/target/release/touring
+de97f6c0f8118ec592c014477cc477a34b0000adc2367fb11772da16e5ffdebe  ~/projects/touring/target/release/touring-daemon
+8db69590231fa74569e517069bff7a6061ad22c200b3fad16c84196a7c1007c7  ~/projects/touring/target/release/touring-hook
 == ~/.touring/toolchains/ (nome mtime):
   30.4.42 2026-09-13T22:30:57
   30.4.43 2026-09-13T23:38:28
@@ -75,9 +75,9 @@ de97f6c0f8118ec592c014477cc477a34b0000adc2367fb11772da16e5ffdebe  /home/gabrielg
 30.4.95 (default)
 == Cargo.toml version / Cargo.lock sha256:
 version = "30.4.96"
-3a776f0d87e541b1ff0bb8be2bb8176eb42ef9309faa922712d6f7f36c6a6640  /home/gabrielgadea/projects/touring/Cargo.lock
+3a776f0d87e541b1ff0bb8be2bb8176eb42ef9309faa922712d6f7f36c6a6640  ~/projects/touring/Cargo.lock
 == projects.json sha256:
-51c9c44863f9b23386436d9d5ad32feb0ba942053c2cd68cb5fd494094fcff44  /home/gabrielgadea/.claude/touring/projects.json
+51c9c44863f9b23386436d9d5ad32feb0ba942053c2cd68cb5fd494094fcff44  ~/.claude/touring/projects.json
 == consumidores (.touring/toolchain.lock sha256 + binarios):
-  /home/gabrielgadea/projects/analise | lock=281fbf17b013cf18 | active = "30.4.95" | bins=libonnxruntime_providers_cuda.so:1ed2f69fcb95 libonnxruntime_providers_shared.so:1b028afc0796 touring:a33c60007f38 touring-daemon:de97f6c0f811 touring-hook:8db69590231f touring-quality:56e579c17233
-  /home/gabrielgadea/projects/konverter | lock=281fbf17b013cf18 | active = "30.4.95" | bins=libonnxruntime_providers_cuda.so:1ed2f69fcb95 libonnxruntime_providers_shared.so:1b028afc0796 touring:a33c60007f38 touring-daemon:de97f6c0f811 touring-hook:8db69590231f
+  ~/projects/analise | lock=281fbf17b013cf18 | active = "30.4.95" | bins=libonnxruntime_providers_cuda.so:1ed2f69fcb95 libonnxruntime_providers_shared.so:1b028afc0796 touring:a33c60007f38 touring-daemon:de97f6c0f811 touring-hook:8db69590231f touring-quality:56e579c17233
+  ~/projects/konverter | lock=281fbf17b013cf18 | active = "30.4.95" | bins=libonnxruntime_providers_cuda.so:1ed2f69fcb95 libonnxruntime_providers_shared.so:1b028afc0796 touring:a33c60007f38 touring-daemon:de97f6c0f811 touring-hook:8db69590231f

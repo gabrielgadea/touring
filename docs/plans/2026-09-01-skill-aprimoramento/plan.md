@@ -8,7 +8,7 @@
 | **Constraint operacional** | "Não quero baixar todas essas skills. Em primeiro lugar, aperfeiçoar as que já temos. Em segundo lugar, criar skill(s) novas." |
 | **Escopo do plano** | Top-10 skills **TACO-house** (nossas), classificadas contra a taxonomia A→G de 7 mecanismos, com **cross-pollination** medido contra `obra/superpowers` e `mattpocock/skills` |
 | **Tipo de entrega** | Diagnóstico + plano de melhorias (ranking) + 3 candidatas a NOVA skill + roteiro de execução |
-| **Companion** | Persistência canônica em memória: `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (taxonomia A→G canônica + dataset obra + mattpocock) |
+| **Companion** | Persistência canônica em memória: `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (taxonomia A→G canônica + dataset obra + mattpocock) |
 
 ---
 
@@ -508,7 +508,7 @@ mattpocock nomeia **4 primitives reutilizáveis** (grilling, tdd, code-review, d
 - [ ] Cada item PHASE B (B1-B5) editado + `triggering_audit` antes/depois
 - [ ] Cada item PHASE C (C1, C2, C3) criado + cross-checked contra fragment existente
 - [ ] D1-D4: composite >= 0.80 em todas as 13 skills (10 originais + 3 novas)
-- [ ] E1: `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/` persistence das 3 skills novas
+- [ ] E1: `~/.claude/projects/-home-<user>-projects-touring/memory/` persistence das 3 skills novas
 - [ ] E2: `MEMORY.md` line por skill V2
 - [ ] E3: constitution update (só se Rank #1 mudar Golden Rule — improvável)
 - [ ] E4: `touring portfolio "<intent>"` para detectar saturação
@@ -597,13 +597,13 @@ PHASE D — Validação cruzada (semana 6-8)
 
 | Item | Comando | Por quê |
 |---|---|---|
-| Confirmar critic-panel fragment shape | `cat /home/gabrielgadea/projects/touring/client/skills/Touring/adw-library/fragments/critic-panel.toml` | Decidir se promoção fragment→skill é trivial (1:1) |
+| Confirmar critic-panel fragment shape | `cat ~/projects/touring/client/skills/Touring/adw-library/fragments/critic-panel.toml` | Decidir se promoção fragment→skill é trivial (1:1) |
 | Confirmar loop_converged.py exit semantics | `python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --help` | Saber se 0/1 binário ou mais granular |
 | Confirmar dimension_scorer exit code | `python3 ~/.claude/skills/taco-planning/scripts/dimension_scorer.py --help` | Já citado como B-mechanism |
 
 ---
 
-*Documento versionado em `docs/plans/2026-09-01-skill-aprimoramento/plan.md` (v1.1 com correções pós-verificação). Correspondente memória persistente: `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (taxonomia A→G canônica). Gerado em 01/09/2026 sob comando explícito de Gabriel Gadea com constraints: (i) aperfeiçoar skills já carregadas; (ii) criar skills novas se necessário; (iii) plano profundo em .md.* Correspondente memória persistente: `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (taxonomia A→G canônica). Gerado em 01/09/2026 sob comando explícito de Gabriel Gadea com constraints: (i) aperfeiçoar skills já carregadas; (ii) criar novas skills se necessário; (iii) plano profundo em .md.*
+*Documento versionado em `docs/plans/2026-09-01-skill-aprimoramento/plan.md` (v1.1 com correções pós-verificação). Correspondente memória persistente: `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (taxonomia A→G canônica). Gerado em 01/09/2026 sob comando explícito de Gabriel Gadea com constraints: (i) aperfeiçoar skills já carregadas; (ii) criar skills novas se necessário; (iii) plano profundo em .md.* Correspondente memória persistente: `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (taxonomia A→G canônica). Gerado em 01/09/2026 sob comando explícito de Gabriel Gadea com constraints: (i) aperfeiçoar skills já carregadas; (ii) criar novas skills se necessário; (iii) plano profundo em .md.*
 
 ---
 
@@ -861,7 +861,7 @@ unchanged.
 
 #### D6 — Persistir a decisão em memory (v7 — Opção C chosen)
 
-**Local**: `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (append v7).
+**Local**: `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (append v7).
 **T-shirt**: **S** (heredoc append).
 **Critério de pronto**: v7 contém `OPÇÃO C CONFIRMADA pelo Gabriel 01/09/2026` como primeira linha do append.
 

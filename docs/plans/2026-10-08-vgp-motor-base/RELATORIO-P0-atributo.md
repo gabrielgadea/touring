@@ -19,7 +19,7 @@ tags: ["#kind:report", "#status:delivered", "#domain:harness"]
 ## 1. Identidade
 
 - Executor: subagente `p0-atributo` (modelo Sonnet 5.5), delegado pela touring-09 (`team-lead`) em 09/10 ~19:50–23:30 BRT; pedidos adicionais da coordenadora em 10/10 (corpus `.bak` × `corpus_v0d` novo; determinismo de `reais`/`sugestao`).
-- Worktree: `/home/gabrielgadea/projects/touring-wt-vgp-attr` · branch `fix/2026-10-09-vgp-atributo-dinamico` · base `88c7cc8b`
+- Worktree: `~/projects/touring-wt-vgp-attr` · branch `fix/2026-10-09-vgp-atributo-dinamico` · base `88c7cc8b`
   (snapshot do motor). **Sem commit.** Árvore principal e worktrees da VL0/L2 intocados.
 - Binário de referência (RED/baseline): `~/.claude/touring/vgp/binarios/e935aaf1/touring` (sha256 `e935aaf17d9a09d0…`).
 - Consultas ao Context7 (citadas por pedido): CPython `Lib/_collections_abc.py` e `Lib/re/__init__.py` (o idioma PEP 562 de

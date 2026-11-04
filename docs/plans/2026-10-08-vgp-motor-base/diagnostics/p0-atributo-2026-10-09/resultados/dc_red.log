@@ -1,6 +1,6 @@
-   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+   Compiling touring-code v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 10.47s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
+     Running unittests src/lib.rs (~/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
 
 running 6 tests
 test vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo ... FAILED

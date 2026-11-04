@@ -1,9 +1,9 @@
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 19.55s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hooks_shared-56cc6f4d3706feed)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_hooks_shared-56cc6f4d3706feed)
 
 running 490 tests
 test action_signature::tests::absent_quality_is_never_read_as_a_measurement ... ok
@@ -499,7 +499,7 @@ test doc_symbol_signal::tests::estourar_o_orcamento_mata_o_filho_e_emite_nada ..
 
 test result: ok. 490 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
 
-     Running tests/s8_corpus_ab.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/s8_corpus_ab-fec243c8d997c0cb)
+     Running tests/s8_corpus_ab.rs (~/projects/touring/target/wt-int97/debug/deps/s8_corpus_ab-fec243c8d997c0cb)
 
 running 1 test
 test corpus_ab_queda_e_controle_positivo ... ok

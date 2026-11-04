@@ -143,13 +143,13 @@ Cliente genérico (pycapnp) que faz:
 - Wrapping de alto nível: `HolonCapnpClient.invoke(holon, cap, args)`
 - Promise pipelining expose
 
-#### 4.2 Usuário em `/home/gabrielgadea/projects/analise/`
+#### 4.2 Usuário em `~/projects/analise/`
 
 Novo helper em `analise/src/kazuba_geo_engine/integrations/holon_capnp.py`:
 - Consome `symbol-index` via capnp client
 - Compara latency com `subprocess.check_output(["holon", "invoke", ...])`
 
-#### 4.3 Usuário em `/home/gabrielgadea/projects/claude-trading/`
+#### 4.3 Usuário em `~/projects/claude-trading/`
 
 Novo helper em `claude_trading/integrations/holon_capnp.py`:
 - Consome `mcts-planner` via capnp client
@@ -278,10 +278,10 @@ ls docs/2026-*-thsf-bench-results.md
 which capnp || sudo apt-get install -y capnproto libcapnp-dev
 
 # 2. Validar compilação do schema (deve passar)
-capnp compile -o /dev/null /home/gabrielgadea/.claude/tools/holon/schemas/capnp/holon-core.capnp
+capnp compile -o /dev/null ~/.claude/tools/holon/schemas/capnp/holon-core.capnp
 
 # 3. Gerar stubs Rust (preview)
-capnp compile -orust /home/gabrielgadea/.claude/tools/holon/schemas/capnp/holon-core.capnp
+capnp compile -orust ~/.claude/tools/holon/schemas/capnp/holon-core.capnp
 
 # 4. Iniciar D3.2: bootstrap do crate
 cd ~/.claude/rust

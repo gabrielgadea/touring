@@ -8,7 +8,7 @@
   },
   "oom_slice_gate": {
     "escritor": "~/projects/analise/.claude/hooks/oom_slice_gate.py (LOG em linha 31 = ~/.claude/touring/oom_slice_gate.jsonl; _log em linha 60). Hook PreToolUse(Bash) registrado em ~/projects/analise/.claude/hooks/hooks.json:115-117. Nenhum escritor em touring/crates, client, scripts, ~/.claude/hooks, ~/.claude/tools, ~/.claude/skills, settings.json, crontab ou systemd.",
-    "ultima_linha": "{\"ts\": \"2026-10-18T05:52:05.501567+00:00\", \"veredito\": \"deny\", \"cmd\": \"S=/tmp/claude-1000/-home-gabrielgadea-projects-analise/... cargo_teste.sh ... test --features mef,pyo3 ...\"} (UTC; 02:52 em America/Sao_Paulo)",
+    "ultima_linha": "{\"ts\": \"2026-10-18T05:52:05.501567+00:00\", \"veredito\": \"deny\", \"cmd\": \"S=/tmp/claude-1000/-home-<user>-projects-analise/... cargo_teste.sh ... test --features mef,pyo3 ...\"} (UTC; 02:52 em America/Sao_Paulo)",
     "bytes": 23433,
     "historico": "146 linhas; primeira em 2026-10-14T03:20:31+00:00 (veredito deny, cmd 'cd packages/kazuba-sei-core && cargo test --lib'). O arquivo que hoje está no ~/.claude/touring é o log de um hook do projeto analise, não do touring. git log -S 'oom_slice' no repo touring: vazio. oom_slice_gate.py não está versionado no repo analise (git ls-files --error-unmatch falhou), então o histórico do hook não existe no git."
   }

@@ -9,7 +9,7 @@ _______________ test_uso_qualificado_por_caminho_nao_e_classe_a ________________
 E       AssertionError: assert 'item `alvo` declarado no módulo do uso (L2)' is None
 E        +  where 'item `alvo` declarado no módulo do uso (L2)' = A('fn principal() { crate::m::@@alvo(); }\nfn alvo() {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:306: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:306: AssertionError
 =========================== short test summary info ============================
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_uso_qualificado_por_caminho_nao_e_classe_a
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_uso_qualificado_por_caminho_nao_e_classe_a
 1 failed, 53 passed in 0.75s

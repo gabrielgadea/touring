@@ -209,7 +209,7 @@ touring memory query "#kind:snippet #process:auto-harvest"
 
 # convergência (o único "pronto")
 python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py \
-  --task task_1788340910617776382 --scope /home/gabrielgadea/projects/touring \
+  --task task_1788340910617776382 --scope ~/projects/touring \
   --bundle docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia
 ```
 

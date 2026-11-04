@@ -151,7 +151,7 @@ Só publica quando `delta` é definido (pula first-observation).
   "spec_version": "1.0.0",
   "socket_path": "/run/user/1000/holon/registry.sock",
   "generator_socket_path": "/run/user/1000/holon/generator.sock",
-  "root": "/home/gabrielgadea"
+  "root": "~"
 }
 ```
 

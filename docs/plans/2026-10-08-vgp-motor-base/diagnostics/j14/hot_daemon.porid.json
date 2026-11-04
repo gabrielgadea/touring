@@ -82,7 +82,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/.vgp_inline_c4dfabfb6f8247bb.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/.vgp_inline_c4dfabfb6f8247bb.py (version 1)",
    "verdict": "deny"
   },
   "j14-hot-2544670-1793483403250462117:medida:6:1ec93649b1ac": {
@@ -516,7 +516,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 154 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 154 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:37:6510dda1a8f0": {
@@ -726,7 +726,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 149 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 149 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:52:3a24eeb8723c": {
@@ -768,7 +768,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 149 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 149 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:55:2dac8c0bf2ba": {
@@ -782,7 +782,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 148 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 148 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:56:ea97d20c157a": {
@@ -796,7 +796,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 147 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 147 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:57:fed89ce930ce": {
@@ -810,7 +810,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 147 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 147 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:58:93a971ab6fe9": {
@@ -824,7 +824,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 146 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 146 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:59:0d9486a9cca5": {
@@ -838,7 +838,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 146 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 146 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:60:e8dcc4f2204f": {
@@ -852,7 +852,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 145 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 145 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:61:f7c662df64b4": {
@@ -978,7 +978,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 142 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 142 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:70:6853c5aaa11a": {
@@ -1020,7 +1020,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 140 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 140 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:73:2fa025d014ba": {
@@ -1258,7 +1258,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 129 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 129 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:90:29a5df1c2ac5": {
@@ -1398,7 +1398,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of ~/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:100:f2fe38f67432": {
@@ -1496,7 +1496,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 120 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 120 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:107:4e5f0ac27320": {
@@ -1552,7 +1552,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 118 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 118 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:111:eb20f6c9cf04": {
@@ -1566,7 +1566,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 118 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 118 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:112:be9e3d7b458d": {
@@ -1650,7 +1650,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 115 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 115 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:118:81b7bb236ab0": {
@@ -1678,7 +1678,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 114 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 114 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:120:6a5ace388112": {
@@ -1818,7 +1818,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 109 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 109 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:130:19768f8a6c0d": {
@@ -1874,7 +1874,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 107 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 107 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:134:59d7d74321ed": {
@@ -1958,7 +1958,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 97 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 97 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:140:c0d48099e9a6": {
@@ -2098,7 +2098,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 93 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 93 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:150:bda366ca46b2": {
@@ -2126,7 +2126,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 92 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 92 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:152:9ee74431c6b1": {
@@ -2196,7 +2196,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 90 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 90 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:157:0115e0218b7e": {
@@ -2238,7 +2238,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 89 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 89 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:160:8e291cbe0a82": {
@@ -2266,7 +2266,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/g3_engines.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/scripts/lexhub/g3_engines.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:162:a7216c64e529": {
@@ -2308,7 +2308,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 83 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 83 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:165:b94d0c2b21de": {
@@ -2406,7 +2406,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 79 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 79 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:172:2337e2ba09bd": {
@@ -2420,7 +2420,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 79 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 79 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:173:0f160f6bc273": {
@@ -2518,7 +2518,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 76 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 76 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:180:d6cd2dc9f74b": {
@@ -2532,7 +2532,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 76 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 76 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:181:d745da6d4715": {
@@ -2868,7 +2868,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 60 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 60 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:205:f64cf6fd3ee2": {
@@ -2882,7 +2882,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 59 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 59 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:206:6b3baac8ed95": {
@@ -2980,7 +2980,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 57 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 57 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:213:4aab50ad1c71": {
@@ -3120,7 +3120,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 52 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 52 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:223:c233ec765138": {
@@ -3176,7 +3176,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 49 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 49 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:227:85ea8560083f": {
@@ -3218,7 +3218,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 48 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 48 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:230:95c60380376b": {
@@ -3232,7 +3232,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 47 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 47 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:231:263471d2742e": {
@@ -3260,7 +3260,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 46 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 46 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:233:526953aeb0aa": {
@@ -3274,7 +3274,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 46 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 46 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:234:12b44c79c3d6": {
@@ -3400,7 +3400,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 42 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 42 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:243:34a6be606b89": {
@@ -3456,7 +3456,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 39 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 39 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:247:4ed50bb46f84": {
@@ -3470,7 +3470,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 38 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 38 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:248:ffa2189bee03": {
@@ -3652,7 +3652,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 31 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 31 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:261:5439674fb9ad": {
@@ -3666,7 +3666,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 206 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 206 s: no pyright-langserver in the venv of ~/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:262:ae3956b1a77a": {
@@ -3680,7 +3680,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 29 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 29 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:263:c24442d3714b": {
@@ -3722,7 +3722,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 26 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 26 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:266:5e29c16a9234": {
@@ -3736,7 +3736,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 25 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 25 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:267:c351a5704ca5": {
@@ -4016,7 +4016,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 12 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 12 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:287:5344fb9d7d93": {
@@ -4170,7 +4170,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/eleitoral/tests/test_tendencia_ecologica.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/scripts/eleitoral/tests/test_tendencia_ecologica.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:298:2776f43b8494": {
@@ -4184,7 +4184,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/docs/plans/2026-09-28-mpv-1376-divida-rural/critica_juri/apurar.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/docs/plans/2026-09-28-mpv-1376-divida-rural/critica_juri/apurar.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:299:2615551ad529": {
@@ -4198,7 +4198,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:300:954101057f51": {
@@ -4226,7 +4226,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 297 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 297 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:302:f686bcb6bffb": {
@@ -4324,7 +4324,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 292 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 292 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:309:46f729918d2e": {
@@ -4366,7 +4366,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 286 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 286 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:312:8dde61b8a692": {
@@ -4380,7 +4380,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 285 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 285 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:313:4af4b244d9c9": {
@@ -4604,7 +4604,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 277 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 277 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:329:7e8a3e285604": {
@@ -4688,7 +4688,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 273 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 273 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:335:0c93f76873f6": {
@@ -4702,7 +4702,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 273 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 273 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:336:5e5b1b43b344": {
@@ -4716,7 +4716,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 273 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 273 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:337:b2f072be061a": {
@@ -4800,7 +4800,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 270 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 270 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:343:36758ce561ae": {
@@ -4912,7 +4912,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 267 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 267 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:351:b3311030c6a8": {
@@ -4996,7 +4996,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 265 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 265 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:357:8e6cbbe282f8": {
@@ -5010,7 +5010,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 264 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 264 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:358:19d389139ad2": {
@@ -5052,7 +5052,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 263 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 263 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:361:d8c57eea96a9": {
@@ -5094,7 +5094,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 262 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 262 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:364:1104bc5aa510": {
@@ -5108,7 +5108,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 262 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 262 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:365:37f20c51eb11": {
@@ -5150,7 +5150,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 261 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 261 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:368:517241432aca": {
@@ -5262,7 +5262,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 258 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 258 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:376:0b1c99e196fc": {
@@ -5276,7 +5276,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 135 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 135 s: no pyright-langserver in the venv of ~/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:377:b8d0e40bbc29": {
@@ -5346,7 +5346,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 257 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 257 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:382:0283a9973952": {
@@ -5374,7 +5374,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 256 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 256 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:384:dfc05827be3a": {
@@ -5402,7 +5402,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/aferir_stubs_normativos.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/scripts/lexhub/aferir_stubs_normativos.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:386:3d8793b32376": {
@@ -5416,7 +5416,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/eleitoral/tendencia_movimento.py (version 2)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/scripts/eleitoral/tendencia_movimento.py (version 2)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:387:06a24668dadd": {
@@ -5486,7 +5486,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 246 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 246 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:392:27a33ebb3b1f": {
@@ -5556,7 +5556,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 243 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 243 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:397:045fa85fdd0d": {
@@ -5570,7 +5570,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 243 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 243 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:398:b40e56efe897": {
@@ -5612,7 +5612,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 240 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 240 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:401:26a33d068bab": {
@@ -5696,7 +5696,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 237 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 237 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:407:140c3e3761aa": {
@@ -5766,7 +5766,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 235 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 235 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:412:70fea2e2c0ce": {
@@ -5836,7 +5836,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 233 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 233 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:417:dec7583d17ed": {
@@ -5850,7 +5850,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 232 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 232 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:418:05b682b2894d": {
@@ -5892,7 +5892,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 230 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 230 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:421:53c6f0b5157c": {
@@ -5948,7 +5948,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 228 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 228 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:425:f8e1f2b68760": {
@@ -6018,7 +6018,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 225 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 225 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:430:fc7db529dfa8": {
@@ -6032,7 +6032,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 225 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 225 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:431:642a5c4e34cf": {
@@ -6046,7 +6046,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 224 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 224 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:432:c5ed479fadf9": {
@@ -6060,7 +6060,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 224 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 224 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:433:b101db0a7ab4": {
@@ -6116,7 +6116,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 222 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 222 s: no pyright-langserver in the venv of ~/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:437:532448394f6d": {
@@ -7404,7 +7404,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/.cache/scratch-inspecao/sangria.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/.cache/scratch-inspecao/sangria.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:529:b32eb25b9bce": {
@@ -7754,7 +7754,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/lexhub/g3_engines.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/scripts/lexhub/g3_engines.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:554:3ea0b1b378a3": {
@@ -7768,7 +7768,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/contrato0_motor.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/contrato0_motor.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:555:9a516f37c28c": {
@@ -7782,7 +7782,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/scripts/tests/test_medir_apresentacao.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/scripts/tests/test_medir_apresentacao.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:556:5b26f723257e": {
@@ -8076,7 +8076,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/.cache/scratch-inspecao/mapa_titulos.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/.cache/scratch-inspecao/mapa_titulos.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:577:d91fa302efc4": {
@@ -8090,7 +8090,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/packages/kazuba-scrapers/src/kazuba_scrapers/core/pattern_analyzer.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/packages/kazuba-scrapers/src/kazuba_scrapers/core/pattern_analyzer.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:578:fde28117bb57": {
@@ -9210,7 +9210,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of ~/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:658:dc83e3e610ed": {
@@ -9224,7 +9224,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 299 s: no pyright-langserver in the venv of ~/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:659:629ccff9b704": {
@@ -9238,7 +9238,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 298 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 298 s: no pyright-langserver in the venv of ~/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:660:bcb3dad4ab4f": {
@@ -9252,7 +9252,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 298 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 298 s: no pyright-langserver in the venv of ~/projects/analise/.claude (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:661:82102b6468ec": {
@@ -9266,7 +9266,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 298 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 298 s: no pyright-langserver in the venv of ~/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:662:c6c048d3d0ab": {
@@ -9280,7 +9280,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 297 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 297 s: no pyright-langserver in the venv of ~/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:663:b3d7b0f1d279": {
@@ -9294,7 +9294,7 @@
     1,
     2
    ],
-   "camada2": "unknown: camada 2 em backoff por mais 297 s: no pyright-langserver in the venv of /home/gabrielgadea/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
+   "camada2": "unknown: camada 2 em backoff por mais 297 s: no pyright-langserver in the venv of ~/projects/simulador-urna-rs-2026 (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it",
    "verdict": "warn"
   },
   "j14-hot-2544670-1793483403250462117:medida:664:a9cab593e0b1": {
@@ -11226,7 +11226,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/.vgp_inline_af120310a860c4c4.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/.vgp_inline_af120310a860c4c4.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:802:de4fb0258f41": {
@@ -11240,7 +11240,7 @@
     1,
     2
    ],
-   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///home/gabrielgadea/projects/analise/.vgp_inline_a670a80e13e6f674.py (version 1)",
+   "camada2": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file://~/projects/analise/.vgp_inline_a670a80e13e6f674.py (version 1)",
    "verdict": "allow"
   },
   "j14-hot-2544670-1793483403250462117:medida:803:57e4ffc58f92": {

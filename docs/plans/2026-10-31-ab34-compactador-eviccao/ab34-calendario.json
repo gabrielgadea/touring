@@ -18,6 +18,6 @@
   ],
   "daemon_socket": "/tmp/touring-daemon-1000.sock",
   "transcript_dirs": [
-    "-home-gabrielgadea-projects-touring"
+    "-home-<user>-projects-touring"
   ]
 }
