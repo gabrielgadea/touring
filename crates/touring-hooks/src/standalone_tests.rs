@@ -291,11 +291,12 @@ fn a_panicking_handler_exits_zero_and_says_so_on_stderr() {
 }
 
 /// The refusal an RPC endpoint gets: it is routed, as itself, and `cli-suggest` — the one hook
-/// in that namespace — is not refused.
+/// in that namespace — is not refused. Since the overrides converged (#4, 04/11/2026) it is
+/// served by the daemon's own table handler, like every other table hook.
 #[test]
 fn rpc_endpoints_are_refused_and_the_cli_hook_is_not() {
     assert!(matches!(route("cli-doctor"), Route::RpcEndpoint));
     if cfg!(feature = "pre-hooks") {
-        assert!(matches!(route("cli-suggest"), Route::Override(_)));
+        assert!(matches!(route("cli-suggest"), Route::Table));
     }
 }
