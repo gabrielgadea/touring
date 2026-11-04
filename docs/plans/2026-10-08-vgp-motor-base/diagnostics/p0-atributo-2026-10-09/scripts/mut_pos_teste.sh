@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # testes limpos primeiro (um teste novo quebrado "mataria" mutantes de graca); so entao os mutantes
-cd /home/gabrielgadea/projects/touring-wt-vgp-attr || exit 9
-P0=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/vgp-test
+cd ${HOME}/projects/touring-wt-vgp-attr || exit 9
+P0=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/vgp-test
 cargo test -p touring-code --lib vgp:: > "$P0/g6_test.log" 2>&1
 T=$?
 echo "test rc=$T" > "$P0/g6.rc"

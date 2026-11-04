@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """Mutantes do conserto G1 (v2): aplica, roda os testes G1, restaura COM touch e confere o sha256."""
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import hashlib
 import os
 import shutil
@@ -7,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ALVO = Path("/home/gabrielgadea/projects/touring-wt-g1/crates/touring-cli/src/cli_suggester.rs")
+ALVO = Path(f"{_HOME}/projects/touring-wt-g1/crates/touring-cli/src/cli_suggester.rs")
 COPIA = Path(sys.argv[1]) / "cli_suggester.rs.pristino_v2"
 ENV = {**os.environ, "CARGO_TARGET_DIR": os.path.expanduser("~/projects/touring/target")}
 

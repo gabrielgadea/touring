@@ -4,13 +4,13 @@
 # int97/resultados-2026-10-17/juizes_{ev,bak}). Os juízes reservam a classe RUST do hw-slot: nenhum cargo roda em paralelo
 # e o p95 do V3 não é contaminado. Uso: bash pipeline_p0b.sh <pasta-de-saida>
 set -u
-D=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
+D=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
 S=$D/p0b/scripts
 OUT=${1:?pasta de saida}
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
+HW=${HOME}/projects/touring/scripts/hw-slot
 INT=$D/int97/resultados-2026-10-17
-REF=/home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0/touring
-VGP=/home/gabrielgadea/.claude/touring/vgp
+REF=${HOME}/.claude/touring/vgp/binarios/8fd0efb0/touring
+VGP=${HOME}/.claude/touring/vgp
 mkdir -p "$OUT"
 L=$OUT/pipeline.rc
 : > "$L"

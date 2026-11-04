@@ -5,11 +5,11 @@
 #   hw-slot --class rust --wait 7200 -- bash gates_int97.sh <pasta-de-saida>
 # Os E2E procuram touring/touring-daemon em <worktree>/target/debug: lá ficam symlinks para $CARGO_TARGET_DIR/debug.
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-int97
+WT=${HOME}/projects/touring-wt-int97
 OUT=${1:?pasta de saida}
 mkdir -p "$OUT"
 cd "$WT" || exit 9
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-int97
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-int97
 RC=$OUT/gates.rc
 : > "$RC"
 FALHAS=0

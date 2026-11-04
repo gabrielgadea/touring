@@ -7,6 +7,11 @@ the rest is shown as "não atribuído" — never folded into the attributed coun
 Usage: python3 medir_vgp.py [--since 2026-09-17]
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import json
 import re
 import sys
@@ -14,7 +19,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(sys.argv[sys.argv.index("--root") + 1]) if "--root" in sys.argv else (
-    Path.home() / ".claude/projects/-home-gabrielgadea-projects-analise")
+    Path.home() / f".claude/projects/{_HOME_SLUG}-projects-analise")
 SINCE = sys.argv[sys.argv.index("--since") + 1] if "--since" in sys.argv else "2026-09-17"
 LANG = {".py": "python", ".rs": "rust", ".ts": "ts/js", ".tsx": "ts/js", ".js": "ts/js", ".jsx": "ts/js",
         ".sh": "bash", ".md": "markdown", ".json": "config", ".toml": "config", ".yaml": "config", ".yml": "config"}

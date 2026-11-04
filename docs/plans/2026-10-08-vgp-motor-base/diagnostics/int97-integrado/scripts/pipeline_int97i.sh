@@ -6,17 +6,17 @@
 # hw-slot (p95 sem contaminação). Para no 1º gate vermelho (REGRA #21: consertar antes de medir).
 # Uso: bash pipeline_int97i.sh <pasta-de-saida>
 set -u
-D=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
+D=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
 S=$D/int97-integrado/scripts
 OUT=${1:?pasta de saida}
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
+HW=${HOME}/projects/touring/scripts/hw-slot
 INT=$D/int97/resultados-2026-10-17
 P0B=$D/p0b/resultados-2026-10-17/aceite
 for f in "$INT"/juizes_{ev,bak}/novo_v{2,3}.porid.json "$P0B"/juizes_{ev,bak}/novo_v{2,3}.porid.json; do
   [ -s "$f" ] || { echo "referência ausente: $f" >&2; exit 3; }
 done
-REF=/home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0/touring
-VGP=/home/gabrielgadea/.claude/touring/vgp
+REF=${HOME}/.claude/touring/vgp/binarios/8fd0efb0/touring
+VGP=${HOME}/.claude/touring/vgp
 mkdir -p "$OUT"
 L=$OUT/pipeline.rc
 : > "$L"

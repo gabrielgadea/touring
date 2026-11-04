@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """W1.brand — Verify + create brand assets (banner.txt + color-tokens.md)."""
 from __future__ import annotations
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import argparse, json, sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-_ROOT = Path("/home/gabrielgadea/.claude/rust")
+_ROOT = Path(f"{_HOME}/.claude/rust")
 _DATA_DIR = _ROOT / ".claude" / "plans" / "touring-47-to-13-residual" / "data"
 _BRAND_DIR = _ROOT / "assets" / "brand"
 _BANNER = _BRAND_DIR / "banner.txt"

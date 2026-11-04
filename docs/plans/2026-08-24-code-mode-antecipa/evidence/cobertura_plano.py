@@ -1,6 +1,9 @@
 """O plano cobre TODO o escopo do strategy doc? Programa decide, não impressão."""
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import pathlib, re
-B = pathlib.Path("/home/gabrielgadea/projects/touring/docs/plans/2026-08-24-code-mode-antecipa")
+B = pathlib.Path(f"{_HOME}/projects/touring/docs/plans/2026-08-24-code-mode-antecipa")
 plano = (B/"plan.md").read_text()
 estrategia = (B/"strategy-code-mode-antecipa-declaracao.md").read_text()
 

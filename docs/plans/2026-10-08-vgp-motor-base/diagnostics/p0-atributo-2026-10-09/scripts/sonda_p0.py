@@ -4,10 +4,13 @@ Uso: python3 sonda_p0.py <binario-do-touring> [--json saida.json]
 Os baldes: 'proj' = arquivo virtual DENTRO do projeto (P2: alvo nao-externo vira warn),
 'tmp' = arquivo virtual em /tmp (deny natural), 'inline' = <string> (deny natural).
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import json, subprocess, sys, tempfile
 from pathlib import Path
 
-ROOT = "/home/gabrielgadea/projects/analise"
+ROOT = f"{_HOME}/projects/analise"
 CASOS = {
     "numpy np.array+np.where": "import numpy as np\n\nx = np.array([1, 0, 2])\nprint(np.where(x))\n",
     "PIL Image.LANCZOS": "from PIL import Image\n\nim = Image.new('RGB', (4, 4))\nim.thumbnail((2, 2), Image.LANCZOS)\n",

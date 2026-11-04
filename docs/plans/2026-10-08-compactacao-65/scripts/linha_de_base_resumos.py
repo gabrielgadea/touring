@@ -5,6 +5,11 @@ after --since YYYY-MM-DD), judge the segment it compacted: coverage of files cha
 tests run, summary size, and whether it used the old TASK/NEXT format block. Aggregates only.
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import argparse
 import statistics
 import sys
@@ -13,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path.home() / ".claude/skills/loop-engineering/scripts/hooks"))
 import compaction_ledger as cl
 
-PROJECT = Path.home() / ".claude/projects/-home-gabrielgadea-projects-analise"
+PROJECT = Path.home() / f".claude/projects/{_HOME_SLUG}-projects-analise"
 
 
 def compactions(recs):

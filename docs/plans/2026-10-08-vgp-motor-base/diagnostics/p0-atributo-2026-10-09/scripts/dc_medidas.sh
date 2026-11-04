@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Medidas do binario FINAL (P0 + determinismo + semantica de dataclass): varredura de determinismo nos dois corpora,
 # nos 7 ids da evidencia (K=10) e o juiz v2 + V3 no corpus_v0d (ev) e no bak. A base e935aaf1 ja foi reexecutada
 # por id nos dois (juizes_det_ev/, juizes_det_bak/). Uma reserva heavy do hw-slot; sequencial (o p95 e medido).
 set -u
-P0=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
-R=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/resultados
-VIVO=/home/gabrielgadea/.claude/touring/vgp
+P0=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
+R=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/resultados
+VIVO=${HOME}/.claude/touring/vgp
 SHA=$(grep '^sha256' "$P0/det_a.rc" | tail -1 | cut -d' ' -f2)
 S8=${SHA:0:8}
 NOVO=$VIVO/binarios/$S8/touring
 [ -x "$NOVO" ] || { echo "binario $NOVO ausente" > "$P0/dc_medidas.rc"; exit 9; }
 echo "$S8" > "$P0/dc_sha8.txt"
-cd /home/gabrielgadea/projects/analise || exit 9
+cd ${HOME}/projects/analise || exit 9
 export TOURING_CODE_MODE=native
 : > "$P0/dc_medidas.rc"
 

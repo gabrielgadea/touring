@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Uso: medida2.sh <rotulo> <caminho do binario release>
 # Congela o binario em ~/.claude/touring/vgp/binarios/<sha8>/touring (+ .sha256) e roda, SO LEITURA nos corpora:
 #  - juiz (--exigir-limite-superior) no natural e na sanidade (copia normalizada) e na sanidade_v2 (quando carregavel);
 #  - por-id nos tres; o controle de 130 .rs; a varredura real. Rodar sob `hw-slot --class heavy`.
-SC=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
-VGP=/home/gabrielgadea/.claude/touring/vgp
+SC=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+VGP=${HOME}/.claude/touring/vgp
 rot=$1
 src=$2
 [ -x "$src" ] || { echo "binario ausente: $src"; exit 90; }

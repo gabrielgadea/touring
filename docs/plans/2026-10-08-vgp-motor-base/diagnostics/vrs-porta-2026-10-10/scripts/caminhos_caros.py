@@ -2,6 +2,9 @@
 
 Uso: python3 -I caminhos_caros.py BIN PATH_REAL SNAP [limiar_ms]"""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import collections
 import json
 import re
@@ -11,7 +14,7 @@ import tempfile
 
 binario, caminho, snap, *resto = sys.argv[1:]
 limiar = float(resto[0]) if resto else 25.0
-RAIZ = "/home/gabrielgadea/projects/touring"
+RAIZ = f"{_HOME}/projects/touring"
 src = open(snap).read()
 cab = "".join(l for l in src.splitlines(True) if l.startswith("use "))
 cont = collections.Counter(re.findall(r"\b[A-Za-z_]\w*(?:::[A-Za-z_]\w*)+", src))

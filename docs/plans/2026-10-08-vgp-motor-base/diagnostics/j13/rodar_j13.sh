@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # J13 (18/10/2026): the INTEGRATED binary (INT97 + P0B + FRAG + P0B-d + routing + ECC patches, release 5c7b3d80) on the
 # sealed held-out corpus_holdout_disjunto_20261013f (seal 2f9282aa59a0566f). Same procedure as P0M (rodar_p0m2.sh):
 # seal checked before and after, HYBRID corpus in the scratchpad (held-out negatives + live positives used ONLY as a
@@ -8,16 +9,16 @@
 # discriminates. The instrumented runner writes per-id records, so the V3 layer-2 timeouts ("prazo ... estourado") are
 # counted per run: a timeout drops layer-2 findings, which can HIDE false denies — the V3 verdict is read with it.
 set -u
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 O=$B/diagnostics/j13
-S=/tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad
+S=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad
 C=$HOME/.claude/touring/vgp/corpus_holdout_disjunto_20261013f
 SELO=$B/diagnostics/holdout-20261013f/selo.json
 CTL=$S/j13_hibrido_20261013f
 I=$B/diagnostics/instrumentos-2026-10-09
 INST=$I/rodar_juiz_instrumentado.py
 J=$B/scripts/juiz_motor_vgp.py
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
+HW=${HOME}/projects/touring/scripts/hw-slot
 NOVO=$HOME/.claude/touring/vgp/binarios/5c7b3d80/touring
 REF=$HOME/.claude/touring/vgp/binarios/8fd0efb0/touring
 R=$O/rcs.txt
@@ -45,7 +46,7 @@ done
 for bin in 5c7b3d80:$NOVO 8fd0efb0:$REF; do
   n=${bin%%:*}
   t=${bin#*:}
-  (cd /home/gabrielgadea/projects/analise && TOURING_CODE_MODE=native "$HW" --class rust --label "j13-$n-v3" --wait 7200 -- \
+  (cd ${HOME}/projects/analise && TOURING_CODE_MODE=native "$HW" --class rust --label "j13-$n-v3" --wait 7200 -- \
     python3 -I "$INST" "$J" "$O/${n}_v3.porid.json" --touring "$t" --corpus "$CTL" --v5-estrito \
     --arg-motor=--camadas --arg-motor=1,2 --p95-ms 1000 --exigir-limite-superior --base "$O/${n}_v2.json" \
     --json "$O/${n}_v3.json" > "$O/${n}_v3.out" 2>&1)

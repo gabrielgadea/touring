@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Medidas FINAIS no release congelado final3: juiz (natural, v2 sem normalizacao, copia normalizada), ids, controle de 130,
 # varredura real e o p95 A/B intercalado contra a a6.
-SC=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
-VGP=/home/gabrielgadea/.claude/touring/vgp
-REL=/home/gabrielgadea/projects/touring/target/wt-vrs2/release/touring
+SC=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
+VGP=${HOME}/.claude/touring/vgp
+REL=${HOME}/projects/touring/target/wt-vrs2/release/touring
 S8=$(sha256sum "$REL" | cut -c1-8)
 : > "$SC/medidas_finais3.rcs"
 bash "$SC/medida2.sh" final3 "$REL" > "$SC/medida2_final3.out" 2>&1

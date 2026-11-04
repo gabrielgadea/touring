@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Uso: medida.sh <rotulo: antes|depois> <caminho do binario release>
 # Congela o binario em ~/.claude/touring/vgp/binarios/<sha8>/touring (+ .sha256), roda o juiz
 # (so leitura, --exigir-limite-superior) nos dois corpora Rust e grava o detalhe POR ID.
 # Nao usa cargo; rodar FORA do hw-slot nao e permitido para jobs pesados -> quem chama a envolve
 # num `hw-slot -- ` da classe heavy (o juiz spawna ~600 processos).
-SC=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
-VGP=/home/gabrielgadea/.claude/touring/vgp
+SC=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+VGP=${HOME}/.claude/touring/vgp
 rot=$1
 src=$2
 [ -x "$src" ] || { echo "binario ausente: $src"; exit 90; }

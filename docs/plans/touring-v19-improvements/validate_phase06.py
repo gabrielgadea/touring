@@ -6,13 +6,16 @@ Plan: touring-v19-improvements
 Runs all validation checks for phase 6 and exits 1 if any FAIL.
 Usage: python validate_phase06.py [--verbose]
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import argparse
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path(f"{_HOME}/.claude/rust")
 PLAN_DIR = Path(__file__).parent
 VERBOSE = False
 

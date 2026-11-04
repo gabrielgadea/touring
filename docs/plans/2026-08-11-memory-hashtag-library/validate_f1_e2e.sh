@@ -2,7 +2,7 @@
 # F1 E2E gate — store → auto-tag → tag → tags → query, against the LIVE daemon.
 # Exit 0 only when every step proves itself on the deployed binary.
 set -u
-cd /home/gabrielgadea/projects/touring
+cd ${HOME}/projects/touring
 K="e2e:hashtag-library:f1:$(date +%s)"
 fail=0
 

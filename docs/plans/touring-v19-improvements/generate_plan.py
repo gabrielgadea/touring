@@ -17,6 +17,9 @@ Usage:
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import sys
 from datetime import date
@@ -25,7 +28,7 @@ from textwrap import dedent
 from typing import Any
 
 OUTPUT_DIR = Path(__file__).parent
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path(f"{_HOME}/.claude/rust")
 TODAY = str(date.today())
 
 # ══════════════════════════════════════════════════════════════════════════════

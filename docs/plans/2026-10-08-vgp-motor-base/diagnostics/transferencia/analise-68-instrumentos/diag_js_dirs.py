@@ -4,11 +4,14 @@ Um `include` estreito por diretorio: a linha de base do subprojeto tem de estar 
 tsc servir de oraculo. Nao e suposicao — e medido por diretorio.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
+sys.path.insert(0, f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
 import corpus_semeado as cs  # noqa: E402
 
 base, sombra = cs.prepara_sombra("javascript")

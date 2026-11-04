@@ -5,11 +5,11 @@
 # Os E2E do touring-server procuram touring/touring-daemon em <workspace>/target/debug: o worktree usa
 # CARGO_TARGET_DIR=wt-p0b, entao liga-se target/debug/{touring,touring-daemon} (symlinks, desligados ao final).
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-p0b
+WT=${HOME}/projects/touring-wt-p0b
 OUT=${1:?pasta de saida}
 mkdir -p "$OUT"
 cd "$WT" || exit 9
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-p0b
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-p0b
 : > "$OUT/gates.rc"
 
 cargo fmt --all -- --check > "$OUT/fmt.log" 2>&1

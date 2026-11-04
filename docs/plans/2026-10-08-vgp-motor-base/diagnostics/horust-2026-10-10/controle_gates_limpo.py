@@ -7,13 +7,16 @@ E0432 era real; no disco de hoje o nome existe, e um motor que resolve certo diz
 Uso: python3 -I -B controle_gates_limpo.py <saida.json> <bin1> [<bin2> ...]
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import importlib.util
 import json
 import sys
 from pathlib import Path
 
 V = Path.home() / ".claude/touring/vgp"
-JUIZ = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py")
+JUIZ = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py")
 _spec = importlib.util.spec_from_file_location("juiz_ro", JUIZ)
 juiz = importlib.util.module_from_spec(_spec)
 sys.modules["juiz_ro"] = juiz

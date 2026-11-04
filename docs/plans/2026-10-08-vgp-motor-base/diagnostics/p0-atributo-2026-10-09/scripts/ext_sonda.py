@@ -1,6 +1,8 @@
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import json, subprocess, sys, tempfile
 from pathlib import Path
-ROOT = "/home/gabrielgadea/projects/analise"
+ROOT = f"{_HOME}/projects/analise"
 CASOS = {
   "from lxml import etree": "from lxml import etree\nprint(etree.fromstring)\n",
   "import lxml.etree as et": "import lxml.etree as et\nprint(et.fromstring)\n",

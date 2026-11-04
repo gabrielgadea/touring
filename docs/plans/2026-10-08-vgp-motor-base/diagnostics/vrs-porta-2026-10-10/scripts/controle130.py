@@ -10,6 +10,9 @@ Uso: python3 -I controle130.py --manifesto M.json --gera-manifesto
      python3 -I controle130.py --manifesto M.json --touring BIN --out detalhe.json
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import collections
 import hashlib
@@ -17,7 +20,7 @@ import json
 import subprocess
 from pathlib import Path
 
-RAIZ = Path("/home/gabrielgadea/projects/touring-wt-semeado")
+RAIZ = Path(f"{_HOME}/projects/touring-wt-semeado")
 CRATES = ["touring-code", "touring-identity", "touring-pyright"]
 
 

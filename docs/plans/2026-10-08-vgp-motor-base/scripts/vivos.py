@@ -38,7 +38,7 @@ SYNTAX = {"SyntaxError", "IndentationError", "TabError"}
 
 def project_root(path: Path) -> Path:
     """The project a file belongs to. A /tmp scratch file belongs to the session that wrote it — its scratchpad
-    path names the project (`/tmp/claude-1000/-home-gabrielgadea-projects-analise/…`), and its imports resolve
+    path names the project (`/tmp/claude-1000/-home-<user>-projects-analise/…`), and its imports resolve
     there (Gabriel, 08/10: what is written in /tmp is part of the work of every session)."""
     s = str(path)
     for name, root in ROOT.items():

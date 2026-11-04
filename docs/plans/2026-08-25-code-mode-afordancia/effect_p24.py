@@ -26,6 +26,11 @@ Saída: data/effect_p24.json + agregado em stdout.
 
 from __future__ import annotations
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import json
 import os
 import sys
@@ -34,7 +39,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from calibration_p23 import classify_bash  # noqa: E402 — mesmo bundle
 
-TRANSCRIPTS = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring/*.jsonl")
+TRANSCRIPTS = os.path.expanduser(f"~/.claude/projects/{_HOME_SLUG}-projects-touring/*.jsonl")
 OUT = "docs/plans/2026-08-25-code-mode-afordancia/data/effect_p24.json"
 
 COLLAPSED = {"grep": ("grep", "rg"), "cat": ("cat", "head", "tail", "less"), "find": ("find", "fd")}
