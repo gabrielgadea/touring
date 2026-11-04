@@ -127,6 +127,15 @@ fn analyze_readme_sections(
             "overview",
             "introduction",
             "what is",
+            // pt-BR
+            "descrição",
+            "descricao",
+            "sobre",
+            "visão geral",
+            "visao geral",
+            "introdução",
+            "introducao",
+            "o que é",
         ],
     );
     // Install / Setup / Getting Started
@@ -139,6 +148,14 @@ fn analyze_readme_sections(
             "setup",
             "getting started",
             "getting-started",
+            // pt-BR
+            "instalação",
+            "instalacao",
+            "configuração",
+            "configuracao",
+            "primeiros passos",
+            "como começar",
+            "como comecar",
         ],
     );
     // Usage / Example / Quickstart
@@ -152,22 +169,55 @@ fn analyze_readme_sections(
             "quickstart",
             "quick start",
             "how to",
+            // pt-BR ("uso" also covers "como usar" via "usar" below)
+            "uso",
+            "usar",
+            "exemplo",
+            "início rápido",
+            "inicio rapido",
         ],
     );
     // Contributing / Development
     let has_contributing = heading_matches_any(
         &headings,
         bytes,
-        &["contributing", "development", "how to contribute"],
+        &[
+            "contributing",
+            "development",
+            "how to contribute",
+            // pt-BR: contribuir / contribuição / contribuindo
+            "contribu",
+            "desenvolvimento",
+        ],
     );
     // Tests / Testing
-    let has_tests = heading_matches_any(&headings, bytes, &["tests", "testing", "how to test"]);
+    let has_tests = heading_matches_any(
+        &headings,
+        bytes,
+        &["tests", "testing", "how to test", "teste", "testar"],
+    );
     // License / Licence
-    let has_license = heading_matches_any(&headings, bytes, &["license", "licence"]);
+    let has_license = heading_matches_any(
+        &headings,
+        bytes,
+        &["license", "licence", "licença", "licenca", "licenciamento"],
+    );
 
     // Optional: badges (`[![...]]` Markdown image link) and ToC.
     let has_badges = memmem::find(bytes, b"![").is_some() && memmem::find(bytes, b"](").is_some();
-    let has_toc = heading_matches_any(&headings, bytes, &["table of contents", "contents", "toc"]);
+    let has_toc = heading_matches_any(
+        &headings,
+        bytes,
+        &[
+            "table of contents",
+            "contents",
+            "toc",
+            "sumário",
+            "sumario",
+            "índice",
+            "indice",
+        ],
+    );
     // The report's `weighted_total` carries the missing-required weight
     // (the engine contract is "weighted violation total = sum of
     // count × weight for fired detectors"). We push ONE finding per
@@ -318,6 +368,45 @@ mod tests {
         let src = "# T\n\n## Description\nd\n\n## INSTALLATION\ni\n\n## Usage\nu\n\n## CONTRIBUTING\nc\n\n## Tests\nt\n\n## LICENSE\nMIT\n";
         let r = analyze_readme(src, "markdown");
         assert_eq!(r.violations, 0, "case-insensitive match: {:?}", r.findings);
+    }
+
+    #[test]
+    fn portuguese_headings_recognized() {
+        // A README written entirely in Brazilian Portuguese, with all seven
+        // required sections, must be clean — the detector used to see only
+        // English titles and scored such a file 0.44.
+        let src = "# projeto\n\n## Descrição\nd\n\n## Instalação\ni\n\n## Uso\nu\n\n\
+                   ## Como contribuir\nc\n\n## Testes\nt\n\n## Licença\nMIT\n";
+        let r = analyze_readme(src, "markdown");
+        assert_eq!(r.violations, 0, "PT-BR headings: {:?}", r.findings);
+    }
+
+    #[test]
+    fn portuguese_synonyms_and_unaccented_forms() {
+        // Second formulation: synonyms and the unaccented spellings that
+        // ASCII-only authors write ("Instalacao", "Licenca").
+        let src = "# p\n\n## Visão geral\nd\n\n## Primeiros passos\ni\n\n## Exemplos\nu\n\n\
+                   ## Desenvolvimento\nc\n\n## Como testar\nt\n\n## Licenca\nMIT\n";
+        let r = analyze_readme(src, "markdown");
+        assert_eq!(r.violations, 0, "PT-BR synonyms: {:?}", r.findings);
+        let src2 = "# p\n\n## Sobre\nd\n\n## Instalacao\ni\n\n## Como usar\nu\n\n\
+                    ## Contribuição\nc\n\n## Testes\nt\n\n## Licenciamento\nMIT\n";
+        let r2 = analyze_readme(src2, "markdown");
+        assert_eq!(r2.violations, 0, "PT-BR unaccented: {:?}", r2.findings);
+    }
+
+    #[test]
+    fn portuguese_missing_section_still_flagged() {
+        // Negative control: dropping "Testes" from a PT-BR README must still
+        // produce a missing-required finding (the synonyms must not over-match).
+        let src = "# projeto\n\n## Descrição\nd\n\n## Instalação\ni\n\n## Uso\nu\n\n\
+                   ## Como contribuir\nc\n\n## Licença\nMIT\n";
+        let r = analyze_readme(src, "markdown");
+        assert!(
+            r.violations > 0,
+            "missing Testes must be flagged: {:?}",
+            r.findings
+        );
     }
 
     #[test]
