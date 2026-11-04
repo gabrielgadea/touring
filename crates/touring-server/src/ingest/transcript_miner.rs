@@ -579,7 +579,7 @@ pub const MINER_READER_ENV: &str = "TOURING_MINER_READER";
 /// How many keys of each side's disagreement a [`ShadowComparison`] keeps as a sample. The
 /// counts are never capped; only the sample is, so a divergence stays inspectable and a
 /// pathological one stays cheap.
-pub const SHADOW_SAMPLE_KEYS: usize = 5;
+pub(crate) const SHADOW_SAMPLE_KEYS: usize = 5;
 
 /// Which extractor writes lessons.
 ///
@@ -649,7 +649,7 @@ pub fn reader_mode() -> ReaderMode {
 
 /// What the reader path found in one stretch of transcript lines.
 #[derive(Debug, Clone, Default)]
-pub struct ReaderExtraction {
+pub(crate) struct ReaderExtraction {
     /// The pairs, formed by the same chain-scan as the legacy extractor ([`mine_chains`]).
     pub pairs: Vec<ErrorResolutionPair>,
     /// What the reader saw besides the events: malformed lines, dropped sidechain records.
@@ -762,7 +762,7 @@ impl ReaderPath {
 /// `only_legacy`. Counts are exact; the key lists are capped samples ([`SHADOW_SAMPLE_KEYS`])
 /// and carry keys only — never transcript content.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ShadowComparison {
+pub(crate) struct ShadowComparison {
     /// Pairs the legacy extractor produced.
     pub legacy_pairs: usize,
     /// Pairs the reader path produced.
