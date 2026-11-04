@@ -195,6 +195,23 @@ fn classify_line_separates_blank_malformed_and_records() {
     assert!(matches!(classify_line("  {\"ts\":1}  "), Line::Record(_)));
 }
 
+/// C3a (04/11/2026): the family says what a parseable line IS, beside the reader that parses it.
+#[test]
+fn familia_tells_runs_from_refusals_and_non_objects() {
+    use super::Familia;
+    let fam = |line: &str| match classify_line(line) {
+        Line::Record(r) => r.familia(),
+        other => panic!("{line:?} is not a record: {other:?}"),
+    };
+    assert_eq!(fam(r#"{"exit_code":0,"language":"python"}"#), Familia::Run);
+    assert_eq!(fam(r#"{"exit_code":"0"}"#), Familia::Run, "an unusable exit is still a run");
+    assert_eq!(fam("{}"), Familia::Run, "an empty record was always counted as a run");
+    assert_eq!(fam(r#"{"repeat_blocked":true,"ts":1}"#), Familia::Recusa);
+    assert_eq!(fam("123"), Familia::NaoObjeto);
+    assert_eq!(fam(r#""x""#), Familia::NaoObjeto);
+    assert_eq!(fam("[1,2]"), Familia::NaoObjeto);
+}
+
 fn record(line: &str) -> RunRecord {
     match classify_line(line) {
         Line::Record(r) => r,
