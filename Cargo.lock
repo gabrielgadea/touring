@@ -13552,6 +13552,7 @@ dependencies = [
  "touring-bindings",
  "touring-code",
  "touring-foundation",
+ "touring-hooks",
  "touring-hooks-shared",
  "touring-identity",
  "touring-intelligence",
