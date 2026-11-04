@@ -54,6 +54,18 @@
 //! The `cli_suggester` retrieval path already reads `outcome:*` memory keys,
 //! so the loop is closed without a separate gotcha-DB write.
 //!
+//! # Slice 2.4 — Reader path, in shadow first (C1)
+//! The miner has its own parser; the transcript READER
+//! (`touring_cli::cli::transcript_scan`, reached as `touring_hooks::transcript_scan`) owns the
+//! record policy the KPI sections already use: subagent (`isSidechain`) records are another
+//! window and are dropped, a `tool_use` is handed out once per id. [`ReaderPath`] derives the
+//! SAME [`ErrorResolutionPair`]s from the reader's events — both extractors end in
+//! [`mine_chains`], so only the records that feed it can differ. Because the miner WRITES
+//! memory, the switch is `TOURING_MINER_READER` = `shadow` (default) | `on` | `off` ([`ReaderMode`]):
+//! under `shadow` the legacy parser still writes while the reader path is only compared with it
+//! (`reader_pairs`, `legacy_pairs`, `only_legacy`, `only_reader`, `reader_sidechain_dropped` in
+//! [`MinerSweepStats`]); `on` hands the writer role to the reader path.
+//!
 //! # Fail-open contract
 //! All public functions in this module are fail-open: they never panic on
 //! external data, filesystem errors, or malformed JSON. Per-file errors in
@@ -66,12 +78,14 @@
 use crate::memory_store::{MemoryEntry, MemoryStore};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use touring_hooks::action_signature::classify_tool_class;
 use touring_hooks::gateway::sandbox_executor::redact_secrets;
+use touring_hooks::transcript_scan::{AssistantTurn, Event, LineReader, ReadStats, ToolResult};
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -424,9 +438,23 @@ pub fn extract_error_resolution_pairs(lines: &[ParsedTranscriptLine]) -> Vec<Err
     }
 
     let (uses, results, uses_by_tool) = build_indices(lines);
+    mine_chains(&uses, &results, &uses_by_tool)
+}
+
+/// The chain-scan pass of [`extract_error_resolution_pairs`], on already-built indices.
+///
+/// This is the ONE definition of what counts as an error, a resolution and a chain. Both
+/// extractors end here — the legacy one through [`build_indices`], the reader path through
+/// [`ReaderPath`] — so the two can differ only in WHICH records feed the indices (the reader's
+/// policy), never in how a pair is formed.
+fn mine_chains(
+    uses: &HashMap<String, ToolUseEntry>,
+    results: &HashMap<String, ToolResultEntry>,
+    uses_by_tool: &HashMap<String, Vec<String>>,
+) -> Vec<ErrorResolutionPair> {
     let mut pairs = Vec::new();
 
-    for (tool_name, ids) in &uses_by_tool {
+    for (tool_name, ids) in uses_by_tool {
         // `ids` is already sorted by stream_pos (guaranteed by build_indices).
         // Walk the ordered list accumulating a chain of consecutive failures.
         // `chain_start` holds (tool_use_id, ToolUseEntry, ToolResultEntry) of
@@ -541,6 +569,349 @@ fn redacted_lesson_value(pair: &ErrorResolutionPair) -> serde_json::Value {
 }
 
 // ---------------------------------------------------------------------------
+// Slice 2.4 — Reader path (C1, 04/11/2026), in SHADOW first
+// ---------------------------------------------------------------------------
+
+/// Environment variable that decides which extractor WRITES lessons: `off` | `shadow` | `on`.
+/// Read once per process by [`reader_mode`].
+pub const MINER_READER_ENV: &str = "TOURING_MINER_READER";
+
+/// How many keys of each side's disagreement a [`ShadowComparison`] keeps as a sample. The
+/// counts are never capped; only the sample is, so a divergence stays inspectable and a
+/// pathological one stays cheap.
+pub(crate) const SHADOW_SAMPLE_KEYS: usize = 5;
+
+/// Which extractor writes lessons.
+///
+/// The miner is a PRODUCTION WRITER of memory, so the reader path (the transcript reader's
+/// record policy: main thread only, one `tool_use` per id) is not allowed to write until it has
+/// been measured against the legacy parser on the same lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReaderMode {
+    /// Legacy parser only — the behaviour before C1. The reader path does not run.
+    Off,
+    /// Legacy parser writes, as before; the reader path is computed on the same lines, never
+    /// writes, and the disagreement is counted. The default.
+    #[default]
+    Shadow,
+    /// The reader path writes; the legacy parser does not run.
+    On,
+}
+
+impl ReaderMode {
+    /// Parse the value of [`MINER_READER_ENV`]. Absent, empty or unrecognised all give
+    /// [`ReaderMode::Shadow`]; an unrecognised value also yields the warning to log. Never
+    /// panics, never turns an unknown value into `on` — a typo must not hand the writer role
+    /// to an unmeasured path.
+    #[must_use]
+    pub fn parse(raw: Option<&str>) -> (Self, Option<String>) {
+        let Some(raw) = raw else {
+            return (Self::Shadow, None);
+        };
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "" | "shadow" => (Self::Shadow, None),
+            "off" => (Self::Off, None),
+            "on" => (Self::On, None),
+            other => (
+                Self::Shadow,
+                Some(format!(
+                    "unknown {MINER_READER_ENV}={other:?} (expected off|shadow|on); using shadow"
+                )),
+            ),
+        }
+    }
+
+    /// The name the variable takes for this mode.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Shadow => "shadow",
+            Self::On => "on",
+        }
+    }
+}
+
+/// The mode of this process: [`MINER_READER_ENV`] read ONCE, then fixed. An unrecognised value
+/// is warned about once and runs as shadow.
+pub fn reader_mode() -> ReaderMode {
+    static MODE: OnceLock<ReaderMode> = OnceLock::new();
+    *MODE.get_or_init(|| {
+        let raw = std::env::var_os(MINER_READER_ENV).map(|v| v.to_string_lossy().into_owned());
+        let (mode, warning) = ReaderMode::parse(raw.as_deref());
+        if let Some(warning) = warning {
+            tracing::warn!("TranscriptMiner: {warning}");
+        }
+        mode
+    })
+}
+
+/// What the reader path found in one stretch of transcript lines.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ReaderExtraction {
+    /// The pairs, formed by the same chain-scan as the legacy extractor ([`mine_chains`]).
+    pub pairs: Vec<ErrorResolutionPair>,
+    /// What the reader saw besides the events: malformed lines, dropped sidechain records.
+    pub read: ReadStats,
+}
+
+/// One stretch of transcript fed through the reader a line at a time — a transcript file can be
+/// hundreds of MB, so no line is kept — and folded into the same three indices
+/// [`build_indices`] builds from the legacy parse.
+///
+/// Only the fold differs from the legacy path: a record is mined only if the reader hands it
+/// out (a sidechain record is not), and a `tool_use` id is entered once (the reader hands it
+/// out once, where legacy listed it again at every repetition and so inflated the retry chain
+/// beyond [`RESOLUTION_SCAN_WINDOW`]). For an error result only the first [`ERROR_TEXT_MAX`]
+/// characters are kept (all [`mine_chains`] reads), and a success result keeps no text.
+struct ReaderPath {
+    reader: LineReader,
+    indices: ReaderIndices,
+}
+
+/// The three indices of [`build_indices`], folded from reader events.
+#[derive(Default)]
+struct ReaderIndices {
+    uses: HashMap<String, ToolUseEntry>,
+    results: HashMap<String, ToolResultEntry>,
+    uses_by_tool: HashMap<String, Vec<String>>,
+    /// Assistant records seen so far; ids enter `uses_by_tool` in this order already, so the
+    /// stable sort [`build_indices`] applies has nothing to do here.
+    next_pos: usize,
+}
+
+impl ReaderIndices {
+    fn observe(&mut self, event: &Event<'_>) {
+        match event {
+            Event::Assistant(turn) => self.note_calls(turn),
+            Event::ToolResult(result) => self.note_result(result),
+            _ => {}
+        }
+    }
+
+    fn note_calls(&mut self, turn: &AssistantTurn<'_>) {
+        let pos = self.next_pos;
+        self.next_pos += 1;
+        for call in turn.tool_calls() {
+            // A block without an id correlates under "", as it does in the legacy parse.
+            let id = call.id.unwrap_or_default();
+            self.uses
+                .entry(id.to_string())
+                .or_insert_with(|| ToolUseEntry {
+                    input: call.input.clone(),
+                    stream_pos: pos,
+                });
+            self.uses_by_tool
+                .entry(call.name.to_string())
+                .or_default()
+                .push(id.to_string());
+        }
+    }
+
+    fn note_result(&mut self, result: &ToolResult<'_>) {
+        let id = result.tool_use_id.unwrap_or_default();
+        self.results
+            .entry(id.to_string())
+            .or_insert_with(|| ToolResultEntry {
+                is_error: result.is_error,
+                content_text: if result.is_error {
+                    truncate_chars(&result.text, ERROR_TEXT_MAX)
+                } else {
+                    String::new()
+                },
+                session_id: result.session_id.unwrap_or_default().to_string(),
+                timestamp: result.timestamp.unwrap_or_default().to_string(),
+            });
+    }
+}
+
+impl ReaderPath {
+    fn new() -> Self {
+        Self {
+            reader: LineReader::new(),
+            indices: ReaderIndices::default(),
+        }
+    }
+
+    /// Feed one transcript line (already trimmed, non-empty).
+    fn push_line(&mut self, line: &str) {
+        let Self { reader, indices } = self;
+        reader.push(line, &mut |event| indices.observe(event));
+    }
+
+    fn finish(self) -> ReaderExtraction {
+        let read = self.reader.finish();
+        let ReaderIndices {
+            uses,
+            results,
+            uses_by_tool,
+            ..
+        } = self.indices;
+        ReaderExtraction {
+            pairs: mine_chains(&uses, &results, &uses_by_tool),
+            read,
+        }
+    }
+}
+
+/// How the two extractors disagree over the same lines, by [`dedup_key`] — the identity the
+/// store writes under, so a difference here is a difference in what would be persisted.
+///
+/// The difference is a MULTISET one: 3 legacy pairs and 2 reader pairs under one key is one
+/// `only_legacy`. Counts are exact; the key lists are capped samples ([`SHADOW_SAMPLE_KEYS`])
+/// and carry keys only — never transcript content.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct ShadowComparison {
+    /// Pairs the legacy extractor produced.
+    pub legacy_pairs: usize,
+    /// Pairs the reader path produced.
+    pub reader_pairs: usize,
+    /// Pairs (by key, with multiplicity) the legacy extractor produced and the reader did not.
+    pub only_legacy: usize,
+    /// Pairs the reader path produced and the legacy extractor did not.
+    pub only_reader: usize,
+    /// Records the reader dropped as subagent (`isSidechain`) windows.
+    pub sidechain_dropped: u64,
+    /// A sample of the keys counted in `only_legacy`, sorted.
+    pub sample_only_legacy: Vec<String>,
+    /// A sample of the keys counted in `only_reader`, sorted.
+    pub sample_only_reader: Vec<String>,
+}
+
+impl ShadowComparison {
+    /// Compare the legacy pairs of a stretch of lines with the reader's pairs of the same lines.
+    fn between(legacy: &[ErrorResolutionPair], reader: &ReaderExtraction) -> Self {
+        let mut balance: BTreeMap<String, i64> = BTreeMap::new();
+        for pair in legacy {
+            *balance.entry(dedup_key(pair)).or_default() += 1;
+        }
+        for pair in &reader.pairs {
+            *balance.entry(dedup_key(pair)).or_default() -= 1;
+        }
+        let mut out = Self {
+            legacy_pairs: legacy.len(),
+            reader_pairs: reader.pairs.len(),
+            sidechain_dropped: reader.read.sidechain_dropped,
+            ..Self::default()
+        };
+        // BTreeMap iterates in key order, so the samples are deterministic.
+        for (key, net) in balance {
+            let n = usize::try_from(net.unsigned_abs()).unwrap_or(usize::MAX);
+            match net.cmp(&0) {
+                std::cmp::Ordering::Greater => {
+                    out.only_legacy += n;
+                    if out.sample_only_legacy.len() < SHADOW_SAMPLE_KEYS {
+                        out.sample_only_legacy.push(key);
+                    }
+                }
+                std::cmp::Ordering::Less => {
+                    out.only_reader += n;
+                    if out.sample_only_reader.len() < SHADOW_SAMPLE_KEYS {
+                        out.sample_only_reader.push(key);
+                    }
+                }
+                std::cmp::Ordering::Equal => {}
+            }
+        }
+        out
+    }
+
+    /// Fold another stretch (another file) into this total. Samples keep the first
+    /// [`SHADOW_SAMPLE_KEYS`] distinct keys seen.
+    pub fn absorb(&mut self, other: Self) {
+        self.legacy_pairs += other.legacy_pairs;
+        self.reader_pairs += other.reader_pairs;
+        self.only_legacy += other.only_legacy;
+        self.only_reader += other.only_reader;
+        self.sidechain_dropped += other.sidechain_dropped;
+        for (mine, theirs) in [
+            (&mut self.sample_only_legacy, other.sample_only_legacy),
+            (&mut self.sample_only_reader, other.sample_only_reader),
+        ] {
+            for key in theirs {
+                if mine.len() < SHADOW_SAMPLE_KEYS && !mine.contains(&key) {
+                    mine.push(key);
+                }
+            }
+        }
+    }
+}
+
+/// The lines of one stretch of transcript, mined under a [`ReaderMode`]: each mode decides
+/// which extractor sees the lines and which one's pairs are returned to be written.
+struct ChunkMiner {
+    mode: ReaderMode,
+    /// The legacy parse, kept whole (as the miner always did). Empty under [`ReaderMode::On`].
+    legacy: Vec<ParsedTranscriptLine>,
+    /// The reader path. `None` under [`ReaderMode::Off`].
+    reader: Option<ReaderPath>,
+}
+
+/// What a [`ChunkMiner`] hands back: the pairs to WRITE and how the two paths compared.
+struct ChunkMined {
+    /// The pairs of the extractor the mode lets write.
+    pairs: Vec<ErrorResolutionPair>,
+    /// Counts for the sweep stats. Under `off` only `legacy_pairs` is set, under `on` only
+    /// `reader_pairs` (and the dropped-sidechain count): there is nothing to compare.
+    comparison: ShadowComparison,
+}
+
+impl ChunkMiner {
+    fn new(mode: ReaderMode) -> Self {
+        Self {
+            mode,
+            legacy: Vec::new(),
+            reader: (mode != ReaderMode::Off).then(ReaderPath::new),
+        }
+    }
+
+    /// Feed one line (already trimmed, non-empty).
+    fn push(&mut self, line: &str) {
+        if self.mode != ReaderMode::On
+            && let Some(parsed) = parse_transcript_line(line)
+        {
+            self.legacy.push(parsed);
+        }
+        if let Some(reader) = self.reader.as_mut() {
+            reader.push_line(line);
+        }
+    }
+
+    fn finish(self) -> ChunkMined {
+        let reader = self.reader.map(ReaderPath::finish);
+        match (self.mode, reader) {
+            (ReaderMode::On, Some(reader)) => ChunkMined {
+                comparison: ShadowComparison {
+                    reader_pairs: reader.pairs.len(),
+                    sidechain_dropped: reader.read.sidechain_dropped,
+                    ..ShadowComparison::default()
+                },
+                pairs: reader.pairs,
+            },
+            (ReaderMode::Shadow, Some(reader)) => {
+                let pairs = extract_error_resolution_pairs(&self.legacy);
+                ChunkMined {
+                    comparison: ShadowComparison::between(&pairs, &reader),
+                    pairs,
+                }
+            }
+            // `Off` — and `On`/`Shadow` without a reader, which `new` never builds.
+            _ => {
+                let pairs = extract_error_resolution_pairs(&self.legacy);
+                ChunkMined {
+                    comparison: ShadowComparison {
+                        legacy_pairs: pairs.len(),
+                        ..ShadowComparison::default()
+                    },
+                    pairs,
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Slice 2.3 — Discovery, sweep, and storage
 // ---------------------------------------------------------------------------
 
@@ -583,18 +954,44 @@ pub fn discover_transcript_paths(projects_root: &Path) -> Vec<PathBuf> {
 }
 
 /// Statistics from a single [`TranscriptMiner::sweep`] call.
-#[derive(Debug, Clone, Serialize)]
+///
+/// The `reader_*`/`legacy_*`/`only_*` fields are the C1 shadow measurement (see [`ReaderMode`]);
+/// they default to zero so a payload written before C1 still deserializes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinerSweepStats {
     /// Number of transcript files opened during this sweep.
     pub files_scanned: usize,
     /// Total new lines read across all files.
     pub lines_read: usize,
-    /// Error→resolution pairs extracted from new lines.
+    /// Error→resolution pairs extracted from new lines by the extractor that WRITES
+    /// (`reader_mode` says which).
     pub pairs_mined: usize,
     /// Pairs actually written to [`MemoryStore`] (new, not deduped).
     pub pairs_persisted: usize,
     /// Pairs skipped because the memory key already existed.
     pub pairs_deduped: usize,
+    /// Which extractor wrote in this sweep: the legacy parser under `off` and `shadow`, the
+    /// reader path under `on`.
+    #[serde(default)]
+    pub reader_mode: ReaderMode,
+    /// Pairs the legacy extractor produced (0 under `on`, where it does not run).
+    #[serde(default)]
+    pub legacy_pairs: usize,
+    /// Pairs the reader path produced (0 under `off`, where it does not run). Under `shadow`
+    /// these were counted and never written.
+    #[serde(default)]
+    pub reader_pairs: usize,
+    /// Shadow only: pairs (by [`dedup_key`], with multiplicity) the legacy extractor produced
+    /// and the reader path did not — what `on` would stop writing.
+    #[serde(default)]
+    pub only_legacy: usize,
+    /// Shadow only: pairs the reader path produced and the legacy extractor did not — what
+    /// `on` would start writing.
+    #[serde(default)]
+    pub only_reader: usize,
+    /// Records the reader dropped as subagent (`isSidechain`) windows (0 under `off`).
+    #[serde(default)]
+    pub reader_sidechain_dropped: u64,
 }
 
 /// Persisted per-file read offsets for incremental transcript sweeps.
@@ -636,7 +1033,9 @@ impl MinerState {
 /// 2. For each file, seeks to the last known byte offset and reads only
 ///    new lines (offset-tracked, incremental).
 /// 3. Parses lines via [`parse_transcript_line`] and extracts
-///    error→resolution pairs via [`extract_error_resolution_pairs`].
+///    error→resolution pairs via [`extract_error_resolution_pairs`] — or, per
+///    [`ReaderMode`], through the transcript reader (`shadow` computes both and writes only the
+///    legacy pairs; `on` writes the reader's).
 /// 4. For each new pair, persists a `MemoryEntry` (tier `reference`,
 ///    key `outcome:<tool_class>:transcript-<hash>:failure` — see
 ///    `lesson_memory_key`) to the provided [`MemoryStore`] reference.
@@ -648,14 +1047,129 @@ impl MinerState {
 pub struct TranscriptMiner {
     state: MinerState,
     state_path: PathBuf,
+    reader_mode: ReaderMode,
+}
+
+/// What one file contributed to a sweep.
+#[derive(Default)]
+struct FileSweep {
+    lines_read: usize,
+    pairs_mined: usize,
+    pairs_persisted: usize,
+    pairs_deduped: usize,
+    comparison: ShadowComparison,
+}
+
+/// The new lines of one transcript, mined.
+struct NewLines {
+    lines_read: usize,
+    /// Byte offset after the last line read.
+    new_offset: u64,
+    mined: ChunkMined,
+}
+
+/// Mine the lines of `path` after byte `from` under `mode`, streaming — no line is kept past
+/// its turn through the extractors. `Ok(None)` is "no new data". Writes nothing: this is the
+/// read half of a sweep, and what the corpus measurement runs.
+fn mine_new_lines(path: &Path, from: u64, mode: ReaderMode) -> Result<Option<NewLines>, String> {
+    let file = std::fs::File::open(path)
+        .map_err(|e| format!("open {:?}: {}", path.file_name().unwrap_or_default(), e))?;
+
+    let file_len = file.metadata().map_err(|e| format!("stat: {}", e))?.len();
+    if file_len <= from {
+        return Ok(None);
+    }
+
+    let mut reader = BufReader::new(file);
+    reader
+        .seek(SeekFrom::Start(from))
+        .map_err(|e| format!("seek: {}", e))?;
+
+    let mut line_buf = String::new();
+    let mut miner = ChunkMiner::new(mode);
+    let mut lines_read = 0usize;
+
+    while reader
+        .read_line(&mut line_buf)
+        .map_err(|e| format!("read_line: {}", e))?
+        > 0
+    {
+        let trimmed = line_buf.trim();
+        if !trimmed.is_empty() {
+            lines_read += 1;
+            miner.push(trimmed);
+        }
+        line_buf.clear();
+    }
+
+    let new_offset = reader
+        .stream_position()
+        .map_err(|e| format!("stream_position: {}", e))?;
+    Ok(Some(NewLines {
+        lines_read,
+        new_offset,
+        mined: miner.finish(),
+    }))
+}
+
+/// Persist `pairs` to `store`, returning (persisted, deduped).
+fn persist_pairs(store: &MemoryStore, pairs: &[ErrorResolutionPair]) -> (usize, usize) {
+    let mut pairs_persisted = 0usize;
+    let mut pairs_deduped = 0usize;
+
+    for pair in pairs {
+        let key = lesson_memory_key(pair);
+
+        // Check for existing key to avoid duplicate writes.
+        // tier="reference" maps to MemoryTier::Reference (rlm.rs:66).
+        // "semantic" is not a valid tier — it would silently fail via parse_tier Err.
+        let exists = store.get(&key, "reference").unwrap_or(None).is_some();
+
+        if exists {
+            pairs_deduped += 1;
+            continue;
+        }
+
+        // Build a compact JSON value for the stored lesson (SEC-05: secrets
+        // in the mined transcript text are redacted before persistence).
+        let value_str = redacted_lesson_value(pair).to_string();
+
+        let entry =
+            MemoryEntry::new(&key, "reference", value_str).with_entry_type("transcript_lesson");
+
+        match store.store(entry) {
+            Ok(()) => pairs_persisted += 1,
+            Err(e) => {
+                tracing::debug!("TranscriptMiner: failed to store lesson {}: {}", key, e);
+            }
+        }
+    }
+
+    (pairs_persisted, pairs_deduped)
 }
 
 impl TranscriptMiner {
     /// Construct a new miner, loading persisted offset state from
-    /// `state_path` (or starting fresh if the file is absent/invalid).
+    /// `state_path` (or starting fresh if the file is absent/invalid). The extractor that
+    /// writes is chosen by [`reader_mode`] (`TOURING_MINER_READER`, default `shadow`).
     pub fn new(state_path: PathBuf) -> Self {
+        let mode = reader_mode();
+        tracing::info!(
+            "TranscriptMiner: transcript reader mode={} ({MINER_READER_ENV})",
+            mode.as_str()
+        );
+        Self::with_reader_mode(state_path, mode)
+    }
+
+    /// As [`TranscriptMiner::new`], with the extractor mode given instead of read from the
+    /// environment.
+    pub fn with_reader_mode(state_path: PathBuf, reader_mode: ReaderMode) -> Self {
         let state = MinerState::load(&state_path);
-        Self { state, state_path }
+        Self {
+            state,
+            state_path,
+            reader_mode,
+        }
     }
 
     /// Run one incremental sweep over all transcript files.
@@ -668,6 +1182,8 @@ impl TranscriptMiner {
     ///
     /// Returns aggregate statistics. Never panics; per-file errors are
     /// logged at `debug!` and counted in [`MinerSweepStats::files_scanned`].
+    /// Under `shadow` a sweep that read new lines logs ONE summary line comparing the two
+    /// extractors; the reader path never writes.
     pub fn sweep(&mut self, projects_root: &Path, store: &MemoryStore) -> MinerSweepStats {
         let paths = discover_transcript_paths(projects_root);
 
@@ -677,122 +1193,100 @@ impl TranscriptMiner {
             pairs_mined: 0,
             pairs_persisted: 0,
             pairs_deduped: 0,
+            reader_mode: self.reader_mode,
+            legacy_pairs: 0,
+            reader_pairs: 0,
+            only_legacy: 0,
+            only_reader: 0,
+            reader_sidechain_dropped: 0,
         };
+        let mut comparison = ShadowComparison::default();
 
         for path in &paths {
             stats.files_scanned += 1;
 
-            let (lines_read, pairs_mined, pairs_persisted, pairs_deduped) =
-                match self.sweep_file(path, store) {
-                    Ok(counts) => counts,
-                    Err(e) => {
-                        tracing::debug!(
-                            "TranscriptMiner: skipping {:?}: {}",
-                            path.file_name().unwrap_or_default(),
-                            e
-                        );
-                        continue;
-                    }
-                };
+            let file = match self.sweep_file(path, store) {
+                Ok(file) => file,
+                Err(e) => {
+                    tracing::debug!(
+                        "TranscriptMiner: skipping {:?}: {}",
+                        path.file_name().unwrap_or_default(),
+                        e
+                    );
+                    continue;
+                }
+            };
 
-            stats.lines_read += lines_read;
-            stats.pairs_mined += pairs_mined;
-            stats.pairs_persisted += pairs_persisted;
-            stats.pairs_deduped += pairs_deduped;
+            stats.lines_read += file.lines_read;
+            stats.pairs_mined += file.pairs_mined;
+            stats.pairs_persisted += file.pairs_persisted;
+            stats.pairs_deduped += file.pairs_deduped;
+            comparison.absorb(file.comparison);
         }
+
+        stats.legacy_pairs = comparison.legacy_pairs;
+        stats.reader_pairs = comparison.reader_pairs;
+        stats.only_legacy = comparison.only_legacy;
+        stats.only_reader = comparison.only_reader;
+        stats.reader_sidechain_dropped = comparison.sidechain_dropped;
 
         // Persist updated offsets; log on failure but do not abort.
         if let Err(e) = self.state.save(&self.state_path) {
             tracing::debug!("TranscriptMiner: failed to save state: {}", e);
         }
 
+        if self.reader_mode == ReaderMode::Shadow && stats.lines_read > 0 {
+            log_shadow_summary(&stats, &comparison);
+        }
+
         stats
     }
 
-    /// Sweep a single file, returning (lines_read, pairs_mined, pairs_persisted, pairs_deduped).
-    fn sweep_file(
-        &mut self,
-        path: &Path,
-        store: &MemoryStore,
-    ) -> Result<(usize, usize, usize, usize), String> {
+    /// Sweep a single file: read its new lines under the mode, then persist the pairs of the
+    /// extractor that writes.
+    fn sweep_file(&mut self, path: &Path, store: &MemoryStore) -> Result<FileSweep, String> {
         let path_key = path.to_string_lossy().to_string();
         let last_offset = self.state.offsets.get(&path_key).copied().unwrap_or(0);
 
-        let file = std::fs::File::open(path)
-            .map_err(|e| format!("open {:?}: {}", path.file_name().unwrap_or_default(), e))?;
-
-        let file_len = file.metadata().map_err(|e| format!("stat: {}", e))?.len();
-
-        if file_len <= last_offset {
+        let Some(chunk) = mine_new_lines(path, last_offset, self.reader_mode)? else {
             // No new data.
             self.state.offsets.insert(path_key, last_offset);
-            return Ok((0, 0, 0, 0));
-        }
-
-        let mut reader = BufReader::new(file);
-        reader
-            .seek(SeekFrom::Start(last_offset))
-            .map_err(|e| format!("seek: {}", e))?;
-
-        let mut line_buf = String::new();
-        let mut parsed_lines: Vec<ParsedTranscriptLine> = Vec::new();
-        let mut lines_read = 0usize;
-
-        while reader
-            .read_line(&mut line_buf)
-            .map_err(|e| format!("read_line: {}", e))?
-            > 0
-        {
-            let trimmed = line_buf.trim();
-            if !trimmed.is_empty() {
-                lines_read += 1;
-                if let Some(parsed) = parse_transcript_line(trimmed) {
-                    parsed_lines.push(parsed);
-                }
-            }
-            line_buf.clear();
-        }
+            return Ok(FileSweep::default());
+        };
 
         // Update offset to current stream position.
-        let new_offset = reader
-            .stream_position()
-            .map_err(|e| format!("stream_position: {}", e))?;
-        self.state.offsets.insert(path_key, new_offset);
+        self.state.offsets.insert(path_key, chunk.new_offset);
 
-        let pairs = extract_error_resolution_pairs(&parsed_lines);
-        let pairs_mined = pairs.len();
-        let mut pairs_persisted = 0usize;
-        let mut pairs_deduped = 0usize;
+        let (pairs_persisted, pairs_deduped) = persist_pairs(store, &chunk.mined.pairs);
+        Ok(FileSweep {
+            lines_read: chunk.lines_read,
+            pairs_mined: chunk.mined.pairs.len(),
+            pairs_persisted,
+            pairs_deduped,
+            comparison: chunk.mined.comparison,
+        })
+    }
+}
 
-        for pair in &pairs {
-            let key = lesson_memory_key(pair);
-
-            // Check for existing key to avoid duplicate writes.
-            // tier="reference" maps to MemoryTier::Reference (rlm.rs:66).
-            // "semantic" is not a valid tier — it would silently fail via parse_tier Err.
-            let exists = store.get(&key, "reference").unwrap_or(None).is_some();
-
-            if exists {
-                pairs_deduped += 1;
-                continue;
-            }
-
-            // Build a compact JSON value for the stored lesson (SEC-05: secrets
-            // in the mined transcript text are redacted before persistence).
-            let value_str = redacted_lesson_value(pair).to_string();
-
-            let entry =
-                MemoryEntry::new(&key, "reference", value_str).with_entry_type("transcript_lesson");
-
-            match store.store(entry) {
-                Ok(()) => pairs_persisted += 1,
-                Err(e) => {
-                    tracing::debug!("TranscriptMiner: failed to store lesson {}: {}", key, e);
-                }
-            }
-        }
-
-        Ok((lines_read, pairs_mined, pairs_persisted, pairs_deduped))
+/// The one shadow line per sweep: counts at `info!`, the sample keys (keys only — never
+/// transcript content) at `debug!` when the two extractors disagree.
+fn log_shadow_summary(stats: &MinerSweepStats, comparison: &ShadowComparison) {
+    tracing::info!(
+        "TranscriptMiner shadow: files={} lines={} legacy_pairs={} reader_pairs={} only_legacy={} only_reader={} reader_sidechain_dropped={}",
+        stats.files_scanned,
+        stats.lines_read,
+        stats.legacy_pairs,
+        stats.reader_pairs,
+        stats.only_legacy,
+        stats.only_reader,
+        stats.reader_sidechain_dropped,
+    );
+    if stats.only_legacy > 0 || stats.only_reader > 0 {
+        tracing::debug!(
+            "TranscriptMiner shadow disagreement: only_legacy_keys={:?} only_reader_keys={:?}",
+            comparison.sample_only_legacy,
+            comparison.sample_only_reader,
+        );
     }
 }
 
@@ -1711,5 +2205,474 @@ mod tests {
             ContentBlock::ToolUse { id, .. } => assert_eq!(id, "toolu_mix"),
             other => panic!("expected ToolUse, got {other:?}"),
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Slice 2.4 tests — the reader path, in shadow (C1, 04/11/2026)
+    // ---------------------------------------------------------------------------
+
+    /// An assistant record calling one tool, optionally written from a subagent window.
+    fn use_rec(id: &str, name: &str, input: serde_json::Value, sidechain: bool) -> String {
+        let mut rec = json!({
+            "type": "assistant", "sessionId": "sess-main", "timestamp": format!("ts-use-{id}"),
+            "message": {"content": [{"type": "tool_use", "id": id, "name": name, "input": input}]}
+        });
+        if sidechain {
+            rec["isSidechain"] = json!(true);
+        }
+        line(rec)
+    }
+
+    /// A user record carrying the result of call `id`; the timestamp names the call so a pair's
+    /// provenance can be told apart.
+    fn result_rec(id: &str, is_error: bool, content: serde_json::Value, sidechain: bool) -> String {
+        let mut rec = json!({
+            "type": "user", "sessionId": "sess-main", "timestamp": format!("ts-result-{id}"),
+            "message": {"content": [{"type": "tool_result", "tool_use_id": id,
+                "is_error": is_error, "content": content}]}
+        });
+        if sidechain {
+            rec["isSidechain"] = json!(true);
+        }
+        line(rec)
+    }
+
+    /// Mine `lines` under `mode`, exactly as a sweep does a stretch of a file.
+    fn mine(mode: ReaderMode, lines: &[String]) -> ChunkMined {
+        let mut miner = ChunkMiner::new(mode);
+        for l in lines {
+            miner.push(l);
+        }
+        miner.finish()
+    }
+
+    /// Pairs in a deterministic order (`mine_chains` walks a `HashMap`).
+    fn sorted(mut pairs: Vec<ErrorResolutionPair>) -> Vec<ErrorResolutionPair> {
+        pairs.sort_by_key(|p| {
+            (
+                p.tool_name.clone(),
+                p.error_text.clone(),
+                p.failed_input.to_string(),
+                p.resolution_input.to_string(),
+            )
+        });
+        pairs
+    }
+
+    // C1-a: a subagent's error→resolution is another window. Legacy mines it as if it were the
+    // session's; the reader path does not, and says how many records it dropped.
+    #[test]
+    fn a_sidechain_pair_is_mined_by_legacy_and_not_by_the_reader_path() {
+        let lines = vec![
+            use_rec("s1", "Bash", json!({"command": "cargo chek"}), true),
+            result_rec("s1", true, json!("error: no such command"), true),
+            use_rec("s2", "Bash", json!({"command": "cargo check"}), true),
+            result_rec("s2", false, json!("Finished"), true),
+        ];
+
+        let legacy = mine(ReaderMode::Off, &lines);
+        assert_eq!(legacy.pairs.len(), 1, "legacy mines the subagent window");
+
+        let reader = mine(ReaderMode::On, &lines);
+        assert!(
+            reader.pairs.is_empty(),
+            "the reader path does not: {:?}",
+            reader.pairs
+        );
+        assert_eq!(reader.comparison.sidechain_dropped, 4);
+
+        // Shadow: legacy still writes, the difference is counted by key.
+        let shadow = mine(ReaderMode::Shadow, &lines);
+        let c = &shadow.comparison;
+        assert_eq!(
+            shadow.pairs, legacy.pairs,
+            "shadow returns the legacy pairs to write"
+        );
+        assert_eq!(
+            (c.legacy_pairs, c.reader_pairs, c.only_legacy, c.only_reader),
+            (1, 0, 1, 0)
+        );
+        assert_eq!(c.sample_only_legacy, vec![dedup_key(&legacy.pairs[0])]);
+        assert!(c.sample_only_reader.is_empty());
+        assert_eq!(c.sidechain_dropped, 4);
+    }
+
+    // C1-b: a call repeated across records is ONE call. Legacy lists the id again at every
+    // repetition, so two failing calls written twice each read as a 4-failure chain, beyond the
+    // window, and the lesson is lost; the reader path enters each id once and mines one pair.
+    #[test]
+    fn a_duplicated_tool_use_id_yields_one_pair_in_the_reader_path() {
+        let lines = vec![
+            use_rec("a1", "Bash", json!({"command": "one"}), false),
+            use_rec("a1", "Bash", json!({"command": "one"}), false),
+            result_rec("a1", true, json!("boom"), false),
+            use_rec("b1", "Bash", json!({"command": "two"}), false),
+            use_rec("b1", "Bash", json!({"command": "two"}), false),
+            result_rec("b1", true, json!("boom"), false),
+            use_rec("c1", "Bash", json!({"command": "three"}), false),
+            result_rec("c1", false, json!("ok"), false),
+        ];
+
+        let reader = mine(ReaderMode::On, &lines);
+        assert_eq!(reader.pairs.len(), 1, "{:?}", reader.pairs);
+        assert_eq!(reader.pairs[0].failed_input, json!({"command": "one"}));
+        assert_eq!(
+            reader.pairs[0].resolution_input,
+            json!({"command": "three"})
+        );
+        assert_eq!(reader.pairs[0].timestamp, "ts-result-a1");
+
+        let legacy = mine(ReaderMode::Off, &lines);
+        assert!(
+            legacy.pairs.is_empty(),
+            "legacy counts the repeated ids as 4 failures (> {RESOLUTION_SCAN_WINDOW}): {:?}",
+            legacy.pairs
+        );
+
+        let c = mine(ReaderMode::Shadow, &lines).comparison;
+        assert_eq!(
+            (c.legacy_pairs, c.reader_pairs, c.only_legacy, c.only_reader),
+            (0, 1, 0, 1)
+        );
+        assert_eq!(c.sample_only_reader, vec![dedup_key(&reader.pairs[0])]);
+    }
+
+    // C1-c: on plain main-thread records the two paths form the SAME pairs — every field,
+    // including the session and the instant of the failed result — because both end in
+    // `mine_chains`. The fixture covers a one-failure pair, a two-failure chain whose error is
+    // an array of text blocks, a multibyte error longer than ERROR_TEXT_MAX, a chain beyond the
+    // window (dropped), an unresolved failure, a call with no result, and chatter.
+    #[test]
+    fn both_paths_agree_exactly_on_plain_main_thread_records() {
+        let long_error = "é".repeat(ERROR_TEXT_MAX + 100);
+        let mut lines = vec![
+            line(json!({"type": "user", "message": {"content": "a plain string turn"}})),
+            line(json!({"type": "assistant",
+                "message": {"content": [{"type": "text", "text": "thinking out loud"}]}})),
+            line(json!({"type": "attachment", "attachment": {"type": "hook_success"}})),
+            "this line is not json".to_string(),
+            use_rec("b1", "Bash", json!({"command": "cargo chek"}), false),
+            result_rec("b1", true, json!("error: no such command: `chek`"), false),
+            use_rec("b2", "Bash", json!({"command": "cargo check"}), false),
+            result_rec("b2", false, json!("Finished"), false),
+            use_rec(
+                "e1",
+                "Edit",
+                json!({"file_path": "a.rs", "old_string": "x"}),
+                false,
+            ),
+            result_rec(
+                "e1",
+                true,
+                json!([{"type": "text", "text": "String to replace "},
+                       {"type": "text", "text": "not found"}]),
+                false,
+            ),
+            use_rec(
+                "e2",
+                "Edit",
+                json!({"file_path": "a.rs", "old_string": "y"}),
+                false,
+            ),
+            result_rec("e2", true, json!(long_error), false),
+            use_rec(
+                "e3",
+                "Edit",
+                json!({"file_path": "a.rs", "old_string": "z"}),
+                false,
+            ),
+            result_rec("e3", false, json!("updated"), false),
+            use_rec("r1", "Read", json!({"file_path": "missing"}), false),
+            result_rec("r1", true, json!("no such file"), false),
+            use_rec("g1", "Grep", json!({"pattern": "x"}), false),
+        ];
+        for i in 1..=RESOLUTION_SCAN_WINDOW + 1 {
+            let id = format!("w{i}");
+            lines.push(use_rec(&id, "Write", json!({"n": i}), false));
+            lines.push(result_rec(&id, true, json!("disk full"), false));
+        }
+        lines.push(use_rec("w-ok", "Write", json!({"n": 0}), false));
+        lines.push(result_rec("w-ok", false, json!("written"), false));
+
+        let legacy = sorted(mine(ReaderMode::Off, &lines).pairs);
+        let reader = sorted(mine(ReaderMode::On, &lines).pairs);
+        assert_eq!(
+            legacy.len(),
+            2,
+            "Bash and Edit resolve; Write overflows, Read never does"
+        );
+        assert_eq!(legacy, reader, "same pairs, field for field");
+        assert!(
+            legacy
+                .iter()
+                .any(|p| p.timestamp == "ts-result-b1" && p.session_id == "sess-main")
+        );
+        assert!(
+            legacy
+                .iter()
+                .any(|p| p.tool_name == "Edit" && p.error_text == "String to replace not found"),
+            "the chain starts at the FIRST failure (array content flattened), not at the long one"
+        );
+
+        let shadow = mine(ReaderMode::Shadow, &lines);
+        assert_eq!(sorted(shadow.pairs), legacy);
+        let c = shadow.comparison;
+        assert_eq!(
+            (
+                c.legacy_pairs,
+                c.reader_pairs,
+                c.only_legacy,
+                c.only_reader,
+                c.sidechain_dropped
+            ),
+            (2, 2, 0, 0, 0)
+        );
+        assert!(c.sample_only_legacy.is_empty() && c.sample_only_reader.is_empty());
+    }
+
+    // C1-c': the truncation the reader path applies while indexing is the one legacy applies
+    // when forming the pair — a multibyte error past the cap is cut at the same character.
+    #[test]
+    fn the_reader_path_truncates_a_long_error_where_legacy_does() {
+        let long_error = "é".repeat(ERROR_TEXT_MAX + 100);
+        let lines = vec![
+            use_rec("x1", "Bash", json!({"command": "bad"}), false),
+            result_rec("x1", true, json!(long_error), false),
+            use_rec("x2", "Bash", json!({"command": "good"}), false),
+            result_rec("x2", false, json!("ok"), false),
+        ];
+        let legacy = mine(ReaderMode::Off, &lines).pairs;
+        let reader = mine(ReaderMode::On, &lines).pairs;
+        assert_eq!(legacy.len(), 1);
+        assert_eq!(legacy[0].error_text.chars().count(), ERROR_TEXT_MAX);
+        assert_eq!(legacy, reader);
+    }
+
+    // C1-d: the mode parser. Default shadow; an unknown value is shadow WITH a warning and never
+    // `on` (a typo must not hand the writer role to an unmeasured path); nothing panics.
+    #[test]
+    fn reader_mode_defaults_to_shadow_and_never_panics_on_junk() {
+        assert_eq!(ReaderMode::default(), ReaderMode::Shadow);
+        assert_eq!(ReaderMode::parse(None), (ReaderMode::Shadow, None));
+        for (raw, want) in [
+            ("shadow", ReaderMode::Shadow),
+            ("SHADOW", ReaderMode::Shadow),
+            ("", ReaderMode::Shadow),
+            ("  ", ReaderMode::Shadow),
+            ("on", ReaderMode::On),
+            (" On ", ReaderMode::On),
+            ("off", ReaderMode::Off),
+            ("OFF", ReaderMode::Off),
+        ] {
+            assert_eq!(ReaderMode::parse(Some(raw)), (want, None), "{raw:?}");
+        }
+        for junk in [
+            "maybe",
+            "1",
+            "0",
+            "true",
+            "false",
+            "shadow on",
+            "o n",
+            "\u{0}",
+            "ón",
+        ] {
+            let (mode, warning) = ReaderMode::parse(Some(junk));
+            assert_eq!(mode, ReaderMode::Shadow, "{junk:?}");
+            let w = warning.expect("an unknown value is warned about");
+            assert!(
+                w.contains(MINER_READER_ENV) && w.contains("using shadow"),
+                "{w}"
+            );
+        }
+        for mode in [ReaderMode::Off, ReaderMode::Shadow, ReaderMode::On] {
+            assert_eq!(ReaderMode::parse(Some(mode.as_str())), (mode, None));
+            assert_eq!(
+                serde_json::to_string(&mode).unwrap(),
+                format!("\"{}\"", mode.as_str())
+            );
+        }
+    }
+
+    // C1: `MinerSweepStats` is serialized; a payload written before the shadow fields existed
+    // still deserializes, with zeros and the default mode.
+    #[test]
+    fn sweep_stats_without_the_shadow_fields_still_deserialize() {
+        let old = r#"{"files_scanned":3,"lines_read":10,"pairs_mined":2,"pairs_persisted":1,"pairs_deduped":1}"#;
+        let stats: MinerSweepStats = serde_json::from_str(old).expect("old payload");
+        assert_eq!((stats.files_scanned, stats.pairs_persisted), (3, 1));
+        assert_eq!(stats.reader_mode, ReaderMode::Shadow);
+        assert_eq!(
+            (
+                stats.legacy_pairs,
+                stats.reader_pairs,
+                stats.only_legacy,
+                stats.only_reader
+            ),
+            (0, 0, 0, 0)
+        );
+        assert_eq!(stats.reader_sidechain_dropped, 0);
+    }
+
+    // C1: the mode decides which extractor WRITES, end to end through `sweep` and a real store.
+    // The transcript holds a subagent pair (Bash) and a main-thread pair (Edit): `off` and
+    // `shadow` persist both (legacy writes), `on` persists only the main thread's — and under
+    // `shadow` the reader path is measured but wrote nothing of its own.
+    #[test]
+    fn the_mode_decides_which_extractor_writes() {
+        use crate::memory_store::MemoryStore;
+        use tempfile::TempDir;
+
+        let lines = vec![
+            use_rec("s1", "Bash", json!({"command": "side bad"}), true),
+            result_rec("s1", true, json!("sidechain failure"), true),
+            use_rec("s2", "Bash", json!({"command": "side good"}), true),
+            result_rec("s2", false, json!("ok"), true),
+            use_rec("m1", "Edit", json!({"file_path": "a.rs"}), false),
+            result_rec("m1", true, json!("main failure"), false),
+            use_rec(
+                "m2",
+                "Edit",
+                json!({"file_path": "a.rs", "fixed": true}),
+                false,
+            ),
+            result_rec("m2", false, json!("ok"), false),
+        ];
+        let transcript = lines.join("\n") + "\n";
+        let legacy_pairs = mine(ReaderMode::Off, &lines).pairs;
+        let side_key = lesson_memory_key(
+            legacy_pairs
+                .iter()
+                .find(|p| p.tool_name == "Bash")
+                .expect("sidechain pair"),
+        );
+        let main_key = lesson_memory_key(
+            legacy_pairs
+                .iter()
+                .find(|p| p.tool_name == "Edit")
+                .expect("main pair"),
+        );
+
+        let sweep_in = |mode: ReaderMode| {
+            let tmp = TempDir::new().unwrap();
+            let mem_db = tmp.path().join("memory.db");
+            let store = MemoryStore::new(&mem_db, &mem_db).expect("MemoryStore::new");
+            let projects_root = tmp.path().join("projects");
+            let proj = projects_root.join("p");
+            std::fs::create_dir_all(&proj).unwrap();
+            std::fs::write(proj.join("t.jsonl"), &transcript).unwrap();
+            let mut miner = TranscriptMiner::with_reader_mode(tmp.path().join("state.json"), mode);
+            let stats = miner.sweep(&projects_root, &store);
+            let wrote_side = store.get(&side_key, "reference").unwrap().is_some();
+            let wrote_main = store.get(&main_key, "reference").unwrap().is_some();
+            (stats, wrote_side, wrote_main)
+        };
+
+        let (off, side, main) = sweep_in(ReaderMode::Off);
+        assert_eq!((off.pairs_mined, off.pairs_persisted), (2, 2));
+        assert_eq!((side, main), (true, true));
+        assert_eq!(off.reader_mode, ReaderMode::Off);
+        assert_eq!(
+            (
+                off.legacy_pairs,
+                off.reader_pairs,
+                off.reader_sidechain_dropped
+            ),
+            (2, 0, 0)
+        );
+
+        let (shadow, side, main) = sweep_in(ReaderMode::Shadow);
+        assert_eq!((shadow.pairs_mined, shadow.pairs_persisted), (2, 2));
+        assert_eq!(
+            (side, main),
+            (true, true),
+            "legacy still writes under shadow"
+        );
+        assert_eq!(shadow.reader_mode, ReaderMode::Shadow);
+        assert_eq!(
+            (
+                shadow.legacy_pairs,
+                shadow.reader_pairs,
+                shadow.only_legacy,
+                shadow.only_reader
+            ),
+            (2, 1, 1, 0)
+        );
+        assert_eq!(shadow.reader_sidechain_dropped, 4);
+
+        let (on, side, main) = sweep_in(ReaderMode::On);
+        assert_eq!((on.pairs_mined, on.pairs_persisted), (1, 1));
+        assert_eq!(
+            (side, main),
+            (false, true),
+            "the reader path writes, minus the subagent"
+        );
+        assert_eq!(on.reader_mode, ReaderMode::On);
+        assert_eq!(
+            (
+                on.legacy_pairs,
+                on.reader_pairs,
+                on.reader_sidechain_dropped
+            ),
+            (0, 1, 4)
+        );
+    }
+
+    // C1 measurement over the REAL corpus (`$HOME/.claude/projects/*/*.jsonl`, the newest N
+    // files, N = TOURING_MINER_MEASURE_FILES, default 200). READ-ONLY: it runs the miner's own
+    // read path (`mine_new_lines`, shadow) from offset 0 and never touches a MemoryStore. It
+    // prints counts and dedup keys only — never transcript content.
+    //   cargo test -p touring-server --lib corpus_shadow_measurement -- --ignored --nocapture
+    #[test]
+    #[ignore = "reads the real transcript corpus under $HOME/.claude/projects"]
+    fn corpus_shadow_measurement() {
+        let home = std::env::var_os("HOME").expect("HOME is set");
+        let root = PathBuf::from(home).join(".claude").join("projects");
+        let cap: usize = std::env::var("TOURING_MINER_MEASURE_FILES")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(200);
+
+        let mut files: Vec<(std::time::SystemTime, PathBuf)> = discover_transcript_paths(&root)
+            .into_iter()
+            .filter_map(|p| Some((std::fs::metadata(&p).ok()?.modified().ok()?, p)))
+            .collect();
+        files.sort_by_key(|(mtime, _)| std::cmp::Reverse(*mtime));
+        let discovered = files.len();
+
+        let (mut measured, mut skipped, mut lines_read) = (0usize, 0usize, 0usize);
+        let mut total = ShadowComparison::default();
+        let mut diverging_files = 0usize;
+        for (_, path) in files.into_iter().take(cap) {
+            match mine_new_lines(&path, 0, ReaderMode::Shadow) {
+                Ok(Some(chunk)) => {
+                    measured += 1;
+                    lines_read += chunk.lines_read;
+                    let c = chunk.mined.comparison;
+                    if c.only_legacy > 0 || c.only_reader > 0 {
+                        diverging_files += 1;
+                    }
+                    total.absorb(c);
+                }
+                Ok(None) => {}
+                Err(_) => skipped += 1,
+            }
+        }
+
+        let report = json!({
+            "files_discovered": discovered,
+            "files": measured,
+            "files_skipped_unreadable": skipped,
+            "files_with_a_difference": diverging_files,
+            "lines": lines_read,
+            "legacy_pairs": total.legacy_pairs,
+            "reader_pairs": total.reader_pairs,
+            "only_legacy": total.only_legacy,
+            "only_reader": total.only_reader,
+            "dropped_sidechain": total.sidechain_dropped,
+            "sample_only_legacy_keys": total.sample_only_legacy,
+            "sample_only_reader_keys": total.sample_only_reader,
+        });
+        println!("CORPUS_MEASUREMENT {report}");
     }
 }

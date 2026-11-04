@@ -50,6 +50,7 @@ pub use touring_hooks_prediction::classifier; // Wave T1 handler — Wave C2 (20
 pub use touring_hooks_core::proc_identity;
 pub use touring_hooks_shared::action_signature; // 2026-05-15: ActionSignature — (tool_class, intent_class, context_qualifier) key for action-scoped outcome persistence
 // Wave R+C I2 (2026-06-10): pure extractors carved from post_read to the core.
+pub use touring_cli::cli::transcript_scan; // C1 (2026-11-04): the transcript READER (record-kind policy: main thread only, one tool_use per id) — reached by the server-side transcript miner through touring-hooks
 pub use touring_cli::cli_suggester; // PreToolUse classifier — Wave C2 (2026-06-10): lives in touring-cli
 pub use touring_cli::workflow; // CEG Pln2 P8 Workflow Intelligence — Wave C2 (2026-06-10): lives in touring-cli with its single consumer (cli_suggester)
 pub use touring_hook_runtime::gotcha_loader; // Wave Q3: YAML rule library loader for gotchas
