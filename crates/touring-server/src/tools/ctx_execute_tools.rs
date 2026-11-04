@@ -972,7 +972,7 @@ fn run_failure(
         .find(|l| !l.trim().is_empty())
         .unwrap_or("")
         .to_string();
-    let (kind, message) = if ExitStatus::from_wire(r.exit_code).is_timed_out() {
+    let (kind, message) = if r.exit_code.is_timed_out() {
         // V-10 (31/10/2026): a lição do timeout é a ÚLTIMA linha do stderr —
         // o CEG compõe `stderr parcial do filho + "\n" + lição`
         // (`sandbox_executor.rs::timeout_outcome_with_cause`), então a
@@ -1013,11 +1013,11 @@ fn run_failure(
             FailureKind::Exception,
             killed_by(signal, &first_stderr_line),
         )
-    } else if r.exit_code != 0 {
+    } else if !r.exit_code.is_zero() {
         // V-10 (31/10/2026): um corpo que o shell não parseou tem uma CORREÇÃO
         // concreta (o corpo inline, não o programa) — e ela só pode ser
         // ensinada quando a assinatura está no stderr do shell.
-        let mut message = silent_exit(ExitStatus::from_wire(r.exit_code), first_stderr_line);
+        let mut message = silent_exit(r.exit_code, first_stderr_line);
         if let Some(route) = shell_syntax_route(ctx, stderr) {
             message.push_str(&route);
         }
@@ -1204,7 +1204,7 @@ fn derive_run_outcome(
             (
                 stdout_str,
                 r.stderr,
-                ExitStatus::from_wire(r.exit_code),
+                r.exit_code,
                 r.stderr_truncated,
                 stored,
                 failure,
@@ -1525,11 +1525,12 @@ pub(crate) fn program_succeeded(output: &CtxExecuteOutput) -> bool {
 #[cfg(test)]
 mod run_failure_tests {
     use super::*;
+    use touring_foundation::run_outcome::ExitStatus;
     use touring_hooks::sandbox_executor::SandboxResult;
 
     fn finished(exit_code: i32, signal: Option<i32>, capped: &[&str]) -> SandboxResult {
         SandboxResult {
-            exit_code,
+            exit_code: ExitStatus::from_wire(exit_code),
             output_bytes: 0,
             was_truncated: false,
             content_hash: String::new(),

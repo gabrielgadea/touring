@@ -60,6 +60,7 @@ use super::typestate::{Evidence, ExecutionId, RawInvocation};
 use crate::capability::{CapabilityProfile, builtins};
 use crate::gateway::offensive_integration::prove_claim;
 use serde::Serialize;
+use touring_foundation::run_outcome::ExitStatus;
 use touring_hooks_shared::command_policy::{Verdict as BashVerdict, judge};
 
 // ── Gateway dependencies + outcome ────────────────────────────────────────────
@@ -151,7 +152,7 @@ pub const REFUSED_PROFILE_MARKER: &str = "<X5-refused:destructive-pattern>";
 #[must_use]
 pub fn deferred_dry_run(_raw: &RawInvocation) -> SandboxOutcome {
     SandboxOutcome {
-        exit_code: 0,
+        exit_code: ExitStatus::Code(0),
         output_bytes: 0,
         was_truncated: false,
         timed_out: false,
@@ -180,7 +181,7 @@ pub fn deferred_dry_run(_raw: &RawInvocation) -> SandboxOutcome {
 pub fn guarded_dry_run(raw: &RawInvocation, caps: &SandboxCapabilities) -> SandboxOutcome {
     if let BashVerdict::Block { .. } = judge(&raw.payload) {
         return SandboxOutcome {
-            exit_code: 126,
+            exit_code: ExitStatus::Code(126),
             output_bytes: 0,
             was_truncated: false,
             timed_out: false,
@@ -333,7 +334,7 @@ pub fn run_gateway_speculative(
             Ok(ref outcome) if outcome.decision.verdict != Verdict::Deny
         );
         SandboxOutcome {
-            exit_code: if valid { 0 } else { 126 },
+            exit_code: ExitStatus::Code(if valid { 0 } else { 126 }),
             output_bytes: 0,
             was_truncated: false,
             timed_out: false,
@@ -444,7 +445,6 @@ mod tests {
 
     #[test]
     fn guarded_dry_run_refuses_destructive_without_spawning() {
-        assert_eq!(outcome.exit_code, 126);
         // The full policy sees what the structural-only reading missed (`dd`,
         // `mkfs`, destructive git). Every refusal keeps the marker and exit 126.
         for command in [
@@ -458,6 +458,7 @@ mod tests {
                 outcome.capability_profile, REFUSED_PROFILE_MARKER,
                 "{command}"
             );
+            assert_eq!(outcome.exit_code, ExitStatus::Code(126), "{command}");
             assert!(
                 !outcome.succeeded(),
                 "a refused command must not look successful: {command}"

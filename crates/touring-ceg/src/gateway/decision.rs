@@ -33,6 +33,8 @@ use super::typestate::{Decided, Evidence, Execution, Gated};
 use super::vgp_stage::VgpReport;
 use crate::capability::{Capability, Decision};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use touring_foundation::run_outcome::ExitStatus;
 
 // ── Composite score ───────────────────────────────────────────────────────────
 
@@ -358,7 +360,7 @@ fn sandbox_reasons(outcome: Option<&SandboxOutcome>) -> Vec<String> {
         Some(o) if !o.succeeded() => {
             vec![format!(
                 "X5 SANDBOX dry-run exited with code {}",
-                o.exit_code
+                o.exit_code.to_wire()
             )]
         }
         _ => Vec::new(),
@@ -573,7 +575,7 @@ mod tests {
 
     fn ok_outcome() -> SandboxOutcome {
         SandboxOutcome {
-            exit_code: 0,
+            exit_code: ExitStatus::Code(0),
             output_bytes: 5,
             was_truncated: false,
             timed_out: false,
@@ -585,7 +587,7 @@ mod tests {
 
     fn timed_out_outcome() -> SandboxOutcome {
         SandboxOutcome {
-            exit_code: -1,
+            exit_code: ExitStatus::TimedOut,
             output_bytes: 0,
             was_truncated: false,
             timed_out: true,

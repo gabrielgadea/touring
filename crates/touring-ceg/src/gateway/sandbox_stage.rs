@@ -38,17 +38,20 @@ use crate::gateway::sandbox_executor::{
 };
 use crate::gateway::summarize::OutputSummary;
 use serde::{Deserialize, Serialize};
+use touring_foundation::run_outcome::ExitStatus;
 
 /// The observed result of an X5 sandbox dry-run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(into = "SandboxOutcomeWire", from = "SandboxOutcomeWire")]
 pub struct SandboxOutcome {
-    /// Subprocess exit code; `-1` marks a timeout or a spawn failure.
-    pub exit_code: i32,
+    /// How the subprocess ended; sentinel integers exist only at the wire edge.
+    pub exit_code: ExitStatus,
     /// Bytes of stdout captured.
     pub output_bytes: u64,
     /// `true` when output was clipped at the configured cap.
     pub was_truncated: bool,
-    /// `true` when the subprocess was killed at the wall-clock timeout.
+    /// Legacy wire discriminator: timeout (`-1`) versus the fallback's `-2`.
+    /// Kept beside the typed status because the two JSON forms predate it.
     pub timed_out: bool,
     /// BLAKE3 hex digest of captured stdout (`""` when nothing ran).
     pub content_hash: String,
@@ -57,6 +60,57 @@ pub struct SandboxOutcome {
     /// C5 — inline, metadata-first digest of the captured output (exit code,
     /// error signatures, `file:line` refs). Surfaces failures without re-reading.
     pub summary: OutputSummary,
+}
+
+/// The historical JSON shape. Timeout and no-exit BOTH used `-1`; the separate
+/// boolean distinguishes them on disk. Keeping this adapter outside the typed
+/// value makes the serialization byte-compatible instead of changing `-1` to
+/// the journal's timeout sentinel `-2`.
+#[derive(Serialize, Deserialize)]
+struct SandboxOutcomeWire {
+    exit_code: i32,
+    output_bytes: u64,
+    was_truncated: bool,
+    timed_out: bool,
+    content_hash: String,
+    capability_profile: String,
+    summary: OutputSummary,
+}
+
+impl From<SandboxOutcome> for SandboxOutcomeWire {
+    fn from(outcome: SandboxOutcome) -> Self {
+        Self {
+            exit_code: if outcome.timed_out {
+                -1
+            } else {
+                outcome.exit_code.to_wire()
+            },
+            output_bytes: outcome.output_bytes,
+            was_truncated: outcome.was_truncated,
+            timed_out: outcome.timed_out,
+            content_hash: outcome.content_hash,
+            capability_profile: outcome.capability_profile,
+            summary: outcome.summary,
+        }
+    }
+}
+
+impl From<SandboxOutcomeWire> for SandboxOutcome {
+    fn from(wire: SandboxOutcomeWire) -> Self {
+        Self {
+            exit_code: if wire.timed_out {
+                ExitStatus::TimedOut
+            } else {
+                ExitStatus::from_wire(wire.exit_code)
+            },
+            output_bytes: wire.output_bytes,
+            was_truncated: wire.was_truncated,
+            timed_out: wire.timed_out,
+            content_hash: wire.content_hash,
+            capability_profile: wire.capability_profile,
+            summary: wire.summary,
+        }
+    }
 }
 
 impl SandboxOutcome {
@@ -76,7 +130,7 @@ impl SandboxOutcome {
     /// The outcome of a dry-run killed at the timeout.
     fn timed_out(profile: &str) -> Self {
         Self {
-            exit_code: -1,
+            exit_code: ExitStatus::TimedOut,
             output_bytes: 0,
             was_truncated: false,
             timed_out: true,
@@ -89,7 +143,7 @@ impl SandboxOutcome {
     /// The outcome of a dry-run that never started (spawn / I/O failure).
     fn spawn_failed(profile: &str) -> Self {
         Self {
-            exit_code: -1,
+            exit_code: ExitStatus::NoExitCode,
             output_bytes: 0,
             was_truncated: false,
             timed_out: false,
@@ -102,7 +156,7 @@ impl SandboxOutcome {
     /// `true` when the dry-run ran to completion with a zero exit code.
     #[must_use]
     pub fn succeeded(&self) -> bool {
-        self.exit_code == 0 && !self.timed_out
+        self.exit_code.is_zero() && !self.timed_out
     }
 }
 
@@ -195,7 +249,7 @@ mod tests {
 
     fn mock_outcome() -> SandboxOutcome {
         SandboxOutcome {
-            exit_code: 0,
+            exit_code: ExitStatus::Code(0),
             output_bytes: 12,
             was_truncated: false,
             timed_out: false,
@@ -213,7 +267,7 @@ mod tests {
     #[test]
     fn outcome_failed_on_nonzero_exit() {
         let o = SandboxOutcome {
-            exit_code: 1,
+            exit_code: ExitStatus::Code(1),
             ..mock_outcome()
         };
         assert!(!o.succeeded());
@@ -223,22 +277,22 @@ mod tests {
     fn outcome_failed_on_timeout() {
         let o = SandboxOutcome::timed_out("p");
         assert!(!o.succeeded());
-        assert!(o.timed_out);
-        assert_eq!(o.exit_code, -1);
+        assert!(o.exit_code.is_timed_out());
+        assert_eq!(o.exit_code, ExitStatus::TimedOut);
     }
 
     #[test]
     fn outcome_spawn_failed_is_not_a_timeout() {
         let o = SandboxOutcome::spawn_failed("p");
         assert!(!o.succeeded());
-        assert!(!o.timed_out);
-        assert_eq!(o.exit_code, -1);
+        assert!(!o.exit_code.is_timed_out());
+        assert_eq!(o.exit_code, ExitStatus::NoExitCode);
     }
 
     #[test]
     fn outcome_from_result_maps_every_field() {
         let result = SandboxResult {
-            exit_code: 0,
+            exit_code: ExitStatus::Code(0),
             output_bytes: 99,
             was_truncated: true,
             content_hash: "deadbeef".to_owned(),
@@ -251,12 +305,99 @@ mod tests {
             capped_files: Vec::new(),
         };
         let o = SandboxOutcome::from_result(&result, "readonly");
-        assert_eq!(o.exit_code, 0);
+        assert_eq!(o.exit_code, ExitStatus::Code(0));
         assert_eq!(o.output_bytes, 99);
         assert!(o.was_truncated);
-        assert!(!o.timed_out);
+        assert!(!o.exit_code.is_timed_out());
         assert_eq!(o.content_hash, "deadbeef");
         assert_eq!(o.capability_profile, "readonly");
+    }
+
+    #[test]
+    fn outcome_from_timeout_result_keeps_the_minus_two_fallback_wire() {
+        let result = SandboxResult {
+            exit_code: ExitStatus::TimedOut,
+            output_bytes: 0,
+            was_truncated: true,
+            content_hash: String::new(),
+            stored_path: None,
+            summary: OutputSummary::empty(-2),
+            stderr: String::new(),
+            stderr_truncated: false,
+            tmp_bytes: 0,
+            signal: None,
+            capped_files: Vec::new(),
+        };
+        let outcome = SandboxOutcome::from_result(&result, "fallback");
+        let wire = serde_json::to_value(outcome).expect("serialize");
+        assert_eq!(wire["exit_code"], -2);
+        assert_eq!(wire["timed_out"], false);
+    }
+
+    /// Replays the real run journal through the legacy and typed wire shapes.
+    /// Opt-in because the journal is local runtime data, never a repo fixture.
+    #[test]
+    #[ignore = "requires TOURING_RUN_OUTCOME_REPLAY and TOURING_RUN_OUTCOME_REPLAY_LINES"]
+    fn real_run_outcome_wire_replay_is_byte_identical() {
+        use std::io::{BufRead, BufReader};
+
+        #[derive(Serialize)]
+        struct LegacySandboxOutcome {
+            exit_code: i32,
+            output_bytes: u64,
+            was_truncated: bool,
+            timed_out: bool,
+            content_hash: String,
+            capability_profile: String,
+            summary: OutputSummary,
+        }
+
+        let path = std::env::var("TOURING_RUN_OUTCOME_REPLAY").expect("journal path");
+        let limit = std::env::var("TOURING_RUN_OUTCOME_REPLAY_LINES")
+            .expect("line limit")
+            .parse::<usize>()
+            .expect("numeric line limit");
+        let reader = BufReader::new(std::fs::File::open(path).expect("open journal"));
+        let (mut lines, mut compared, mut without_exit, mut malformed) = (0, 0, 0, 0);
+        for line_text in reader.lines().take(limit) {
+            let line_text = line_text.expect("read journal line");
+            lines += 1;
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(&line_text) else {
+                malformed += 1;
+                continue;
+            };
+            let Some(exit_code) = value
+                .get("exit_code")
+                .and_then(serde_json::Value::as_i64)
+                .and_then(|code| i32::try_from(code).ok())
+            else {
+                without_exit += 1;
+                continue;
+            };
+            let legacy = LegacySandboxOutcome {
+                exit_code,
+                output_bytes: 0,
+                was_truncated: false,
+                timed_out: value
+                    .get("timed_out")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false),
+                content_hash: String::new(),
+                capability_profile: "replay".to_owned(),
+                summary: OutputSummary::empty(exit_code),
+            };
+            let expected = serde_json::to_string(&legacy).expect("legacy JSON");
+            let typed: SandboxOutcome =
+                serde_json::from_str(&expected).expect("typed outcome deserializes");
+            let actual = serde_json::to_string(&typed).expect("typed JSON");
+            assert_eq!(actual, expected, "wire differs at journal line {lines}");
+            compared += 1;
+        }
+        assert_eq!(lines, limit, "the replay must cover the requested corpus");
+        assert!(compared > 0, "an empty comparison proves nothing");
+        eprintln!(
+            "run_outcome replay: lines={lines} compared={compared} without_exit={without_exit} malformed={malformed}"
+        );
     }
 
     #[test]
@@ -265,6 +406,22 @@ mod tests {
         let json = serde_json::to_string(&o).expect("serialize");
         let back: SandboxOutcome = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(o, back);
+    }
+
+    #[test]
+    fn outcome_serde_keeps_the_legacy_minus_one_timeout_wire() {
+        let outcome = SandboxOutcome::timed_out("legacy");
+        let json = serde_json::to_string(&outcome).expect("serialize");
+        assert_eq!(
+            json,
+            r#"{"exit_code":-1,"output_bytes":0,"was_truncated":false,"timed_out":true,"content_hash":"","capability_profile":"legacy","summary":{"exit_code":-1,"total_bytes":0,"error_lines":[],"file_refs":[],"counts":{},"head_tail":[],"elided_lines":0,"truncated":false}}"#
+        );
+        let back: SandboxOutcome = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, outcome);
+        let spawn = SandboxOutcome::spawn_failed("legacy");
+        let wire = serde_json::to_value(spawn).expect("serialize");
+        assert_eq!(wire["exit_code"], -1);
+        assert_eq!(wire["timed_out"], false);
     }
 
     #[test]
@@ -314,7 +471,7 @@ mod tests {
     #[test]
     fn sandbox_dry_run_records_runner_outcome_verbatim() {
         let failing = SandboxOutcome {
-            exit_code: 7,
+            exit_code: ExitStatus::Code(7),
             ..mock_outcome()
         };
         let tested = predicted().sandbox_dry_run(|_| failing.clone());
