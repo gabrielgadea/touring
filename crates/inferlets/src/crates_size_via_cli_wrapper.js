@@ -7,48 +7,59 @@
  * Return: 1 always (output always available); 2 when no workspace is derivable
  */
 
-// Security (OWASP A03 / CWE-78): use execFileSync with an argv array, never a
-// shell string. `cratePath` derives from external input (`inputObj.workspace`),
-// so interpolating it into a shell command was a command-injection vector.
-const { execFileSync } = require("child_process");
+// No subprocess at all: the line count is computed in-process, so nothing derived
+// from external input (`inputObj.workspace`, the members list) reaches a shell or an
+// argv (OWASP A03 / CWE-78). It also removes the batch bug of `find -exec wc {} +`,
+// whose LAST line is only the total of the last batch on a large crate.
 const path = require("path");
 const fs = require("fs");
 
+/**
+ * Workspace member paths (relative, as written in the root Cargo.toml).
+ * Comment lines inside `members = [...]` are dropped first: a quoted word in a
+ * comment is not a member.
+ */
 function getCrateList(workspace) {
   const tomlPath = path.join(workspace, "Cargo.toml");
   if (!fs.existsSync(tomlPath)) {
     return [];
   }
   const content = fs.readFileSync(tomlPath, "utf8");
-  const memberRegex = /^members\s*=\s*\[([\s\S]*?)\]/m;
-  const match = content.match(memberRegex);
+  const match = content.match(/^members\s*=\s*\[([\s\S]*?)\]/m);
   if (!match) return [];
-  const membersStr = match[1];
-  const crateNames = [];
-  const memberRegex2 = /"([^"]+)"/g;
-  let m;
-  while ((m = memberRegex2.exec(membersStr)) !== null) {
-    crateNames.push(m[1]);
-  }
-  return crateNames;
+  const body = match[1]
+    .split("\n")
+    .map((line) => line.replace(/#.*$/, ""))
+    .join("\n");
+  return [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 }
 
-function measureCrate(workspace, crateName) {
-  try {
-    const cratePath = path.join(workspace, "crates", crateName, "src");
-    if (!fs.existsSync(cratePath)) {
-      return 0;
+/** Lines of every `*.rs` file under `dir`, walked in-process (symlinks not followed). */
+function countRustLines(dir) {
+  let total = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      total += countRustLines(full);
+    } else if (entry.isFile() && entry.name.endsWith(".rs")) {
+      const text = fs.readFileSync(full, "utf8");
+      if (text.length > 0) {
+        total += text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
+      }
     }
-    // No shell: argv array is immune to metacharacter injection from cratePath.
-    const output = execFileSync(
-      "find",
-      [cratePath, "-name", "*.rs", "-type", "f", "-exec", "wc", "-l", "{}", "+"],
-      { encoding: "utf8", timeout: 10000 }
-    );
-    const lines = output.trim().split("\n");
-    const lastLine = lines[lines.length - 1] || "";
-    const loc = parseInt(lastLine.trim().split(/\s+/)[0], 10);
-    return isNaN(loc) ? 0 : loc;
+  }
+  return total;
+}
+
+/** LOC of the member at `memberPath` (relative to `workspace`); 0 when absent or outside it. */
+function measureCrate(workspace, memberPath) {
+  const root = path.resolve(workspace);
+  const srcPath = path.resolve(root, memberPath, "src");
+  if (!srcPath.startsWith(root + path.sep) || !fs.existsSync(srcPath)) {
+    return 0;
+  }
+  try {
+    return countRustLines(srcPath);
   } catch (_) {
     return 0;
   }
@@ -57,10 +68,10 @@ function measureCrate(workspace, crateName) {
 function computeSizeDistribution(workspace) {
   const crateNames = getCrateList(workspace);
   const crates = [];
-  for (const name of crateNames) {
-    const loc = measureCrate(workspace, name);
+  for (const member of crateNames) {
+    const loc = measureCrate(workspace, member);
     if (loc > 0) {
-      crates.push({ name, loc });
+      crates.push({ name: path.basename(member), loc });
     }
   }
 
