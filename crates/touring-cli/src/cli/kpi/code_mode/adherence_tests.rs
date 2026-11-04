@@ -17,7 +17,25 @@ fn the_real_journal_sample_reads_exactly_as_the_old_ruler_did() {
         "../../../../../touring-foundation/tests/fixtures/run_journal_sample.golden.kpi.json"
     ))
     .expect("golden parses");
-    assert_eq!(adherence_from_lines(sample.lines()), golden["adherence"]);
+    // C3a (04/11/2026, aprofundamento #3, approved by Gabriel): the golden is the OLD ruler's and
+    // stays on disk as computed; the new ruler is the golden minus exactly what C3a moved — the 6
+    // refusal events and 2 non-object lines leave the denominator (509 → 501), the 8 rows they
+    // put under language "?" go with them, one "retry" that was a refusal stops counting as wasted
+    // (84 → 83), and the two families are exposed as counters. `runs_ok` does not move.
+    let mut expected = golden["adherence"].clone();
+    assert_eq!(expected["runs_total"], 509, "the golden changed under this test");
+    expected["runs_total"] = 501.into();
+    expected["success_rate"] = serde_json::json!(193.0 / 501.0);
+    expected["wasted_attempts_retry_pairs"] = 83.into();
+    expected["by_language"]
+        .as_object_mut()
+        .expect("by_language")
+        .remove("?");
+    expected["refused_events"] = 6.into();
+    expected["non_object_lines"] = 2.into();
+    let live = adherence_from_lines(sample.lines());
+    expected["note"] = live["note"].clone();
+    assert_eq!(live, expected);
 
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../touring-foundation/tests/fixtures/run_journal_sample.jsonl");
@@ -33,7 +51,7 @@ fn the_real_journal_sample_reads_exactly_as_the_old_ruler_did() {
 
 /// The ruler's success is PROCESS-level: exit 0 with a failure class still
 /// counts as ok (a cut output exited clean), and a line with no `exit_code`
-/// is a failed run — never an ok one.
+/// is a failed run — never an ok one. A refusal event is not a run at all (C3a).
 #[test]
 fn success_is_exit_zero_and_a_missing_exit_is_not_ok() {
     let linhas = [
@@ -44,11 +62,13 @@ fn success_is_exit_zero_and_a_missing_exit_is_not_ok() {
         r#"{"success":false,"repeat_blocked":{"ts":9}}"#,
     ];
     let v = adherence_from_lines(linhas.iter().copied());
-    assert_eq!(v["runs_total"], 5);
+    // C3a (04/11/2026): the refusal event is no run — out of the denominator, counted apart.
+    assert_eq!(v["runs_total"], 4);
     assert_eq!(v["runs_ok"], 2);
+    assert_eq!(v["refused_events"], 1);
     assert_eq!(v["by_failure_kind"]["output-limit"], 1);
     assert_eq!(v["by_failure_kind"]["timeout"], 1);
-    assert_eq!(v["by_language"]["?"], 1, "a refusal event has no language");
+    assert!(v["by_language"].get("?").is_none(), "a refusal is not a run of any language");
 }
 
 /// A blank line is counted with the corrupt ones — the ruler's historical
