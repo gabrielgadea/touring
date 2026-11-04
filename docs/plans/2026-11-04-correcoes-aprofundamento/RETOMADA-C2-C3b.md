@@ -103,6 +103,11 @@ pertence à branch de portabilidade e não foi editado.
    reexport de `PreToolValidator` em `touring-dispatch/src/lib.rs`. Nenhum dos arquivos foi tocado.
 4. A entrega continua hipótese até o juiz da coordenadora. Não se declara 0 falhas totais enquanto
    a expectativa proibida de handlers estiver aberta; o resultado real é 808/1.
+5. `loop_converged.py` foi executado duas vezes e terminou exit 1. Depois de registrar os cinco itens
+   na DAG, `dag_done` ficou 5/5 e a única cláusula aberta restante é F2.4 em
+   `touring-code/src/vgp/lang/html/tests/recurso.rs:416` (`high-entropy-literal` num nome fictício de
+   arquivo). O arquivo está inalterado nesta branch e seu crate é proibido; convergência global NÃO
+   alcançada. Evidência completa na seção "Juiz de convergência" do relatório.
 
 ## Arquivos tocados
 
