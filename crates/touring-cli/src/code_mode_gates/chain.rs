@@ -384,9 +384,14 @@ pub(super) fn run_chain(
             .or_else(|| tool_input.get("content"))
             .and_then(Value::as_str)
             .unwrap_or("");
+        // #6 (04/11/2026): the counter keeps observing under the kill switch; the note does
+        // not speak — `TOURING_CODE_GATES_DISABLED=1` silences every gate, advisories included.
         if counterfactual_comment(adicionado) {
             crate::shared::gate_metrics::record_e3_counterfactual();
-            return Some(Verdict::advise(Gate::E3, 
+            if ovr.code_gates_disabled {
+                return None;
+            }
+            return Some(Verdict::advise(Gate::E3,
                 "[E3 contrafactual-sem-endereço] comentário adicionado afirma o que \
                  ACONTECERIA sem citar um run_id — a classe do arm_marker de 24/08 \
                  (afirmação falsa nunca exercitada). Exercite (probe FACT= / touring \
@@ -490,8 +495,12 @@ pub(super) fn run_chain(
             "adw lint",
             "adw test",
         ];
-        if g5 >= 3 && !VALIDA.iter().any(|m| cmd.contains(m)) {
+        let g5_unvalidated = g5 >= 3 && !VALIDA.iter().any(|m| cmd.contains(m));
+        if g5_unvalidated {
             crate::shared::gate_metrics::record_g5_observed();
+        }
+        // #6 (04/11/2026): observed under the kill switch, never spoken.
+        if g5_unvalidated && !ovr.code_gates_disabled {
             // Advisory: NÃO curto-circuita a cadeia (30.4.97) — um deny aplicável adiante
             // (G9 `sed -i` cego, G2, G6…) vence e leva este texto junto.
             avisos.push(Advisory::new(Gate::G5, format!(
