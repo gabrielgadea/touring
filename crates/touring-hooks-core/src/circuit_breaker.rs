@@ -55,11 +55,32 @@ const FLUSH_INTERVAL_MS: u64 = 5_000;
 /// Force synchronous write every N flushes — prevents data loss on crash.
 const SYNC_FLUSH_INTERVAL: u32 = 10;
 
+/// Environment variable that relocates the circuit state file (an ABSOLUTE path).
+/// Unset in production; hermetic tests point it into their temp world so a breaker
+/// left open on the machine cannot decide their verdict.
+pub const CIRCUIT_STATE_FILE_ENV: &str = "TOURING_CIRCUIT_STATE_FILE";
+
 /// File path for circuit state — single writer, readers use memory cache.
-fn circuit_path() -> PathBuf {
-    let uid = crate::current_uid();
-    PathBuf::from(format!("/tmp/touring-circuit-{uid}.state"))
+///
+/// The ONE resolver of this path: the breaker and `touring doctor` both call it, so the
+/// file the doctor inspects is the file the breaker writes.
+#[must_use]
+pub fn circuit_state_path() -> PathBuf {
+    state_path_in(
+        std::env::var_os(CIRCUIT_STATE_FILE_ENV).as_deref(),
+        crate::current_uid(),
+    )
 }
+
+/// [`circuit_state_path`] with its inputs passed in. A relative or empty override is
+/// ignored (the default stays), never resolved against an arbitrary cwd.
+fn state_path_in(override_path: Option<&std::ffi::OsStr>, uid: u32) -> PathBuf {
+    match override_path.map(std::path::Path::new) {
+        Some(path) if path.is_absolute() => path.to_path_buf(),
+        _ => PathBuf::from(format!("/tmp/touring-circuit-{uid}.state")),
+    }
+}
+
 
 // ── Operation Class ────────────────────────────────────────────────────────────
 
@@ -392,7 +413,7 @@ pub fn shutdown() {
 fn ensure_flush_thread() {
     if FLUSH_THREAD_STARTED.swap(1, Ordering::SeqCst) == 0 {
         let (tx, rx) = std::sync::mpsc::channel::<FlushCmd>();
-        let path = circuit_path();
+        let path = circuit_state_path();
 
         // Initialize cache with the sender
         let _ = CIRCUIT_CACHE.get_or_init(|| RwLock::new(CachedState::new(tx)));
@@ -454,7 +475,7 @@ fn write_state_to_file(path: &PathBuf, state: &CircuitState) -> std::io::Result<
 }
 
 fn read_state_from_file() -> CircuitState {
-    let path = circuit_path();
+    let path = circuit_state_path();
     match std::fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(_) => CircuitState::default(),
@@ -761,7 +782,7 @@ pub fn reset() {
     cache.dirty_count = 0;
     cache.flush_count = 0;
     // Synchronous write to reset file
-    let _ = write_state_to_file(&circuit_path(), &CircuitState::default());
+    let _ = write_state_to_file(&circuit_state_path(), &CircuitState::default());
 }
 
 /// Get current state summary for debugging/monitoring.
@@ -794,6 +815,19 @@ pub fn health() -> CircuitHealthReport {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn state_path_override_must_be_absolute() {
+        use std::ffi::OsStr;
+        let default = PathBuf::from("/tmp/touring-circuit-7.state");
+        assert_eq!(super::state_path_in(None, 7), default);
+        assert_eq!(super::state_path_in(Some(OsStr::new("")), 7), default);
+        assert_eq!(super::state_path_in(Some(OsStr::new("rel/c.state")), 7), default);
+        assert_eq!(
+            super::state_path_in(Some(OsStr::new("/w/c.state")), 7),
+            PathBuf::from("/w/c.state")
+        );
+    }
+
     use super::*;
 
     // Serializes all tests that mutate the global CIRCUIT_CACHE.

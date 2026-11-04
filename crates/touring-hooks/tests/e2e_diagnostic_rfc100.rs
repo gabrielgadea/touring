@@ -410,3 +410,29 @@ fn touring_binary_wired_and_healthy() {
     world.assert_state_was_read_from_this_world(&run.checks);
     eprintln!("E2EDOCTOR-RAN touring_binary_wired_and_healthy");
 }
+
+/// O `doctor` lê o estado do circuit breaker DESTE mundo: fechado ao nascer (nenhum disjuntor da
+/// máquina vaza para o veredito) e `open` depois que o mundo o abre — a prova de que o caminho
+/// que o `doctor` inspeciona é o que o resolvedor do disjuntor devolve.
+#[test]
+fn doctor_reads_the_circuit_breaker_of_its_own_world() {
+    let Some(world) = DoctorWorld::start("rfc100-circuit") else {
+        eprintln!(
+            "SKIP doctor_reads_the_circuit_breaker_of_its_own_world: touring / touring-daemon \
+             not built, or the private daemon was not ready — nothing was tested"
+        );
+        return;
+    };
+    let status = |run: &common::hermetic_doctor::DoctorRun| {
+        run.checks
+            .iter()
+            .find(|c| c.get("name").and_then(serde_json::Value::as_str) == Some("circuit_breaker"))
+            .and_then(|c| c.get("status").and_then(serde_json::Value::as_str))
+            .map(str::to_string)
+            .unwrap_or_else(|| panic!("`doctor -j` has no circuit_breaker check: {:?}", run.checks))
+    };
+    assert_eq!(status(&world.doctor()), "ok", "a fresh world has a closed breaker");
+    world.trip_circuit_breaker();
+    assert_eq!(status(&world.doctor()), "open", "the doctor must read this world's state file");
+    eprintln!("E2EDOCTOR-RAN doctor_reads_the_circuit_breaker_of_its_own_world");
+}

@@ -141,11 +141,26 @@ fn real_fastembed_cache() -> Option<std::path::PathBuf> {
     dir.is_dir().then_some(dir)
 }
 
-/// Aponta o ambiente de um CLIENTE para o mundo de `pin`: HOME, projeto e cwd.
+/// `touring_hooks_core::circuit_breaker::CIRCUIT_STATE_FILE_ENV`, repetido como literal pelo
+/// mesmo motivo do cache acima (arquivo incluído por caminho em crates sem essa dependência).
+const CIRCUIT_STATE_FILE_ENV: &str = "TOURING_CIRCUIT_STATE_FILE";
+
+impl ProjectPin {
+    /// Arquivo de estado do circuit breaker DESTE mundo: um disjuntor deixado aberto na
+    /// máquina (`/tmp/touring-circuit-<uid>.state`) não decide o veredito do teste.
+    #[must_use]
+    pub fn circuit_state_file(&self) -> std::path::PathBuf {
+        self.home.join(".touring-circuit.state")
+    }
+}
+
+/// Aponta o ambiente de um CLIENTE para o mundo de `pin`: HOME, projeto, cwd e o
+/// estado do circuit breaker.
 fn pin_client_env(cmd: &mut Command, pin: &ProjectPin) {
     cmd.env("HOME", &pin.home)
         .env("CLAUDE_PROJECT_DIR", &pin.root)
         .env("TOURING_PROJECT_ROOT", &pin.root)
+        .env(CIRCUIT_STATE_FILE_ENV, pin.circuit_state_file())
         .current_dir(&pin.root);
 }
 
@@ -238,7 +253,8 @@ impl PrivateDaemon {
             // embedding em CPU e os pesos do modelo lidos de onde já estão.
             cmd.env("HOME", &pin.home)
                 .env("CLAUDE_PROJECT_DIR", &pin.root)
-                .env("TOURING_EMBED_DEVICE", "cpu");
+                .env("TOURING_EMBED_DEVICE", "cpu")
+                .env(CIRCUIT_STATE_FILE_ENV, pin.circuit_state_file());
             if let Some(cache) = real_fastembed_cache() {
                 cmd.env("TOURING_FASTEMBED_CACHE", cache);
             }

@@ -16,9 +16,11 @@
 //! privado fechado nesse mundo ([`PrivateDaemon::start_isolated`]), de modo que o cliente, o
 //! daemon, o `HOME` e o CWD apontam para o tempdir e nada toca o daemon vivo do usuário.
 //!
-//! **Entrada residual do ambiente.** `check_circuit_breaker` lê `/tmp/touring-circuit-<uid>.state`,
-//! um caminho fixo que nenhuma variável redireciona; um disjuntor ABERTO na máquina continua
-//! reprovando o `doctor` — e é esse o sinal que o teste deve dar.
+//! **Circuit breaker.** O `check_circuit_breaker` lê o arquivo que o resolvedor do próprio
+//! disjuntor devolve (`circuit_state_path`); o mundo o aponta para dentro do tempdir
+//! (`TOURING_CIRCUIT_STATE_FILE`, via [`ProjectPin::circuit_state_file`]), então um disjuntor
+//! deixado aberto na máquina não decide o veredito — e [`DoctorWorld::trip_circuit_breaker`]
+//! prova que o `doctor` lê esse arquivo e não o de `/tmp`.
 //!
 //! Incluído por caminho (`wave24_hook_integration_e2e`) e por `mod common;` (as demais suítes):
 //! em ambos os casos `super::private_daemon` é o irmão com o daemon privado.
@@ -80,6 +82,7 @@ pub struct DoctorWorld {
     daemon: PrivateDaemon,
     _dir: tempfile::TempDir,
     root: PathBuf,
+    circuit_state: PathBuf,
 }
 
 impl DoctorWorld {
@@ -97,18 +100,17 @@ impl DoctorWorld {
         std::fs::create_dir_all(&home).expect("create the hermetic HOME");
         // O estado entra ANTES do daemon subir: ele o abre no boot.
         seed_project_state(&root);
-        let daemon = PrivateDaemon::start_isolated(
-            tag,
-            ProjectPin {
-                root: root.clone(),
-                home,
-            },
-            Some(90),
-        )?;
+        let pin = ProjectPin {
+            root: root.clone(),
+            home,
+        };
+        let circuit_state = pin.circuit_state_file();
+        let daemon = PrivateDaemon::start_isolated(tag, pin, Some(90))?;
         Some(Self {
             daemon,
             _dir: dir,
             root,
+            circuit_state,
         })
     }
 
@@ -116,6 +118,16 @@ impl DoctorWorld {
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// Abre o disjuntor GLOBAL deste mundo (catastrófico, aberto até um instante muito futuro),
+    /// escrevendo o arquivo de estado que o `doctor` deve ler.
+    pub fn trip_circuit_breaker(&self) {
+        let state = serde_json::json!({
+            "global": {"open_until_ts": 9_999_999_999_u64, "catastrophic_count": 3}
+        });
+        std::fs::write(&self.circuit_state, state.to_string())
+            .expect("write this world's circuit state file");
     }
 
     /// Roda `touring doctor -j` pinado a este mundo. Falha ALTO se o cliente não emitir um array
