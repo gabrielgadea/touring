@@ -42,8 +42,8 @@ def check(name: str, fn) -> bool:
 
 def run_cmd(cmd: str, cwd=None) -> tuple[int, str]:
     """Run a shell command and return (returncode, stdout+stderr)."""
-    r = # OWASP A03 (W8 fix): shell=True replaced by shlex.split list-of-args
-    subprocess.run(shlex.split(cmd), capture_output=True, text=True, cwd=cwd or WORKSPACE, shell=False)
+    # OWASP A03 (W8 fix): shell=True replaced by shlex.split list-of-args
+    r = subprocess.run(shlex.split(cmd), capture_output=True, text=True, cwd=cwd or WORKSPACE, shell=False)
     return r.returncode, r.stdout + r.stderr
 
 
