@@ -102,6 +102,69 @@ fn generic_payload(name: &str) -> Value {
     })
 }
 
+/// The one exception to "a hook never blocks": an event that keeps the agent working ONLY
+/// through exit 2 (TeammateIdle, TaskCompleted — code.claude.com/docs/en/hooks, "Decision
+/// control") when the handler answered a `decision: "block"`. Then the contract demands exit 2,
+/// nothing on stdout, and the reason — and only the reason — on stderr (#4, 04/11/2026).
+fn is_exit_code_block(payload: &Value, ran: &Ran) -> bool {
+    let event = payload["hook_event_name"].as_str().unwrap_or_default();
+    if ran.exit != 2
+        || !touring_hook_runtime::hook_response::EXIT_CODE_ONLY_BLOCK_EVENTS.contains(&event)
+    {
+        return false;
+    }
+    assert!(ran.stdout.trim().is_empty(), "{event}: exit 2 with stdout: {}", ran.stdout);
+    assert!(!ran.stderr.trim().is_empty(), "{event}: exit 2 without a reason");
+    assert!(
+        !ran.stderr.contains("hookSpecificOutput"),
+        "{event}: the reason must reach the agent alone, not after funnel diagnostics: {}",
+        ran.stderr
+    );
+    assert_eq!(ran.trace["exit_reason"], "exit-code-block", "{}", ran.trace);
+    true
+}
+
+/// The 13 overrides converged on 04/11/2026 (aprofundamento #4): their standalone answer is the
+/// daemon's handler now, so the pre-change bytes are no longer the oracle — the output contract
+/// is. The rest of the fixture still pins byte-identical output.
+const CONVERGED_2026_11_04: &[&str] = &[
+    "cli-suggest",
+    "post-tool-rl",
+    "session-stop",
+    "task-created",
+    "task-validation",
+    "subagent-stop",
+    "post-tool-failure",
+    "subagent-start",
+    "post-compact",
+    "file-changed",
+    "cwd-changed",
+    "instructions-loaded",
+    "worktree-create",
+];
+
+/// A converged hook answers like the daemon does: exit 0, a standalone trace, and stdout that is
+/// silence or a JSON object whose top-level keys Claude Code admits.
+fn assert_converged_answer(key: &str, ran: &Ran) {
+    assert_eq!(ran.exit, 0, "{key}: exit (stderr: {})", ran.stderr);
+    assert_eq!(ran.trace["route"], "standalone", "{key}: {}", ran.trace);
+    let out = ran.stdout.trim();
+    if out.is_empty() || out == "{}" {
+        return;
+    }
+    let value: Value = serde_json::from_str(out)
+        .unwrap_or_else(|e| panic!("{key}: stdout is not JSON ({e}): {out}"));
+    let object = value
+        .as_object()
+        .unwrap_or_else(|| panic!("{key}: stdout is not a JSON object: {out}"));
+    for field in object.keys() {
+        assert!(
+            TOP_LEVEL_FIELDS.contains(&field.as_str()),
+            "{key}: top-level key `{field}` is outside Claude Code's output contract: {out}"
+        );
+    }
+}
+
 /// Guard 1. The table-derived route prints what the hand-written arms printed, byte for byte, for
 /// every name that had an arm — through the payloads captured from the old binary. Several
 /// entries are second payloads (`name#variant`) chosen because they make the hook SAY something:
@@ -119,6 +182,13 @@ fn standalone_output_is_what_the_hand_written_arms_printed() {
     for (key, entry) in entries {
         let name = key.split('#').next().expect("name");
         let ran = run_hook(name, &entry["payload"]);
+        if CONVERGED_2026_11_04.contains(&name) {
+            assert_converged_answer(key, &ran);
+            if !ran.stdout.trim().is_empty() {
+                with_output += 1;
+            }
+            continue;
+        }
         let want_out = entry["stdout"].as_str().expect("stdout");
         let want_err = entry["stderr"].as_str().expect("stderr");
         assert_eq!(ran.exit, entry["exit"].as_i64().expect("exit") as i32, "{key}: exit");
@@ -161,6 +231,9 @@ fn every_table_hook_is_reachable_standalone_and_none_panics() {
             .cloned()
             .unwrap_or_else(|| generic_payload(name));
         let ran = run_hook(name, &payload);
+        if is_exit_code_block(&payload, &ran) {
+            continue;
+        }
         assert_eq!(ran.exit, 0, "{name}: a hook never blocks Claude Code ({})", ran.stderr);
         assert!(
             !ran.stderr.contains("unknown subcommand") && !ran.stderr.contains("panicked"),
@@ -189,6 +262,9 @@ fn the_hooks_that_had_no_arm_now_answer_within_the_output_contract() {
     assert_eq!(newly.len(), 18, "the 18 hooks that had no standalone arm");
     for (name, entry) in newly {
         let ran = run_hook(name, &entry["payload"]);
+        if is_exit_code_block(&entry["payload"], &ran) {
+            continue;
+        }
         assert_eq!(ran.exit, 0, "{name}: {}", ran.stderr);
         assert!(!ran.stderr.contains("unknown subcommand"), "{name}: {}", ran.stderr);
         let out = ran.stdout.trim();

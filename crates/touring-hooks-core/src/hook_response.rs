@@ -473,11 +473,22 @@ pub fn stdout_text_of_json(
 pub fn emit_json(json: &str) -> ! {
     note_emit_reason("emit-json");
     let (level, sink) = touring_foundation::injection_policy::current();
-    println!(
-        "{}",
-        stdout_text_of_json(json, level, sink.as_deref(), dedup_scope())
-    );
+    let text = stdout_text_of_json(json, level, sink.as_deref(), dedup_scope());
+    if let Some(answer_sink) = EMIT_ANSWER_SINK.get() {
+        answer_sink(&text);
+    }
+    println!("{text}");
     std::process::exit(0);
+}
+
+/// Sink the runtime layer installs so [`emit_json`] can hand the hook trace the exact text it
+/// prints (#6, 04/11/2026: the trace derives the verdict and the gate from it). Same shape as
+/// [`set_emit_reason_sink`]; the first call wins.
+static EMIT_ANSWER_SINK: OnceLock<fn(&str)> = OnceLock::new();
+
+/// Install the answer sink. The first call wins.
+pub fn set_emit_answer_sink(sink: fn(&str)) {
+    let _ = EMIT_ANSWER_SINK.set(sink);
 }
 
 /// Sink the runtime layer installs so [`HookResponse::emit`] can say WHY the
@@ -666,6 +677,40 @@ pub fn stamp_event_name(output: &mut serde_json::Value, event: &str) -> bool {
         serde_json::Value::String(event.to_string()),
     );
     true
+}
+
+/// Events whose contract keeps the agent working ONLY through exit code 2 (stderr = the
+/// feedback): JSON can at most stop them entirely (`continue: false`), never ask them to go
+/// on (code.claude.com/docs/en/hooks, "Decision control": TeammateIdle, TaskCompleted).
+pub const EXIT_CODE_ONLY_BLOCK_EVENTS: &[&str] = &["TeammateIdle", "TaskCompleted"];
+
+/// The reason to deliver on stderr with exit 2 when `output` is a `decision: "block"` answer
+/// for an event that only honours exit code 2 ([`EXIT_CODE_ONLY_BLOCK_EVENTS`]); `None` for
+/// every other answer or event.
+///
+/// Handlers answer in one shape — [`HookResponse::block`] — whatever the event; the client
+/// lowers it to the form the invoking event accepts (aprofundamento #4, 04/11/2026). Without
+/// this, the anti-limbo verdict reached Claude Code as JSON keys it ignores on both routes.
+pub fn exit_code_block_reason(output: &str, event: Option<&str>) -> Option<String> {
+    let event = event?;
+    if !EXIT_CODE_ONLY_BLOCK_EVENTS.contains(&event) {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(output.trim()).ok()?;
+    if value.get("decision").and_then(|d| d.as_str()) != Some("block") {
+        return None;
+    }
+    let reason = value
+        .get("reason")
+        .and_then(|r| r.as_str())
+        .filter(|r| !r.trim().is_empty())
+        .unwrap_or("blocked by a touring hook");
+    Some(reason.to_owned())
+}
+
+/// The event recorded by [`set_invoking_event`], if any.
+pub fn invoking_event() -> Option<&'static str> {
+    INVOKING_EVENT.get().map(String::as_str)
 }
 
 /// [`stamp_event_name`] with the process's invoking event, if one was recorded.
@@ -1151,6 +1196,56 @@ mod i3_emit_reason_sink_tests {
             *SEEN.lock().expect("lock"),
             vec!["emit-json", "emit-allow"],
             "o sink recebe cada razão, na ordem"
+        );
+    }
+}
+
+/// #4 (04/11/2026) — a `decision: "block"` answer is lowered to exit 2 only for the events
+/// whose contract keeps the agent working through the exit code alone.
+#[cfg(test)]
+mod exit_code_block_tests {
+    use super::{HookResponse, exit_code_block_reason};
+
+    #[test]
+    fn a_block_for_teammate_idle_and_task_completed_becomes_the_stderr_reason() {
+        let json = HookResponse::block("run the tests first").to_json();
+        for event in ["TeammateIdle", "TaskCompleted"] {
+            assert_eq!(
+                exit_code_block_reason(&json, Some(event)).as_deref(),
+                Some("run the tests first"),
+                "{event}"
+            );
+        }
+    }
+
+    #[test]
+    fn events_that_accept_the_json_block_keep_it() {
+        let json = HookResponse::block("keep going").to_json();
+        for event in ["SubagentStop", "Stop", "PostToolUse", "TaskCreated"] {
+            assert_eq!(exit_code_block_reason(&json, Some(event)), None, "{event}");
+        }
+        assert_eq!(exit_code_block_reason(&json, None), None, "no invoking event");
+    }
+
+    #[test]
+    fn non_block_answers_and_garbage_are_left_alone() {
+        for out in [
+            String::new(),
+            "{}".to_owned(),
+            "not json".to_owned(),
+            HookResponse::context("hint").to_json(),
+            HookResponse::halt("stop").to_json(),
+        ] {
+            assert_eq!(exit_code_block_reason(&out, Some("TeammateIdle")), None, "{out}");
+        }
+    }
+
+    #[test]
+    fn an_empty_reason_still_blocks_with_a_named_default() {
+        let out = r#"{"decision":"block","reason":"  "}"#;
+        assert_eq!(
+            exit_code_block_reason(out, Some("TeammateIdle")).as_deref(),
+            Some("blocked by a touring hook")
         );
     }
 }

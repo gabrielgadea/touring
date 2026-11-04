@@ -57,96 +57,20 @@ pub(crate) struct Stateless {
     pub(crate) run: fn(&Value) -> !,
 }
 
-const LIFECYCLE_ONLY: &str =
-    "records the event in the knowledge DB only and answers nothing; the table's handler is the richer S4 one";
 const UTILITY: &str = "CLI-ish utility: not a hook event, never in the daemon table";
 const EVENT_NOT_IN_TABLE: &str =
     "hook event the daemon table does not hold, so the daemon never answers it";
 
 /// Table keys whose standalone behavior is deliberately not the table handler's.
 ///
-/// Measured 02/11/2026 against the handlers the table calls. Several are a divergence worth
-/// closing rather than a design (`cli-suggest` answers nothing; `task-created`,
-/// `task-validation` and `post-tool-rl` do less than the daemon's version): converging one is
-/// deleting its entry, and `tests/standalone_table_parity.rs` then shows the exact output delta.
-pub(crate) static OVERRIDES: &[Entry] = &[
-    #[cfg(feature = "pre-hooks")]
-    Entry {
-        name: "cli-suggest",
-        why: "discards the suggester's answer (`let _ =`) and prints nothing; the table handler returns it",
-        run: Runner::Fn(|rt, input| {
-            let _ = touring_hooks::cli_suggester::run(rt, input);
-            Ok(())
-        }),
-    },
-    #[cfg(feature = "post-hooks")]
-    Entry {
-        name: "post-tool-rl",
-        why: "runs the RL update only; the table handler also emits the R132 hint on a failed tool",
-        run: Runner::Fn(|rt, input| touring_hooks::post_tool_rl::run(rt, input)),
-    },
-    #[cfg(feature = "session-hooks")]
-    Entry {
-        name: "session-stop",
-        why: "surfaces the handler's Err on stderr; the table closure discards the Result",
-        run: Runner::Fn(|rt, input| {
-            touring_hooks::session_hooks::run_session_stop(rt, input)
-                .map_err(HookDispatchError::from)
-        }),
-    },
-    Entry {
-        name: "task-created",
-        why: "records the task only; the table handler also scaffolds the 3-subtask DAG",
-        run: Runner::Fn(|rt, input| {
-            touring_hooks::team_hooks::run_task_created(rt, input).map_err(HookDispatchError::from)
-        }),
-    },
-    Entry {
-        name: "task-validation",
-        why: "validation only, through the injection policy; the table handler adds the RL reward, the lesson and the generator hints",
-        run: Runner::Fn(run_task_validation),
-    },
-    Entry {
-        name: "subagent-stop",
-        why: "exit-code protocol: feedback on stderr and the gate's own exit code; the table serializes the verdict to stdout",
-        run: Runner::Fn(run_subagent_stop),
-    },
-    Entry {
-        name: "post-tool-failure",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-    Entry {
-        name: "subagent-start",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-    Entry {
-        name: "post-compact",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-    Entry {
-        name: "file-changed",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-    Entry {
-        name: "cwd-changed",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-    Entry {
-        name: "instructions-loaded",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-    Entry {
-        name: "worktree-create",
-        why: LIFECYCLE_ONLY,
-        run: Runner::Lifecycle,
-    },
-];
+/// EMPTY since 04/11/2026 (aprofundamento #4, approved by Gabriel): the 13 entries measured on
+/// 02/11 were divergences, not designs — `cli-suggest` threw the suggestion away (`let _ =`),
+/// `post-tool-rl`, `task-created`, `task-validation` and seven lifecycle recorders did less
+/// than the daemon's handler, `session-stop` and `subagent-stop` spoke protocols the table now
+/// speaks itself (the table names session-stop's error on stderr; subagent-stop answers the
+/// contract's `decision: "block"`). A key here must say, in its `why`, what the table cannot do
+/// standalone; `tests/standalone_table_parity.rs` shows the output delta of every entry.
+pub(crate) static OVERRIDES: &[Entry] = &[];
 
 /// Names the daemon table does not hold: utilities and hook events the daemon never serves.
 /// A test pins every one OUT of the table — a name promoted into it must leave this list.
@@ -405,7 +329,10 @@ pub(crate) fn classify_table_answer(out: &str) -> TableAnswer {
 fn answer_table_output(out: &str) -> Standalone {
     match classify_table_answer(out) {
         TableAnswer::Silent => HookResponse::allow().emit(),
-        TableAnswer::Conforming => hook_response::emit_json(out.trim()),
+        TableAnswer::Conforming => {
+            crate::exit_if_exit_code_block(out.trim());
+            hook_response::emit_json(out.trim())
+        }
         TableAnswer::NeedsContractFunnel => {
             if serde_json::from_str::<Value>(out.trim()).is_err() {
                 // Prose, not JSON: Claude Code's strict hook-output validator would reject it.
@@ -482,24 +409,7 @@ fn run_qa_syntax(input: &Value) -> ! {
     process::exit(0);
 }
 
-/// Standalone `task-validation`: the validation alone, printed through the injection policy.
-fn run_task_validation(runtime: &mut HookRuntime, input: &Value) -> Standalone {
-    let resp = touring_hooks::hooks_task_lifecycle::run_task_validation(runtime, input);
-    if !resp.to_json().is_empty() {
-        crate::print_standalone(&resp.to_json());
-    }
-    Ok(())
-}
 
-/// Standalone `subagent-stop`: the gate speaks the Claude Code exit-code protocol itself — its
-/// feedback on stderr, its verdict as the exit code.
-fn run_subagent_stop(runtime: &mut HookRuntime, input: &Value) -> Standalone {
-    let result = touring_hooks::team_hooks::run_subagent_stop_gate(runtime, input);
-    if !result.feedback.is_empty() {
-        eprintln!("{}", result.feedback);
-    }
-    process::exit(result.exit_code as i32);
-}
 
 /// Intent classification utility.
 fn run_classify(runtime: &HookRuntime, input: &Value) -> Standalone {

@@ -139,6 +139,7 @@ fn main() {
     // S214: this process answers as the event that invoked it — every standalone
     // serialization is stamped from here (the daemon path is stamped below).
     touring_hook_runtime::hook_response::set_invoking_event(&input);
+    trace_event(&input);
 
     // ── Daemon fast-path ─────────────────────────────────────────────────
     // Pre-hooks and post-hooks that the daemon handles are attempted via socket
@@ -263,6 +264,28 @@ fn main() {
     }
 }
 
+/// #6 (04/11/2026): the trace names the tool and the program class of the payload (never a path
+/// or an argument), so a replay of real hook decisions has its inputs.
+fn trace_event(input: &Value) {
+    touring_hook_runtime::hook_trace::set_event(
+        input.get("tool_name").and_then(|v| v.as_str()),
+        input.pointer("/tool_input/command").and_then(|v| v.as_str()),
+    );
+}
+
+/// Lower a `decision: "block"` answer to exit 2 + the reason on stderr when the invoking event
+/// keeps the agent working through the exit code alone (TeammateIdle, TaskCompleted) — the
+/// one form those events honour (aprofundamento #4, 04/11/2026). Every other answer returns.
+pub(crate) fn exit_if_exit_code_block(text: &str) {
+    let event = touring_hook_runtime::hook_response::invoking_event();
+    if let Some(reason) = touring_hook_runtime::hook_response::exit_code_block_reason(text, event) {
+        touring_hook_runtime::hook_trace::set_reason("exit-code-block");
+        touring_hook_runtime::hook_trace::note_answer(text);
+        eprintln!("{reason}");
+        process::exit(2);
+    }
+}
+
 /// Forward the daemon's answer to Claude Code.
 ///
 /// Defense-in-depth: `output` must be empty OR a parseable JSON object before it
@@ -290,6 +313,9 @@ fn forward_daemon_output(output: &str, success: bool) {
     if output.is_empty() {
         return;
     }
+    // #4: lowered on the RAW answer, before the contract funnel — the funnel would move the
+    // non-admitted parts to stderr first and prefix the teammate's feedback with them.
+    exit_if_exit_code_block(output);
     // S-2 (27/10/2026): the policy level is the CLIENT's — this process inherits
     // the Claude Code environment, the daemon only its boot one.
     let (level, sink) = touring_foundation::injection_policy::current();
@@ -298,6 +324,7 @@ fn forward_daemon_output(output: &str, success: bool) {
             if let Some(diagnostics) = &diagnostics {
                 eprintln!("{diagnostics}");
             }
+            touring_hook_runtime::hook_trace::note_answer(&text);
             println!("{text}");
         }
         None => {

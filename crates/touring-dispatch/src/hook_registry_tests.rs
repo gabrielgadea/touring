@@ -597,3 +597,68 @@ fn guards_are_registered_hooks_and_advisories_are_not_guards() {
         );
     }
 }
+
+// ── #4 (04/11/2026): every hook answers JSON or nothing ───────────────────────────
+//
+// Claude Code applies a hook's stdout fields only when it is a JSON object that passes the
+// schema; plain text at exit 0 is "success" and changes nothing (code.claude.com/docs/en/hooks,
+// "Exit code output"). Both routes of touring-hook turn prose into the canonical `{}`, so a
+// handler that answers prose has its message thrown away on every route. The aprofundamento
+// (#4 phase 2) measured 11 such handlers; this sweep is the guard that keeps the set empty.
+
+/// A payload with the fields the hook handlers read, so each one reaches its answer path.
+fn sweep_payload(root: &std::path::Path) -> serde_json::Value {
+    let file = root.join("src/lib.rs");
+    serde_json::json!({
+        "session_id": "contract-sweep",
+        "transcript_path": root.join("transcript.jsonl"),
+        "cwd": root,
+        "new_cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls", "file_path": file, "pattern": "fn", "path": root},
+        "tool_response": {"stdout": "", "stderr": "", "exit_code": 0, "success": true},
+        "prompt": "explain the module",
+        "message": "note",
+        "file_path": file,
+        "task_id": "T-sweep",
+        "subject": "sweep",
+        "trigger": "manual",
+        "source": "startup"
+    })
+}
+
+#[test]
+fn every_hook_handler_answers_a_json_object_or_nothing() {
+    let mut prose: Vec<String> = Vec::new();
+    let mut swept = 0usize;
+    for name in all_daemon_hook_names() {
+        if is_rpc_endpoint(name) {
+            continue;
+        }
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join("src")).expect("src dir");
+        std::fs::write(tmp.path().join("src/lib.rs"), "pub fn f() {}\n").expect("lib.rs");
+        let mut rt = crate::runtime::HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        let out = dispatch_table()[name](&mut rt, &sweep_payload(tmp.path()));
+        swept += 1;
+        let text = out.trim();
+        if text.is_empty() {
+            continue;
+        }
+        if !matches!(
+            serde_json::from_str::<serde_json::Value>(text),
+            Ok(serde_json::Value::Object(_))
+        ) {
+            prose.push(format!("{name}: {}", truncate_str(text, 120)));
+        }
+    }
+    assert!(swept > 20, "the sweep reached only {swept} hooks — vacuous");
+    assert!(
+        prose.is_empty(),
+        "{} hook handler(s) answer text that is not a JSON object; both routes turn it into \
+         `{{}}` and the message is lost. Wrap it (HookResponse::context(..).to_json()):\n{}",
+        prose.len(),
+        prose.join("\n")
+    );
+}

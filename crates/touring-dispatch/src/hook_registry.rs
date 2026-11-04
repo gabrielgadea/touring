@@ -106,6 +106,26 @@ pub fn is_guard_hook(name: &str) -> bool {
         || (name == "pre-exec" && crate::ceg_adapter::enforcement_enabled())
 }
 
+/// Hand a handler's prose to Claude Code in the only shape it applies: a JSON object.
+///
+/// Plain text at exit 0 is "success" and changes nothing (code.claude.com/docs/en/hooks,
+/// "Exit code output"), and both `touring-hook` routes turned it into `{}` — so 13 handlers'
+/// hints reached nobody (aprofundamento #4, measured by
+/// `every_hook_handler_answers_a_json_object_or_nothing`, 04/11/2026). Wrapped as
+/// `additionalContext`, the client's contract funnel keeps it where the invoking event admits
+/// context and moves it to stderr where it does not (CwdChanged, FileChanged, PreCompact).
+/// Empty, `{}` and an answer that is already a JSON object pass through unchanged.
+fn prose_as_context(text: String) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || trimmed == "{}" {
+        return String::new();
+    }
+    if trimmed.starts_with('{') && serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
+        return text;
+    }
+    crate::hook_runtime::HookResponse::context(text).to_json()
+}
+
 /// Build the O(1) dispatch table for daemon hook handlers — THE declaration of which hooks
 /// the daemon serves (see the module docs).
 ///
@@ -265,8 +285,12 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         m.insert("session-start", |rt, v| {
             crate::session_hooks::run_session_start_returning(rt, v).to_json()
         });
+        // #4 (04/11/2026): the error is named on stderr (the diagnostics channel), as the
+        // standalone override did, instead of being discarded — one behavior on both routes.
         m.insert("session-stop", |rt, v| {
-            let _ = crate::session_hooks::run_session_stop(rt, v);
+            if let Err(e) = crate::session_hooks::run_session_stop(rt, v) {
+                eprintln!("[touring-hook] session-stop: {e}");
+            }
             String::new()
         });
     }
@@ -632,33 +656,50 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         crate::hook_runtime::HookResponse::Context { context: combined, event_name }.to_json()
     });
 
-    // ── Team gate hooks — anti-limbo + bootstrap (returns JSON output) ────
+    // ── Team gate hooks — anti-limbo + bootstrap ────
+    // #4 (04/11/2026): the gate used to serialize its own `{context, exit_code}` struct, keys
+    // Claude Code ignores, so it could never keep a teammate working. It answers the standard
+    // block now; the client lowers it to exit 2 + stderr, the only form TeammateIdle honours
+    // (`hook_response::exit_code_block_reason`). Not registered in settings.json yet: the
+    // registered `teammate-idle` is the ACO recorder above — wiring the gate in is a decision.
     m.insert("teammate-idle-gate", |rt, v| {
         let result = crate::team_hooks::run_teammate_idle_gate(rt, v);
-        serde_json::to_string(&result).unwrap_or_default()
+        if result.exit_code == 2 {
+            crate::hook_runtime::HookResponse::block(result.context).to_json()
+        } else {
+            String::new()
+        }
     });
     m.insert("subagent-bootstrap", |_rt, _v| {
-        crate::team_hooks::subagent_bootstrap_context()
+        prose_as_context(crate::team_hooks::subagent_bootstrap_context())
     });
 
     // ── Subagent lifecycle — S4: intelligent handlers ────────────────
     m.insert("subagent-start", |rt, v| {
         crate::lifecycle::handle_subagent_start(rt, v)
     });
+    // #4 (04/11/2026): `{"decision":"block","reason":…}` is SubagentStop's own contract (same
+    // effect as exit 2 + stderr). The serialized `{feedback, exit_code}` struct this returned
+    // before was ignored, so on the daemon route the gate never blocked; the standalone
+    // override (exit-code protocol) was the only route where it worked.
     m.insert("subagent-stop", |rt, v| {
         let result = crate::team_hooks::run_subagent_stop_gate(rt, v);
-        serde_json::to_string(&result).unwrap_or_default()
+        if result.exit_code == 2 {
+            crate::hook_runtime::HookResponse::block(result.feedback).to_json()
+        } else {
+            String::new()
+        }
     });
 
     // ── S4: Lifecycle hooks — intelligent handlers ─────────────────
     m.insert("file-changed", |rt, v| {
-        crate::lifecycle::handle_file_changed(rt, v)
+        prose_as_context(crate::lifecycle::handle_file_changed(rt, v))
     });
     m.insert("cwd-changed", |rt, v| {
-        crate::lifecycle::handle_cwd_changed(rt, v)
+        prose_as_context(crate::lifecycle::handle_cwd_changed(rt, v))
     });
     m.insert("pre-compact", |rt, v| {
-        crate::lifecycle::handle_pre_compact(rt, v)
+        prose_as_context(crate::lifecycle::handle_pre_compact(rt, v))
     });
     m.insert("post-compact", |rt, v| {
         crate::post_compact_handler::run(rt, v)
@@ -668,35 +709,35 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     // R7-S3: EnterPlanMode — surface generator suggestions at plan entry
     m.insert("enter-plan-mode", |rt, v| {
-        crate::lifecycle::handle_enter_plan_mode(rt, v)
+        prose_as_context(crate::lifecycle::handle_enter_plan_mode(rt, v))
     });
     // R7-S4: ExitPlanMode — persist planning state at plan exit
     m.insert("exit-plan-mode", |rt, v| {
-        crate::lifecycle::handle_exit_plan_mode(rt, v)
+        prose_as_context(crate::lifecycle::handle_exit_plan_mode(rt, v))
     });
     // R7-Sync: Claude Code Task ↔ Touring Decompose synchronization
     m.insert("task-sync-create", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_create(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_create(rt, v))
     });
     m.insert("task-sync-update", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_update(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_update(rt, v))
     });
     m.insert("task-sync-list", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_list(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_list(rt, v))
     });
     // R8-Sync: TaskOutput + TaskGet → Touring memory/decompose bridge
     m.insert("task-sync-output", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_output(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_output(rt, v))
     });
     m.insert("task-sync-get", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_get(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_get(rt, v))
     });
     // R9-Sync: TaskStop + TaskDelete → decompose cancelled + RL signal
     m.insert("task-sync-stop", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_stop(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_stop(rt, v))
     });
     m.insert("task-sync-delete", |rt, v| {
-        crate::lifecycle::handle_task_sync_post_delete(rt, v)
+        prose_as_context(crate::lifecycle::handle_task_sync_post_delete(rt, v))
     });
     m.insert("instructions-loaded", |rt, v| {
         crate::instructions_loaded::run_returning(rt, v).to_json()

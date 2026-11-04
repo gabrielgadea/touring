@@ -20,7 +20,6 @@ fn production(full: &str) -> &str {
 /// to prevent. Feature-aware: an override's `#[cfg]` mirrors its table entry's.
 #[test]
 fn every_override_is_a_table_key() {
-    assert!(!OVERRIDES.is_empty(), "an empty set would pass vacuously");
     for entry in OVERRIDES {
         assert!(
             is_daemon_hook(entry.name),
@@ -29,6 +28,19 @@ fn every_override_is_a_table_key() {
             entry.name
         );
     }
+}
+
+/// The 13 overrides measured on 02/11/2026 were converged on 04/11/2026 (aprofundamento #4,
+/// approved by Gabriel): every table key runs the daemon's handler standalone too. A new
+/// override is a deliberate divergence — add it, state its `why`, and update this pin.
+#[test]
+fn the_overrides_are_converged() {
+    let names: Vec<&str> = OVERRIDES.iter().map(|e| e.name).collect();
+    assert!(
+        names.is_empty(),
+        "standalone overrides came back: {names:?} — each one is a table key whose standalone \
+         answer differs from the daemon's; converge it or update this pin with the reason"
+    );
 }
 
 /// The standalone-only names are NOT table keys. A name the table gains must leave the list, so
@@ -125,11 +137,13 @@ fn a_hook_added_to_the_table_is_served_standalone_without_an_edit_here() {
         Route::RpcEndpoint
     ));
     // The explicit sets win over the table, which is what the previous tests keep honest.
-    let override_name = OVERRIDES[0].name;
-    assert!(matches!(
-        route_with(override_name, true),
-        Route::Override(_)
-    ));
+    // (OVERRIDES is empty since the 04/11/2026 convergence; the rule still holds for any entry.)
+    for entry in OVERRIDES {
+        assert!(matches!(
+            route_with(entry.name, true),
+            Route::Override(_)
+        ));
+    }
     let standalone_only = STANDALONE_ONLY[0].name;
     assert!(matches!(
         route_with(standalone_only, false),
