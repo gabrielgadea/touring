@@ -8323,16 +8323,18 @@ fn r135_subject_plan_replay_in_completed_branch() {
 #[test]
 fn r136_task_list_snapshot_format_includes_task_count() {
     // R136: Active task snapshot value stored to "active_tasks_latest" must encode
-    // both task_count and ready count — enables cross-session reconstruction
+    // both the open-task count and the ready count — enables cross-session reconstruction
     // via `touring memory recall "active_tasks_latest"` without re-querying the DAG.
-    let snapshot_task_count = 5u64;
+    // (Name kept for the old-test contract; the key is `open_tasks` since 04/11/2026 —
+    // `cli_decompose_status` never emitted `task_count`, aprofundamento #7.)
+    let snapshot_open_tasks = 5u64;
     let snapshot_ready_count = 2u64;
     let snapshot_value = format!(
-        "task_count={snapshot_task_count} ready={snapshot_ready_count} | restore: `touring decompose status -j`"
+        "open_tasks={snapshot_open_tasks} ready={snapshot_ready_count} | restore: `touring decompose status -j`"
     );
     assert!(
-        snapshot_value.contains("task_count=5"),
-        "R136: snapshot must include task_count: '{snapshot_value}'"
+        snapshot_value.contains("open_tasks=5"),
+        "R136: snapshot must include open_tasks: '{snapshot_value}'"
     );
     assert!(
         snapshot_value.contains("ready=2"),
@@ -8346,13 +8348,13 @@ fn r136_task_list_snapshot_format_includes_task_count() {
 
 #[test]
 fn r136_task_list_snapshot_silent_when_zero_tasks() {
-    // R136: When task_count = 0, no snapshot is stored — avoids stale "active_tasks_latest"
+    // R136: When open_tasks = 0, no snapshot is stored — avoids stale "active_tasks_latest"
     // overwriting a previous real snapshot with an empty one.
-    let snapshot_task_count = 0u64;
-    let should_store = snapshot_task_count > 0;
+    let snapshot_open_tasks = 0u64;
+    let should_store = snapshot_open_tasks > 0;
     assert!(
         !should_store,
-        "R136: snapshot must not fire when task_count is 0"
+        "R136: snapshot must not fire when open_tasks is 0"
     );
 }
 

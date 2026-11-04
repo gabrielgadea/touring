@@ -69,7 +69,7 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // R12-S4: Query decompose status directly — inject real DAG counts alongside hint.
     // TaskList (Claude Code) → cli_decompose_status → SQLite → live task count in context.
     let status_json = crate::cli_handlers::cli_decompose_status(rt, &serde_json::json!({}));
-    let dag_context = if status_json.contains("\"task_count\"") {
+    let dag_context = if status_json.contains("\"open_tasks\"") {
         format!(" [live: {}]", truncate_str(&status_json, 120))
     } else {
         String::new()
@@ -79,7 +79,7 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // TaskList (Claude Code) → cli_decompose_ready → SQLite → ready subtask list in context.
     // Skips the manual step of running `touring decompose ready` after every TaskList.
     // R21-S2: Reuse the same ready_json for BM25 symbol cross-reference (single DB call).
-    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({}));
+    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let ready_hint = build_ready_subtasks_hint_from_json(&ready_json);
     let code_hint = code_symbols_for_active_tasks(&rt.project_root, &ready_json);
     // R25-S3: Surface generator kind for the first ready subtask so Claude Code
@@ -119,19 +119,19 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // R136: Persist active task snapshot to memory for cross-session recall.
     // TaskList (CC) → compact snapshot → `touring memory recall "active_tasks_latest"`.
     // Enables future sessions to reconstruct task state without full DAG re-query.
-    // Only stores when task_count > 0 — silent on empty DAG to avoid stale entries.
+    // Only stores when open_tasks > 0 — silent on an empty DAG to avoid stale entries.
     {
-        let snapshot_task_count = serde_json::from_str::<serde_json::Value>(&status_json)
+        let snapshot_open_tasks = serde_json::from_str::<serde_json::Value>(&status_json)
             .ok()
-            .and_then(|v| v.get("task_count").and_then(|n| n.as_u64()))
+            .and_then(|v| v.get("open_tasks").and_then(|n| n.as_u64()))
             .unwrap_or(0);
         let snapshot_ready_count = serde_json::from_str::<serde_json::Value>(&ready_json)
             .ok()
             .and_then(|v| v.get("ready_count").and_then(|n| n.as_u64()))
             .unwrap_or(0);
-        if snapshot_task_count > 0 {
+        if snapshot_open_tasks > 0 {
             let snapshot_value = format!(
-                "task_count={snapshot_task_count} ready={snapshot_ready_count} | restore: `touring decompose status -j`"
+                "open_tasks={snapshot_open_tasks} ready={snapshot_ready_count} | restore: `touring decompose status -j`"
             );
             let _ = crate::cli_handlers::cli_memory_store(
                 rt,
@@ -354,7 +354,7 @@ fn pending_tasks_mcts_hint(input: &Value) -> String {
 /// When CC has significantly more tasks than the Touring DAG, many CC tasks are untracked.
 /// This function parses:
 /// - `input["tool_result"]["tasks"]` → CC task count
-/// - `dag_status_json["task_count"]` → Touring DAG task count
+/// - `dag_status_json["open_tasks"]` → Touring tasks not yet terminal (`cli_decompose_status`)
 ///
 /// If `cc_count > dag_count + 2`, surfaces a batch-create advisory to sync the gap.
 /// Returns empty string when counts are balanced or data is unavailable.
@@ -365,7 +365,7 @@ fn dag_cc_task_ratio_hint(input: &Value, dag_status_json: &str) -> String {
     }
     let dag_count = serde_json::from_str::<serde_json::Value>(dag_status_json)
         .ok()
-        .and_then(|v| v.get("task_count").and_then(|c| c.as_u64()))
+        .and_then(|v| v.get("open_tasks").and_then(|c| c.as_u64()))
         .unwrap_or(0) as usize;
     let untracked = cc_count.saturating_sub(dag_count);
     if untracked <= 2 {
@@ -1668,7 +1668,7 @@ mod tests {
                 "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}]
             }
         });
-        let dag_status = r#"{"task_count": 2}"#;
+        let dag_status = r#"{"open_tasks": 2}"#;
         let result = super::dag_cc_task_ratio_hint(&input, dag_status);
         assert!(
             result.is_empty(),

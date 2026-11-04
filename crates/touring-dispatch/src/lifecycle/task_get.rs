@@ -274,7 +274,7 @@ fn finalize_hint_if_dag_complete(dag_json: &str, task_id: &str) -> String {
 
 /// R42-S1: Predicate — true when subtask id ends with `::validate` and status is `pending`.
 fn is_validate_pending(s: &serde_json::Value) -> bool {
-    s.get("id")
+    s.get("subtask_id")
         .and_then(|i| i.as_str())
         .unwrap_or("")
         .ends_with("::validate")
@@ -283,7 +283,7 @@ fn is_validate_pending(s: &serde_json::Value) -> bool {
 
 /// R42-S1: Predicate — true when subtask id ends with `::implement` and status is `completed`.
 fn is_implement_completed(s: &serde_json::Value) -> bool {
-    s.get("id")
+    s.get("subtask_id")
         .and_then(|i| i.as_str())
         .unwrap_or("")
         .ends_with("::implement")
@@ -1001,7 +1001,7 @@ fn maybe_implement_vgp_hint(dag_json: &str, task_id: &str) -> String {
         None => return String::new(),
     };
     let implement_pending = subtasks.iter().any(|s| {
-        let id = s.get("id").and_then(|i| i.as_str()).unwrap_or("");
+        let id = s.get("subtask_id").and_then(|i| i.as_str()).unwrap_or("");
         let status = s.get("status").and_then(|st| st.as_str()).unwrap_or("");
         id.ends_with("::implement") && status == "pending"
     });
@@ -1031,7 +1031,7 @@ fn scout_tantivy_search_hint(dag_json: &str, task_id: &str) -> String {
         None => return String::new(),
     };
     let scout_active = subtasks.iter().any(|s| {
-        let id = s.get("id").and_then(|i| i.as_str()).unwrap_or("");
+        let id = s.get("subtask_id").and_then(|i| i.as_str()).unwrap_or("");
         let status = s.get("status").and_then(|st| st.as_str()).unwrap_or("");
         id.ends_with("::scout") && matches!(status, "pending" | "in_progress")
     });
@@ -1121,7 +1121,7 @@ mod tests {
     #[test]
     fn scout_tantivy_search_hint_returns_hint_when_scout_pending() {
         // ::scout with status=pending → hint contains scout-ready + tantivy search + ast blast
-        let dag_json = r#"{"subtasks": [{"id": "T-1::scout", "status": "pending"}, {"id": "T-1::implement", "status": "pending"}]}"#;
+        let dag_json = r#"{"subtasks": [{"subtask_id": "T-1::scout", "status": "pending"}, {"subtask_id": "T-1::implement", "status": "pending"}]}"#;
         let hint = super::scout_tantivy_search_hint(dag_json, "T-1");
         assert!(
             hint.contains("scout-ready"),
@@ -1137,7 +1137,7 @@ mod tests {
     #[test]
     fn scout_tantivy_search_hint_silent_when_scout_completed() {
         // ::scout completed (implement in_progress) → empty — no noise after scout phase done
-        let dag_json = r#"{"subtasks": [{"id": "T-1::scout", "status": "completed"}, {"id": "T-1::implement", "status": "in_progress"}]}"#;
+        let dag_json = r#"{"subtasks": [{"subtask_id": "T-1::scout", "status": "completed"}, {"subtask_id": "T-1::implement", "status": "in_progress"}]}"#;
         let hint = super::scout_tantivy_search_hint(dag_json, "T-1");
         assert!(
             hint.is_empty(),
@@ -1161,9 +1161,9 @@ mod tests {
         let dag_json = serde_json::json!({
             "task_id": "t-r40-s3",
             "subtasks": [
-                {"id": "t-r40-s3::scout", "status": "completed"},
-                {"id": "t-r40-s3::implement", "status": "pending"},
-                {"id": "t-r40-s3::validate", "status": "pending"}
+                {"subtask_id": "t-r40-s3::scout", "status": "completed"},
+                {"subtask_id": "t-r40-s3::implement", "status": "pending"},
+                {"subtask_id": "t-r40-s3::validate", "status": "pending"}
             ]
         })
         .to_string();
@@ -1188,8 +1188,8 @@ mod tests {
         let dag_json = serde_json::json!({
             "task_id": "t-r40-s3b",
             "subtasks": [
-                {"id": "t-r40-s3b::scout", "status": "completed"},
-                {"id": "t-r40-s3b::implement", "status": "in_progress"}
+                {"subtask_id": "t-r40-s3b::scout", "status": "completed"},
+                {"subtask_id": "t-r40-s3b::implement", "status": "in_progress"}
             ]
         })
         .to_string();
@@ -1203,12 +1203,12 @@ mod tests {
     #[test]
     fn is_validate_pending_matches_correctly() {
         // R42-S1: predicate correctly identifies ::validate pending subtask
-        let s = serde_json::json!({"id": "T-1::validate", "status": "pending"});
+        let s = serde_json::json!({"subtask_id": "T-1::validate", "status": "pending"});
         assert!(
             super::is_validate_pending(&s),
             "must match validate pending: {s}"
         );
-        let s2 = serde_json::json!({"id": "T-1::validate", "status": "completed"});
+        let s2 = serde_json::json!({"subtask_id": "T-1::validate", "status": "completed"});
         assert!(
             !super::is_validate_pending(&s2),
             "completed validate must not match: {s2}"
@@ -1220,9 +1220,9 @@ mod tests {
         // R42-S1: implement completed + validate pending → validate-ready hint
         let dag_json = serde_json::json!({
             "subtasks": [
-                {"id": "T-r42::scout", "status": "completed"},
-                {"id": "T-r42::implement", "status": "completed"},
-                {"id": "T-r42::validate", "status": "pending"}
+                {"subtask_id": "T-r42::scout", "status": "completed"},
+                {"subtask_id": "T-r42::implement", "status": "completed"},
+                {"subtask_id": "T-r42::validate", "status": "pending"}
             ]
         })
         .to_string();
@@ -1250,8 +1250,8 @@ mod tests {
         // R42-S1: implement still in_progress → no validate-ready hint
         let dag_json = serde_json::json!({
             "subtasks": [
-                {"id": "T-r42b::implement", "status": "in_progress"},
-                {"id": "T-r42b::validate", "status": "pending"}
+                {"subtask_id": "T-r42b::implement", "status": "in_progress"},
+                {"subtask_id": "T-r42b::validate", "status": "pending"}
             ]
         })
         .to_string();

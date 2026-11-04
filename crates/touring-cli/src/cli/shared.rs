@@ -488,10 +488,39 @@ pub(crate) const ARCTIC_QUERY_PREFIX: &str =
 /// `pub` (ES2 P2): the single source of truth for the constitution root, shared
 /// with the `touring attest-contract` CLI in touring-server (`HarnessContract`).
 pub fn touring_claude_dir() -> std::path::PathBuf {
+    if let Some(dir) = CLAUDE_DIR_OVERRIDE.with(|o| o.borrow().clone()) {
+        return dir;
+    }
     std::env::var_os("HOME")
         .map(std::path::PathBuf::from)
         .map(|home| home.join(".claude"))
         .unwrap_or_else(|| std::path::PathBuf::from(".claude"))
+}
+
+thread_local! {
+    /// A per-thread stand-in for `~/.claude`, set only by [`with_claude_dir`].
+    static CLAUDE_DIR_OVERRIDE: std::cell::RefCell<Option<std::path::PathBuf>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Run `f` with [`touring_claude_dir`] answering `dir` on THIS thread only.
+///
+/// The federated memory recall reads every project's `memory.db` under `~/.claude`, so a test
+/// that recalled on a fresh runtime saw whatever the machine's other sessions had stored — the
+/// replay corpus of `touring-dispatch` drifted on an unmodified tree (scenario `sbc59a06e4`,
+/// 04/11/2026). A thread-local, not `HOME`: tests run in parallel threads of one process, and
+/// `set_var` would leak across them. Production never calls this. Restored on unwind.
+pub fn with_claude_dir<R>(dir: &std::path::Path, f: impl FnOnce() -> R) -> R {
+    struct Restore(Option<std::path::PathBuf>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            let previous = self.0.take();
+            CLAUDE_DIR_OVERRIDE.with(|o| *o.borrow_mut() = previous);
+        }
+    }
+    let previous = CLAUDE_DIR_OVERRIDE.with(|o| o.borrow_mut().replace(dir.to_path_buf()));
+    let _restore = Restore(previous);
+    f()
 }
 
 /// Short, HOME-relative label for a `memory.db` path, used to tag a federated

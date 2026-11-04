@@ -9,8 +9,14 @@
 //!
 //! * `lifecycle_surface_scenarios.jsonl` — `{id, handler, setup, input, out}`. The REPLAY corpus:
 //!   every scenario must reproduce `out` byte for byte (after the declared normalizations).
-//!   `JUSTIFIED_DIFFERENCES` lists the scenario ids whose output is allowed to differ; it is empty,
-//!   and a difference is information that has to be justified in writing, not a test to silence.
+//!   `JUSTIFIED_DIFFERENCES` lists the scenario ids whose output is allowed to differ, each with
+//!   its written reason; a difference is information that has to be justified, not a test to
+//!   silence. Each scenario runs with a per-thread `~/.claude` inside its temp root
+//!   (`with_claude_dir`), so the federated memory recall cannot read the machine's other projects.
+//!   Five recorded outputs (s08bbcf7ed, s1055e59ab, s441cd476c, s7226eb678: a `lesson:` hint;
+//!   s3578bf227: `recall: 2` instead of `1`) were corrected on 04/11/2026: their setup stores no
+//!   such memory, so those fragments came from the recording machine's real memory store — the
+//!   corpus was machine-dependent, not the code.
 //! * `lifecycle_surface_checks.jsonl` — `{id, old, scenario, has, lacks}`. The CONTRACT the old
 //!   helper tests expressed, restated on the handler output: every `has` string must appear and no
 //!   `lacks` string may. `old` is the name of the helper test the check came from; the mapping of
@@ -43,8 +49,20 @@ const SCENARIOS: &str = include_str!("../../tests/fixtures/lifecycle_surface_sce
 const CHECKS: &str = include_str!("../../tests/fixtures/lifecycle_surface_checks.jsonl");
 
 /// Scenario ids whose live output may differ from the recorded one, each with the written reason.
-/// Empty on purpose: the refactor that this corpus guards changes visibility, not behavior.
-const JUSTIFIED_DIFFERENCES: &[(&str, &str)] = &[];
+/// The refactor this corpus guards changed visibility, not behavior; the entries below are the
+/// deliberate behavior changes made AFTER it, approved by Gabriel (aprofundamento #7, 04/11/2026).
+const JUSTIFIED_DIFFERENCES: &[(&str, &str)] = &[
+    (
+        "s254c11d4c",
+        "#7: task_get reads subtasks by `subtask_id` (the key cli_decompose_get emits) — the \
+         scout-pending hint now fires where the recorded output, keyed on a never-emitted `id`, \
+         fell through to the chain hint",
+    ),
+    (
+        "s393fbcd09",
+        "#7: same key fix — the scout-in-progress hint now fires instead of the MCTS fallback",
+    ),
+];
 
 type Handler = fn(&mut HookRuntime, &Value) -> String;
 
@@ -257,9 +275,15 @@ fn run_scenario(sc: &Value) -> String {
     let (tmp, mut rt) = make_runtime();
     let mut vars = BTreeMap::new();
     let setup = sc.get("setup").and_then(Value::as_array).cloned().unwrap_or_default();
-    apply_setup(&mut rt, &setup, &mut vars);
-    let input = expand(&sc["input"], &vars);
-    let out = dispatch(s(sc, "handler"), &mut rt, &input);
+    // Hermetic (04/11/2026): the WHOLE scenario — setup included — sees a `~/.claude` inside its
+    // temp root. Setup stores memories; outside this scope they landed in the machine's real
+    // memory store (the test wrote into the user's memory) and the recall below never saw them.
+    let claude_dir = tmp.path().join(".claude");
+    let out = touring_cli::cli::shared::with_claude_dir(&claude_dir, || {
+        apply_setup(&mut rt, &setup, &mut vars);
+        let input = expand(&sc["input"], &vars);
+        dispatch(s(sc, "handler"), &mut rt, &input)
+    });
     normalize(&out, tmp.path(), &vars)
 }
 

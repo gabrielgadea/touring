@@ -791,7 +791,13 @@ pub fn cli_decompose_validate(rt: &mut HookRuntime, payload: &serde_json::Value)
     .to_string()
 }
 
-/// Summarizes progress across all decomposition tasks (subtask counts by status) as JSON.
+/// Summarizes the decomposition store as JSON: `total_tasks`, `total_subtasks` and
+/// `open_tasks` (tasks whose status is not terminal in the foundation's vocabulary).
+///
+/// `open_tasks` is the count a reader comparing "work in flight" wants: `total_tasks`
+/// includes every finalized plan ever recorded, so a reader that compared against it
+/// could never see a gap. The hook readers once read a `task_count` key this producer
+/// never emitted, so the DAG always counted 0 (aprofundamento #7, 04/11/2026).
 pub fn cli_decompose_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let db = &rt.ctx.knowledge;
     ensure_decompose_tables(db);
@@ -808,9 +814,19 @@ pub fn cli_decompose_status(rt: &mut HookRuntime, _payload: &serde_json::Value) 
         })
         .unwrap_or(0);
 
+    let open_sql = format!(
+        "SELECT COUNT(*) FROM task_decompositions WHERE status NOT IN ({})",
+        touring_foundation::task_lifecycle::terminal_status_sql_list()
+    );
+    let open_tasks: i64 = db
+        .conn_ref()
+        .query_row(&open_sql, [], |r| r.get(0))
+        .unwrap_or(0);
+
     serde_json::json!({
         "total_tasks": total_tasks,
-        "total_subtasks": total_subtasks
+        "total_subtasks": total_subtasks,
+        "open_tasks": open_tasks
     })
     .to_string()
 }
