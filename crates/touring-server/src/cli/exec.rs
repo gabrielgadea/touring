@@ -264,7 +264,7 @@ fn real_exec_with_locks(command: &str, _parsed: &ExecArgs) -> anyhow::Result<i32
             other => anyhow!("supervised execution failed: {other} — run `touring exec --help` for usage"),
         })?;
 
-    Ok(outcome.result.exit_code)
+    Ok(outcome.result.exit_code.to_wire())
 }
 
 /// Render a gateway outcome as a human-readable report.

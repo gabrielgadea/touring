@@ -25,8 +25,8 @@
 //!   one destructive thing, read by up to three readings of a command.
 //! * **The precedence** — the readings run in a fixed order, see [`judge`].
 //! * **The per-command words** — what a command passes to say "I mean the safe
-//!   variant" (`--dry-run`, `--force-with-lease`, a row's own `--help`), and the
-//!   registry of the per-command env assignments a SHELL guard honours instead
+//!   variant" (`--dry-run`, a row's own `--help`), and the registry of the
+//!   per-command env assignments a SHELL guard honours instead
 //!   ([`SHELL_GUARD_TOKENS`]).
 //! * **The fail-open mode** — below.
 //!
@@ -38,14 +38,14 @@
 //! 2. **Lexical** ([`judge_lexical`]): every simple command of the line by its
 //!    words (fixed prefixes, then regexes, then per-tool schemas; pipelines as one
 //!    text). A `Block` ends the judgment.
-//! 3. A structural `Warn` (git `--force`, `reset --hard`, `chmod -R 777`)
-//!    survives as the verdict only when nothing blocked: `pre-bash` leaves it to
-//!    flow through (the shell guard owns git), the CEG static stage reports it.
+//! 3. A structural `Warn` (currently `chmod -R 777`) survives as the verdict only
+//!    when nothing blocked: `pre-bash` leaves it to flow through, the CEG static
+//!    stage reports it. Destructive git forms are `Block`, never this warning tier.
 //!
 //! Intent words are read per reading and the grammars differ: the lexical
-//! reading honours `--dry-run` and `--force-with-lease[=<ref>]` for the simple
-//! command that carries them; a structural row honours its own `bypass_words`
-//! (and `--word=<v>` for any of them). Kept as measured — see the tests.
+//! reading honours `--dry-run` for the simple command that carries it; a
+//! structural row honours its own `bypass_words` (and `--word=<v>` for any of
+//! them). Git's destructive token is an executable assignment, never quoted data.
 //!
 //! # Fail-open
 //!
@@ -57,12 +57,13 @@
 //!
 //! # What it does NOT own
 //!
-//! `block_git.sh` stays the single owner of git policy (S25, D2-A, 25/09/2026):
-//! it honours `GIT_DESTRUCTIVE_OK=1` and `GIT_HOOKS_BYPASS_OK=1`, which no Rust
-//! reading looks at. [`SHELL_GUARD_TOKENS`] lists them so the day the script
-//! asks this module for the verdict (planned after the 08/11 freeze) they have a
-//! home, and a test keeps the list and the script from drifting apart.
+//! `block_git.sh` stays the single owner of the COMPLETE git policy (S25, D2-A,
+//! 25/09/2026): this module mirrors its destructive forms and honours
+//! `GIT_DESTRUCTIVE_OK=1` as executable code. Repository-local hook-bypass checks
+//! and `GIT_HOOKS_BYPASS_OK=1` stay with the shell guard because they need
+//! filesystem evidence. [`SHELL_GUARD_TOKENS`] records that division explicitly.
 
+mod git;
 mod lexer;
 mod lexical;
 mod structural;
@@ -161,10 +162,10 @@ pub struct ShellGuardToken {
     pub honoured_by: &'static str,
 }
 
-/// The per-command assignments `block_git.sh` honours (REGRA #11 v2). One counts
-/// when it is CODE at any level of the command — never when it is data (a quoted
-/// literal, a heredoc body). No Rust reading honours either: git left the Rust
-/// policy at S25, and `pre-bash` neither reads nor strips them.
+/// The per-command assignments `block_git.sh` honours (REGRA #11 v2). The
+/// destructive one counts when it is CODE at any level — never when it is data;
+/// the Rust git reading applies the same rule. The hooks-bypass token remains
+/// shell-only because the guard must inspect the target repository's hooks.
 pub const SHELL_GUARD_TOKENS: &[ShellGuardToken] = &[
     ShellGuardToken {
         assignment: "GIT_DESTRUCTIVE_OK=1",
@@ -195,8 +196,13 @@ pub fn judge(command: &str) -> Verdict {
 }
 
 /// The structural reading alone: token signatures over the quote- and
-/// comment-stripped line. `echo "rm -rf"` and `# rm -rf` do not fire.
+/// comment-stripped line, plus the data-aware git policy. `echo "rm -rf"` and
+/// `# rm -rf` do not fire, and heredoc data is not a git invocation.
 pub fn judge_structural(command: &str) -> Verdict {
+    let git = git::judge(command);
+    if git.is_block() {
+        return git;
+    }
     structural::judge(command)
 }
 

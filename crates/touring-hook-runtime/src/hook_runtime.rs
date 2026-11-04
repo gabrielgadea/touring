@@ -19,7 +19,6 @@ use crate::aco_processor::{AcoEvent, AcoEventProcessor};
 use crate::cortex_dispatcher::{
     CortexDispatcher, CortexEvent, NoOpEvidenceForwarder, TokioEvidenceForwarder,
 };
-use crate::pre_tool_validator::PreToolValidator;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -82,8 +81,6 @@ pub struct ContextRuntime {
     pub classifier: IntentClassifier,
     /// PII scanner (stateless, compiled RegexSet).
     pub pii_scanner: PIIScanner,
-    /// Pre-tool validator — AST gate for dangerous tool blocking.
-    pub pre_tool_validator: PreToolValidator,
     /// ACO quality assessment — tracks hook outcomes across a session.
     /// Initialized via `reset_quality_tracking()` or session start.
     pub quality_assessment: Option<HookQualityAssessment>,
@@ -690,7 +687,6 @@ impl HookRuntime {
                 ann_recall: RefCell::new(None),
                 classifier: IntentClassifier::new(),
                 pii_scanner: PIIScanner::new(),
-                pre_tool_validator: PreToolValidator::new(),
                 quality_assessment: None,
                 event_buffer: HookEventBuffer::new(100, 5_000),
                 result_cache: HookResultCache::new(256, Some(cache_ttl_ms)),

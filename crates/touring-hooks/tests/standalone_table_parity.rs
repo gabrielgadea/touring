@@ -7,7 +7,7 @@
 //!
 //! 1. EQUIVALENCE — the 29 names that had an arm print byte-identical stdout/stderr and exit 0
 //!    (`fixtures/standalone_parity.json`, captured from the pre-change binary; no username, the
-//!    repository is public).
+//!    repository is public), except the explicitly justified policy changes below.
 //! 2. REACHABILITY — every table hook that is not a CLI query endpoint answers standalone: exit 0,
 //!    a standalone trace, never `unknown subcommand`, never a panic. Iterates the LIVE table, so a
 //!    hook added tomorrow is exercised with no edit here (a generic payload when the fixture has
@@ -25,6 +25,10 @@ use touring_hook_runtime::hook_response::TOP_LEVEL_FIELDS;
 use touring_hooks::hook_registry::{all_daemon_hook_names, is_rpc_endpoint};
 
 const FIXTURE: &str = include_str!("fixtures/standalone_parity.json");
+
+/// Intentional changes from the pre-change binary. C2.3 makes destructive git
+/// push a denial instead of the warning-free output captured by this fixture.
+const JUSTIFIED_DIFFERENCES: &[&str] = &["pre-bash#git-force"];
 
 struct Ran {
     exit: i32,
@@ -179,6 +183,7 @@ fn standalone_output_is_what_the_hand_written_arms_printed() {
         entries.len()
     );
     let mut with_output = 0;
+    let mut justified_seen = 0;
     for (key, entry) in entries {
         let name = key.split('#').next().expect("name");
         let ran = run_hook(name, &entry["payload"]);
@@ -191,14 +196,42 @@ fn standalone_output_is_what_the_hand_written_arms_printed() {
         }
         let want_out = entry["stdout"].as_str().expect("stdout");
         let want_err = entry["stderr"].as_str().expect("stderr");
-        assert_eq!(ran.exit, entry["exit"].as_i64().expect("exit") as i32, "{key}: exit");
-        assert_eq!(ran.stdout, want_out, "{key}: stdout differs from the pre-change binary");
-        assert_eq!(ran.stderr, want_err, "{key}: stderr differs from the pre-change binary");
+        assert_eq!(
+            ran.exit,
+            entry["exit"].as_i64().expect("exit") as i32,
+            "{key}: exit"
+        );
+        if JUSTIFIED_DIFFERENCES.contains(&key.as_str()) {
+            justified_seen += 1;
+            assert_ne!(
+                ran.stdout, want_out,
+                "{key}: the justified change did not fire"
+            );
+            assert!(
+                ran.stdout.contains("git push is destructive"),
+                "{key}: unexpected new stdout: {}",
+                ran.stdout
+            );
+        } else {
+            assert_eq!(
+                ran.stdout, want_out,
+                "{key}: stdout differs from the pre-change binary"
+            );
+        }
+        assert_eq!(
+            ran.stderr, want_err,
+            "{key}: stderr differs from the pre-change binary"
+        );
         assert_eq!(ran.trace["route"], "standalone", "{key}: {}", ran.trace);
         if !want_out.is_empty() {
             with_output += 1;
         }
     }
+    assert_eq!(
+        justified_seen,
+        JUSTIFIED_DIFFERENCES.len(),
+        "every justified difference must be exercised"
+    );
     assert!(
         with_output >= 8,
         "only {with_output} entries print something — the equivalence would prove little about the funnel"
@@ -234,7 +267,11 @@ fn every_table_hook_is_reachable_standalone_and_none_panics() {
         if is_exit_code_block(&payload, &ran) {
             continue;
         }
-        assert_eq!(ran.exit, 0, "{name}: a hook never blocks Claude Code ({})", ran.stderr);
+        assert_eq!(
+            ran.exit, 0,
+            "{name}: a hook never blocks Claude Code ({})",
+            ran.stderr
+        );
         assert!(
             !ran.stderr.contains("unknown subcommand") && !ran.stderr.contains("panicked"),
             "{name} is a table hook and must answer standalone: {}",
@@ -266,7 +303,11 @@ fn the_hooks_that_had_no_arm_now_answer_within_the_output_contract() {
             continue;
         }
         assert_eq!(ran.exit, 0, "{name}: {}", ran.stderr);
-        assert!(!ran.stderr.contains("unknown subcommand"), "{name}: {}", ran.stderr);
+        assert!(
+            !ran.stderr.contains("unknown subcommand"),
+            "{name}: {}",
+            ran.stderr
+        );
         let out = ran.stdout.trim();
         if out.is_empty() {
             continue;
@@ -297,7 +338,11 @@ fn a_cli_query_endpoint_is_refused_with_the_reason_named() {
         "the refusal must name why: {}",
         ran.stderr
     );
-    assert_eq!(ran.trace["exit_reason"], "standalone-daemon-only", "{}", ran.trace);
+    assert_eq!(
+        ran.trace["exit_reason"], "standalone-daemon-only",
+        "{}",
+        ran.trace
+    );
 }
 
 /// Guard 4b. A name nobody declared is still answered as before: exit 0, `unknown subcommand` on
@@ -307,6 +352,14 @@ fn an_unknown_subcommand_is_still_answered_with_exit_zero() {
     let ran = run_hook("no-such-hook", &generic_payload("no-such-hook"));
     assert_eq!(ran.exit, 0);
     assert!(ran.stdout.is_empty());
-    assert!(ran.stderr.contains("unknown subcommand: no-such-hook"), "{}", ran.stderr);
-    assert_eq!(ran.trace["exit_reason"], "standalone-unknown", "{}", ran.trace);
+    assert!(
+        ran.stderr.contains("unknown subcommand: no-such-hook"),
+        "{}",
+        ran.stderr
+    );
+    assert_eq!(
+        ran.trace["exit_reason"], "standalone-unknown",
+        "{}",
+        ran.trace
+    );
 }

@@ -1192,7 +1192,10 @@ mod vgp_ordem_tests {
             ("find build -name stale.log -delete", true),
             ("rm -f stale.done", true),
             ("dd if=/dev/zero of=/dev/sda", true),
-            ("git reset --hard HEAD", false),
+            // C2 (04/11/2026): destructive git is a block, mirroring block_git — it was the
+            // structural WARN case here; the warn case is now a recursive world-writable chmod.
+            ("git reset --hard HEAD", true),
+            ("chmod -R 777 /var/www", false),
             ("ls docs", false),
         ] {
             let julgado = judge(cmd);

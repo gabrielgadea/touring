@@ -153,10 +153,8 @@ mod tests {
             );
         }
         assert!(validate_command("rm -rf /").is_block());
-        assert!(matches!(
-            validate_command("git reset --hard HEAD~1"),
-            Verdict::Warn { .. }
-        ));
+        assert!(validate_command("git reset --hard HEAD~1").is_block());
+        assert!(validate_command("git push --force-with-lease origin main").is_block());
     }
 
     #[test]

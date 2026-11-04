@@ -35,6 +35,8 @@ use moka::sync::Cache;
 
 use super::sandbox_stage::{SandboxCapabilities, SandboxOutcome, dry_run_in_sandbox};
 use super::typestate::RawInvocation;
+#[cfg(test)]
+use touring_foundation::run_outcome::ExitStatus;
 
 /// Default number of dry-run outcomes the cache retains.
 const DEFAULT_MAX_CAPACITY: u64 = 512;
@@ -295,7 +297,7 @@ mod tests {
     /// A representative sandbox outcome for cache tests.
     fn sample_outcome() -> SandboxOutcome {
         SandboxOutcome {
-            exit_code: 0,
+            exit_code: ExitStatus::Code(0),
             output_bytes: 7,
             was_truncated: false,
             timed_out: false,

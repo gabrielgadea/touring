@@ -1,12 +1,11 @@
 //! PreToolValidator — the tool-name-level face of the destructive-command policy.
 //!
 //! What counts as destructive, which reading of a command runs first, which words
-//! disclose intent (`--dry-run`, `--force-with-lease`) and what a refusal tells the
-//! agent to run instead are owned by ONE module,
-//! [`touring_hooks_shared::command_policy`]. This file keeps the shape callers have
-//! always used — [`ValidationResult`], [`PreToolValidator`] and the shell-line
-//! readers [`shell_pipelines`] / [`command_of`] — and answers each call by asking
-//! that module.
+//! disclose intent (`--dry-run`) and what a refusal tells the agent to run instead
+//! are owned by ONE module, [`touring_hooks_shared::command_policy`]. This file
+//! keeps the shape callers have always used — [`ValidationResult`],
+//! [`PreToolValidator`] and the shell-line readers [`shell_pipelines`] /
+//! [`command_of`] — and answers each call by asking that module.
 //!
 //! ## Security Model
 //!
@@ -21,9 +20,9 @@
 //! one — is `command_policy::judge`, which `pre_bash` asks directly.
 //! `validate(tool, params)` is the same reading for one invocation.
 //!
-//! Git is NOT judged here: `block_git.sh` is the single owner of git policy (S25,
-//! D2-A, 25/09/2026) — two owners with divergent semantics made the REGRA #11 v2
-//! ritual unreachable.
+//! Destructive git forms mirror `block_git.sh` (REGRA #11 v2), including nested
+//! code and the executable `GIT_DESTRUCTIVE_OK=1` assignment. Repository-local
+//! hook-bypass checks stay with the shell guard.
 
 use touring_hooks_shared::command_policy::{self, Verdict};
 
@@ -208,17 +207,25 @@ mod tests {
         assert_eq!(v.severity_of("ls", "-la"), "unknown");
     }
 
-    /// Git has ONE owner: block_git.sh (S25, D2-A, 25/09/2026). The ritual token
-    /// reaches it unopposed, and nothing here judges a git form.
+    /// Destructive git follows block_git.sh; safe reads and the executable
+    /// ritual assignment remain open.
     #[test]
-    fn git_is_not_judged_here() {
+    fn git_destructive_forms_follow_block_git() {
         let v = validator();
         for cmd in [
             "git reset --hard HEAD",
             "git clean -fd",
             "git push --force origin main",
+            "git push --force-with-lease origin main",
             "git checkout -- .",
             "git branch -D old",
+        ] {
+            assert!(v.validate_command(cmd).is_blocked(), "{cmd}");
+        }
+        for cmd in [
+            "git status",
+            "git stash list",
+            "git restore --staged src/lib.rs",
             "GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD",
         ] {
             assert!(v.validate_command(cmd).is_allowed(), "{cmd}");

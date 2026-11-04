@@ -21,19 +21,18 @@ use super::vocabulary::{Matcher, ParamCheck, RULES, Rule};
 use super::{DELETE_ROUTE, Verdict, with_route};
 
 /// Universal intent disclosure: a word that opts ONE simple command into the safe
-/// variant of an otherwise destructive operation. `--dry-run` makes any command
-/// non-mutating by definition; `--force-with-lease` is the safe variant of git's
-/// `--force`. Without them `rm -rf --dry-run /tmp` and `git push
-/// --force-with-lease` were blocked even though the structural reading had
-/// cleared them (Wave v4.29.0). A bypass is a WORD of the command, never text
-/// anywhere in the line: matched as a substring, `git push --force origin main
-/// # --dry-run` was allowed by its own comment (18/09/2026).
+/// variant of an otherwise destructive operation. `--dry-run` makes a command
+/// non-mutating by definition. Git's `--force-with-lease` is deliberately NOT an
+/// intent word: the shell guard treats every forced push as destructive.
+/// Without `--dry-run`, `rm -rf --dry-run /tmp` was blocked even though the
+/// structural reading had cleared it (Wave v4.29.0). A bypass is a WORD of the
+/// command, never text anywhere in the line: matched as a substring,
+/// `git push --force origin main # --dry-run` was allowed by its own comment
+/// (18/09/2026).
 ///
-/// `accepts_value`: whether `--word=<v>` is the same word. Only
-/// `--force-with-lease=<ref>` is — the grammar the structural reading uses for
-/// its own bypass words differs on purpose-less history (it accepts `=<v>` for
-/// all), and is kept as it was.
-const INTENT_WORDS: &[(&str, bool)] = &[("--dry-run", false), ("--force-with-lease", true)];
+/// `accepts_value`: whether `--word=<v>` is the same word. The structural
+/// reading's own bypass grammar accepts `=<v>` for all of its words.
+const INTENT_WORDS: &[(&str, bool)] = &[("--dry-run", false)];
 
 fn is_intent_word(word: &str) -> bool {
     INTENT_WORDS.iter().any(|&(intent, accepts_value)| {
@@ -96,8 +95,20 @@ fn dangerous_match(full_command: &str, params: &str) -> Option<&'static Rule> {
 /// (`a && b; c | d`), each by its own words, then every multi-command pipeline
 /// as one text.
 pub(super) fn judge_line(command: &str) -> Verdict {
+    let git = super::git::judge(command);
+    if git.is_block() {
+        return git;
+    }
     for pipeline in shell_pipelines(command) {
         for words in &pipeline {
+            // Judge the wrapper before `command_of` strips it: otherwise
+            // `sudo rm <file>` loses the elevated-delete row entirely.
+            let wrapped = words.join(" ");
+            if let Some(rule) = dangerous_match(&wrapped, &wrapped) {
+                return Verdict::Block {
+                    reason: with_route(rule.reason, rule.route),
+                };
+            }
             if let Some((tool, args)) = command_of(words) {
                 let verdict = judge_parts(tool, args, &args.join(" "));
                 if verdict.is_block() {

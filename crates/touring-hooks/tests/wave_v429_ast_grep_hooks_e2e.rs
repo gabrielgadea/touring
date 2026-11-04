@@ -181,18 +181,17 @@ fn s2_distinguishes_comment_carrier() {
 }
 
 #[test]
-fn s2_warns_on_force_push_without_lease() {
+fn s2_blocks_force_push_without_lease() {
     let v = validate_command("git push --force origin main");
-    match v {
-        Verdict::Warn { reason } => assert!(reason.contains("--force-with-lease")),
-        other => panic!("expected Warn, got {other:?}"),
-    }
+    assert!(matches!(v, Verdict::Block { .. }), "got {v:?}");
+    assert!(v.reason().unwrap().contains("REGRA #11"));
 }
 
 #[test]
-fn s2_allows_force_with_lease() {
+fn s2_blocks_force_with_lease() {
     let v = validate_command("git push --force-with-lease origin main");
-    assert_eq!(v, Verdict::Allow);
+    assert!(matches!(v, Verdict::Block { .. }), "got {v:?}");
+    assert!(v.reason().unwrap().contains("REGRA #11"));
 }
 
 #[test]
@@ -202,9 +201,10 @@ fn s2_warns_on_chmod_777() {
 }
 
 #[test]
-fn s2_warns_on_git_reset_hard() {
+fn s2_blocks_git_reset_hard() {
     let v = validate_command("git reset --hard HEAD~1");
-    assert!(matches!(v, Verdict::Warn { .. }), "got {v:?}");
+    assert!(matches!(v, Verdict::Block { .. }), "got {v:?}");
+    assert!(v.reason().unwrap().contains("REGRA #11"));
 }
 
 #[test]

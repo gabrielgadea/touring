@@ -43,6 +43,7 @@ use super::static_stage::{StaticReport, StaticSeverity};
 use super::summarize::OutputSummary;
 use super::typestate::RawInvocation;
 use crate::gateway::sandbox_executor::SandboxLanguage;
+use touring_foundation::run_outcome::ExitStatus;
 
 /// The `capability_profile` marker a [`pure_skip_outcome`] carries — so an X5
 /// skipped by the static-only fast path is fully visible in the evidence
@@ -207,7 +208,7 @@ pub fn fast_path_decision(raw: &RawInvocation) -> FastPathDecision {
 #[must_use]
 pub fn pure_skip_outcome() -> SandboxOutcome {
     SandboxOutcome {
-        exit_code: 0,
+        exit_code: ExitStatus::Code(0),
         output_bytes: 0,
         was_truncated: false,
         timed_out: false,

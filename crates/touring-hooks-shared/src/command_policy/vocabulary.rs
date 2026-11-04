@@ -23,6 +23,10 @@ use std::sync::LazyLock;
 use super::lexer::{flag_matches, option_words};
 use super::{DD_ROUTE, DELETE_ROUTE, DELETE_ROUTE_EXAMPLES, PIPE_SHELL_ROUTE};
 
+/// The road back from a destructive git verdict (REGRA #11 v2).
+pub(super) const GIT_ROUTE: &str = "push without force; if history rewriting is intentional, follow \
+     REGRA #11 (MEDIR→SNAPSHOT→CONFIRMAR) and put `GIT_DESTRUCTIVE_OK=1` in the same command";
+
 /// Severity of a structural row: does the line stop, or only get flagged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Severity {
@@ -198,6 +202,60 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
             },
         },
         Rule {
+            reason: "kill -9 force terminates a process",
+            route: Some(
+                "ask the process to stop first (`kill <pid>`); `kill -9` is the user's to run",
+            ),
+            route_examples: &["kill 2345"],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["kill", "-9"],
+                tail_token: None,
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
+            reason: "pkill -9 force terminates processes",
+            route: Some(
+                "ask matching processes to stop first (`pkill <name>`); `pkill -9` is the user's to run",
+            ),
+            route_examples: &["pkill nginx"],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["pkill", "-9"],
+                tail_token: None,
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
+            reason: "Killall terminates all matching processes with -9",
+            route: Some(
+                "ask the process to stop first (`kill <pid>`); `killall -9` is the user's to run",
+            ),
+            route_examples: &["kill 2345"],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["killall", "-9"],
+                tail_token: None,
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
+            reason: "sudo rm — destructive delete with elevated privileges",
+            route: Some(DELETE_ROUTE),
+            route_examples: &[],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["sudo"],
+                tail_token: Some("rm"),
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
             reason: "chmod -R 777 — world-writable recursive grant",
             route: Some("grant the narrowest mode that works, e.g. `chmod -R u+rwX,go-w <dir>`"),
             route_examples: &["chmod -R u+rwX,go-w build"],
@@ -207,30 +265,6 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
                 tail_token: None,
                 severity: Severity::Warn,
                 bypass_words: &[],
-            },
-        },
-        Rule {
-            reason: "git push --force — overwrites remote history",
-            route: Some("use `git push --force-with-lease`, which refuses when the remote moved"),
-            route_examples: &["git push --force-with-lease origin main"],
-            prompt: &[],
-            matcher: Matcher::Signature {
-                tokens: &["git", "push", "--force"],
-                tail_token: None,
-                severity: Severity::Warn,
-                bypass_words: &["--force-with-lease", "--help"],
-            },
-        },
-        Rule {
-            reason: "git reset --hard — discards uncommitted changes",
-            route: Some("run `git status` first and commit what must survive"),
-            route_examples: &["git status"],
-            prompt: &[],
-            matcher: Matcher::Signature {
-                tokens: &["git", "reset", "--hard"],
-                tail_token: None,
-                severity: Severity::Warn,
-                bypass_words: &["--help"],
             },
         },
         // ── LEXICAL, fixed command prefix (O(m) `starts_with`, no regex engine) ───
@@ -417,10 +451,18 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
             },
         ),
         row(
+            "kill -9 force terminates a process",
+            Matcher::Pattern {
+                pattern: re(r"(?i)^kill\s+-9\s+\S+"),
+                param_pattern: None,
+                severity: "high",
+            },
+        ),
+        row(
             "pkill -9 force terminates processes",
             Matcher::Pattern {
-                // pkill -9 — flag in the middle of the command.
-                pattern: re(r"(?i)^pkill\s+.-9"),
+                // `.*` may be empty: the usual spelling is exactly `pkill -9 <name>`.
+                pattern: re(r"(?i)^pkill\s+.*-9(?:\s|$)"),
                 param_pattern: None,
                 severity: "high",
             },
