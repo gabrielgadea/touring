@@ -8,7 +8,7 @@
 //! ```json
 //! {
 //!   "__inferlet__": "top_n_complex_files",
-//!   "workspace": "/home/gabrielgadea/.claude/rust",
+//!   "workspace": "/path/to/workspace",
 //!   "n": 10
 //! }
 //! ```

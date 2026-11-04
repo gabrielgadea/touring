@@ -215,7 +215,7 @@ pub use touring_foundation::injection_family::{attributed_family, injection_fami
 /// (`~/.claude/rules/touring-4-pillars.md`).
 ///
 /// A block with ZERO of them is not "small", it is empty of instruction — the
-/// measured population that motivates P2: `[gabrielgadea]` 384×, `[generic]`
+/// measured population that motivates P2: `[<owner>]` 384×, `[generic]`
 /// 188×, `post-tool-batch: batch of 1 tools …` 422×. Counting them is what turns
 /// that rule from a declaration into something an executor can check (D8).
 #[must_use]

@@ -58,7 +58,7 @@ pub struct RuleViolation {
 /// ```json
 /// {"content":"version = \"1.0\"\n\n[[rule]]\nname = \"no-god-files\"...",
 ///  "exists":false,
-///  "path":"/home/gabrielgadea/.claude/rust/.claude/touring/quality-rules.toml"}
+///  "path":"/home/u/proj/.claude/touring/quality-rules.toml"}
 /// ```
 pub fn parse_rules_response(v: &Value) -> (bool, String, String) {
     let exists = v.get("exists").and_then(Value::as_bool).unwrap_or(false);
@@ -82,7 +82,7 @@ pub fn parse_rules_response(v: &Value) -> (bool, String, String) {
 ///
 /// ```json
 /// {"bytes":271,
-///  "path":"/home/gabrielgadea/.claude/rust/.claude/touring/quality-rules.toml",
+///  "path":"/home/u/proj/.claude/touring/quality-rules.toml",
 ///  "saved":true}
 /// ```
 ///

@@ -8,7 +8,7 @@
 //! ```json
 //! {
 //!   "__inferlet__": "find_circular_imports",
-//!   "workspace": "/home/gabrielgadea/.claude/rust",
+//!   "workspace": "/path/to/workspace",
 //!   "extensions": [".py"]
 //! }
 //! ```

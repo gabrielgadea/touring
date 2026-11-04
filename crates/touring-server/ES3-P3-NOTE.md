@@ -2,7 +2,7 @@
 
 > **Wave**: ES3 P3 (TIER 2 followup to ES3 P2) · **Date**: 2026-06-02 · **Budget**: 4ed · **Actual**: 3.5ed
 > **Roadmap**: `docs/2026-05-30-cah-epic-subsystems-roadmap.md` §"ES3 P2-P5"
-> **Plan**: `/home/gabrielgadea/.claude/plans/robust-riding-rose.md`
+> **Plan**: `~/.claude/plans/robust-riding-rose.md`
 > **Checkpoint (TOON)**: `docs/checkpoints/2026-06-02-es3-p3-real-exec-wiring.toon`
 > **DAG task**: `task_1780442683222393564` (4 subtasks S-3-1..S-3-4)
 > **Predecessor**: ES3 P2 (SHIPPED 2026-06-02) — built `run_supervised_with_locks` + `WriteAudit` + `from_tool_payload_full` + `ceg_write_paths_observed_count`. Consumed only by 4 unit tests; **NO production caller** before P3.

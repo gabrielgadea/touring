@@ -39,7 +39,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) | Versioning: [
 
 ### Validated
 
-- Full reindex from `/home/gabrielgadea` (1,097,890 symbols in `.claude/touring/symbols.db`) completed in 2m14s across 44 batches of 25k rows. Final Tantivy index: 190MB, 1,097,892 `total_docs`, 2,240 `total_commits`.
+- Full reindex from `~` (1,097,890 symbols in `.claude/touring/symbols.db`) completed in 2m14s across 44 batches of 25k rows. Final Tantivy index: 190MB, 1,097,892 `total_docs`, 2,240 `total_commits`.
 - BM25 search returns real hits: `HookRuntime` → 2 definitions with score 9.53; `description` / `symbols_page` return correct file:line coordinates.
 - Daemon under hook load: 2 ESTAB connections, 454MB RSS, no EAGAIN, no stuck handlers. Previous state: 50+ ESTAB connections blocked in `futex_wait` on shared Mutex.
 

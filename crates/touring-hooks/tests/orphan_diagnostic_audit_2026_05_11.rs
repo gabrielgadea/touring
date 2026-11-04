@@ -29,7 +29,7 @@ use touring_hooks::knowledge::FileKnowledgeDB;
 ///
 /// The F2 tests need a database whose root can be DERIVED, because that is
 /// where the canonicalizer now reads it from (2026-08-19). Their history is the
-/// argument for it: they first hardcoded `/home/gabrielgadea/.claude/rust/`,
+/// argument for it: they first hardcoded a developer's checkout path (`/home/<user>/.claude/rust/`),
 /// which the 2026-07-24 relocation froze; then they read
 /// `TOURING_WORKSPACE_ROOT` — the same variable production read, so both sides
 /// agreed while both were wrong, and the test could not have caught a daemon

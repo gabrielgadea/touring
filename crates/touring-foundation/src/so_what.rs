@@ -12,7 +12,7 @@
 //! What a PAYLOAD can prove about itself, and therefore what this predicate
 //! judges:
 //!
-//! * [`Violation::Empty`] — nothing beyond tags: `[generic]`, `[gabrielgadea]`,
+//! * [`Violation::Empty`] — nothing beyond tags: `[generic]`, `[<owner>]`,
 //!   a bare banner. No proposition, no path, no symbol: the model cannot act.
 //! * [`Violation::NoTarget`] — prose, but no NAMED target: no path, no symbol,
 //!   no command, no flag. "Similar command failed recently (similarity=68%)" was

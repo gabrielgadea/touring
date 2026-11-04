@@ -27,7 +27,7 @@ use private_daemon::private_daemon_env;
 
 /// The workspace this test was COMPILED from.
 ///
-/// These tests used to hardcode `/home/gabrielgadea/.claude/rust` — a developer's
+/// These tests used to hardcode `/home/<user>/.claude/rust` — a developer's
 /// home, and since 24/07/2026 a FROZEN root that no longer receives work. On CI
 /// it does not exist at all, so `touring viz` was spawned with a cwd that isn't
 /// there and the test died with `NotFound`. `CARGO_MANIFEST_DIR` is the only
