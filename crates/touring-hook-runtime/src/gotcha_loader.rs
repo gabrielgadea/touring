@@ -62,27 +62,39 @@ pub struct SyncReport {
     pub yaml_dir_hash: String,
 }
 
-/// Directory of the YAML gotcha library for the project served by `project_root`.
+/// Where the Touring source tree lives under `$HOME` (the documented L1 source
+/// workspace) — the only home-derived location the gotcha library is read from.
+const CANONICAL_SOURCE_UNDER_HOME: &str = "projects/touring";
+
+/// Directory of the YAML gotcha library, or `None` when the user has not given the
+/// process a trusted one.
 ///
-/// The library follows the canonical workspace: `TOURING_WORKSPACE_ROOT` when set,
-/// otherwise the project root itself — `<root>/docs/gotchas`. There is no compiled-in
-/// fallback (a developer's checkout is not a default); a project without that
-/// directory simply has no library, which callers report or skip by name.
+/// 1. `TOURING_WORKSPACE_ROOT` set and non-empty → `<that>/docs/gotchas`;
+/// 2. otherwise `$HOME/projects/touring/docs/gotchas`, used ONLY if that directory
+///    exists;
+/// 3. otherwise `None` — no library; the caller skips and says why.
+///
+/// **Trust boundary.** The library is synced into the knowledge DB and surfaced into
+/// model context, so it must come from a source the USER chose. It is never derived
+/// from the project the session was opened in: that would make any cloned repository
+/// that ships `docs/gotchas/*.yaml` a trusted source of rules (prompt injection).
+/// There is no compiled-in path either — a developer's checkout is not a default.
 #[must_use]
-pub fn default_gotcha_dir(project_root: &Path) -> PathBuf {
+pub fn default_gotcha_dir() -> Option<PathBuf> {
     gotcha_dir_in(
         std::env::var("TOURING_WORKSPACE_ROOT").ok().as_deref(),
-        project_root,
+        touring_foundation::user_home::home_dir().as_deref(),
     )
 }
 
-/// [`default_gotcha_dir`] with the environment value passed in — the pure core,
-/// testable without mutating the process environment.
-fn gotcha_dir_in(workspace_root: Option<&str>, project_root: &Path) -> PathBuf {
-    workspace_root
-        .filter(|root| !root.is_empty())
-        .map_or(project_root, Path::new)
-        .join("docs/gotchas")
+/// [`default_gotcha_dir`] with the environment value and the home passed in — the
+/// pure core, testable without mutating the process environment.
+fn gotcha_dir_in(workspace_root: Option<&str>, home: Option<&Path>) -> Option<PathBuf> {
+    if let Some(root) = workspace_root.filter(|root| !root.is_empty()) {
+        return Some(Path::new(root).join("docs/gotchas"));
+    }
+    home.map(|home| home.join(CANONICAL_SOURCE_UNDER_HOME).join("docs/gotchas"))
+        .filter(|dir| dir.is_dir())
 }
 
 /// Walk a directory recursively and load every `*.yaml` / `*.yml` file as
@@ -341,22 +353,62 @@ severity: high
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// A fake `$HOME` that holds the canonical source's gotcha dir.
+    fn home_with_canonical_source(tag: &str) -> PathBuf {
+        let home = temp_dir(tag);
+        std::fs::create_dir_all(home.join("projects/touring/docs/gotchas")).expect("mkdir");
+        home
+    }
+
     #[test]
-    fn gotcha_dir_follows_the_workspace_env_then_the_project_root() {
-        let project = Path::new("/home/u/proj");
+    fn gotcha_dir_env_wins_even_over_an_existing_home_default() {
+        let home = home_with_canonical_source("gd-env-wins");
         assert_eq!(
-            gotcha_dir_in(Some("/ws/touring/"), project),
-            Path::new("/ws/touring/docs/gotchas")
+            gotcha_dir_in(Some("/ws/touring/"), Some(&home)),
+            Some(PathBuf::from("/ws/touring/docs/gotchas"))
         );
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn gotcha_dir_home_default_only_when_the_directory_exists() {
+        let bare_home = temp_dir("gd-bare-home");
+        assert_eq!(gotcha_dir_in(None, Some(&bare_home)), None);
+        assert_eq!(gotcha_dir_in(None, None), None);
+
+        let home = home_with_canonical_source("gd-canonical-home");
         assert_eq!(
-            gotcha_dir_in(None, project),
-            Path::new("/home/u/proj/docs/gotchas")
+            gotcha_dir_in(None, Some(&home)),
+            Some(home.join("projects/touring/docs/gotchas"))
         );
-        // An empty env value is "unset", not the filesystem root.
+        let _ = std::fs::remove_dir_all(&bare_home);
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn gotcha_dir_never_comes_from_an_untrusted_project_root() {
+        // A cloned repo that ships its own `docs/gotchas/*.yaml`, opened as the
+        // session's project, with no env and a home that has no canonical source:
+        // there is NO library — the project's rules are not a trusted source.
+        let untrusted = temp_dir("gd-untrusted-project");
+        std::fs::create_dir_all(untrusted.join("docs/gotchas")).expect("mkdir");
+        write_yaml(&untrusted.join("docs/gotchas"), "evil.yaml", VALID_YAML);
+        let bare_home = temp_dir("gd-untrusted-home");
+        assert_eq!(gotcha_dir_in(None, Some(&bare_home)), None);
+        assert_eq!(gotcha_dir_in(Some(""), Some(&bare_home)), None);
+        let _ = std::fs::remove_dir_all(&untrusted);
+        let _ = std::fs::remove_dir_all(&bare_home);
+    }
+
+    #[test]
+    fn gotcha_dir_empty_env_is_unset() {
+        let home = home_with_canonical_source("gd-empty-env");
         assert_eq!(
-            gotcha_dir_in(Some(""), project),
-            Path::new("/home/u/proj/docs/gotchas")
+            gotcha_dir_in(Some(""), Some(&home)),
+            Some(home.join("projects/touring/docs/gotchas")),
+            "an empty env value is unset: it falls through to the home default, never to `/docs/gotchas`"
         );
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]

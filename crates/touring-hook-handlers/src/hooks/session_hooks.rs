@@ -91,11 +91,21 @@ pub fn run_session_start_returning(
     {
         use crate::gotcha_loader::{default_gotcha_dir, sync_to_sqlite};
         // Productization Fase 0: follow the canonical workspace root
-        // (`TOURING_WORKSPACE_ROOT` override → this project's own root). A project
-        // without a `docs/gotchas` directory simply has no YAML library to sync.
-        let gotcha_dir = default_gotcha_dir(&runtime.project_root);
-        if gotcha_dir.is_dir() {
-            let _ = sync_to_sqlite(runtime, &gotcha_dir);
+        // (`TOURING_WORKSPACE_ROOT` override → `$HOME/projects/touring` if present).
+        // The session's own project is NEVER a source of rules: a cloned repo that
+        // ships `docs/gotchas/*.yaml` would otherwise reach the model's context.
+        match default_gotcha_dir() {
+            Some(gotcha_dir) if gotcha_dir.is_dir() => {
+                let _ = sync_to_sqlite(runtime, &gotcha_dir);
+            }
+            Some(gotcha_dir) => tracing::debug!(
+                dir = %gotcha_dir.display(),
+                "session_start: gotcha library not synced — directory does not exist"
+            ),
+            None => tracing::debug!(
+                "session_start: gotcha library not synced — TOURING_WORKSPACE_ROOT unset \
+                 and no $HOME/projects/touring/docs/gotchas"
+            ),
         }
     }
 
