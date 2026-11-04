@@ -1,5 +1,7 @@
 //! Structural guard (deepening #8, 02/11/2026): only `vgp/lang/caminho.rs` touches the
-//! filesystem of the project the motor judges.
+//! filesystem of the project the motor judges. Since C8 (04/11/2026) it scans the whole `src/vgp`
+//! tree, not only `lang/`: `sombra.rs` read `.touring/touring.toml` with a bare `std::fs` call
+//! because it sat outside the scanned directory.
 //!
 //! Containment is the OPERATION (`caminho::ler_contido`, `listar_contido`, `sondar`…), not a
 //! precondition each adapter has to remember. This test is what keeps that true: it reads the
@@ -34,16 +36,22 @@ const PROIBIDOS: &[&str] = &[
 /// a probe of the filesystem.
 const RECEPTORES_DE_TIPO: &[&str] = &["tipo", "t", "ft"];
 
-/// (file relative to `src/vgp/lang`, token, why it is not a project path).
+/// (file relative to `src/vgp`, token, why it is not a project path).
 const PERMITIDOS: &[(&str, &str, &str)] = &[
-    ("cdn/cache.rs", "std::fs", CACHE_DO_CDN),
-    ("cdn/cache.rs", "fs::read", CACHE_DO_CDN),
-    ("cdn/cache.rs", "read_to_string", CACHE_DO_CDN),
-    ("cdn/cache.rs", "fs::metadata", CACHE_DO_CDN),
+    ("lang/cdn/cache.rs", "std::fs", CACHE_DO_CDN),
+    ("lang/cdn/cache.rs", "fs::read", CACHE_DO_CDN),
+    ("lang/cdn/cache.rs", "read_to_string", CACHE_DO_CDN),
+    ("lang/cdn/cache.rs", "fs::metadata", CACHE_DO_CDN),
+    ("sombra.rs", "std::fs", LOG_DE_SOMBRA),
+    ("sombra.rs", "OpenOptions", LOG_DE_SOMBRA),
 ];
 
 /// Why the CDN cache may use `std::fs` itself.
 const CACHE_DO_CDN: &str = "the CDN cache is OUR file under the user's cache directory, written by this module — not a path the analyzed content names";
+
+/// Why the shadow log may use `std::fs` itself: WRITING only — its READ of the project's
+/// `.touring/touring.toml` goes through `caminho`, and `read_to_string` stays forbidden there.
+const LOG_DE_SOMBRA: &str = "the shadow log is OUR append-only file under ~/.claude/touring/vgp, created and appended by this module — not a path the analyzed content names";
 
 /// The source as the compiler sees the SHIPPED code: comments and literals blanked and every
 /// `#[cfg(test)]` item removed (newlines kept, so the line numbers stay).
@@ -226,13 +234,13 @@ fn fontes_de(dir: &Path, out: &mut Vec<PathBuf>) {
 }
 
 fn raiz_de_lang() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("src/vgp/lang")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("src/vgp")
 }
 
 fn relativo(arquivo: &Path) -> String {
     arquivo
         .strip_prefix(raiz_de_lang())
-        .expect("under lang")
+        .expect("under src/vgp")
         .to_string_lossy()
         .replace('\\', "/")
 }
@@ -249,20 +257,21 @@ fn so_o_caminho_toca_o_disco() {
     );
     let rel: Vec<String> = arquivos.iter().map(|a| relativo(a)).collect();
     for esperado in [
-        "rust.rs",
-        "python/modules.rs",
-        "typescript/projeto.rs",
-        "html/recurso.rs",
-        "classe_css/folhas.rs",
-        "classe_css/projeto.rs",
-        "caminho.rs",
+        "lang/rust.rs",
+        "lang/python/modules.rs",
+        "lang/typescript/projeto.rs",
+        "lang/html/recurso.rs",
+        "lang/classe_css/folhas.rs",
+        "lang/classe_css/projeto.rs",
+        "lang/caminho.rs",
+        "sombra.rs",
     ] {
         assert!(rel.iter().any(|r| r == esperado), "{esperado} not scanned");
     }
     let mut violacoes: Vec<String> = Vec::new();
     for arquivo in &arquivos {
         let r = relativo(arquivo);
-        if r == "caminho.rs" {
+        if r == "lang/caminho.rs" {
             continue;
         }
         let fonte = fs::read_to_string(arquivo).expect("read source");
@@ -300,7 +309,7 @@ fn nenhuma_permissao_ficou_velha() {
 /// itself: it catches what it must and ignores what is not code.
 #[test]
 fn o_scanner_acha_o_que_deve_e_ignora_o_que_nao_e_codigo() {
-    let dono = fs::read_to_string(raiz_de_lang().join("caminho.rs")).expect("caminho.rs");
+    let dono = fs::read_to_string(raiz_de_lang().join("lang/caminho.rs")).expect("caminho.rs");
     let nos_acessos: Vec<String> = acessos(&dono).into_iter().map(|(_, t)| t).collect();
     for token in [
         "std::fs",
@@ -380,5 +389,20 @@ fn o_scanner_acha_o_que_deve_e_ignora_o_que_nao_e_codigo() {
     assert_eq!(
         acessos("// c\n/* a\nb */\nfn f(p: &Path) { p.exists(); }"),
         [(4, ".exists()".to_string())]
+    );
+}
+
+/// C8 (04/11/2026): `sombra.rs` may WRITE its log, never READ the project's files by hand — a
+/// `read_to_string` reintroduced there is a violation the scan reports (mutant of the fix).
+#[test]
+fn a_read_reintroduced_in_sombra_is_caught() {
+    let mutante = "fn f(p: &std::path::Path) -> Option<String> { std::fs::read_to_string(p).ok() }";
+    let tokens: Vec<String> = acessos(mutante).into_iter().map(|(_, t)| t).collect();
+    assert!(tokens.iter().any(|t| t == "read_to_string"), "{tokens:?}");
+    assert!(
+        !PERMITIDOS
+            .iter()
+            .any(|(f, t, _)| *f == "sombra.rs" && *t == "read_to_string"),
+        "sombra.rs must not be allowed to read by hand"
     );
 }
