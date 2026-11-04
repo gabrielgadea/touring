@@ -7,4 +7,5 @@
 
 #![allow(dead_code)]
 
+pub mod hermetic_doctor;
 pub mod private_daemon;
