@@ -1962,7 +1962,7 @@ mod tests {
         let err = persist_snapshot(
             &serde_json::json!({}),
             "2026-09-23",
-            &std::env::temp_dir().join("pytest-of-gabrielgadea-x"),
+            &std::env::temp_dir().join("pytest-of-u-x"),
         )
         .expect_err("an ephemeral root must be refused");
         assert!(err.to_string().contains("ephemeral project root"), "{err}");

@@ -443,9 +443,9 @@ mod tests {
     fn from_tool_payload_extracts_absolute_paths() {
         let decl = AccessDeclaration::from_tool_payload(
             "Read",
-            r#"please read /home/gabrielgadea/.claude/rust/Cargo.toml"#,
+            r#"please read /home/u/.claude/rust/Cargo.toml"#,
         );
-        assert!(decl.reads.iter().any(|p| matches!(p, AccessPath::Path(s) if s == "/home/gabrielgadea/.claude/rust/Cargo.toml")),
+        assert!(decl.reads.iter().any(|p| matches!(p, AccessPath::Path(s) if s == "/home/u/.claude/rust/Cargo.toml")),
             "absolute path must be captured; got {:?}", decl.reads);
     }
 
