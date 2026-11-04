@@ -172,7 +172,7 @@ payloads distintos, respectivamente, e **nenhum** payload contem os dois — a f
 **Exemplo 1 — formato blast (`HOTSPOT:`), payload completo:**
 
 ```
-HOTSPOT: `get` has 14 callers | callers: [_contents, _bash_uses, full_command, _edits_of, _apply_bash_heredocs (+9 more)] | 5x edited recently | 📋 overview: (22fn, 0types, 300L) [const HOME:L33-33, const VGP:L34-34, const OUT:L35-35, const PROJECTS:L36-36, const SOCKETS:L37-37, fn transcripts_of:L40-41, fn _records:L44-48, fn _contents:L51-52, fn _bash_uses:L55-65, fn full_command:L68-77, fn _apply_edit:L80-83, fn _edits_of:L86-90, const SESSION_DIRS:L93-93, fn session_work:L96-99, const HEREDOC:L102-102, const ASSIGN:L103-103, fn _apply_bash_heredocs:L106-114, fn _fold:L117-121, fn _apply_tool:L124-139, fn rebuild_tmp:L142-156] +11 more | ⚙ code-workflow [python]: symbols=31 exports=19 complexity=0.00 (simple) max_cc=10 antipatterns=2 | co-edits: 5 file(s) frequently edited together [__subagent_stop__, __notification__, scripts, __session_end__, __config_change__] | 📚 related docs: [/home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_plan.py@pgcc_warm.json, Plan Doc@project_cronflow_2026_04_24.md] | 📋 kind context: [10 definition] | project: healthy | Analysis: health=0.88 (healthy) | trend=Stable | orphans=8931 | [python] pub API 10
+HOTSPOT: `get` has 14 callers | callers: [_contents, _bash_uses, full_command, _edits_of, _apply_bash_heredocs (+9 more)] | 5x edited recently | 📋 overview: (22fn, 0types, 300L) [const HOME:L33-33, const VGP:L34-34, const OUT:L35-35, const PROJECTS:L36-36, const SOCKETS:L37-37, fn transcripts_of:L40-41, fn _records:L44-48, fn _contents:L51-52, fn _bash_uses:L55-65, fn full_command:L68-77, fn _apply_edit:L80-83, fn _edits_of:L86-90, const SESSION_DIRS:L93-93, fn session_work:L96-99, const HEREDOC:L102-102, const ASSIGN:L103-103, fn _apply_bash_heredocs:L106-114, fn _fold:L117-121, fn _apply_tool:L124-139, fn rebuild_tmp:L142-156] +11 more | ⚙ code-workflow [python]: symbols=31 exports=19 complexity=0.00 (simple) max_cc=10 antipatterns=2 | co-edits: 5 file(s) frequently edited together [__subagent_stop__, __notification__, scripts, __session_end__, __config_change__] | 📚 related docs: [~/projects/analise/scripts/aco/generators/gen_touring_plan.py@pgcc_warm.json, Plan Doc@project_cronflow_2026_04_24.md] | 📋 kind context: [10 definition] | project: healthy | Analysis: health=0.88 (healthy) | trend=Stable | orphans=8931 | [python] pub API 10
 ```
 
 *3 ocorrencias | 1182 bytes | hook `PreToolUse:Edit` | evento `PreToolUse` | sessao `10fb71c6`*
@@ -181,9 +181,9 @@ HOTSPOT: `get` has 14 callers | callers: [_contents, _bash_uses, full_command, _
 **Exemplo 2 — formato prevencao, com sinal e sem `related docs` duplicado:**
 
 ```
-Pre-edit prevention for /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/replay.py (2 signals):
+Pre-edit prevention for ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/replay.py (2 signals):
 ANTIPATTERN: [python] `print()` — debug output left in production code (1x)
-📚 related docs: [Plan Doc@project_cronflow_2026_04_24.md, /home/gabrielgadea/projects/analise/scripts/aco/generators/gen_touring_plan.py@pgcc_warm.json]
+📚 related docs: [Plan Doc@project_cronflow_2026_04_24.md, ~/projects/analise/scripts/aco/generators/gen_touring_plan.py@pgcc_warm.json]
 ```
 
 *2 ocorrencias | 361 bytes | hook `PreToolUse:Edit` | evento `PreToolUse` | sessao `10fb71c6`*
@@ -193,7 +193,7 @@ ANTIPATTERN: [python] `print()` — debug output left in production code (1x)
 
 ```
 Pre-edit prevention for scripts/eleitoral/documento_mpv_1376.py (1 signal):
-📚 related docs: [Diagnostic — `/home/gabrielgadea/projects/analise/scripts/eleitoral`@eleitoral-20260918T152941.md, /home/gabrielgadea/projects/analise/scripts/eleitoral/__init__.py@pgcc_warm.json]
+📚 related docs: [Diagnostic — `~/projects/analise/scripts/eleitoral`@eleitoral-20260918T152941.md, ~/projects/analise/scripts/eleitoral/__init__.py@pgcc_warm.json]
 ```
 
 *60 ocorrencias | 278 bytes | hook `PreToolUse:Edit` | evento `PreToolUse` | sessao `65d27b45`*
@@ -230,10 +230,10 @@ Pre-edit prevention for scripts/eleitoral/documento_mpv_1376.py (1 signal):
 Payload tipico — cada linha e um comando completo, com o arquivo certo:
 
 ```
-MUST    touring ast meta /home/gabrielgadea/projects/analise/scripts/eleitoral/documento_tendencia_folhas.py --depth summary -j
-  MUST    touring ast blast /home/gabrielgadea/projects/analise/scripts/eleitoral/documento_tendencia_folhas.py
+MUST    touring ast meta ~/projects/analise/scripts/eleitoral/documento_tendencia_folhas.py --depth summary -j
+  MUST    touring ast blast ~/projects/analise/scripts/eleitoral/documento_tendencia_folhas.py
   SHOULD  touring pre-edit
-  SHOULD  touring gotcha match /home/gabrielgadea/projects/analise/scripts/eleitoral/documento_tendencia_folhas.py
+  SHOULD  touring gotcha match ~/projects/analise/scripts/eleitoral/documento_tendencia_folhas.py
   SHOULD  Edit too ...
 ```
 
@@ -242,10 +242,10 @@ MUST    touring ast meta /home/gabrielgadea/projects/analise/scripts/eleitoral/d
 E o caso de orcamento de turno, em que o bloco e reduzido a so as diretivas:
 
 ```
-MUST    touring ast meta /home/gabrielgadea/projects/analise/scripts/eleitoral/tests/test_documento_mpv_1376.py --depth summary -j
-  MUST    touring ast blast /home/gabrielgadea/projects/analise/scripts/eleitoral/tests/test_documento_mpv_1376.py
+MUST    touring ast meta ~/projects/analise/scripts/eleitoral/tests/test_documento_mpv_1376.py --depth summary -j
+  MUST    touring ast blast ~/projects/analise/scripts/eleitoral/tests/test_documento_mpv_1376.py
   SHOULD  touring pre-edit
-  SHOULD  touring gotcha match /home/gabrielgadea/projects/analise/scripts/eleitoral/tests/test_documento_mpv_1376.py
+  SHOULD  touring gotcha match ~/projects/analise/scripts/eleitoral/tests/test_documento_mpv_1376.py
   SHOULD  ...
 ```
 
@@ -354,7 +354,7 @@ post-write: ℹ ⚙ health-delta: first-observation new=1.00
 O formato bom — arquivo nomeado + comando a rodar:
 
 ```
-post-tool-batch: 1 arquivo(s) que podem carregar símbolo público editados: /home/gabrielgadea/projects/analise/scripts/eleitoral/documento_mpv_1376.py
+post-tool-batch: 1 arquivo(s) que podem carregar símbolo público editados: ~/projects/analise/scripts/eleitoral/documento_mpv_1376.py
 MUST touring wiring orphans -j   // REGRA #0 — ligue todo pub novo a um consumidor
 ```
 
@@ -489,7 +489,7 @@ O bloco de telemetria (o que o modelo le no PreToolUse):
 E o contrato de sessao (1.697 bytes, emitted uma vez por sessao):
 
 ```
-[CODE MODE — contrato desta sessão · apresentação `code` (/home/gabrielgadea/projects/analise/.touring/touring.toml (projeto))]
+[CODE MODE — contrato desta sessão · apresentação `code` (~/projects/analise/.touring/touring.toml (projeto))]
 Efeito: inspeção ISOLADA PASSA — de qualquer classe. O que colapsa é a RAJADA: a 2ª chamada de `grep`/`cat`/`find`/`ls`/`wc`/`sed-n` dentro de 300s volta NEGADA com as duas fundidas em 1 programa (a 1ª já executou intacta). Calibrado por medição em 115 transcripts: 77,5%  ...
 ```
 
@@ -650,7 +650,7 @@ MUST    touring doctor -j
 Payload de ANTIPATTERN:
 
 ```
-Pre-edit prevention for /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/vivos.py (1 signal):
+Pre-edit prevention for ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/vivos.py (1 signal):
 ANTIPATTERN: [python] `print()` — debug output left in production code (2x)
 ```
 
@@ -659,7 +659,7 @@ ANTIPATTERN: [python] `print()` — debug output left in production code (2x)
 E o de NEAR_DUPLICATE:
 
 ```
-Pre-edit prevention for /home/gabrielgadea/projects/touring/scripts/test_drift_coverage.py (1 signal):
+Pre-edit prevention for ~/projects/touring/scripts/test_drift_coverage.py (1 signal):
 NEAR_DUPLICATE: edit is 100% similar to original (AST-token Jaccard) — did you mean to change more?
 ```
 
@@ -919,7 +919,7 @@ modelo sabe **o que o hook nao sabe**. Nao ha emoji, nao ha pipe, nao ha fragmen
 ### 4.3 `pre-edit-prevention` — a unica que faz uma pergunta
 
 ```
-Pre-edit prevention for /home/gabrielgadea/projects/touring/scripts/test_drift_coverage.py (1 signal):
+Pre-edit prevention for ~/projects/touring/scripts/test_drift_coverage.py (1 signal):
 NEAR_DUPLICATE: edit is 100% similar to original (AST-token Jaccard) — did you mean to change more?
 ```
 

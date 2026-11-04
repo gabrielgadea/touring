@@ -17,7 +17,7 @@ tags: ["#kind:plan", "#status:blocked", "#domain:vgp", "#lang:html"]
 > **Antes de reabrir, atualizar**: o binário congelado (`ec542c4b` → o do adapt integrado) e o código (`touring-wt-vhtml`
 > → o worktree do adapt). O escopo continua o do §8 do `RELATORIO-VHTML.md`.
 
-B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 
 ## O que existe
 
@@ -28,7 +28,7 @@ O adaptador HTML do motor VGP (`vhtml`) verifica duas classes:
 
 Binário congelado: `~/.claude/touring/vgp/binarios/ec542c4b/touring`. Uso:
 `touring vgp check --path <arquivo.html>` (JSON com `findings`, cada um com `classe`, `nome`, `linha`, `severidade`,
-`alvo`). Código (SÓ LEITURA): `/home/gabrielgadea/projects/touring-wt-vhtml/crates/touring-code/src/vgp/lang/html/`
+`alvo`). Código (SÓ LEITURA): `~/projects/touring-wt-vhtml/crates/touring-code/src/vgp/lang/html/`
 (`recurso.rs`, `ancora.rs`, `script.rs`, `documento.rs`, `texto.rs`). Relatório do autor: `B/RELATORIO-VHTML.md`;
 o §8 lista o que ELE não verificou.
 

@@ -1,5 +1,5 @@
 
-CONSERVAÇÃO — agentes, backup em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65/agents-backup
+CONSERVAÇÃO — agentes, backup em ~/projects/touring/docs/plans/2026-10-08-compactacao-65/agents-backup
 
 AGENTES (descricao cortada, texto integral no corpo, copias iguais):
 [OK ] touring-architect                619/620 linhas (99.84%)
@@ -20,4 +20,4 @@ AGENTES (descricao cortada, texto integral no corpo, copias iguais):
 [OK ] transformational-narrative-architect 81/81 linhas (100.00%)
 
 agentes: 3693/3701 linhas (99.78%)  · com perda: nenhuma
-relatorio: /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65/conservacao-agentes.json
+relatorio: ~/projects/touring/docs/plans/2026-10-08-compactacao-65/conservacao-agentes.json

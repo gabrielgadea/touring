@@ -31,7 +31,7 @@
 ## 2. Arquitetura
 
 ```
-/home/gabrielgadea/.claude/rust/
+~/.claude/rust/
 ├── crates/                                          # main workspace (host)
 │   └── touring-wasm/
 │       └── wit/
@@ -206,7 +206,7 @@ test result: ok. 3 passed; 0 failed; 0 ignored
 ## 8. Invariantes THSF preservadas
 
 - `autonomy_guarantee=true`: ✅ (nenhum projeto foi invadido)
-- Reversibilidade: `rm -rf /home/gabrielgadea/.claude/rust/holon-wasm-components/ && rm /home/gabrielgadea/.claude/rust/crates/touring-wasm/wit/holon-core.wit` remove Fase 4 completamente.
+- Reversibilidade: `rm -rf ~/.claude/rust/holon-wasm-components/ && rm ~/.claude/rust/crates/touring-wasm/wit/holon-core.wit` remove Fase 4 completamente.
 - Zero deps externas que quebrem builds existentes: componentes em workspace isolado, não tocam workspace principal.
 - Touring workspace `cargo build` inalterado: confirmado (não recompilamos touring-wasm em nenhum momento).
 

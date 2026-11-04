@@ -172,8 +172,8 @@ Better tool-use suggestions via touring suggest next
 
 ## Files Documented
 
-- `/home/gabrielgadea/.claude/rust/CHANGELOG.md` — entry for v30.1.1 added
-- `/home/gabrielgadea/.claude/rust/docs/sessions/2026-04-05-touring-analysis-potentialization.md` — this file
+- `~/.claude/rust/CHANGELOG.md` — entry for v30.1.1 added
+- `~/.claude/rust/docs/sessions/2026-04-05-touring-analysis-potentialization.md` — this file
 
 ## Memory Entries Stored
 

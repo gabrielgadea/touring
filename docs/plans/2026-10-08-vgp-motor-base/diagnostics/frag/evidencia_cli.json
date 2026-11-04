@@ -287,7 +287,7 @@
  },
  {
   "caso": "scratch do projeto (.cache/), nome do projeto [L1+L2]",
-  "path": "/home/gabrielgadea/projects/analise/.cache/frag-x/a.py",
+  "path": "~/projects/analise/.cache/frag-x/a.py",
   "camadas": "1,2",
   "base:-": {
    "verdict": "deny",
@@ -325,7 +325,7 @@
  },
  {
   "caso": "arquivo do projeto, nome do projeto [L1+L2]",
-  "path": "/home/gabrielgadea/projects/analise/scripts/frag_x_a.py",
+  "path": "~/projects/analise/scripts/frag_x_a.py",
   "camadas": "1,2",
   "base:-": {
    "verdict": "warn",

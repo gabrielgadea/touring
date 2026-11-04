@@ -2,7 +2,7 @@
 
 > Sessão: subagente `vhtml` (frente B do fan-out dos adaptadores), delegação da coordenadora `team-lead`
 > (brief: `briefs/2026-10-10-fanout-adaptadores.md`). Data: 10/10/2026. Nada commitado, nada propagado.
-> B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`. **A entrega é hipótese até o juiz da
+> B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`. **A entrega é hipótese até o juiz da
 > coordenadora no held-out selado** — o que medi aqui é o corpus de desenvolvimento (regenerado com a convenção nova), um
 > controle negativo em HTML limpo, dados naturais do `analise` e mutantes.
 >
@@ -15,10 +15,10 @@
 
 | item | valor |
 |---|---|
-| worktree | `/home/gabrielgadea/projects/touring-wt-vhtml` · branch `feat/2026-10-10-vgp-vhtml` · base `88c7cc8b` + VL0 (sem commit) |
+| worktree | `~/projects/touring-wt-vhtml` · branch `feat/2026-10-10-vgp-vhtml` · base `88c7cc8b` + VL0 (sem commit) |
 | escopo | `crates/touring-code/src/vgp/lang/html.rs` + submódulos `html/{documento,recurso,ancora,script,texto}.rs` + testes `html/tests/{mod,recurso,ancora,script}.rs` |
 | classes | `recurso` (`src`/`href` local inexistente) · `ancora` (`#id`, `for=`, `aria-labelledby/describedby`, `getElementById`/`querySelector('#x')` inline, id duplicado). CDN/`classe_css` são do `vtransv` |
-| builds | `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-vhtml`; todo cargo e todo juiz por `scripts/hw-slot` (máquina a 84–97 °C quase o tempo todo; `rc 75` uma vez no início, repeti com `--wait 14400`) |
+| builds | `CARGO_TARGET_DIR=~/projects/touring/target/wt-vhtml`; todo cargo e todo juiz por `scripts/hw-slot` (máquina a 84–97 °C quase o tempo todo; `rc 75` uma vez no início, repeti com `--wait 14400`) |
 | Context7 | **não esteve disponível para mim** (a ferramenta MCP não é exposta a este subagente; `ToolSearch` inexistente). Consultei no lugar, por leitura direta: `tree-sitter-html 0.23.2` (`src/grammar.json`, `src/scanner.c`, `src/tag.h`, `queries/injections.scm` no registry do cargo) + `node-types.json` upstream (WebFetch); `tree-sitter-javascript 0.25.0` `src/node-types.json`; WHATWG HTML "parse a srcset attribute" (WebFetch). **Não consegui buscar** o trecho WHATWG "find a potential indicated element": as regras `#top`/`#` vazio/`:~:`/id por `name` de `<a>`/percent-decode do fragmento vêm do meu conhecimento da spec — marcadas em §8 |
 
 ### 1.1 Núcleo recebido: dois arquivos sincronizados byte a byte com o `touring-wt-vl0`

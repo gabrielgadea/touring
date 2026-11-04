@@ -1,7 +1,7 @@
 {
  "version": 2,
  "topic": "Rust error message didactics: patterns to teach next step instead of just reporting failure",
- "scope": "/home/gabrielgadea/projects/touring",
+ "scope": "~/projects/touring",
  "rounds": [
   {
    "round": 1,
@@ -277,9 +277,9 @@
    "id": "f_d6451ad9a930",
    "lens": "institutional",
    "kind": "memory",
-   "key": "create:/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/insights.rs",
+   "key": "create:~/.claude/rust/crates/touring-foundation/src/insights.rs",
    "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
-   "detail": "{\"path\":\"/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/insights.rs\",\"intent\":\"A5 prep: relocate ErrorPatternInsight + EditedFileInsight session-insight value types to foundation to bre",
+   "detail": "{\"path\":\"~/.claude/rust/crates/touring-foundation/src/insights.rs\",\"intent\":\"A5 prep: relocate ErrorPatternInsight + EditedFileInsight session-insight value types to foundation to bre",
    "depth": "D1",
    "round": 1
   },
@@ -317,9 +317,9 @@
    "id": "f_163a189e8b27",
    "lens": "institutional",
    "kind": "memory",
-   "key": "edit:/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/file_knowledge.rs:outcome",
+   "key": "edit:~/.claude/rust/crates/touring-server/src/cli/file_knowledge.rs:outcome",
    "evidence": "touring memory recall Rust error message didactics: patterns to teach next step instead of just reporting failure",
-   "detail": "{\"path\":\"/home/gabrielgadea/.claude/rust/crates/touring-server/src/cli/file_knowledge.rs\",\"intent\":\"W6a clap-derive migration: file_knowledge\",\"operation\":\"free-form\",\"grade_pre\":\"?\",\"grade_post\":\"?\",",
+   "detail": "{\"path\":\"~/.claude/rust/crates/touring-server/src/cli/file_knowledge.rs\",\"intent\":\"W6a clap-derive migration: file_knowledge\",\"operation\":\"free-form\",\"grade_pre\":\"?\",\"grade_post\":\"?\",",
    "depth": "D1",
    "round": 1
   },

@@ -1,8 +1,8 @@
-   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
+   Compiling touring-cli v30.4.96 (~/projects/touring-wt-int97/crates/touring-cli)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 11.95s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_cli-cb722b63b72842be)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_cli-cb722b63b72842be)
 
 running 688 tests
 test cli::ast::meta_contract_tests::ausencia_de_sinal_cognitivo_e_null_nunca_zero ... ok
@@ -696,7 +696,7 @@ test cli_suggester::tests::write_classifier_stays_functional_without_a_portfolio
 
 test result: ok. 686 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 68.91s
 
-     Running tests/b6_python_qualified_path.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/b6_python_qualified_path-ddaeba162db16b05)
+     Running tests/b6_python_qualified_path.rs (~/projects/touring/target/wt-int97/debug/deps/b6_python_qualified_path-ddaeba162db16b05)
 
 running 4 tests
 test the_old_extractor_shape_would_have_found_nothing_here ... ok

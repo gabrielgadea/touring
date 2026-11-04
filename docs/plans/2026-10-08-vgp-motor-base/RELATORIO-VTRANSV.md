@@ -11,9 +11,9 @@
 | Campo | Valor |
 |---|---|
 | Agente | `vtransv` (subagente da frente C do fan-out dos adaptadores da camada 1) |
-| Worktree | `/home/gabrielgadea/projects/touring-wt-vtransv` |
+| Worktree | `~/projects/touring-wt-vtransv` |
 | Branch | `feat/2026-10-10-vgp-vtransv` (VL0 aplicada; HEAD `88c7cc8b`; **sem commit meu**) |
-| Alvo | `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-vtransv` |
+| Alvo | `CARGO_TARGET_DIR=~/projects/touring/target/wt-vtransv` |
 | Contrato | `briefs/2026-10-10-fanout-adaptadores.md` + `VL0-multilinguagem-spec.md` §2–§5 + as duas decisões e a emenda de aceite da coordenadora (trait, sha2/base64, controle negativo) |
 | Arquivos meus | `crates/touring-code/src/vgp/lang/{cdn.rs, classe_css.rs}` e os submódulos `lang/cdn/{cache,documento,hash,resolvedor}.rs`, `lang/cdn/resolvedor/tests.rs`, `lang/cdn/tests.rs`, `lang/classe_css/{folhas,usos,projeto,tests}.rs` |
 | Fora dos meus arquivos (autorizado) | emenda do núcleo (§3.1), `crates/touring-code/Cargo.toml` (+2 deps), `Cargo.lock` (+2 linhas, consequência), `crates/touring-server/src/cli/vgp.rs` (cópia byte a byte da VL0) |

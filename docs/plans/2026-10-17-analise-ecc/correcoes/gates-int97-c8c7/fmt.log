@@ -1,4 +1,4 @@
-Diff in /home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence/tests/cross_audit.rs:7:
+Diff in ~/projects/touring-wt-int97/crates/touring-intelligence/tests/cross_audit.rs:7:
  //! Every test here exercises a **contract**, not just "does not crash".
  
  use touring_intelligence::rl::memory::{

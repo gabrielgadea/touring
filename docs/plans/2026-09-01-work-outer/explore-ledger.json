@@ -1,7 +1,7 @@
 {
  "version": 2,
  "topic": "code-mode-sinal F1-F6 deploy verify-by-behavior",
- "scope": "/home/gabrielgadea/projects/touring",
+ "scope": "~/projects/touring",
  "created_at": 1788262873.5887723,
  "rounds": [
   {
@@ -126,7 +126,7 @@
    "kind": "memory",
    "key": "report:phase:task_1788196388043002698:F3-post-tool-use-sync",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: F3-post-tool-use-sync — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F3-post-tool-use-sync.md",
+   "detail": "OKF: F3-post-tool-use-sync — phase report (2026-08-31-code-mode-sinal) — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F3-post-tool-use-sync.md",
    "depth": "D1",
    "stored_at": "2026-09-01 09:46:58",
    "round": 1
@@ -137,7 +137,7 @@
    "kind": "memory",
    "key": "report:phase:task_1788196388043002698:F6-criterios-and-6",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: F6-criterios-and-6 — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F6-criterios-and-6.md",
+   "detail": "OKF: F6-criterios-and-6 — phase report (2026-08-31-code-mode-sinal) — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F6-criterios-and-6.md",
    "depth": "D1",
    "stored_at": "2026-09-01 10:07:01",
    "round": 1
@@ -148,7 +148,7 @@
    "kind": "memory",
    "key": "report:phase:task_1788196388043002698:F5-best-practices-gate-warn",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: F5-best-practices-gate-warn — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F5-best-practices-gate-warn.md",
+   "detail": "OKF: F5-best-practices-gate-warn — phase report (2026-08-31-code-mode-sinal) — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F5-best-practices-gate-warn.md",
    "depth": "D1",
    "stored_at": "2026-09-01 09:59:33",
    "round": 1
@@ -159,7 +159,7 @@
    "kind": "memory",
    "key": "report:phase:task_1788196388043002698:F2-s4-surface-hibrido",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: F2-s4-surface-hibrido — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F2-s4-surface-hibrido.md",
+   "detail": "OKF: F2-s4-surface-hibrido — phase report (2026-08-31-code-mode-sinal) — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F2-s4-surface-hibrido.md",
    "depth": "D1",
    "stored_at": "2026-09-01 09:25:03",
    "round": 1
@@ -181,7 +181,7 @@
    "kind": "memory",
    "key": "report:phase:task_1788196388043002698:F4-sdk-tipada-protocol",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: F4-sdk-tipada-protocol — phase report (2026-08-31-code-mode-sinal) — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F4-sdk-tipada-protocol.md",
+   "detail": "OKF: F4-sdk-tipada-protocol — phase report (2026-08-31-code-mode-sinal) — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/phases/F4-sdk-tipada-protocol.md",
    "depth": "D1",
    "stored_at": "2026-09-01 09:56:52",
    "round": 1
@@ -236,7 +236,7 @@
    "kind": "memory",
    "key": "report:diagnostic:touring-20260831T153703",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-08-31-code-mode-sinal/diagnostics/touring-20260831T153703.md",
+   "detail": "OKF: Diagnostic — ~/projects/touring — docs/plans/2026-08-31-code-mode-sinal/diagnostics/touring-20260831T153703.md",
    "depth": "D1",
    "stored_at": "2026-08-31 18:37:03",
    "round": 1
@@ -247,7 +247,7 @@
    "kind": "memory",
    "key": "report:diagnostic:touring-20260831T152005",
    "evidence": "touring memory recall code-mode-sinal F1-F6 deploy verify-by-behavior",
-   "detail": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/diagnostics/touring-20260831T152005.md",
+   "detail": "OKF: Diagnostic — ~/projects/touring — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/diagnostics/touring-20260831T152005.md",
    "depth": "D1",
    "stored_at": "2026-08-31 18:20:05",
    "round": 1

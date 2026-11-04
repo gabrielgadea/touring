@@ -123,7 +123,7 @@
    Compiling tiff v0.11.3
    Compiling ravif v0.13.0
    Compiling exr v1.74.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling indicatif v0.18.4
    Compiling tree-sitter v0.26.9
    Compiling simba v0.8.1
@@ -189,7 +189,7 @@
    Compiling tree-sitter-c v0.24.2
    Compiling tree-sitter-cpp v0.23.4
    Compiling tree-sitter-json v0.23.0
-   Compiling tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-bash)
+   Compiling tree-sitter-bash v0.25.1 (~/projects/touring-wt-int97/third_party/tree-sitter-bash)
    Compiling tree-sitter-c-sharp v0.23.5
    Compiling tree-sitter-go v0.25.0
    Compiling tree-sitter-html v0.23.2
@@ -208,7 +208,7 @@
    Compiling tree-sitter-java v0.23.5
    Compiling camino v1.2.3
    Compiling ast-grep-core v0.42.3
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring-wt-int97/crates/touring-rkyv)
    Compiling deadpool-runtime v0.3.1
    Compiling cargo-platform v0.2.0
    Compiling rustdoc-types v0.39.0
@@ -218,16 +218,16 @@
    Compiling public-api v0.47.1
    Compiling regex-automata v0.4.14
    Compiling ropey v1.6.1
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
    Compiling env_logger v0.11.11
    Compiling toml v1.1.2+spec-1.1.0
    Compiling cargo_metadata v0.21.0
    Compiling ast-grep-language v0.42.3
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
    Compiling candle-core v0.8.4
    Compiling notify-debouncer-mini v0.5.0
    Compiling cargo-lock v11.0.1
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling tree-sitter-json v0.24.8
    Compiling tree-sitter-toml-ng v0.7.0
    Compiling tracing-error v0.2.1
@@ -247,8 +247,8 @@
    Compiling argmin v0.9.0
    Compiling linfa v0.7.1
    Compiling candle-nn v0.8.4
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling stringzilla v4.6.2
    Compiling regex v1.12.4
    Compiling deadpool v0.13.1
@@ -265,7 +265,7 @@
    Compiling candle-transformers v0.8.4
    Compiling linfa-ftrl v0.7.1
    Compiling deadpool-sqlite v0.14.0
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
    Compiling crdts v7.3.2
    Compiling plotters v0.3.7
    Compiling ciborium v0.2.2
@@ -279,7 +279,7 @@
    Compiling proptest v1.11.0
    Compiling rstest v0.26.1
    Compiling tracing-test v0.2.6
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 5m 17s
      Running unittests src/lib.rs (target/debug/deps/touring_intelligence-5d0b1ff2de8f45c5)
 

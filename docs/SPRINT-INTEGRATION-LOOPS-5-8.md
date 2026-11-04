@@ -6,7 +6,7 @@
 
 ## 1. Executive Summary
 
-Este documento consolida os resultados dos Loops 5 a 8 do TACO, focados em **integracao entre crates** e **sinergia cross-crate** para o workspace Touring em `/home/gabrielgadea/.claude/rust/`.
+Este documento consolida os resultados dos Loops 5 a 8 do TACO, focados em **integracao entre crates** e **sinergia cross-crate** para o workspace Touring em `~/.claude/rust/`.
 
 ### Metricas Chave
 

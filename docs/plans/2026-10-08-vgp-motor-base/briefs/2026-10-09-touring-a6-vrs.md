@@ -12,7 +12,7 @@ tags: ["#kind:plan", "#status:active", "#domain:harness"]
 Ordem do Gabriel (/goal 09/10): «prossiga com a implementação completa de proposta.md e VL0-multilinguagem-spec.md e
 ao final, me prove, na prática, que tudo funciona de forma completa e perfeita» · «consulte o context7 sempre que for
 preciso solucionar um problema complexo ou para compreender as melhores práticas». B =
-`/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+`~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 
 ## Leia antes de qualquer comando
 
@@ -48,10 +48,10 @@ no seu binário, ligue um despacho TEMPORÁRIO `lang == "rust"` no `check` do SE
 
 ## Onde e como
 
-- Worktree: `git -C /home/gabrielgadea/projects/touring worktree add -b feat/2026-10-09-vgp-vrs /home/gabrielgadea/projects/touring-wt-vrs 88c7cc8b`
+- Worktree: `git -C ~/projects/touring worktree add -b feat/2026-10-09-vgp-vrs ~/projects/touring-wt-vrs 88c7cc8b`
   (aditivo; sem commit).
-- `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-vrs`; todo cargo por
-  `/home/gabrielgadea/projects/touring/scripts/hw-slot --class rust -- …` (a máquina é compartilhada e quente — o slot
+- `CARGO_TARGET_DIR=~/projects/touring/target/wt-vrs`; todo cargo por
+  `~/projects/touring/scripts/hw-slot --class rust -- …` (a máquina é compartilhada e quente — o slot
   espera a temperatura cair; rc 75 = sem vaga a tempo, tente de novo).
 - Context7 para a referência de caminhos/`use`/visibilidade da linguagem (Rust Reference, edição 2021) e para o
   índice de erros do rustc; cite o que consultou.

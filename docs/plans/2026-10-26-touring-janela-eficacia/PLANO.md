@@ -452,7 +452,7 @@ scripts/hw-slot --class rust -- cargo test -p touring-hooks-shared   # s8_corpus
 
 # convergência (o veredito é o exit code; com --bundle exige o C6):
 python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py \
-  --task task_1793043745985215009 --scope /home/gabrielgadea/projects/touring \
+  --task task_1793043745985215009 --scope ~/projects/touring \
   --bundle docs/plans/2026-10-26-touring-janela-eficacia
 ```
 

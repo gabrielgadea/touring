@@ -11,7 +11,7 @@ tags: ["#kind:plan", "#status:active", "#domain:harness"]
 
 Ordem do Gabriel (/goal 09/10): «prossiga com a implementação completa de proposta.md e VL0-multilinguagem-spec.md e
 ao final, me prove, na prática, que tudo funciona de forma completa e perfeita». B =
-`/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+`~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 
 ## Leia antes de qualquer comando (todos)
 
@@ -30,8 +30,8 @@ Incerto }`, `politica::aplicar` sobrescreve a severidade — o adaptador NÃO de
 - **Camada 1 é pura** (spec §3): sem daemon, sem rede, sem processo. Sem conseguir medir → `nao_medido` com o motivo
   (nunca vazio = limpo). Parse por `lang::parse("<lang>", src)` (passa pelo `parse_bounded`; TS e TSX são gramáticas
   DISTINTAS, nunca `ast::Lang::TypeScript`).
-- **Build**: `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-<nome>`; TODO cargo por
-  `/home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --wait 3600 -- …` (máquina a 90–97 °C; rc 75 = sem
+- **Build**: `CARGO_TARGET_DIR=~/projects/touring/target/wt-<nome>`; TODO cargo por
+  `~/projects/touring/scripts/hw-slot --class rust --wait 3600 -- …` (máquina a 90–97 °C; rc 75 = sem
   vaga → repita; nunca contorne a espera). Binário do juiz: `cargo build --release -p touring-server --bin touring` no
   seu target, congelado em `~/.claude/touring/vgp/binarios/<sha8>/touring` com `.sha256` ao lado.
 - **Context7** para a gramática tree-sitter da sua linguagem (nós e campos), a semântica de resolução (ESM/TS module

@@ -14,7 +14,7 @@ própria regra do F21K**.
 
 | | |
 |---|---|
-| worktree | `/home/gabrielgadea/projects/touring-wt-intadapt` (NOVO) |
+| worktree | `~/projects/touring-wt-intadapt` (NOVO) |
 | branch | `int/2026-10-31-intadapt` (a partir do HEAD `582cac59`) |
 | base dos patches | VL0 `88c7cc8b` (worktrees `touring-wt-{vtransv,vts,vhtml,vrs2}`) + F21 `88c7cc8b` (worktree `touring-wt-f21`) |
 | HEAD de integração | `582cac59` → **merge de `fe2d4512`** (o main de 31/10) |

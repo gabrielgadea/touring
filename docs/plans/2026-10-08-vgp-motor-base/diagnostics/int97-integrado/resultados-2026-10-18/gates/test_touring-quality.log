@@ -1,6 +1,6 @@
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-quality v30.4.96 (~/projects/touring-wt-int97/crates/touring-quality)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 9.26s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_quality-2c1b99684ae06700)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_quality-2c1b99684ae06700)
 
 running 479 tests
 test aggregate::tests::block_dims_are_fail_closed_kinds ... ok
@@ -485,13 +485,13 @@ test verifications::tests::test_all_50_dims_runnable ... ok
 
 test result: ok. 479 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 48.68s
 
-     Running unittests src/bin/touring-quality.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_quality-3abf045e8819081b)
+     Running unittests src/bin/touring-quality.rs (~/projects/touring/target/wt-int97/debug/deps/touring_quality-3abf045e8819081b)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/evidence_no_leak.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/evidence_no_leak-f41ae47171e2bf69)
+     Running tests/evidence_no_leak.rs (~/projects/touring/target/wt-int97/debug/deps/evidence_no_leak-f41ae47171e2bf69)
 
 running 2 tests
 test evidence_never_echoes_the_secret_in_any_output_format ... ok
@@ -499,7 +499,7 @@ test config_evidence_locates_without_echoing_the_value ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-     Running tests/python_mutants.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/python_mutants-b722cbf90d928917)
+     Running tests/python_mutants.rs (~/projects/touring/target/wt-int97/debug/deps/python_mutants-b722cbf90d928917)
 
 running 25 tests
 test baseline_clean_file_passes_all_p0 ... ok

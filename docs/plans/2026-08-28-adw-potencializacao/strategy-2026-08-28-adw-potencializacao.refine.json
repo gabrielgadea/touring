@@ -6,37 +6,37 @@
    "gap_count": 30,
    "top_gaps": [
     {
-     "key": "/home/gabrielgadea/projects/touring/crates/touring-hook-handlers/src/hooks/post_tool_batch.rs:16",
+     "key": "~/projects/touring/crates/touring-hook-handlers/src/hooks/post_tool_batch.rs:16",
      "lens": "antistaleness",
      "depth": "D2",
      "weight": 3.0
     },
     {
-     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester.rs:1577",
+     "key": "~/projects/touring/crates/touring-cli/src/cli_suggester.rs:1577",
      "lens": "antistaleness",
      "depth": "D2",
      "weight": 3.0
     },
     {
-     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester_tests.rs:1671",
+     "key": "~/projects/touring/crates/touring-cli/src/cli_suggester_tests.rs:1671",
      "lens": "antistaleness",
      "depth": "D2",
      "weight": 3.0
     },
     {
-     "key": "/home/gabrielgadea/projects/touring/crates/touring-hook-handlers/src/hooks/post_tool_batch.rs",
+     "key": "~/projects/touring/crates/touring-hook-handlers/src/hooks/post_tool_batch.rs",
      "lens": "quality",
      "depth": "D2",
      "weight": 3.0
     },
     {
-     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester.rs",
+     "key": "~/projects/touring/crates/touring-cli/src/cli_suggester.rs",
      "lens": "quality",
      "depth": "D2",
      "weight": 3.0
     },
     {
-     "key": "/home/gabrielgadea/projects/touring/crates/touring-cli/src/cli_suggester_tests.rs",
+     "key": "~/projects/touring/crates/touring-cli/src/cli_suggester_tests.rs",
      "lens": "quality",
      "depth": "D2",
      "weight": 3.0

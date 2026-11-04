@@ -1,7 +1,7 @@
 # Touring Holonic Symbiosis Framework (THSF) — Plano Mestre
 
 **Documento**: Plano executável completo para implementar simbiose bidirecional
-entre o workspace Touring e todos os projetos em `/home/gabrielgadea/projects/`.
+entre o workspace Touring e todos os projetos em `~/projects/`.
 
 **Versão**: 1.0.0
 **Data**: 2026-04-23
@@ -56,7 +56,7 @@ ou a Anthropic/MCP.
 
 ## 2. Scope — Holon Population Mapping
 
-### 2.1 Touring workspace (20 crates em `/home/gabrielgadea/.claude/rust/crates/`)
+### 2.1 Touring workspace (20 crates em `~/.claude/rust/crates/`)
 
 | Crate | Função | Capabilities a OFERECER | Capabilities a CONSUMIR |
 |---|---|---|---|
@@ -84,7 +84,7 @@ ou a Anthropic/MCP.
 
 **Total de capabilities Touring oferecíveis**: ~40 únicas.
 
-### 2.2 Projetos em `/home/gabrielgadea/projects/` (8 com código)
+### 2.2 Projetos em `~/projects/` (8 com código)
 
 | Projeto | Tamanho | Stack | Capabilities a OFERECER | Capabilities a CONSUMIR |
 |---|---|---|---|---|
@@ -101,9 +101,9 @@ ou a Anthropic/MCP.
 
 ### 2.3 Excluídos do scope inicial
 
-- `/home/gabrielgadea/projects/data/` — diretório de dados (não código)
-- `/home/gabrielgadea/projects/-home-gabrielgadea/` — diretório reservado
-- `/home/gabrielgadea/projects/or-ptah-de-dabar/` — projeto experimental pequeno
+- `~/projects/data/` — diretório de dados (não código)
+- `~/projects/-home-gabrielgadea/` — diretório reservado
+- `~/projects/or-ptah-de-dabar/` — projeto experimental pequeno
 
 Podem ser adicionados em Fase 8 se valor for identificado.
 
@@ -207,12 +207,12 @@ Matriz completa indicando quais combos cada holon adota, por fase:
 
 **Deliverables atômicos**:
 - **D0.1** [S]: Empacotar `holon.py` (já escrito em sessão anterior) como
-  script executável em `/home/gabrielgadea/.claude/tools/holon/holon`
+  script executável em `~/.claude/tools/holon/holon`
   com shebang `#!/usr/bin/env python3`.
 - **D0.2** [S]: `holon-manifest.schema.json` (JSON Schema Draft 2020-12)
   validando estrutura do manifest TOML. Referenciado por cada manifest
   via comment `# schema: ...`.
-- **D0.3** [XS]: Adicionar `/home/gabrielgadea/.claude/tools/holon/` ao
+- **D0.3** [XS]: Adicionar `~/.claude/tools/holon/` ao
   `$PATH` via `~/.bashrc` (uma linha).
 - **D0.4** [XS]: Comando `holon init <dir>` scaffolda `.holon/manifest.toml`
   + `.holon/schemas/` vazios.
@@ -224,7 +224,7 @@ Matriz completa indicando quais combos cada holon adota, por fase:
 which holon                                     # retorna path
 holon --help                                    # mostra subcomandos
 holon init /tmp/demo && ls /tmp/demo/.holon/    # scaffolds visible
-pytest /home/gabrielgadea/.claude/tools/holon/  # 15 tests PASS
+pytest ~/.claude/tools/holon/  # 15 tests PASS
 ```
 
 **Dependências**: nenhuma (arranque).
@@ -237,10 +237,10 @@ pytest /home/gabrielgadea/.claude/tools/holon/  # 15 tests PASS
 
 **Sub-fase 1.1 — Touring crates** (2 dias, paralelo):
 
-Para cada um dos 20 crates em `/home/gabrielgadea/.claude/rust/crates/`:
+Para cada um dos 20 crates em `~/.claude/rust/crates/`:
 
 ```bash
-cd /home/gabrielgadea/.claude/rust/crates/<crate>/
+cd ~/.claude/rust/crates/<crate>/
 mkdir -p .holon/schemas
 # Copy template manifest, customize name + offers + requires
 ```
@@ -249,7 +249,7 @@ Template por crate (exemplo `touring-ast`):
 
 ```toml
 # .holon/manifest.toml
-# schema: /home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json
+# schema: ~/.claude/tools/holon/holon-manifest.schema.json
 
 [holon.identity]
 name = "touring-ast"
@@ -280,7 +280,7 @@ adapter_cmd = "touring ast grep"
 Para cada projeto:
 
 ```bash
-cd /home/gabrielgadea/projects/<project>/
+cd ~/projects/<project>/
 holon init .
 # Customize manifest: offers + requires conforme seção 2.2
 ```
@@ -292,9 +292,9 @@ holon init .
 
 - **D1.3** [S]: Script `validate-holarchy.sh` roda em CI:
   ```bash
-  holon discover /home/gabrielgadea | wc -l
+  holon discover ~ | wc -l
   # Expect: 28
-  holon doctor /home/gabrielgadea
+  holon doctor ~
   # Expect: 0 errors
   ```
 
@@ -312,12 +312,12 @@ holon init .
   [Install]
   WantedBy=timers.target
   ```
-- **D1.5** [XS]: Log em `/home/gabrielgadea/.local/state/holon/symbiosis.log`.
+- **D1.5** [XS]: Log em `~/.local/state/holon/symbiosis.log`.
 
 **Exit criteria**:
 ```bash
-holon discover /home/gabrielgadea | grep -c manifest.toml  # 28
-holon symbiosis /home/gabrielgadea                          # JSON report
+holon discover ~ | grep -c manifest.toml  # 28
+holon symbiosis ~                          # JSON report
 # Expect: handshakes_accepted >= 5, rejected = 0
 ```
 
@@ -335,7 +335,7 @@ holon symbiosis /home/gabrielgadea                          # JSON report
 
 **Goal**: Touring é um holon que participa do próprio ecosystem.
 
-- **D2.1** [S]: Manifest master em `/home/gabrielgadea/.claude/rust/.holon/`
+- **D2.1** [S]: Manifest master em `~/.claude/rust/.holon/`
   expondo 10+ capabilities agregadas:
   ```toml
   [holon.identity]
@@ -369,7 +369,7 @@ holon symbiosis /home/gabrielgadea                          # JSON report
 
 **Exit criteria**:
 ```bash
-holon discover /home/gabrielgadea | grep touring-master  # exists
+holon discover ~ | grep touring-master  # exists
 holon invoke touring-master symbol-index '{"symbol":"HolonSymbiosis"}'
 # Returns JSON
 ```
@@ -384,7 +384,7 @@ holon invoke touring-master symbol-index '{"symbol":"HolonSymbiosis"}'
 kazuba-cargo via Cap'n Proto com promise pipelining.
 
 - **D3.1** [M]: Schema unificado `holon-core.capnp` em
-  `/home/gabrielgadea/.claude/rust/crates/touring-rkyv/schemas/`:
+  `~/.claude/rust/crates/touring-rkyv/schemas/`:
   ```capnp
   @0xabcdef1234567890;
 
@@ -435,7 +435,7 @@ qualquer linguagem via WIT.
 
 **Pre-req**: WASI 0.3 stable (Nov/2025 — confirmar disponibilidade).
 
-- **D4.1** [M]: WIT interfaces em `/home/gabrielgadea/.claude/rust/crates/touring-wasm/wit/`:
+- **D4.1** [M]: WIT interfaces em `~/.claude/rust/crates/touring-wasm/wit/`:
   ```wit
   package holon:core@0.1.0;
 
@@ -456,7 +456,7 @@ qualquer linguagem via WIT.
 
 - **D4.3** [L]: Pilot em claude-trading:
   ```bash
-  cd /home/gabrielgadea/projects/claude-trading
+  cd ~/projects/claude-trading
   wac plug touring-symbol-index.wasm trading-plug.wasm -o composed.wasm
   wasmtime serve composed.wasm
   ```
@@ -573,7 +573,7 @@ qualquer linguagem via WIT.
   - RFC-003: CRDT semantics + merge protocol
   - RFC-004: WIT interfaces standard
 
-- **D8.3** [S]: Template repos em `/home/gabrielgadea/projects/templates/`:
+- **D8.3** [S]: Template repos em `~/projects/templates/`:
   - `holon-rust-template/` — Rust project com `.holon/` pré-configurado
   - `holon-python-template/` — Python project idem
   - `holon-ts-template/` — TypeScript + Node idem
@@ -622,7 +622,7 @@ Fase 4 (WASM)  Fase 5 (CRDT)   ▼
 
 Cada fase tem seu próprio exit criteria (seção 5). Adicionalmente:
 
-- **Smoke test universal**: `holon symbiosis /home/gabrielgadea` deve
+- **Smoke test universal**: `holon symbiosis ~` deve
   retornar `handshakes_rejected: 0` após qualquer fase.
 - **Regression gate**: `cargo check --workspace` + `pytest` + `npm build`
   em cada projeto devem continuar verdes.
@@ -706,7 +706,7 @@ valor imediato palpável.
 ### A. Schema canônico `.holon/manifest.toml`
 
 ```toml
-# schema: /home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json
+# schema: ~/.claude/tools/holon/holon-manifest.schema.json
 
 [holon.identity]
 name = "<project-or-crate-name>"          # unique within holarchy
@@ -890,13 +890,13 @@ adapter_cmd = "touring ast rust-semantic"
 
 ```bash
 # Discovery
-holon discover /home/gabrielgadea
+holon discover ~
 
 # Symbiosis cycle
-holon symbiosis /home/gabrielgadea
+holon symbiosis ~
 
 # Validation
-holon doctor /home/gabrielgadea
+holon doctor ~
 
 # Stats
 holon stats --since=24h
@@ -905,7 +905,7 @@ holon stats --since=24h
 holon invoke touring-master symbol-index '{"symbol":"HolonSymbiosis"}'
 
 # Reset (nuclear)
-find /home/gabrielgadea -type d -name .holon -exec rm -rf {} +
+find ~ -type d -name .holon -exec rm -rf {} +
 
 # Touring integration
 touring status -j | jq '.holon_integration'  # pós-Fase 2
@@ -913,10 +913,10 @@ touring status -j | jq '.holon_integration'  # pós-Fase 2
 
 ### F. Arquivos-chave deste plano
 
-- **Plano mestre**: `/home/gabrielgadea/.claude/rust/docs/2026-04-23-THSF-master-plan.md` (este documento)
-- **holon.py**: `/home/gabrielgadea/.claude/tools/holon/holon.py` (Fase 0)
-- **Schema manifest**: `/home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json` (Fase 0)
-- **Spec pública**: `/home/gabrielgadea/.claude/rust/docs/thsf/THSF-SPEC-v1.0.md` (Fase 8)
+- **Plano mestre**: `~/.claude/rust/docs/2026-04-23-THSF-master-plan.md` (este documento)
+- **holon.py**: `~/.claude/tools/holon/holon.py` (Fase 0)
+- **Schema manifest**: `~/.claude/tools/holon/holon-manifest.schema.json` (Fase 0)
+- **Spec pública**: `~/.claude/rust/docs/thsf/THSF-SPEC-v1.0.md` (Fase 8)
 
 ---
 
@@ -936,7 +936,7 @@ Antes de iniciar Fase 0, Gabriel deve confirmar:
 
 **Comando único para iniciar**:
 ```bash
-mkdir -p /home/gabrielgadea/.claude/tools/holon
+mkdir -p ~/.claude/tools/holon
 # Próximo: copiar holon.py da sessão anterior + tests
 ```
 

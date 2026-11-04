@@ -168,7 +168,7 @@ O ecossistema Touring opera em 6 camadas: **Daemon** (Rust binary), **CLI** (~88
 **Evidência**: A cada Bash call, os PreToolUse hooks disparam:
 ```
 ⚡ Bash failure: Exit code 101
-error: could not find `Cargo.toml` in `/home/gabrielgadea/.claude` or any parent directory
+error: could not find `Cargo.toml` in `~/.claude` or any parent directory
 ```
 
 **Impacto**: Noise em TODA operação Bash. Hooks running `cargo check` no CWD (`$HOME` ou `$HOME/.claude`) que não são workspaces Rust. Cada message adiciona ~200 bytes ao contexto.

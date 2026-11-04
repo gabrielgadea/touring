@@ -1,5 +1,5 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.57s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_offensive-afbb732ce893ea01)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_offensive-afbb732ce893ea01)
 
 running 282 tests
 test bug_bounty::tests::test_cve_reference_deduplication ... ok
@@ -287,7 +287,7 @@ test solver::z3_backend::tests::test_z3_translate_symbolic_variable_eq ... ok
 
 test result: ok. 282 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
 
-     Running tests/erickson_mixed_language.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/erickson_mixed_language-6c0d13f62b477b63)
+     Running tests/erickson_mixed_language.rs (~/projects/touring/target/wt-int97/debug/deps/erickson_mixed_language-6c0d13f62b477b63)
 
 running 14 tests
 test test_extract_backing_english ... ok

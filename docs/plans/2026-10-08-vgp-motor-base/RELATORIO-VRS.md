@@ -1,7 +1,7 @@
 # RELATÓRIO VRS — porta do adaptador Rust (camada 1) para a VL0
 
 > Sessão: subagente `vrs-porta` (backend Sonnet 5.5), delegação da coordenadora touring-09 (`team-lead`). Data: 10/10/2026.
-> B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`. Nada commitado, nada propagado.
+> B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`. Nada commitado, nada propagado.
 > A entrega é hipótese até o juiz da coordenadora.
 
 ## 1. Identidade

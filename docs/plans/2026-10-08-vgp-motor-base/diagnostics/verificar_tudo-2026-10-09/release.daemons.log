@@ -1,9 +1,9 @@
-[[2971193, "/home/gabrielgadea/projects/touring/target/release/touring-daemon"], [2992399, "/home/gabrielgadea/.touring/toolchains/30.4.93/bin/touring-daemon"], [2993130, "/home/gabrielgadea/.touring/toolchains/30.4.93/bin/touring-daemon"]]
+[[2971193, "~/projects/touring/target/release/touring-daemon"], [2992399, "~/.touring/toolchains/30.4.93/bin/touring-daemon"], [2993130, "~/.touring/toolchains/30.4.93/bin/touring-daemon"]]
 {
   "socket_path": "/tmp/touring-daemon-1000.sock",
   "socket_alive": true,
   "daemon_pid": 2971193,
-  "daemon_exe": "/home/gabrielgadea/projects/touring/target/release/touring-daemon",
+  "daemon_exe": "~/projects/touring/target/release/touring-daemon",
   "daemon_exe_deleted": false,
   "health": {
     "async": true,

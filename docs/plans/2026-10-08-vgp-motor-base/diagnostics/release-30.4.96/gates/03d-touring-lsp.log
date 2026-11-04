@@ -410,7 +410,7 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling indicatif v0.18.4
    Compiling tiff v0.11.3
    Compiling toml_parser v1.1.2+spec-1.1.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling exr v1.74.0
    Compiling macro_rules_attribute v0.2.2
    Compiling ravif v0.13.0
@@ -447,7 +447,7 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling tree-sitter-lua v0.5.0
    Compiling tree-sitter-cpp v0.23.4
    Compiling tree-sitter-solidity v1.2.13
-   Compiling tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-bash)
+   Compiling tree-sitter-bash v0.25.1 (~/projects/touring/third_party/tree-sitter-bash)
    Compiling tree-sitter-hcl v1.1.0
    Compiling tree-sitter-python v0.25.0
    Compiling tree-sitter-html v0.23.2
@@ -492,7 +492,7 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling salsa-macros v0.18.0
    Compiling tracing-log v0.2.0
    Compiling crossbeam-queue v0.3.12
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling tree-sitter-json v0.24.8
    Compiling tree-sitter-toml-ng v0.7.0
    Compiling raw-cpuid v11.6.0
@@ -515,7 +515,7 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling pest_meta v2.8.6
    Compiling notify v7.0.0
    Compiling ast-grep-core v0.42.3
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring/crates/touring-rkyv)
    Compiling rustdoc-types v0.39.0
    Compiling cargo-platform v0.2.0
    Compiling stringzilla v4.6.2
@@ -526,11 +526,11 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling str_indices v0.4.4
    Compiling ropey v1.6.1
    Compiling petgraph v0.6.5
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
    Compiling public-api v0.47.1
    Compiling toml v1.1.2+spec-1.1.0
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling touring-storage v30.4.95 (~/projects/touring/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling notify-debouncer-mini v0.5.0
    Compiling derive_more v2.1.1
@@ -542,19 +542,19 @@ hw-slot: aguardando — temp 94C > 88C
    Compiling platforms v3.12.0
    Compiling cvss v2.2.0
    Compiling jiff v0.2.29
-   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-code v30.4.95 (~/projects/touring/crates/touring-code)
    Compiling pest_derive v2.8.6
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
    Compiling rustsec v0.33.0
    Compiling globwalk v0.9.1
    Compiling tera v1.20.1
-   Compiling touring-pyright v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
+   Compiling touring-pyright v30.4.95 (~/projects/touring/crates/touring-pyright)
    Compiling diff v0.1.13
    Compiling yansi v1.0.1
    Compiling pretty_assertions v1.4.1
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-quality v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-lsp v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-quality v30.4.95 (~/projects/touring/crates/touring-quality)
+   Compiling touring-lsp v30.4.95 (~/projects/touring/crates/touring-lsp)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 5m 11s
      Running unittests src/lib.rs (target/debug/deps/touring_lsp-385d4db38fe57280)
 

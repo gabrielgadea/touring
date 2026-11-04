@@ -234,7 +234,7 @@ dados "100% human-labeled, real-world public datasets". Compara com o Jev "~400 
 ## 3. Servidores e clones compatíveis com `/v1/systemone`
 
 Relatório completo, com fontes por projeto e ~40 repositórios:
-`/tmp/claude-1000/-home-gabrielgadea-projects-touring/b824294f-30ac-4b20-acf1-dc8234e89a3f/scratchpad/jev/r2/clones/clones-report.md`.
+`/tmp/claude-1000/-home-<user>-projects-touring/b824294f-30ac-4b20-acf1-dc8234e89a3f/scratchpad/jev/r2/clones/clones-report.md`.
 Método: `gh api` autenticado, clone raso e grep de rotas/uso do `typesafe-sdk`, API HF e `curl` dos sites.
 Todos os números são **do próprio autor**, salvo indicação. Estrelas e datas foram lidas em 22/09/2026.
 

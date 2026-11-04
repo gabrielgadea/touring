@@ -169,7 +169,7 @@ Test `registry_has_expected_count` updated; `no_duplicate_hook_names` and `regis
 
 ```text
 [1/8] doctor: 5/5 ok
-[2/8] daemon exe: /home/gabrielgadea/.claude/rust/target/release/touring-hook (NOT deleted)
+[2/8] daemon exe: ~/.claude/rust/target/release/touring-hook (NOT deleted)
 [3/8] strings binary: pre-grep, pre-glob, TOURING_DISABLE_PREGREP, "=== Touring symbol enrichment ===" present
 [4/8] settings.json: 1 Grep matcher + 1 Glob matcher + 4 touring permissions
 [5/8] E2E PascalCase HookRuntime → 20 symbol locations + hookEventName=PreToolUse
@@ -182,7 +182,7 @@ Live test invocation (CC payload shape):
 
 ```bash
 echo '{"hook_event_name":"PreToolUse","tool_name":"Grep","tool_input":{"pattern":"HookRuntime","path":"crates"}}' \
-  | CLAUDE_PROJECT_DIR=/home/gabrielgadea/.claude/rust touring-hook pre-grep
+  | CLAUDE_PROJECT_DIR=~/.claude/rust touring-hook pre-grep
 # → {"hookSpecificOutput":{"additionalContext":"=== Touring symbol enrichment ===\nPattern 'HookRuntime' resolved to 20 symbol locations:\n  - crates/touring-hooks/src/runtime.rs:202:0 → def\n... 26 lines total\n=== End enrichment ===\n","hookEventName":"PreToolUse"}}
 ```
 

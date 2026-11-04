@@ -1,6 +1,6 @@
-   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+   Compiling touring-code v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 8.36s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
+     Running unittests src/lib.rs (~/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
 
 running 120 tests
 test vgp::checks::tests::atributo_de_modulo_stdlib_fechado_nega_combending ... ok

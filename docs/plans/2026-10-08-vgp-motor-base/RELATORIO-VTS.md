@@ -6,8 +6,8 @@
 
 | Item | Valor |
 |---|---|
-| Worktree / branch | `/home/gabrielgadea/projects/touring-wt-vts` · `feat/2026-10-10-vgp-vts` (base `88c7cc8b` + VL0 aplicada, **nada commitado**) |
-| `CARGO_TARGET_DIR` | `/home/gabrielgadea/projects/touring/target/wt-vts` |
+| Worktree / branch | `~/projects/touring-wt-vts` · `feat/2026-10-10-vgp-vts` (base `88c7cc8b` + VL0 aplicada, **nada commitado**) |
+| `CARGO_TARGET_DIR` | `~/projects/touring/target/wt-vts` |
 | Núcleo copiado, byte a byte, de `touring-wt-vl0` | `crates/touring-code/src/vgp/lang/mod.rs` sha12 `c95d707b2ffd` · `crates/touring-server/src/cli/vgp.rs` sha12 `b1e5878cbb08` (conferidos com `sha256sum` depois da cópia; **não editados por mim**) |
 | Arquivos meus | `crates/touring-code/src/vgp/lang/{typescript,tsx,javascript}.rs` + o diretório novo `crates/touring-code/src/vgp/lang/typescript/` (precedente: `lang/python/`) |
 | Binário congelado FINAL | `~/.claude/touring/vgp/binarios/bc3c979f/touring` · sha256 `bc3c979fee274234744ac605b847060ac0aec2b1c0b957cb5ab35a2cade9b2ab` (+ `touring.sha256`) |

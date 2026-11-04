@@ -53,7 +53,7 @@ Estrutura:
 
 ### D8.3 — 3 template repos (S cada, total M)
 
-Todos em `/home/gabrielgadea/projects/templates/`:
+Todos em `~/projects/templates/`:
 
 #### D8.3.a — `holon-rust-template/`
 
@@ -93,9 +93,9 @@ surrogates + unicode + empty).
 **holon discover** confirmou todos os 3 como holons válidos:
 
 ```
-holon-python-template  0.1.0  /home/gabrielgadea/projects/templates/holon-python-template
-holon-rust-template    0.1.0  /home/gabrielgadea/projects/templates/holon-rust-template
-holon-ts-template      0.1.0  /home/gabrielgadea/projects/templates/holon-ts-template
+holon-python-template  0.1.0  ~/projects/templates/holon-python-template
+holon-rust-template    0.1.0  ~/projects/templates/holon-rust-template
+holon-ts-template      0.1.0  ~/projects/templates/holon-ts-template
 ```
 
 ### D8.5 — Documentação + CLAUDE.md + memória
@@ -135,7 +135,7 @@ no template — futuros usuários evitam o mesmo erro.
 ### Docs (spec + RFCs) — 5 arquivos
 
 ```
-/home/gabrielgadea/.claude/rust/docs/thsf/
+~/.claude/rust/docs/thsf/
 ├── THSF-SPEC-v1.0.md                    (D8.1)
 └── rfcs/
     ├── RFC-001-manifest-schema.md       (D8.2.a)
@@ -147,7 +147,7 @@ no template — futuros usuários evitam o mesmo erro.
 ### Templates — 21 arquivos across 3 repos
 
 ```
-/home/gabrielgadea/projects/templates/
+~/projects/templates/
 ├── holon-rust-template/    (7 files: Cargo.toml, 2 .rs, manifest.toml, schema.json, README, .gitignore)
 ├── holon-python-template/  (8 files: pyproject, 3 .py src, 1 .py test, manifest.toml, schema.json, README, .gitignore)
 └── holon-ts-template/      (10 files: package.json, tsconfig, 3 .ts src, 1 .ts test, manifest.toml, schema.json, README, .gitignore)
@@ -157,7 +157,7 @@ no template — futuros usuários evitam o mesmo erro.
 
 ```
 docs/2026-04-24-thsf-fase8-spec-publica.md  (este arquivo)
-/home/gabrielgadea/.claude/CLAUDE.md         (Fase 8 marker)
+~/.claude/CLAUDE.md         (Fase 8 marker)
 ```
 
 ---

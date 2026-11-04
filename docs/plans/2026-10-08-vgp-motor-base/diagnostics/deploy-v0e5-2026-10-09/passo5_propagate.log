@@ -1,4 +1,4 @@
-[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m workspace : ~/projects/touring
 [1m[propagate][0m versão    : 30.4.95
 [33m[propagate] WARN[0m gates pulados (--skip-gates)
 [33m[propagate] WARN[0m build pulado (--skip-build)
@@ -11,20 +11,20 @@ touring toolchain: default → 30.4.95
 
 [1m── 5/6 PROPAGATE — canal 30.4.95 para cada projeto consumidor (fonte permanece em 'dev') ──[0m
 Touring daemon restarted successfully.
-touring update: /home/gabrielgadea/projects/analise — 30.4.94 -> 30.4.95 (daemon: restarted on /home/gabrielgadea/projects/analise/.touring/daemon.sock)
-  bin/touring -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring
-  bin/touring-hook -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring-hook
-  bin/touring-daemon -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring-daemon
-  bin/libonnxruntime_providers_shared.so -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_shared.so
-  bin/libonnxruntime_providers_cuda.so -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_cuda.so
-  bin/touring-quality -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring-quality (component)
+touring update: ~/projects/analise — 30.4.94 -> 30.4.95 (daemon: restarted on ~/projects/analise/.touring/daemon.sock)
+  bin/touring -> ~/.touring/toolchains/30.4.95/bin/touring
+  bin/touring-hook -> ~/.touring/toolchains/30.4.95/bin/touring-hook
+  bin/touring-daemon -> ~/.touring/toolchains/30.4.95/bin/touring-daemon
+  bin/libonnxruntime_providers_shared.so -> ~/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_shared.so
+  bin/libonnxruntime_providers_cuda.so -> ~/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_cuda.so
+  bin/touring-quality -> ~/.touring/toolchains/30.4.95/bin/touring-quality (component)
 Touring daemon restarted successfully.
-touring update: /home/gabrielgadea/projects/konverter — 30.4.94 -> 30.4.95 (daemon: restarted on /home/gabrielgadea/projects/konverter/.touring/daemon.sock)
-  bin/touring -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring
-  bin/touring-hook -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring-hook
-  bin/touring-daemon -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/touring-daemon
-  bin/libonnxruntime_providers_shared.so -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_shared.so
-  bin/libonnxruntime_providers_cuda.so -> /home/gabrielgadea/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_cuda.so
+touring update: ~/projects/konverter — 30.4.94 -> 30.4.95 (daemon: restarted on ~/projects/konverter/.touring/daemon.sock)
+  bin/touring -> ~/.touring/toolchains/30.4.95/bin/touring
+  bin/touring-hook -> ~/.touring/toolchains/30.4.95/bin/touring-hook
+  bin/touring-daemon -> ~/.touring/toolchains/30.4.95/bin/touring-daemon
+  bin/libonnxruntime_providers_shared.so -> ~/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_shared.so
+  bin/libonnxruntime_providers_cuda.so -> ~/.touring/toolchains/30.4.95/bin/libonnxruntime_providers_cuda.so
 [1m[propagate][0m projetos alcançados: 2
 
 [1m── 5.5/6 PROVA — contrato de code mode + CEG contra o binário instalado ──[0m

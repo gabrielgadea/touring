@@ -9,7 +9,7 @@ tags: ["#kind:plan", "#status:active", "#domain:harness"]
 
 # Brief touring-35 — P0 do held-out (antes da VL0)
 
-B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`. Insumo: `B/diagnostics/holdout/RELATORIO.md`.
+B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`. Insumo: `B/diagnostics/holdout/RELATORIO.md`.
 
 ## Veredito P1 da coordenadora (09/10)
 
@@ -38,10 +38,10 @@ O release 30.4.96 sai em **sombra** sem este conserto (os hooks só negam em `At
 
 ## Onde e como
 
-- **Worktree próprio**: `git worktree add -b fix/2026-10-09-vgp-atributo-dinamico /home/gabrielgadea/projects/touring-wt-vgp-attr 88c7cc8b`
+- **Worktree próprio**: `git worktree add -b fix/2026-10-09-vgp-atributo-dinamico ~/projects/touring-wt-vgp-attr 88c7cc8b`
   (aditivo; sem commit). A árvore principal segue CONGELADA para o 30.4.96. A VL0 espera este P0; depois você
   rebaseia o worktree da VL0 sobre ele.
-- Build: `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/vgp-test` (check/test/clippy) e `…/target/vgp-judge`
+- Build: `CARGO_TARGET_DIR=~/projects/touring/target/vgp-test` (check/test/clippy) e `…/target/vgp-judge`
   (release do juiz); cargo pesado só por `scripts/hw-slot --class rust -- …`. Atenção: o `target/debug` padrão foi
   limpo às 19:20 (higiene de disco); os seus targets dedicados estão intactos.
 

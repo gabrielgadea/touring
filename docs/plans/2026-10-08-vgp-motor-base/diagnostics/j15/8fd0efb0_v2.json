@@ -71,7 +71,7 @@
   {
    "id": "264d19be83ec",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_gitenv.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_gitenv.py",
    "achados": [
     {
      "classe": "nome",
@@ -102,7 +102,7 @@
   {
    "id": "3e243fcb3c2c",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/mutacao_ks_learning.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/mutacao_ks_learning.py",
    "achados": [
     {
      "classe": "nome",
@@ -117,7 +117,7 @@
   {
    "id": "78c60efe7b44",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_estados_pyright.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_estados_pyright.py",
    "achados": [
     {
      "classe": "atributo",

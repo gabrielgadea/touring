@@ -56,7 +56,7 @@ cwd é o do daemon.
 Evidência executada:
 
 ```
-daemon global PID=1460503  cwd=/home/gabrielgadea/projects/touring
+daemon global PID=1460503  cwd=~/projects/touring
 ```
 
 Uma sondagem vinda de `konverter` receberia o índice de `touring`. Pior: num
@@ -79,7 +79,7 @@ Evidência executada:
 ```
 antes:  ausente
 test result: ok. 1 passed
-depois: /home/gabrielgadea/.claude/touring/tantivy   ← RECRIADO PELO TESTE
+depois: ~/.claude/touring/tantivy   ← RECRIADO PELO TESTE
 ```
 
 **Correção:** o teste aponta `HOME` para um `TempDir` (`#[serial]`, pois `HOME` é
@@ -91,7 +91,7 @@ subsequente do binário.
 ```
 antes:  ausente
 test result: ok. 1 passed
-depois: ausente — FIX PROVADO      HOME preservado: /home/gabrielgadea
+depois: ausente — FIX PROVADO      HOME preservado: ~
 ```
 
 ### F-3 — `flush_buffer` descartava documentos sem contador ⚠

@@ -5,35 +5,35 @@
    Compiling tokio-rustls v0.26.4
    Compiling hyper-rustls v0.27.9
    Compiling reqwest v0.12.28
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-foundation)
    Compiling hf-hub v0.5.0
    Compiling ort-sys v2.0.0-rc.12
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-simd)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-offensive)
-   Compiling touring-resilience v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-resilience)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-vgp-attr/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-offensive)
+   Compiling touring-resilience v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-resilience)
    Compiling ort v2.0.0-rc.12
    Compiling fastembed v5.17.2
-   Compiling touring-storage v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-storage)
-   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-intelligence)
-   Compiling touring-quality v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-quality)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
-   Compiling touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-ceg)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
-   Compiling touring-hooks-rl v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
-   Compiling touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-bindings)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
-   Compiling touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks)
+   Compiling touring-storage v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-storage)
+   Compiling touring-code v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-vgp-attr/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-intelligence)
+   Compiling touring-quality v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
+   Compiling touring-ceg v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
+   Compiling touring-hooks-rl v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
+   Compiling touring-bindings v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-hooks)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 58.95s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running tests/cli_suggester_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_suggester_e2e-ad608bc13c0e4678)
+     Running tests/cli_suggester_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/cli_suggester_e2e-ad608bc13c0e4678)
 
 running 19 tests
 test classifier_bash_cargo_routes_to_doctor ... ok
@@ -77,7 +77,7 @@ failures:
 test result: FAILED. 18 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
 
 error: test failed, to rerun pass `-p touring-hooks --test cli_suggester_e2e`
-     Running tests/wave25_task_enrichment_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/wave25_task_enrichment_e2e-ec5651d4a56ff2c6)
+     Running tests/wave25_task_enrichment_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/wave25_task_enrichment_e2e-ec5651d4a56ff2c6)
 
 running 6 tests
 test non_task_non_file_tool_returns_empty_context ... ok

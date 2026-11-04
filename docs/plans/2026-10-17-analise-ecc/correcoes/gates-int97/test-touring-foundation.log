@@ -89,7 +89,7 @@
    Compiling diff v0.1.13
    Compiling proptest v1.11.0
    Compiling pretty_assertions v1.4.1
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 52.49s
      Running unittests src/lib.rs (target/debug/deps/touring_foundation-d345fcf104d4b49e)
 

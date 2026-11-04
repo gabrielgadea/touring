@@ -202,12 +202,12 @@
    "evidencia": "retirement.rs:1-39 lido; recall.rs só tem created_at no INSERT (:254)."
   },
   {
-   "simbolo_ou_caminho": "~/.claude/projects/-home-gabrielgadea-projects-touring/memory (auto-memory)",
+   "simbolo_ou_caminho": "~/.claude/projects/-home-<user>-projects-touring/memory (auto-memory)",
    "categoria": "found_via_grep",
    "evidencia": "237 arquivos; frontmatter só com name/description/metadata (script fora do sandbox)."
   },
   {
-   "simbolo_ou_caminho": "/home/gabrielgadea/projects/touring/.remember/",
+   "simbolo_ou_caminho": "~/projects/touring/.remember/",
    "categoria": "found",
    "evidencia": "recent.md tem 'Identity Candidates'; tmp/rejected-20260918-073410-4180629.md existe."
   },

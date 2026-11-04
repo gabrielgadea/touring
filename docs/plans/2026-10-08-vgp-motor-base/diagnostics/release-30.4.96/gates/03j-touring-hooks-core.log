@@ -13,7 +13,7 @@ hw-slot: aguardando — temp 93C > 88C
    Compiling miette v7.6.0
    Compiling wgpu-hal v26.0.6
    Compiling wasmtime-c-api-impl v36.0.12
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling tree-sitter v0.26.9
    Compiling wgpu-core-deps-windows-linux-android v26.0.0
    Compiling proc-macro-crate v3.5.0
@@ -25,28 +25,28 @@ hw-slot: aguardando — temp 93C > 88C
    Compiling num_enum v0.7.6
    Compiling cargo-util-schemas v0.8.2
    Compiling ast-grep-core v0.42.3
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling touring-storage v30.4.95 (~/projects/touring/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling zip v1.1.4
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling cargo-lock v11.0.1
-   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-code v30.4.95 (~/projects/touring/crates/touring-code)
    Compiling rustsec v0.33.0
    Compiling candle-core v0.8.4
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
    Compiling candle-nn v0.8.4
    Compiling deadpool-sqlite v0.14.0
    Compiling candle-transformers v0.8.4
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
-   Compiling touring-quality v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-quality)
-   Compiling touring-orchestration v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-orchestration)
-   Compiling touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
-   Compiling touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
-   Compiling touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
+   Compiling touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+   Compiling touring-quality v30.4.95 (~/projects/touring/crates/touring-quality)
+   Compiling touring-orchestration v30.4.95 (~/projects/touring/crates/touring-orchestration)
+   Compiling touring-intelligence v30.4.95 (~/projects/touring/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.95 (~/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-core v30.4.95 (~/projects/touring/crates/touring-hooks-core)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 36s
      Running unittests src/lib.rs (target/debug/deps/touring_hooks_core-8b7b8ab1bd8de044)
 

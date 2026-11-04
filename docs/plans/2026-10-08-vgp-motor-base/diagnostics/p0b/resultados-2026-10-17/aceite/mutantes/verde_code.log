@@ -1,5 +1,5 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.32s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0b/debug/deps/touring_code-98cfdccb77d8c4e2)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-p0b/debug/deps/touring_code-98cfdccb77d8c4e2)
 
 running 166 tests
 test vgp::lang::cdn::tests::stub_nao_inventa_achado ... ok

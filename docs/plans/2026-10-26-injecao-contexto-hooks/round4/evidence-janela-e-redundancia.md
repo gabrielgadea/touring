@@ -72,7 +72,7 @@ da família:
 |---:|---:|---|
 | **1.577×** | 135 | o aviso DEGRADED do `evidence-guard` |
 | **1.405×** | 9 | `[generic]` |
-| **1.206×** | 14 | `[gabrielgadea]` |
+| **1.206×** | 14 | `[<user>]` |
 | **1.854×** (3 variantes) | 402/341/444 | `[EVENT_READER] Reading hook event …` |
 | 490× | 1.131 | `[medição sem relação verificada] …` |
 | **399×** | 155 | **`[G2 exit-code-through-pipe → REESCRITO]`** — um dos *melhores* blocos do corpus |

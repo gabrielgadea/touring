@@ -450,7 +450,7 @@
    Compiling tree-sitter-lua v0.5.0
    Compiling tree-sitter-c v0.24.2
    Compiling tree-sitter-java v0.23.5
-   Compiling tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring-wt-p0b/third_party/tree-sitter-bash)
+   Compiling tree-sitter-bash v0.25.1 (~/projects/touring-wt-p0b/third_party/tree-sitter-bash)
    Compiling tree-sitter-solidity v1.2.13
    Compiling tree-sitter-go v0.25.0
    Compiling tree-sitter-swift v0.7.3
@@ -496,7 +496,7 @@
    Compiling tokenizers v0.22.2
    Compiling notify-types v1.0.1
    Compiling symbolic-common v12.18.3
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-p0b/crates/touring-foundation)
    Compiling inotify v0.10.2
    Compiling nalgebra v0.32.6
    Compiling serde-value v0.7.0
@@ -519,7 +519,7 @@
    Compiling raw-cpuid v11.6.0
    Compiling tree-sitter-json v0.24.8
    Compiling tree-sitter-toml-ng v0.7.0
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-p0b/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-p0b/third_party/tree-sitter-md)
    Compiling wait-timeout v0.2.1
    Compiling quick-xml v0.26.0
    Compiling pprof v0.14.1
@@ -546,7 +546,7 @@
    Compiling notify v7.0.0
    Compiling ast-grep-core v0.42.3
    Compiling predicates v3.1.4
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring-wt-p0b/crates/touring-rkyv)
    Compiling nix v0.26.4
    Compiling rand_xorshift v0.4.0
    Compiling rustdoc-types v0.39.0
@@ -565,7 +565,7 @@
    Compiling fixedbitset v0.4.2
    Compiling pollster v0.3.0
    Compiling downcast v0.11.0
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-p0b/crates/touring-simd)
    Compiling petgraph v0.6.5
    Compiling pretty_assertions v1.4.1
    Compiling public-api v0.47.1
@@ -577,15 +577,15 @@
    Compiling serial_test v3.5.0
    Compiling tracing-test v0.2.6
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-p0b/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling notify-debouncer-mini v0.5.0
    Compiling derive_more v2.1.1
    Compiling tracing-error v0.2.1
    Compiling lru v0.16.4
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-p0b/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4m 16s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0b/debug/deps/touring_code-98cfdccb77d8c4e2)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-p0b/debug/deps/touring_code-98cfdccb77d8c4e2)
 
 running 165 tests
 test vgp::lang::cdn::tests::stub_nao_inventa_achado ... ok

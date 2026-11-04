@@ -71,7 +71,7 @@
   {
    "id": "59803cbd8d0b",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/placar_rootdir.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/placar_rootdir.py",
    "achados": [
     {
      "classe": "nome",
@@ -86,7 +86,7 @@
   {
    "id": "8aea29a769e2",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_donas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_donas.py",
    "achados": [
     {
      "classe": "nome",

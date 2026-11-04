@@ -269,7 +269,7 @@ P9 adoption measured post-deploy).
 ### End-to-end cross-emitter (`sdk_smoke`)
 
 ```
-$ cargo run --example sdk_smoke -- /home/gabrielgadea/.claude/touring/run_journal.jsonl /tmp/sdk_rust_report.json
+$ cargo run --example sdk_smoke -- ~/.claude/touring/run_journal.jsonl /tmp/sdk_rust_report.json
 Wrote 1994 bytes to /tmp/sdk_rust_report.json
 
 $ python3 scripts/gen_sdk.py --out /tmp/sdk_python_report.json

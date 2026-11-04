@@ -2,4 +2,4 @@ recall de símbolo · arquivo 11/13 · inline 20/27 | forma (fora) {'arquivo': [
   falso deny (arquivo): 0/400 · taxa 0.000% · limite_superior_95 0.75% (teto 1%; o n=400 admite até 0 falso(s))
   falso deny (inline): 0/300 · taxa 0.000% · limite_superior_95 0.99% (teto 1%; o n=300 admite até 0 falso(s))
 veredito: PRONTO
-[instrumentado] 762 veredictos do motor gravados em /tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0/juizes_bak/novo_v2.porid.json
+[instrumentado] 762 veredictos do motor gravados em /tmp/claude-1000/-home-<user>-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0/juizes_bak/novo_v2.porid.json

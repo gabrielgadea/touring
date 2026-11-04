@@ -43,4 +43,4 @@ selftest: linha de base limpa (0 arquivos com erro)
   ok   mutante que desliga import: reprovado aqui
   ok   mutante que desliga kwarg: reprovado aqui
   ok   mutante que desliga nome: reprovado aqui
-selftest: 37/37 em 108s - sombra em /home/gabrielgadea/.cache/vgp-semeado/proj-pg7wc6hq/frontend (NAO removida: exclusao recursiva e decisao do humano)
+selftest: 37/37 em 108s - sombra em ~/.cache/vgp-semeado/proj-pg7wc6hq/frontend (NAO removida: exclusao recursiva e decisao do humano)

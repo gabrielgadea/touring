@@ -1,5 +1,5 @@
 {
- "estado": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_rust_no_instante.py",
+ "estado": "~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_rust_no_instante.py",
  "sha_antes": "4ee2d523276c66f34e89bc49784d0ce74e933e55877e896c7d6274a334eb76fa",
  "sha_depois": "4ee2d523276c66f34e89bc49784d0ce74e933e55877e896c7d6274a334eb76fa",
  "controle_sem_mutacao": {
