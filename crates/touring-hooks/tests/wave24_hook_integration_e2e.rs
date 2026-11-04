@@ -24,6 +24,12 @@ use std::process::{Command, Stdio};
 mod private_daemon;
 use private_daemon::locate_binary;
 
+// The closed world of the `doctor` test: seeded project state + a private daemon.
+#[path = "common/hermetic_doctor.rs"]
+#[allow(dead_code)]
+mod hermetic_doctor;
+use hermetic_doctor::DoctorWorld;
+
 /// A daemon bound to a socket private to one test, killed on drop.
 ///
 /// The `task-*` receipts below assert on content that only a *responding*
@@ -320,21 +326,26 @@ fn task_completed_event_returns_full_outcome_receipt() {
 /// Wave 24, all 5 doctor checks must pass. This test exists as a
 /// regression guard against future Cargo.toml changes that accidentally
 /// break the binary's ability to attach to the daemon socket.
+///
+/// Runs in a closed world ([`DoctorWorld`]): a tempdir project whose `symbols.db` and
+/// `knowledge.db` come from the product's own constructors, served by a private daemon. The
+/// `doctor` reads the project state from the CLIENT's cwd; this test used to read
+/// `crates/touring-hooks/.claude/touring/*.db` — runtime state, out of the index since
+/// 18/10/2026 (D4) — and failed on a clean clone with `project_db`, `wiring_diagnostic` and
+/// `index_generation` reporting `missing`.
 #[test]
 fn daemon_doctor_passes_after_session_warmup() {
-    let Some(bin) = locate_binary("touring") else {
-        eprintln!("touring binary not built — skipping doctor test");
+    let Some(world) = DoctorWorld::start("wave24-doctor") else {
+        eprintln!(
+            "SKIP daemon_doctor_passes_after_session_warmup: touring / touring-daemon not built, \
+             or the private daemon was not ready — nothing was tested"
+        );
         return;
     };
-    let out = Command::new(&bin)
-        .args(["doctor", "-j"])
-        .output()
-        .expect("spawn doctor");
-    assert_eq!(out.status.code().unwrap_or(-1), 0, "doctor -j must exit 0");
-    let json: serde_json::Value =
-        serde_json::from_slice(&out.stdout).expect("doctor -j must emit JSON");
-    let checks = json.as_array().expect("doctor -j returns array");
-    let failures: Vec<_> = checks
+    let run = world.doctor();
+    assert_eq!(run.code, 0, "doctor -j must exit 0: {:#?}", run.checks);
+    let failures: Vec<_> = run
+        .checks
         .iter()
         .filter(|c| {
             // "warning" (e.g. wiring_diagnostic data-quality notes) is not a hard failure.
@@ -350,6 +361,8 @@ fn daemon_doctor_passes_after_session_warmup() {
         failures.len(),
         failures
     );
+    world.assert_state_was_read_from_this_world(&run.checks);
+    eprintln!("E2EDOCTOR-RAN daemon_doctor_passes_after_session_warmup");
 }
 
 /// Test 5 — Settings.json invariants.
