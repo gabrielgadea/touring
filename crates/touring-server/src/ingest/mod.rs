@@ -9,8 +9,9 @@ pub mod watcher;
 
 pub use parser::{JsonlParser, ParsedEntry, SourceType};
 pub use transcript_miner::{
-    ContentBlock, ERROR_TEXT_MAX, ErrorResolutionPair, MinerSweepStats, ParsedTranscriptLine,
-    RESOLUTION_SCAN_WINDOW, TranscriptMiner, TranscriptRole, dedup_key, discover_transcript_paths,
-    extract_error_resolution_pairs, parse_transcript_line,
+    ContentBlock, ERROR_TEXT_MAX, ErrorResolutionPair, MINER_READER_ENV, MinerSweepStats,
+    ParsedTranscriptLine, RESOLUTION_SCAN_WINDOW, ReaderMode, TranscriptMiner, TranscriptRole,
+    dedup_key, discover_transcript_paths, extract_error_resolution_pairs, parse_transcript_line,
+    reader_mode,
 };
 pub use watcher::JsonlWatcher;
