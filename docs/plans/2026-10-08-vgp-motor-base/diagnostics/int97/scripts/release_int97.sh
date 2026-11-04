@@ -4,11 +4,11 @@
 # Roda DENTRO de uma reserva do hw-slot:
 #   hw-slot --class rust --wait 7200 -- bash release_int97.sh <pasta-de-saida>
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-int97
+WT=${HOME}/projects/touring-wt-int97
 OUT=${1:?pasta de saida}
 mkdir -p "$OUT"
 cd "$WT" || exit 9
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-int97
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-int97
 BIN=$CARGO_TARGET_DIR/release/touring
 RC=$OUT/release.rc
 : > "$RC"
@@ -19,7 +19,7 @@ echo "build 1 rc=$r $(date -Is)" >> "$RC"
 [ "$r" -eq 0 ] || exit 1
 SHA=$(sha256sum "$BIN" | cut -d' ' -f1)
 echo "sha256 $SHA" >> "$RC"
-DEST=/home/gabrielgadea/.claude/touring/vgp/binarios/${SHA:0:8}
+DEST=${HOME}/.claude/touring/vgp/binarios/${SHA:0:8}
 if [ -e "$DEST/touring" ]; then
   if cmp "$BIN" "$DEST/touring"; then
     echo "já congelado e idêntico em $DEST" >> "$RC"

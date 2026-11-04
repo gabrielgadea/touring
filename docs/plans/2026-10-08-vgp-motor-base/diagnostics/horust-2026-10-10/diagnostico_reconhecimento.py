@@ -5,6 +5,11 @@ prefixo antes do `cargo`). So leitura dos transcripts (todos os de analise e tou
 Uso (nativo): python3 -I -B diagnostico_reconhecimento.py <saida.json>
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import collections
 import json
 import re
@@ -12,7 +17,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 sys.path.insert(0, str(B / "scripts"))
 import corpus_rust_natural as crn  # noqa: E402
 import replay  # noqa: E402
@@ -28,7 +33,7 @@ def semana(ts: str) -> str:
 def prefixo(cmd: str) -> str:
     m = TEM_CARGO.search(cmd)
     antes = cmd[: m.start()].strip().replace("\n", " ") if m else ""
-    antes = re.sub(r"/home/gabrielgadea\S*", "<path>", antes)
+    antes = re.sub(rf"{_HOME}\S*", "<path>", antes)
     antes = re.sub(r"\b\d+\b", "N", antes)
     return antes[-70:] or "(nada)"
 
@@ -38,7 +43,7 @@ def main() -> int:
     nao_reconhecidos: collections.Counter = collections.Counter()
     vistos: set[str] = set()
     for proj in crn.PROJETOS:
-        for arq in sorted((replay.PROJECTS / f"-home-gabrielgadea-projects-{proj}").rglob("*.jsonl")):
+        for arq in sorted((replay.PROJECTS / f"{_HOME_SLUG}-projects-{proj}").rglob("*.jsonl")):
             for linha in arq.read_text(errors="ignore").splitlines():
                 if '"Bash"' not in linha or "cargo" not in linha:
                     continue

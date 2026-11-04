@@ -1,5 +1,5 @@
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-frag
+WT=${HOME}/projects/touring-wt-frag
 O=$1
 cd "$WT" || exit 9
 RC=$O/gates.rc

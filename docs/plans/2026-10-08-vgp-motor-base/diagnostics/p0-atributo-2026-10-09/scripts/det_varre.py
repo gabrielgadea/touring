@@ -4,13 +4,16 @@
 
 uso: det_varre.py <binario> <corpus> <saida.json> [K=5] [--ids a,b,c]
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import importlib.util
 import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 spec = importlib.util.spec_from_file_location("juiz", B / "scripts/juiz_motor_vgp.py")
 juiz = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(juiz)

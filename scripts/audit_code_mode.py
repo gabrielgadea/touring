@@ -13,7 +13,7 @@ import sys
 import pathlib
 from pathlib import Path
 
-RAIZ = Path("/home/gabrielgadea/projects/touring")
+RAIZ = Path(__file__).resolve().parents[1]
 CRATES = RAIZ / "crates"
 
 

@@ -9,6 +9,11 @@ Appends the set `bag-heldout` to the sets file.
 """
 from __future__ import annotations
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import json
 import random
 import re
@@ -16,11 +21,11 @@ import sys
 from pathlib import Path
 
 HOME = Path.home()
-WS = Path("/home/gabrielgadea/projects/touring")
+WS = Path(f"{_HOME}/projects/touring")
 ROOTS = {
-    "memory": HOME / ".claude/projects/-home-gabrielgadea-projects-touring/memory",
+    "memory": HOME / f".claude/projects/{_HOME_SLUG}-projects-touring/memory",
     "rules": HOME / ".claude/rules",
-    "memory-home": HOME / ".claude/projects/-home-gabrielgadea/memory",
+    "memory-home": HOME / f".claude/projects/{_HOME_SLUG}/memory",
 }
 STOP = set("para como mais sobre entre quando porque depois antes ainda sempre nunca cada toda todos todas isso esse essa este esta which there their would should could about after before other these those where while being".split())
 

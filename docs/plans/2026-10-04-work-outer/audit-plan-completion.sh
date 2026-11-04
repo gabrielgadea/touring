@@ -5,7 +5,7 @@
 # task_1791142397213803492. Tudo aqui é leitura ou roda em diretório temporário: nenhum plano é criado no DAG vivo
 # (sondas que criam fixtures no banco vivo foram o que deixou a linha 'validation-final-task' de maio).
 set -euo pipefail
-R=/home/gabrielgadea/projects/touring
+R=${HOME}/projects/touring
 H="$HOME"
 TASK=task_1791142397213803492
 fail() { echo "FALTA: $1"; exit 1; }

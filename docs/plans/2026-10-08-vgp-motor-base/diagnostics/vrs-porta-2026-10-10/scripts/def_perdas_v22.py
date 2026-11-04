@@ -3,6 +3,9 @@
 Uso: touring run --file def_perdas.py --args '[SC]'   (le perdas_nome_V22.jsonl)
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import pathlib
 import re
@@ -10,7 +13,7 @@ import subprocess
 import sys
 
 SC = pathlib.Path(sys.argv[1])
-N = pathlib.Path("/home/gabrielgadea/.claude/touring/vgp/corpus_rust_natural")
+N = pathlib.Path(f"{_HOME}/.claude/touring/vgp/corpus_rust_natural")
 ent = {}
 for ln in (N / "entradas.jsonl").read_text().splitlines():
     e = json.loads(ln)
@@ -45,7 +48,7 @@ for i, e in ent.items():
                 "use_no_snapshot": uso_import[:3],
                 "ts": e["ts"][:16],
                 "introduzido": e.get("introduzido"),
-                "def_hoje": [x.replace("/home/gabrielgadea/projects/touring/crates/", "c/")[:110] for x in g[:2]],
+                "def_hoje": [x.replace(f"{_HOME}/projects/touring/crates/", "c/")[:110] for x in g[:2]],
             },
             ensure_ascii=False,
         )

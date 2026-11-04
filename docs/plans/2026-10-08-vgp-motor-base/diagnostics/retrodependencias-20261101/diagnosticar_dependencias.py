@@ -7,6 +7,9 @@ no subconjunto alterado, a mudança de veredito efetivo do motor 30.4.102.
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import sys
@@ -23,7 +26,7 @@ CORPUS = Path.home() / ".claude/touring/vgp/corpus_holdout_disjunto_20261101"
 BINARIO = Path.home() / ".claude/touring/vgp/binarios/30.4.102/touring"
 TRABALHO = Path.home() / ".claude/touring/vgp/retrodependencias_20261101"
 SAIDA = B / "diagnostics/retrodependencias-20261101"
-PRODUTO = Path("/home/gabrielgadea/projects/touring/target/debug/touring")
+PRODUTO = Path(f"{_HOME}/projects/touring/target/debug/touring")
 
 
 def entradas() -> list[dict]:

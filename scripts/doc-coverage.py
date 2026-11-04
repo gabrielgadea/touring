@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
-_ROOT = Path("/home/gabrielgadea/.claude/rust")
+_ROOT = Path(__file__).resolve().parents[1]
 _CARGO = _ROOT / "Cargo.toml"
 _CRATES = _ROOT / "crates"
 

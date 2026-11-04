@@ -6,8 +6,8 @@ BIN=~/projects/touring/target/vgp-judge/release/touring
 cd ~/projects/touring
 
 echo "══ 0) replay do crash (jev_client — stack overflow no baseline)"
-timeout 60 "$BIN" vgp check --path /home/gabrielgadea/projects/touring/scripts/jev_client.py \
-  --content-file /tmp/v0d/crash1.py --project-root /home/gabrielgadea/projects/touring -j \
+timeout 60 "$BIN" vgp check --path ${HOME}/projects/touring/scripts/jev_client.py \
+  --content-file /tmp/v0d/crash1.py --project-root ${HOME}/projects/touring -j \
   > /tmp/v0d/replay-crash.json 2>&1
 echo "replay_rc=$? (esperado 0, verdict json)"
 
@@ -15,7 +15,7 @@ echo "══ 1) aceite (4): pyright-langserver antes/depois de --camadas 1,2"
 antes=$(pgrep -fc "pyright-langserver" || echo 0)
 printf 'import os\nprint(os.caminho_inventado)\n' > /tmp/v0d/l2-demo.py
 timeout 120 "$BIN" vgp check --path /tmp/v0d/l2-demo.py --content-file /tmp/v0d/l2-demo.py \
-  --project-root /home/gabrielgadea/projects/touring --camadas 1,2 -j > /tmp/v0d/l2-demo.json 2>&1
+  --project-root ${HOME}/projects/touring --camadas 1,2 -j > /tmp/v0d/l2-demo.json 2>&1
 echo "l2_rc=$?"
 sleep 2
 depois=$(pgrep -fc "pyright-langserver" || echo 0)

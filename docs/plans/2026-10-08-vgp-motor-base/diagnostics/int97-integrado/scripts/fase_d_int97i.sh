@@ -6,13 +6,13 @@
 # corpus runs in ONE rust reservation of the hw-slot, so its A/A and A/B share the same machine window.
 # Usage: bash fase_d_int97i.sh <pipeline-results-dir> <out-dir>
 set -u
-D=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
+D=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
 S=$D/int97-integrado/scripts
 RES=${1:?pipeline results dir}
 OUT=${2:?out dir}
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
-REF=/home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0/touring
-VGP=/home/gabrielgadea/.claude/touring/vgp
+HW=${HOME}/projects/touring/scripts/hw-slot
+REF=${HOME}/.claude/touring/vgp/binarios/8fd0efb0/touring
+VGP=${HOME}/.claude/touring/vgp
 mkdir -p "$OUT"
 L=$OUT/fase_d.rc
 : > "$L"

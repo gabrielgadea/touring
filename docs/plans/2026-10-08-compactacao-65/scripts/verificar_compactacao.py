@@ -4,6 +4,11 @@ Exit 0 only when every clause holds. Each clause returns (ok, evidence); the evi
 measured, never a restatement of the intent. Usage: python3 verificar_compactacao.py [--only C1,C4]
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import json
 import os
 import subprocess
@@ -47,7 +52,7 @@ def c65():
 # recount that differs — transcripts pruned or rewritten — fails the clause instead of moving the bar.
 BASELINE_HOURS = 24
 BASELINE_FROZEN = {"calls": 3133, "chars": 3239902}
-PROJECT_TRANSCRIPTS = HOME / ".claude/projects/-home-gabrielgadea-projects-analise"
+PROJECT_TRANSCRIPTS = HOME / f".claude/projects/{_HOME_SLUG}-projects-analise"
 
 
 def _record(line: str, since_utc: str) -> dict | None:

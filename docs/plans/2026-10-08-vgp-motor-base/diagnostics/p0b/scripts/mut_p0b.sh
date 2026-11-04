@@ -4,13 +4,13 @@
 #   hw-slot --class rust --wait 7200 -- bash mut_p0b.sh <pasta-de-saida> [IDs-de-mutante...]
 # Marcador .TROCA-EM-CURSO durante a janela; o fonte volta byte a byte (cmp) e com mtime = AGORA.
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-p0b
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b
+WT=${HOME}/projects/touring-wt-p0b
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b
 OUT=${1:?pasta de saida}
 shift
 mkdir -p "$OUT/fonte_bom"
 CR=$WT/crates
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-p0b
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-p0b
 cd "$WT" || exit 9
 ARQS="touring-code/src/vgp/lang/python.rs touring-code/src/vgp/lang/python/modules.rs touring-code/src/vgp/sombra.rs touring-pyright/src/pyright.rs touring-pyright/src/achado.rs"
 for f in $ARQS; do mkdir -p "$OUT/fonte_bom/$(dirname "$f")"; cp "$CR/$f" "$OUT/fonte_bom/$f"; done

@@ -18,14 +18,14 @@ echo "── (a) runtime hardcodes of the historical root"
 # Allowed: resolver fallbacks (unwrap_or_else lines), doc-comment lines,
 # #[test] fixtures in-file, and E2E test binaries under /tests/ (the plan
 # defers test-const migration to Fase 4, when the source actually moves).
-hits=$(grep -rn '/home/gabrielgadea/\.claude/rust' crates/ --include='*.rs' \
+hits=$(grep -rn ''"${HOME}"'/\.claude/rust' crates/ --include='*.rs' \
   | grep -v 'unwrap_or_else' \
   | grep -vE '^[^:]+:[0-9]+:\s*//' \
   | grep -v '/tests/' \
   | grep -cvE 'quality_rules\.rs|txn\.rs|gotcha_loader\.rs')
 if [ "$hits" -eq 0 ]; then echo "  PASS (0 unexpected)"; else
   echo "  FAIL: $hits unexpected runtime hardcodes:"; \
-  grep -rn '/home/gabrielgadea/\.claude/rust' crates/ --include='*.rs' \
+  grep -rn ''"${HOME}"'/\.claude/rust' crates/ --include='*.rs' \
     | grep -v 'unwrap_or_else' | grep -vE '^[^:]+:[0-9]+:\s*//' \
     | grep -v '/tests/' \
     | grep -vE 'quality_rules\.rs|txn\.rs|gotcha_loader\.rs' | head -5; fail=1; fi

@@ -7,7 +7,7 @@
 # script — uma das oito cláusulas do juiz nunca era avaliada. Este arquivo é a
 # correção: a partir daqui o veredito cobre também os ARTEFATOS, não só os gates.
 set -euo pipefail
-R=/home/gabrielgadea/projects/touring
+R=${HOME}/projects/touring
 H="$HOME"
 
 fail() { echo "FALTA: $1"; exit 1; }

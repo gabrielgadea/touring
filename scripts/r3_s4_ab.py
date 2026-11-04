@@ -31,13 +31,14 @@ PREFIX = "s4ab-"              # E9.2: unique session ids, so the real journal ca
 KEEP_ENV = {"TOURING_PILLAR_INDUCTION_ARMED"}
 
 
-def rewrite(payload: dict, root: str, prefix: str = PREFIX) -> dict:
+def rewrite(payload: dict, root: str, prefix: str = PREFIX, home=None) -> dict:
     """The Pensieve hashes the WHOLE command (post_bash FIX6): the root of an arm inside the command text made two identical daemons
-    learn different things (E9.8-n). Real /home/gabrielgadea paths therefore become RELATIVE (cwd = root), so the command text is
+    learn different things (E9.8-n). Real $HOME paths therefore become RELATIVE (cwd = root), so the command text is
     byte-identical in every arm and no hook reads the live repository. The daemon pin only checks `project_root` (cwd), never the
     command text (touring-dispatch daemon.rs `pin_admits`); other absolute paths (/dev/null, /tmp/...) stay and are equal in all arms."""
-    text = (json.dumps(payload).replace("/home/gabrielgadea/projects/touring/", "").replace("/home/gabrielgadea/projects/touring", ".")
-            .replace("/home/gabrielgadea/", "home/").replace("/home/gabrielgadea", "home"))
+    h = json.dumps((home or os.path.expanduser("~")).rstrip("/"))[1:-1]   # the home path as it appears inside the JSON text
+    text = (json.dumps(payload).replace(f"{h}/projects/touring/", "").replace(f"{h}/projects/touring", ".")
+            .replace(f"{h}/", "home/").replace(h, "home"))
     out = json.loads(text)
     out["cwd"] = root
     out["transcript_path"] = root + "/t.jsonl"

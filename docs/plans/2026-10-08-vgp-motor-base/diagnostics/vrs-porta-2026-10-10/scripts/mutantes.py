@@ -13,6 +13,9 @@ Em ambos: marcador `<wt>/.TROCA-EM-CURSO` na janela, restauracao do arquivo POR 
 verificado) e mtime devolvido com os.utime. Roda DENTRO de uma aquisicao do hw-slot.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import hashlib
 import json
 import os
@@ -23,10 +26,10 @@ import sys
 import time
 from pathlib import Path
 
-WT = Path("/home/gabrielgadea/projects/touring-wt-vrs2")
+WT = Path(f"{_HOME}/projects/touring-wt-vrs2")
 ALVO = WT / "crates/touring-code/src/vgp/lang/rust.rs"
 MARCADOR = WT / ".TROCA-EM-CURSO"
-TARGET = "/home/gabrielgadea/projects/touring/target/wt-vrs2"
+TARGET = f"{_HOME}/projects/touring/target/wt-vrs2"
 CMD_TESTE = ["cargo", "test", "-p", "touring-code", "--lib", "vgp::lang::rust", "--no-fail-fast"]
 CMD_BIN = ["cargo", "build", "-p", "touring-server", "--bin", "touring"]
 

@@ -10,13 +10,16 @@ Outputs
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-_ROOT = Path("/home/gabrielgadea/.claude/rust")
+_ROOT = Path(f"{_HOME}/.claude/rust")
 _DATA_DIR = _ROOT / ".claude" / "plans" / "touring-47-to-13-residual" / "data"
 _STAGING_DIR = _ROOT / ".claude" / "plans" / "touring-47-to-13-residual" / "staging"
 _WAVE = "W1"

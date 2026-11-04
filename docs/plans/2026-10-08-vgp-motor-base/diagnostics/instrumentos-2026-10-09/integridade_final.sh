@@ -1,4 +1,5 @@
-SP=/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
+SP=/tmp/claude-1000/${_HOME_SLUG}-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad
 B=$HOME/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
 V=$HOME/.claude/touring/vgp
 echo '== limites CP (unilateral 95%): 7/1200 5/600 2/600 3/1200 1/600 0/600'

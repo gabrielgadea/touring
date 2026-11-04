@@ -24,6 +24,9 @@ original.
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import hashlib
 import json
@@ -40,8 +43,8 @@ if str(_RAIZ) not in sys.path:
     sys.path.insert(0, str(_RAIZ))
 import chama_oraculo
 
-WORKTREE = Path("/home/gabrielgadea/projects/touring-wt-semeado")
-TARGET = Path("/home/gabrielgadea/projects/touring/target/semeado-rust")
+WORKTREE = Path(f"{_HOME}/projects/touring-wt-semeado")
+TARGET = Path(f"{_HOME}/projects/touring/target/semeado-rust")
 SHA_ESPERADO = "88c7cc8b"
 CRATES = ("touring-identity", "touring-pyright")
 CLASSES = (

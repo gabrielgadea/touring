@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Remove exit/quit from the model, require the regression test to fail, restore bytes."""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import hashlib
 import json
 import os
 import subprocess
 from pathlib import Path
 
-ROOT = Path("/home/gabrielgadea/projects/touring")
+ROOT = Path(f"{_HOME}/projects/touring")
 ALVO = ROOT / "crates/touring-code/src/vgp/lang/python/stdlib_model.rs"
 TESTE = "site_builtins_exit_e_quit_nao_geram_falso_deny"
 OUT = ROOT / "docs/plans/2026-10-08-vgp-motor-base/diagnostics/fix-builtins"

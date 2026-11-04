@@ -53,7 +53,7 @@ sys.exit(0 if c.get("daemon_socket")=="ok" and c.get("daemon_health")=="ok" else
   echo "  PASS"; else echo "  FAIL"; fail=1; fi
 
 echo "── (e) zero unexpected runtime hardcodes of the historical root"
-hits=$(grep -rn '/home/gabrielgadea/\.claude/rust' crates/ --include='*.rs' \
+hits=$(grep -rn ''"${HOME}"'/\.claude/rust' crates/ --include='*.rs' \
   | grep -v 'unwrap_or_else' \
   | grep -vE '^[^:]+:[0-9]+:\s*//' \
   | grep -v '/tests/' \

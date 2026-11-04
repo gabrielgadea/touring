@@ -43,8 +43,8 @@ def test_lgpd_exclusion_by_construction(tmp_path: Path) -> None:
     """LGPD: transcripts do projeto ANTT nem são lidos — o Jev nunca os vê.
     (O nome do teste NÃO pode conter o marcador: o tmp_path deriva dele e a
     guarda lê o caminho inteiro — a primeira versão excluiu até o diretório bom.)"""
-    good = tmp_path / "-home-gabrielgadea-projects-touring"
-    bad = tmp_path / "-home-gabrielgadea-projects-analise"
+    good = tmp_path / "-home-u-projects-touring"
+    bad = tmp_path / "-home-u-projects-analise"
     for d in (good, bad):
         d.mkdir()
         (d / "s.jsonl").write_text(json.dumps({"type": "user", "message": {"content": f"prompt vindo de {d.name} com texto suficiente"}}) + "\n")

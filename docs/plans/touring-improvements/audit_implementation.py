@@ -13,6 +13,9 @@ Usage:
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import subprocess
 import sys
@@ -20,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path(f"{_HOME}/.claude/rust")
 
 
 class InsightCheck(NamedTuple):

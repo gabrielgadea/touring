@@ -5,12 +5,15 @@ camada 2 real (pyright) onde o caso a exige. Tabela: caso x (binário, contexto)
     evidencia_cli.py <touring-base> <touring-frag> <dir-de-trabalho> [saida.json]
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-RAIZ = "/home/gabrielgadea/projects/analise"  # o projeto com venv e pyright (a camada 2 real)
+RAIZ = f"{_HOME}/projects/analise"  # o projeto com venv e pyright (a camada 2 real)
 FRAGMENTO = "resultado = 1\nprint(nome_do_projeto_inexistente)\n"
 PATHX = "import os\nprint(os.pathx.join('a', 'b'))\n"
 LOADZ = "import json\nprint(json.loadz('{}'))\n"

@@ -238,7 +238,7 @@ Touring currently runs as a **single global installation**:
 | Daemon socket | `/tmp/touring-daemon-1000.sock` (global, USER-scoped) |
 | Knowledge DB | `~/.claude/touring/symbols.db` (or per-project `<ws>/.claude/touring/`) |
 | Per-project cache | `<project>/.touring-cache/` (partial; only some projects) |
-| Memory | `~/.claude/projects/-home-gabrielgadea/memory/` (USER-scoped) |
+| Memory | `~/.claude/projects/-home-<user>/memory/` (USER-scoped) |
 | Settings hooks | `~/.claude/settings.json` → `~/.claude/hooks/` |
 
 ### Problems

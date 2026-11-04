@@ -7,6 +7,9 @@ que DEVE ser flagged continua flagged) e NEGATIVO (o falso positivo NÃO flaga).
 Coletável por pytest (funções test_* sem parâmetros) e executável standalone:
   python3 test_scanner_predicates.py   # exit 0 se tudo passa
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import importlib.util
 import os
 import sys
@@ -33,7 +36,7 @@ def test_c4_negativo_prosa() -> None:
 
 def test_c4_negativo_path_diretorio() -> None:
     """NEGATIVO: '.../projects/touring timeout 900' é PATH, não subcomando."""
-    doc = "```bash\nTOURING_PROJECT_ROOT=/home/gabrielgadea/projects/touring timeout 900 cargo test\n```\n"
+    doc = f"```bash\nTOURING_PROJECT_ROOT={_HOME}/projects/touring timeout 900 cargo test\n```\n"
     out = dss.scan_c4_cli({"doc.md": doc}, GT_CLI)
     assert "timeout" not in out["potential_stale"], out["potential_stale"]
 

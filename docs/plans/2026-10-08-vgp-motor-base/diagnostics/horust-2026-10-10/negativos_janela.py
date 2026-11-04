@@ -6,13 +6,18 @@ Janelas: A = ts <= 2026-10-09T20:40Z (universo atual) | N = (A, 2026-10-10T00:00
 Uso (nativo): python3 -I -B negativos_janela.py <sessoes_vgp.json> <saida.json>
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import collections
 import json
 import os
 import sys
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 sys.path.insert(0, str(B / "scripts"))
 sys.path.insert(0, str(B / "diagnostics/horust-2026-10-10"))
 import corpus_rust_natural as crn  # noqa: E402
@@ -30,7 +35,7 @@ def main() -> int:
     mh.memoizar_git()
     uni = crn.Universo(mh.CORTE_C)
     for proj in crn.PROJETOS:
-        uni.varrer(proj, replay.PROJECTS / f"-home-gabrielgadea-projects-{proj}")
+        uni.varrer(proj, replay.PROJECTS / f"{_HOME_SLUG}-projects-{proj}")
     uni.fechar()
     ctx = crn.Ctx(crn.Config((), Path("/nonexistent"), (Path.home() / "projects",), corte=mh.CORTE_C), uni, crn.Reconstrutor(uni.idx, uni.erros))
     por_estrato, baratos = crn.candidatos_negativos(ctx)

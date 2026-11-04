@@ -6,12 +6,15 @@ o detector aceitar demais), e o pytest tem de REPROVAR. Se passar, o assert e de
 Nao toco no original: as copias vao para /tmp e morrem la.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 from pathlib import Path
 import shutil
 import subprocess
 import sys
 
-SRC = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
+SRC = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
 TMP = Path("/tmp/vgp-mut-cdn")
 TMP.mkdir(parents=True, exist_ok=True)
 

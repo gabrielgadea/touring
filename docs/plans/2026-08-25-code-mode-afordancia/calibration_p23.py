@@ -25,6 +25,11 @@ Saída: data/calibration_p23.json + este relatório em stdout (agregado).
 
 from __future__ import annotations
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import hashlib
 import json
 import os
@@ -33,7 +38,7 @@ import sys
 from collections import Counter, defaultdict
 from glob import glob
 
-TRANSCRIPTS = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring/*.jsonl")
+TRANSCRIPTS = os.path.expanduser(f"~/.claude/projects/{_HOME_SLUG}-projects-touring/*.jsonl")
 OUT = "docs/plans/2026-08-25-code-mode-afordancia/data/calibration_p23.json"
 N_PROMPTS = 20
 

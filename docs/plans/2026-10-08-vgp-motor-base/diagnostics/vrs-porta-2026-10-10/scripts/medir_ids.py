@@ -8,6 +8,9 @@ Uso: python3 -I medir_ids.py --touring <bin> --corpus <dir> --out <json>
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import hashlib
 import importlib.util
@@ -16,7 +19,7 @@ import sys
 from pathlib import Path
 
 JUIZ = Path(
-    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py"
+    f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py"
 )
 
 

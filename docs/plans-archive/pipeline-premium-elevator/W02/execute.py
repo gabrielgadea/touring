@@ -13,6 +13,9 @@ Evidence: pipeline_runner.py lines 178-206.
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import logging
@@ -22,7 +25,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
-_ANALISE_ROOT = Path("/home/gabrielgadea/projects/analise")
+_ANALISE_ROOT = Path(f"{_HOME}/projects/analise")
 _SCRIPTS_DIR = _ANALISE_ROOT / "scripts/process_analysis"
 _TARGET_FILE = _SCRIPTS_DIR / "pipeline_runner.py"
 _DATA_DIR = _ROOT / "data"

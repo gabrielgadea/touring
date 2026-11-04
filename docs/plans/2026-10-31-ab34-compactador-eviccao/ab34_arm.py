@@ -33,6 +33,11 @@ calendar says so: before day 0, after the end, or a block still running), 1 unex
 
 from __future__ import annotations
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import argparse
 import collections
 import datetime as dt
@@ -184,7 +189,7 @@ def make_calendar(seed: int, day0: str | None = None) -> dict:
         "seed": seed,
         "blocks": schedule_from_seed(seed),
         "daemon_socket": "/tmp/touring-daemon-1000.sock",
-        "transcript_dirs": ["-home-gabrielgadea-projects-touring"],
+        "transcript_dirs": [f"{_HOME_SLUG}-projects-touring"],
     }
 
 

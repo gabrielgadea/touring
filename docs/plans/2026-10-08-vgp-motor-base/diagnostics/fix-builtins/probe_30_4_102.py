@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """Prove the installed 30.4.102 binary by behavior and prepare a hot-daemon probe."""
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import hashlib
 import json
 import shutil
 import subprocess
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 BIN = Path.home() / ".touring/toolchains/30.4.102/bin/touring"
-CTL = Path("/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b")
+CTL = Path(f"/tmp/claude-1000/{_HOME_SLUG}-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b")
 OUT = B / "diagnostics/fix-builtins/probe_30_4_102.json"
-HOT = Path("/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/probe102hot")
+HOT = Path(f"/tmp/claude-1000/{_HOME_SLUG}-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/probe102hot")
 
 
 def entradas(corpus: Path) -> list[dict]:

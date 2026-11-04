@@ -10,6 +10,9 @@ registrado no `chama_oraculo` sem editá-lo). Restauração por SHA dos bytes or
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import contextlib
 import dataclasses
 import hashlib
@@ -28,7 +31,7 @@ import chama_oraculo  # noqa: E402
 chama_oraculo.CONTRATOS["cargo_json"] = chama_oraculo.Contrato(
     "cargo_json", stream="stdout", sinal_re=r'"reason"\s*:\s*"build-finished"'
 )
-HWSLOT = "/home/gabrielgadea/projects/touring/scripts/hw-slot"
+HWSLOT = f"{_HOME}/projects/touring/scripts/hw-slot"
 RC_MACHINE_CHECK = 70
 
 
