@@ -1784,7 +1784,7 @@ fn plan_scope_absolute_scope_matches_file_abs_path() {
     assert!(!marker_covers(
         "crates/touring-foundation/src/lib.rs",
         root,
-        "/home/gabrielgadea/projects/other",
+        "/home/u/projects/other",
         root,
         "active",
     ));

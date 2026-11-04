@@ -642,9 +642,19 @@ fn overhead_p99_is_within_budget() {
 #[test]
 #[ignore = "reads local transcripts: --ignored --nocapture (TOURING_TRIO_CALIBRATION_DIR)"]
 fn live_view_calibration_against_transcripts() {
+    // Default: the transcript directory Claude Code keeps for THIS workspace — the
+    // workspace path with every non-alphanumeric byte turned into `-` under
+    // `~/.claude/projects/` (same rule as `context_budget::transcript_dir_for`).
     let dir = std::env::var("TOURING_TRIO_CALIBRATION_DIR").unwrap_or_else(|_| {
+        let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let workspace = workspace.canonicalize().unwrap_or(workspace);
+        let slug: String = workspace
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
         format!(
-            "{}/.claude/projects/-home-gabrielgadea-projects-touring",
+            "{}/.claude/projects/{slug}",
             std::env::var("HOME").unwrap_or_default()
         )
     });

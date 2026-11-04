@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn families_do_desconhecido_e_vazio() {
-        assert!(families("[gabrielgadea]").is_empty());
+        assert!(families("[owner]").is_empty());
         assert!(families("").is_empty());
     }
 

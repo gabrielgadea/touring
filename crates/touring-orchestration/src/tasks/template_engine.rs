@@ -146,10 +146,10 @@ mod tests {
     fn test_env_substitution() {
         let template = "echo HOME={{ env.HOME }}";
         let mut env = HashMap::new();
-        env.insert("HOME".to_string(), "/home/gabrielgadea".to_string());
+        env.insert("HOME".to_string(), "/home/u".to_string());
 
         let result = render_command(template, &HashMap::new(), &env).unwrap();
-        assert_eq!(result, "echo HOME=/home/gabrielgadea");
+        assert_eq!(result, "echo HOME=/home/u");
     }
 
     #[test]

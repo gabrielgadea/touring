@@ -129,13 +129,7 @@ mod tests {
 
     #[test]
     fn a_bare_tag_is_empty() {
-        for t in [
-            "[generic]",
-            "[gabrielgadea]",
-            "  [generic]\n",
-            "[a] [b] ---",
-            "",
-        ] {
+        for t in ["[generic]", "[owner]", "  [generic]\n", "[a] [b] ---", ""] {
             assert_eq!(violation(t), Some(Violation::Empty), "{t:?}");
         }
     }

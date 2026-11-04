@@ -220,8 +220,8 @@ mod tests {
 
     #[test]
     fn parses_required_file_arg() {
-        // Use any existing file under target/ or repo root for testing.
-        let args = vec!["/home/gabrielgadea/projects/touring/Cargo.toml".to_string()];
+        // Use any existing file for testing: this crate's own manifest always exists.
+        let args = vec![concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml").to_string()];
         let r = run(&args);
         assert!(r.is_ok());
     }

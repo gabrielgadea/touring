@@ -413,7 +413,10 @@ severity: high
 
     #[test]
     fn load_real_bundle_at_canonical_path() {
-        let canonical = Path::new("/home/gabrielgadea/.claude/rust/docs/gotchas");
+        // The canonical bundle ships inside this workspace (`<root>/docs/gotchas`),
+        // so it is located from the crate manifest — not from any one machine's home.
+        let canonical = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/gotchas");
+        let canonical = canonical.as_path();
         if !canonical.is_dir() {
             // Skip if bundle not present (CI sandboxes etc).
             return;

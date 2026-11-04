@@ -2291,9 +2291,21 @@ setattr(module, "outro", 1)
     #[test]
     #[ignore = "needs the analise venv"]
     fn p0b2_pillow_real_lanczos_abstem_e_foobar_nega() {
-        let imagem = Path::new(
-            "/home/gabrielgadea/projects/analise/.venv/lib/python3.12/site-packages/PIL/Image.py",
-        );
+        // `TOURING_PILLOW_IMAGE_PY` names the `PIL/Image.py` of a Python 3.12 venv;
+        // without it the analise venv under `$HOME` is probed. Neither derivable → skip.
+        let Some(imagem) = std::env::var_os("TOURING_PILLOW_IMAGE_PY")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME").map(|home| {
+                    Path::new(&home)
+                        .join("projects/analise/.venv/lib/python3.12/site-packages/PIL/Image.py")
+                })
+            })
+        else {
+            eprintln!("Pillow real ausente: nem TOURING_PILLOW_IMAGE_PY nem HOME definidos");
+            return;
+        };
+        let imagem = imagem.as_path();
         if !imagem.is_file() {
             eprintln!("Pillow real ausente: {}", imagem.display());
             return;

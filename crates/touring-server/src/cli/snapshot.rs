@@ -552,7 +552,7 @@ mod tests {
         let data = SnapshotData {
             name: "test-snap".to_string(),
             timestamp: "2026-05-01T12:00:00Z".to_string(),
-            project_root: "/home/gabrielgadea".to_string(),
+            project_root: "/home/u".to_string(),
             node_count: 10,
             edge_count: 20,
             community_count: 3,

@@ -480,18 +480,15 @@ mod tests {
 
     #[test]
     fn parse_rules_response_real_get_shape() {
-        // Verbatim shape captured 2026-06-12 from GET /api/quality/rules.
+        // Verbatim shape captured 2026-06-12 from GET /api/quality/rules (path anonymised).
         let v = json!({
             "content": "version = \"1.0\"\n\n[[rule]]\nname = \"no-cycles\"\n",
             "exists": false,
-            "path": "/home/gabrielgadea/.claude/rust/.claude/touring/quality-rules.toml"
+            "path": "/home/u/proj/.claude/touring/quality-rules.toml"
         });
         let (exists, path, content) = parse_rules_response(&v);
         assert!(!exists);
-        assert_eq!(
-            path,
-            "/home/gabrielgadea/.claude/rust/.claude/touring/quality-rules.toml"
-        );
+        assert_eq!(path, "/home/u/proj/.claude/touring/quality-rules.toml");
         assert!(content.starts_with("version = \"1.0\""));
     }
 
@@ -507,16 +504,16 @@ mod tests {
 
     #[test]
     fn parse_save_response_real_success_shape() {
-        // Verbatim shape captured 2026-06-12 from PUT /api/quality/rules.
+        // Verbatim shape captured 2026-06-12 from PUT /api/quality/rules (path anonymised).
         let v = json!({
             "bytes": 271,
-            "path": "/home/gabrielgadea/.claude/rust/.claude/touring/quality-rules.toml",
+            "path": "/home/u/proj/.claude/touring/quality-rules.toml",
             "saved": true
         });
         assert_eq!(
             parse_save_response(&v).unwrap(),
             (
-                "/home/gabrielgadea/.claude/rust/.claude/touring/quality-rules.toml".to_string(),
+                "/home/u/proj/.claude/touring/quality-rules.toml".to_string(),
                 271
             )
         );
@@ -545,14 +542,14 @@ mod tests {
 
     #[test]
     fn violations_of_empty_on_real_signal_shape() {
-        // Verbatim top-level shape captured 2026-06-12 from
+        // Verbatim top-level shape (root anonymised) captured 2026-06-12 from
         // GET /api/quality/rules/evaluate (no `violations` key today).
         let v = json!({
             "bottleneck": "acyclicity",
             "computed_at": 1781300832.4318202,
             "diagnostics": {"acyclicity": {"cycle_paths": []}},
             "raw": {"cycle_count": 11, "max_depth": 12},
-            "root": "/home/gabrielgadea/.claude/rust",
+            "root": "/home/u/proj",
             "root_causes": {"acyclicity": 0.0833},
             "signal_0_10000": 3702,
             "signal_normalized": 0.3701985182429154

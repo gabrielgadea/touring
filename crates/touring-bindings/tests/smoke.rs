@@ -26,8 +26,8 @@ fn spec_version_is_semver_like() {
 
 #[test]
 fn server_construct_with_explicit_root() {
-    let srv = TouringCapnpServer::new("/home/gabrielgadea");
-    assert_eq!(srv.root, PathBuf::from("/home/gabrielgadea"));
+    let srv = TouringCapnpServer::new("/home/u");
+    assert_eq!(srv.root, PathBuf::from("/home/u"));
 }
 
 #[test]
@@ -45,9 +45,9 @@ fn server_default_root_honours_home() {
 
 #[test]
 fn holon_impl_construct() {
-    let h = TouringHolonImpl::new("touring-master", "/home/gabrielgadea");
+    let h = TouringHolonImpl::new("touring-master", "/home/u");
     assert_eq!(h.name, "touring-master");
-    assert_eq!(h.root, PathBuf::from("/home/gabrielgadea"));
+    assert_eq!(h.root, PathBuf::from("/home/u"));
 }
 
 #[test]
