@@ -202,6 +202,60 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
             },
         },
         Rule {
+            reason: "kill -9 force terminates a process",
+            route: Some(
+                "ask the process to stop first (`kill <pid>`); `kill -9` is the user's to run",
+            ),
+            route_examples: &["kill 2345"],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["kill", "-9"],
+                tail_token: None,
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
+            reason: "pkill -9 force terminates processes",
+            route: Some(
+                "ask matching processes to stop first (`pkill <name>`); `pkill -9` is the user's to run",
+            ),
+            route_examples: &["pkill nginx"],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["pkill", "-9"],
+                tail_token: None,
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
+            reason: "Killall terminates all matching processes with -9",
+            route: Some(
+                "ask the process to stop first (`kill <pid>`); `killall -9` is the user's to run",
+            ),
+            route_examples: &["kill 2345"],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["killall", "-9"],
+                tail_token: None,
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
+            reason: "sudo rm — destructive delete with elevated privileges",
+            route: Some(DELETE_ROUTE),
+            route_examples: &[],
+            prompt: &[],
+            matcher: Matcher::Signature {
+                tokens: &["sudo"],
+                tail_token: Some("rm"),
+                severity: Severity::Block,
+                bypass_words: &[],
+            },
+        },
+        Rule {
             reason: "chmod -R 777 — world-writable recursive grant",
             route: Some("grant the narrowest mode that works, e.g. `chmod -R u+rwX,go-w <dir>`"),
             route_examples: &["chmod -R u+rwX,go-w build"],
@@ -397,10 +451,18 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
             },
         ),
         row(
+            "kill -9 force terminates a process",
+            Matcher::Pattern {
+                pattern: re(r"(?i)^kill\s+-9\s+\S+"),
+                param_pattern: None,
+                severity: "high",
+            },
+        ),
+        row(
             "pkill -9 force terminates processes",
             Matcher::Pattern {
-                // pkill -9 — flag in the middle of the command.
-                pattern: re(r"(?i)^pkill\s+.-9"),
+                // `.*` may be empty: the usual spelling is exactly `pkill -9 <name>`.
+                pattern: re(r"(?i)^pkill\s+.*-9(?:\s|$)"),
                 param_pattern: None,
                 severity: "high",
             },

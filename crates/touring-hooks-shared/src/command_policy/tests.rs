@@ -453,16 +453,40 @@ const TABLE: &[(&str, Want, &str)] = &[
     ("remake -rf target", Allow, ""),
     ("fd /dev/sda", Allow, ""),
     ("partclone /dev/sda", Allow, ""),
-    ("kill -9 2345", Allow, ""),
-    // ── KNOWN GAPS, pinned as measured (flip the row when one is closed) ──
-    // The lexical reading strips the `sudo` wrapper (`command_of`), so the
-    // `sudo with dangerous commands` row can only fire on the `(tool, params)`
-    // surface (`judge_tool("sudo", "rm /etc/passwd")` is refused, see TOOL_TABLE).
-    ("sudo rm /etc/passwd", Allow, ""),
-    // `^pkill\s+.-9` wants one character BEFORE `-9`: a plain `pkill -9 <name>`
-    // is not the row's shape, so the row never fires on the usual spelling.
-    ("pkill -9 nginx", Allow, ""),
+    ("kill -9 2345", Block, "kill -9 force terminates a process"),
+    (
+        "pkill -9 nginx",
+        Block,
+        "pkill -9 force terminates processes",
+    ),
+    (
+        "killall -9 nginx",
+        Block,
+        "Killall terminates all matching processes",
+    ),
+    (
+        "sudo rm /etc/passwd",
+        Block,
+        "sudo rm — destructive delete with elevated privileges",
+    ),
 ];
+
+#[test]
+fn process_and_sudo_gaps_are_closed_on_both_readings() {
+    for command in [
+        "kill -9 2345",
+        "pkill -9 nginx",
+        "killall -9 nginx",
+        "sudo rm /etc/passwd",
+        "sudo -u root rm /etc/passwd",
+    ] {
+        assert!(
+            judge_structural(command).is_block(),
+            "structural: {command}"
+        );
+        assert!(judge_lexical(command).is_block(), "lexical: {command}");
+    }
+}
 
 #[test]
 fn every_row_of_the_verdict_table_holds() {
@@ -845,6 +869,15 @@ static JUSTIFIED_DIFFERENCES: std::sync::LazyLock<Vec<(String, String, String, S
             .collect()
     });
 
+/// Differences on the `(tool, params)` / JSON surfaces, with the same exact
+/// before/after contract as the command-line replay.
+const SURFACE_JUSTIFIED_DIFFERENCES: &[(&str, &str, &str, &str, &str)] = &[(
+    "kill -9 2345",
+    "tool",
+    "allow",
+    "block: kill -9 force terminates a process",
+    "C2 item 1: `kill -9 <pid>` is destructive, not only PID 1",
+)];
 
 /// The baseline stores the three shared routes as placeholders.
 fn expand(reason: &str) -> String {
@@ -964,40 +997,80 @@ fn nothing_blocked_before_is_allowed_now() {
 #[test]
 fn the_tool_and_params_surfaces_answer_as_they_did() {
     let mut checked = 0;
+    let mut differences = Vec::new();
     for line in SURFACES.lines() {
         let row: serde_json::Value = serde_json::from_str(line).expect("surface line");
-        let (tool, params) = (
-            row["tool"].as_str().expect("tool"),
-            row["params"].as_str().expect("params"),
-        );
-        let res = &row["res"];
-        let ctx = format!("{} {tool} {params}", row["s"]);
-        let reason_of = |verdict: &Verdict| verdict.reason().map(str::to_string);
-        match row["s"].as_str().expect("surface") {
-            "tool" => {
-                let verdict = judge_tool(tool, params);
-                assert_eq!(verdict.is_block(), res["blocked"], "{ctx}");
-                assert_eq!(
-                    reason_of(&verdict),
-                    res["reason"].as_str().map(expand),
-                    "{ctx}"
-                );
-            }
-            "params" => {
-                let parsed: serde_json::Value = serde_json::from_str(params).expect("json params");
-                let verdict = judge_params(tool, &parsed);
-                assert_eq!(verdict.is_block(), res["blocked"], "{ctx}");
-                assert_eq!(
-                    reason_of(&verdict),
-                    res["reason"].as_str().map(expand),
-                    "{ctx}"
-                );
-            }
-            "isdanger" => assert_eq!(is_dangerous_tool(tool), res["dangerous"], "{ctx}"),
-            "severity" => assert_eq!(severity_of(tool, params), res["severity"], "{ctx}"),
-            other => panic!("surface {other}"),
+        if let Some(difference) = surface_difference(&row) {
+            differences.push(difference);
         }
         checked += 1;
     }
     assert!(checked >= 90, "{checked}");
+    assert_surface_differences(differences);
+}
+
+fn surface_difference(row: &serde_json::Value) -> Option<(String, String, String, String)> {
+    let (tool, params) = (
+        row["tool"].as_str().expect("tool"),
+        row["params"].as_str().expect("params"),
+    );
+    let res = &row["res"];
+    let surface = row["s"].as_str().expect("surface");
+    let command = format!("{tool} {params}");
+    let before = |blocked: bool, reason: Option<&str>| {
+        if blocked {
+            format!("block: {}", reason.map(expand).unwrap_or_default())
+        } else {
+            "allow".to_string()
+        }
+    };
+    let (old, new) = match surface {
+        "tool" => {
+            let old = before(
+                res["blocked"].as_bool().expect("blocked"),
+                res["reason"].as_str(),
+            );
+            (old, describe(&judge_tool(tool, params)))
+        }
+        "params" => {
+            let parsed: serde_json::Value = serde_json::from_str(params).expect("json params");
+            let old = before(
+                res["blocked"].as_bool().expect("blocked"),
+                res["reason"].as_str(),
+            );
+            (old, describe(&judge_params(tool, &parsed)))
+        }
+        "isdanger" => (
+            res["dangerous"].to_string(),
+            is_dangerous_tool(tool).to_string(),
+        ),
+        "severity" => (
+            res["severity"].as_str().expect("severity").to_string(),
+            severity_of(tool, params).to_string(),
+        ),
+        other => panic!("surface {other}"),
+    };
+    (old != new).then_some((command, surface.to_owned(), old, new))
+}
+
+fn assert_surface_differences(differences: Vec<(String, String, String, String)>) {
+    let unjustified: Vec<_> = differences
+        .iter()
+        .filter(|(cmd, field, before, after)| {
+            !SURFACE_JUSTIFIED_DIFFERENCES
+                .iter()
+                .any(|(c, f, b, a, _)| c == cmd && f == field && b == before && a == after)
+        })
+        .collect();
+    assert!(
+        unjustified.is_empty(),
+        "{} surface verdict(s) changed: {unjustified:#?}",
+        unjustified.len()
+    );
+    for &(cmd, field, ..) in SURFACE_JUSTIFIED_DIFFERENCES {
+        assert!(
+            differences.iter().any(|(c, f, ..)| c == cmd && f == field),
+            "justified surface difference no longer happens: {cmd:?} {field}"
+        );
+    }
 }

@@ -101,6 +101,14 @@ pub(super) fn judge_line(command: &str) -> Verdict {
     }
     for pipeline in shell_pipelines(command) {
         for words in &pipeline {
+            // Judge the wrapper before `command_of` strips it: otherwise
+            // `sudo rm <file>` loses the elevated-delete row entirely.
+            let wrapped = words.join(" ");
+            if let Some(rule) = dangerous_match(&wrapped, &wrapped) {
+                return Verdict::Block {
+                    reason: with_route(rule.reason, rule.route),
+                };
+            }
             if let Some((tool, args)) = command_of(words) {
                 let verdict = judge_parts(tool, args, &args.join(" "));
                 if verdict.is_block() {
