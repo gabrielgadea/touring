@@ -366,3 +366,75 @@ fn the_start_date_and_the_malformed_lines_are_reported() {
     assert_eq!(stats.malformed_lines, 1);
     assert_eq!(read(&[user_text("x")]).1.started_on, None);
 }
+
+// ── provenance and the incremental door (C1, 04/11/2026) ────────────────────────────────────
+
+/// A consumer that persists what it found (the miner's lessons) must say which session and
+/// instant it came from: the record's `sessionId` and `timestamp` ride on the result event, and
+/// a record that carries neither says so with `None` rather than an empty string.
+#[test]
+fn a_tool_result_carries_the_session_and_the_instant_of_its_record() {
+    let mut stamped_rec: Value =
+        serde_json::from_str(&call_result("t1", true, json!("boom"))).expect("json");
+    stamped_rec["sessionId"] = json!("sess-1");
+    stamped_rec["timestamp"] = json!("2026-11-04T10:00:00.000Z");
+    let lines = [stamped_rec.to_string(), call_result("t2", false, json!("ok"))];
+    let mut seen = Vec::new();
+    read_lines(lines.iter().map(String::as_str), &mut |ev| {
+        if let Event::ToolResult(r) = ev {
+            seen.push((
+                r.tool_use_id.map(str::to_string),
+                r.session_id.map(str::to_string),
+                r.timestamp.map(str::to_string),
+            ));
+        }
+    });
+    assert_eq!(
+        seen,
+        [
+            (
+                Some("t1".to_string()),
+                Some("sess-1".to_string()),
+                Some("2026-11-04T10:00:00.000Z".to_string())
+            ),
+            (Some("t2".to_string()), None, None),
+        ]
+    );
+}
+
+/// `LineReader` is `read_lines` taken one line at a time: the same events and the same stats,
+/// and the once-per-id policy holds ACROSS pushes (a call repeated in a later record is still
+/// one call), which is the whole point of keeping the reader's state between lines.
+#[test]
+fn a_line_reader_pushed_line_by_line_equals_read_lines() {
+    let lines = vec![
+        user_text("prompt"),
+        assistant_call("dup", "Bash", json!({"command": "ls"})),
+        "not json".to_string(),
+        assistant_call("dup", "Bash", json!({"command": "ls"})),
+        sidechain(&assistant_call("side", "Bash", json!({}))),
+        call_result("dup", true, json!("boom")),
+    ];
+    let (whole_events, whole_stats) = read(&lines);
+
+    let mut pushed_events = Vec::new();
+    let mut reader = LineReader::new();
+    for l in &lines {
+        reader.push(l, &mut |ev| {
+            pushed_events.push(match ev {
+                Event::User(u) => format!("user {:?}", u.texts),
+                Event::ToolResult(r) => format!("result {:?} {}", r.tool_use_id, r.is_error),
+                Event::Assistant(a) => format!("assistant calls={}", a.tool_calls().count()),
+                _ => "other".to_string(),
+            });
+        });
+    }
+    let pushed_stats = reader.finish();
+
+    assert_eq!(pushed_stats, whole_stats, "stats are the walk's, however it is fed");
+    assert_eq!(pushed_stats.malformed_lines, 1);
+    assert_eq!(pushed_stats.sidechain_dropped, 1);
+    assert_eq!(pushed_events.len(), whole_events.len(), "{pushed_events:?}");
+    let calls: usize = pushed_events.iter().filter(|e| e.as_str() == "assistant calls=1").count();
+    assert_eq!(calls, 1, "the repeated tool_use id is handed out once: {pushed_events:?}");
+}

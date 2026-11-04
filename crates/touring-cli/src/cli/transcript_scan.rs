@@ -382,6 +382,12 @@ pub struct ToolResult<'a> {
     /// The result as text: a string as is; else the `text` blocks joined with nothing; else the
     /// JSON of the whole. One flattening for every consumer — it used to be three.
     pub text: Cow<'a, str>,
+    /// The `sessionId` of the record that carried the block (`None` when it carries none).
+    /// Provenance of the record, not of the result: a consumer that persists what it found
+    /// (the miner's lessons) must say which session it came from.
+    pub session_id: Option<&'a str>,
+    /// The `timestamp` of that record, as written (`None` when it carries none).
+    pub timestamp: Option<&'a str>,
 }
 
 /// One assistant record.
@@ -516,6 +522,9 @@ fn tool_result_of(b: &Value) -> ToolResult<'_> {
         tool_use_id: b.get("tool_use_id").and_then(Value::as_str),
         is_error: b.get("is_error").and_then(Value::as_bool).unwrap_or(false),
         text: b.get("content").map_or(Cow::Borrowed(""), flatten_result),
+        // The block does not know its record; `read_user` stamps the provenance.
+        session_id: None,
+        timestamp: None,
     }
 }
 
@@ -582,8 +591,14 @@ impl Reader {
         };
         let (texts, results) = user_content(content);
         let carries_result = !results.is_empty();
+        let session_id = rec.get("sessionId").and_then(Value::as_str);
+        let timestamp = rec.get("timestamp").and_then(Value::as_str);
         for result in results {
-            sink(&Event::ToolResult(result));
+            sink(&Event::ToolResult(ToolResult {
+                session_id,
+                timestamp,
+                ..result
+            }));
         }
         if texts.is_empty() {
             return;
@@ -637,21 +652,51 @@ impl Reader {
     }
 }
 
+/// The incremental form of [`read_lines`]: one session read a line at a time, so a consumer that
+/// streams a very large transcript (single files reach hundreds of MB) never has to hold every
+/// line at once. The policy state — message ids seen, `tool_use` ids seen — lives across
+/// [`LineReader::push`] calls exactly as it does across the lines of one `read_lines` call.
+#[derive(Default)]
+pub struct LineReader {
+    reader: Reader,
+}
+
+impl LineReader {
+    /// A reader at the start of a session.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Apply the policy to one JSONL `line`, handing the events it yields to `sink`. A line that
+    /// is not JSON is counted in [`ReadStats::malformed_lines`], never hidden.
+    pub fn push(&mut self, line: &str, sink: &mut dyn FnMut(&Event<'_>)) {
+        match serde_json::from_str::<Value>(line) {
+            Ok(rec) => self.reader.feed(&rec, sink),
+            Err(_) => self.reader.stats.malformed_lines += 1,
+        }
+    }
+
+    /// What the reader saw besides the events, once the session is over.
+    #[must_use]
+    pub fn finish(self) -> ReadStats {
+        self.reader.stats
+    }
+}
+
 /// Read one session's JSONL `lines`, handing every [`Event`] to `sink` in order. This is the
 /// single door from a transcript to a consumer: [`scan_dir`] reads a file through it, and a
-/// consumer that already holds the lines does the same.
+/// consumer that already holds the lines does the same ([`LineReader`] is the same door for a
+/// consumer that does not).
 pub fn read_lines<'a>(
     lines: impl Iterator<Item = &'a str>,
     sink: &mut dyn FnMut(&Event<'_>),
 ) -> ReadStats {
-    let mut reader = Reader::default();
+    let mut reader = LineReader::new();
     for line in lines {
-        match serde_json::from_str::<Value>(line) {
-            Ok(rec) => reader.feed(&rec, sink),
-            Err(_) => reader.stats.malformed_lines += 1,
-        }
+        reader.push(line, sink);
     }
-    reader.stats
+    reader.finish()
 }
 
 /// Synthetic transcript records shared by the B5/B3 tests.
