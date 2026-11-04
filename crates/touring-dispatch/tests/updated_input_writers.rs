@@ -34,6 +34,10 @@ const FRAMEWORK: &[&str] = &[
     // and KEEPS every decision field; its `"updatedInput":` lines are in-module test fixtures
     // proving the field survives the filter — it never originates one.
     "touring-foundation/src/injection_policy.rs",
+    // The hook trace (#6, 04/11/2026) READS the answer a hook printed to record its verdict
+    // (`classify_answer`: an `updatedInput` is a rewrite); its `"updatedInput":` line is an
+    // in-module test fixture of that classifier — it never originates one.
+    "touring-hook-runtime/src/hook_trace.rs",
 ];
 
 fn rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
