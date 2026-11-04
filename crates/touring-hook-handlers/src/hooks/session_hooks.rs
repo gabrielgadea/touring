@@ -548,8 +548,11 @@ pub fn run_session_stop(
                 summary["quality_report"] = quality;
             }
         }
-        // Output summary to stdout (shown in transcript for Stop hooks)
-        println!("{}", serde_json::to_string(&summary).unwrap_or_default());
+        // The summary goes to stderr, the diagnostics channel (#4, 04/11/2026). On stdout its
+        // `event`/`session_id`/`stats` keys are outside Claude Code's output contract: a JSON
+        // object failing the schema is a non-blocking hook error on every Stop
+        // (code.claude.com/docs/en/hooks, "Exit code output") — it was never shown as intended.
+        eprintln!("{}", serde_json::to_string(&summary).unwrap_or_default());
     }
 
     // C1: Flush per-session OnceLock caches — prevents stale mtime/pipeline entries
