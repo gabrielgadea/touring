@@ -84,7 +84,8 @@ enum GotchaCmd {
     },
     /// Sync gotchas from YAML rule library to SQLite cache (Wave Q3).
     Sync {
-        /// Directory containing YAML gotcha files (default: ~/.claude/rust/docs/gotchas).
+        /// Directory containing YAML gotcha files (default: $TOURING_WORKSPACE_ROOT/docs/gotchas,
+        /// else $HOME/projects/touring/docs/gotchas when it exists).
         #[arg(long)]
         dir: Option<String>,
     },

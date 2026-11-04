@@ -215,7 +215,7 @@ pub use touring_foundation::injection_family::{attributed_family, injection_fami
 /// (`~/.claude/rules/touring-4-pillars.md`).
 ///
 /// A block with ZERO of them is not "small", it is empty of instruction — the
-/// measured population that motivates P2: `[gabrielgadea]` 384×, `[generic]`
+/// measured population that motivates P2: `[<owner>]` 384×, `[generic]`
 /// 188×, `post-tool-batch: batch of 1 tools …` 422×. Counting them is what turns
 /// that rule from a declaration into something an executor can check (D8).
 #[must_use]
@@ -1810,7 +1810,7 @@ mod tests {
                 "past-lessons",
             ),
             // Genuinely unknown: the catch-all keeps it, and only it.
-            ("[gabrielgadea]", "other"),
+            ("[owner]", "other"),
         ] {
             assert_eq!(injection_family(text), want, "for {text:?}");
         }
@@ -2121,10 +2121,10 @@ mod tests {
     #[test]
     fn an_unknown_mark_or_a_missing_one_never_invents_a_family() {
         assert_eq!(
-            attributed_family("[gabrielgadea]", Some("some-new-hook.sh")),
+            attributed_family("[owner]", Some("some-new-hook.sh")),
             "other"
         );
-        assert_eq!(attributed_family("[gabrielgadea]", None), "other");
+        assert_eq!(attributed_family("[owner]", None), "other");
         // No mark (an older Claude Code) behaves exactly like the text-only taxonomy.
         assert_eq!(
             attributed_family("[TOURING SUGGEST · x]", None),
@@ -2170,16 +2170,13 @@ mod tests {
 
     #[test]
     fn the_transcript_directory_matches_the_one_claude_code_actually_uses() {
-        let d = transcript_dir_for(
-            Path::new("/home/gabrielgadea"),
-            Path::new("/home/gabrielgadea/projects/touring"),
-        );
+        let d = transcript_dir_for(Path::new("/home/u"), Path::new("/home/u/projects/touring"));
         assert!(
-            d.ends_with("-home-gabrielgadea-projects-touring"),
+            d.ends_with("-home-u-projects-touring"),
             "slug drifted: {}",
             d.display()
         );
-        assert!(d.starts_with("/home/gabrielgadea/.claude/projects"));
+        assert!(d.starts_with("/home/u/.claude/projects"));
     }
 
     #[test]
@@ -2205,7 +2202,11 @@ mod tests {
     #[test]
     #[ignore = "depende dos transcripts reais do HOME"]
     fn live_probe_the_ruler_reads_real_transcripts() {
-        let root = std::path::Path::new("/home/gabrielgadea/projects/touring");
+        // The project is the workspace this test was compiled from — never one
+        // machine's checkout path.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let root = root.canonicalize().unwrap_or(root);
+        let root = root.as_path();
         if !root.is_dir() {
             eprintln!("skip: projeto ausente");
             return;

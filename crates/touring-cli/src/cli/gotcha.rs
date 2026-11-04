@@ -201,14 +201,28 @@ pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
 }
 /// Wave Q3: Sync gotchas from YAML rule library to SQLite cache.
 ///
-/// Payload: `{"dir": "/path/to/gotchas/"}` (default: `~/.claude/rust/docs/gotchas/`)
+/// Payload: `{"dir": "/path/to/gotchas/"}` (default: `$TOURING_WORKSPACE_ROOT/docs/gotchas/`,
+/// else `$HOME/projects/touring/docs/gotchas/` when it exists; never the served project)
 pub fn cli_gotcha_sync(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     // Productization Fase 0: the gotcha library follows the canonical workspace
-    // (`TOURING_WORKSPACE_ROOT` override → historical global default).
-    let default_dir = std::env::var("TOURING_WORKSPACE_ROOT")
-        .map(|r| format!("{}/docs/gotchas", r.trim_end_matches('/')))
-        .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring/docs/gotchas".to_string());
-    let dir_str = str_or(payload, "dir", &default_dir);
+    // (`TOURING_WORKSPACE_ROOT` override → `$HOME/projects/touring` if present). The
+    // project the daemon serves is never a default source of rules (prompt injection).
+    let default_dir =
+        crate::gotcha_loader::default_gotcha_dir().map(|dir| dir.to_string_lossy().into_owned());
+    let dir_str = match default_dir.as_deref() {
+        Some(default_dir) => str_or(payload, "dir", default_dir),
+        None => {
+            let explicit = str_or_empty(payload, "dir");
+            if explicit.is_empty() {
+                return serde_json::json!(
+                    { "error" : "no gotcha library: TOURING_WORKSPACE_ROOT is unset and \
+                    $HOME/projects/touring/docs/gotchas does not exist — pass {\"dir\": \"<path>\"}" }
+                )
+                .to_string();
+            }
+            explicit
+        }
+    };
     let dir = std::path::Path::new(dir_str);
     if !dir.is_dir() {
         return serde_json::json!(

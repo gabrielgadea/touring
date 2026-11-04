@@ -51,7 +51,7 @@ fn no_db() -> Result<StoredLessons, String> {
 #[test]
 fn normalize_key_replaces_paths_hex_numbers_and_collapses_whitespace() {
     assert_eq!(
-        normalize_key("error: cannot open /home/gabrielgadea/projects/x.rs at line 42"),
+        normalize_key("error: cannot open /home/u/projects/x.rs at line 42"),
         "error: cannot open <path> at line <n>"
     );
     assert_eq!(normalize_key("commit deadbeefcafe0123 failed"), "commit <hex> failed");

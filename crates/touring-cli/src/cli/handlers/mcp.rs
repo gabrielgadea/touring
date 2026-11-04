@@ -652,7 +652,7 @@ pub fn ctx_doctor(project_root: Option<&std::path::Path>) -> Value {
         // A primeira versão usava `std::env::current_dir()`. Isso estava errado:
         // `ctx_doctor` executa DENTRO do daemon, então o cwd é o do daemon, não
         // o de quem perguntou. Verificado: daemon global com
-        // cwd=/home/gabrielgadea/projects/touring responderia "touring" a uma
+        // cwd=/home/u/projects/touring responderia "touring" a uma
         // sondagem vinda de qualquer outro projeto. Num daemon per-project o cwd
         // coincide com o projeto e o erro ficaria invisível — o pior tipo.
         //

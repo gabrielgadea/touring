@@ -12,7 +12,7 @@
 //! What a PAYLOAD can prove about itself, and therefore what this predicate
 //! judges:
 //!
-//! * [`Violation::Empty`] — nothing beyond tags: `[generic]`, `[gabrielgadea]`,
+//! * [`Violation::Empty`] — nothing beyond tags: `[generic]`, `[<owner>]`,
 //!   a bare banner. No proposition, no path, no symbol: the model cannot act.
 //! * [`Violation::NoTarget`] — prose, but no NAMED target: no path, no symbol,
 //!   no command, no flag. "Similar command failed recently (similarity=68%)" was
@@ -129,13 +129,7 @@ mod tests {
 
     #[test]
     fn a_bare_tag_is_empty() {
-        for t in [
-            "[generic]",
-            "[gabrielgadea]",
-            "  [generic]\n",
-            "[a] [b] ---",
-            "",
-        ] {
+        for t in ["[generic]", "[owner]", "  [generic]\n", "[a] [b] ---", ""] {
             assert_eq!(violation(t), Some(Violation::Empty), "{t:?}");
         }
     }

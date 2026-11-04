@@ -274,7 +274,7 @@ mod real_engine {
     /// Walks up from the lockfile's directory until it finds a `deny.toml`
     /// (the per-crate `crates/touring-quality/Cargo.lock` is not the same
     /// location as the workspace-root `deny.toml`, which lives at
-    /// `/home/gabrielgadea/.claude/rust/deny.toml`).
+    /// `<workspace root>/deny.toml`).
     pub(super) fn load_advisories_ignore(lockfile: &Path) -> Vec<String> {
         // Walk up from `lockfile.parent()` until we find a deny.toml.
         let mut dir = match lockfile.parent() {

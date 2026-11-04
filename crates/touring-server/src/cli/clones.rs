@@ -25,18 +25,17 @@ use std::path::PathBuf;
 
 use super::daemon_query;
 
-/// Clone storage directory.
-fn clones_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/gabrielgadea".to_string());
-    PathBuf::from(home)
-        .join(".claude")
-        .join("touring")
-        .join("clones")
+/// Clone storage directory (`~/.claude/touring/clones`). Errors when no home
+/// directory can be derived — clone data is never written to a guessed location.
+fn clones_dir() -> anyhow::Result<PathBuf> {
+    touring_foundation::user_home::claude_home()
+        .map(|claude| claude.join("touring").join("clones"))
+        .context("no home directory derivable ($HOME unset, no passwd entry) — cannot locate the clones directory")
 }
 
 /// Ensure clones directory exists.
 fn ensure_clones_dir() -> anyhow::Result<PathBuf> {
-    let dir = clones_dir();
+    let dir = clones_dir()?;
     if !dir.exists() {
         fs::create_dir_all(&dir)?;
     }
@@ -215,7 +214,7 @@ fn save_groups(groups: &[CloneGroup]) -> anyhow::Result<PathBuf> {
 
 /// Load persisted clone groups.
 fn load_groups() -> anyhow::Result<Vec<CloneGroup>> {
-    let path = clones_dir().join("latest.json");
+    let path = clones_dir()?.join("latest.json");
     if !path.exists() {
         anyhow::bail!("no clone data found — run `touring clones detect` first");
     }
@@ -521,9 +520,12 @@ mod tests {
 
     #[test]
     fn clones_dir_path() {
-        let dir = clones_dir();
-        assert!(dir.to_string_lossy().contains(".claude"));
-        assert!(dir.to_string_lossy().contains("clones"));
+        // `Err` only without a derivable home directory (stripped container): there is
+        // no path to check then, and the error itself is the specified behavior.
+        if let Ok(dir) = clones_dir() {
+            assert!(dir.to_string_lossy().contains(".claude"));
+            assert!(dir.to_string_lossy().contains("clones"));
+        }
     }
 
     #[test]
@@ -633,9 +635,11 @@ mod tests {
         // We just verify it doesn't crash
         if result.is_ok() {
             // clean up test artifact
-            let path = clones_dir().join("latest.json");
-            if path.exists() {
-                std::fs::remove_file(path).ok();
+            if let Ok(dir) = clones_dir() {
+                let path = dir.join("latest.json");
+                if path.exists() {
+                    std::fs::remove_file(path).ok();
+                }
             }
         }
     }

@@ -13,7 +13,7 @@ use tempfile::TempDir;
 /// Resolve a binary from the WORKSPACE build — never from an installed path.
 ///
 /// 2026-08-07: `start_daemon` spawned the absolute
-/// `/home/gabrielgadea/.local/bin/touring-daemon`, so every test in this file
+/// `/home/<user>/.local/bin/touring-daemon`, so every test in this file
 /// could only ever pass on one developer's machine; on any CI runner the spawn
 /// failed and the suite went red (run 31166066285, 19 E2E failures of this
 /// class). `touring_bin` had the milder version of the same bug — it pinned

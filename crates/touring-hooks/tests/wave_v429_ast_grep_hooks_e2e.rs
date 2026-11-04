@@ -147,7 +147,7 @@ fn s1_returns_empty_for_missing_file() {
 
 #[test]
 fn s2_blocks_rm_rf() {
-    let v = validate_command("rm -rf /home/gabrielgadea/work");
+    let v = validate_command("rm -rf /home/u/work");
     assert!(matches!(v, Verdict::Block { .. }), "got {v:?}");
     assert!(v.reason().unwrap().contains("rm -rf"));
 }
