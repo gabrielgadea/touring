@@ -29,6 +29,10 @@ OUTER exit 0. Fonte `python_deps.rs` lida: `score_pip_audit` é pura, `f2_5` usa
 
 RED comprovado: 11 erros por API ausente. Implementação GREEN: 5 testes de vigência/alias/vencimento/fronteira/id errado, mais parser e ausência de arquivo verdes. A auditoria independente encontrou 3 bordas não cobertas — tabela simples sobrescrevendo aceite, motivo ausente e virada UTC; os 3 testes de regressão fizeram RED (**16 passed/3 failed**) e depois GREEN (**19 passed/0 failed**). Reauditoria final: **FULFILLS, findings=[]**. Suíte completa: **518 unitários + 27 integração/doc tests, 0 failed**. Clippy: **0 warnings**. O binário da worktree mediu o `analise` em **Diamond 1.000**, com `diskcache@5.6.3 PYSEC-2026-2447 accepted risk until 2026-12-05` e o controle completo na evidência; usou a cache OSV de 18 h, sem refresh de rede. O verificador completo `audit-plan-completion.sh` terminou exit 0.
 
+## Fechamento
+
+Backend e bundle commitados em `1a3d7780`. A atualização da DAG devolveu `subtask_updated=true`; a leitura de volta confirmou `task_1793900961378191950::D07` com `status=completed` e `claimed_by=analise-36`. D10 segue pendente e sem dono.
+
 ## Próximo passo
 
-Commitar `python_deps.rs` e o bundle, fechar D07 na DAG e enviar UM relatório final a `analise-67`. As três lições já foram gravadas no grafo com leitura de volta íntegra. D10 permanece depois do D07.
+Iniciar D10 somente após o relatório final D07 a `analise-67`: `convert_one` no sandbox Touring, com fixtures, staging no workspace, rede cortada, controle positivo, medição e as seis suítes consumidoras.
