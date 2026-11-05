@@ -481,39 +481,39 @@ A **consolidação recomendada** segue a **REGRA #0** (potencializar, nunca redu
 
 ```bash
 # Mapear os 50 engines reais vs stubs
-ls /home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/*.rs | wc -l
-ls /home/gabrielgadea/.claude/rust/crates/touring-quality/src/verifications/*.rs | wc -l
+ls ~/.claude/rust/crates/touring-analysis/src/quality/*.rs | wc -l
+ls ~/.claude/rust/crates/touring-quality/src/verifications/*.rs | wc -l
 
 # Confirmar gap #1 (harness não consulta quality)
-grep -rE 'use touring_quality|touring_quality::' /home/gabrielgadea/.claude/rust/crates/touring-harness/src/
+grep -rE 'use touring_quality|touring_quality::' ~/.claude/rust/crates/touring-harness/src/
 # (esperado: 0 matches)
 
 # Confirmar gap #2 (CEG X7 sem sinal de qualidade)
-grep -rE 'touring_quality::score_target|score_target' /home/gabrielgadea/.claude/rust/crates/touring-ceg/src/
+grep -rE 'touring_quality::score_target|score_target' ~/.claude/rust/crates/touring-ceg/src/
 # (esperado: 0 matches)
 
 # Confirmar gap #4 (CLI `touring elite` não existe)
-/home/gabrielgadea/.claude/rust/target/release/touring --help 2>&1 | grep -i 'elite'
+~/.claude/rust/target/release/touring --help 2>&1 | grep -i 'elite'
 # (esperado: 0 matches)
 
 # Confirmar gap #5 (14/17 gates stub)
-for f in /home/gabrielgadea/.claude/rust/crates/touring-harness/src/builtins/*.rs; do
+for f in ~/.claude/rust/crates/touring-harness/src/builtins/*.rs; do
   loc=$(wc -l < "$f")
   [ "$loc" -lt "30" ] && echo "STUB: $f ($loc LOC)"
 done
 # (esperado: 14 arquivos < 30 LOC)
 
 # Confirmar que touring-elite binário existe e funciona
-/home/gabrielgadea/.claude/rust/target/release/touring-elite --help
+~/.claude/rust/target/release/touring-elite --help
 
 # Confirmar que touring-harness-mcp responde JSON-RPC
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | /home/gabrielgadea/.claude/rust/target/release/touring-harness-mcp
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | ~/.claude/rust/target/release/touring-harness-mcp
 
 # Confirmar que touring-quality score roda em arquivo real
-/home/gabrielgadea/.claude/rust/target/release/touring-quality score /home/gabrielgadea/.claude/rust/crates/touring-analysis/src/quality/mod.rs --dims F4.6,F4.7,F4.9,F4.10
+~/.claude/rust/target/release/touring-quality score ~/.claude/rust/crates/touring-analysis/src/quality/mod.rs --dims F4.6,F4.7,F4.9,F4.10
 
 # Verificar CEG já importa touring-harness
-grep -E 'touring_harness::' /home/gabrielgadea/.claude/rust/crates/touring-ceg/src/gateway/harness_extension.rs
+grep -E 'touring_harness::' ~/.claude/rust/crates/touring-ceg/src/gateway/harness_extension.rs
 ```
 
 ---

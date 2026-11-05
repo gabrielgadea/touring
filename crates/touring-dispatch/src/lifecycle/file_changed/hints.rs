@@ -30,7 +30,7 @@ use super::super::file_stem;
 // ── Shared path helpers ───────────────────────────────────────────────────────
 
 /// R10-A: For new/untracked .rs files, surface Tantivy discovery + plan-recall hints.
-pub(crate) fn maybe_new_file_hint(
+pub(super) fn maybe_new_file_hint(
     warnings_empty: bool,
     has_dependents: bool,
     rel_path: &str,
@@ -47,7 +47,7 @@ pub(crate) fn maybe_new_file_hint(
 }
 
 /// R14-S3: Detect generator plan JSON changes and surface pipeline validation hints.
-pub(crate) fn maybe_plan_json_hint(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_plan_json_hint(rel_path: &str) -> Option<String> {
     if rel_path.ends_with(".json") && (rel_path.contains("plan") || rel_path.contains("generate")) {
         Some(format!(
             "generator: plan file changed — run `touring generate plan-validate --plan-file {rel_path}` \
@@ -63,7 +63,7 @@ pub(crate) fn maybe_plan_json_hint(rel_path: &str) -> Option<String> {
 /// When a `.tera` template is edited, this injects the full generator pipeline:
 /// validate syntax first, then template-test to confirm rendering with sample vars.
 /// Closes the generator-hooks loop for template authoring workflows.
-pub(crate) fn maybe_tera_template_hint(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_tera_template_hint(rel_path: &str) -> Option<String> {
     if !rel_path.ends_with(".tera") {
         return None;
     }
@@ -82,7 +82,7 @@ pub(crate) fn maybe_tera_template_hint(rel_path: &str) -> Option<String> {
 /// VGP `generate verify --symbol` may miss newly-added or renamed exports until the
 /// crate index is refreshed. Emits a `touring index rebuild --dir <crate_dir>` hint
 /// scoped to the owning crate directory to minimize rebuild scope.
-pub(crate) fn maybe_index_stale_hint(rel_path: &str, has_dependents: bool) -> Option<String> {
+pub(super) fn maybe_index_stale_hint(rel_path: &str, has_dependents: bool) -> Option<String> {
     if !rel_path.ends_with(".rs") || !has_dependents {
         return None;
     }
@@ -110,7 +110,7 @@ pub(crate) fn maybe_index_stale_hint(rel_path: &str, has_dependents: bool) -> Op
 /// change, the functional chains they anchor may shift. This helper emits a `touring wiring
 /// chains <rel_path>` command so the engineer can inspect chain membership before and after
 /// the edit. Returns `None` for files that are not handler/lifecycle/registry sources.
-pub(crate) fn maybe_wiring_chains_hint_for_handler_file(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_wiring_chains_hint_for_handler_file(rel_path: &str) -> Option<String> {
     let lower = rel_path.to_lowercase();
     let is_handler = lower.ends_with(".rs")
         && (lower.contains("lifecycle")
@@ -127,7 +127,7 @@ pub(crate) fn maybe_wiring_chains_hint_for_handler_file(rel_path: &str) -> Optio
 
 /// R70: Group the 3 file-path-pattern matchers (asyncapi/error-catalog/adr) into one iterator
 /// so `handle_file_changed` pays zero CC for them (CC=0 at call site — single `extend` call).
-pub(crate) fn collect_path_pattern_warnings(
+pub(super) fn collect_path_pattern_warnings(
     rel_path: &str,
 ) -> impl Iterator<Item = String> + use<> {
     [
@@ -185,7 +185,7 @@ pub(crate) fn collect_path_pattern_warnings(
 /// `module_name` var, plus a `cargo test <stem>` reminder. This closes the test-authoring
 /// loop: Claude Code edits a test → hook immediately surfaces how to expand coverage.
 /// Returns `None` for production source files so there's no noise on regular edits.
-pub(crate) fn maybe_test_file_hint(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_test_file_hint(rel_path: &str) -> Option<String> {
     let is_test = rel_path.contains("/tests/")
         || rel_path.contains("/test/")
         || rel_path.ends_with("_test.rs")
@@ -209,7 +209,7 @@ pub(crate) fn maybe_test_file_hint(rel_path: &str) -> Option<String> {
 /// 3. Generator adapter status via `touring generate capacity`
 ///
 /// Returns `None` for non-Cargo.toml paths to avoid noise on routine edits.
-pub(crate) fn maybe_cargo_toml_hint(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_cargo_toml_hint(rel_path: &str) -> Option<String> {
     if !rel_path.ends_with("Cargo.toml") {
         return None;
     }
@@ -227,7 +227,7 @@ pub(crate) fn maybe_cargo_toml_hint(rel_path: &str) -> Option<String> {
 ///
 /// Matches `/events/`, `/channels/`, `/brokers/`, or `asyncapi` in the path so that editing
 /// an event-schema file immediately surfaces `touring generate render AsyncApiSpec`.
-pub(crate) fn maybe_asyncapi_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_asyncapi_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const ASYNCAPI_MARKERS: &[&str] = &[
         "/events/",
         "/channels/",
@@ -253,7 +253,7 @@ pub(crate) fn maybe_asyncapi_hint_on_file_changed(rel_path: &str) -> Option<Stri
 ///
 /// Matches `/errors/`, `error_types`, `errors.rs`, `error_catalog`, or `error_codes` in the
 /// path so that editing an error module immediately surfaces `touring generate render ErrorCatalog`.
-pub(crate) fn maybe_error_catalog_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_error_catalog_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const ERROR_MARKERS: &[&str] = &[
         "/errors/",
         "error_types",
@@ -278,7 +278,7 @@ pub(crate) fn maybe_error_catalog_hint_on_file_changed(rel_path: &str) -> Option
 ///
 /// Matches `/decisions/`, `/adr/`, `decision-record`, or `architecture-decision` in the path
 /// so that editing a decision file immediately surfaces `touring generate render Adr`.
-pub(crate) fn maybe_adr_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_adr_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const ADR_MARKERS: &[&str] = &[
         "/decisions/",
         "/adr/",
@@ -302,7 +302,7 @@ pub(crate) fn maybe_adr_hint_on_file_changed(rel_path: &str) -> Option<String> {
 ///
 /// Matches `.tf`, `/terraform/`, `/infra/`, `main.tf`, or `variables.tf` in the path so that
 /// editing a Terraform file immediately surfaces `touring generate render TerraformModule`.
-pub(crate) fn maybe_terraform_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_terraform_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const TF_MARKERS: &[&str] = &[
         ".tf",
         "/terraform/",
@@ -328,7 +328,7 @@ pub(crate) fn maybe_terraform_hint_on_file_changed(rel_path: &str) -> Option<Str
 ///
 /// Matches `.github/workflows/`, `.gitlab-ci`, `Jenkinsfile`, or `ci.yml` in the path so that
 /// editing a CI file immediately surfaces `touring generate render CiWorkflow`.
-pub(crate) fn maybe_ci_workflow_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_ci_workflow_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const CI_MARKERS: &[&str] = &[
         ".github/workflows/",
         ".gitlab-ci",
@@ -354,7 +354,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_file_changed(rel_path: &str) -> Option<S
 ///
 /// Matches `/k8s/`, `/kubernetes/`, `/manifests/`, `deployment.yaml`, or `service.yaml` in the
 /// path so that editing a manifest file immediately surfaces `touring generate render K8sManifest`.
-pub(crate) fn maybe_k8s_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_k8s_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const K8S_MARKERS: &[&str] = &[
         "/k8s/",
         "/kubernetes/",
@@ -380,7 +380,7 @@ pub(crate) fn maybe_k8s_hint_on_file_changed(rel_path: &str) -> Option<String> {
 ///
 /// Matches `mod.rs`, `lib.rs`, `main.rs`, or `/src/` Rust files so that editing a module
 /// root immediately surfaces `touring generate render RustModule`.
-pub(crate) fn maybe_rust_module_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_rust_module_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const RUST_MARKERS: &[&str] = &["mod.rs", "lib.rs", "main.rs", "/src/", "crate/src", ".rs"];
     let lower = rel_path.to_lowercase();
     // Only match if it's actually a Rust file (ends in .rs or is a known entry point)
@@ -402,7 +402,7 @@ pub(crate) fn maybe_rust_module_hint_on_file_changed(rel_path: &str) -> Option<S
 ///
 /// Matches `_test.rs`, `test_`, `tests/`, or `#[cfg(test)]` patterns so that editing
 /// a test file immediately surfaces `touring generate render Test`.
-pub(crate) fn maybe_test_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_test_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const TEST_MARKERS: &[&str] = &[
         "_test.rs",
         "test_",
@@ -427,7 +427,7 @@ pub(crate) fn maybe_test_hint_on_file_changed(rel_path: &str) -> Option<String> 
 ///
 /// Matches `schema`, `openrpc`, `jsonschema`, `.schema.json` patterns so that editing
 /// a schema file immediately surfaces `touring generate render Schema`.
-pub(crate) fn maybe_schema_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_schema_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const SCHEMA_MARKERS: &[&str] = &[
         "schema.rs",
         "schema.json",
@@ -453,7 +453,7 @@ pub(crate) fn maybe_schema_hint_on_file_changed(rel_path: &str) -> Option<String
 ///
 /// Matches `.sql`, `/migrations/`, `migrate_`, or `migration.rs` so that editing a migration
 /// file immediately surfaces `touring generate render Migration`.
-pub(crate) fn maybe_migration_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_migration_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const MIGRATION_MARKERS: &[&str] = &[
         ".sql",
         "/migrations/",
@@ -479,7 +479,7 @@ pub(crate) fn maybe_migration_hint_on_file_changed(rel_path: &str) -> Option<Str
 ///
 /// Matches `.proto`, `/proto/`, `grpc`, or `protobuf` in the path so that editing a proto
 /// file immediately surfaces `touring generate render ProtobufSchema`.
-pub(crate) fn maybe_protobuf_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_protobuf_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const PROTO_MARKERS: &[&str] = &[
         ".proto",
         "/proto/",
@@ -505,7 +505,7 @@ pub(crate) fn maybe_protobuf_hint_on_file_changed(rel_path: &str) -> Option<Stri
 ///
 /// Matches `Dockerfile`, `/docker/`, `docker-compose`, or `.dockerfile` in the path so that
 /// editing a container file immediately surfaces `touring generate render Dockerfile`.
-pub(crate) fn maybe_dockerfile_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_dockerfile_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const DOCKER_MARKERS: &[&str] = &[
         "dockerfile",
         "/docker/",
@@ -527,7 +527,7 @@ pub(crate) fn maybe_dockerfile_hint_on_file_changed(rel_path: &str) -> Option<St
 }
 
 /// R104-S1: Emit FfiBinding hint when a file path suggests FFI/native binding files (CC=2).
-pub(crate) fn maybe_ffi_binding_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_ffi_binding_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const FFI_MARKERS: &[&str] = &[
         "/ffi/",
         "bindings.rs",
@@ -551,7 +551,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_file_changed(rel_path: &str) -> Option<S
 }
 
 /// R104-S2: Emit PythonScript hint when a file path suggests Python scripting files (CC=2).
-pub(crate) fn maybe_python_script_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_python_script_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const PY_MARKERS: &[&str] = &[
         ".py",
         "scripts/",
@@ -573,7 +573,7 @@ pub(crate) fn maybe_python_script_hint_on_file_changed(rel_path: &str) -> Option
 }
 
 /// R104-S3: Emit Benchmark hint when a file path suggests criterion benchmark files (CC=2).
-pub(crate) fn maybe_benchmark_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_benchmark_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const BENCH_MARKERS: &[&str] = &[
         "benches/",
         "benchmark",
@@ -595,7 +595,7 @@ pub(crate) fn maybe_benchmark_hint_on_file_changed(rel_path: &str) -> Option<Str
 }
 
 /// R110-S1: Emit CliHandler hint when a file path suggests CLI handler/command files (CC=2).
-pub(crate) fn maybe_cli_handler_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_cli_handler_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const CLI_MARKERS: &[&str] = &[
         "cli/",
         "handlers/cli",
@@ -618,7 +618,7 @@ pub(crate) fn maybe_cli_handler_hint_on_file_changed(rel_path: &str) -> Option<S
 }
 
 /// R110-S2: Emit McpTool hint when a file path suggests MCP tool/server files (CC=2).
-pub(crate) fn maybe_mcp_tool_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_mcp_tool_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const MCP_MARKERS: &[&str] = &[
         "mcp_tool",
         "mcp/tools",
@@ -641,7 +641,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_file_changed(rel_path: &str) -> Option<Stri
 }
 
 /// R110-S3: Emit HookHandler hint when a file path suggests lifecycle hook handler files (CC=2).
-pub(crate) fn maybe_hook_handler_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_hook_handler_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const HOOK_MARKERS: &[&str] = &[
         "hook_handler",
         "lifecycle.rs",
@@ -664,7 +664,7 @@ pub(crate) fn maybe_hook_handler_hint_on_file_changed(rel_path: &str) -> Option<
 }
 
 /// R113-S1: Emit PlanMd hint when a file path suggests project plan/roadmap markdown files (CC=2).
-pub(crate) fn maybe_plan_md_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_plan_md_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const PLAN_MARKERS: &[&str] = &[
         "plan.md",
         "plans/",
@@ -687,7 +687,7 @@ pub(crate) fn maybe_plan_md_hint_on_file_changed(rel_path: &str) -> Option<Strin
 }
 
 /// R113-S2: Emit ManPage hint when a file path suggests man page documentation files (CC=2).
-pub(crate) fn maybe_man_page_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_man_page_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const MAN_MARKERS: &[&str] = &[
         "man/", "manpage", "man_page", ".1.md", ".8.md", "docs/man", "ronn", "troff", "groff",
     ];
@@ -703,7 +703,7 @@ pub(crate) fn maybe_man_page_hint_on_file_changed(rel_path: &str) -> Option<Stri
 }
 
 /// R113-S3: Emit SkillDocument hint when a file path suggests skill/guide documentation (CC=2).
-pub(crate) fn maybe_skill_document_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_skill_document_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const SKILL_MARKERS: &[&str] = &[
         "skills/",
         "skill.md",
@@ -726,7 +726,7 @@ pub(crate) fn maybe_skill_document_hint_on_file_changed(rel_path: &str) -> Optio
 }
 
 /// R114-S1: Emit DiaryEntry hint when a file path suggests touring diary/agent memory files (CC=2).
-pub(crate) fn maybe_diary_entry_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_diary_entry_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const DIARY_MARKERS: &[&str] = &[
         "diary/",
         "diary_entry",
@@ -749,7 +749,7 @@ pub(crate) fn maybe_diary_entry_hint_on_file_changed(rel_path: &str) -> Option<S
 }
 
 /// R114-S2: Emit ConsumerGenerator hint when a file path suggests event consumer code (CC=2).
-pub(crate) fn maybe_consumer_generator_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_consumer_generator_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const CONSUMER_MARKERS: &[&str] = &[
         "consumer/",
         "consumers/",
@@ -772,7 +772,7 @@ pub(crate) fn maybe_consumer_generator_hint_on_file_changed(rel_path: &str) -> O
 }
 
 /// R114-S3: Emit TaskScaffold hint when a file path suggests TACO task/DAG scaffold files (CC=2).
-pub(crate) fn maybe_task_scaffold_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_task_scaffold_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const TASK_MARKERS: &[&str] = &[
         "task_scaffold",
         "taco_task",
@@ -795,7 +795,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_file_changed(rel_path: &str) -> Option
 }
 
 /// R107-S1: Emit FuzzTarget hint when a file path suggests cargo-fuzz target files (CC=2).
-pub(crate) fn maybe_fuzz_target_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_fuzz_target_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const FUZZ_MARKERS: &[&str] = &[
         "fuzz_targets/",
         "fuzz/targets/",
@@ -817,7 +817,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_file_changed(rel_path: &str) -> Option<S
 }
 
 /// R107-S2: Emit DeriveMacro hint when a file path suggests proc-macro/derive crates (CC=2).
-pub(crate) fn maybe_derive_macro_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_derive_macro_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const MACRO_MARKERS: &[&str] = &[
         "derive_",
         "proc_macro",
@@ -840,7 +840,7 @@ pub(crate) fn maybe_derive_macro_hint_on_file_changed(rel_path: &str) -> Option<
 }
 
 /// R107-S3: Emit IncrementalPatch hint when a file path suggests patch/diff files (CC=2).
-pub(crate) fn maybe_incremental_patch_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_incremental_patch_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const PATCH_MARKERS: &[&str] = &[
         ".patch",
         ".diff",
@@ -863,7 +863,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_file_changed(rel_path: &str) -> Op
 }
 
 /// R101-S1: Emit OpenApiSpec hint when a file path suggests OpenAPI/REST API patterns (CC=2).
-pub(crate) fn maybe_openapi_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_openapi_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const OAS_MARKERS: &[&str] = &[
         "openapi",
         "swagger",
@@ -886,7 +886,7 @@ pub(crate) fn maybe_openapi_hint_on_file_changed(rel_path: &str) -> Option<Strin
 }
 
 /// R101-S2: Emit ShellCompletion hint when a file path suggests shell completion scripts (CC=2).
-pub(crate) fn maybe_shell_completion_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_shell_completion_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const COMPLETION_MARKERS: &[&str] = &[
         "completion",
         "_completion",
@@ -909,7 +909,7 @@ pub(crate) fn maybe_shell_completion_hint_on_file_changed(rel_path: &str) -> Opt
 }
 
 /// R101-S3: Emit ChangelogEntry hint when a file path suggests changelog/release notes (CC=2).
-pub(crate) fn maybe_changelog_hint_on_file_changed(rel_path: &str) -> Option<String> {
+fn maybe_changelog_hint_on_file_changed(rel_path: &str) -> Option<String> {
     const CHANGELOG_MARKERS: &[&str] = &[
         "changelog",
         "changes",

@@ -73,10 +73,10 @@ hw-slot: aguardando — temp 96C > 88C
    Compiling hashlink v0.9.1
    Compiling hdrhistogram v7.5.4
    Compiling salsa v0.18.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling fastembed v5.17.2
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
-   Compiling touring-storage v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring/crates/touring-rkyv)
+   Compiling touring-storage v30.4.95 (~/projects/touring/crates/touring-storage)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 04s
      Running unittests src/lib.rs (target/debug/deps/touring_storage-52216368001a8562)
 

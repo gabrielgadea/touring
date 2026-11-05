@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # p95 PAREADO por id (mesma maquina, no mesmo periodo): 3 repeticoes ALTERNADAS entre os binarios, minimo por id.
 #  L1 (v2): e935aaf1 · f55ec4b5 · 4501e1e5        V3 (camadas 1,2): e935aaf1 · 4501e1e5
 # Corpus: o vivo atual (corpus_v0d, staging com evidencia). O p95 absoluto depende da maquina (92-96 C, load 6-7);
 # o que vale e a comparacao pareada. Uma reserva do hw-slot; sequencial de proposito.
 set -u
-cd /home/gabrielgadea/projects/analise || exit 9
+cd ${HOME}/projects/analise || exit 9
 export TOURING_CODE_MODE=native
-P0=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
-T=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/resultados/tempos_dc
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
-BIN=/home/gabrielgadea/.claude/touring/vgp/binarios
-CORP=/home/gabrielgadea/.claude/touring/vgp/corpus_v0d
+P0=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
+T=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/resultados/tempos_dc
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+BIN=${HOME}/.claude/touring/vgp/binarios
+CORP=${HOME}/.claude/touring/vgp/corpus_v0d
 mkdir -p "$T"
 : > "$T/rc"
 for i in 1 2 3; do

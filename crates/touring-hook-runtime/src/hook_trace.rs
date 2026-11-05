@@ -55,6 +55,19 @@ pub struct HookTraceLine {
     /// Claude Code session id from the payload, when present (attribution only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    /// The tool the event is about (`Bash`, `Edit`, …), when the payload names one (#6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    /// For Bash, the program's bare name (`cargo`, `grep`) — never an argument or a path (#6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class: Option<String>,
+    /// What the answer decided: `deny` | `allow` | `ask` | `defer` | `block` | `halt` |
+    /// `rewrite` | `context` | `silent` (#6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<String>,
+    /// The gate tag the answer led with (`G7 re-inspeção`, `CODE MODE · rajada`), never a path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate: Option<String>,
 }
 
 struct TraceState {
@@ -64,6 +77,119 @@ struct TraceState {
     route: Mutex<&'static str>,
     reason: Mutex<&'static str>,
     session_id: Mutex<Option<String>>,
+    /// `(tool, class)` from the payload (#6).
+    event: Mutex<(Option<String>, Option<String>)>,
+    /// `(verdict, gate)` from the answer printed (#6).
+    answer: Mutex<(Option<&'static str>, Option<String>)>,
+}
+
+/// The program a Bash command runs, as a bare name: leading `VAR=value` assignments are
+/// skipped and a path keeps only its last component. `None` when nothing clean is left — the
+/// trace never carries an argument, a path or anything outside `[A-Za-z0-9._+-]` (#6).
+pub fn command_class(command: &str) -> Option<String> {
+    let program = command
+        .split_whitespace()
+        .find(|tok| !(tok.contains('=') && !tok.starts_with('=')))?;
+    let base = program.rsplit('/').next().unwrap_or(program);
+    let clean = !base.is_empty()
+        && base.len() <= 32
+        && base
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '+' | '-'));
+    clean.then(|| base.to_owned())
+}
+
+/// The first `[tag]` a reason or context leads with, when it is short and names no path. A tag
+/// that opens with a canonical gate id (`G7 re-inspeção`, `E3 …`, `M3 …`) is reduced to the id,
+/// so replays group by gate, not by prose. Broader than `tool_trio::deny_gate_of` on purpose:
+/// that one counts only the `G<n>` gates of a denial and folds every other family into
+/// `other`; the trace keeps each family (`E3`, `S3`, `M3`) because a replay asks which gate
+/// spoke, whatever its family or verdict.
+fn gate_tag(text: &str) -> Option<String> {
+    let start = text.find('[')?;
+    let rest = &text[start + 1..];
+    let end = rest.find(']')?;
+    let tag = rest[..end].trim();
+    let clean =
+        !tag.is_empty() && tag.chars().count() <= 48 && !tag.contains(['/', '\\', '~', '\n']);
+    if !clean {
+        return None;
+    }
+    let head = tag.split_whitespace().next().unwrap_or(tag);
+    let letters = head.chars().take_while(char::is_ascii_uppercase).count();
+    let digits = head[letters..]
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .count();
+    let canonical = (1..=3).contains(&letters) && digits > 0 && letters + digits == head.len();
+    Some(if canonical { head } else { tag }.to_owned())
+}
+
+/// What an answer on stdout decided, and the gate tag it led with (#6). Pure over the text.
+pub fn classify_answer(stdout: &str) -> (&'static str, Option<String>) {
+    let text = stdout.trim();
+    if text.is_empty() || text == "{}" {
+        return ("silent", None);
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else {
+        return ("silent", None);
+    };
+    let hso = v.get("hookSpecificOutput");
+    let said = str_at(hso, "permissionDecisionReason")
+        .or_else(|| str_at(Some(&v), "reason"))
+        .or_else(|| str_at(hso, "additionalContext"))
+        .unwrap_or_default();
+    (verdict_of(&v), gate_tag(said))
+}
+
+/// `obj[key]` as a string, when present.
+fn str_at<'a>(obj: Option<&'a serde_json::Value>, key: &str) -> Option<&'a str> {
+    obj.and_then(|o| o.get(key)).and_then(|s| s.as_str())
+}
+
+/// The decision an answer carries, in Claude Code's precedence: a permission decision, then a
+/// top-level block, a halt, an input rewrite, plain context — else nothing was decided.
+fn verdict_of(v: &serde_json::Value) -> &'static str {
+    let hso = v.get("hookSpecificOutput");
+    match str_at(hso, "permissionDecision") {
+        Some("deny") => return "deny",
+        Some("allow") => return "allow",
+        Some("ask") => return "ask",
+        Some("defer") => return "defer",
+        _ => {}
+    }
+    if str_at(Some(v), "decision") == Some("block") {
+        return "block";
+    }
+    if v.get("continue").and_then(|c| c.as_bool()) == Some(false) {
+        return "halt";
+    }
+    if hso.and_then(|h| h.get("updatedInput")).is_some() {
+        return "rewrite";
+    }
+    match str_at(hso, "additionalContext") {
+        Some(c) if !c.trim().is_empty() => "context",
+        _ => "silent",
+    }
+}
+
+/// Record the tool and, for Bash, the program class of the invoking payload (#6).
+pub fn set_event(tool: Option<&str>, command: Option<&str>) {
+    if let Some(Some(st)) = STATE.get()
+        && let Ok(mut e) = st.event.lock()
+    {
+        *e = (tool.map(str::to_owned), command.and_then(command_class));
+    }
+}
+
+/// Record what the answer about to be printed decides (last writer wins) (#6).
+pub fn note_answer(stdout: &str) {
+    if let Some(Some(st)) = STATE.get()
+        && let Ok(mut a) = st.answer.lock()
+    {
+        let (verdict, gate) = classify_answer(stdout);
+        *a = (Some(verdict), gate);
+    }
 }
 
 static STATE: OnceLock<Option<TraceState>> = OnceLock::new();
@@ -75,6 +201,8 @@ pub fn install(hook: &str) {
     // and records its exit reason through this sink. `set_reason` is a no-op while the
     // trace is unarmed, so registering it here (the only way to arm) loses nothing.
     touring_hooks_core::hook_response::set_emit_reason_sink(set_reason);
+    // #6: the same route for the text `emit_json` prints — the verdict and gate come from it.
+    touring_hooks_core::hook_response::set_emit_answer_sink(note_answer);
     let hook = hook.to_string();
     let _ = STATE.get_or_init(|| {
         let path = std::env::var_os(ENV_TRACE_FILE)
@@ -93,6 +221,8 @@ pub fn install(hook: &str) {
             route: Mutex::new("unknown"),
             reason: Mutex::new("handler-diverged"),
             session_id: Mutex::new(None),
+            event: Mutex::new((None, None)),
+            answer: Mutex::new((None, None)),
         })
     });
 }
@@ -153,6 +283,10 @@ pub fn build_line(
         stdin_bytes,
         elapsed_ms,
         session_id: session_id.map(str::to_string),
+        tool: None,
+        class: None,
+        verdict: None,
+        gate: None,
     }
 }
 
@@ -199,7 +333,9 @@ extern "C" fn flush_at_exit() {
     let reason = st.reason.lock().map(|r| *r).unwrap_or("unknown");
     let session_id = st.session_id.lock().ok().and_then(|s| s.clone());
     let (stdin_state, stdin_bytes) = crate::hook_runtime_ext::last_stdin_read();
-    let line = build_line(
+    let (tool, class) = st.event.lock().map(|e| e.clone()).unwrap_or_default();
+    let (verdict, gate) = st.answer.lock().map(|a| a.clone()).unwrap_or_default();
+    let mut line = build_line(
         &st.hook,
         route,
         reason,
@@ -210,6 +346,10 @@ extern "C" fn flush_at_exit() {
         std::process::id(),
         parent_pid(),
     );
+    line.tool = tool;
+    line.class = class;
+    line.verdict = verdict.map(str::to_owned);
+    line.gate = gate;
     // Fail-open by contract: a trace that cannot be written must never surface.
     let _ = append_line(&st.path, &line);
 }
@@ -352,5 +492,76 @@ mod tests {
         let ppid = parent_pid();
         assert!(ppid > 0);
         assert!(Path::new(&format!("/proc/{ppid}")).exists());
+    }
+}
+
+/// #6 (04/11/2026) — what the trace may say about a decision, and what it never says.
+#[cfg(test)]
+mod decision_fields_tests {
+    use super::{classify_answer, command_class, gate_tag};
+    use touring_hooks_core::hook_response::HookResponse;
+
+    #[test]
+    fn the_class_is_the_bare_program_never_an_argument_or_a_path() {
+        assert_eq!(command_class("cargo test -p x").as_deref(), Some("cargo"));
+        assert_eq!(
+            command_class("RUST_LOG=debug cargo t").as_deref(),
+            Some("cargo")
+        );
+        assert_eq!(
+            command_class("/usr/bin/grep -rn secret /home/u").as_deref(),
+            Some("grep")
+        );
+        assert_eq!(command_class("~/bin/x").as_deref(), Some("x"));
+        assert_eq!(command_class("   ").as_deref(), None);
+        assert_eq!(
+            command_class("$(evil)").as_deref(),
+            None,
+            "nothing outside the safe set"
+        );
+    }
+
+    #[test]
+    fn verdicts_follow_claude_codes_decision_shapes() {
+        assert_eq!(classify_answer("").0, "silent");
+        assert_eq!(classify_answer("{}").0, "silent");
+        assert_eq!(classify_answer("prose").0, "silent");
+        assert_eq!(
+            classify_answer(&HookResponse::deny("[G7 re-inspeção] x").to_json()).0,
+            "deny"
+        );
+        assert_eq!(
+            classify_answer(&HookResponse::block("go on").to_json()).0,
+            "block"
+        );
+        assert_eq!(
+            classify_answer(&HookResponse::halt("stop").to_json()).0,
+            "halt"
+        );
+        assert_eq!(
+            classify_answer(&HookResponse::context("hint").to_json()).0,
+            "context"
+        );
+        let rewrite = r#"{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":"ls"}}}"#;
+        assert_eq!(classify_answer(rewrite).0, "rewrite");
+        let allow = r#"{"hookSpecificOutput":{"permissionDecision":"allow"}}"#;
+        assert_eq!(classify_answer(allow).0, "allow");
+    }
+
+    #[test]
+    fn the_gate_is_the_canonical_id_or_a_short_pathless_tag() {
+        assert_eq!(
+            gate_tag("[G7 re-inspeção] 3ª leitura").as_deref(),
+            Some("G7")
+        );
+        assert_eq!(gate_tag("[E3 contrafactual] x").as_deref(), Some("E3"));
+        assert_eq!(
+            gate_tag("[CODE MODE · rajada] x").as_deref(),
+            Some("CODE MODE · rajada")
+        );
+        assert_eq!(gate_tag("[/home/u/secret] x"), None, "a path never leaves");
+        assert_eq!(gate_tag("no tag at all"), None);
+        let deny = HookResponse::deny("[G10 exec-burst] 5ª execução").to_json();
+        assert_eq!(classify_answer(&deny), ("deny", Some("G10".to_owned())));
     }
 }

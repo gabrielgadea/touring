@@ -59,7 +59,7 @@ Construir um **canal de leitura read-only** dentro do sandbox do code mode que e
 **Goal**: o sinal chega ao sandbox sem violar Landlock.
 
 - Hook `PostToolUse` no touring dispara sync para arquivo espelho (read-only para o sandbox)
-- Arquivo espelho em path que SEG-2 já liberou (provavelmente `/home/gabrielgadea/.claude/skills/` ou similar — verificar)
+- Arquivo espelho em path que SEG-2 já liberou (provavelmente `~/.claude/skills/` ou similar — verificar)
 - **Sandbox lê do arquivo espelho**, não chama subprocess (defesa em profundidade)
 - Sync incremental (diff, não copia total a cada hook)
 - **Artefato**: hook handler + sync logic + arquivo espelho + teste de roundtrip

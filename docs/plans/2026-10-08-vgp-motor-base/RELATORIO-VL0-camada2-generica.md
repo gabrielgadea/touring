@@ -9,8 +9,8 @@ tags: ["#kind:report", "#status:done", "#domain:harness"]
 
 # VL0 §6 — camada 2 genérica
 
-Worktree `/home/gabrielgadea/projects/touring-wt-l2` · branch `feat/2026-10-09-vgp-camada2-generica` (de `88c7cc8b`) ·
-build em `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-l2` · todo `cargo` que testa/lint/constrói por
+Worktree `~/projects/touring-wt-l2` · branch `feat/2026-10-09-vgp-camada2-generica` (de `88c7cc8b`) ·
+build em `CARGO_TARGET_DIR=~/projects/touring/target/wt-l2` · todo `cargo` que testa/lint/constrói por
 `hw-slot --class rust`. **Nada foi commitado, empurrado, instalado, propagado nem apagado.** O único `cargo` fora do slot foi
 `cargo fmt -p touring-pyright` (rustfmt de um crate, milissegundos). Crate `touring-pyright` com o mesmo nome e **zero**
 dependência `touring-*` (`cargo tree` abaixo).

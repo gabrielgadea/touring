@@ -47,7 +47,16 @@ pub fn cli_change_contract(_rt: &mut HookRuntime, payload: &serde_json::Value) -
 /// `_rt` is unused — the constitution root is HOME-based (`touring_claude_dir`),
 /// not the per-project runtime.
 pub fn cli_attest_contract(_rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
-    let root = touring_claude_dir();
+    let Some(root) = touring_claude_dir() else {
+        return serde_json::json!({
+            "attested": false,
+            "error": format!(
+                "{} — cannot locate the constitution root",
+                touring_foundation::user_home::NO_HOME_REASON
+            ),
+        })
+        .to_string();
+    };
     let contract = crate::gateway::harness_contract::HarnessContract::attest(&root);
     serde_json::to_string(&serde_json::json!({
         "attested": contract.attested,

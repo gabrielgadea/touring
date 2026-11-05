@@ -146,12 +146,13 @@ timestamp: 2026-08-20T11:15:00-03:00
    nunca `clear`.
 
 10. **Code mode ATIVO neste workspace**: `.touring/touring.toml` declara
-    `[code_mode] mode = "code"`. Inspeção **isolada passa**; o que colapsa é a
-    **rajada**, e a chamada negada traz o programa fundido pronto.
+    `[code_mode] mode = "code"`. Inspeção **isolada passa**; a **rajada** de inspeção
+    só AVISA (D, 09/10/2026 — nunca nega) e o aviso traz o programa fundido pronto;
+    os gates abaixo dela negam, e a chamada negada traz a rota de volta.
 
-    | Gate | Nega em | Janela |
+    | Gate | Age em | Janela |
     |---|---|---|
-    | rajada de inspeção (`grep`/`cat`/`find`/`ls`/`wc`/`sed-n`/python-inline read-only) | 2ª | 300s |
+    | rajada de inspeção (`grep`/`cat`/`find`/`ls`/`wc`/`sed-n`/python-inline read-only) | 2ª (aviso, 1 por rajada) | 300s |
     | G1 rajada · G7 re-inspeção | 3ª | 300s |
     | G10 exec-burst | 5ª | 600s |
     | par write→run · G3 edit-sem-read | 2º | 600s |

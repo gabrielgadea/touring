@@ -343,7 +343,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
 /// Falls back to `failure_signal_hint` when no success was detected (failure path — RL-0.1).
 /// Mutual exclusion: a 500-char cargo test output contains either ok OR FAILED, not both.
 /// Extracted from `handle_task_sync_post_output` so its CC stays ≤ 15 (R29-S1 fix).
-pub(crate) fn output_outcome_hint(rt: &mut HookRuntime, output: &str, task_id: &str) -> String {
+fn output_outcome_hint(rt: &mut HookRuntime, output: &str, task_id: &str) -> String {
     let completion = completion_signal_hint(output, task_id);
     if !completion.is_empty() {
         return completion;
@@ -359,7 +359,7 @@ pub(crate) fn output_outcome_hint(rt: &mut HookRuntime, output: &str, task_id: &
 /// without requiring a manual `touring decompose update` call.
 ///
 /// Returns a formatted confirmation hint when the advance succeeds, empty string otherwise.
-pub(crate) fn advance_dag_validate_on_success(
+fn advance_dag_validate_on_success(
     rt: &mut HookRuntime,
     outcome_hint: &str,
     task_id: &str,
@@ -395,7 +395,7 @@ pub(crate) fn advance_dag_validate_on_success(
 /// a manual `touring decompose update` call.
 ///
 /// Returns a formatted confirmation hint when artifacts were found; empty string otherwise.
-pub(crate) fn advance_dag_implement_on_artifact(
+fn advance_dag_implement_on_artifact(
     rt: &mut HookRuntime,
     artifact_count: usize,
     task_id: &str,
@@ -431,7 +431,7 @@ pub(crate) fn advance_dag_implement_on_artifact(
 ///
 /// Side effects: injects `cli_learning_reward(-0.1)` + `cli_memory_store(lesson)`.
 /// Returns a formatted hint pointing to debugging commands.
-pub(crate) fn failure_signal_hint(rt: &mut HookRuntime, output: &str, task_id: &str) -> String {
+fn failure_signal_hint(rt: &mut HookRuntime, output: &str, task_id: &str) -> String {
     if output.is_empty() {
         return String::new();
     }
@@ -494,7 +494,7 @@ pub(crate) fn failure_signal_hint(rt: &mut HookRuntime, output: &str, task_id: &
 /// - Any other `error[E` → generic `plan-suggest` scaffold
 ///
 /// Returns empty string when no compilation errors are detected.
-pub(crate) fn maybe_rust_error_generator_hint(output_text: &str) -> String {
+fn maybe_rust_error_generator_hint(output_text: &str) -> String {
     let window = truncate_str(output_text, 400);
     if !window.contains("error[E") {
         return String::new();
@@ -515,7 +515,7 @@ pub(crate) fn maybe_rust_error_generator_hint(output_text: &str) -> String {
 /// failure marker), this helper additionally surfaces `touring evolution drift -j` so the
 /// engineer can run drift analysis to distinguish a one-off bug from a systemic regression.
 /// Returns empty string when outcome_hint does not contain the failure marker.
-pub(crate) fn maybe_evolution_drift_on_failure(outcome_hint: &str) -> String {
+fn maybe_evolution_drift_on_failure(outcome_hint: &str) -> String {
     if !outcome_hint.contains("✗ failure detected") {
         return String::new();
     }
@@ -530,7 +530,7 @@ pub(crate) fn maybe_evolution_drift_on_failure(outcome_hint: &str) -> String {
 /// a structured patch artifact via the generator pipeline rather than applying diffs manually.
 /// Closes the loop: TaskOutput(diff) → incremental_patch template → touring-generator commit.
 /// Returns `None` when no diff patterns are found — avoids noise on non-patch outputs.
-pub(crate) fn maybe_incremental_patch_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_incremental_patch_hint_on_output(output_text: &str) -> Option<String> {
     const DIFF_MARKERS: &[&str] = &["diff --git", "--- a/", "+++ b/", "@@ "];
     let has_diff = DIFF_MARKERS
         .iter()
@@ -551,7 +551,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_output(output_text: &str) -> Optio
 /// surfaces `touring generate render schema` so Claude Code can scaffold a formal schema artifact
 /// via the generator pipeline. Closes the loop: TaskOutput(schema) → schema.tera → generator commit.
 /// Returns `None` when no schema markers are found — avoids noise for non-schema outputs.
-pub(crate) fn maybe_schema_generator_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_schema_generator_hint_on_output(output_text: &str) -> Option<String> {
     const SCHEMA_MARKERS: &[&str] = &[
         "\"$schema\"",
         "\"type\": \"object\"",
@@ -576,7 +576,7 @@ pub(crate) fn maybe_schema_generator_hint_on_output(output_text: &str) -> Option
 /// "ci:", "cd:", or "workflow", surfaces `touring generate render ci_workflow` so
 /// Claude Code scaffolds the automation artifact immediately.
 /// Returns `None` when output is empty or contains no CI/CD markers.
-pub(crate) fn maybe_ci_workflow_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_ci_workflow_hint_on_output(output_text: &str) -> Option<String> {
     const CI_MARKERS: &[&str] = &[
         "github actions",
         "dockerfile",
@@ -608,7 +608,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_output(output_text: &str) -> Option<Stri
 /// or schema change markers, surfaces `touring generate render migration` so Claude Code
 /// captures the schema evolution as a versioned migration artifact.
 /// Returns `None` when output is empty or contains no SQL/migration markers.
-pub(crate) fn maybe_migration_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_migration_hint_on_output(output_text: &str) -> Option<String> {
     const SQL_MARKERS: &[&str] = &[
         "create table",
         "alter table",
@@ -638,7 +638,7 @@ pub(crate) fn maybe_migration_hint_on_output(output_text: &str) -> Option<String
 /// surfaces `touring generate render dockerfile` so Claude Code scaffolds the
 /// container definition immediately after detecting container-related work.
 /// Returns `None` when output is empty or contains no container markers.
-pub(crate) fn maybe_dockerfile_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_dockerfile_hint_on_output(output_text: &str) -> Option<String> {
     const DOCKER_MARKERS: &[&str] = &[
         "docker",
         "container",
@@ -669,7 +669,7 @@ pub(crate) fn maybe_dockerfile_hint_on_output(output_text: &str) -> Option<Strin
 /// Claude Code scaffolds a safe FFI binding wrapper immediately after FFI code appears.
 /// Closes the loop: TaskOutput(FFI code) → ffi_binding.tera → touring-generator.
 /// Returns `None` when output is empty or contains no FFI-specific markers.
-pub(crate) fn maybe_ffi_binding_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_ffi_binding_hint_on_output(output_text: &str) -> Option<String> {
     const FFI_MARKERS: &[&str] = &[
         "extern \"C\"",
         "#[no_mangle]",
@@ -697,7 +697,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_output(output_text: &str) -> Option<Stri
 /// completion script immediately after detecting completion-related output.
 /// Closes the loop: TaskOutput(completion markers) → shell_completion.tera → touring-generator.
 /// Returns `None` when output is empty or contains no shell completion markers.
-pub(crate) fn maybe_shell_completion_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_shell_completion_hint_on_output(output_text: &str) -> Option<String> {
     const COMPLETION_MARKERS: &[&str] = &[
         "complete -",
         "compdef ",
@@ -726,7 +726,7 @@ pub(crate) fn maybe_shell_completion_hint_on_output(output_text: &str) -> Option
 /// Claude Code scaffolds a structured changelog entry immediately after release-related work.
 /// Closes the loop: TaskOutput(release markers) → changelog_entry.tera → touring-generator.
 /// Returns `None` when output is empty or contains no changelog-related markers.
-pub(crate) fn maybe_changelog_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_changelog_hint_on_output(output_text: &str) -> Option<String> {
     const CHANGELOG_MARKERS: &[&str] = &[
         "CHANGELOG",
         "changelog",
@@ -755,7 +755,7 @@ pub(crate) fn maybe_changelog_hint_on_output(output_text: &str) -> Option<String
 /// `touring generate render python_script` so Claude Code scaffolds a Python script module.
 /// Closes the loop: TaskOutput(Python code) → python_script.tera → touring-generator.
 /// Returns `None` when output is empty or contains no Python-specific markers.
-pub(crate) fn maybe_python_script_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_python_script_hint_on_output(output_text: &str) -> Option<String> {
     const PYTHON_MARKERS: &[&str] = &[
         "if __name__",
         "import asyncio",
@@ -783,7 +783,7 @@ pub(crate) fn maybe_python_script_hint_on_output(output_text: &str) -> Option<St
 /// Claude Code scaffolds a dedicated test module immediately after test code appears.
 /// Closes the loop: TaskOutput(test code) → test.tera → touring-generator test scaffold.
 /// Returns `None` when output is empty or contains no test-specific markers.
-pub(crate) fn maybe_test_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_test_hint_on_output(output_text: &str) -> Option<String> {
     const TEST_MARKERS: &[&str] = &[
         "#[test]",
         "fn test_",
@@ -813,7 +813,7 @@ pub(crate) fn maybe_test_hint_on_output(output_text: &str) -> Option<String> {
 /// scaffolds a new Rust module scaffold immediately after Rust code appears in task output.
 /// Closes the loop: TaskOutput(Rust code) → rust_module.tera → touring-generator module scaffold.
 /// Returns `None` when output is empty or contains no Rust-specific markers.
-pub(crate) fn maybe_rust_module_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_rust_module_hint_on_output(output_text: &str) -> Option<String> {
     const RUST_MARKERS: &[&str] = &[
         "pub struct ",
         "pub fn ",
@@ -843,7 +843,7 @@ pub(crate) fn maybe_rust_module_hint_on_output(output_text: &str) -> Option<Stri
 /// so Claude Code scaffolds the Kubernetes manifest immediately.
 /// Distinct from `maybe_dockerfile_hint_on_output` which targets container build, not orchestration.
 /// Returns `None` when output is empty or contains no k8s-specific markers.
-pub(crate) fn maybe_k8s_manifest_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_k8s_manifest_hint_on_output(output_text: &str) -> Option<String> {
     const K8S_MARKERS: &[&str] = &[
         "kubectl",
         "helm install",
@@ -872,7 +872,7 @@ pub(crate) fn maybe_k8s_manifest_hint_on_output(output_text: &str) -> Option<Str
 /// Keywords that signal the output is related to performance benchmarking:
 /// criterion, bench, bencher, benchmark, flamegraph, perf, hyperfine, divan.
 /// Returns a hint to run `touring generate render benchmark` via touring-generator.
-pub(crate) fn maybe_benchmark_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_benchmark_hint_on_output(output_text: &str) -> Option<String> {
     const BENCH_MARKERS: &[&str] = &[
         "criterion",
         "bencher",
@@ -901,7 +901,7 @@ pub(crate) fn maybe_benchmark_hint_on_output(output_text: &str) -> Option<String
 /// Keywords that signal fuzzing or property-based testing activity:
 /// libfuzzer, cargo-fuzz, fuzz_target, proptest, arbitrary, honggfuzz, afl.
 /// Returns a hint to run `touring generate render fuzz_target` via touring-generator.
-pub(crate) fn maybe_fuzz_target_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_fuzz_target_hint_on_output(output_text: &str) -> Option<String> {
     const FUZZ_MARKERS: &[&str] = &[
         "libfuzzer",
         "cargo fuzz",
@@ -930,7 +930,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_output(output_text: &str) -> Option<Stri
 /// Keywords that signal derive macro or procedural macro development:
 /// proc_macro, derive macro, #[proc_macro_derive], syn::derive, quote::quote, proc-macro2.
 /// Returns a hint to run `touring generate render derive_macro` via touring-generator.
-pub(crate) fn maybe_derive_macro_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_derive_macro_hint_on_output(output_text: &str) -> Option<String> {
     const DERIVE_MARKERS: &[&str] = &[
         "proc_macro",
         "proc-macro2",
@@ -957,7 +957,7 @@ pub(crate) fn maybe_derive_macro_hint_on_output(output_text: &str) -> Option<Str
 ///
 /// Keywords: error catalog, thiserror, error enum, error registry, error variants, custom error codes.
 /// Returns a hint to run `touring generate render error_catalog` via touring-generator.
-pub(crate) fn maybe_error_catalog_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_error_catalog_hint_on_output(output_text: &str) -> Option<String> {
     const ERROR_CATALOG_MARKERS: &[&str] = &[
         "error catalog",
         "thiserror",
@@ -984,7 +984,7 @@ pub(crate) fn maybe_error_catalog_hint_on_output(output_text: &str) -> Option<St
 ///
 /// Keywords: touring decompose, dag scaffold, task scaffold, taco task, subtask dag, decompose create.
 /// Returns a hint to run `touring generate render task_scaffold` via touring-generator.
-pub(crate) fn maybe_task_scaffold_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_task_scaffold_hint_on_output(output_text: &str) -> Option<String> {
     const TASK_SCAFFOLD_MARKERS: &[&str] = &[
         "touring decompose",
         "dag scaffold",
@@ -1011,7 +1011,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_output(output_text: &str) -> Option<St
 ///
 /// Keywords: touring diary, lesson learned, retrospective, postmortem, aaak format, diary write.
 /// Returns a hint to run `touring generate render diary_entry` via touring-generator.
-pub(crate) fn maybe_diary_entry_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_diary_entry_hint_on_output(output_text: &str) -> Option<String> {
     const DIARY_MARKERS: &[&str] = &[
         "touring diary",
         "lesson learned",
@@ -1038,7 +1038,7 @@ pub(crate) fn maybe_diary_entry_hint_on_output(output_text: &str) -> Option<Stri
 ///
 /// Keywords: asyncapi, amqp, event-driven api, message broker, kafka topic, pubsub schema.
 /// Returns a hint to run `touring generate render asyncapi_spec` via touring-generator.
-pub(crate) fn maybe_asyncapi_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_asyncapi_hint_on_output(output_text: &str) -> Option<String> {
     const ASYNCAPI_MARKERS: &[&str] = &[
         "asyncapi",
         "amqp",
@@ -1065,7 +1065,7 @@ pub(crate) fn maybe_asyncapi_hint_on_output(output_text: &str) -> Option<String>
 ///
 /// Keywords: architecture decision, adr, design decision, architectural record, tech tradeoff.
 /// Returns a hint to run `touring generate render adr` via touring-generator.
-pub(crate) fn maybe_adr_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_adr_hint_on_output(output_text: &str) -> Option<String> {
     const ADR_MARKERS: &[&str] = &[
         "architecture decision",
         "adr",
@@ -1092,7 +1092,7 @@ pub(crate) fn maybe_adr_hint_on_output(output_text: &str) -> Option<String> {
 ///
 /// Keywords: man page, groff, troff, manual section, .TH, .SH NAME, roff format.
 /// Returns a hint to run `touring generate render man_page` via touring-generator.
-pub(crate) fn maybe_man_page_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_man_page_hint_on_output(output_text: &str) -> Option<String> {
     const MAN_MARKERS: &[&str] = &[
         "man page",
         "groff",
@@ -1117,7 +1117,7 @@ pub(crate) fn maybe_man_page_hint_on_output(output_text: &str) -> Option<String>
 }
 
 /// R98-S1: Detect OpenAPI/Swagger markers in task output → suggest openapi_spec generator (CC≤2).
-pub(crate) fn maybe_openapi_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_openapi_hint_on_output(output_text: &str) -> Option<String> {
     const OPENAPI_MARKERS: &[&str] = &[
         "openapi",
         "swagger",
@@ -1141,7 +1141,7 @@ pub(crate) fn maybe_openapi_hint_on_output(output_text: &str) -> Option<String> 
 }
 
 /// R98-S2: Detect hook handler markers in task output → suggest hook_handler generator (CC≤2).
-pub(crate) fn maybe_hook_handler_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_hook_handler_hint_on_output(output_text: &str) -> Option<String> {
     const HOOK_MARKERS: &[&str] = &[
         "hook handler",
         "lifecycle hook",
@@ -1165,7 +1165,7 @@ pub(crate) fn maybe_hook_handler_hint_on_output(output_text: &str) -> Option<Str
 }
 
 /// R98-S3: Detect MCP tool markers in task output → suggest mcp_tool generator (CC≤2).
-pub(crate) fn maybe_mcp_tool_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_mcp_tool_hint_on_output(output_text: &str) -> Option<String> {
     const MCP_MARKERS: &[&str] = &[
         "mcp tool",
         "mcp server",
@@ -1189,7 +1189,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_output(output_text: &str) -> Option<String>
 }
 
 /// R99-S1: Detect Terraform/IaC markers in task output → suggest terraform_module generator (CC≤2).
-pub(crate) fn maybe_terraform_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_terraform_hint_on_output(output_text: &str) -> Option<String> {
     const TF_MARKERS: &[&str] = &[
         "terraform",
         "opentofu",
@@ -1213,7 +1213,7 @@ pub(crate) fn maybe_terraform_hint_on_output(output_text: &str) -> Option<String
 }
 
 /// R99-S2: Detect CLI handler markers in task output → suggest cli_handler generator (CC≤2).
-pub(crate) fn maybe_cli_handler_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_cli_handler_hint_on_output(output_text: &str) -> Option<String> {
     const CLI_MARKERS: &[&str] = &[
         "cli handler",
         "clap",
@@ -1237,7 +1237,7 @@ pub(crate) fn maybe_cli_handler_hint_on_output(output_text: &str) -> Option<Stri
 }
 
 /// R99-S3: Detect plan/markdown markers in task output → suggest plan_md generator (CC≤2).
-pub(crate) fn maybe_plan_md_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_plan_md_hint_on_output(output_text: &str) -> Option<String> {
     const PLAN_MARKERS: &[&str] = &[
         "plan.md",
         "planning document",
@@ -1261,7 +1261,7 @@ pub(crate) fn maybe_plan_md_hint_on_output(output_text: &str) -> Option<String> 
 }
 
 /// R100-S1: Detect skill/documentation markers in task output → suggest skill_document generator (CC≤2).
-pub(crate) fn maybe_skill_document_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_skill_document_hint_on_output(output_text: &str) -> Option<String> {
     const SKILL_MARKERS: &[&str] = &[
         "skill document",
         "skill.md",
@@ -1285,7 +1285,7 @@ pub(crate) fn maybe_skill_document_hint_on_output(output_text: &str) -> Option<S
 }
 
 /// R100-S2: Detect protobuf/gRPC markers in task output → suggest protobuf_schema generator (CC≤2).
-pub(crate) fn maybe_protobuf_schema_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_protobuf_schema_hint_on_output(output_text: &str) -> Option<String> {
     const PROTO_MARKERS: &[&str] = &[
         "protobuf",
         "proto3",
@@ -1310,7 +1310,7 @@ pub(crate) fn maybe_protobuf_schema_hint_on_output(output_text: &str) -> Option<
 }
 
 /// R100-S3: Detect consumer/event-driven markers in task output → suggest consumer_generator (CC≤2).
-pub(crate) fn maybe_consumer_generator_hint_on_output(output_text: &str) -> Option<String> {
+fn maybe_consumer_generator_hint_on_output(output_text: &str) -> Option<String> {
     const CONSUMER_MARKERS: &[&str] = &[
         "consumer generator",
         "event consumer",
@@ -1339,7 +1339,7 @@ pub(crate) fn maybe_consumer_generator_hint_on_output(output_text: &str) -> Opti
 /// to find the first path with a known generator mapping (e.g. `.sql` → Migration).
 /// Returns empty string when no known file type is detected in the output.
 /// This closes the TaskOutput → artifact path → Generator scaffold loop.
-pub(crate) fn artifact_file_gen_hint(output_text: &str) -> String {
+fn artifact_file_gen_hint(output_text: &str) -> String {
     let paths = extract_file_paths(output_text);
     for path in &paths {
         if let Some(kind) = classify_file_to_generator_kind(path) {
@@ -1359,7 +1359,7 @@ pub(crate) fn artifact_file_gen_hint(output_text: &str) -> String {
 /// the output text. When "✓ success" is present, injects `cli_learning_reward(+0.5)` to close
 /// the RL asymmetry where `failure_signal_hint` injects -0.1 but success had no injection.
 /// Returns a diary write hint so Claude Code can record the lesson in AAAK format.
-pub(crate) fn maybe_test_pass_rl_reward(
+fn maybe_test_pass_rl_reward(
     rt: &mut HookRuntime,
     outcome_hint: &str,
     task_id: &str,
@@ -1387,7 +1387,7 @@ pub(crate) fn maybe_test_pass_rl_reward(
 /// closes the mid-task gap: test pass in TaskOutput → diary write hint with AAAK format.
 /// The lesson is captured at the moment tests pass, not only when the user marks the task done.
 /// Returns empty string when outcome_hint contains no "✓ success" marker.
-pub(crate) fn maybe_diary_lesson_on_output_success(outcome_hint: &str, task_id: &str) -> String {
+fn maybe_diary_lesson_on_output_success(outcome_hint: &str, task_id: &str) -> String {
     if !outcome_hint.contains("✓ success") {
         return String::new();
     }
@@ -1404,7 +1404,7 @@ pub(crate) fn maybe_diary_lesson_on_output_success(outcome_hint: &str, task_id: 
 /// GeneratorPlan was likely produced. This helper extracts the first plausible plan path
 /// from the output (up to 300 chars) and surfaces `touring generate plan-validate --plan-file`.
 /// Returns empty string when no plan artifact is detected.
-pub(crate) fn maybe_plan_validate_from_output(output_text: &str) -> String {
+fn maybe_plan_validate_from_output(output_text: &str) -> String {
     let window = truncate_str(output_text, 300);
     // Detect explicit plan-submit mention
     if window.contains("plan-submit") || window.contains("plan.json") {
@@ -1426,7 +1426,7 @@ pub(crate) fn maybe_plan_validate_from_output(output_text: &str) -> String {
 /// Samples the first 20 whitespace-delimited tokens of the output (a reasonable keyword
 /// window) and passes them to `suggest_generator_for_task_subject`. Returns empty string
 /// when the output is empty or no SUBJECT_KEYWORD_MAP entry matches.
-pub(crate) fn generator_hint_from_output(output: &str) -> String {
+fn generator_hint_from_output(output: &str) -> String {
     if output.is_empty() {
         return String::new();
     }
@@ -1448,7 +1448,7 @@ pub(crate) fn generator_hint_from_output(output: &str) -> String {
 /// Returns a completion hint when detected, empty string otherwise.
 /// This automates the CC task lifecycle: output confirms success → Claude Code
 /// can mark the task completed without manually reading the full output.
-pub(crate) fn completion_signal_hint(output: &str, task_id: &str) -> String {
+fn completion_signal_hint(output: &str, task_id: &str) -> String {
     if output.is_empty() {
         return String::new();
     }
@@ -1475,7 +1475,7 @@ pub(crate) fn completion_signal_hint(output: &str, task_id: &str) -> String {
 /// Matches patterns like `` `MyStruct` ``, `` `main.rs` ``, `` `cargo:build` ``.
 /// Non-identifier characters inside backticks (spaces, `(`, `"`, etc.) cause the
 /// token to be discarded so prose like `` `cargo test` `` does not pollute the index.
-pub(crate) fn extract_backtick_symbols(text: &str) -> Vec<String> {
+fn extract_backtick_symbols(text: &str) -> Vec<String> {
     let mut symbols = Vec::new();
     let mut in_backtick = false;
     let mut current = String::new();
@@ -1511,7 +1511,7 @@ pub(crate) fn extract_backtick_symbols(text: &str) -> Vec<String> {
 /// Detects tokens that look like source file paths: contain `/`, end in a known
 /// extension (`.rs`, `.toml`, `.py`, `.ts`, `.json`), and have no embedded spaces.
 /// Used by R17-S2 to proactively refresh wiring after task output mentions modified files.
-pub(crate) fn extract_file_paths(text: &str) -> Vec<String> {
+fn extract_file_paths(text: &str) -> Vec<String> {
     let mut paths = Vec::new();
     for word in text.split_whitespace().take(200) {
         // Strip leading/trailing punctuation that is not path-relevant.

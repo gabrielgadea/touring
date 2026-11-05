@@ -51,7 +51,7 @@ PHASE D  Persistence                  → memory v8 + MEMORY.md line update
 ## Convergence gate (per Lei L2 — exit code, not narrative)
 
 ```
-quality_gate.py /home/gabrielgadea/.claude/skills/<each-skill> → exit 0 (100% PASS) × 11 skills ✅
+quality_gate.py ~/.claude/skills/<each-skill> → exit 0 (100% PASS) × 11 skills ✅
 ```
 
 All 11 skills PASS quality_gate.py at 100% post-REFINE. Composite per Lei L2 is measured (exit codes), not asserted.

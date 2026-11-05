@@ -13,6 +13,11 @@ Uso (nativo): python3 -I -B dev_com_overlay.py <saida_dir> [crate|ws]
 Depois: python3 -I -B vrs-porta-2026-10-10/scripts/medir_ids.py --touring <bin> --corpus <saida>/corpus --out <ids.json>
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import collections
 import hashlib
 import json
@@ -21,7 +26,7 @@ import shutil
 import sys
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 sys.path.insert(0, str(B / "scripts"))
 sys.path.insert(0, str(B / "diagnostics/horust-2026-10-10"))
 import corpus_rust_natural as crn  # noqa: E402
@@ -44,7 +49,7 @@ def main() -> int:
     mh.memoizar_git()
     uni = crn.Universo(mh.CORTE_B)
     for proj in crn.PROJETOS:
-        uni.varrer(proj, replay.PROJECTS / f"-home-gabrielgadea-projects-{proj}")
+        uni.varrer(proj, replay.PROJECTS / f"{_HOME_SLUG}-projects-{proj}")
     uni.fechar()
     ctx = crn.Ctx(crn.Config((), saida, (Path.home() / "projects",), corte=mh.CORTE_B), uni, crn.Reconstrutor(uni.idx, uni.erros))
     entradas = [json.loads(x) for x in (DEV / "entradas.jsonl").read_text().splitlines() if x.strip()]

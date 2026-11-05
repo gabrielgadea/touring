@@ -3,8 +3,8 @@ fmt --all -- --check rc=0 5s
 clippy --workspace --all-targets -D warnings rc=0 45s
 build touring (debug) rc=0 88s
 build touring-daemon (debug) rc=0 53s
-symlink target/debug/touring -> /home/gabrielgadea/projects/touring/target/wt-int97/debug/touring
-symlink target/debug/touring-daemon -> /home/gabrielgadea/projects/touring/target/wt-int97/debug/touring-daemon
+symlink target/debug/touring -> ~/projects/touring/target/wt-int97/debug/touring
+symlink target/debug/touring-daemon -> ~/projects/touring/target/wt-int97/debug/touring-daemon
 test touring-analysis  rc=0 130s
 test result: ok. 1014 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s

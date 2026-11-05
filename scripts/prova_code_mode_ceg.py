@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 TOURING = os.environ.get("TOURING_BIN", "touring")
-WS = Path("/home/gabrielgadea/projects/touring")
+WS = Path(__file__).resolve().parents[1]
 VERBOSE = "-v" in sys.argv
 
 resultados: list[tuple[bool, str, str]] = []
@@ -94,7 +94,7 @@ def prova_ceg_discrimina():
     afirma(ok, "padrão destrutivo (rm -rf) NEGA", msg[-120:])
 
     # 1e. escrita fora do escopo NEGA
-    ok, msg = negado("echo x > /home/gabrielgadea/.ssh/prova_ceg")
+    ok, msg = negado(f"echo x > {Path.home()}/.ssh/prova_ceg")
     afirma(ok and "file-write" in msg, "escrita fora do workspace NEGA", msg[-120:])
 
     # 1e-bis. idiomas de shell que NÃO podem virar deny: `2>&1` e `2>/dev/null`
@@ -117,7 +117,7 @@ def prova_ceg_discrimina():
 
 def prova_contencao():
     print("\n[2] CEG — a contenção do filesystem é real")
-    fora = Path("/home/gabrielgadea/.ssh/prova_landlock")
+    fora = Path.home() / ".ssh" / "prova_landlock"
     dentro = WS / ".prova_landlock_ws"
     for p in (fora, dentro):
         p.unlink(missing_ok=True)

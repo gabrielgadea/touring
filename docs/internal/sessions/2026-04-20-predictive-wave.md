@@ -260,7 +260,7 @@ inline em `gate_metrics.rs` verificam propriedades atômicas (monotonicity).
 ### Build
 
 ```bash
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 cargo build --release -p touring-server
 ```
 

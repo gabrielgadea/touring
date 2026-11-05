@@ -31,7 +31,7 @@ def render_deployment_md() -> str:
         - Binaries: `~/.local/bin/touring` → `~/.claude/rust/target/release/touring`
         - Daemon socket: `/tmp/touring-daemon-1000.sock` (global, USER-scoped)
         - Knowledge DB: `~/.claude/touring/symbols.db`
-        - Memory: `~/.claude/projects/-home-gabrielgadea/memory/`
+        - Memory: `~/.claude/projects/-home-<user>/memory/`
 
         **6 problems**: (1) single binary version; (2) knowledge DB pollution; (3) memory
         cross-contamination; (4) no rollback per project; (5) external clients impossible;

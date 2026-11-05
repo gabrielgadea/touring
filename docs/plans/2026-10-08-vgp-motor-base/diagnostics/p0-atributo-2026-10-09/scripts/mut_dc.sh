@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Mutantes do determinismo + semantica de dataclass. Roda DENTRO de uma reserva do hw-slot (rust), com os
 # testes limpos ja verdes. Marcador .TROCA-EM-CURSO durante a janela; o fonte volta byte a byte (cmp).
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-vgp-attr
-P0=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
+WT=${HOME}/projects/touring-wt-vgp-attr
+P0=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
 V=$WT/crates/touring-code/src/vgp
 cd "$WT" || exit 9
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/vgp-test
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/vgp-test
 mkdir -p "$P0/fonte_dc_bom/checks"
 for f in checks.rs modules.rs checks/tests.rs; do cp -p "$V/$f" "$P0/fonte_dc_bom/$f"; done
 : > "$P0/mut_dc.rc"

@@ -6,6 +6,9 @@ juiz de verdade, com chamadas > 0 e positivos de simbolo > 0 — E o nome do bin
 Este script mede e imprime, sem mocks e sem tocar no corpus_rust/ vivo (que o vrs-porta esta
 usando).
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import hashlib
 import json
 import subprocess
@@ -15,7 +18,7 @@ from pathlib import Path
 
 CORPUS = Path.home() / ".claude/touring/vgp/corpus_rust_sanidade_v2"
 JUIZ = Path(
-    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base"
+    f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base"
     "/scripts/juiz_motor_vgp.py"
 )
 # O binario CONGELADO. A coordenadora avisou que o 30.4.96 implantado ainda responde stub em Rust,

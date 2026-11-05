@@ -30,7 +30,7 @@ cd ~/projects/touring
 touring memory recall "afordância code mode P2"
 touring decompose ready task_1787656862986274376
 python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py \
-  --task task_1787656862986274376 --scope /home/gabrielgadea/projects/touring \
+  --task task_1787656862986274376 --scope ~/projects/touring \
   --bundle docs/plans/2026-08-25-code-mode-afordancia --json
 ```
 
@@ -148,7 +148,7 @@ próxima forma.
 
 ## Fontes primárias (clone local, ler antes de redesenhar)
 
-`/home/gabrielgadea/references/code-mode-2026-08-23/deepseek-harness`
+`~/references/code-mode-2026-08-23/deepseek-harness`
 
 - `.agents/notes/implemented/feature/2026-06-15-code-mode.md` — transporte `run_code`, seam do runtime, `deferContext`, contrato `{code, description}`
 - `.agents/notes/implemented/bug-fix/2026-08-07-code-mode-executor-collapse.md` — *"schema omission is not enforcement… denial must be tested through the executor"*; a negação carrega a rota

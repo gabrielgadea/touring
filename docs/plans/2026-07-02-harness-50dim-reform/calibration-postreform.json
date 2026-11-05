@@ -24,14 +24,14 @@
    "tier": "Silver"
   },
   {
-   "target": "/home/gabrielgadea/.claude/skills/Touring/scripts/lib_touring.py",
+   "target": "~/.claude/skills/Touring/scripts/lib_touring.py",
    "baseline": 0.9781,
    "post_reform": 0.9687,
    "delta": -0.0094,
    "tier": "Diamond"
   },
   {
-   "target": "/home/gabrielgadea/.claude/hooks/session_startup_intelligence.py",
+   "target": "~/.claude/hooks/session_startup_intelligence.py",
    "baseline": 0.97,
    "post_reform": 0.9387,
    "delta": -0.0313,
@@ -45,7 +45,7 @@
    "tier": "Silver"
   },
   {
-   "target": "/home/gabrielgadea/.claude/skills/Touring/scripts",
+   "target": "~/.claude/skills/Touring/scripts",
    "baseline": 0.9777,
    "post_reform": 0.9067,
    "delta": -0.071,

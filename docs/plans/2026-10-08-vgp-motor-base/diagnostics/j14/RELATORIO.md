@@ -10,7 +10,7 @@ tags: ["#kind:report", "#domain:vgp", "#status:measured"]
 
 # J14 — vereditos frios e medição no daemon quente
 
-B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 
 ## 1. Corpus e binários
 

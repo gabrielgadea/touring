@@ -85,5 +85,5 @@
 ## Artefato da Sessão
 
 - Ledger: este arquivo
-- Diagnóstico: `/home/gabrielgadea/projects/touring/docs/plans/2026-08-24-work-outer/diagnostics/touring-20260824T004656.md`
+- Diagnóstico: `~/projects/touring/docs/plans/2026-08-24-work-outer/diagnostics/touring-20260824T004656.md`
 - Commits: Adiando push até completar fase 2

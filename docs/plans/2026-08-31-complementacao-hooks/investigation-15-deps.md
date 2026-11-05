@@ -28,10 +28,10 @@ $ grep -n "15_dependencies_advisories" docs/elite_aggregate.py
 ### 2. Inspecionar o gate 15 isoladamente
 
 ```bash
-$ touring-quality check --gate F2.5 --target /home/gabrielgadea/projects/touring --format json
+$ touring-quality check --gate F2.5 --target ~/projects/touring --format json
 {
   "scope_kind": "workspace",
-  "root": "/home/gabrielgadea/projects/touring",
+  "root": "~/projects/touring",
   "file_count": 2318,
   "total_loc": 819008,
   "dimensions": {
@@ -77,7 +77,7 @@ $ cargo audit            # roda scan no lockfile atual
 
 **Após o fix, re-rodar gate**:
 ```bash
-$ touring-quality check --gate F2.5 --target /home/gabrielgadea/projects/touring --format json
+$ touring-quality check --gate F2.5 --target ~/projects/touring --format json
 # esperado: score 1.0, status PASS
 
 $ python3 docs/elite_aggregate.py --check

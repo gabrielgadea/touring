@@ -116,7 +116,7 @@
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md",
     "linha": 75,
-    "trecho": "- `Bash: grep -n '^version = \"30.4' Cargo.toml; grep -c '30.4.45' Cargo.lock; cat /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78"
+    "trecho": "- `Bash: grep -n '^version = \"30.4' Cargo.toml; grep -c '30.4.45' Cargo.lock; cat /tmp/claude-1000/-home-<user>-projects-touring/4fa78"
    },
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md",
@@ -254,27 +254,27 @@
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
     "linha": 54,
-    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; ls -la $L/juiz-30.4.58-2026-09-18.rc 2>&1 | tail -1; systemctl --user is-active touring-"
+    "trecho": "- `Bash: L=~/.claude/touring/logs; ls -la $L/juiz-30.4.58-2026-09-18.rc 2>&1 | tail -1; systemctl --user is-active touring-"
    },
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
     "linha": 56,
-    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; date +%T; cat $L/juiz-30.4.58-2026-09-18.rc 2>&1; systemctl --user is-active touring-jui"
+    "trecho": "- `Bash: L=~/.claude/touring/logs; date +%T; cat $L/juiz-30.4.58-2026-09-18.rc 2>&1; systemctl --user is-active touring-jui"
    },
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
     "linha": 84,
-    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; cp $L/juiz-30.4.58-2026-09-18.log $L/juiz-30.4.58-2026-09-18-r3-hang.log 2>/dev/null; sy"
+    "trecho": "- `Bash: L=~/.claude/touring/logs; cp $L/juiz-30.4.58-2026-09-18.log $L/juiz-30.4.58-2026-09-18-r3-hang.log 2>/dev/null; sy"
    },
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
     "linha": 84,
-    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; cp $L/juiz-30.4.58-2026-09-18.log $L/juiz-30.4.58-2026-09-18-r3-hang.log 2>/dev/null; sy"
+    "trecho": "- `Bash: L=~/.claude/touring/logs; cp $L/juiz-30.4.58-2026-09-18.log $L/juiz-30.4.58-2026-09-18-r3-hang.log 2>/dev/null; sy"
    },
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
     "linha": 85,
-    "trecho": "- `Monitor: L=/home/gabrielgadea/.claude/touring/logs; U=touring-juiz-30458-r4; warned=\"\"; until [ -f \"$L/juiz-30.4.58-2026-09-18.rc\" ]; do "
+    "trecho": "- `Monitor: L=~/.claude/touring/logs; U=touring-juiz-30458-r4; warned=\"\"; until [ -f \"$L/juiz-30.4.58-2026-09-18.rc\" ]; do "
    }
   ],
   "30.4.41": [
@@ -503,7 +503,7 @@
    {
     "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
     "linha": 95,
-    "trecho": "- `Bash: TOURING_CODE_MODE=native scripts/propagate-release.sh 30.4.64 > /tmp/claude-1000/-home-gabrielgadea-projects-touring/b824294f-30ac-"
+    "trecho": "- `Bash: TOURING_CODE_MODE=native scripts/propagate-release.sh 30.4.64 > /tmp/claude-1000/-home-<user>-projects-touring/b824294f-30ac-"
    },
    {
     "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
@@ -683,7 +683,7 @@
    {
     "arquivo": "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
     "linha": 127,
-    "trecho": "- `Bash: cat > /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/c_bump.txt <<'EOF' chore"
+    "trecho": "- `Bash: cat > /tmp/claude-1000/-home-<user>-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/c_bump.txt <<'EOF' chore"
    },
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789753655.md",
@@ -1966,7 +1966,7 @@
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789775728.md",
     "linha": 61,
-    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; S=$L/build-test-30.4.59c.sh; cat > \"$S\" <<'EOF' #!/usr/bin/env bash # Final 30.4.59 buil"
+    "trecho": "- `Bash: L=~/.claude/touring/logs; S=$L/build-test-30.4.59c.sh; cat > \"$S\" <<'EOF' #!/usr/bin/env bash # Final 30.4.59 buil"
    },
    {
     "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
@@ -2052,22 +2052,22 @@
    {
     "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
     "linha": 91,
-    "trecho": "- `Bash: systemd-run --user --unit=touring-cycle-30460 --collect --same-dir /home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.sh 2>&1; s"
+    "trecho": "- `Bash: systemd-run --user --unit=touring-cycle-30460 --collect --same-dir ~/.claude/touring/logs/cycle-30.4.60.sh 2>&1; s"
    },
    {
     "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
     "linha": 94,
-    "trecho": "- `Bash: R=/home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^test rc=' $R 2>/dev"
+    "trecho": "- `Bash: R=~/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^test rc=' $R 2>/dev"
    },
    {
     "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
     "linha": 95,
-    "trecho": "- `Bash: R=/home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^propagate rc=' $R 2"
+    "trecho": "- `Bash: R=~/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^propagate rc=' $R 2"
    },
    {
     "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
     "linha": 99,
-    "trecho": "- `Bash: R=/home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^rebuild rc=' $R 2>/"
+    "trecho": "- `Bash: R=~/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^rebuild rc=' $R 2>/"
    }
   ],
   "30.4.89": [
@@ -2217,7 +2217,7 @@
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789408719.md",
     "linha": 66,
-    "trecho": "- `Bash: cd /home/gabrielgadea/projects/touring; timeout 590 cargo test -p touring-server --bin touring daemon_ctl 2>&1 | grep -E \"^test .*("
+    "trecho": "- `Bash: cd ~/projects/touring; timeout 590 cargo test -p touring-server --bin touring daemon_ctl 2>&1 | grep -E \"^test .*("
    }
   ],
   "reseala": [
@@ -2342,7 +2342,7 @@
    {
     "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
     "linha": 100,
-    "trecho": "- `Bash: TOURING_PROJECT_ROOT=/home/gabrielgadea/projects/touring timeout 900 cargo test -p touring-hook-runtime --lib a_reexported_path_wir"
+    "trecho": "- `Bash: TOURING_PROJECT_ROOT=~/projects/touring timeout 900 cargo test -p touring-hook-runtime --lib a_reexported_path_wir"
    },
    {
     "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
@@ -2793,17 +2793,17 @@
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
     "linha": 66,
-    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all python3 /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-412"
+    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all python3 /tmp/claude-1000/-home-<user>-projects-touring/3db9ea13-e79a-412"
    },
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
     "linha": 67,
-    "trecho": "- `Bash: timeout 1200 env TOURING_TANTIVY_COVERAGE_FIELDS=all python3 /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-412"
+    "trecho": "- `Bash: timeout 1200 env TOURING_TANTIVY_COVERAGE_FIELDS=all python3 /tmp/claude-1000/-home-<user>-projects-touring/3db9ea13-e79a-412"
    },
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
     "linha": 72,
-    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all TOURING_TANTIVY_WORD_COVERAGE=12 python3 /tmp/claude-1000/-home-gabrielgadea-p"
+    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all TOURING_TANTIVY_WORD_COVERAGE=12 python3 /tmp/claude-1000/-home-<user>-p"
    }
   ],
   "TOURING_TANT": [
@@ -2884,7 +2884,7 @@
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
     "linha": 65,
-    "trecho": "- `Bash: timeout 3000 python3 /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/q1_grid.p"
+    "trecho": "- `Bash: timeout 3000 python3 /tmp/claude-1000/-home-<user>-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/q1_grid.p"
    }
   ],
   "TOURING_REBUILD_SEARCH_DOCS": [
@@ -3013,7 +3013,7 @@
    {
     "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
     "linha": 72,
-    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all TOURING_TANTIVY_WORD_COVERAGE=12 python3 /tmp/claude-1000/-home-gabrielgadea-p"
+    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all TOURING_TANTIVY_WORD_COVERAGE=12 python3 /tmp/claude-1000/-home-<user>-p"
    }
   ],
   "TOURING_DAEMON_SCOPE": [

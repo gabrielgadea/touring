@@ -6,11 +6,11 @@
 # propagate-release). Roda DENTRO de uma reserva do hw-slot:
 #   hw-slot --class rust --wait 7200 -- bash gates_int97i.sh <pasta-de-saida>
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-int97
+WT=${HOME}/projects/touring-wt-int97
 OUT=${1:?pasta de saida}
 mkdir -p "$OUT"
 cd "$WT" || exit 9
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-int97
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-int97
 RC=$OUT/gates.rc
 : > "$RC"
 FALHAS=0

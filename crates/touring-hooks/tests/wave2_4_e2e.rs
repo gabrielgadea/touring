@@ -291,19 +291,22 @@ fn hook_registry_count_matches_the_dispatch_registry() {
     );
 }
 
+/// The membership the `touring-hook` fast-path asks (`is_daemon_hook`) and the names the
+/// registry lists are the same set — there is no hand-written constant to be a subset of
+/// the function any more (it lagged the dispatch table by eight names, which therefore
+/// never took the daemon fast-path). A subcommand the daemon does not serve is no member.
 #[test]
-fn hook_registry_all_daemon_constant_matches_function() {
-    let names_vec = touring_hooks::hook_registry::all_daemon_hook_names();
-    let names_const = touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES;
-    // NOTE: constant (182) and function (184) diverge on feature-gated entries
-    // and 'stop' which is in constant but not in function. Both counts are
-    // correct for their respective purposes.
-    let vec_set: std::collections::HashSet<_> = names_vec.iter().collect();
-    let const_set: std::collections::HashSet<_> = names_const.iter().collect();
-    assert!(
-        const_set.is_subset(&vec_set),
-        "ALL_DAEMON_HOOK_NAMES must be a subset of all_daemon_hook_names()"
-    );
+fn hook_registry_membership_predicate_matches_the_listed_names() {
+    use touring_hooks::hook_registry::{all_daemon_hook_names, is_daemon_hook};
+    let names = all_daemon_hook_names();
+    assert!(!names.is_empty());
+    for name in &names {
+        assert!(
+            is_daemon_hook(name),
+            "'{name}' is listed by all_daemon_hook_names() but is_daemon_hook rejects it"
+        );
+    }
+    assert!(!is_daemon_hook("prompt-enhance"));
 }
 
 #[test]

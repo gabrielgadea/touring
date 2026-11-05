@@ -76,6 +76,17 @@ fn byte_truncations(source: &str) -> Vec<String> {
         {
             continue;
         }
+        // `.to_vec()` after the slice is the same tell: `str` has no `to_vec`, so
+        // the slice is `[T]` (bytes, here) — and a byte slice has no char boundary
+        // to land inside. `cdn/resolvedor.rs` cuts an HTTP body that way, and the
+        // guard flagged it (REGRA #21: a guard that cries wolf gets suppressed).
+        if rest.find(']').is_some_and(|close| {
+            rest[close..]
+                .trim_start_matches(']')
+                .starts_with(".to_vec()")
+        }) {
+            continue;
+        }
         if !rest.contains(".len().min(") {
             continue;
         }
@@ -172,6 +183,29 @@ fn the_detector_still_recognizes_the_pattern_it_guards_against() {
     assert!(
         byte_truncations(collection_slice).is_empty(),
         "slicing a collection cannot land inside a character — `.join(` is the tell"
+    );
+
+    // A BYTE slice cut to a limit: `str` has no `to_vec`, so `.to_vec()` after the
+    // slice proves it is `[u8]`, which has no char boundary to land inside. The
+    // sibling `.to_string()` on a `str` slice is the real defect and stays flagged.
+    let byte_slice = r#"
+        fn f(corpo: &[u8], limite: usize) -> Vec<u8> {
+            corpo[..corpo.len().min(limite)].to_vec()
+        }
+    "#;
+    assert!(
+        byte_truncations(byte_slice).is_empty(),
+        "a byte slice cannot panic on a char boundary — `.to_vec()` is the tell"
+    );
+    let str_slice_to_string = r#"
+        fn f(corpo: &str, limite: usize) -> String {
+            corpo[..corpo.len().min(limite)].to_string()
+        }
+    "#;
+    assert_eq!(
+        byte_truncations(str_slice_to_string).len(),
+        1,
+        "the same cut on a `str` IS the defect and must stay flagged"
     );
 
     let prose_about_the_pattern = r#"

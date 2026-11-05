@@ -33,7 +33,7 @@ Two responsibilities in one namespace:
 | `polyglot` | (ex-touring-ast-polyglot) W4.3 | ast-grep structural search |
 | `languages` | (ex-touring-language) W4.4 | `Lang` enum + tier matrix |
 | `semantics` | (ex-touring-semantics) W4.5 | Definition resolver + source-to-def |
-| `journal` | code-mode-sinal F2 (NEW) | Parse `~/.claude/touring/run_journal.jsonl` into aggregate stats |
+| `journal` | code-mode-sinal F2 (NEW) | Aggregate stats over `~/.claude/touring/run_journal.jsonl`; the path, the line parsers, the writer and the failure taxonomy / exit status live in `touring_foundation::run_outcome` (02/11/2026) |
 | `sdk` | code-mode-sinal F2 (NEW) | 8 hardcoded hook names + `SignalReport` JSON shape |
 | `sdk_signal_mirror` | code-mode-sinal F3 (NEW) | Append-only JSONL sink written by PostToolUse |
 | `types` | (ex-touring-types) | shared type aliases |

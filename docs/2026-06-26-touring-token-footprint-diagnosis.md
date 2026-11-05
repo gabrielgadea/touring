@@ -20,14 +20,14 @@
 
 2. **Maior peça única estática: `rules/quality/` (51 D-rules) = 54.332 tokens** `[FACT]` — 30% da
    base inteira — carregada em **toda** sessão, inclusive nesta, que é uma conversa em
-   `/home/gabrielgadea` (projeto `node`) sem nenhuma aplicação de quality-work de código Rust.
+   `~` (projeto `node`) sem nenhuma aplicação de quality-work de código Rust.
 
 3. **Dois vilões de saída brutais** `[FACT]`: `touring status -j` = **41.703 tokens** e
    `touring wiring orphans -j` = **173.251 tokens** num único comando — e o hook `cli-suggest`
    **sugere ativamente rodá-los** ("MUST touring status -j") em cada chamada de Bash.
 
 4. **MCP do Touring expõe 158 tools = 37.786 tokens de schemas** `[FACT]`. Nesta sessão estão
-   **inativos** (cwd `/home/gabrielgadea`, daemon com `Permission denied`), mas em qualquer sessão
+   **inativos** (cwd `~`, daemon com `Permission denied`), mas em qualquer sessão
    dentro de `~/.claude/rust` somam **+38K tokens** à base. A "curadoria 102→22" registrada na
    memória **não está aplicada** no server real (drift).
 
@@ -159,7 +159,7 @@ Handshake JSON-RPC real com `touring serve` (`tools/list`) `[FACT]`:
 - Média: 956 B/tool
 
 **Status nesta sessão: INATIVO** — `mcp__touring__*` não aparece nos tools do transcript
-(cwd `/home/gabrielgadea`, daemon retorna `Permission denied (os error 13)`). Custo nesta
+(cwd `~`, daemon retorna `Permission denied (os error 13)`). Custo nesta
 sessão = **0 tok**.
 
 **Quando ativo** (cwd em `~/.claude/rust`): **+37.786 tokens** na base. A memória registra
@@ -248,7 +248,7 @@ pior dos mundos: gasta tokens e não entrega dado parseável.
 
 ## 9. Orçamento consolidado de tokens
 
-### Cenário 1 — Sessão atual (cwd `/home/gabrielgadea`, MCP inativo) `[FACT]`
+### Cenário 1 — Sessão atual (cwd `~`, MCP inativo) `[FACT]`
 ```
 Base estática total .................. ~178.000 tok  (cache_creation turno 1, medido)
   ├─ markdown Touring ................ 110.624     (62%)

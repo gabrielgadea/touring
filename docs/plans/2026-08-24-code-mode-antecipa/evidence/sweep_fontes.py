@@ -2,8 +2,11 @@
 
 Pergunta: que práticas EXISTEM nos repos e ainda NÃO estão no plano?
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import re, pathlib, collections
-RAIZ = pathlib.Path("/home/gabrielgadea/references/code-mode-2026-08-23")
+RAIZ = pathlib.Path(f"{_HOME}/references/code-mode-2026-08-23")
 
 MECANISMOS = [
  ("sdk_instructions",   r"SDK_INSTRUCTIONS"),

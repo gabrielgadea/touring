@@ -5,13 +5,16 @@ audit_v19.py — Cross-audit script for Touring v19 Improvements.
 Verifies all 10 insights are implemented. Reports ROI evidence.
 Usage: python audit_v19.py [--verbose]
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import argparse
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path(f"{_HOME}/.claude/rust")
 PLAN_DIR = Path(__file__).parent
 
 PASS = "\033[92mPASS\033[0m"
@@ -52,7 +55,7 @@ def main() -> int:
         "title": "TemplateLibrary with Learning",
         "crate": "touring-learning",
         "module": "src/aco/template_library.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/template_library.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/template_library.rs").exists(),
         "test_present": "test_record_template_new" in cargo_test_output if "test_record_template_new" else True,
         "roi": 2.0,
     }
@@ -66,7 +69,7 @@ def main() -> int:
         "title": "GoalTracker 9×9 Computational",
         "crate": "touring-learning",
         "module": "src/aco/tracker.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/tracker.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/tracker.rs").exists(),
         "test_present": "test_9x9_matrix_completeness" in cargo_test_output if "test_9x9_matrix_completeness" else True,
         "roi": 1.6,
     }
@@ -80,7 +83,7 @@ def main() -> int:
         "title": "Plugin/Phase Registry Dynamic",
         "crate": "touring-learning",
         "module": "src/aco/registry.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/registry.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/registry.rs").exists(),
         "test_present": "test_registry_register_and_execute" in cargo_test_output if "test_registry_register_and_execute" else True,
         "roi": 1.5,
     }
@@ -94,7 +97,7 @@ def main() -> int:
         "title": "Deterministic Topological Sort + Graph Analytics",
         "crate": "touring-learning",
         "module": "src/aco/graph.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/graph.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/graph.rs").exists(),
         "test_present": "test_topo_sort_deterministic_simple" in cargo_test_output if "test_topo_sort_deterministic_simple" else True,
         "roi": 1.67,
     }
@@ -108,7 +111,7 @@ def main() -> int:
         "title": "CQRS Read Model",
         "crate": "touring-learning",
         "module": "src/aco/read_model.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/read_model.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/read_model.rs").exists(),
         "test_present": "test_read_model_apply_and_get" in cargo_test_output if "test_read_model_apply_and_get" else True,
         "roi": 1.4,
     }
@@ -122,7 +125,7 @@ def main() -> int:
         "title": "Saga Pattern with Compensating Transactions",
         "crate": "touring-learning",
         "module": "src/aco/saga.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/saga.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/saga.rs").exists(),
         "test_present": "test_saga_all_steps_succeed" in cargo_test_output if "test_saga_all_steps_succeed" else True,
         "roi": 1.4,
     }
@@ -136,7 +139,7 @@ def main() -> int:
         "title": "Parallel Generator Engine",
         "crate": "touring-learning",
         "module": "src/aco/graph.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/graph.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/graph.rs").exists(),
         "test_present": "test_parallel_execute_independent_nodes" in cargo_test_output if "test_parallel_execute_independent_nodes" else True,
         "roi": 1.33,
     }
@@ -150,7 +153,7 @@ def main() -> int:
         "title": "ESAA Complete 24 Subsystems",
         "crate": "touring-learning",
         "module": "src/aco/esaa.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/esaa.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/esaa.rs").exists(),
         "test_present": "test_esaa_coordinator_register_all_24" in cargo_test_output if "test_esaa_coordinator_register_all_24" else True,
         "roi": 1.13,
     }
@@ -164,7 +167,7 @@ def main() -> int:
         "title": "Time-Travel Debugging",
         "crate": "touring-learning",
         "module": "src/aco/time_travel.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/time_travel.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/time_travel.rs").exists(),
         "test_present": "test_capture_state_returns_epoch" in cargo_test_output if "test_capture_state_returns_epoch" else True,
         "roi": 1.17,
     }
@@ -178,7 +181,7 @@ def main() -> int:
         "title": "Agent State Machine Complete",
         "crate": "touring-cognitive",
         "module": "src/agent_state_machine.rs",
-        "file_exists": Path("/home/gabrielgadea/.claude/rust/crates/touring-cognitive/src/agent_state_machine.rs").exists(),
+        "file_exists": Path(f"{_HOME}/.claude/rust/crates/touring-cognitive/src/agent_state_machine.rs").exists(),
         "test_present": "test_state_machine_starts_idle" in cargo_test_output if "test_state_machine_starts_idle" else True,
         "roi": 1.2,
     }

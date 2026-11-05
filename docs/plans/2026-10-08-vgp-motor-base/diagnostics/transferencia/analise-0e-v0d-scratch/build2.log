@@ -1,5 +1,5 @@
 <unknown>:13: SyntaxWarning: invalid escape sequence '\$'
-/home/gabrielgadea/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: invalid escape sequence '\|'
+~/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: invalid escape sequence '\|'
   [
 {
  "gerado_em": "2026-10-09T12:33:03-0300",

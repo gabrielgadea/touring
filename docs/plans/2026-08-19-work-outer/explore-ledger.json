@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-08-19T07:08:00-03:00",
-  "scope": "/home/gabrielgadea/projects/touring",
+  "scope": "~/projects/touring",
   "flow": "work-outer",
   "session_id": "25d14961",
   "exploration_summary": {
@@ -11,7 +11,7 @@
       {
         "task": "Create adw-prova.md artifact",
         "status": "completed",
-        "evidence": "file created at /tmp/claude-1000/-home-gabrielgadea-projects-touring/15ace7f7-d269-4bae-85aa-3aca3e25e4b2/scratchpad/adw-prova.md",
+        "evidence": "file created at /tmp/claude-1000/-home-<user>-projects-touring/15ace7f7-d269-4bae-85aa-3aca3e25e4b2/scratchpad/adw-prova.md",
         "confidence": 1.0
       }
     ]

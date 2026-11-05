@@ -16,6 +16,12 @@
 //! is never a `404`. URLs are read from `src`/`href` attributes, inline module `import`s,
 //! `<style>` text, `type=importmap` scripts and the `import`/`export … from`/`import()`/`.src =`
 //! forms of JS, TS and TSX — never from comments or running text.
+//!
+//! Disk guard (C8, 04/11/2026): [`cache`] is the one exception to the rule that the VGP reads
+//! the disk only through the shared path-containment guard, because its file is the network
+//! side's cache that this module writes under the user's cache directory — not a project path
+//! that the analyzed content names (the exception and its reason are listed in
+//! `tests/vgp_guarda_disco.rs`).
 
 pub mod cache;
 pub(crate) mod documento;

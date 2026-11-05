@@ -50,11 +50,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import measure_injection_impact as M
 
 BASE = M.BASE
-DEFAULT_DIRS = [
-    "-home-gabrielgadea-projects-touring",
-    "-home-gabrielgadea-projects-analise",
-    "-home-gabrielgadea-projects-konverter",
-]
+DEFAULT_DIRS = [M.project_dir(name) for name in ("touring", "analise", "konverter")]
 
 #: (familia, regex do payload, sinal observavel)
 FAMILIES = (

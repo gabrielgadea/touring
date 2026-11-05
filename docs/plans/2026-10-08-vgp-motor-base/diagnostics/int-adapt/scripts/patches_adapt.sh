@@ -4,7 +4,7 @@
 # objetos do git (aditivo): nenhum worktree, índice de worktree ou branch é tocado.
 # Uso: bash patches_adapt.sh   (saída em ../patches/ e ../simulacao.txt)
 set -u
-P=/home/gabrielgadea/projects
+P=${HOME}/projects
 GIT_DIR=$P/touring/.git
 D=$P/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
 OUT=$D/int-adapt/patches

@@ -43,6 +43,7 @@ use self::projeto::Limites;
 use self::usos::Uso;
 use super::cdn::cache::Cache;
 use super::cdn::documento::{self, Documento};
+use super::distancia::levenshtein;
 use super::{Transversal, Verificacao};
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding};
@@ -92,22 +93,6 @@ pub(crate) fn ler_folha(css: &str) -> Option<FolhaLida> {
     })
 }
 
-/// Edit distance (Levenshtein) between two class names, by characters.
-fn distancia(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.chars().collect();
-    let b: Vec<char> = b.chars().collect();
-    let mut anterior: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.iter().enumerate() {
-        let mut atual = vec![i + 1];
-        for (j, cb) in b.iter().enumerate() {
-            let troca = anterior[j] + usize::from(ca != cb);
-            atual.push(troca.min(anterior[j + 1] + 1).min(atual[j] + 1));
-        }
-        anterior = atual;
-    }
-    anterior[b.len()]
-}
-
 /// The defined classes closest to `nome` — a typo is a few edits from the class meant.
 fn mais_proximas(nome: &str, folhas: &Folhas) -> Vec<String> {
     let limite = (nome.chars().count() / 4).clamp(1, 3);
@@ -115,7 +100,7 @@ fn mais_proximas(nome: &str, folhas: &Folhas) -> Vec<String> {
         .classes()
         .filter(|d| d.len().abs_diff(nome.len()) <= limite * 2 && d.as_str() != nome)
         .filter_map(|d| {
-            let dist = distancia(nome, d);
+            let dist = levenshtein(nome, d);
             (dist <= limite).then_some((dist, d))
         })
         .collect();
@@ -331,7 +316,7 @@ fn motivo_de_editor(achados: &[Finding]) -> String {
 /// The sheets of the project's entry `index.html`: its `<style>`, its links, and a generator
 /// script as the reason nothing can be proved.
 fn carregar_html_de_entrada(caminho: &Path, raiz: &Path, leitor: &Leitor, folhas: &mut Folhas) {
-    let Ok(texto) = leitor.ler(caminho) else {
+    let Ok(texto) = leitor.ler(caminho, &[raiz]) else {
         return;
     };
     let Ok(doc) = documento::ler(&texto) else {
@@ -373,7 +358,7 @@ fn resolver_import(
 fn importar_folha(alvo: &str, dir: &Path, raiz: &Path, leitor: &Leitor, folhas: &mut Folhas) {
     match resolver_import(alvo, dir, raiz, leitor) {
         Ok(_) if alvo.contains(".module.") => folhas.conta_sem_absorver(),
-        Ok(caminho) => folhas.adicionar_arquivo(&caminho, raiz, leitor),
+        Ok(caminho) => folhas.adicionar_arquivo(&caminho, raiz, dir, leitor),
         Err(motivo) => folhas
             .nao_resolvidas
             .push(format!("import `{alvo}` não resolvido: {motivo}")),
@@ -386,7 +371,7 @@ fn carregar_folhas_jsx(input: &CheckInput, dir: &Path, leitor: &Leitor) -> Resul
     let raiz = input.project_root.as_path();
     let mut folhas = Folhas::default();
     for folha in projeto::folhas_do_projeto(raiz, Limites::default())? {
-        folhas.adicionar_arquivo(&folha, raiz, leitor);
+        folhas.adicionar_arquivo(&folha, raiz, raiz, leitor);
     }
     for html in projeto::html_de_entrada(raiz) {
         carregar_html_de_entrada(&html, raiz, leitor, &mut folhas);

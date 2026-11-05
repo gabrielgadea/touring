@@ -5,6 +5,9 @@ atributo de modulo por pacote, no binario base (e935aaf1) e no novo.
 Uso: python3 varre_runtime.py <binario> <saida.json> [pacote ...]   (sem pacotes: o allowlist do censo)
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import subprocess
 import sys
@@ -14,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import censo  # noqa: E402
 
-ROOT = "/home/gabrielgadea/projects/analise"
+ROOT = f"{_HOME}/projects/analise"
 BIN, SAIDA = sys.argv[1], Path(sys.argv[2])
 PACOTES = sys.argv[3:]
 

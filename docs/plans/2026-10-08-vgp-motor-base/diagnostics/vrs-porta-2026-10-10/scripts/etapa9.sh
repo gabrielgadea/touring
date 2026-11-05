@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Etapa 9 (reescrita antes de a vaga abrir): o teste do motivo certo do `#[path]` + a correcao (z) (bloco `extern` declara
 # itens). UMA aquisicao do hw-slot (rust):
 #  (1) testes do adaptador; se verdes:
@@ -7,11 +8,11 @@
 #  (4) todos os mutantes;
 #  (5) medidas finais no release (juiz, v2, controle 130, p95 A/B);
 #  (6) por ultimo, o `corpus_rust_real` (so se NAO existir).
-SC=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
-VGP=/home/gabrielgadea/.claude/touring/vgp
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-vrs2
-cd /home/gabrielgadea/projects/touring-wt-vrs2 || exit 90
+SC=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+VGP=${HOME}/.claude/touring/vgp
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-vrs2
+cd ${HOME}/projects/touring-wt-vrs2 || exit 90
 : > "$SC/etapa9.rcs"
 cargo test -p touring-code --lib vgp::lang::rust --no-fail-fast > "$SC/etapa9_testes.log" 2>&1
 rc=$?
@@ -20,13 +21,13 @@ if [ "$rc" -ne 0 ]; then
   echo "ETAPA9 CONCLUIDA (testes vermelhos; resto nao rodou)" >> "$SC/etapa9.rcs"
   exit 0
 fi
-python3 -I "$SC/mutantes.py" variantes /home/gabrielgadea/projects/touring/target/wt-vrs2-var "$SC/variantes9.json" V23 > "$SC/etapa9_variantes.log" 2>&1
+python3 -I "$SC/mutantes.py" variantes ${HOME}/projects/touring/target/wt-vrs2-var "$SC/variantes9.json" V23 > "$SC/etapa9_variantes.log" 2>&1
 echo "variantes rc=$?" >> "$SC/etapa9.rcs"
-bash "$SC/medida_var.sh" V23 /home/gabrielgadea/projects/touring/target/wt-vrs2-var/V23/touring
+bash "$SC/medida_var.sh" V23 ${HOME}/projects/touring/target/wt-vrs2-var/V23/touring
 echo "medida V23 rc=$?" >> "$SC/etapa9.rcs"
 bash "$SC/gates.sh"
 echo "gates feitos (ver gates.rcs)" >> "$SC/etapa9.rcs"
-REL=/home/gabrielgadea/projects/touring/target/wt-vrs2/release/touring
+REL=${HOME}/projects/touring/target/wt-vrs2/release/touring
 cp "$REL" "$SC/release_primeiro3"
 sha256sum "$SC/release_primeiro3" > "$SC/release_primeiro3.sha256"
 touch crates/touring-code/src/vgp/lang/rust.rs crates/touring-code/src/vgp/lang/rust/tests.rs

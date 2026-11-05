@@ -6,11 +6,11 @@
 set -u
 OUT=${1:?pasta de saida}
 mkdir -p "$OUT"
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 JUIZ=$B/scripts/juiz_motor_vgp.py
-CORPUS=/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-2026-10-09
-BIN=/home/gabrielgadea/.claude/touring/vgp/binarios
-cd /home/gabrielgadea/projects/analise || exit 9
+CORPUS=${HOME}/.claude/touring/vgp/corpus_v0d.bak-2026-10-09
+BIN=${HOME}/.claude/touring/vgp/binarios
+cd ${HOME}/projects/analise || exit 9
 export TOURING_CODE_MODE=native
 : > "$OUT/ab.rc"
 for r in 1 2; do

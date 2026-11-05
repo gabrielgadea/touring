@@ -9,13 +9,16 @@
 Uso: faz_patch.py <saida.patch>     (nada nos três worktrees é alterado: a prova roda numa cópia nova em /tmp)
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import hashlib
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-PROJ = Path("/home/gabrielgadea/projects")
+PROJ = Path(f"{_HOME}/projects")
 INT97 = PROJ / "touring-wt-int97"
 FRAG = PROJ / "touring-wt-frag"
 BASE = PROJ / "touring-wt-frag-base"

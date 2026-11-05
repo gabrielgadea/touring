@@ -22,6 +22,9 @@ devolve `{"_erro": ...}` quando a chamada falha, e um dict sem `findings` tem `.
 sem a separacao, um motor que ERRASSE em todas as chamadas se reportaria como "0 avisos", que e
 exatamente o numero de quem viu e nao falou. Erro e silencio nao se somam.
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import json
 import subprocess
 from collections import Counter
@@ -33,7 +36,7 @@ CORPUS_PADRAO = Path.home() / ".claude/touring/vgp/corpus_semeado/html"
 # o binario INTEGRADO; a coordenadora usa este instrumento no J.
 PADRAO_MOTOR = Path.home() / ".claude/touring/vgp/binarios/f55ec4b5/touring"
 JUIZ = Path(
-    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base"
+    f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base"
     "/scripts/juiz_motor_vgp.py"
 )
 

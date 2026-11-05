@@ -33,6 +33,8 @@ use super::typestate::{Decided, Evidence, Execution, Gated};
 use super::vgp_stage::VgpReport;
 use crate::capability::{Capability, Decision};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use touring_foundation::run_outcome::ExitStatus;
 
 // ── Composite score ───────────────────────────────────────────────────────────
 
@@ -91,10 +93,15 @@ fn predict_subscore(report: Option<&PredictionReport>) -> f64 {
 
 /// X5 SANDBOX sub-score: success → `1.0`, timeout → `0.2`, other failure →
 /// `0.4`, not yet run → the neutral `0.5`.
+///
+/// A timeout is read from the typed status, not from `SandboxOutcome::timed_out` (a
+/// wire discriminator): the executor's salvaged timeout (OUT-1, partial output kept)
+/// carries `ExitStatus::TimedOut` with `timed_out: false`, and was scored as an
+/// ordinary failure.
 fn sandbox_subscore(outcome: Option<&SandboxOutcome>) -> f64 {
     match outcome {
         Some(o) if o.succeeded() => 1.0,
-        Some(o) if o.timed_out => 0.2,
+        Some(o) if o.exit_code.is_timed_out() => 0.2,
         Some(_) => 0.4,
         None => 0.5,
     }
@@ -354,11 +361,13 @@ fn predict_reasons(report: Option<&PredictionReport>) -> Vec<String> {
 /// The X5 SANDBOX reason line, if the dry-run did not succeed.
 fn sandbox_reasons(outcome: Option<&SandboxOutcome>) -> Vec<String> {
     match outcome {
-        Some(o) if o.timed_out => vec!["X5 SANDBOX dry-run timed out".to_owned()],
+        Some(o) if o.exit_code.is_timed_out() => {
+            vec!["X5 SANDBOX dry-run timed out".to_owned()]
+        }
         Some(o) if !o.succeeded() => {
             vec![format!(
                 "X5 SANDBOX dry-run exited with code {}",
-                o.exit_code
+                o.exit_code.to_wire()
             )]
         }
         _ => Vec::new(),
@@ -573,7 +582,7 @@ mod tests {
 
     fn ok_outcome() -> SandboxOutcome {
         SandboxOutcome {
-            exit_code: 0,
+            exit_code: ExitStatus::Code(0),
             output_bytes: 5,
             was_truncated: false,
             timed_out: false,
@@ -585,7 +594,7 @@ mod tests {
 
     fn timed_out_outcome() -> SandboxOutcome {
         SandboxOutcome {
-            exit_code: -1,
+            exit_code: ExitStatus::TimedOut,
             output_bytes: 0,
             was_truncated: false,
             timed_out: true,
@@ -637,6 +646,16 @@ mod tests {
         assert_eq!(vgp_subscore(Some(&vgp_report(4, 0))), 1.0);
         assert_eq!(predict_subscore(None), 0.5);
         assert_eq!(sandbox_subscore(Some(&timed_out_outcome())), 0.2);
+        // The executor's salvaged timeout (OUT-1): typed `TimedOut`, wire flag `false`.
+        let salvaged = SandboxOutcome {
+            timed_out: false,
+            ..timed_out_outcome()
+        };
+        assert_eq!(sandbox_subscore(Some(&salvaged)), 0.2);
+        assert_eq!(
+            sandbox_reasons(Some(&salvaged)),
+            vec!["X5 SANDBOX dry-run timed out".to_owned()]
+        );
         assert_eq!(sandbox_subscore(Some(&ok_outcome())), 1.0);
         assert_eq!(
             gate_subscore(Some(&gate_report(&[(

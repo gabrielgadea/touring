@@ -5,7 +5,7 @@
 # task_1791211374258794852. Tudo aqui é leitura ou roda em diretório temporário: nenhum plano é criado no DAG vivo
 # e nenhum projeto é atualizado (a propagação é do rito; aqui só se confere o que ela deixou).
 set -euo pipefail
-R=/home/gabrielgadea/projects/touring
+R=${HOME}/projects/touring
 B="$R/docs/plans/2026-10-05-work-outer"
 fail() { echo "FALTA: $1"; exit 1; }
 ok() { echo "  ok: $1"; }

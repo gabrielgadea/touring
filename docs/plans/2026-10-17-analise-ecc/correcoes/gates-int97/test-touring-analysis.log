@@ -30,7 +30,7 @@
    Compiling reqwest v0.12.28
    Compiling wasmtime-c-api-impl v36.0.12
    Compiling ureq-proto v0.6.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling ureq v3.3.0
    Compiling ravif v0.13.0
    Compiling wgpu-core-deps-windows-linux-android v26.0.0
@@ -40,22 +40,22 @@
    Compiling wgpu-core v26.0.1
    Compiling salsa v0.18.0
    Compiling wgpu v26.0.1
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling tracing-subscriber v0.3.23
    Compiling fastembed v5.17.2
    Compiling notify v7.0.0
    Compiling ast-grep-core v0.42.3
    Compiling derive_more v2.1.1
    Compiling ciborium-ll v0.2.2
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling notify-debouncer-mini v0.5.0
    Compiling z3 v0.20.1
    Compiling tracing-error v0.2.1
    Compiling iai-callgrind-macros v0.6.1
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling ciborium v0.2.2
    Compiling iai-callgrind-runner v0.16.1
    Compiling bincode v1.3.3
@@ -63,7 +63,7 @@
    Compiling criterion v0.5.1
    Compiling insta v1.48.0
    Compiling iai-callgrind v0.16.1
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 15s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

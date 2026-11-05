@@ -2,7 +2,7 @@
 # Adversarial check of what the ECC-analysis subagents claimed about TOURING (17/10/2026).
 # Read-only. Each block prints the claim id and the raw evidence; the verdict is written by hand in the report.
 set -u
-T=/home/gabrielgadea/projects/touring
+T=${HOME}/projects/touring
 cd "$T" || exit 9
 
 echo "== A5 read_stdin em timeout/vazio/erro devolve objeto vazio? =="

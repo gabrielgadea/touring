@@ -48,7 +48,7 @@ use std::rc::Rc;
 
 use tree_sitter::Node;
 
-use super::{Adaptador, Verificacao, parse};
+use super::{Adaptador, Verificacao, caminho, distancia, parse};
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding};
 
@@ -706,15 +706,17 @@ impl<'a> Resolver<'a> {
     ///
     /// V-4 (31/10/2026): only what is INSIDE the allowed roots is read. The proposed
     /// content chooses the path (`#[path = "…"]`), and an absolute path or a `../..`
-    /// put the read outside the project.
+    /// put the read outside the project — [`caminho::ler_contido`] refuses it.
     fn ler(&self, p: &Path) -> Option<String> {
-        if !crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz], p) {
-            return None;
-        }
         if let Some(c) = self.overlays.get(p.to_string_lossy().as_ref()) {
             return Some(c.clone());
         }
-        std::fs::read_to_string(p).ok()
+        caminho::ler_contido(&[self.raiz], p).ok()
+    }
+
+    /// Is `p` a file inside the project root?
+    fn e_arquivo(&self, p: &Path) -> bool {
+        caminho::e_arquivo(&[self.raiz], p)
     }
 
     fn modelo(&self, p: &Path) -> Option<Rc<ModModel>> {
@@ -754,7 +756,7 @@ impl<'a> Resolver<'a> {
                     break; // nunca reivindica um manifesto acima do projeto
                 }
                 let manifest = dir.join("Cargo.toml");
-                if !manifest.is_file() {
+                if !self.e_arquivo(&manifest) {
                     continue;
                 }
                 let conteudo = self.ler(&manifest)?;
@@ -772,13 +774,15 @@ impl<'a> Resolver<'a> {
                     .and_then(|l| l.get("path"))
                     .and_then(|p| p.as_str())
                     .map(|p| dir.join(p));
-                let lib_root = lib_path
-                    .filter(|p| p.is_file())
-                    .or_else(|| src.join("lib.rs").is_file().then(|| src.join("lib.rs")));
+                let lib_root = lib_path.filter(|p| self.e_arquivo(p)).or_else(|| {
+                    self.e_arquivo(&src.join("lib.rs"))
+                        .then(|| src.join("lib.rs"))
+                });
                 let root_file = if path.starts_with(&src) {
-                    lib_root
-                        .clone()
-                        .or_else(|| src.join("main.rs").is_file().then(|| src.join("main.rs")))?
+                    lib_root.clone().or_else(|| {
+                        self.e_arquivo(&src.join("main.rs"))
+                            .then(|| src.join("main.rs"))
+                    })?
                 } else {
                     path.to_path_buf() // teste de integração / exemplo / build.rs: crate dele mesmo
                 };
@@ -803,7 +807,7 @@ impl<'a> Resolver<'a> {
     /// The crate dir of a CrateInfo (first ancestor of the root file with a Cargo.toml).
     fn dir_da_crate(&self, k: &CrateInfo) -> PathBuf {
         for dir in k.root_file.ancestors() {
-            if dir.join("Cargo.toml").is_file() {
+            if self.e_arquivo(&dir.join("Cargo.toml")) {
                 return dir.to_path_buf();
             }
         }
@@ -823,14 +827,14 @@ impl<'a> Resolver<'a> {
             .and_then(|p| p.as_str())
             .map(|p| crate_dir.join(p));
         lib_path
-            .filter(|p| p.is_file())
+            .filter(|p| self.e_arquivo(p))
             .or_else(|| {
                 let l = crate_dir.join("src/lib.rs");
-                l.is_file().then_some(l)
+                self.e_arquivo(&l).then_some(l)
             })
             .or_else(|| {
                 let m = crate_dir.join("src/main.rs");
-                m.is_file().then_some(m)
+                self.e_arquivo(&m).then_some(m)
             })
     }
 
@@ -853,11 +857,14 @@ impl<'a> Resolver<'a> {
             {
                 for m in membros.iter().filter_map(|m| m.as_str()) {
                     if let Some(base) = m.strip_suffix("/*") {
-                        if let Ok(rd) = std::fs::read_dir(self.raiz.join(base)) {
+                        if let Ok(entradas) =
+                            caminho::listar_contido(&[self.raiz], &self.raiz.join(base))
+                        {
                             dirs.extend(
-                                rd.flatten()
-                                    .map(|e| e.path())
-                                    .filter(|p| p.join("Cargo.toml").is_file()),
+                                entradas
+                                    .into_iter()
+                                    .map(|e| e.caminho)
+                                    .filter(|p| self.e_arquivo(&p.join("Cargo.toml"))),
                             );
                         }
                     } else {
@@ -978,7 +985,7 @@ impl<'a> Resolver<'a> {
             return None;
         }
         let nome = path.file_name()?.to_str()?;
-        for cand in vizinhos_rs(path) {
+        for cand in vizinhos_rs(self.raiz, path) {
             // só o texto que cita o arquivo vale um parse
             if !self.ler(&cand).is_some_and(|c| c.contains(nome)) {
                 continue;
@@ -1070,19 +1077,14 @@ impl<'a> Resolver<'a> {
             // `Path::join` it REPLACES the base, so the CONTENT would choose the file
             // to read (`#[path = "/etc/passwd"]`). Only a relative piece is accepted,
             // and the file it names must stay inside the project root.
-            if !crate::vgp::lang::caminho::derivado_aceitavel(p) {
-                return Vec::new();
-            }
             let relativo_a = if trail.is_empty() {
                 file.parent().map(Path::to_path_buf)
             } else {
                 Some(base)
             };
             return relativo_a
-                .map(|d| vec![d.join(p)])
-                .unwrap_or_default()
+                .and_then(|d| caminho::derivar(&[self.raiz], &d, p))
                 .into_iter()
-                .filter(|c| crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz], c))
                 .collect();
         }
         vec![
@@ -2696,15 +2698,15 @@ fn tem_macro_invocation(stmt: Node) -> bool {
 
 /// The `.rs` files that may declare `path` with a `#[path]`: its directory's siblings and, one
 /// level up, the `mod.rs` / `<dir>.rs` that own that directory. Sorted — the search is stable.
-fn vizinhos_rs(path: &Path) -> Vec<PathBuf> {
+/// The directory is listed only if it is inside the project `raiz`.
+fn vizinhos_rs(raiz: &Path, path: &Path) -> Vec<PathBuf> {
     let Some(dir) = path.parent() else {
         return Vec::new();
     };
-    let mut v: Vec<PathBuf> = std::fs::read_dir(dir)
+    let mut v: Vec<PathBuf> = caminho::listar_contido(&[raiz], dir)
+        .unwrap_or_default()
         .into_iter()
-        .flatten()
-        .filter_map(Result::ok)
-        .map(|e| e.path())
+        .map(|e| e.caminho)
         .filter(|p| p.extension().is_some_and(|x| x == "rs") && p != path)
         .collect();
     if let (Some(pai), Some(dn)) = (dir.parent(), dir.file_name()) {
@@ -2760,27 +2762,10 @@ fn empurrar(
 fn sugestao_proxima(nome: &str, reais: &[String]) -> Option<String> {
     reais
         .iter()
-        .map(|r| (levenshtein(nome, r), r))
+        .map(|r| (distancia::levenshtein(nome, r), r))
         .filter(|(d, _)| *d > 0 && *d <= 2)
         .min_by_key(|(d, _)| *d)
         .map(|(_, r)| r.clone())
-}
-
-fn levenshtein(a: &str, b: &str) -> usize {
-    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
-    let mut prev: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.iter().enumerate() {
-        let mut cur = vec![i + 1];
-        for (j, cb) in b.iter().enumerate() {
-            cur.push(
-                (prev[j] + usize::from(ca != cb))
-                    .min(cur[j] + 1)
-                    .min(prev[j + 1] + 1),
-            );
-        }
-        prev = cur;
-    }
-    prev[b.len()]
 }
 
 #[cfg(test)]

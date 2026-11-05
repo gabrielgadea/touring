@@ -7,6 +7,9 @@ que DEVE ser flagged continua flagged) e NEGATIVO (o falso positivo NÃO flaga).
 Coletável por pytest (funções test_* sem parâmetros) e executável standalone:
   python3 test_scanner_predicates.py   # exit 0 se tudo passa
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import importlib.util
 import os
 import sys
@@ -33,7 +36,7 @@ def test_c4_negativo_prosa() -> None:
 
 def test_c4_negativo_path_diretorio() -> None:
     """NEGATIVO: '.../projects/touring timeout 900' é PATH, não subcomando."""
-    doc = "```bash\nTOURING_PROJECT_ROOT=/home/gabrielgadea/projects/touring timeout 900 cargo test\n```\n"
+    doc = f"```bash\nTOURING_PROJECT_ROOT={_HOME}/projects/touring timeout 900 cargo test\n```\n"
     out = dss.scan_c4_cli({"doc.md": doc}, GT_CLI)
     assert "timeout" not in out["potential_stale"], out["potential_stale"]
 
@@ -147,6 +150,30 @@ def test_c6_ground_truth_inclui_ts() -> None:
             dss.ROOT = original
     assert var in gt
     assert mods == ["zz"], mods
+
+
+def test_root_is_the_checkout_the_scanner_lives_in() -> None:
+    """ROOT deriva do próprio arquivo (11ª reconciliação, 04/11/2026).
+
+    Antes era o caminho absoluto do checkout principal: rodado de um git worktree (ou do CI) o
+    scanner lia OUTRA árvore — os arquivos não rastreados de outra sessão — e o juiz, que mede o
+    doc ao lado dele, acusava sinais que não existiam em arquivo rastreado algum. Hermético: copia
+    o scanner para uma árvore sintética com 1 doc e exige que ele enxergue SÓ essa árvore.
+    """
+    assert dss.ROOT == SCANNER.parents[1], dss.ROOT
+    with tempfile.TemporaryDirectory() as d:
+        raiz = Path(d).resolve()
+        (raiz / "scripts").mkdir()
+        (raiz / "docs").mkdir()
+        copia = raiz / "scripts" / SCANNER.name
+        copia.write_text(SCANNER.read_text(encoding="utf-8"), encoding="utf-8")
+        (raiz / "docs" / "so-nesta-arvore.md").write_text("# doc sintético\n", encoding="utf-8")
+        spec = importlib.util.spec_from_file_location("dss_copia", copia)
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert mod.ROOT == raiz, mod.ROOT
+        assert mod.collect_scope_files() == ["docs/so-nesta-arvore.md"], mod.collect_scope_files()
 
 
 def test_c1_negativo_inteiro_com_separador_de_milhar() -> None:

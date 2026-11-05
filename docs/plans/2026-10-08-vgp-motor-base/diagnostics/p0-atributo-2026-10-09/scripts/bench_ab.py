@@ -3,6 +3,9 @@
 Uso: python3 bench_ab.py <base> <novo> [n]
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import statistics
 import subprocess
@@ -10,7 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-ROOT = "/home/gabrielgadea/projects/analise"
+ROOT = f"{_HOME}/projects/analise"
 BASE, NOVO = sys.argv[1], sys.argv[2]
 N = int(sys.argv[3]) if len(sys.argv) > 3 else 30
 PROGS = {

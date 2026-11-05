@@ -327,7 +327,7 @@
     "F4_12": "Pass"
    }
   },
-  "/home/gabrielgadea/.claude/skills/Touring/scripts/lib_touring.py": {
+  "~/.claude/skills/Touring/scripts/lib_touring.py": {
    "composite": 0.9780936,
    "tier": "Diamond",
    "dims": {
@@ -435,7 +435,7 @@
     "F4_12": "Pass"
    }
   },
-  "/home/gabrielgadea/.claude/hooks/session_startup_intelligence.py": {
+  "~/.claude/hooks/session_startup_intelligence.py": {
    "composite": 0.970024,
    "tier": "Diamond",
    "dims": {
@@ -651,7 +651,7 @@
     "F4_12": "Pass"
    }
   },
-  "/home/gabrielgadea/.claude/skills/Touring/scripts": {
+  "~/.claude/skills/Touring/scripts": {
    "composite": 0.9776993,
    "tier": "Diamond",
    "dims": {

@@ -1,387 +1,33 @@
-//! Wave v4.29.0 — Bash structural validator + command-shape extractor.
+//! Bash command-shape extractor + the legacy entry points of the destructive-command policy.
 //!
-//! Two related concerns served by the same module:
+//! Two concerns used to share this module:
 //!
-//! 1. [`validate_command`] performs shell-aware *structural* validation against
-//!    destructive commands (`rm -rf`, `find / -delete`, `git push --force`
-//!    without lease). The validator first strips shell-string literals and `#`
-//!    comments via `strip_string_literals_and_comments` (so `echo "rm -rf"`
-//!    and `# rm -rf in a comment` correctly do NOT fire), then evaluates
-//!    structural rules over the cleaned token stream.
+//! 1. "Is this command destructive?" — answered by [`crate::command_policy`], the one
+//!    owner of that question. [`validate_command`], [`Verdict`] and the route constants
+//!    are kept here as thin re-exports so every historical path (the CEG static stage,
+//!    the e2e suites, `touring_hooks::shared::bash_ast_validator`) keeps resolving; they
+//!    answer the STRUCTURAL reading only, exactly as before.
 //!
-//!    Wave 5 (2026-05-23) historical note: this tokenizer-based design
-//!    originally worked around the `ast-grep-language` 0.36 / tree-sitter
-//!    v15 ABI mismatch that prevented direct AST parsing of bash. With
-//!    ast-grep 0.42 + tree-sitter-bash 0.25 (ABI 15) + tree-sitter 0.26
-//!    runtime, true AST parsing IS now available — but the tokenizer
-//!    implementation is preserved as the chosen design because (a) the
-//!    existing 22 unit tests have zero regressions and zero flakes,
-//!    (b) the fail-open contract is simpler to reason about over a flat
-//!    token stream, (c) shell-quoting edge cases (heredocs, ANSI-C $'...',
-//!    parameter expansion ${...}) are still ahead of any AST grammar.
-//!    See `touring memory recall "wave-5-ceg-pln2-100-percent"` for context.
+//! 2. [`command_shape`] extracts a stable cluster key for the failure-recall cache:
+//!    `"cargo test --release"` and `"cargo --quiet test -j 4 --release"` both reduce to
+//!    `"cargo test"`. Tokenizer-based for robustness against partial / malformed bash.
 //!
-//!    **Wave 5 S-13 closure rationale (mossy-crunching-owl, 2026-05-23)**:
-//!    the plan called for *removing* this validator now that the ABI gap is
-//!    closed. Decision — **NOT REMOVED, ARCHITECTURALLY SUPERSEDED**. The
-//!    tokenizer is now the chosen design for bash structural validation;
-//!    removing it would forfeit the 22-test structural coverage, the
-//!    simpler fail-open contract, and the shell-quoting robustness — a
-//!    REGRA #0 (`POTENCIALIZAR`) violation. The AST path remains available
-//!    as a *complement* via `crates/touring-code/src/polyglot/search.rs`
-//!    for callers that specifically need parse-tree access. Audit trail:
-//!    `lesson:wave-5-mossy-crunching-owl-S9-S13-S14-closure:2026-05-23`.
-//!
-//! 2. [`command_shape`] extracts a stable cluster key for the failure-recall
-//!    cache: `"cargo test --release"` and `"cargo --quiet test -j 4 --release"`
-//!    both reduce to `"cargo test"`. Tokenizer-based for robustness against
-//!    partial / malformed bash.
-//!
-//! Fail-open contract: any error / ambiguity produces [`Verdict::Allow`] —
-//! pre-bash MUST never block on validator infrastructure failure.
+//! Fail-open contract: any error / ambiguity produces [`Verdict::Allow`] — pre-bash MUST
+//! never block on validator infrastructure failure.
 
-use std::time::Duration;
+pub use crate::command_policy::{
+    DD_ROUTE, DELETE_ROUTE, DELETE_ROUTE_EXAMPLES, PIPE_SHELL_ROUTE, Verdict, route_examples,
+};
 
-/// Outcome of [`validate_command`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Verdict {
-    /// Command is OK to execute.
-    Allow,
-    /// Command should produce a warning context but is not blocked.
-    Warn {
-        /// Why the command is suspicious but still allowed.
-        reason: String,
-    },
-    /// Command must be denied — destructive without intent disclosure.
-    Block {
-        /// Why the command is denied (e.g. destructive without disclosed intent).
-        reason: String,
-    },
-}
-
-impl Verdict {
-    /// `true` iff this verdict is a `Block`.
-    pub fn is_block(&self) -> bool {
-        matches!(self, Verdict::Block { .. })
-    }
-
-    /// `true` iff this verdict is `Warn` or `Block`.
-    pub fn is_actionable(&self) -> bool {
-        !matches!(self, Verdict::Allow)
-    }
-
-    /// Reason text, if any.
-    pub fn reason(&self) -> Option<&str> {
-        match self {
-            Verdict::Allow => None,
-            Verdict::Warn { reason } | Verdict::Block { reason } => Some(reason),
-        }
-    }
-}
-
-/// Severity levels assigned to validation rules.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Severity {
-    Block,
-    Warn,
-}
-
-/// One validation rule.
-struct ValidationRule {
-    /// Contiguous token prefix that must appear at the start (or anywhere if
-    /// you want a sliding match — see `contains_subsequence`). For
-    /// `["rm", "-rf"]` the two tokens must be adjacent.
-    tokens: &'static [&'static str],
-    /// Optional non-contiguous tail token that must also appear *somewhere*
-    /// after the contiguous prefix. Used to express patterns like
-    /// `find <path...> -delete` where args may interleave between head and
-    /// the destructive flag.
-    tail_token: Option<&'static str>,
-    /// Verdict severity.
-    severity: Severity,
-    /// What is wrong with the command.
-    reason: &'static str,
-    /// What to do instead. The verdict carries `reason; route` verbatim, and
-    /// the route may only name commands the validators let through.
-    route: &'static str,
-    /// Commands that follow `route`. Tests run each one through this module
-    /// and through `PreToolValidator` (touring-hooks-core) and demand both
-    /// let it pass, so a refusal can never point at a road that is closed.
-    route_examples: &'static [&'static str],
-    /// Intent-disclosure words (`--dry-run`, `--force-with-lease`): if ANY is
-    /// a WORD of the command, the rule does NOT fire. A word, never text
-    /// anywhere in the line: matched as a substring, `rm -rf / # --dry-run`
-    /// was allowed by its own comment. `--x` also matches `--x=value`.
-    bypass_words: &'static [&'static str],
-}
-
-impl ValidationRule {
-    /// The text a verdict carries: what is wrong, then what to do instead.
-    fn message(&self) -> String {
-        format!("{}; {}", self.reason, self.route)
-    }
-}
-
-/// The deletions an agent can still run, stated once.
+/// Validate a bash command STRUCTURALLY: token signatures over the quote- and
+/// comment-stripped line (`echo "rm -rf"` and `# rm -rf` do not fire). Allows on empty
+/// input, on a clean stream, and when a signature's intent word is also a word of the
+/// command.
 ///
-/// Every refusal of a delete carries this text: the rules below and
-/// `PreToolValidator` (touring-hooks-core), which refuses `rm -r`, `rm -f` and
-/// `rmdir -p` on its own. It names only what BOTH let through (tests run each
-/// of [`DELETE_ROUTE_EXAMPLES`] through both) and says plainly that a
-/// recursive delete belongs to the user: no flag unlocks one. `rm` has no
-/// `--dry-run`, so passing it only makes `rm` exit with an error.
-pub const DELETE_ROUTE: &str = "remove named files with `rm <file>` or empty directories with \
-     `rmdir <dir>`; empty a file in place with `: > <file>` or remove a single entry with \
-     `unlink <file>`; a recursive or forced delete is the user's to run (`! rm -r <path>`)";
-
-/// Commands that follow [`DELETE_ROUTE`], proven open by tests in both validators.
-pub const DELETE_ROUTE_EXAMPLES: &[&str] = &[
-    "rm notes.txt",
-    "rm a.log b.log",
-    "rmdir build",
-    ": > stale.log",
-    "unlink stale.done",
-];
-
-/// V0e2 (09/10/2026) — the route a `dd` refusal names (measured by analise-6b:
-/// 0% route-followed, because there was none). File-to-file copy is `cp`,
-/// sizing is `truncate`; raw `dd` is the user's to run.
-pub const DD_ROUTE: &str =
-    "file-to-file copy is `cp`, sizing is `truncate` — raw `dd` is the user's to run";
-
-/// V0e2 — the route a pipe-to-shell refusal names: download, read, THEN run.
-pub const PIPE_SHELL_ROUTE: &str =
-    "download, read, then run: `curl -O <url>` (or `wget -O`), read the file, `bash <file>`";
-
-/// Hard budget for the validator (kept far below pre-bash's <10 ms target).
-const VALIDATE_BUDGET: Duration = Duration::from_millis(5);
-
-/// Curated bash risk rules. First `Block` match wins; otherwise the first
-/// `Warn` match wins. Token signatures are *contiguous* — `["rm", "-rf"]`
-/// matches `rm -rf foo` but NOT `rm foo -rf bar` (which is uncommon and
-/// best handled by the existing `PreToolValidator` regex layer).
-const RULES: &[ValidationRule] = &[
-    // 18/09/2026 — the rm rules once told the agent to "pass --dry-run or scope
-    // an explicit path you have verified": `rm` has no `--dry-run`, and no
-    // predicate here (nor in `PreToolValidator`) ever looked at a path. Three
-    // sessions spent retries on that road in one day before a human ran the
-    // delete. The route now names only what the validators let through.
-    ValidationRule {
-        tokens: &["rm", "-rf"],
-        tail_token: None,
-        severity: Severity::Block,
-        reason: "rm -rf — destructive recursive delete",
-        route: DELETE_ROUTE,
-        route_examples: DELETE_ROUTE_EXAMPLES,
-        bypass_words: &["--dry-run", "--help"],
-    },
-    ValidationRule {
-        tokens: &["rm", "-fr"],
-        tail_token: None,
-        severity: Severity::Block,
-        reason: "rm -fr — destructive recursive delete (alias of -rf)",
-        route: DELETE_ROUTE,
-        route_examples: DELETE_ROUTE_EXAMPLES,
-        bypass_words: &["--dry-run", "--help"],
-    },
-    ValidationRule {
-        tokens: &["find"],
-        tail_token: Some("-delete"),
-        severity: Severity::Block,
-        reason: "find -delete — destructive bulk delete; list the matches with `find <path> -print` first",
-        route: DELETE_ROUTE,
-        route_examples: &["find build -name stale.log -print"],
-        bypass_words: &["--help"],
-    },
-    ValidationRule {
-        tokens: &["chmod", "-R", "777"],
-        tail_token: None,
-        severity: Severity::Warn,
-        reason: "chmod -R 777 — world-writable recursive grant",
-        route: "grant the narrowest mode that works, e.g. `chmod -R u+rwX,go-w <dir>`",
-        route_examples: &["chmod -R u+rwX,go-w build"],
-        bypass_words: &[],
-    },
-    ValidationRule {
-        tokens: &["git", "push", "--force"],
-        tail_token: None,
-        severity: Severity::Warn,
-        reason: "git push --force — overwrites remote history",
-        route: "use `git push --force-with-lease`, which refuses when the remote moved",
-        route_examples: &["git push --force-with-lease origin main"],
-        bypass_words: &["--force-with-lease", "--help"],
-    },
-    ValidationRule {
-        tokens: &["git", "reset", "--hard"],
-        tail_token: None,
-        severity: Severity::Warn,
-        reason: "git reset --hard — discards uncommitted changes",
-        route: "run `git status` first and commit what must survive",
-        route_examples: &["git status"],
-        bypass_words: &["--help"],
-    },
-];
-
-/// Validate a bash command. Returns [`Verdict::Allow`] on:
-/// - empty input
-/// - cleaned-stream contains no rule signature
-/// - rule signature matches but a bypass substring is also present
-///
-/// Strips quoted strings and `#` comments BEFORE rule evaluation — this is
-/// what makes the validator structural rather than purely textual: occurrences
-/// of `rm -rf` inside `echo "rm -rf"` or `# rm -rf comment` do NOT fire.
+/// This is the structural reading alone ([`crate::command_policy::judge_structural`]);
+/// what `pre-bash` acts on is [`crate::command_policy::judge`].
 pub fn validate_command(command: &str) -> Verdict {
-    let trimmed = command.trim();
-    if trimmed.is_empty() {
-        return Verdict::Allow;
-    }
-
-    let cleaned = strip_string_literals_and_comments(trimmed);
-    if cleaned.trim().is_empty() {
-        return Verdict::Allow;
-    }
-    // Non-empty after the trim above, so there is at least one token.
-    let tokens: Vec<&str> = cleaned.split_whitespace().collect();
-
-    let started = std::time::Instant::now();
-    let mut warn: Option<&'static ValidationRule> = None;
-
-    for rule in RULES {
-        if started.elapsed() >= VALIDATE_BUDGET {
-            break;
-        }
-        if discloses_intent(&tokens, rule.bypass_words) {
-            continue;
-        }
-        if !contains_subsequence(&tokens, rule.tokens) {
-            continue;
-        }
-        if let Some(tail) = rule.tail_token {
-            // The tail must appear in the token stream — anywhere is fine,
-            // since `find` rules use this to span over user-supplied paths.
-            if !tokens.contains(&tail) {
-                continue;
-            }
-        }
-        match rule.severity {
-            Severity::Block => {
-                return Verdict::Block {
-                    reason: rule.message(),
-                };
-            }
-            Severity::Warn => {
-                warn.get_or_insert(rule);
-            }
-        }
-    }
-
-    match warn {
-        Some(rule) => Verdict::Warn {
-            reason: rule.message(),
-        },
-        None => Verdict::Allow,
-    }
-}
-
-/// Every command a rule's route names. The guard in touring-hooks-core runs
-/// each through `PreToolValidator`, the other layer that refuses: a route is
-/// only a route when both let it through.
-pub fn route_examples() -> impl Iterator<Item = &'static str> {
-    RULES
-        .iter()
-        .flat_map(|rule| rule.route_examples.iter().copied())
-}
-
-/// `true` when one of `words` is a word of the cleaned command, so quoted
-/// text and `#` comments never count: `--dry-run` inside `# --dry-run` is
-/// not a flag the command passes. `--x` also matches `--x=value`.
-fn discloses_intent(tokens: &[&str], words: &[&str]) -> bool {
-    tokens.iter().any(|token| {
-        words.iter().any(|word| {
-            *token == *word
-                || token
-                    .strip_prefix(word)
-                    .is_some_and(|rest| rest.starts_with('='))
-        })
-    })
-}
-
-/// Replace single- and double-quoted string contents with spaces, and drop
-/// everything from `#` (when not inside a string) to end of line.
-///
-/// This is a deliberately small state machine — it does NOT model `$()`
-/// command substitution or `$VAR` expansion. The output is suitable for the
-/// validator's coarse-grained token matching but should not be treated as a
-/// real shell-parsed command.
-pub(crate) fn strip_string_literals_and_comments(input: &str) -> String {
-    enum State {
-        Code,
-        Single,
-        Double,
-        Comment,
-    }
-
-    let mut state = State::Code;
-    let mut out = String::with_capacity(input.len());
-    let mut prev_char: Option<char> = None;
-
-    for c in input.chars() {
-        match (&state, c) {
-            (State::Code, '\'') => {
-                state = State::Single;
-                out.push(' ');
-            }
-            (State::Code, '"') => {
-                state = State::Double;
-                out.push(' ');
-            }
-            (State::Code, '#') => {
-                // `#` starts a comment only at start-of-input or after whitespace.
-                let starts_comment = match prev_char {
-                    None => true,
-                    Some(p) => p.is_whitespace(),
-                };
-                if starts_comment {
-                    state = State::Comment;
-                    out.push(' ');
-                } else {
-                    out.push(c);
-                }
-            }
-            (State::Single, '\'') => {
-                state = State::Code;
-                out.push(' ');
-            }
-            (State::Double, '"') => {
-                state = State::Code;
-                out.push(' ');
-            }
-            (State::Comment, '\n') => {
-                state = State::Code;
-                out.push(c);
-            }
-            (State::Single, _) | (State::Double, _) | (State::Comment, _) => {
-                // Replace contents with a space so token boundaries are preserved.
-                out.push(if c == '\n' { '\n' } else { ' ' });
-            }
-            (State::Code, _) => out.push(c),
-        }
-        prev_char = Some(c);
-    }
-    out
-}
-
-/// `true` iff `needle` appears as a contiguous subsequence of `haystack`.
-fn contains_subsequence(haystack: &[&str], needle: &[&str]) -> bool {
-    if needle.is_empty() {
-        return true;
-    }
-    if needle.len() > haystack.len() {
-        return false;
-    }
-    haystack
-        .windows(needle.len())
-        .any(|w| w.iter().zip(needle.iter()).all(|(a, b)| a == b))
+    crate::command_policy::judge_structural(command)
 }
 
 /// Extract a stable cluster key from a shell command. Tokenizer-based for
@@ -485,149 +131,39 @@ fn strip_trailing_separators(s: &str) -> String {
 mod tests {
     use super::*;
 
-    // ─── validate_command — Block tier ────────────────────────────────────
+    // ─── the legacy entry point is the structural reading ─────────────────
 
     #[test]
-    fn validate_blocks_rm_rf_root() {
-        let verdict = validate_command("rm -rf /");
-        assert!(verdict.is_block(), "must block rm -rf, got {verdict:?}");
-        assert!(verdict.reason().unwrap().contains("rm -rf"));
-    }
-
-    #[test]
-    fn validate_blocks_rm_rf_with_path() {
-        let verdict = validate_command("rm -rf /tmp/work");
-        assert!(verdict.is_block(), "got {verdict:?}");
-    }
-
-    #[test]
-    fn validate_blocks_find_delete() {
-        let verdict = validate_command("find /tmp -name '*.bak' -delete");
-        assert!(verdict.is_block(), "got {verdict:?}");
-    }
-
-    // ─── validate_command — Allow on string-literal carriers ──────────────
-
-    #[test]
-    fn validate_allows_rm_rf_in_echo_string() {
-        // ast-grep parses this as `echo` with a string-literal argument —
-        // the `rm -rf` pattern lives inside the string, not as a command_node.
-        let verdict = validate_command(r#"echo "rm -rf is dangerous""#);
-        assert_eq!(
-            verdict,
-            Verdict::Allow,
-            "string literal must not trigger block, got {verdict:?}"
-        );
-    }
-
-    #[test]
-    fn validate_allows_dry_run_bypass() {
-        let verdict = validate_command("rm -rf /tmp --dry-run");
-        assert_eq!(verdict, Verdict::Allow, "got {verdict:?}");
-    }
-
-    // ─── the route a refusal names is a road that is open ─────────────────
-
-    /// 18/09/2026: the refusal said "pass --dry-run or scope an explicit path
-    /// you have verified". `rm` has no `--dry-run` and nothing checks a path;
-    /// three sessions retried on that road. The refusal names the real one.
-    #[test]
-    fn an_rm_refusal_names_the_delete_route_and_nothing_else() {
-        for cmd in ["rm -rf /tmp/work", "rm -fr build", "find . -name x -delete"] {
-            let verdict = validate_command(cmd);
-            let reason = verdict.reason().unwrap_or_default();
-            assert!(verdict.is_block(), "{cmd}: {verdict:?}");
-            assert!(reason.contains(DELETE_ROUTE), "{cmd}: {reason}");
-            assert!(!reason.contains("--dry-run"), "{cmd}: {reason}");
-            assert!(!reason.contains("verified"), "{cmd}: {reason}");
-        }
-    }
-
-    /// Every rule's route examples pass this validator. The same examples go
-    /// through `PreToolValidator` in touring-hooks-core, which refuses
-    /// `rm -r`/`rm -f` on its own (`every_delete_refusal_names_an_open_route`).
-    #[test]
-    fn every_route_example_passes_this_validator() {
-        for rule in RULES {
-            assert!(!rule.route.is_empty(), "{}: no route", rule.reason);
-            assert!(
-                !rule.route_examples.is_empty(),
-                "{}: no example",
-                rule.reason
-            );
-        }
-        let examples: Vec<&str> = route_examples().collect();
-        assert!(examples.len() >= RULES.len(), "{examples:?}");
-        for example in examples {
+    fn validate_command_is_the_structural_reading() {
+        for cmd in [
+            "rm -rf /",
+            "find /tmp -name '*.bak' -delete",
+            "git push --force origin main",
+            "git push --force-with-lease origin main",
+            "chmod -R 777 /var/www",
+            "rm -rf /tmp --dry-run",
+            "echo \"rm -rf is dangerous\"",
+            "ls -la",
+            "",
+        ] {
             assert_eq!(
-                validate_command(example),
-                Verdict::Allow,
-                "route example `{example}` is refused"
+                validate_command(cmd),
+                crate::command_policy::judge_structural(cmd),
+                "{cmd:?}"
             );
         }
-    }
-
-    /// A bypass is a WORD the command passes. In a comment or a quoted string
-    /// it is not a flag, and the rule still fires.
-    #[test]
-    fn a_bypass_word_in_a_comment_or_string_does_not_bypass() {
-        assert!(validate_command("rm -rf / # --dry-run").is_block());
-        assert!(validate_command("rm -rf / \"--dry-run\"").is_block());
-        assert!(matches!(
-            validate_command("git push --force origin main # --force-with-lease"),
-            Verdict::Warn { .. }
-        ));
-        // Part of another word is not the word.
-        assert!(validate_command("rm -rf ./--dry-run-output").is_block());
-        // `--x=value` is still the word `--x`.
-        assert_eq!(
-            validate_command("git push --force --force-with-lease=main origin main"),
-            Verdict::Allow
-        );
-    }
-
-    // ─── validate_command — Warn tier ─────────────────────────────────────
-
-    #[test]
-    fn validate_warns_git_push_force() {
-        let verdict = validate_command("git push --force origin main");
-        match verdict {
-            Verdict::Warn { reason } => assert!(reason.contains("--force-with-lease")),
-            other => panic!("expected warn, got {other:?}"),
-        }
+        assert!(validate_command("rm -rf /").is_block());
+        assert!(validate_command("git reset --hard HEAD~1").is_block());
+        assert!(validate_command("git push --force-with-lease origin main").is_block());
     }
 
     #[test]
-    fn validate_allows_git_push_force_with_lease() {
-        let verdict = validate_command("git push --force-with-lease origin main");
-        assert_eq!(verdict, Verdict::Allow);
-    }
-
-    #[test]
-    fn validate_warns_chmod_777() {
-        let verdict = validate_command("chmod -R 777 /var/www");
-        assert!(verdict.is_actionable());
-    }
-
-    #[test]
-    fn validate_warns_git_reset_hard() {
-        let verdict = validate_command("git reset --hard HEAD~1");
-        assert!(matches!(verdict, Verdict::Warn { .. }), "got {verdict:?}");
-    }
-
-    // ─── validate_command — Allow contract ────────────────────────────────
-
-    #[test]
-    fn validate_allows_empty() {
-        assert_eq!(validate_command(""), Verdict::Allow);
-        assert_eq!(validate_command("   "), Verdict::Allow);
-    }
-
-    #[test]
-    fn validate_allows_benign_commands() {
-        assert_eq!(validate_command("ls -la"), Verdict::Allow);
-        assert_eq!(validate_command("cargo test --release"), Verdict::Allow);
-        assert_eq!(validate_command("echo hello"), Verdict::Allow);
+    fn the_legacy_paths_re_export_the_policy_constants() {
+        assert_eq!(DELETE_ROUTE, crate::command_policy::DELETE_ROUTE);
+        assert_eq!(DD_ROUTE, crate::command_policy::DD_ROUTE);
+        assert_eq!(PIPE_SHELL_ROUTE, crate::command_policy::PIPE_SHELL_ROUTE);
+        assert!(route_examples().count() > 0);
+        assert!(!DELETE_ROUTE_EXAMPLES.is_empty());
     }
 
     // ─── command_shape ────────────────────────────────────────────────────

@@ -152,7 +152,7 @@ stderr vazio passou a ser nomeado como kill de resource cap na `failure.message`
 confundível com o exit do programa.
 
 **As janelas de rajada (G1/G10/par write→run) são por (projeto, ator, classe): o ator é a sessão
-desde 30/08 e a sessão mais o agente desde 25/09 (S23, `session_key` em `cli_suggester.rs`).**
+desde 30/08 e a sessão mais o agente desde 25/09 (S23, `session_key` em `code_mode_gates/mod.rs`).**
 Os ledgers vivem no daemon — um processo para N sessões CC. Chaveados só por projeto, um deny
 carregava comandos de OUTRA sessão no remédio e inflava a contagem de quem não fez a rajada
 (medido pela `analise-a2`: paths de scratchpad alheios na rota sugerida). Chaveados só pela
@@ -166,6 +166,17 @@ de fora da correção de 30/08 e seguia chaveado só por (raiz, ferramenta, inpu
 que repetisse o comando de outra em 300 s era negada como "retry cego" — a suíte de contrato do
 analise (uma sessão sintética por chamada) negava do 2º run em diante. `g6_key` inclui o ator
 (sessão + agente); provado ao vivo com a suíte rodada 2× em 22 s.
+
+**Onde moram os gates (código, 02/11/2026).** Um módulo só, `crates/touring-cli/src/code_mode_gates/`:
+`evaluate(&GateState, &ToolEvent, &GateConfig) -> Decision` devolve o veredito (`Allow`, `Advise`,
+`Rewrite`, `Deny { gate, reason, fused_program }`) e os avisos; `cli_suggester` pergunta e só
+FORMATA o JSON do hook (`gate_response`). Toda janela e limiar está em `spec.rs`, todo ledger é
+campo de `GateState` (`GateState::global()` no daemon, `GateState::new()` por teste), a precedência
+da apresentação (prefixo → env → alias → `touring.toml` → política armada → `both`) e o kill
+switch em `mode.rs`. As provas (`code_mode_gates/tests/`): tabela de sequências de eventos →
+vereditos (`rows.rs`), corpus de replay gravado ANTES da extração e reproduzido byte a byte
+(`replay.rs` + `tests/fixtures/gate_replay_corpus.json`), contrato janela↔ledger e mapa dos
+testes antigos (`contract.rs`), o kill switch sobre a tabela inteira (`switch.rs`).
 
 ## `--orchestrate` — o SDK `touring.*` dentro do sandbox
 

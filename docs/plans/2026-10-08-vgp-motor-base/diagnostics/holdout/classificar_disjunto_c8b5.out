@@ -153,7 +153,7 @@ bb69126c6351 arquivo atribuido controle_e2e.py | nome p L24 | construto: with-as
 bb69126c6351 arquivo atribuido controle_e2e.py | atributo montar_site L18 | construto: - | pm.montar_site(raiz)
 bb69126c6351 arquivo atribuido controle_e2e.py | atributo _SemLog L19 | construto: - | srv = ThreadingHTTPServer(("127.0.0.1", 0), partial(e2e._SemLog, directory=str(r
 74f04a24de12 arquivo atribuido retrieval_bench.py | nome WS L131 | construto: nao-ligado-no-arquivo | out = subprocess.run(["touring", "search", "fuzzy", q, "--limit", "10"], capture
-a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | nome zf L31 | construto: with-as | with zipfile.ZipFile("/home/gabrielgadea/projects/analise/data/raw/external_apis
+a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | nome zf L31 | construto: with-as | with zipfile.ZipFile("~/projects/analise/data/raw/external_apis
 a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | nome fh L32 | construto: with-as | for r in csv.DictReader(io.TextIOWrapper(fh, encoding="latin-1", newline=""), de
 a08af4eb6d7a arquivo atribuido fronteiras_votos_z1.py | atributo candidatos_do_ano L13 | construto: - | candidatos = vl.candidatos_do_ano(2022)
 c35d78e3eb25 arquivo atribuido s24_route_patch.py | nome WIRING L244 | construto: nao-ligado-no-arquivo | for old, new, label in WIRING:

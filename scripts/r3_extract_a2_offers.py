@@ -47,7 +47,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from r3_b0 import b0_decision
 
-PROJ = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring")
+PROJ = os.path.join(os.path.expanduser("~/.claude/projects"),
+                    re.sub(r"[^A-Za-z0-9]", "-", os.path.expanduser("~/projects/touring")))
 OUT_DIR = Path("~/.claude/touring/r3-data").expanduser()
 
 # Primeiro corte: 2026-08-26 (data pedida no plano S-2).

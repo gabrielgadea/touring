@@ -22,7 +22,6 @@
 
 # ── L0 — foundational (no dependence on any touring crate) ──────────────────
 touring-foundation = 0
-touring-contracts  = 0
 touring-identity   = 0
 touring-rkyv       = 0
 touring-license    = 0
@@ -75,8 +74,7 @@ touring-hooks-shared     = 2   # forced [2,2]: base of the hooks family
 touring-hooks-prediction = 2
 touring-hooks-rl         = 2
 touring-hooks-saga       = 2
-touring-bindings         = 2   # imports code/intelligence/simd (real use-graph)
-touring-capnp-server     = 2   # capnp RPC substrate (imports bindings)
+touring-bindings         = 2   # imports code/intelligence/simd (real use-graph); hosts the capnp RPC substrate (`capnp` module)
 
 # L3 — hooks runtime/handlers (graph-forced) + application/server surface
 touring-hooks-core       = 3   # forced [3,3]: imports ceg/orchestration (L3)

@@ -29,7 +29,7 @@ use touring_foundation::truncate_str;
 ///
 /// Delegates classification to `classify_file_to_generator_kind` and formats the result.
 /// Returns `None` for file types with no natural generator counterpart (`.lock`, `.md`, …).
-pub(crate) fn maybe_generator_kind_hint(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_generator_kind_hint(rel_path: &str) -> Option<String> {
     let kind = classify_file_to_generator_kind(rel_path)?;
     let stem = file_stem(rel_path);
     Some(format!(
@@ -41,7 +41,7 @@ pub(crate) fn maybe_generator_kind_hint(rel_path: &str) -> Option<String> {
 ///
 /// Priority: exact extension first, then YAML sub-kind, then Rust sub-kind.
 /// R40-S1: Added .sql → Migration, .sh/.bash → ShellCompletion, openapi/asyncapi path → specs.
-pub(crate) fn classify_file_to_generator_kind(rel_path: &str) -> Option<&'static str> {
+pub(super) fn classify_file_to_generator_kind(rel_path: &str) -> Option<&'static str> {
     let lower = rel_path.to_lowercase();
     if lower.ends_with(".proto") {
         return Some("ProtobufSchema");
@@ -77,7 +77,7 @@ pub(crate) fn classify_file_to_generator_kind(rel_path: &str) -> Option<&'static
 }
 
 /// Classify a YAML/YML file to CiWorkflow or K8sManifest (CC≤4).
-pub(crate) fn classify_yaml_to_generator_kind(lower: &str) -> Option<&'static str> {
+fn classify_yaml_to_generator_kind(lower: &str) -> Option<&'static str> {
     if lower.contains("workflow") || lower.contains(".github/workflows") {
         return Some("CiWorkflow");
     }
@@ -88,7 +88,7 @@ pub(crate) fn classify_yaml_to_generator_kind(lower: &str) -> Option<&'static st
 }
 
 /// Classify a `.rs` file to Benchmark, FuzzTarget, Test, or RustModule (CC≤5).
-pub(crate) fn classify_rust_to_generator_kind(lower: &str, rel_path: &str) -> &'static str {
+fn classify_rust_to_generator_kind(lower: &str, rel_path: &str) -> &'static str {
     let stem_lower = file_stem(rel_path).to_lowercase();
     if stem_lower.starts_with("bench") || lower.contains("/benches/") {
         return "Benchmark";
@@ -105,7 +105,7 @@ pub(crate) fn classify_rust_to_generator_kind(lower: &str, rel_path: &str) -> &'
 // ── Path → symbol name ───────────────────────────────────────────────────────
 
 /// Extract the file stem (basename without extension) from a path string.
-pub(crate) fn file_stem(path: &str) -> &str {
+pub(super) fn file_stem(path: &str) -> &str {
     std::path::Path::new(path)
         .file_stem()
         .and_then(|s| s.to_str())
@@ -116,7 +116,7 @@ pub(crate) fn file_stem(path: &str) -> &str {
 ///
 /// e.g. `hook_registry` → `HookRegistry`, `lifecycle` → `Lifecycle`.
 /// Used to derive the dominant public symbol name from a changed Rust file's stem.
-pub(crate) fn stem_to_camel_case(stem: &str) -> String {
+fn stem_to_camel_case(stem: &str) -> String {
     stem.split('_')
         .filter(|s| !s.is_empty())
         .map(|s| {
@@ -135,7 +135,7 @@ pub(crate) fn stem_to_camel_case(stem: &str) -> String {
 /// `touring generate verify --symbol <Name>` so Claude Code immediately knows
 /// which symbol to check after an edit. Skips lib/main/mod (too generic).
 /// No DB call — purely structural from the path. Returns `None` for non-.rs files.
-pub(crate) fn maybe_vgp_verify_hint_for_rs_file(rel_path: &str) -> Option<String> {
+pub(super) fn maybe_vgp_verify_hint_for_rs_file(rel_path: &str) -> Option<String> {
     if !rel_path.ends_with(".rs") {
         return None;
     }
@@ -156,7 +156,7 @@ pub(crate) fn maybe_vgp_verify_hint_for_rs_file(rel_path: &str) -> Option<String
 ///
 /// Data-driven: `SUBJECT_KEYWORD_MAP` maps keywords → GeneratorKind labels.
 /// The first matching entry wins (priority order). Returns empty string if no match.
-pub(crate) fn suggest_generator_for_task_subject(subject: &str) -> String {
+pub(super) fn suggest_generator_for_task_subject(subject: &str) -> String {
     if subject.is_empty() {
         return String::new();
     }
@@ -249,7 +249,7 @@ static SUBJECT_KEYWORD_MAP: &[(&str, &str)] = &[
 /// directly via `super::find_kind_by_keywords` and `task_create.rs` /
 /// other callers can reuse the keyword-match primitive without
 /// re-implementing the scan.
-pub(crate) fn find_kind_by_keywords(lower: &str) -> Option<&'static str> {
+fn find_kind_by_keywords(lower: &str) -> Option<&'static str> {
     SUBJECT_KEYWORD_MAP
         .iter()
         .find(|(kw, _)| lower.contains(kw))
@@ -264,7 +264,7 @@ pub(crate) fn find_kind_by_keywords(lower: &str) -> Option<&'static str> {
 /// Upserts 3 subtask DAG entries to Tantivy (discoverable via BM25 search) and
 /// stores a creation lesson so the full task lifecycle is queryable:
 ///   created (R26-S2) → completed (R23-S2) → deleted (R25-S1)
-pub(crate) fn persist_task_creation(
+pub(super) fn persist_task_creation(
     rt: &mut crate::runtime::HookRuntime,
     task_id: &str,
     task_subject: &str,
@@ -352,7 +352,7 @@ pub(crate) fn persist_task_creation(
 /// `touring generate plan-submit --plan-file plan.json`. Closes the CC TaskCreate →
 /// GeneratorPlan pipeline: subject → keyword match → concrete stub → immediate submission.
 /// Returns `None` when subject is empty or no keyword matches.
-pub(crate) fn plan_scaffold_for_subject(subject: &str, task_id: &str) -> Option<String> {
+pub(super) fn plan_scaffold_for_subject(subject: &str, task_id: &str) -> Option<String> {
     let lower = subject.to_lowercase();
     let kind = find_kind_by_keywords(&lower)?;
     let intent = truncate_str(subject, 80);

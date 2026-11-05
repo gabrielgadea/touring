@@ -15,6 +15,7 @@ use std::path::Path;
 use std::process::Command;
 
 use serde_json::{Value, json};
+use touring_foundation::run_outcome::journal_path;
 use touring_hooks::cli_suggester;
 use touring_hooks::runtime::HookRuntime;
 
@@ -194,7 +195,7 @@ fn o_comando_que_o_deny_do_g10_nomeia_executa_e_escreve() {
 fn o_e2e_nao_escreve_no_journal_real() {
     let tmp = projeto();
     let journal_real = std::env::var("HOME")
-        .map(|h| Path::new(&h).join(".claude/touring/run_journal.jsonl"))
+        .map(|h| journal_path(Path::new(&h)))
         .unwrap_or_else(|_| Path::new("/nonexistent/run_journal.jsonl").to_path_buf());
     let antes = std::fs::read(&journal_real).unwrap_or_default();
     let meta_antes = std::fs::metadata(&journal_real)
@@ -209,11 +210,8 @@ fn o_e2e_nao_escreve_no_journal_real() {
     assert_eq!(rc, 0, "o run tem de passar: {saida}");
 
     // (1) o journal TEMPORÁRIO recebeu o registro — o mecanismo está em jogo.
-    let temp = std::fs::read_to_string(
-        tmp.path()
-            .join("home-temp/.claude/touring/run_journal.jsonl"),
-    )
-    .expect("o journal temporário recebeu o registro");
+    let temp = std::fs::read_to_string(journal_path(&tmp.path().join("home-temp")))
+        .expect("o journal temporário recebeu o registro");
     assert!(
         temp.lines().any(|l| !l.trim().is_empty()),
         "o run não journalou no HOME temporário"

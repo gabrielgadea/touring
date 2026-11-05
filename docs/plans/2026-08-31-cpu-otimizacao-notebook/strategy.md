@@ -3,7 +3,7 @@ type: Strategy
 title: "Otimização & Distribuição de CPU no Notebook (Omarchy)"
 description: "Análise com --ultrathink das 32 threads do i9-14900HX, gargalos térmicos e monopolizadores. 5 fases: quick wins → workers paralelos → cache estrutural → thermal management → NUMA/hardware."
 plan_id: "2026-08-31-cpu-otimizacao-notebook"
-scope: "/home/gabrielgadea (Omarchy Linux, 4 dias uptime)"
+scope: "~ (Omarchy Linux, 4 dias uptime)"
 bundle: "docs/plans/2026-08-31-cpu-otimizacao-notebook"
 okf_version: "0.1"
 timestamp: "2026-08-31T22:55:00-03:00"
@@ -52,7 +52,7 @@ tags: [strategy, cpu, optimization, omarchy, thermal, numa, ray-cpu, distributio
 | 2848184 | `touring-quality score analise` | 241% | 2.4 cores | 3 min | **init (1644)** ← 🔴 **órfão / race** |
 | 1968515 | `touring-mcp` (serve) | 32% | 0.3 cores | 13h14m | claude session |
 
-**Insight crítico**: 2 instâncias de `touring-quality score /home/gabrielgadea/projects/analise` rodando simultaneamente** com parent `init/1` (orfanato). Confirma o diagnóstico de race condition (PID 2848184 parent=init = daemon órfão que ninguém controla).
+**Insight crítico**: 2 instâncias de `touring-quality score ~/projects/analise` rodando simultaneamente** com parent `init/1` (orfanato). Confirma o diagnóstico de race condition (PID 2848184 parent=init = daemon órfão que ninguém controla).
 
 ---
 

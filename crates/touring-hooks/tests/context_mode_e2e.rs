@@ -30,6 +30,7 @@
 use serde_json::json;
 use serial_test::serial;
 use tempfile::TempDir;
+use touring_foundation::run_outcome::ExitStatus;
 
 use touring_hooks::cli_handlers_mcp::{
     CTX_MCP_TOOL_NAMES, CtxRouter, ctx_compress, ctx_index, ctx_insight, ctx_mcp_tool_count,
@@ -107,7 +108,11 @@ fn audit_sandbox_blocking_captures_stdout_and_hashes() {
     )
     .expect("subprocess");
 
-    assert_eq!(res.exit_code, 0, "successful subprocess MUST return 0");
+    assert_eq!(
+        res.exit_code,
+        ExitStatus::Code(0),
+        "successful subprocess MUST return 0"
+    );
     assert!(res.output_bytes >= 16, "captured stdout MUST equal payload");
     assert_eq!(res.content_hash.len(), 64, "blake3 hex MUST be 64 chars");
     assert!(!res.was_truncated, "small output MUST NOT be truncated");
@@ -128,7 +133,11 @@ fn audit_sandbox_timeout_fallback_returns_sentinel_when_enabled() {
     let res = execute_in_sandbox_blocking("Bash", json!({"command": "sleep 5"}), cfg)
         .expect("fallback should produce sentinel Ok, not Err");
 
-    assert_eq!(res.exit_code, -2, "fallback sentinel MUST use exit_code=-2");
+    assert_eq!(
+        res.exit_code,
+        ExitStatus::TimedOut,
+        "fallback sentinel MUST use the typed timeout"
+    );
     assert!(
         res.was_truncated,
         "fallback sentinel MUST set truncated=true"
@@ -426,7 +435,7 @@ fn audit_full_pipeline_subprocess_to_retrieve() {
     )
     .expect("execute_and_store");
 
-    assert_eq!(res.exit_code, 0);
+    assert_eq!(res.exit_code, ExitStatus::Code(0));
     assert!(!res.content_hash.is_empty());
 
     // Step 2: retrieve from the GLOBAL tool_outputs index — proves

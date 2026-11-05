@@ -51,7 +51,7 @@ Medido em 10 transcripts reais deste projeto (406 turnos de usuário):
 **948.467 bytes (35,1% da injeção) são blocos byte-IDÊNTICOS a um já presente na
 janela.** Um bloco idêntico ao anterior tem entropia condicional zero: `IDR = 0`.
 
-Os campeões de densidade nula, contados: `[gabrielgadea]` **384×**,
+Os campeões de densidade nula, contados: `[<user>]` **384×**,
 `[generic]` **188×**, `post-tool-batch: batch of 1 tools (Edit) may have…`
 **422×** (somando as variantes Edit/Write/2-tools).
 
@@ -138,7 +138,7 @@ consumo**. Por isso apertar o CILA nunca moveu o número: ele não alcança 61% 
 
 `~/.claude/rules/touring-4-pillars.md` exige que **toda** injeção seja *dense,
 specific, clear, complete, grounded*. Não existe executor verificando. Resultado
-medido: `[gabrielgadea]` 384×, `[generic]` 188×, "batch of 1 tools" 422×,
+medido: `[<user>]` 384×, `[generic]` 188×, "batch of 1 tools" 422×,
 `licoes-passadas` 86,4% repetidas. **Anti-padrão D8 em estado puro** — o mesmo
 que a própria rule nomeia: *"enforcement mora no executor, não no anúncio"*.
 
@@ -242,7 +242,7 @@ Otimizar antes de medir é o anti-padrão que este plano diagnostica em D4.
 #### S-2.1: Predicado de proposições acionáveis [P0] [confidence: FACT]
 - **Change**: um bloco declara suas proposições (comando derivado, símbolo real,
   número medido). Zero proposições → não emitido.
-- **Source truth**: `[gabrielgadea]` 384×, `[generic]` 188×,
+- **Source truth**: `[<user>]` 384×, `[generic]` 188×,
   `post-tool-batch: batch of 1 tools` 422×.
 - **Test**: `test_a_block_with_zero_actionable_propositions_is_not_emitted` — nenhum bloco com 0 proposições no trace; `idr_by_family` ≥ piso.
 - **Enables**: fecha D8 na rule `touring-4-pillars`, que exige densidade e não tem juiz.

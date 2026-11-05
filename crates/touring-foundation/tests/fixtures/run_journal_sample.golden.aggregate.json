@@ -1,0 +1,92 @@
+{
+  "brief_runs": 4,
+  "by_language": {
+    "bash": {
+      "count": 217,
+      "duration_ms_p50": 26,
+      "duration_ms_p99": 590007,
+      "failure_count": 148
+    },
+    "go": {
+      "count": 1,
+      "duration_ms_p50": 10,
+      "duration_ms_p99": 10,
+      "failure_count": 1
+    },
+    "js": {
+      "count": 31,
+      "duration_ms_p50": 29,
+      "duration_ms_p99": 149,
+      "failure_count": 13
+    },
+    "perl": {
+      "count": 3,
+      "duration_ms_p50": 12,
+      "duration_ms_p99": 13,
+      "failure_count": 0
+    },
+    "php": {
+      "count": 1,
+      "duration_ms_p50": 10,
+      "duration_ms_p99": 10,
+      "failure_count": 1
+    },
+    "python": {
+      "count": 197,
+      "duration_ms_p50": 33,
+      "duration_ms_p99": 180008,
+      "failure_count": 123
+    },
+    "ruby": {
+      "count": 3,
+      "duration_ms_p50": 35,
+      "duration_ms_p99": 48,
+      "failure_count": 0
+    },
+    "rust": {
+      "count": 3,
+      "duration_ms_p50": 55,
+      "duration_ms_p99": 55,
+      "failure_count": 0
+    },
+    "shell": {
+      "count": 35,
+      "duration_ms_p50": 72,
+      "duration_ms_p99": 532,
+      "failure_count": 17
+    },
+    "ts": {
+      "count": 6,
+      "duration_ms_p50": 112,
+      "duration_ms_p99": 124,
+      "failure_count": 4
+    },
+    "zig": {
+      "count": 1,
+      "duration_ms_p50": 1,
+      "duration_ms_p99": 1,
+      "failure_count": 1
+    }
+  },
+  "duration_ms_p50": 33,
+  "duration_ms_p99": 570351,
+  "failure_counts": {
+    "exception": 217,
+    "from-the-future": 1,
+    "output-limit": 9,
+    "proc-exit": 4,
+    "timeout": 77
+  },
+  "file_runs": 106,
+  "harvested_runs": 0,
+  "hinted_runs": 6,
+  "inline_runs": 144,
+  "malformed_first_line": 383,
+  "malformed_lines": 13,
+  "orchestrate_runs": 0,
+  "scratch_file_runs": 45,
+  "total_bytes_elided": 9731126,
+  "total_code_hash_stdout_bytes": 9279132,
+  "total_entries": 498,
+  "total_tmp_bytes": 2843522
+}

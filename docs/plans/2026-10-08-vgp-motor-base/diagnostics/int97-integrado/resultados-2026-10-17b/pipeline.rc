@@ -1,6 +1,6 @@
 gates rc=0 2026-10-17T15:43:03-03:00
 release rc=0 2026-10-17T15:56:29-03:00
-novo=/home/gabrielgadea/.claude/touring/vgp/binarios/a770654e/touring
+novo=~/.claude/touring/vgp/binarios/a770654e/touring
 juizes ev rc=0 2026-10-17T16:10:38-03:00
 regua ev v2 vs INT rc=0
 regua ev v2 vs P0B rc=0

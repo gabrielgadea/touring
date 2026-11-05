@@ -1,12 +1,17 @@
 """Reduced corpus for the phase D smoke: ~40 ids sampled (seed 1) from corpus_v0d, via symlinks (the original is read-only here)."""
+
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
 import json
 import os
 import random
 import warnings
 from pathlib import Path
 
-ORIG = Path("/home/gabrielgadea/.claude/touring/vgp/corpus_v0d")
-DEST = Path("/tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/corpus_40")
+ORIG = Path(f"{_HOME}/.claude/touring/vgp/corpus_v0d")
+DEST = Path(f"/tmp/claude-1000/{_HOME_SLUG}-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/corpus_40")
 
 
 def compila(e):

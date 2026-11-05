@@ -65,7 +65,7 @@
 **Evidence**: EVERY Bash call triggers:
 ```
 ⚡ Bash failure: Exit code 2
-ls: não foi possível acessar '/home/gabrielgadea/.claude/rust/crates/touring-memory/src/': Arquivo ou diretório inexistente
+ls: não foi possível acessar '~/.claude/rust/crates/touring-memory/src/': Arquivo ou diretório inexistente
 ```
 
 **Impact**: ~50+ noise messages per session. Pollutes context, costs tokens, distracts from real errors.
@@ -282,7 +282,7 @@ Fix 5 (CILA Pruning)         ─── M (4h) ─── Next week
 
 ### B. The touring-memory Hook Noise
 
-The persistent `ls: não foi possível acessar '/home/gabrielgadea/.claude/rust/crates/touring-memory/src/'` appears because a hook (likely `pre-bash` or `post-bash`) checks for a `touring-memory` crate that was planned but never created. To fix:
+The persistent `ls: não foi possível acessar '~/.claude/rust/crates/touring-memory/src/'` appears because a hook (likely `pre-bash` or `post-bash`) checks for a `touring-memory` crate that was planned but never created. To fix:
 
 ```bash
 # Find the offending hook

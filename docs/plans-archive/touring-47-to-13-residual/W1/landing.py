@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """W1.landing — Verify + create docs/landing/index.md for the docs site root."""
 from __future__ import annotations
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import argparse, json, sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-_ROOT = Path("/home/gabrielgadea/.claude/rust")
+_ROOT = Path(f"{_HOME}/.claude/rust")
 _DATA_DIR = _ROOT / ".claude" / "plans" / "touring-47-to-13-residual" / "data"
 _LANDING = _ROOT / "docs" / "landing" / "index.md"
 _WAVE = "W1"

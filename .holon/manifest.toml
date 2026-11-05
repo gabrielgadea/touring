@@ -1,4 +1,4 @@
-# schema: /home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json
+# schema: ~/.claude/tools/holon/holon-manifest.schema.json
 # THSF Fase 2 D2.1 — Touring-master aggregator manifest.
 #
 # This manifest does NOT replace the 21 crate-level manifests. It adds a

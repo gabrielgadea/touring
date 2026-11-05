@@ -1,6 +1,8 @@
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import hashlib, os, shutil, subprocess, sys
 from pathlib import Path
-A = Path("/home/gabrielgadea/projects/touring-wt-g1/crates/touring-cli/src/cli_suggester.rs")
+A = Path(f"{_HOME}/projects/touring-wt-g1/crates/touring-cli/src/cli_suggester.rs")
 C = Path(sys.argv[1]) / "cli_suggester.rs.pristino_d"
 sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 shutil.copy2(A, C); s0 = sha(A); print("sha inicial :", s0)

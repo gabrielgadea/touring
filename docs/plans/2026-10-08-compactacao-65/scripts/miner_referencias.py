@@ -35,6 +35,9 @@ USO
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import pathlib
@@ -61,11 +64,11 @@ DESTINOS: dict[str, pathlib.Path] = {
     "touring-4-pillars-provenance.md":
         HOME / ".claude/skills/Touring/references/touring-4-pillars-provenance.md",
     "00-core-governance-restauracao.md":
-        pathlib.Path("/home/gabrielgadea/projects/analise/.claude/docs/"
+        pathlib.Path(f"{_HOME}/projects/analise/.claude/docs/"
                      "rules-provenance/00-core-governance-restauracao.md"),
     "disk-hygiene.md": HOME / ".claude/rules/disk-hygiene.md",
     "vgp-protocol.md":
-        pathlib.Path("/home/gabrielgadea/projects/analise/.claude/rules/"
+        pathlib.Path(f"{_HOME}/projects/analise/.claude/rules/"
                      "vgp-protocol.md"),
 }
 

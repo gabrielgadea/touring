@@ -321,14 +321,25 @@ fn extract_final_output(transcript: &[serde_json::Value]) -> Option<String> {
     None
 }
 
-const PARCER_AGENTS_DIR: &str = "/home/gabrielgadea/.claude/agents";
+/// Directory of the PARCER agent profiles (`~/.claude/agents`), or `None` when no
+/// home directory can be derived — there is no compiled-in default.
+fn parcer_agents_dir() -> Option<std::path::PathBuf> {
+    touring_foundation::user_home::claude_home().map(|claude| claude.join("agents"))
+}
 
 /// Validate subagent output against its PARCER profile's `response.format.schema_ref`.
 /// Returns `None` if valid, or an error message describing the validation failure.
 /// Gracefully degrades: if the profile cannot be read, returns `None` (allow stop).
 fn validate_parcer_output(agent_id: &str, output: &str) -> Option<String> {
     // Build the PARCER YAML path
-    let yaml_path = format!("{}/touring-{}.parcer.yaml", PARCER_AGENTS_DIR, agent_id);
+    let Some(agents_dir) = parcer_agents_dir() else {
+        tracing::warn!(
+            agent_id,
+            "PARCER agents dir not derivable (no home directory) — allowing stop"
+        );
+        return None;
+    };
+    let yaml_path = agents_dir.join(format!("touring-{agent_id}.parcer.yaml"));
     let yaml_text = match std::fs::read_to_string(&yaml_path) {
         Ok(t) => t,
         Err(_) => return None, // Graceful degradation: no profile → allow stop

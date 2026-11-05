@@ -1,4 +1,4 @@
-# schema: /home/gabrielgadea/.claude/tools/holon/holon-manifest.schema.json
+# schema: ~/.claude/tools/holon/holon-manifest.schema.json
 # THSF Fase 4 Wave 4D — provider manifest exposing 3 WebAssembly components
 # as Holon capabilities via adapter=wasm. konverter (and any other holon
 # declaring `requires.quality-gate` / `requires.blast-radius` / `requires.spec-version`)

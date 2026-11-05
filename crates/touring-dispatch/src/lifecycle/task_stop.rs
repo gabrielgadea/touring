@@ -135,7 +135,7 @@ pub(crate) fn handle_task_sync_post_stop(rt: &mut HookRuntime, input: &Value) ->
 /// `pub(crate)` so inline tests in `lifecycle::tests` can exercise this helper
 /// directly via `super::session_assess_on_task_stop` after the re-export in
 /// `lifecycle.rs`.
-pub(crate) fn session_assess_on_task_stop(rt: &mut HookRuntime, task_id: &str) -> String {
+fn session_assess_on_task_stop(rt: &mut HookRuntime, task_id: &str) -> String {
     let assess_payload = serde_json::json!({"session_id": task_id});
     let result = crate::cli_handlers::cli_session_assess(rt, &assess_payload);
     match serde_json::from_str::<serde_json::Value>(&result) {

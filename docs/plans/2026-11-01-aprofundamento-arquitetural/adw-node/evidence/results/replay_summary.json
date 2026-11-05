@@ -1,0 +1,2675 @@
+{
+"analise/analise-estudo-tecnico": {
+"explain": {
+"new": "0fcc14dd37f38871",
+"old": "0fcc14dd37f38871",
+"same": true
+},
+"explain_cost": {
+"new": "52110255c51ac3e9",
+"old": "52110255c51ac3e9",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "9a5342f081337611",
+"old": "9a5342f081337611",
+"same": true
+},
+"test": {
+"new": "0cd09780d70a2bad",
+"old": "0cd09780d70a2bad",
+"same": true
+}
+},
+"analise/analise-f10-f16": {
+"explain": {
+"new": "3dc793b1f943153d",
+"old": "3dc793b1f943153d",
+"same": true
+},
+"explain_cost": {
+"new": "a6352433a60845d7",
+"old": "a6352433a60845d7",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "4e3fdb85ac9b88d7",
+"old": "4e3fdb85ac9b88d7",
+"same": true
+},
+"test": {
+"new": "e9c9279805b22ed7",
+"old": "e9c9279805b22ed7",
+"same": true
+}
+},
+"analise/analise-fechamento": {
+"explain": {
+"new": "727163ea4042b652",
+"old": "727163ea4042b652",
+"same": true
+},
+"explain_cost": {
+"new": "e5d74f5a73d040c3",
+"old": "e5d74f5a73d040c3",
+"same": true
+},
+"lint": {
+"new": "707b5ce9f4241667",
+"old": "707b5ce9f4241667",
+"same": true
+},
+"mermaid": {
+"new": "5f34c8b1da0c0723",
+"old": "5f34c8b1da0c0723",
+"same": true
+},
+"test": {
+"new": "63ea8d00280f93f5",
+"old": "63ea8d00280f93f5",
+"same": true
+}
+},
+"analise/analise-processo-antt": {
+"explain": {
+"new": "b6455b11b6bdcc8c",
+"old": "b6455b11b6bdcc8c",
+"same": true
+},
+"explain_cost": {
+"new": "cc59e1573669806c",
+"old": "cc59e1573669806c",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "91d4a0a99f8a16d9",
+"old": "91d4a0a99f8a16d9",
+"same": true
+},
+"test": {
+"new": "6bfdc0dd19cd0f86",
+"old": "6bfdc0dd19cd0f86",
+"same": true
+}
+},
+"analise/analise-tema-livre": {
+"explain": {
+"new": "6f3864097a68c4a1",
+"old": "6f3864097a68c4a1",
+"same": true
+},
+"explain_cost": {
+"new": "a31b1391215e4838",
+"old": "a31b1391215e4838",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "ea0041ccded7ceb8",
+"old": "ea0041ccded7ceb8",
+"same": true
+},
+"test": {
+"new": "c51c5153fd14285e",
+"old": "c51c5153fd14285e",
+"same": true
+}
+},
+"analise/antt-pipeline-completo": {
+"explain": {
+"new": "99226828e9e05e91",
+"old": "99226828e9e05e91",
+"same": true
+},
+"explain_cost": {
+"new": "3014410b38ba3c7f",
+"old": "3014410b38ba3c7f",
+"same": true
+},
+"lint": {
+"new": "a741193585395c6d",
+"old": "a741193585395c6d",
+"same": true
+},
+"mermaid": {
+"new": "f8ba829247acd879",
+"old": "f8ba829247acd879",
+"same": true
+},
+"test": {
+"new": "566890a3033601ac",
+"old": "566890a3033601ac",
+"same": true
+}
+},
+"analise/atlas-malha": {
+"explain": {
+"new": "0d37c18714cdc1d1",
+"old": "0d37c18714cdc1d1",
+"same": true
+},
+"explain_cost": {
+"new": "5e1c042cc95741a1",
+"old": "5e1c042cc95741a1",
+"same": true
+},
+"lint": {
+"new": "6ff8fb116fc7c2f5",
+"old": "6ff8fb116fc7c2f5",
+"same": true
+},
+"mermaid": {
+"new": "134debba548024c8",
+"old": "134debba548024c8",
+"same": true
+},
+"test": {
+"new": "4ac3b9eb6682c93c",
+"old": "4ac3b9eb6682c93c",
+"same": true
+}
+},
+"analise/camada-semantica-processo": {
+"explain": {
+"new": "c5b1d297d34d2c41",
+"old": "c5b1d297d34d2c41",
+"same": true
+},
+"explain_cost": {
+"new": "54c39167e049a5f6",
+"old": "54c39167e049a5f6",
+"same": true
+},
+"lint": {
+"new": "f36ec940654c66f2",
+"old": "f36ec940654c66f2",
+"same": true
+},
+"mermaid": {
+"new": "a1ac9b281d57b007",
+"old": "a1ac9b281d57b007",
+"same": true
+},
+"test": {
+"new": "0f6164d9ee71ee36",
+"old": "0f6164d9ee71ee36",
+"same": true
+}
+},
+"analise/compute-f5-f9": {
+"explain": {
+"new": "91eeae81cf1ba26c",
+"old": "91eeae81cf1ba26c",
+"same": true
+},
+"explain_cost": {
+"new": "ec78e4cd809f533b",
+"old": "ec78e4cd809f533b",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "0260e5e8f2f43b36",
+"old": "0260e5e8f2f43b36",
+"same": true
+},
+"test": {
+"new": "e2245951804a18a1",
+"old": "e2245951804a18a1",
+"same": true
+}
+},
+"analise/conversao-f0-f4": {
+"explain": {
+"new": "71fbeec1383671e3",
+"old": "71fbeec1383671e3",
+"same": true
+},
+"explain_cost": {
+"new": "6f2b571e14b29e63",
+"old": "6f2b571e14b29e63",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "3e9a37ed032d2b1c",
+"old": "3e9a37ed032d2b1c",
+"same": true
+},
+"test": {
+"new": "4445d537c8c4ff34",
+"old": "4445d537c8c4ff34",
+"same": true
+}
+},
+"analise/conversao-lote-rs": {
+"explain": {
+"new": "b20bde9db6e876d0",
+"old": "b20bde9db6e876d0",
+"same": true
+},
+"explain_cost": {
+"new": "5d499d8d2e35abe9",
+"old": "5d499d8d2e35abe9",
+"same": true
+},
+"lint": {
+"new": "b470857991f23e18",
+"old": "b470857991f23e18",
+"same": true
+},
+"mermaid": {
+"new": "34be4005e8058f40",
+"old": "34be4005e8058f40",
+"same": true
+},
+"test": {
+"new": "d39bb5e439d0d814",
+"old": "d39bb5e439d0d814",
+"same": true
+}
+},
+"analise/covariaveis-semantico-economico": {
+"explain": {
+"new": "e3c93a56ee887ec3",
+"old": "e3c93a56ee887ec3",
+"same": true
+},
+"explain_cost": {
+"new": "8fdc91c92eba9000",
+"old": "8fdc91c92eba9000",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "27dbdb3b3a78e19f",
+"old": "27dbdb3b3a78e19f",
+"same": true
+},
+"test": {
+"new": "47486e321aa23b6b",
+"old": "47486e321aa23b6b",
+"same": true
+}
+},
+"analise/deck-apresentacao": {
+"explain": {
+"new": "23f0bf54b38e61e9",
+"old": "23f0bf54b38e61e9",
+"same": true
+},
+"explain_cost": {
+"new": "c411c8ecb14e7fee",
+"old": "c411c8ecb14e7fee",
+"same": true
+},
+"lint": {
+"new": "8e187cc7e81e1933",
+"old": "8e187cc7e81e1933",
+"same": true
+},
+"mermaid": {
+"new": "db51761051f1a182",
+"old": "db51761051f1a182",
+"same": true
+},
+"test": {
+"new": "2abdfe4bc261ef61",
+"old": "2abdfe4bc261ef61",
+"same": true
+}
+},
+"analise/design-documento-premium": {
+"explain": {
+"new": "9f1c4c01ca3a0b73",
+"old": "9f1c4c01ca3a0b73",
+"same": true
+},
+"explain_cost": {
+"new": "cb3cad9a9446731b",
+"old": "cb3cad9a9446731b",
+"same": true
+},
+"lint": {
+"new": "11afe4b06903c5a1",
+"old": "11afe4b06903c5a1",
+"same": true
+},
+"mermaid": {
+"new": "7c89abc6bcc567dc",
+"old": "7c89abc6bcc567dc",
+"same": true
+},
+"test": {
+"new": "de2cc122a228717c",
+"old": "de2cc122a228717c",
+"same": true
+}
+},
+"analise/doc-intelligence-check": {
+"explain": {
+"new": "63ab85fba64b6a5c",
+"old": "63ab85fba64b6a5c",
+"same": true
+},
+"explain_cost": {
+"new": "9ce2c9500b61118f",
+"old": "9ce2c9500b61118f",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "5e54564568e36f93",
+"old": "5e54564568e36f93",
+"same": true
+},
+"test": {
+"new": "b56e34ef733831bf",
+"old": "b56e34ef733831bf",
+"same": true
+}
+},
+"analise/estado-do-processo": {
+"explain": {
+"new": "c0a2a75188960de9",
+"old": "c0a2a75188960de9",
+"same": true
+},
+"explain_cost": {
+"new": "415f0552cb627332",
+"old": "415f0552cb627332",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "b11bd05e2c556866",
+"old": "b11bd05e2c556866",
+"same": true
+},
+"test": {
+"new": "fd69769300591219",
+"old": "fd69769300591219",
+"same": true
+}
+},
+"analise/esteira-ingestao": {
+"explain": {
+"new": "4eaaef8d7cdecc57",
+"old": "4eaaef8d7cdecc57",
+"same": true
+},
+"explain_cost": {
+"new": "3c0ec47e62470c4e",
+"old": "3c0ec47e62470c4e",
+"same": true
+},
+"lint": {
+"new": "a0e6a0f9f2a28c91",
+"old": "a0e6a0f9f2a28c91",
+"same": true
+},
+"mermaid": {
+"new": "6c347d447ef31b92",
+"old": "6c347d447ef31b92",
+"same": true
+},
+"test": {
+"new": "ae9d627de85a881b",
+"old": "ae9d627de85a881b",
+"same": true
+}
+},
+"analise/evidencia-do-processo": {
+"explain": {
+"new": "b83a2064929ec838",
+"old": "b83a2064929ec838",
+"same": true
+},
+"explain_cost": {
+"new": "020a3c8f04073c96",
+"old": "020a3c8f04073c96",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "1128eb018f5c4ec8",
+"old": "1128eb018f5c4ec8",
+"same": true
+},
+"test": {
+"new": "b75e38d51f909e65",
+"old": "b75e38d51f909e65",
+"same": true
+}
+},
+"analise/figuras-codigo": {
+"explain": {
+"new": "c3868fee53fce479",
+"old": "c3868fee53fce479",
+"same": true
+},
+"explain_cost": {
+"new": "a5bd736297627aba",
+"old": "a5bd736297627aba",
+"same": true
+},
+"lint": {
+"new": "a22329b0ca2e7422",
+"old": "a22329b0ca2e7422",
+"same": true
+},
+"mermaid": {
+"new": "43e34c2e734d6096",
+"old": "43e34c2e734d6096",
+"same": true
+},
+"test": {
+"new": "91bc5bd6d4542584",
+"old": "91bc5bd6d4542584",
+"same": true
+}
+},
+"analise/g5-citacoes-do-processo": {
+"explain": {
+"new": "3bda0563603ec768",
+"old": "3bda0563603ec768",
+"same": true
+},
+"explain_cost": {
+"new": "bcd863f393466b21",
+"old": "bcd863f393466b21",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "2818c60610e3998c",
+"old": "2818c60610e3998c",
+"same": true
+},
+"test": {
+"new": "241db1cebb777572",
+"old": "241db1cebb777572",
+"same": true
+}
+},
+"analise/g6-linkagem-do-processo": {
+"explain": {
+"new": "25207f3c0ffce868",
+"old": "25207f3c0ffce868",
+"same": true
+},
+"explain_cost": {
+"new": "4a4db10abb759057",
+"old": "4a4db10abb759057",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "87f811ba48ba167a",
+"old": "87f811ba48ba167a",
+"same": true
+},
+"test": {
+"new": "3c93c20f7c01d454",
+"old": "3c93c20f7c01d454",
+"same": true
+}
+},
+"analise/gate-caso-prancha": {
+"explain": {
+"new": "6b83492c2c4764df",
+"old": "6b83492c2c4764df",
+"same": true
+},
+"explain_cost": {
+"new": "a6b60c364684652a",
+"old": "a6b60c364684652a",
+"same": true
+},
+"lint": {
+"new": "7d2e57e5362c676d",
+"old": "7d2e57e5362c676d",
+"same": true
+},
+"mermaid": {
+"new": "b2e676c4a6f67d10",
+"old": "b2e676c4a6f67d10",
+"same": true
+},
+"test": {
+"new": "15bea711e4a616dc",
+"old": "15bea711e4a616dc",
+"same": true
+}
+},
+"analise/geo-analise-corredor": {
+"explain": {
+"new": "9b1a2a7e3c8036a5",
+"old": "9b1a2a7e3c8036a5",
+"same": true
+},
+"explain_cost": {
+"new": "1b01acf9ef85cd59",
+"old": "1b01acf9ef85cd59",
+"same": true
+},
+"lint": {
+"new": "76b1b49c6ce1a56f",
+"old": "76b1b49c6ce1a56f",
+"same": true
+},
+"mermaid": {
+"new": "a622e1256c90f8ad",
+"old": "a622e1256c90f8ad",
+"same": true
+},
+"test": {
+"new": "fb4b132c55dc1d4d",
+"old": "fb4b132c55dc1d4d",
+"same": true
+}
+},
+"analise/geo-engine-terra": {
+"explain": {
+"new": "c72e549025044e71",
+"old": "c72e549025044e71",
+"same": true
+},
+"explain_cost": {
+"new": "a6380ead21250f41",
+"old": "a6380ead21250f41",
+"same": true
+},
+"lint": {
+"new": "1eb70508dfec929e",
+"old": "1eb70508dfec929e",
+"same": true
+},
+"mermaid": {
+"new": "511ce399cb58bd26",
+"old": "511ce399cb58bd26",
+"same": true
+},
+"test": {
+"new": "3e98152b5bc1776c",
+"old": "3e98152b5bc1776c",
+"same": true
+}
+},
+"analise/geoai-artefato-lidar": {
+"explain": {
+"new": "7309a27542422925",
+"old": "7309a27542422925",
+"same": true
+},
+"explain_cost": {
+"new": "7051fff71911ebb1",
+"old": "7051fff71911ebb1",
+"same": true
+},
+"lint": {
+"new": "82bcf28f8cd968a8",
+"old": "82bcf28f8cd968a8",
+"same": true
+},
+"mermaid": {
+"new": "745ea8f6c086f6fd",
+"old": "745ea8f6c086f6fd",
+"same": true
+},
+"test": {
+"new": "88e62aa7f49a1dc7",
+"old": "88e62aa7f49a1dc7",
+"same": true
+}
+},
+"analise/harvest-fonte": {
+"explain": {
+"new": "992cecf0b62d14f6",
+"old": "992cecf0b62d14f6",
+"same": true
+},
+"explain_cost": {
+"new": "aae44a33d47a2f16",
+"old": "aae44a33d47a2f16",
+"same": true
+},
+"lint": {
+"new": "7bebf53e44da50c8",
+"old": "7bebf53e44da50c8",
+"same": true
+},
+"mermaid": {
+"new": "0c3767a684161b50",
+"old": "0c3767a684161b50",
+"same": true
+},
+"test": {
+"new": "1949acbc23117753",
+"old": "1949acbc23117753",
+"same": true
+}
+},
+"analise/harvest-lacuna-jurisprudencia": {
+"explain": {
+"new": "a88b88be61ad3aac",
+"old": "a88b88be61ad3aac",
+"same": true
+},
+"explain_cost": {
+"new": "9e9ecf4019dfc3bd",
+"old": "9e9ecf4019dfc3bd",
+"same": true
+},
+"lint": {
+"new": "9359ad3d2f568072",
+"old": "9359ad3d2f568072",
+"same": true
+},
+"mermaid": {
+"new": "17f27ab244ccf513",
+"old": "17f27ab244ccf513",
+"same": true
+},
+"test": {
+"new": "cf7ccaea5806c4d1",
+"old": "cf7ccaea5806c4d1",
+"same": true
+}
+},
+"analise/inventario-classificado-f5": {
+"explain": {
+"new": "9580f8c0e93d1030",
+"old": "9580f8c0e93d1030",
+"same": true
+},
+"explain_cost": {
+"new": "64ce14c604ffd7ff",
+"old": "64ce14c604ffd7ff",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "0db39fb06eda6254",
+"old": "0db39fb06eda6254",
+"same": true
+},
+"test": {
+"new": "3d85f6b102e941b4",
+"old": "3d85f6b102e941b4",
+"same": true
+}
+},
+"analise/kb-publicar-processo": {
+"explain": {
+"new": "5c28c76764a984e6",
+"old": "5c28c76764a984e6",
+"same": true
+},
+"explain_cost": {
+"new": "788ae0f17b2814f1",
+"old": "788ae0f17b2814f1",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "7e2ec261621f126c",
+"old": "7e2ec261621f126c",
+"same": true
+},
+"test": {
+"new": "aa6215a10cffb139",
+"old": "aa6215a10cffb139",
+"same": true
+}
+},
+"analise/painel-cross-audit-f3f6": {
+"explain": {
+"new": "24b8029366de37c4",
+"old": "24b8029366de37c4",
+"same": true
+},
+"explain_cost": {
+"new": "c2dec056cb83b7a6",
+"old": "c2dec056cb83b7a6",
+"same": true
+},
+"lint": {
+"new": "b95a460ab07561b1",
+"old": "b95a460ab07561b1",
+"same": true
+},
+"mermaid": {
+"new": "029b360dc54dae15",
+"old": "029b360dc54dae15",
+"same": true
+},
+"test": {
+"new": "4b67b1e35c64b05d",
+"old": "4b67b1e35c64b05d",
+"same": true
+}
+},
+"analise/passo-2-citacoes-do-corpus": {
+"explain": {
+"new": "921bd8508dd3c1cd",
+"old": "921bd8508dd3c1cd",
+"same": true
+},
+"explain_cost": {
+"new": "fd5c9d931b68f63c",
+"old": "fd5c9d931b68f63c",
+"same": true
+},
+"lint": {
+"new": "b3657dd012097d56",
+"old": "b3657dd012097d56",
+"same": true
+},
+"mermaid": {
+"new": "3edfc6f836f820f1",
+"old": "3edfc6f836f820f1",
+"same": true
+},
+"test": {
+"new": "d4f2a1f16d563340",
+"old": "d4f2a1f16d563340",
+"same": true
+}
+},
+"analise/pesquisa-nova": {
+"explain": {
+"new": "44ca6ceee1742b5b",
+"old": "44ca6ceee1742b5b",
+"same": true
+},
+"explain_cost": {
+"new": "8a7d49eb53ce06d6",
+"old": "8a7d49eb53ce06d6",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "99fbc073f31add98",
+"old": "99fbc073f31add98",
+"same": true
+},
+"test": {
+"new": "c8829f8c9e7177ec",
+"old": "c8829f8c9e7177ec",
+"same": true
+}
+},
+"analise/polir": {
+"explain": {
+"new": "73b3340d84252e43",
+"old": "73b3340d84252e43",
+"same": true
+},
+"explain_cost": {
+"new": "b27ff57ce1091dee",
+"old": "b27ff57ce1091dee",
+"same": true
+},
+"lint": {
+"new": "9afa464080391361",
+"old": "9afa464080391361",
+"same": true
+},
+"mermaid": {
+"new": "bb9de2d2fb2963c7",
+"old": "bb9de2d2fb2963c7",
+"same": true
+},
+"test": {
+"new": "6a6ad3758c17c546",
+"old": "6a6ad3758c17c546",
+"same": true
+}
+},
+"analise/polir-critica": {
+"explain": {
+"new": "8b6aa563a1936c4d",
+"old": "8b6aa563a1936c4d",
+"same": true
+},
+"explain_cost": {
+"new": "80e29c37483d490a",
+"old": "80e29c37483d490a",
+"same": true
+},
+"lint": {
+"new": "09d1992562d535af",
+"old": "09d1992562d535af",
+"same": true
+},
+"mermaid": {
+"new": "ecbb0b5a5a18fd40",
+"old": "ecbb0b5a5a18fd40",
+"same": true
+},
+"test": {
+"new": "5419ab8e24987dab",
+"old": "5419ab8e24987dab",
+"same": true
+}
+},
+"analise/polir-critica-fusao": {
+"explain": {
+"new": "3d32c35cfebed2c4",
+"old": "3d32c35cfebed2c4",
+"same": true
+},
+"explain_cost": {
+"new": "86d40e812d2df7a8",
+"old": "86d40e812d2df7a8",
+"same": true
+},
+"lint": {
+"new": "09d29ee58f3d9427",
+"old": "09d29ee58f3d9427",
+"same": true
+},
+"mermaid": {
+"new": "c067b8682552b402",
+"old": "c067b8682552b402",
+"same": true
+},
+"test": {
+"new": "129d57a97bd576f4",
+"old": "129d57a97bd576f4",
+"same": true
+}
+},
+"analise/registry-drift-check": {
+"explain": {
+"new": "a8f970385eafe75f",
+"old": "a8f970385eafe75f",
+"same": true
+},
+"explain_cost": {
+"new": "bc7c4c8bced137a8",
+"old": "bc7c4c8bced137a8",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "6aaee9139347f3fd",
+"old": "6aaee9139347f3fd",
+"same": true
+},
+"test": {
+"new": "98efc955c08cbecb",
+"old": "98efc955c08cbecb",
+"same": true
+}
+},
+"analise/stage-0-inventario": {
+"explain": {
+"new": "b59083b0043c0e60",
+"old": "b59083b0043c0e60",
+"same": true
+},
+"explain_cost": {
+"new": "55fcf4e8e3150b67",
+"old": "55fcf4e8e3150b67",
+"same": true
+},
+"lint": {
+"new": "3ba2d6d4e68d9d14",
+"old": "3ba2d6d4e68d9d14",
+"same": true
+},
+"mermaid": {
+"new": "f3d5586fddb62f95",
+"old": "f3d5586fddb62f95",
+"same": true
+},
+"test": {
+"new": "1c99f194b9f747c6",
+"old": "1c99f194b9f747c6",
+"same": true
+}
+},
+"analise/strategy-loop": {
+"explain": {
+"new": "85c9586ff1119368",
+"old": "85c9586ff1119368",
+"same": true
+},
+"explain_cost": {
+"new": "3e7b64aef349652c",
+"old": "3e7b64aef349652c",
+"same": true
+},
+"lint": {
+"new": "f43549ebc83a45d0",
+"old": "f43549ebc83a45d0",
+"same": true
+},
+"mermaid": {
+"new": "ad8aa3349635cc0a",
+"old": "ad8aa3349635cc0a",
+"same": true
+},
+"test": {
+"new": "baed730d93bc1eea",
+"old": "baed730d93bc1eea",
+"same": true
+}
+},
+"analise/suprir-lacunas": {
+"explain": {
+"new": "6e4f6ebf3880d571",
+"old": "6e4f6ebf3880d571",
+"same": true
+},
+"explain_cost": {
+"new": "45d76eaddafaccda",
+"old": "45d76eaddafaccda",
+"same": true
+},
+"lint": {
+"new": "559fc695386c0966",
+"old": "559fc695386c0966",
+"same": true
+},
+"mermaid": {
+"new": "4865bafe897018bb",
+"old": "4865bafe897018bb",
+"same": true
+},
+"test": {
+"new": "eeee5ef64dedb28e",
+"old": "eeee5ef64dedb28e",
+"same": true
+}
+},
+"analise/verificar-pleito": {
+"explain": {
+"new": "0a3fae16a8e730c0",
+"old": "0a3fae16a8e730c0",
+"same": true
+},
+"explain_cost": {
+"new": "b80bf9661b3edc46",
+"old": "b80bf9661b3edc46",
+"same": true
+},
+"lint": {
+"new": "ec886e367ccc988d",
+"old": "ec886e367ccc988d",
+"same": true
+},
+"mermaid": {
+"new": "3311d047fceac391",
+"old": "3311d047fceac391",
+"same": true
+},
+"test": {
+"new": "c1f61d6e76ce7554",
+"old": "c1f61d6e76ce7554",
+"same": true
+}
+},
+"home/strategy-loop": {
+"explain": {
+"new": "d3df95e9988f7845",
+"old": "d3df95e9988f7845",
+"same": true
+},
+"explain_cost": {
+"new": "c3ad46039b36e99d",
+"old": "c3ad46039b36e99d",
+"same": true
+},
+"lint": {
+"new": "f74bb795948a4a65",
+"old": "f74bb795948a4a65",
+"same": true
+},
+"mermaid": {
+"new": "70d8189656dcad04",
+"old": "70d8189656dcad04",
+"same": true
+},
+"test": {
+"new": "881a7375db8bf65d",
+"old": "881a7375db8bf65d",
+"same": true
+}
+},
+"kazuba/strategy-loop": {
+"explain": {
+"new": "9b9835592e692aa6",
+"old": "9b9835592e692aa6",
+"same": true
+},
+"explain_cost": {
+"new": "ee6c74696fa2f007",
+"old": "ee6c74696fa2f007",
+"same": true
+},
+"lint": {
+"new": "e8c0ec17de66f250",
+"old": "e8c0ec17de66f250",
+"same": true
+},
+"mermaid": {
+"new": "70d8189656dcad04",
+"old": "70d8189656dcad04",
+"same": true
+},
+"test": {
+"new": "881a7375db8bf65d",
+"old": "881a7375db8bf65d",
+"same": true
+}
+},
+"konverter/strategy-loop": {
+"explain": {
+"new": "d3df95e9988f7845",
+"old": "d3df95e9988f7845",
+"same": true
+},
+"explain_cost": {
+"new": "c3ad46039b36e99d",
+"old": "c3ad46039b36e99d",
+"same": true
+},
+"lint": {
+"new": "f74bb795948a4a65",
+"old": "f74bb795948a4a65",
+"same": true
+},
+"mermaid": {
+"new": "70d8189656dcad04",
+"old": "70d8189656dcad04",
+"same": true
+},
+"test": {
+"new": "881a7375db8bf65d",
+"old": "881a7375db8bf65d",
+"same": true
+}
+},
+"lib/adw-curation": {
+"explain": {
+"new": "15be531e38efb586",
+"old": "15be531e38efb586",
+"same": true
+},
+"explain_cost": {
+"new": "f29475299271d4ec",
+"old": "f29475299271d4ec",
+"same": true
+},
+"lint": {
+"new": "81b8efa38b170a52",
+"old": "81b8efa38b170a52",
+"same": true
+},
+"mermaid": {
+"new": "ca8ecc52bb9dfd82",
+"old": "ca8ecc52bb9dfd82",
+"same": true
+},
+"test": {
+"new": "03d14ec908901cbf",
+"old": "03d14ec908901cbf",
+"same": true
+}
+},
+"lib/audit": {
+"explain": {
+"new": "3845de647312acb5",
+"old": "3845de647312acb5",
+"same": true
+},
+"explain_cost": {
+"new": "a0db78cea888127d",
+"old": "a0db78cea888127d",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "e26fdbab43b1eec8",
+"old": "e26fdbab43b1eec8",
+"same": true
+},
+"test": {
+"new": "8a25c5cab0bd1877",
+"old": "8a25c5cab0bd1877",
+"same": true
+}
+},
+"lib/bugfix": {
+"explain": {
+"new": "b7b528e6fe5b5b0b",
+"old": "b7b528e6fe5b5b0b",
+"same": true
+},
+"explain_cost": {
+"new": "d8f9bb4b58dc0832",
+"old": "d8f9bb4b58dc0832",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "3bb5591b3334442d",
+"old": "3bb5591b3334442d",
+"same": true
+},
+"test": {
+"new": "ac2df154f42bec22",
+"old": "ac2df154f42bec22",
+"same": true
+}
+},
+"lib/chore": {
+"explain": {
+"new": "7870a94c29132e9b",
+"old": "7870a94c29132e9b",
+"same": true
+},
+"explain_cost": {
+"new": "6173564f79b55ea4",
+"old": "6173564f79b55ea4",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "9cb9152062f8a1ed",
+"old": "9cb9152062f8a1ed",
+"same": true
+},
+"test": {
+"new": "231b6cc436a71cec",
+"old": "231b6cc436a71cec",
+"same": true
+}
+},
+"lib/code-mode-adherence": {
+"explain": {
+"new": "ac62901a4556149c",
+"old": "ac62901a4556149c",
+"same": true
+},
+"explain_cost": {
+"new": "b6882c12f8a714dc",
+"old": "b6882c12f8a714dc",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "1d8ae1e63b338ca0",
+"old": "1d8ae1e63b338ca0",
+"same": true
+},
+"test": {
+"new": "816f1485ef017a9d",
+"old": "816f1485ef017a9d",
+"same": true
+}
+},
+"lib/converge-close": {
+"explain": {
+"new": "88134ac1a2b15395",
+"old": "88134ac1a2b15395",
+"same": true
+},
+"explain_cost": {
+"new": "4ce9bf57d963f47b",
+"old": "4ce9bf57d963f47b",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "fc39622c7d4c9bce",
+"old": "fc39622c7d4c9bce",
+"same": true
+},
+"test": {
+"new": "71ea90c33c1a2a9d",
+"old": "71ea90c33c1a2a9d",
+"same": true
+}
+},
+"lib/cross-audit": {
+"explain": {
+"new": "ad93a40b20352897",
+"old": "ad93a40b20352897",
+"same": true
+},
+"explain_cost": {
+"new": "08350f5d88e0f2b3",
+"old": "08350f5d88e0f2b3",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "89e6a0632c1216c5",
+"old": "89e6a0632c1216c5",
+"same": true
+},
+"test": {
+"new": "eea93e52791b2d4f",
+"old": "eea93e52791b2d4f",
+"same": true
+}
+},
+"lib/error-teach": {
+"explain": {
+"new": "871b8bae8e98ddfb",
+"old": "871b8bae8e98ddfb",
+"same": true
+},
+"explain_cost": {
+"new": "ab47a349f07ea4bd",
+"old": "ab47a349f07ea4bd",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "2729bb50a55310e6",
+"old": "2729bb50a55310e6",
+"same": true
+},
+"test": {
+"new": "0b5b2c3da81d7a3c",
+"old": "0b5b2c3da81d7a3c",
+"same": true
+}
+},
+"lib/exercise-idle-infra": {
+"explain": {
+"new": "d9548cb4895ecc48",
+"old": "d9548cb4895ecc48",
+"same": true
+},
+"explain_cost": {
+"new": "84b06caaf1f297f4",
+"old": "84b06caaf1f297f4",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "e4bb690b65b57ff9",
+"old": "e4bb690b65b57ff9",
+"same": true
+},
+"test": {
+"new": "85a0ce21ee38f3f9",
+"old": "85a0ce21ee38f3f9",
+"same": true
+}
+},
+"lib/explore-plan": {
+"explain": {
+"new": "cd325ff077029c6d",
+"old": "cd325ff077029c6d",
+"same": true
+},
+"explain_cost": {
+"new": "eaa8e52bf9486588",
+"old": "eaa8e52bf9486588",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "dc105c894b21583d",
+"old": "dc105c894b21583d",
+"same": true
+},
+"test": {
+"new": "65f97adaf076761f",
+"old": "65f97adaf076761f",
+"same": true
+}
+},
+"lib/family-fix": {
+"explain": {
+"new": "1968dfe2428853c9",
+"old": "1968dfe2428853c9",
+"same": true
+},
+"explain_cost": {
+"new": "980848d966ede604",
+"old": "980848d966ede604",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "0e37bf401b8d6c8b",
+"old": "0e37bf401b8d6c8b",
+"same": true
+},
+"test": {
+"new": "7cdbca4b82f20a55",
+"old": "7cdbca4b82f20a55",
+"same": true
+}
+},
+"lib/feature": {
+"explain": {
+"new": "c4baceeb0484bb1c",
+"old": "c4baceeb0484bb1c",
+"same": true
+},
+"explain_cost": {
+"new": "5f8fd481009dd82c",
+"old": "5f8fd481009dd82c",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "36c0fbe689fa0b92",
+"old": "36c0fbe689fa0b92",
+"same": true
+},
+"test": {
+"new": "65062e844563d1ed",
+"old": "65062e844563d1ed",
+"same": true
+}
+},
+"lib/freshness-audit": {
+"explain": {
+"new": "295d1fa2856fd3f4",
+"old": "295d1fa2856fd3f4",
+"same": true
+},
+"explain_cost": {
+"new": "d3ff56800de6dfe6",
+"old": "d3ff56800de6dfe6",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "edc35004952038ac",
+"old": "edc35004952038ac",
+"same": true
+},
+"test": {
+"new": "ac7c2c9943ad191d",
+"old": "ac7c2c9943ad191d",
+"same": true
+}
+},
+"lib/guard-sweep": {
+"explain": {
+"new": "3e72a74fe6bf7150",
+"old": "3e72a74fe6bf7150",
+"same": true
+},
+"explain_cost": {
+"new": "e44e6c5023a7c679",
+"old": "e44e6c5023a7c679",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "a786157a7558e0e9",
+"old": "a786157a7558e0e9",
+"same": true
+},
+"test": {
+"new": "a839dbd5a3f16913",
+"old": "a839dbd5a3f16913",
+"same": true
+}
+},
+"lib/hotfix": {
+"explain": {
+"new": "9028c9b70448396c",
+"old": "9028c9b70448396c",
+"same": true
+},
+"explain_cost": {
+"new": "69885cdee0c94da6",
+"old": "69885cdee0c94da6",
+"same": true
+},
+"lint": {
+"new": "8edb30aec8bab1ee",
+"old": "8edb30aec8bab1ee",
+"same": true
+},
+"mermaid": {
+"new": "1fabd053ec54ae73",
+"old": "1fabd053ec54ae73",
+"same": true
+},
+"test": {
+"new": "ebf5163fccf64d30",
+"old": "ebf5163fccf64d30",
+"same": true
+}
+},
+"lib/instrument-first": {
+"explain": {
+"new": "b6b7c66c8995932d",
+"old": "b6b7c66c8995932d",
+"same": true
+},
+"explain_cost": {
+"new": "a0c2149a94d148e5",
+"old": "a0c2149a94d148e5",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "7614ac511a407b27",
+"old": "7614ac511a407b27",
+"same": true
+},
+"test": {
+"new": "c114ef9bebcd866e",
+"old": "c114ef9bebcd866e",
+"same": true
+}
+},
+"lib/memory-curation": {
+"explain": {
+"new": "28bf1c842c502cbf",
+"old": "28bf1c842c502cbf",
+"same": true
+},
+"explain_cost": {
+"new": "2118a73248165e2d",
+"old": "2118a73248165e2d",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "8820167b1ed469e1",
+"old": "8820167b1ed469e1",
+"same": true
+},
+"test": {
+"new": "6392096682a9f956",
+"old": "6392096682a9f956",
+"same": true
+}
+},
+"lib/plan-excellence": {
+"explain": {
+"new": "0457f6ed9f5f9bd0",
+"old": "0457f6ed9f5f9bd0",
+"same": true
+},
+"explain_cost": {
+"new": "e06e112fad7cec93",
+"old": "e06e112fad7cec93",
+"same": true
+},
+"lint": {
+"new": "5fb015cae8a11faf",
+"old": "5fb015cae8a11faf",
+"same": true
+},
+"mermaid": {
+"new": "c46dec0a7e5ca1ae",
+"old": "c46dec0a7e5ca1ae",
+"same": true
+},
+"test": {
+"new": "c5ada8299e9a0016",
+"old": "c5ada8299e9a0016",
+"same": true
+}
+},
+"lib/polir": {
+"explain": {
+"new": "aac52374c3848ed5",
+"old": "aac52374c3848ed5",
+"same": true
+},
+"explain_cost": {
+"new": "8f84833b0d21cb0e",
+"old": "8f84833b0d21cb0e",
+"same": true
+},
+"lint": {
+"new": "53b076099a3a7997",
+"old": "53b076099a3a7997",
+"same": true
+},
+"mermaid": {
+"new": "bb9de2d2fb2963c7",
+"old": "bb9de2d2fb2963c7",
+"same": true
+},
+"test": {
+"new": "6a6ad3758c17c546",
+"old": "6a6ad3758c17c546",
+"same": true
+}
+},
+"lib/release-gate": {
+"explain": {
+"new": "bf1f8fe3ddbb6940",
+"old": "bf1f8fe3ddbb6940",
+"same": true
+},
+"explain_cost": {
+"new": "16a61c7e41482343",
+"old": "16a61c7e41482343",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "a05f3d1c1ca2d4c2",
+"old": "a05f3d1c1ca2d4c2",
+"same": true
+},
+"test": {
+"new": "f9e4831d0f9ddb5c",
+"old": "f9e4831d0f9ddb5c",
+"same": true
+}
+},
+"lib/scout-perpetuo": {
+"explain": {
+"new": "b662964ced957a51",
+"old": "b662964ced957a51",
+"same": true
+},
+"explain_cost": {
+"new": "a7de4a2ed67cc986",
+"old": "a7de4a2ed67cc986",
+"same": true
+},
+"lint": {
+"new": "f295afbf24d6b835",
+"old": "f295afbf24d6b835",
+"same": true
+},
+"mermaid": {
+"new": "50cec2092cdc1355",
+"old": "50cec2092cdc1355",
+"same": true
+},
+"test": {
+"new": "26793260d4990184",
+"old": "26793260d4990184",
+"same": true
+}
+},
+"lib/skill-refine": {
+"explain": {
+"new": "617c67ec1fa74e1d",
+"old": "617c67ec1fa74e1d",
+"same": true
+},
+"explain_cost": {
+"new": "52cbb2760dbd67b4",
+"old": "52cbb2760dbd67b4",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "4235f7242e3640b9",
+"old": "4235f7242e3640b9",
+"same": true
+},
+"test": {
+"new": "d18cd032f06ec8a0",
+"old": "d18cd032f06ec8a0",
+"same": true
+}
+},
+"lib/strategy-loop": {
+"explain": {
+"new": "5d91a618ea0132d0",
+"old": "5d91a618ea0132d0",
+"same": true
+},
+"explain_cost": {
+"new": "6f7d7e32fd7adcc2",
+"old": "6f7d7e32fd7adcc2",
+"same": true
+},
+"lint": {
+"new": "f9aee6525ed61d28",
+"old": "f9aee6525ed61d28",
+"same": true
+},
+"mermaid": {
+"new": "e811325a26be1bf6",
+"old": "e811325a26be1bf6",
+"same": true
+},
+"test": {
+"new": "201466214269b711",
+"old": "201466214269b711",
+"same": true
+}
+},
+"omarchy-kit/audit": {
+"explain": {
+"new": "4d2c7fcb9e61afd6",
+"old": "4d2c7fcb9e61afd6",
+"same": true
+},
+"explain_cost": {
+"new": "9d2cba7b5e08468c",
+"old": "9d2cba7b5e08468c",
+"same": true
+},
+"lint": {
+"new": "3db79cf8d51f6e35",
+"old": "3db79cf8d51f6e35",
+"same": true
+},
+"mermaid": {
+"new": "e26fdbab43b1eec8",
+"old": "e26fdbab43b1eec8",
+"same": true
+},
+"test": {
+"new": "8a25c5cab0bd1877",
+"old": "8a25c5cab0bd1877",
+"same": true
+}
+},
+"omarchy-kit/bugfix": {
+"explain": {
+"new": "be53bb9cb6250716",
+"old": "be53bb9cb6250716",
+"same": true
+},
+"explain_cost": {
+"new": "0351d857383803b1",
+"old": "0351d857383803b1",
+"same": true
+},
+"lint": {
+"new": "3db79cf8d51f6e35",
+"old": "3db79cf8d51f6e35",
+"same": true
+},
+"mermaid": {
+"new": "7b815317b0b87544",
+"old": "7b815317b0b87544",
+"same": true
+},
+"test": {
+"new": "a33e105ea7e9a9a3",
+"old": "a33e105ea7e9a9a3",
+"same": true
+}
+},
+"omarchy-kit/chore": {
+"explain": {
+"new": "533c69fd5bd2525e",
+"old": "533c69fd5bd2525e",
+"same": true
+},
+"explain_cost": {
+"new": "0f229e78eb0d2fde",
+"old": "0f229e78eb0d2fde",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "9cb9152062f8a1ed",
+"old": "9cb9152062f8a1ed",
+"same": true
+},
+"test": {
+"new": "231b6cc436a71cec",
+"old": "231b6cc436a71cec",
+"same": true
+}
+},
+"omarchy-kit/explore-plan": {
+"explain": {
+"new": "c27cf2610d760447",
+"old": "c27cf2610d760447",
+"same": true
+},
+"explain_cost": {
+"new": "ea0b7dbd79de45d5",
+"old": "ea0b7dbd79de45d5",
+"same": true
+},
+"lint": {
+"new": "e414ad013caca87b",
+"old": "e414ad013caca87b",
+"same": true
+},
+"mermaid": {
+"new": "dc105c894b21583d",
+"old": "dc105c894b21583d",
+"same": true
+},
+"test": {
+"new": "65f97adaf076761f",
+"old": "65f97adaf076761f",
+"same": true
+}
+},
+"omarchy-kit/feature": {
+"explain": {
+"new": "c73620b432f15376",
+"old": "c73620b432f15376",
+"same": true
+},
+"explain_cost": {
+"new": "ee55888ee6b9f210",
+"old": "ee55888ee6b9f210",
+"same": true
+},
+"lint": {
+"new": "3db79cf8d51f6e35",
+"old": "3db79cf8d51f6e35",
+"same": true
+},
+"mermaid": {
+"new": "6e4149e535d2f3af",
+"old": "6e4149e535d2f3af",
+"same": true
+},
+"test": {
+"new": "5ecbaf430d1ca134",
+"old": "5ecbaf430d1ca134",
+"same": true
+}
+},
+"omarchy-kit/hotfix": {
+"explain": {
+"new": "12c709daba4b96bb",
+"old": "12c709daba4b96bb",
+"same": true
+},
+"explain_cost": {
+"new": "6b165c69005bf897",
+"old": "6b165c69005bf897",
+"same": true
+},
+"lint": {
+"new": "107cecf9910af438",
+"old": "107cecf9910af438",
+"same": true
+},
+"mermaid": {
+"new": "1fabd053ec54ae73",
+"old": "1fabd053ec54ae73",
+"same": true
+},
+"test": {
+"new": "ebf5163fccf64d30",
+"old": "ebf5163fccf64d30",
+"same": true
+}
+},
+"omarchy-kit/scout-perpetuo": {
+"explain": {
+"new": "366f25a6d09d30cb",
+"old": "366f25a6d09d30cb",
+"same": true
+},
+"explain_cost": {
+"new": "fca979ead6b76b11",
+"old": "fca979ead6b76b11",
+"same": true
+},
+"lint": {
+"new": "c2eb268b9f4d467a",
+"old": "c2eb268b9f4d467a",
+"same": true
+},
+"mermaid": {
+"new": "1e05445de04c7af2",
+"old": "1e05445de04c7af2",
+"same": true
+},
+"test": {
+"new": "5daa1f0eac43f588",
+"old": "5daa1f0eac43f588",
+"same": true
+}
+},
+"omarchy-kit/strategy-loop": {
+"explain": {
+"new": "d3df95e9988f7845",
+"old": "d3df95e9988f7845",
+"same": true
+},
+"explain_cost": {
+"new": "c3ad46039b36e99d",
+"old": "c3ad46039b36e99d",
+"same": true
+},
+"lint": {
+"new": "f74bb795948a4a65",
+"old": "f74bb795948a4a65",
+"same": true
+},
+"mermaid": {
+"new": "70d8189656dcad04",
+"old": "70d8189656dcad04",
+"same": true
+},
+"test": {
+"new": "881a7375db8bf65d",
+"old": "881a7375db8bf65d",
+"same": true
+}
+},
+"touring/adw-curation": {
+"explain": {
+"new": "1da4942f77c2f159",
+"old": "1da4942f77c2f159",
+"same": true
+},
+"explain_cost": {
+"new": "ac77bd73b55516f8",
+"old": "ac77bd73b55516f8",
+"same": true
+},
+"lint": {
+"new": "19c182b63013df04",
+"old": "19c182b63013df04",
+"same": true
+},
+"mermaid": {
+"new": "ca8ecc52bb9dfd82",
+"old": "ca8ecc52bb9dfd82",
+"same": true
+},
+"test": {
+"new": "03d14ec908901cbf",
+"old": "03d14ec908901cbf",
+"same": true
+}
+},
+"touring/bugfix": {
+"explain": {
+"new": "abe45a4260f22b1c",
+"old": "abe45a4260f22b1c",
+"same": true
+},
+"explain_cost": {
+"new": "a69021206017a090",
+"old": "a69021206017a090",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "3bb5591b3334442d",
+"old": "3bb5591b3334442d",
+"same": true
+},
+"test": {
+"new": "ac2df154f42bec22",
+"old": "ac2df154f42bec22",
+"same": true
+}
+},
+"touring/chore": {
+"explain": {
+"new": "a4041d4c3207a1ed",
+"old": "a4041d4c3207a1ed",
+"same": true
+},
+"explain_cost": {
+"new": "4454528b1066213e",
+"old": "4454528b1066213e",
+"same": true
+},
+"lint": {
+"new": "fc94c30acd54014f",
+"old": "fc94c30acd54014f",
+"same": true
+},
+"mermaid": {
+"new": "9cb9152062f8a1ed",
+"old": "9cb9152062f8a1ed",
+"same": true
+},
+"test": {
+"new": "231b6cc436a71cec",
+"old": "231b6cc436a71cec",
+"same": true
+}
+},
+"touring/code-mode-adherence": {
+"explain": {
+"new": "ac62901a4556149c",
+"old": "ac62901a4556149c",
+"same": true
+},
+"explain_cost": {
+"new": "b6882c12f8a714dc",
+"old": "b6882c12f8a714dc",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "1d8ae1e63b338ca0",
+"old": "1d8ae1e63b338ca0",
+"same": true
+},
+"test": {
+"new": "816f1485ef017a9d",
+"old": "816f1485ef017a9d",
+"same": true
+}
+},
+"touring/converge-close": {
+"explain": {
+"new": "419cf071bc7f463d",
+"old": "419cf071bc7f463d",
+"same": true
+},
+"explain_cost": {
+"new": "1ec72953c82acf38",
+"old": "1ec72953c82acf38",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "fc39622c7d4c9bce",
+"old": "fc39622c7d4c9bce",
+"same": true
+},
+"test": {
+"new": "71ea90c33c1a2a9d",
+"old": "71ea90c33c1a2a9d",
+"same": true
+}
+},
+"touring/cross-audit": {
+"explain": {
+"new": "6b9473d15c233cd9",
+"old": "6b9473d15c233cd9",
+"same": true
+},
+"explain_cost": {
+"new": "fd38596c2ded9314",
+"old": "fd38596c2ded9314",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "89e6a0632c1216c5",
+"old": "89e6a0632c1216c5",
+"same": true
+},
+"test": {
+"new": "eea93e52791b2d4f",
+"old": "eea93e52791b2d4f",
+"same": true
+}
+},
+"touring/error-teach": {
+"explain": {
+"new": "871b8bae8e98ddfb",
+"old": "871b8bae8e98ddfb",
+"same": true
+},
+"explain_cost": {
+"new": "ab47a349f07ea4bd",
+"old": "ab47a349f07ea4bd",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "2729bb50a55310e6",
+"old": "2729bb50a55310e6",
+"same": true
+},
+"test": {
+"new": "0b5b2c3da81d7a3c",
+"old": "0b5b2c3da81d7a3c",
+"same": true
+}
+},
+"touring/exercise-idle-infra": {
+"explain": {
+"new": "d9548cb4895ecc48",
+"old": "d9548cb4895ecc48",
+"same": true
+},
+"explain_cost": {
+"new": "84b06caaf1f297f4",
+"old": "84b06caaf1f297f4",
+"same": true
+},
+"lint": {
+"new": "f286173ea167630e",
+"old": "f286173ea167630e",
+"same": true
+},
+"mermaid": {
+"new": "e4bb690b65b57ff9",
+"old": "e4bb690b65b57ff9",
+"same": true
+},
+"test": {
+"new": "85a0ce21ee38f3f9",
+"old": "85a0ce21ee38f3f9",
+"same": true
+}
+},
+"touring/explore-plan": {
+"explain": {
+"new": "18fdd4869d274eec",
+"old": "18fdd4869d274eec",
+"same": true
+},
+"explain_cost": {
+"new": "9c6461621adb55e7",
+"old": "9c6461621adb55e7",
+"same": true
+},
+"lint": {
+"new": "fc94c30acd54014f",
+"old": "fc94c30acd54014f",
+"same": true
+},
+"mermaid": {
+"new": "dc105c894b21583d",
+"old": "dc105c894b21583d",
+"same": true
+},
+"test": {
+"new": "65f97adaf076761f",
+"old": "65f97adaf076761f",
+"same": true
+}
+},
+"touring/family-fix": {
+"explain": {
+"new": "1968dfe2428853c9",
+"old": "1968dfe2428853c9",
+"same": true
+},
+"explain_cost": {
+"new": "980848d966ede604",
+"old": "980848d966ede604",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "0e37bf401b8d6c8b",
+"old": "0e37bf401b8d6c8b",
+"same": true
+},
+"test": {
+"new": "7cdbca4b82f20a55",
+"old": "7cdbca4b82f20a55",
+"same": true
+}
+},
+"touring/feature": {
+"explain": {
+"new": "1b8b1f6220ec61ed",
+"old": "1b8b1f6220ec61ed",
+"same": true
+},
+"explain_cost": {
+"new": "536e28fb0d1b05a4",
+"old": "536e28fb0d1b05a4",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "36c0fbe689fa0b92",
+"old": "36c0fbe689fa0b92",
+"same": true
+},
+"test": {
+"new": "65062e844563d1ed",
+"old": "65062e844563d1ed",
+"same": true
+}
+},
+"touring/freshness-audit": {
+"explain": {
+"new": "2a8b3b5bc9bceef9",
+"old": "2a8b3b5bc9bceef9",
+"same": true
+},
+"explain_cost": {
+"new": "2d2490d98f285ba6",
+"old": "2d2490d98f285ba6",
+"same": true
+},
+"lint": {
+"new": "fc94c30acd54014f",
+"old": "fc94c30acd54014f",
+"same": true
+},
+"mermaid": {
+"new": "edc35004952038ac",
+"old": "edc35004952038ac",
+"same": true
+},
+"test": {
+"new": "ac7c2c9943ad191d",
+"old": "ac7c2c9943ad191d",
+"same": true
+}
+},
+"touring/guard-sweep": {
+"explain": {
+"new": "709b33314dc878c9",
+"old": "709b33314dc878c9",
+"same": true
+},
+"explain_cost": {
+"new": "3c30606c300d7212",
+"old": "3c30606c300d7212",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "a786157a7558e0e9",
+"old": "a786157a7558e0e9",
+"same": true
+},
+"test": {
+"new": "a839dbd5a3f16913",
+"old": "a839dbd5a3f16913",
+"same": true
+}
+},
+"touring/herdr-fanout-demo": {
+"explain": {
+"new": "83b8c7a94d7ae634",
+"old": "83b8c7a94d7ae634",
+"same": true
+},
+"explain_cost": {
+"new": "70cfc363a9b41889",
+"old": "70cfc363a9b41889",
+"same": true
+},
+"lint": {
+"new": "0ef6c2d76419dd30",
+"old": "0ef6c2d76419dd30",
+"same": true
+},
+"mermaid": {
+"new": "a5b59b0b272d4c80",
+"old": "a5b59b0b272d4c80",
+"same": true
+},
+"test": {
+"new": "fd251f44061b11ff",
+"old": "fd251f44061b11ff",
+"same": true
+}
+},
+"touring/instrument-first": {
+"explain": {
+"new": "34f19ed02176523e",
+"old": "34f19ed02176523e",
+"same": true
+},
+"explain_cost": {
+"new": "0c54b352ce725eb4",
+"old": "0c54b352ce725eb4",
+"same": true
+},
+"lint": {
+"new": "fc94c30acd54014f",
+"old": "fc94c30acd54014f",
+"same": true
+},
+"mermaid": {
+"new": "7614ac511a407b27",
+"old": "7614ac511a407b27",
+"same": true
+},
+"test": {
+"new": "c114ef9bebcd866e",
+"old": "c114ef9bebcd866e",
+"same": true
+}
+},
+"touring/memory-curation": {
+"explain": {
+"new": "695dadc0fcbdc482",
+"old": "695dadc0fcbdc482",
+"same": true
+},
+"explain_cost": {
+"new": "c00e366cd9c309fd",
+"old": "c00e366cd9c309fd",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "8820167b1ed469e1",
+"old": "8820167b1ed469e1",
+"same": true
+},
+"test": {
+"new": "6392096682a9f956",
+"old": "6392096682a9f956",
+"same": true
+}
+},
+"touring/omarchy-audit-2": {
+"explain": {
+"new": "7e435e06b9241f08",
+"old": "7e435e06b9241f08",
+"same": true
+},
+"explain_cost": {
+"new": "5d576cae32c0fa21",
+"old": "5d576cae32c0fa21",
+"same": true
+},
+"lint": {
+"new": "0ef6c2d76419dd30",
+"old": "0ef6c2d76419dd30",
+"same": true
+},
+"mermaid": {
+"new": "1862f6d633b4cc45",
+"old": "1862f6d633b4cc45",
+"same": true
+},
+"test": {
+"new": "211773656fd3429b",
+"old": "211773656fd3429b",
+"same": true
+}
+},
+"touring/plan-excellence": {
+"explain": {
+"new": "b84246057a405b33",
+"old": "b84246057a405b33",
+"same": true
+},
+"explain_cost": {
+"new": "f3ad944d944acb28",
+"old": "f3ad944d944acb28",
+"same": true
+},
+"lint": {
+"new": "4c19ab2a5a39ea27",
+"old": "4c19ab2a5a39ea27",
+"same": true
+},
+"mermaid": {
+"new": "c46dec0a7e5ca1ae",
+"old": "c46dec0a7e5ca1ae",
+"same": true
+},
+"test": {
+"new": "c5ada8299e9a0016",
+"old": "c5ada8299e9a0016",
+"same": true
+}
+},
+"touring/release-gate": {
+"explain": {
+"new": "bf1f8fe3ddbb6940",
+"old": "bf1f8fe3ddbb6940",
+"same": true
+},
+"explain_cost": {
+"new": "16a61c7e41482343",
+"old": "16a61c7e41482343",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "a05f3d1c1ca2d4c2",
+"old": "a05f3d1c1ca2d4c2",
+"same": true
+},
+"test": {
+"new": "f9e4831d0f9ddb5c",
+"old": "f9e4831d0f9ddb5c",
+"same": true
+}
+},
+"touring/scout-perpetuo": {
+"explain": {
+"new": "b662964ced957a51",
+"old": "b662964ced957a51",
+"same": true
+},
+"explain_cost": {
+"new": "a7de4a2ed67cc986",
+"old": "a7de4a2ed67cc986",
+"same": true
+},
+"lint": {
+"new": "f295afbf24d6b835",
+"old": "f295afbf24d6b835",
+"same": true
+},
+"mermaid": {
+"new": "50cec2092cdc1355",
+"old": "50cec2092cdc1355",
+"same": true
+},
+"test": {
+"new": "26793260d4990184",
+"old": "26793260d4990184",
+"same": true
+}
+},
+"touring/skill-refine": {
+"explain": {
+"new": "d50f7a8d17703648",
+"old": "d50f7a8d17703648",
+"same": true
+},
+"explain_cost": {
+"new": "bbb4079d7668fa2b",
+"old": "bbb4079d7668fa2b",
+"same": true
+},
+"lint": {
+"new": "d34d2b702edab96b",
+"old": "d34d2b702edab96b",
+"same": true
+},
+"mermaid": {
+"new": "4235f7242e3640b9",
+"old": "4235f7242e3640b9",
+"same": true
+},
+"test": {
+"new": "d18cd032f06ec8a0",
+"old": "d18cd032f06ec8a0",
+"same": true
+}
+},
+"touring/strategy-loop": {
+"explain": {
+"new": "c8ceca6873cbe65d",
+"old": "c8ceca6873cbe65d",
+"same": true
+},
+"explain_cost": {
+"new": "c69c8c5f97ca5e4a",
+"old": "c69c8c5f97ca5e4a",
+"same": true
+},
+"lint": {
+"new": "2d2def56d4e7f71c",
+"old": "2d2def56d4e7f71c",
+"same": true
+},
+"mermaid": {
+"new": "e811325a26be1bf6",
+"old": "e811325a26be1bf6",
+"same": true
+},
+"test": {
+"new": "201466214269b711",
+"old": "201466214269b711",
+"same": true
+}
+},
+"touring/xaudit-gates": {
+"explain": {
+"new": "d549cca0880327e7",
+"old": "d549cca0880327e7",
+"same": true
+},
+"explain_cost": {
+"new": "e22cac0b771c0f43",
+"old": "e22cac0b771c0f43",
+"same": true
+},
+"lint": {
+"new": "82f535d017fc8c9b",
+"old": "82f535d017fc8c9b",
+"same": true
+},
+"mermaid": {
+"new": "e70f830a7cc89f1d",
+"old": "e70f830a7cc89f1d",
+"same": true
+},
+"test": {
+"new": "e08b31e2efc8a226",
+"old": "e08b31e2efc8a226",
+"same": true
+}
+},
+"touring/xaudit-lintscan": {
+"explain": {
+"new": "efe5eb85dfce94eb",
+"old": "efe5eb85dfce94eb",
+"same": true
+},
+"explain_cost": {
+"new": "fbee613fcf7048d7",
+"old": "fbee613fcf7048d7",
+"same": true
+},
+"lint": {
+"new": "7a64a94924e9ee26",
+"old": "7a64a94924e9ee26",
+"same": true
+},
+"mermaid": {
+"new": "d77284d954877ef2",
+"old": "d77284d954877ef2",
+"same": true
+},
+"test": {
+"new": "1e0c1affa2591ddd",
+"old": "1e0c1affa2591ddd",
+"same": true
+}
+},
+"touring/zte-probe": {
+"explain": {
+"new": "5ff96a4b1ae3e88f",
+"old": "5ff96a4b1ae3e88f",
+"same": true
+},
+"explain_cost": {
+"new": "047f7b8de175ffd7",
+"old": "047f7b8de175ffd7",
+"same": true
+},
+"lint": {
+"new": "04948226b8cb482c",
+"old": "04948226b8cb482c",
+"same": true
+},
+"mermaid": {
+"new": "3b0b7e313f85bd1f",
+"old": "3b0b7e313f85bd1f",
+"same": true
+},
+"test": {
+"new": "21634314573797c6",
+"old": "21634314573797c6",
+"same": true
+}
+}
+}

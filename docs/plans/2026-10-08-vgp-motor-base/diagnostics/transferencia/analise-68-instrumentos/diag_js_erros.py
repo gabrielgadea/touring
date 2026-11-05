@@ -4,11 +4,14 @@ Se forem todos o mesmo codigo, e um setting faltando no tsconfig que eu escrevi 
 nao uma propriedade da fonte. Se forem codigos diferentes, a fonte e legitimamente nao-limpa.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import sys
 from collections import Counter
 
-sys.path.insert(0, "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
+sys.path.insert(0, f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
 import corpus_semeado as cs  # noqa: E402
 
 base, sombra = cs.prepara_sombra("javascript")

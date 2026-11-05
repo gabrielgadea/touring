@@ -267,7 +267,7 @@ pub(crate) fn handle_task_sync_post_update(rt: &mut HookRuntime, input: &Value) 
 /// touring session can be recovered after a daemon restart or context compaction.
 /// Calls `cli_session_checkpoint` with a JSON snapshot of the task completion event.
 /// Returns a hint confirming the checkpoint, or empty string when the call fails.
-pub(crate) fn auto_checkpoint_on_task_complete(rt: &mut HookRuntime, task_id: &str) -> String {
+fn auto_checkpoint_on_task_complete(rt: &mut HookRuntime, task_id: &str) -> String {
     let checkpoint_payload = serde_json::json!({
         "session_id": format!("cc-{}", truncate_str(task_id, 20)),
         "data": format!("{{\"task_id\":\"{task_id}\",\"status\":\"completed\"}}"),
@@ -286,7 +286,7 @@ pub(crate) fn auto_checkpoint_on_task_complete(rt: &mut HookRuntime, task_id: &s
 /// diary format (`#[P:phase] #[R:reward] #[L:lesson] #[W:warn] #[E:error]`) so future sessions
 /// can recall what was learned at completion time. Returns a diary write hint so Claude Code
 /// can optionally record a richer entry via `touring diary write`.
-pub(crate) fn auto_lesson_on_task_complete(rt: &mut HookRuntime, task_id: &str) -> String {
+fn auto_lesson_on_task_complete(rt: &mut HookRuntime, task_id: &str) -> String {
     let aaak_entry = format!(
         "#[P:completed] #[R:1.0] #[L:task {task_id} completed via Claude Code] #[W:none] #[E:none]"
     );
@@ -326,7 +326,7 @@ pub(crate) fn maybe_wiring_orphan_hint_on_complete(task_id: &str) -> String {
 /// Emits `touring generate render diary_entry` so lessons learned during the task
 /// are captured in AAAK format and persisted for future sessions via touring-generator.
 /// Returns empty string when task_id is sentinel or empty.
-pub(crate) fn diary_entry_hint_on_task_complete(task_id: &str) -> String {
+fn diary_entry_hint_on_task_complete(task_id: &str) -> String {
     if task_id.is_empty() || task_id == "unknown" {
         return String::new();
     }
@@ -345,7 +345,7 @@ pub(crate) fn diary_entry_hint_on_task_complete(task_id: &str) -> String {
 /// artifact templates rather than starting from scratch on follow-up tasks.
 /// Closes the TaskCompleted → GeneratorPlan history loop with the touring-generator registry.
 /// Returns empty string when task_id is sentinel or empty to avoid noise.
-pub(crate) fn maybe_plan_recall_on_task_complete(task_id: &str) -> String {
+fn maybe_plan_recall_on_task_complete(task_id: &str) -> String {
     if task_id.is_empty() || task_id == "unknown" {
         return String::new();
     }
@@ -361,7 +361,7 @@ pub(crate) fn maybe_plan_recall_on_task_complete(task_id: &str) -> String {
 /// TaskUpdate(in_progress), the session is gone. This helper ensures the session is recovered
 /// by calling `cli_session_start` idempotently (upsert semantics). Returns empty string for
 /// any status other than `"in_progress"` to avoid noise on blocked/paused transitions.
-pub(crate) fn maybe_start_session_on_in_progress(
+fn maybe_start_session_on_in_progress(
     rt: &mut HookRuntime,
     task_id: &str,
     subject: &str,
@@ -389,7 +389,7 @@ pub(crate) fn maybe_start_session_on_in_progress(
 /// This helper surfaces `touring mcts search` so the engineer can find an alternative
 /// execution path without manually scanning the DAG.
 /// Returns `None` for all non-blocked statuses — zero CC contribution in callers.
-pub(crate) fn maybe_mcts_hint_on_task_blocked(task_id: &str, status: &str) -> Option<String> {
+fn maybe_mcts_hint_on_task_blocked(task_id: &str, status: &str) -> Option<String> {
     if status != "blocked" {
         return None;
     }
@@ -403,7 +403,7 @@ pub(crate) fn maybe_mcts_hint_on_task_blocked(task_id: &str, status: &str) -> Op
 /// - `in_progress` → RL +0.2 (work started signal) + memory lesson for audit
 /// - `blocked` → RL -0.1 (impediment signal) + memory warning + ready-subtask fallback hint
 /// - Other statuses → no-op (returns empty string)
-pub(crate) fn update_status_side_effects(
+fn update_status_side_effects(
     rt: &mut HookRuntime,
     task_id: &str,
     status: &str,
@@ -465,7 +465,7 @@ pub(crate) fn update_status_side_effects(
 /// by emitting a `touring mcts search "unblock <task_id>"` command — the MCTS engine
 /// runs Monte Carlo rollouts across the DAG to find an optimal alternative execution path.
 /// Returns empty string for unknown or empty task IDs to avoid noise.
-pub(crate) fn maybe_mcts_unblock_hint(task_id: &str) -> String {
+fn maybe_mcts_unblock_hint(task_id: &str) -> String {
     if task_id.is_empty() || task_id == "unknown" {
         return String::new();
     }
@@ -482,7 +482,7 @@ pub(crate) fn maybe_mcts_unblock_hint(task_id: &str) -> String {
 /// filtered by `task_id` and surfaces the first ready subtask as an actionable hint,
 /// closing the "update X → here's what to do next" loop automatically.
 /// Returns empty string when no subtasks are ready or DAG is empty.
-pub(crate) fn dag_next_ready_hint(rt: &mut HookRuntime, task_id: &str) -> String {
+fn dag_next_ready_hint(rt: &mut HookRuntime, task_id: &str) -> String {
     let payload = serde_json::json!({"task_id": task_id});
     let result = crate::cli_handlers::cli_decompose_ready(rt, &payload);
     let v = match serde_json::from_str::<serde_json::Value>(&result) {
@@ -519,7 +519,7 @@ pub(crate) fn dag_next_ready_hint(rt: &mut HookRuntime, task_id: &str) -> String
 ///
 /// `pub(crate)` so `hook_registry.rs` can reuse this in the `task-completed`
 /// event handler to surface artifact generation hints on task completion (R122-S2).
-pub(crate) fn collect_update_generator_hints(subject: &str) -> Vec<String> {
+fn collect_update_generator_hints(subject: &str) -> Vec<String> {
     type HintFn = fn(&str) -> Option<String>;
     const MATCHERS: &[HintFn] = &[
         // R118-S1..S10: first 10 kinds
@@ -562,7 +562,7 @@ pub(crate) fn collect_update_generator_hints(subject: &str) -> Vec<String> {
 // ── R118: First 10 TaskUpdate per-kind helpers ────────────────────────────────
 
 /// R118-S1: Suggest `rust_module` generator when TaskUpdate subject involves Rust source (CC=2).
-pub(crate) fn maybe_rust_module_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_rust_module_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -587,7 +587,7 @@ pub(crate) fn maybe_rust_module_hint_on_task_update(subject: &str) -> Option<Str
 }
 
 /// R118-S2: Suggest `cli_handler` generator when TaskUpdate subject involves CLI work (CC=2).
-pub(crate) fn maybe_cli_handler_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_cli_handler_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -612,7 +612,7 @@ pub(crate) fn maybe_cli_handler_hint_on_task_update(subject: &str) -> Option<Str
 }
 
 /// R118-S3: Suggest `mcp_tool` generator when TaskUpdate subject involves MCP tools (CC=2).
-pub(crate) fn maybe_mcp_tool_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_mcp_tool_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -637,7 +637,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_task_update(subject: &str) -> Option<String
 }
 
 /// R118-S4: Suggest `hook_handler` generator when TaskUpdate subject involves hooks (CC=2).
-pub(crate) fn maybe_hook_handler_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_hook_handler_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -662,7 +662,7 @@ pub(crate) fn maybe_hook_handler_hint_on_task_update(subject: &str) -> Option<St
 }
 
 /// R118-S5: Suggest `plan_md` generator when TaskUpdate subject involves planning docs (CC=2).
-pub(crate) fn maybe_plan_md_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_plan_md_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -687,7 +687,7 @@ pub(crate) fn maybe_plan_md_hint_on_task_update(subject: &str) -> Option<String>
 }
 
 /// R118-S6: Suggest `test` generator when TaskUpdate subject involves test writing (CC=2).
-pub(crate) fn maybe_test_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_test_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -712,7 +712,7 @@ pub(crate) fn maybe_test_hint_on_task_update(subject: &str) -> Option<String> {
 }
 
 /// R118-S7: Suggest `python_script` generator when TaskUpdate subject involves Python (CC=2).
-pub(crate) fn maybe_python_script_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_python_script_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -737,7 +737,7 @@ pub(crate) fn maybe_python_script_hint_on_task_update(subject: &str) -> Option<S
 }
 
 /// R118-S8: Suggest `schema` generator when TaskUpdate subject involves data schemas (CC=2).
-pub(crate) fn maybe_schema_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_schema_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -762,7 +762,7 @@ pub(crate) fn maybe_schema_hint_on_task_update(subject: &str) -> Option<String> 
 }
 
 /// R118-S9: Suggest `benchmark` generator when TaskUpdate subject involves perf testing (CC=2).
-pub(crate) fn maybe_benchmark_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_benchmark_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -787,7 +787,7 @@ pub(crate) fn maybe_benchmark_hint_on_task_update(subject: &str) -> Option<Strin
 }
 
 /// R118-S10: Suggest `fuzz_target` generator when TaskUpdate subject involves fuzzing (CC=2).
-pub(crate) fn maybe_fuzz_target_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_fuzz_target_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -814,7 +814,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_task_update(subject: &str) -> Option<Str
 // ── R119: Next 10 TaskUpdate per-kind helpers ─────────────────────────────────
 
 /// R119-S1: Suggest `derive_macro` generator when TaskUpdate subject involves proc-macros (CC=2).
-pub(crate) fn maybe_derive_macro_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_derive_macro_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -839,7 +839,7 @@ pub(crate) fn maybe_derive_macro_hint_on_task_update(subject: &str) -> Option<St
 }
 
 /// R119-S2: Suggest `migration` generator when TaskUpdate subject involves DB migrations (CC=2).
-pub(crate) fn maybe_migration_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_migration_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -864,7 +864,7 @@ pub(crate) fn maybe_migration_hint_on_task_update(subject: &str) -> Option<Strin
 }
 
 /// R119-S3: Suggest `ffi_binding` generator when TaskUpdate subject involves FFI/native bindings (CC=2).
-pub(crate) fn maybe_ffi_binding_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_ffi_binding_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -889,7 +889,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_task_update(subject: &str) -> Option<Str
 }
 
 /// R119-S4: Suggest `protobuf_schema` generator when TaskUpdate subject involves protobuf (CC=2).
-pub(crate) fn maybe_protobuf_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_protobuf_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -914,7 +914,7 @@ pub(crate) fn maybe_protobuf_hint_on_task_update(subject: &str) -> Option<String
 }
 
 /// R119-S5: Suggest `openapi_spec` generator when TaskUpdate subject involves REST APIs (CC=2).
-pub(crate) fn maybe_openapi_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_openapi_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -939,7 +939,7 @@ pub(crate) fn maybe_openapi_hint_on_task_update(subject: &str) -> Option<String>
 }
 
 /// R119-S6: Suggest `shell_completion` generator when TaskUpdate involves shell scripts (CC=2).
-pub(crate) fn maybe_shell_completion_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_shell_completion_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -964,7 +964,7 @@ pub(crate) fn maybe_shell_completion_hint_on_task_update(subject: &str) -> Optio
 }
 
 /// R119-S7: Suggest `man_page` generator when TaskUpdate subject involves man pages (CC=2).
-pub(crate) fn maybe_man_page_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_man_page_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -989,7 +989,7 @@ pub(crate) fn maybe_man_page_hint_on_task_update(subject: &str) -> Option<String
 }
 
 /// R119-S8: Suggest `error_catalog` generator when TaskUpdate involves error definitions (CC=2).
-pub(crate) fn maybe_error_catalog_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_error_catalog_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1014,7 +1014,7 @@ pub(crate) fn maybe_error_catalog_hint_on_task_update(subject: &str) -> Option<S
 }
 
 /// R119-S9: Suggest `incremental_patch` generator when TaskUpdate involves patches (CC=2).
-pub(crate) fn maybe_incremental_patch_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_incremental_patch_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1039,7 +1039,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_task_update(subject: &str) -> Opti
 }
 
 /// R119-S10: Suggest `skill_document` generator when TaskUpdate involves skill docs (CC=2).
-pub(crate) fn maybe_skill_document_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_skill_document_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1066,7 +1066,7 @@ pub(crate) fn maybe_skill_document_hint_on_task_update(subject: &str) -> Option<
 // ── R120: Final 10 TaskUpdate per-kind helpers ────────────────────────────────
 
 /// R120-S1: Suggest `diary_entry` generator when TaskUpdate involves agent diary (CC=2).
-pub(crate) fn maybe_diary_entry_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_diary_entry_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1091,7 +1091,7 @@ pub(crate) fn maybe_diary_entry_hint_on_task_update(subject: &str) -> Option<Str
 }
 
 /// R120-S2: Suggest `dockerfile` generator when TaskUpdate involves Docker images (CC=2).
-pub(crate) fn maybe_dockerfile_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_dockerfile_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1116,7 +1116,7 @@ pub(crate) fn maybe_dockerfile_hint_on_task_update(subject: &str) -> Option<Stri
 }
 
 /// R120-S3: Suggest `k8s_manifest` generator when TaskUpdate involves Kubernetes (CC=2).
-pub(crate) fn maybe_k8s_manifest_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_k8s_manifest_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1141,7 +1141,7 @@ pub(crate) fn maybe_k8s_manifest_hint_on_task_update(subject: &str) -> Option<St
 }
 
 /// R120-S4: Suggest `terraform_module` generator when TaskUpdate involves IaC (CC=2).
-pub(crate) fn maybe_terraform_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_terraform_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1166,7 +1166,7 @@ pub(crate) fn maybe_terraform_hint_on_task_update(subject: &str) -> Option<Strin
 }
 
 /// R120-S5: Suggest `ci_workflow` generator when TaskUpdate involves CI/CD (CC=2).
-pub(crate) fn maybe_ci_workflow_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_ci_workflow_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1191,7 +1191,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_task_update(subject: &str) -> Option<Str
 }
 
 /// R120-S6: Suggest `changelog_entry` generator when TaskUpdate involves release notes (CC=2).
-pub(crate) fn maybe_changelog_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_changelog_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1216,7 +1216,7 @@ pub(crate) fn maybe_changelog_hint_on_task_update(subject: &str) -> Option<Strin
 }
 
 /// R120-S7: Suggest `adr` generator when TaskUpdate involves architecture decisions (CC=2).
-pub(crate) fn maybe_adr_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_adr_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1241,7 +1241,7 @@ pub(crate) fn maybe_adr_hint_on_task_update(subject: &str) -> Option<String> {
 }
 
 /// R120-S8: Suggest `asyncapi_spec` generator when TaskUpdate involves event-driven APIs (CC=2).
-pub(crate) fn maybe_asyncapi_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_asyncapi_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1266,7 +1266,7 @@ pub(crate) fn maybe_asyncapi_hint_on_task_update(subject: &str) -> Option<String
 }
 
 /// R120-S9: Suggest `consumer_generator` generator when TaskUpdate involves event consumers (CC=2).
-pub(crate) fn maybe_consumer_generator_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_consumer_generator_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1291,7 +1291,7 @@ pub(crate) fn maybe_consumer_generator_hint_on_task_update(subject: &str) -> Opt
 }
 
 /// R120-S10: Suggest `task_scaffold` generator when TaskUpdate involves TACO task DAGs (CC=2).
-pub(crate) fn maybe_task_scaffold_hint_on_task_update(subject: &str) -> Option<String> {
+fn maybe_task_scaffold_hint_on_task_update(subject: &str) -> Option<String> {
     if subject.is_empty() {
         return None;
     }
@@ -1313,4 +1313,17 @@ pub(crate) fn maybe_task_scaffold_hint_on_task_update(subject: &str) -> Option<S
     Some(format!(
         "task-scaffold: update {s} — run `touring generate render TaskScaffold` to scaffold via touring-generator"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn mcts_unblock_hint_empty_for_unknown_task_id() {
+        // R43-S1: "unknown" task_id → empty (avoids noise on synthetic completions)
+        let result = super::maybe_mcts_unblock_hint("unknown");
+        assert!(
+            result.is_empty(),
+            "unknown task_id must return empty: {result}"
+        );
+    }
 }

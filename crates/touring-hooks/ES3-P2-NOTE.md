@@ -2,7 +2,7 @@
 
 > **Wave**: ES3 P2 (TIER 2 followup to ES3 P1) · **Date**: 2026-06-02 · **Budget**: 6ed · **Actual**: 6.0ed
 > **Roadmap**: `docs/2026-05-30-cah-epic-subsystems-roadmap.md` §"ES3 P2"
-> **Plan**: `/home/gabrielgadea/.claude/plans/robust-riding-rose.md`
+> **Plan**: `~/.claude/plans/robust-riding-rose.md`
 > **Checkpoint (TOON)**: `docs/checkpoints/2026-06-02-es3-p2-supervised-x8-writes.toon`
 > **DAG task**: `task_1780440816630657847` (5 subtasks S-2-1..S-2-5)
 > **Predecessor**: ES3 P1 (SHIPPED 2026-06-01) — `AccessDeclaration` + `TxnLockManager` + `from_tool_payload` (read-only) + `ExecPool::acquire_txn` no X0 hook (defense-in-depth only)

@@ -12,7 +12,7 @@ use tempfile::TempDir;
 
 /// Resolve a touring binary, preferring the WORKSPACE build over the installed one.
 ///
-/// Both helpers used to hardcode `/home/gabrielgadea/.local/bin/…`, so this
+/// Both helpers used to hardcode `/home/<user>/.local/bin/…`, so this
 /// suite exercised whatever was last *deployed* rather than the code under
 /// test — a green run said nothing about the working tree, and the paths break
 /// on any other machine. Workspace first, installed as fallback.
@@ -30,7 +30,7 @@ fn resolve_bin(name: &str) -> PathBuf {
         }
     }
     // Fallback: the user's own install dir, derived from $HOME. It used to be
-    // the literal `/home/gabrielgadea/.local/bin/…`, which resolves nowhere on
+    // the literal `/home/<user>/.local/bin/…`, which resolves nowhere on
     // a CI runner — and a test whose fallback cannot exist is a test that only
     // ever ran on one machine (run 31166066285, 2026-08-07).
     let home = std::env::var_os("HOME").map(PathBuf::from);

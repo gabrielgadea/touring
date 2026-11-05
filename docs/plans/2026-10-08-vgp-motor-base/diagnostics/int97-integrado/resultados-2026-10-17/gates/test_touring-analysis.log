@@ -35,7 +35,7 @@
    Compiling derive_more-impl v2.1.1
    Compiling ureq-proto v0.6.0
    Compiling ravif v0.13.0
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling ureq v3.3.0
    Compiling wgpu-core-deps-windows-linux-android v26.0.0
    Compiling tokenizers v0.22.2
@@ -44,30 +44,30 @@
    Compiling wgpu-core v26.0.1
    Compiling salsa v0.18.0
    Compiling wgpu v26.0.1
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling fastembed v5.17.2
    Compiling notify v7.0.0
    Compiling ast-grep-core v0.42.3
    Compiling derive_more v2.1.1
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling notify-debouncer-mini v0.5.0
    Compiling z3 v0.20.1
    Compiling serde v1.0.228
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
    Compiling iai-callgrind-macros v0.6.1
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling iai-callgrind-runner v0.16.1
    Compiling bincode v1.3.3
    Compiling criterion v0.5.1
    Compiling iai-callgrind v0.16.1
    Compiling insta v1.48.0
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 07s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_analysis-ba1361b97a93e5d3)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_analysis-ba1361b97a93e5d3)
 
 running 1014 tests
 test blast_radius::bfs::tests::test_bfs_depth_limit ... ok
@@ -1087,7 +1087,7 @@ test wiring::tests::wiring_signature_changes_on_integration_score_update ... ok
 
 test result: ok. 1014 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
 
-     Running tests/cache_moka_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cache_moka_e2e-0f469e24c492da63)
+     Running tests/cache_moka_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/cache_moka_e2e-0f469e24c492da63)
 
 running 6 tests
 test e2e_custom_config_keys_do_not_collide_with_depth_keys ... ok
@@ -1099,7 +1099,7 @@ test e2e_snapshot_is_json_serializable ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
-     Running tests/e2e_integration.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_integration-3cb69b87a999ccd0)
+     Running tests/e2e_integration.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_integration-3cb69b87a999ccd0)
 
 running 48 tests
 test test_e2e_analysis_config_builder_methods ... ok
@@ -1153,7 +1153,7 @@ test test_e2e_run_quality_included_in_run_parallel ... ok
 
 test result: ok. 48 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
 
-     Running tests/rules_engine_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/rules_engine_e2e-9a5574977bdc9a3c)
+     Running tests/rules_engine_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/rules_engine_e2e-9a5574977bdc9a3c)
 
 running 3 tests
 test empty_workspace_produces_zero_violations_for_workspace_metrics ... ok
@@ -1162,7 +1162,7 @@ test end_to_end_pipeline_detects_breaches ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/security_analyzer_test.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/security_analyzer_test-8798b9cebbb8c38e)
+     Running tests/security_analyzer_test.rs (~/projects/touring/target/wt-int97/debug/deps/security_analyzer_test-8798b9cebbb8c38e)
 
 running 21 tests
 test a_climb_from_the_scripts_own_directory_is_not_traversal_but_one_from_input_is ... ok
@@ -1189,7 +1189,7 @@ test the_word_javascript_in_a_log_message_is_not_xss_but_a_javascript_url_is ...
 
 test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/stringzilla_quality_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/stringzilla_quality_e2e-e8a0058375b1b81b)
+     Running tests/stringzilla_quality_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/stringzilla_quality_e2e-e8a0058375b1b81b)
 
 running 13 tests
 test test_count_lines_blank_only_source ... ok

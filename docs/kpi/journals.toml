@@ -69,10 +69,14 @@ ts = { campo = "ts", unidade = "iso" }
 id = "run_journal"
 caminho = "run_journal.jsonl"
 tipo = "jsonl"
-escritores = ["crates/touring-server/src/tools/ctx_execute_tools.rs"]
+# O dono único do caminho, do append atômico e do parse de linha é `run_outcome::journal`
+# (consolidação 02/11/2026); `ctx_execute_tools.rs` (o registro de cada run) e `cli/run.rs`
+# (o evento `repeat_blocked`) escrevem POR ELE — antes eram dois escritores com duas disciplinas.
+escritores = ["crates/touring-foundation/src/run_outcome/journal.rs"]
 leitores = [
+  { arquivo = "crates/touring-foundation/src/run_outcome/journal.rs", janela_dias = "toda", verificada = true, nota = "classify_line/scan_entries: o parse de linha de TODO leitor Rust; a cauda de 512 KiB só nas buscas de recorrência (count_prior_same_hash, find_prior_similar)" },
   { arquivo = "crates/touring-code/src/journal.rs", janela_dias = "toda", verificada = true, nota = "read_journal percorre o arquivo inteiro" },
-  { arquivo = "crates/touring-cli/src/cli/kpi/code_mode.rs", janela_dias = "toda", verificada = true, nota = "code_mode_adherence via journal::read_journal" },
+  { arquivo = "crates/touring-cli/src/cli/kpi/code_mode.rs", janela_dias = "toda", verificada = true, nota = "code_mode_adherence via classify_line; code_mode_reuse via journal::read_journal" },
   { arquivo = "crates/touring-code/src/sdk_signal_mirror.rs", janela_dias = "toda", verificada = true, nota = "journal::read_journal" },
   { arquivo = "scripts/gen_sdk.py", janela_dias = "toda" },
   { arquivo = "crates/touring-quality/src/builtins/best_practices.rs", janela_dias = "toda" },

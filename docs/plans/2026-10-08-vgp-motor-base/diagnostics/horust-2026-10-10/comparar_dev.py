@@ -5,12 +5,15 @@ e o falso deny. So leitura.
 Uso: python3 -I -B comparar_dev.py <ids_com_overlay.json> <saida.json>
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import collections
 import json
 import sys
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 ANTES = json.loads((B / "diagnostics/vrs-porta-2026-10-10/dados/ids_depois_natural.json").read_text())["ids"]
 DEPOIS = json.loads(Path(sys.argv[1]).read_text())["ids"]
 

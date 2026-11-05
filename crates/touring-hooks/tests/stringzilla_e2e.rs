@@ -2,7 +2,8 @@
 //!
 //! Proves end-to-end that:
 //!
-//! 1. `PreToolValidator` static-prefix fast path fires before regex (T0.2).
+//! 1. The tool-call reading of `command_policy` (the static-prefix rows, T0.2) blocks and
+//!    allows what the removed `PreToolValidator` facade answered.
 //! 2. `AhoCorasick` skill-group routing in `keyword_skill_match` works (T3.3).
 //! 3. `gotcha_count_for_file` uses `memmem` and not SQL LIKE (T0.3).
 //! 4. Hook registry has exactly 171 entries and is fully in sync (Hook Registry Fix).
@@ -14,15 +15,38 @@
 
 use tempfile::NamedTempFile;
 use touring_hooks::async_knowledge::AsyncFileKnowledgeDB;
-use touring_hooks::hook_registry::{
-    ALL_DAEMON_HOOK_NAMES, all_daemon_hook_names, build_dispatch_table,
-};
-use touring_hooks::pre_tool_validator::PreToolValidator;
+use touring_hooks::hook_registry::{all_daemon_hook_names, build_dispatch_table, is_daemon_hook};
+use touring_hooks_shared::command_policy::{self, Verdict};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-fn validator() -> PreToolValidator {
-    PreToolValidator::new()
+/// Reads a tool call through `command_policy::judge_tool`, the owner the removed
+/// `PreToolValidator` facade delegated to (04/11/2026, C2 item 4: it had no production
+/// caller and added no capability). A `Warn` lets the tool run, as the facade did.
+struct ToolJudge;
+
+impl ToolJudge {
+    fn validate(&self, tool_name: &str, params: &str) -> Verdict {
+        command_policy::judge_tool(tool_name, params)
+    }
+}
+
+trait VerdictExt {
+    fn is_blocked(&self) -> bool;
+    fn is_allowed(&self) -> bool;
+}
+
+impl VerdictExt for Verdict {
+    fn is_blocked(&self) -> bool {
+        self.is_block()
+    }
+    fn is_allowed(&self) -> bool {
+        !self.is_block()
+    }
+}
+
+fn validator() -> ToolJudge {
+    ToolJudge
 }
 
 /// Seed the gotchas table directly via a blocking connection.
@@ -84,12 +108,11 @@ fn test_static_prefix_validator_rm_blocked() {
     );
     assert!(
         result
-            .reason
-            .as_deref()
+            .reason()
             .unwrap_or("")
             .contains("Recursive force delete"),
         "reason must reference the static prefix reason, got: {:?}",
-        result.reason
+        result.reason()
     );
 
     // rm with -r alone must also be blocked.
@@ -102,12 +125,11 @@ fn test_static_prefix_validator_rm_blocked() {
     let dd = v.validate("dd", "if=/dev/zero of=/dev/sda");
     assert!(dd.is_blocked(), "dd must be blocked regardless of params");
     assert!(
-        dd.reason
-            .as_deref()
+        dd.reason()
             .unwrap_or("")
             .contains("low-level disk operation"),
         "dd reason must mention disk, got: {:?}",
-        dd.reason
+        dd.reason()
     );
 }
 
@@ -227,9 +249,9 @@ fn test_ahocorasick_skill_routing_comprehensive() {
     }
 }
 
-/// Verifies that the hook `cli-suggest-skill` is in both the dispatch table
-/// and ALL_DAEMON_HOOK_NAMES, confirming `keyword_skill_match` is wired to a
-/// real, reachable hook handler.
+/// Verifies that the hook `cli-suggest-skill` is in the dispatch table and that the
+/// daemon-membership predicate the thin client calls agrees, confirming
+/// `keyword_skill_match` is wired to a real, reachable hook handler.
 #[test]
 fn test_ahocorasick_suggest_skill_hook_wired() {
     let table = build_dispatch_table();
@@ -238,8 +260,8 @@ fn test_ahocorasick_suggest_skill_hook_wired() {
         "cli-suggest-skill must be in dispatch table"
     );
     assert!(
-        ALL_DAEMON_HOOK_NAMES.contains(&"cli-suggest-skill"),
-        "cli-suggest-skill must be in ALL_DAEMON_HOOK_NAMES"
+        is_daemon_hook("cli-suggest-skill"),
+        "cli-suggest-skill must be a daemon hook (is_daemon_hook)"
     );
 }
 
@@ -344,42 +366,33 @@ async fn test_gotcha_count_memmem_empty_pattern_skipped() {
 
 // ─── Hook Registry Fix: full sync verification ────────────────────────────────
 
-/// Verifies that the `all_daemon_hook_names()` function and the `ALL_DAEMON_HOOK_NAMES`
-/// constant are in sync: every name in the function's output (for the default feature
-/// set) must appear in the constant, and the counts must agree.
+/// Verifies that `all_daemon_hook_names()` and the daemon-membership predicate
+/// (`is_daemon_hook`, what the `touring-hook` fast-path calls) are in sync with the dispatch
+/// table — through the PUBLIC façade path, as the binaries use it.
 ///
-/// The function is feature-gated (pre-hooks/post-hooks/session-hooks may extend it
-/// at compile time). In test configuration (without those features), the function
-/// returns exactly the same list as the constant.
+/// There is no second hand-written list to compare against any more: the names are the
+/// table's keys and membership is a lookup in the same table, so a hook the daemon serves
+/// can no longer miss the fast-path (the old `ALL_DAEMON_HOOK_NAMES` constant lagged the
+/// table by eight names, and this test compared the constant to the FUNCTION, never to
+/// the table the client's decision should have followed).
 #[test]
 fn test_hook_registry_complete_sync() {
     let func_names = all_daemon_hook_names();
-    let const_names = ALL_DAEMON_HOOK_NAMES;
-
-    // NOTE: The count check is relaxed because the constant (179) and function (181)
-    // have a known 2-entry discrepancy from the B.4 dual-mod split that subagent
-    // applied without updating the constant. This is a pre-existing gap, not caused
-    // by the tests themselves. The real fix requires updating ALL_DAEMON_HOOK_NAMES.
-    if func_names.len() != const_names.len() {
-        eprintln!(
-            "WARNING: all_daemon_hook_names() ({}) and ALL_DAEMON_HOOK_NAMES ({}) have \
-             different counts — this is a pre-existing registry drift, not a test bug",
-            func_names.len(),
-            const_names.len()
-        );
-    }
-
-    // Every entry in the ALL_DAEMON_HOOK_NAMES constant must be in the function output.
-    let func_set: std::collections::HashSet<&str> = func_names.iter().copied().collect();
-    for name in const_names {
-        assert!(
-            func_set.contains(name),
-            "Hook '{name}' is in ALL_DAEMON_HOOK_NAMES but missing from all_daemon_hook_names()"
-        );
-    }
-
-    // Every entry in all_daemon_hook_names() must be reachable via the dispatch table.
     let dispatch = build_dispatch_table();
+
+    // Every table key is a listed name and a member...
+    for key in dispatch.keys() {
+        assert!(
+            func_names.contains(key),
+            "Hook '{key}' is in build_dispatch_table() but missing from all_daemon_hook_names()"
+        );
+        assert!(
+            is_daemon_hook(key),
+            "Hook '{key}' is in build_dispatch_table() but is_daemon_hook rejects it"
+        );
+    }
+    // ...and every listed name is reachable via the dispatch table.
+    assert_eq!(func_names.len(), dispatch.len());
     for name in &func_names {
         assert!(
             dispatch.contains_key(name),
@@ -388,8 +401,8 @@ fn test_hook_registry_complete_sync() {
     }
 }
 
-/// Verifies that `cli-workflow-resume` and `cli-workflow-status` are present in
-/// the `ALL_DAEMON_HOOK_NAMES` constant (the two hooks added by the registry fix).
+/// Verifies that `cli-workflow-resume` and `cli-workflow-status` are daemon hooks
+/// (the two hooks added by the registry fix).
 #[test]
 fn test_all_workflow_hooks_in_registry() {
     let workflow_hooks = [
@@ -401,13 +414,10 @@ fn test_all_workflow_hooks_in_registry() {
         "cli-workflow-status", // was missing before the fix
     ];
 
-    let const_set: std::collections::HashSet<&str> =
-        ALL_DAEMON_HOOK_NAMES.iter().copied().collect();
-
     for hook in &workflow_hooks {
         assert!(
-            const_set.contains(hook),
-            "Workflow hook '{hook}' must be in ALL_DAEMON_HOOK_NAMES"
+            is_daemon_hook(hook),
+            "Workflow hook '{hook}' must be a daemon hook (is_daemon_hook)"
         );
     }
 
@@ -433,28 +443,26 @@ fn test_all_workflow_hooks_in_registry() {
 /// Locks the registry size against accidental drift: add or remove a hook
 /// without updating the assertions and this test fails loudly.
 ///
-/// ⚠ The same two quantities are asserted in **five** places, and they must be
-/// changed together — updating a subset is how a registry change reaches CI
+/// ⚠ The same quantity (`EXPECTED_NAMES`) is asserted in **four** places, and they must
+/// be changed together — updating a subset is how a registry change reaches CI
 /// half-fixed (observed twice: 2026-08-04, then again 2026-08-06 when
 /// `cli-memory-credit` was registered and only `hook_registry_tests.rs` was
 /// updated, leaving these three red):
 ///
-/// - `touring-dispatch/src/hook_registry_tests.rs`  ← the canonical pair
-/// - `touring-hooks/tests/stringzilla_e2e.rs`       (this file, BOTH asserts)
+/// - `touring-dispatch/src/hook_registry_tests.rs`  ← the canonical one
+/// - `touring-hooks/tests/stringzilla_e2e.rs`       (this file)
 /// - `touring-hooks/tests/wave2_4_e2e.rs`
 /// - `touring-hooks/tests/wave_c_e2e.rs`
 ///
-/// (`potentialization_comprehensive_e2e.rs` and `e2e_touring_hooks_integration.rs`
-/// assert lower bounds only, so they never drift.)
+/// (`every_hook_count_tripwire_agrees_with_the_others` in the first asserts the four
+/// literals agree; `potentialization_comprehensive_e2e.rs` and
+/// `e2e_touring_hooks_integration.rs` assert lower bounds only, so they never drift.)
+///
+/// Until 01/11/2026 this file also asserted a SECOND literal — the length of the
+/// hand-written `ALL_DAEMON_HOOK_NAMES` constant (241) — which was eight short of the
+/// dispatch table (249). The constant is gone: names are the table's keys.
 #[test]
 fn test_hook_registry_counts_match_the_dispatch_registry() {
-    assert_eq!(
-        ALL_DAEMON_HOOK_NAMES.len(),
-        241,
-        "ALL_DAEMON_HOOK_NAMES must have exactly 241 entries (sync with touring-dispatch hook_registry test; 2026-08-12: +10 memory facet commands F1-F6, +1 cli-wiring-scip-ingest H2; 2026-08-18: +4 decompose verbs — claim, release, ticket, frontier; 2026-08-24: +1 cli-code-mode-run; 2026-08-29 R1: +1 cli-gotcha-resolve; 2026-08-29 R4: +2 cli-experiment-{{record,list}}; 2026-08-29 P2: +1 cli-learning-replay; 2026-09-13 I13: +1 cli-index-why; 2026-09-20: +1 cli-decompose-reconcile-stages — o e7f47c1d não bumpou nenhuma das 4 cópias; corrigido 25/09, REGRA #21)"
-    );
-    // NOTE: all_daemon_hook_names() and ALL_DAEMON_HOOK_NAMES differ by feature-gated entries
-    // and 'stop' which is in constant but not in function.
     // test_hook_registry_no_duplicates validates no duplicates.
     // Ciente da feature, como o tripwire irmão em
     // `touring-dispatch/src/hook_registry_tests.rs`: `acp-protocol` (não-default)
@@ -480,7 +488,11 @@ fn test_hook_registry_counts_match_the_dispatch_registry() {
     );
 }
 
-/// Verifies there are no duplicate hook names in either the constant or the function.
+/// Verifies there are no duplicate hook names in `all_daemon_hook_names()`.
+///
+/// (A name inserted twice into the table is caught at the source by
+/// `hook_names_are_declared_once` in `touring-dispatch`; this is the façade-level check
+/// that the listing a consumer sees is a set.)
 #[test]
 fn test_hook_registry_no_duplicates() {
     let func_names = all_daemon_hook_names();
@@ -489,14 +501,6 @@ fn test_hook_registry_no_duplicates() {
         assert!(
             seen.insert(name),
             "Duplicate hook name in all_daemon_hook_names(): '{name}'"
-        );
-    }
-
-    let mut seen_const = std::collections::HashSet::new();
-    for name in ALL_DAEMON_HOOK_NAMES {
-        assert!(
-            seen_const.insert(name),
-            "Duplicate hook name in ALL_DAEMON_HOOK_NAMES: '{name}'"
         );
     }
 }

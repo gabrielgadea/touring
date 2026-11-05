@@ -13,6 +13,9 @@ que e justo, porque o mutante tem de ser observavel pelo pytest, e `SystemExit` 
 e o pytest convertendo em falha do proprio teste, nao em `assert`.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import re
 import shutil
 import subprocess
@@ -20,7 +23,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-BUNDLE = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
+BUNDLE = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
 
 ALVOS = (
     ("test_vgp_lock.py", "test_selftest_do_lock"),

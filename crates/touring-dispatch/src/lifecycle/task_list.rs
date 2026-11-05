@@ -69,17 +69,14 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // R12-S4: Query decompose status directly — inject real DAG counts alongside hint.
     // TaskList (Claude Code) → cli_decompose_status → SQLite → live task count in context.
     let status_json = crate::cli_handlers::cli_decompose_status(rt, &serde_json::json!({}));
-    let dag_context = if status_json.contains("\"task_count\"") {
-        format!(" [live: {}]", truncate_str(&status_json, 120))
-    } else {
-        String::new()
-    };
+    let dag_context = live_dag_context(&status_json);
 
     // R17-S1: Query ready subtasks and inject inline — Claude Code sees actionable work immediately.
     // TaskList (Claude Code) → cli_decompose_ready → SQLite → ready subtask list in context.
     // Skips the manual step of running `touring decompose ready` after every TaskList.
     // R21-S2: Reuse the same ready_json for BM25 symbol cross-reference (single DB call).
-    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({}));
+    let ready_json =
+        crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let ready_hint = build_ready_subtasks_hint_from_json(&ready_json);
     let code_hint = code_symbols_for_active_tasks(&rt.project_root, &ready_json);
     // R25-S3: Surface generator kind for the first ready subtask so Claude Code
@@ -119,19 +116,19 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // R136: Persist active task snapshot to memory for cross-session recall.
     // TaskList (CC) → compact snapshot → `touring memory recall "active_tasks_latest"`.
     // Enables future sessions to reconstruct task state without full DAG re-query.
-    // Only stores when task_count > 0 — silent on empty DAG to avoid stale entries.
+    // Only stores when open_tasks > 0 — silent on an empty DAG to avoid stale entries.
     {
-        let snapshot_task_count = serde_json::from_str::<serde_json::Value>(&status_json)
+        let snapshot_open_tasks = serde_json::from_str::<serde_json::Value>(&status_json)
             .ok()
-            .and_then(|v| v.get("task_count").and_then(|n| n.as_u64()))
+            .and_then(|v| v.get("open_tasks").and_then(|n| n.as_u64()))
             .unwrap_or(0);
         let snapshot_ready_count = serde_json::from_str::<serde_json::Value>(&ready_json)
             .ok()
             .and_then(|v| v.get("ready_count").and_then(|n| n.as_u64()))
             .unwrap_or(0);
-        if snapshot_task_count > 0 {
+        if snapshot_open_tasks > 0 {
             let snapshot_value = format!(
-                "task_count={snapshot_task_count} ready={snapshot_ready_count} | restore: `touring decompose status -j`"
+                "open_tasks={snapshot_open_tasks} ready={snapshot_ready_count} | restore: `touring decompose status -j`"
             );
             let _ = crate::cli_handlers::cli_memory_store(
                 rt,
@@ -228,7 +225,7 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
 ///
 /// Emits a delegation hint when the LinUCB winning arm is not `ManualEdit` and
 /// the confidence margin (best − second_best) exceeds 0.15. Always NOOP-safe.
-pub(crate) fn linucb_routing_hint(rt: &mut HookRuntime, input: &Value) -> String {
+fn linucb_routing_hint(rt: &mut HookRuntime, input: &Value) -> String {
     let task = match first_pending_task(input) {
         Some(t) => t,
         None => return String::new(),
@@ -308,7 +305,7 @@ fn emit_routing_hint(best_arm: usize, best_score: f64, margin: f64, subject: &st
 /// 3 tasks are simultaneously in_progress, context fragmentation hurts output quality.
 /// Advises focusing on the Touring DAG ready subtasks instead of starting more work.
 /// Returns empty string when count ≤ 3 or when the task list payload is absent/malformed.
-pub(crate) fn in_progress_count_advisory(input: &Value) -> String {
+fn in_progress_count_advisory(input: &Value) -> String {
     let tasks = match extract_task_list(input) {
         Some(arr) => arr,
         None => return String::new(),
@@ -331,7 +328,7 @@ pub(crate) fn in_progress_count_advisory(input: &Value) -> String {
 /// Pending tasks lack execution signals — MCTS can evaluate multi-step paths to find
 /// the optimal execution order. Fires when pending count >= 3 to avoid noise on small lists.
 /// Complements `in_progress_count_advisory` (fires on excess in_progress) with the pending side.
-pub(crate) fn pending_tasks_mcts_hint(input: &Value) -> String {
+fn pending_tasks_mcts_hint(input: &Value) -> String {
     let tasks = match extract_task_list(input) {
         Some(arr) => arr,
         None => return String::new(),
@@ -349,24 +346,51 @@ pub(crate) fn pending_tasks_mcts_hint(input: &Value) -> String {
     )
 }
 
+/// R12-S4: the live DAG counts, in one dense clause — only when there is an open plan.
+///
+/// It used to dump the raw status JSON (`[live: {"latest_plan_subtasks":0,…}]`), which never
+/// fired while the hook's status wrapper lacked `open_tasks`, and would have printed four
+/// zeros on every TaskList of an idle project once it did. Silent on an empty store or an
+/// unreadable answer.
+fn live_dag_context(status_json: &str) -> String {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(status_json) else {
+        return String::new();
+    };
+    let open = v.get("open_tasks").and_then(|n| n.as_u64()).unwrap_or(0);
+    if open == 0 {
+        return String::new();
+    }
+    match v.get("latest_plan_subtasks").and_then(|n| n.as_u64()) {
+        Some(sub) => format!(" [live: {open} open plan(s); latest has {sub} subtask(s)]"),
+        None => format!(" [live: {open} open plan(s)]"),
+    }
+}
+
 /// R34-S2: Compare CC task count vs Touring DAG task count and surface a sync advisory (CC=4).
 ///
 /// When CC has significantly more tasks than the Touring DAG, many CC tasks are untracked.
 /// This function parses:
 /// - `input["tool_result"]["tasks"]` → CC task count
-/// - `dag_status_json["task_count"]` → Touring DAG task count
+/// - `dag_status_json["latest_plan_subtasks"]` → subtasks of the plan being worked on
+///   (`cli_decompose_status`; the open task updated most recently)
 ///
-/// If `cc_count > dag_count + 2`, surfaces a batch-create advisory to sync the gap.
-/// Returns empty string when counts are balanced or data is unavailable.
-pub(crate) fn dag_cc_task_ratio_hint(input: &Value, dag_status_json: &str) -> String {
+/// The unit is a subtask of ONE plan, not a count of plans: `open_tasks` counts every
+/// unfinished plan in the store (hundreds), so a gap against it never opened and the hint
+/// was dead. If `cc_count > dag_count + 2`, surfaces a batch-create advisory to sync the gap.
+/// Returns empty string when counts are balanced or the signal is absent (an absent or
+/// `null` count is unknown, never zero — reading it as zero would fire on every TaskList).
+fn dag_cc_task_ratio_hint(input: &Value, dag_status_json: &str) -> String {
     let cc_count = extract_task_list(input).map(|arr| arr.len()).unwrap_or(0);
     if cc_count == 0 {
         return String::new();
     }
-    let dag_count = serde_json::from_str::<serde_json::Value>(dag_status_json)
+    let Some(dag_count) = serde_json::from_str::<serde_json::Value>(dag_status_json)
         .ok()
-        .and_then(|v| v.get("task_count").and_then(|c| c.as_u64()))
-        .unwrap_or(0) as usize;
+        .and_then(|v| v.get("latest_plan_subtasks").and_then(|c| c.as_u64()))
+    else {
+        return String::new();
+    };
+    let dag_count = usize::try_from(dag_count).unwrap_or(usize::MAX);
     let untracked = cc_count.saturating_sub(dag_count);
     if untracked <= 2 {
         return String::new();
@@ -383,7 +407,7 @@ pub(crate) fn dag_cc_task_ratio_hint(input: &Value, dag_status_json: &str) -> St
 /// with `status == "in_progress"`, extracts its `task_id`, then calls `cli_memory_recall`
 /// for `"task:<task_id>"` to surface stored lessons, gotchas, or patterns from prior runs.
 /// Returns empty string when no in_progress task exists or when memory has no relevant entry.
-pub(crate) fn first_inprogress_task_lesson_hint(rt: &mut HookRuntime, input: &Value) -> String {
+fn first_inprogress_task_lesson_hint(rt: &mut HookRuntime, input: &Value) -> String {
     let tasks = match extract_task_list(input) {
         Some(arr) => arr,
         None => return String::new(),
@@ -417,7 +441,7 @@ pub(crate) fn first_inprogress_task_lesson_hint(rt: &mut HookRuntime, input: &Va
 /// This helper closes the complementary gap: surface *current code symbols* related to the task
 /// subject via BM25 Tantivy search so the engineer can find relevant implementations without
 /// leaving the hook context. Returns empty string when no in_progress task has a subject.
-pub(crate) fn tantivy_search_for_inprogress_task(input: &Value) -> String {
+fn tantivy_search_for_inprogress_task(input: &Value) -> String {
     let tasks = match extract_task_list(input) {
         Some(arr) => arr,
         None => return String::new(),
@@ -448,7 +472,7 @@ pub(crate) fn tantivy_search_for_inprogress_task(input: &Value) -> String {
 /// so Claude Code archives the DAG without a manual step.
 /// Closes the "all work done" → "archive the DAG" loop via touring-generator/decompose.
 /// Returns `None` when tasks are missing, empty, or any task is not yet completed.
-pub(crate) fn maybe_all_completed_finalize_hint(input: &Value) -> Option<String> {
+fn maybe_all_completed_finalize_hint(input: &Value) -> Option<String> {
     let tasks = extract_task_list(input)?;
     if tasks.is_empty() {
         return None;
@@ -470,7 +494,7 @@ pub(crate) fn maybe_all_completed_finalize_hint(input: &Value) -> Option<String>
 /// Scans all tasks in `tool_result.tasks` for REST API, OpenAPI, or Swagger keywords.
 /// Returns a hint to run `touring generate render openapi_spec` when detected.
 /// Bridges TaskList(API tasks) → openapi_spec.tera → touring-generator OpenAPI scaffold.
-pub(crate) fn maybe_openapi_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_openapi_hint_on_task_list(input: &Value) -> Option<String> {
     const OPENAPI_KEYWORDS: &[&str] = &[
         "openapi",
         "swagger",
@@ -498,7 +522,7 @@ pub(crate) fn maybe_openapi_hint_on_task_list(input: &Value) -> Option<String> {
 /// Scans all tasks in `tool_result.tasks` for ADR, architecture-decision, design-doc keywords.
 /// Returns a hint to run `touring generate render adr` when detected.
 /// Bridges TaskList(architecture tasks) → adr.tera → touring-generator ADR scaffold.
-pub(crate) fn maybe_adr_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_adr_hint_on_task_list(input: &Value) -> Option<String> {
     const ADR_KEYWORDS: &[&str] = &[
         "architecture decision",
         "adr",
@@ -524,7 +548,7 @@ pub(crate) fn maybe_adr_hint_on_task_list(input: &Value) -> Option<String> {
 /// Scans all tasks in `tool_result.tasks` for error-code, error-catalog, error-registry keywords.
 /// Returns a hint to run `touring generate render error_catalog` when detected.
 /// Bridges TaskList(error-handling tasks) → error_catalog.tera → touring-generator catalog scaffold.
-pub(crate) fn maybe_error_catalog_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_error_catalog_hint_on_task_list(input: &Value) -> Option<String> {
     const ERROR_CATALOG_KEYWORDS: &[&str] = &[
         "error catalog",
         "error code",
@@ -550,7 +574,7 @@ pub(crate) fn maybe_error_catalog_hint_on_task_list(input: &Value) -> Option<Str
 ///
 /// Scans all tasks in `tool_result.tasks` for criterion, benchmark, profiling, hyperfine keywords.
 /// Bridges TaskList(perf tasks) → benchmark.tera → touring-generator Benchmark scaffold.
-pub(crate) fn maybe_benchmark_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_benchmark_hint_on_task_list(input: &Value) -> Option<String> {
     const BENCHMARK_KEYWORDS: &[&str] = &[
         "benchmark",
         "criterion",
@@ -576,7 +600,7 @@ pub(crate) fn maybe_benchmark_hint_on_task_list(input: &Value) -> Option<String>
 ///
 /// Scans all tasks in `tool_result.tasks` for terraform, iac, infrastructure as code keywords.
 /// Bridges TaskList(infra tasks) → terraform_module.tera → touring-generator TerraformModule scaffold.
-pub(crate) fn maybe_terraform_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_terraform_hint_on_task_list(input: &Value) -> Option<String> {
     const TERRAFORM_KEYWORDS: &[&str] = &[
         "terraform",
         "iac",
@@ -602,7 +626,7 @@ pub(crate) fn maybe_terraform_hint_on_task_list(input: &Value) -> Option<String>
 ///
 /// Scans all tasks in `tool_result.tasks` for github actions, ci/cd, pipeline, workflow keywords.
 /// Bridges TaskList(ci tasks) → ci_workflow.tera → touring-generator CiWorkflow scaffold.
-pub(crate) fn maybe_ci_workflow_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_ci_workflow_hint_on_task_list(input: &Value) -> Option<String> {
     const CI_KEYWORDS: &[&str] = &[
         "ci/cd",
         "github actions",
@@ -627,7 +651,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_task_list(input: &Value) -> Option<Strin
 /// R78-S1: hint for RustModule generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains Rust module keywords.
-pub(crate) fn maybe_rust_module_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_rust_module_hint_on_task_list(input: &Value) -> Option<String> {
     const RUST_KEYWORDS: &[&str] = &[
         "rust module",
         "new crate",
@@ -652,7 +676,7 @@ pub(crate) fn maybe_rust_module_hint_on_task_list(input: &Value) -> Option<Strin
 /// R78-S2: hint for ProtobufSchema generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains protobuf/gRPC keywords.
-pub(crate) fn maybe_protobuf_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_protobuf_hint_on_task_list(input: &Value) -> Option<String> {
     const PROTO_KEYWORDS: &[&str] = &[
         "protobuf",
         "proto schema",
@@ -677,7 +701,7 @@ pub(crate) fn maybe_protobuf_hint_on_task_list(input: &Value) -> Option<String> 
 /// R78-S3: hint for DeriveMacro generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains derive macro / proc-macro keywords.
-pub(crate) fn maybe_derive_macro_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_derive_macro_hint_on_task_list(input: &Value) -> Option<String> {
     const DERIVE_KEYWORDS: &[&str] = &[
         "derive macro",
         "proc macro",
@@ -701,7 +725,7 @@ pub(crate) fn maybe_derive_macro_hint_on_task_list(input: &Value) -> Option<Stri
 /// R79-S1: hint for FuzzTarget generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains fuzzing or property-testing keywords.
-pub(crate) fn maybe_fuzz_target_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_fuzz_target_hint_on_task_list(input: &Value) -> Option<String> {
     const FUZZ_KEYWORDS: &[&str] = &[
         "fuzz target",
         "fuzzing",
@@ -726,7 +750,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_task_list(input: &Value) -> Option<Strin
 /// R79-S2: hint for Migration generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains DB migration keywords.
-pub(crate) fn maybe_migration_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_migration_hint_on_task_list(input: &Value) -> Option<String> {
     const MIGRATION_KEYWORDS: &[&str] = &[
         "db migration",
         "database migration",
@@ -751,7 +775,7 @@ pub(crate) fn maybe_migration_hint_on_task_list(input: &Value) -> Option<String>
 /// R79-S3: hint for Schema generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains JSON schema or data schema keywords.
-pub(crate) fn maybe_schema_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_schema_hint_on_task_list(input: &Value) -> Option<String> {
     const SCHEMA_KEYWORDS: &[&str] = &[
         "json schema",
         "data schema",
@@ -776,7 +800,7 @@ pub(crate) fn maybe_schema_hint_on_task_list(input: &Value) -> Option<String> {
 /// R81-S1: hint for ChangelogEntry generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains release/changelog keywords.
-pub(crate) fn maybe_changelog_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_changelog_hint_on_task_list(input: &Value) -> Option<String> {
     const CHANGELOG_KEYWORDS: &[&str] = &[
         "changelog",
         "release notes",
@@ -800,7 +824,7 @@ pub(crate) fn maybe_changelog_hint_on_task_list(input: &Value) -> Option<String>
 /// R81-S2: hint for Dockerfile generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains container/Docker keywords.
-pub(crate) fn maybe_dockerfile_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_dockerfile_hint_on_task_list(input: &Value) -> Option<String> {
     const DOCKER_KEYWORDS: &[&str] = &[
         "dockerfile",
         "docker image",
@@ -825,7 +849,7 @@ pub(crate) fn maybe_dockerfile_hint_on_task_list(input: &Value) -> Option<String
 /// R81-S3: hint for K8sManifest generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains Kubernetes keywords.
-pub(crate) fn maybe_k8s_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_k8s_hint_on_task_list(input: &Value) -> Option<String> {
     const K8S_KEYWORDS: &[&str] = &[
         "kubernetes",
         "k8s",
@@ -850,7 +874,7 @@ pub(crate) fn maybe_k8s_hint_on_task_list(input: &Value) -> Option<String> {
 /// R82-S1: hint for AsyncApiSpec generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains async API / event-driven keywords.
-pub(crate) fn maybe_asyncapi_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_asyncapi_hint_on_task_list(input: &Value) -> Option<String> {
     const ASYNC_KEYWORDS: &[&str] = &[
         "asyncapi",
         "event-driven",
@@ -875,7 +899,7 @@ pub(crate) fn maybe_asyncapi_hint_on_task_list(input: &Value) -> Option<String> 
 /// R82-S2: hint for ConsumerGenerator generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains orphan wiring / consumer bridge keywords.
-pub(crate) fn maybe_consumer_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_consumer_hint_on_task_list(input: &Value) -> Option<String> {
     const CONSUMER_KEYWORDS: &[&str] = &[
         "consumer",
         "wire orphan",
@@ -899,7 +923,7 @@ pub(crate) fn maybe_consumer_hint_on_task_list(input: &Value) -> Option<String> 
 /// R82-S3: hint for TaskScaffold generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains task DAG / TACO scaffold keywords.
-pub(crate) fn maybe_task_scaffold_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_task_scaffold_hint_on_task_list(input: &Value) -> Option<String> {
     const SCAFFOLD_KEYWORDS: &[&str] = &[
         "task scaffold",
         "taco task",
@@ -923,7 +947,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_task_list(input: &Value) -> Option<Str
 /// R83-S1: hint for ManPage generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains man page / CLI documentation keywords.
-pub(crate) fn maybe_man_page_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_man_page_hint_on_task_list(input: &Value) -> Option<String> {
     const MAN_KEYWORDS: &[&str] = &[
         "man page",
         "manual page",
@@ -947,7 +971,7 @@ pub(crate) fn maybe_man_page_hint_on_task_list(input: &Value) -> Option<String> 
 /// R83-S2: hint for IncrementalPatch generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains patch / diff / incremental update keywords.
-pub(crate) fn maybe_incremental_patch_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_incremental_patch_hint_on_task_list(input: &Value) -> Option<String> {
     const PATCH_KEYWORDS: &[&str] = &[
         "incremental patch",
         "patch file",
@@ -971,7 +995,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_task_list(input: &Value) -> Option
 /// R83-S3: hint for SkillDocument generator on TaskList (CC=2).
 ///
 /// Fires when any task title/description contains Claude Code skill / skill.md keywords.
-pub(crate) fn maybe_skill_document_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_skill_document_hint_on_task_list(input: &Value) -> Option<String> {
     const SKILL_KEYWORDS: &[&str] = &[
         "skill document",
         "skill.md",
@@ -997,7 +1021,7 @@ pub(crate) fn maybe_skill_document_hint_on_task_list(input: &Value) -> Option<St
 /// Bridges TaskList(cli/command tasks) → touring-generator CliHandler template.
 /// Keywords: "cli handler", "command handler", "subcommand", "cli command", "clap handler", etc.
 /// Closes the loop: TaskList(cli task) → cli_handler template → touring-generator commit.
-pub(crate) fn maybe_cli_handler_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_cli_handler_hint_on_task_list(input: &Value) -> Option<String> {
     const CLI_KEYWORDS: &[&str] = &[
         "cli handler",
         "command handler",
@@ -1024,7 +1048,7 @@ pub(crate) fn maybe_cli_handler_hint_on_task_list(input: &Value) -> Option<Strin
 /// Bridges TaskList(mcp/tool tasks) → touring-generator McpTool template.
 /// Keywords: "mcp tool", "model context protocol", "mcp server", "tool handler", etc.
 /// Closes the loop: TaskList(mcp task) → mcp_tool template → touring-generator commit.
-pub(crate) fn maybe_mcp_tool_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_mcp_tool_hint_on_task_list(input: &Value) -> Option<String> {
     const MCP_KEYWORDS: &[&str] = &[
         "mcp tool",
         "model context protocol",
@@ -1051,7 +1075,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_task_list(input: &Value) -> Option<String> 
 /// Bridges TaskList(hook tasks) → touring-generator HookHandler template.
 /// Keywords: "hook handler", "lifecycle hook", "pre-edit hook", "post-read hook", etc.
 /// Closes the loop: TaskList(hook task) → hook_handler template → touring-generator commit.
-pub(crate) fn maybe_hook_handler_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_hook_handler_hint_on_task_list(input: &Value) -> Option<String> {
     const HOOK_KEYWORDS: &[&str] = &[
         "hook handler",
         "lifecycle hook",
@@ -1078,7 +1102,7 @@ pub(crate) fn maybe_hook_handler_hint_on_task_list(input: &Value) -> Option<Stri
 /// Bridges TaskList(plan/spec tasks) → touring-generator PlanMd template.
 /// Keywords: "plan.md", "markdown plan", "implementation plan", "feature plan", etc.
 /// Closes the loop: TaskList(plan task) → plan_md template → touring-generator commit.
-pub(crate) fn maybe_plan_md_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_plan_md_hint_on_task_list(input: &Value) -> Option<String> {
     const PLAN_KEYWORDS: &[&str] = &[
         "plan.md",
         "markdown plan",
@@ -1105,7 +1129,7 @@ pub(crate) fn maybe_plan_md_hint_on_task_list(input: &Value) -> Option<String> {
 /// Bridges TaskList(test tasks) → touring-generator Test template.
 /// Keywords: "write tests", "unit test", "integration test", "test coverage", etc.
 /// Closes the loop: TaskList(test task) → test template → touring-generator commit.
-pub(crate) fn maybe_test_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_test_hint_on_task_list(input: &Value) -> Option<String> {
     const TEST_KEYWORDS: &[&str] = &[
         "write tests",
         "unit test",
@@ -1132,7 +1156,7 @@ pub(crate) fn maybe_test_hint_on_task_list(input: &Value) -> Option<String> {
 /// Bridges TaskList(python tasks) → touring-generator PythonScript template.
 /// Keywords: "python script", "python module", "automation script", "python tool", etc.
 /// Closes the loop: TaskList(python task) → python_script template → touring-generator commit.
-pub(crate) fn maybe_python_script_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_python_script_hint_on_task_list(input: &Value) -> Option<String> {
     const PYTHON_KEYWORDS: &[&str] = &[
         "python script",
         "python module",
@@ -1159,7 +1183,7 @@ pub(crate) fn maybe_python_script_hint_on_task_list(input: &Value) -> Option<Str
 /// Bridges TaskList(ffi/C interop tasks) → touring-generator FfiBinding template.
 /// Keywords: "ffi binding", "c binding", "foreign function", "unsafe extern", etc.
 /// Closes the loop: TaskList(ffi task) → ffi_binding template → touring-generator commit.
-pub(crate) fn maybe_ffi_binding_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_ffi_binding_hint_on_task_list(input: &Value) -> Option<String> {
     const FFI_KEYWORDS: &[&str] = &[
         "ffi binding",
         "c binding",
@@ -1186,7 +1210,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_task_list(input: &Value) -> Option<Strin
 /// Bridges TaskList(completion tasks) → touring-generator ShellCompletion template.
 /// Keywords: "shell completion", "bash completion", "zsh completion", "tab completion", etc.
 /// Closes the loop: TaskList(completion task) → shell_completion template → touring-generator commit.
-pub(crate) fn maybe_shell_completion_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_shell_completion_hint_on_task_list(input: &Value) -> Option<String> {
     const COMPLETION_KEYWORDS: &[&str] = &[
         "shell completion",
         "bash completion",
@@ -1213,7 +1237,7 @@ pub(crate) fn maybe_shell_completion_hint_on_task_list(input: &Value) -> Option<
 /// Bridges TaskList(diary/journal tasks) → touring-generator DiaryEntry template.
 /// Keywords: "diary entry", "agent diary", "aaak entry", "write diary", etc.
 /// Closes the loop: TaskList(diary task) → diary_entry template → touring-generator commit.
-pub(crate) fn maybe_diary_entry_hint_on_task_list(input: &Value) -> Option<String> {
+fn maybe_diary_entry_hint_on_task_list(input: &Value) -> Option<String> {
     const DIARY_KEYWORDS: &[&str] = &[
         "diary entry",
         "agent diary",
@@ -1242,7 +1266,7 @@ pub(crate) fn maybe_diary_entry_hint_on_task_list(input: &Value) -> Option<Strin
 /// a formatted generator hint. Complements `generator_for_first_ready_subtask` (which looks
 /// at Touring DAG subtasks) by bridging the CC task perspective to the generator pipeline.
 /// Returns `None` when no in_progress tasks exist or no keyword matches the subject.
-pub(crate) fn generator_for_first_inprogress_cc_task(input: &Value) -> Option<String> {
+fn generator_for_first_inprogress_cc_task(input: &Value) -> Option<String> {
     let tasks = extract_task_list(input)?;
     let first = tasks
         .iter()
@@ -1265,7 +1289,7 @@ pub(crate) fn generator_for_first_inprogress_cc_task(input: &Value) -> Option<St
 /// Accepts the raw JSON string to avoid a second DB round-trip — the caller owns
 /// the single `cli_decompose_ready` call and passes the result to both this helper
 /// and `code_symbols_for_active_tasks`. Returns empty string if no ready subtasks.
-pub(crate) fn build_ready_subtasks_hint_from_json(ready_json: &str) -> String {
+fn build_ready_subtasks_hint_from_json(ready_json: &str) -> String {
     if !ready_json.contains("\"ready_count\"") {
         return String::new();
     }
@@ -1307,10 +1331,7 @@ pub(crate) fn build_ready_subtasks_hint_from_json(ready_json: &str) -> String {
 ///
 /// Dispatches to `search_symbols_for_first_ready_task` when tantivy-fts is ON.
 /// Returns empty string if Tantivy is unavailable, no ready subtasks, or no non-DAG hits.
-pub(crate) fn code_symbols_for_active_tasks(
-    project_root: &std::path::Path,
-    ready_json: &str,
-) -> String {
+fn code_symbols_for_active_tasks(project_root: &std::path::Path, ready_json: &str) -> String {
     #[cfg(feature = "tantivy-fts")]
     if let Some(hint) = search_symbols_for_first_ready_task(project_root, ready_json) {
         return hint;
@@ -1328,7 +1349,7 @@ pub(crate) fn code_symbols_for_active_tasks(
 /// A raiz do projeto acompanha a operação: o store de decompose já é
 /// per-project (`locate_task_store`), então o espelho no Tantivy segue a
 /// fonte da verdade em vez de cair no índice legado compartilhado.
-pub(crate) fn search_symbols_for_first_ready_task(
+fn search_symbols_for_first_ready_task(
     project_root: &std::path::Path,
     ready_json: &str,
 ) -> Option<String> {
@@ -1366,7 +1387,7 @@ pub(crate) fn search_symbols_for_first_ready_task(
 /// `cli_decompose_ready` JSON response, then delegates to
 /// `suggest_generator_for_task_subject` to resolve the matching GeneratorKind.
 /// Returns empty string when no ready subtasks exist or no keyword matches.
-pub(crate) fn generator_for_first_ready_subtask(ready_json: &str) -> String {
+fn generator_for_first_ready_subtask(ready_json: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(ready_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -1389,7 +1410,7 @@ pub(crate) fn generator_for_first_ready_subtask(ready_json: &str) -> String {
 /// A raiz do projeto acompanha a operação: o store de decompose já é
 /// per-project (`locate_task_store`), então o espelho no Tantivy segue a
 /// fonte da verdade em vez de cair no índice legado compartilhado.
-pub(crate) fn upsert_task_completion_to_tantivy(project_root: &std::path::Path, task_id: &str) {
+pub(super) fn upsert_task_completion_to_tantivy(project_root: &std::path::Path, task_id: &str) {
     #[cfg(feature = "tantivy-fts")]
     {
         if let Some(idx) = crate::tantivy_index::tantivy_for(Some(project_root)) {
@@ -1528,7 +1549,7 @@ fn score_task_by_wiring_heat(subject: &str, modules_json: &str) -> f64 {
 /// Tasks whose subject keywords match low-integration modules get flagged with
 /// higher heat — indicating more orphan symbols and refactoring risk. The hint
 /// is suppressed when fewer than 2 tasks are pending or when score spread < 0.05.
-pub(crate) fn heat_based_task_priority_hint(rt: &mut HookRuntime, input: &Value) -> String {
+fn heat_based_task_priority_hint(rt: &mut HookRuntime, input: &Value) -> String {
     let tasks = all_pending_tasks(input);
     if tasks.len() < 2 {
         return String::new();
@@ -1570,4 +1591,184 @@ pub(crate) fn heat_based_task_priority_hint(rt: &mut HookRuntime, input: &Value)
         })
         .collect();
     format!(" | [TOURING HEAT] priority: {}", parts.join(" \u{2192} "))
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn generator_for_first_ready_subtask_no_ready_tasks_is_empty() {
+        // R25-S3: empty ready list → empty hint
+        let json = r#"{"ready_count": 0, "ready_subtasks": []}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(result.is_empty(), "no ready tasks → empty: {result}");
+    }
+
+    #[test]
+    fn generator_for_first_ready_subtask_maps_description_to_kind() {
+        // R25-S3: description containing "test" → Test kind
+        let json = r#"{
+                "ready_count": 1,
+                "ready_subtasks": [
+                    {"task_id": "T-1", "subtask_id": "T-1::scout",
+                     "description": "write unit test for the VGP engine"}
+                ]
+            }"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(!result.is_empty(), "test keyword should match: {result}");
+        assert!(
+            result.contains("Test"),
+            "test description → Test kind: {result}"
+        );
+    }
+
+    #[test]
+    fn ready_subtask_shell_completion_maps_via_r121() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"add shell completion for bash autocomplete"}]}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(
+            result.contains("ShellCompletion"),
+            "shell completion ready subtask must map to ShellCompletion: {result}"
+        );
+    }
+
+    #[test]
+    fn ready_subtask_man_page_maps_via_r121() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"write man page for unix documentation"}]}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(
+            result.contains("ManPage"),
+            "man page ready subtask must map to ManPage: {result}"
+        );
+    }
+
+    #[test]
+    fn ready_subtask_incremental_patch_maps_via_r121() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"apply incremental patch for hotfix release"}]}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(
+            result.contains("IncrementalPatch"),
+            "incremental patch ready subtask must map to IncrementalPatch: {result}"
+        );
+    }
+
+    #[test]
+    fn ready_subtask_diary_entry_maps_via_r121() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"write diary entry as lesson learned"}]}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(
+            result.contains("DiaryEntry"),
+            "diary entry ready subtask must map to DiaryEntry: {result}"
+        );
+    }
+
+    #[test]
+    fn ready_subtask_asyncapi_maps_via_r121() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"define asyncapi schema for event-driven broker"}]}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(
+            result.contains("AsyncApiSpec"),
+            "asyncapi ready subtask must map to AsyncApiSpec: {result}"
+        );
+    }
+
+    #[test]
+    fn ready_subtask_task_scaffold_maps_via_r121() {
+        let json = r#"{"ready_count":1,"ready_subtasks":[{"task_id":"T","subtask_id":"T::s","description":"create task scaffold for taco task dag"}]}"#;
+        let result = super::generator_for_first_ready_subtask(json);
+        assert!(
+            result.contains("TaskScaffold"),
+            "task scaffold ready subtask must map to TaskScaffold: {result}"
+        );
+    }
+
+    #[test]
+    fn dag_cc_task_ratio_hint_silent_when_balanced() {
+        // 3 CC tasks, 2 subtasks in the plan being worked on → difference ≤ 2 → silent
+        let input = serde_json::json!({
+            "tool_result": {
+                "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}]
+            }
+        });
+        let dag_status = r#"{"open_tasks": 300, "latest_plan_subtasks": 2}"#;
+        let result = super::dag_cc_task_ratio_hint(&input, dag_status);
+        assert!(
+            result.is_empty(),
+            "balanced counts must return empty: {result}"
+        );
+    }
+
+    /// The hint can fire: 5 CC tasks against a 1-subtask plan leave 4 untracked. Before,
+    /// the reader compared against `open_tasks` (every unfinished plan in the store, in the
+    /// hundreds), so this case was silent and the hint was dead. `open_tasks` stays large
+    /// here to prove the reader no longer looks at it.
+    #[test]
+    fn dag_cc_task_ratio_hint_fires_against_the_plan_being_worked_on() {
+        let input = serde_json::json!({
+            "tool_result": {
+                "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}, {"id": "T-4"}, {"id": "T-5"}]
+            }
+        });
+        let dag_status = r#"{"open_tasks": 300, "latest_plan_subtasks": 1}"#;
+        let result = super::dag_cc_task_ratio_hint(&input, dag_status);
+        assert!(
+            result.contains("dag-gap: 4 CC task(s) untracked"),
+            "5 CC tasks vs a 1-subtask plan must surface the gap: {result}"
+        );
+    }
+
+    #[test]
+    fn live_dag_context_is_silent_on_an_idle_store_and_dense_otherwise() {
+        let idle =
+            r#"{"total_tasks":0,"total_subtasks":0,"open_tasks":0,"latest_plan_subtasks":0}"#;
+        assert_eq!(super::live_dag_context(idle), "");
+        assert_eq!(super::live_dag_context("not json"), "");
+        let busy = r#"{"total_tasks":9,"open_tasks":3,"latest_plan_subtasks":4}"#;
+        assert_eq!(
+            super::live_dag_context(busy),
+            " [live: 3 open plan(s); latest has 4 subtask(s)]"
+        );
+    }
+
+    /// An absent or `null` count is unknown, not zero: reading it as zero made the hint
+    /// (and its -0.05 reward) fire on every TaskList.
+    #[test]
+    fn dag_cc_task_ratio_hint_silent_when_the_signal_is_absent() {
+        let input = serde_json::json!({
+            "tool_result": {
+                "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}, {"id": "T-4"}, {"id": "T-5"}]
+            }
+        });
+        for dag_status in [
+            r#"{"open_tasks": 0}"#,
+            r#"{"latest_plan_subtasks": null}"#,
+            "not json",
+        ] {
+            let result = super::dag_cc_task_ratio_hint(&input, dag_status);
+            assert!(result.is_empty(), "{dag_status} must stay silent: {result}");
+        }
+    }
+
+    #[test]
+    fn fix_b1_gen_suffix_has_single_pipe_separator() {
+        // Fix-B1: generator_for_first_ready_subtask returns " | generator: ..." (already prefixed).
+        // After fix, gen_suffix = gen_hint directly — no extra " | " wrapping.
+        let json = r#"{
+                "ready_count": 1,
+                "ready_subtasks": [
+                    {"task_id": "T-1", "subtask_id": "T-1::scout",
+                     "description": "write unit test for the VGP pipeline"}
+                ]
+            }"#;
+        let hint = super::generator_for_first_ready_subtask(json);
+        // Must not contain double-pipe " |  | " anywhere
+        assert!(
+            !hint.contains(" |  | "),
+            "Fix-B1: no double-pipe in gen_hint: {hint}"
+        );
+        // Must still surface a generator hint (not empty) for "test" keyword
+        assert!(
+            hint.contains("generator") || hint.is_empty(),
+            "Fix-B1: hint must contain generator or be empty: {hint}"
+        );
+    }
 }

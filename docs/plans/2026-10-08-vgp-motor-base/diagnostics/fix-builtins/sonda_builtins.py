@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Run the current VGP binary on the four synthetic builtin fixtures."""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import subprocess
 from pathlib import Path
@@ -22,7 +25,7 @@ def main() -> None:
                 "--content-file",
                 str(fixture),
                 "--project-root",
-                "/home/gabrielgadea/projects/analise",
+                f"{_HOME}/projects/analise",
                 "--lang",
                 "python",
                 "-j",

@@ -1,0 +1,3748 @@
+{
+  "entries": [
+    {
+      "scn": "g2_rewrites_by_default",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo test 2>&1 | tail -3; echo EXIT=$?"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe leria o status do último estágio; `set -o pipefail; ` prefixado (spike S-8.6: updatedInput honrado).\",\"updatedInput\":{\"command\":\"set -o pipefail; cargo test 2>&1 | tail -3; echo EXIT=$?\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g2_denies_under_the_fallback_switch",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo test 2>&1 | tail -3; echo EXIT=$?"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G2 exit-code-through-pipe] `$?` depois de um pipe lê o status do ÚLTIMO estágio (tail/jq), não do programa medido — 68 casos na simulação de 55 sessões; 3 cometidos pela própria sessão que desenhou este gate. Reexecute exatamente:\\n  set -o pipefail; cargo test 2>&1 | tail -3; echo EXIT=$?\\nOu remova o pipe e leia o exit direto. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g2_rewrite_keeps_the_other_call_fields",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo test 2>&1 | tail -3; echo EXIT=$?",
+            "description": "d",
+            "run_in_background": true,
+            "timeout": 600000
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe leria o status do último estágio; `set -o pipefail; ` prefixado (spike S-8.6: updatedInput honrado).\",\"updatedInput\":{\"command\":\"set -o pipefail; cargo test 2>&1 | tail -3; echo EXIT=$?\",\"description\":\"d\",\"run_in_background\":true,\"timeout\":600000}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g8_rewrite_keeps_the_budget_and_the_call_fields",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "for f in a.rs b.rs; do grep -n \"fn main\" $f; done",
+            "description": "laço",
+            "timeout": 300000
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; uma varredura no sandbox devolve só o agregado (Anthropic CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 295000 --code 'for f in a.rs b.rs; do grep -n \\\"fn main\\\" $f; done'\",\"description\":\"laço\",\"timeout\":300000}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g2_bypass_token_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 cargo test | tail -1; echo $?"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g2_heredoc_is_data_never_denied",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat >> t.py <<'EOF'\nassert exit_pipe('a | b; echo $?')\nEOF"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g9_sed_i_denies_with_derived_routes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -i 's/old/new/' src/foo.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `src/foo.rs` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i '\\\\''s/old/new/'\\\\'' src/foo.rs'\\n  estrutural (N arquivos): touring ast grep src/foo.rs '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/foo.rs",
+            "new_string": "new",
+            "old_string": "old"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/foo.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/foo.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g9_covers_the_variants_and_spares_the_reads",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed --in-place 's/a/b/' f.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `f.rs` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed --in-place '\\\\''s/a/b/'\\\\'' f.rs'\\n  estrutural (N arquivos): touring ast grep f.rs '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -i.bak 's/a/b/' f.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `f.rs` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i.bak '\\\\''s/a/b/'\\\\'' f.rs'\\n  estrutural (N arquivos): touring ast grep f.rs '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "awk -i inplace '{print}' f.txt"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `f.txt` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'awk -i inplace '\\\\''{print}'\\\\'' f.txt'\\n  estrutural (N arquivos): touring ast grep f.txt '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "perl -pi -e 's/a/b/' f.txt"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `f.txt` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'perl -pi -e '\\\\''s/a/b/'\\\\'' f.txt'\\n  estrutural (N arquivos): touring ast grep f.txt '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat f | sed -i 's/a/b/'"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `s/a/b/` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'cat f | sed -i '\\\\''s/a/b/'\\\\'''\\n  estrutural (N arquivos): touring ast grep s/a/b/ '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cd x && sed -i 's/a/b/' f"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `s/a/b/` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'cd x && sed -i '\\\\''s/a/b/'\\\\'' f'\\n  estrutural (N arquivos): touring ast grep s/a/b/ '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -n '5p' f.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed 's/a/b/' f.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo \"rode sed -i aqui\""
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat >> s.sh <<'EOF'\nsed -i 's/a/b/' f\nEOF"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g9_per_command_bypass_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 sed -i 's/a/b/' f.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g10_fifth_serial_call_denies_with_the_program_and_the_run_resets",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_1.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_2.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_3.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_4.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_5.py -x"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `pytest` (0 `touring run` na janela de 600s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\\n  touring run --lang bash --timeout-ms 120000 --code '# já executado (não repetir): pytest tests/test_1.py -x\\n# já executado (não repetir): pytest tests/test_2.py -x\\n# já executado (não repetir): pytest tests/test_3.py -x\\n# já executado (não repetir): pytest tests/test_4.py -x\\nfalhas=0\\necho \\\"== 1/1 ==\\\"\\npytest tests/test_5.py -x || { echo \\\"[FALHOU 1] exit=$?\\\"; falhas=$((falhas+1)); }\\necho \\\"RESUMO: $(( 1 - falhas ))/1 ok\\\"'\\nSó o comando negado roda; os já executados da rajada vêm como comentário e NUNCA são repetidos (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra no spill. Os próximos comandos do lote entram no MESMO programa. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_6.py -x"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_run_in_the_middle_zeroes_the_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_1.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_2.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_3.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_4.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'ls'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_11.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_12.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_13.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_14.py -x"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g10_per_command_bypass_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_1.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_2.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_3.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_4.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 pytest tests/test_5.py -x"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g10_deny_carries_the_instantiated_prior_art",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_1.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_2.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_3.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_4.py -x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "pytest tests/test_5.py -x"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `pytest` (0 `touring run` na janela de 600s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\\n  touring run --lang bash --timeout-ms 120000 --code '# já executado (não repetir): pytest tests/test_1.py -x\\n# já executado (não repetir): pytest tests/test_2.py -x\\n# já executado (não repetir): pytest tests/test_3.py -x\\n# já executado (não repetir): pytest tests/test_4.py -x\\nfalhas=0\\necho \\\"== 1/1 ==\\\"\\npytest tests/test_5.py -x || { echo \\\"[FALHOU 1] exit=$?\\\"; falhas=$((falhas+1)); }\\necho \\\"RESUMO: $(( 1 - falhas ))/1 ok\\\"'\\nSó o comando negado roda; os já executados da rajada vêm como comentário e NUNCA são repetidos (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra no spill. Os próximos comandos do lote entram no MESMO programa.\\n  prior art (programa que já funcionou para este trabalho): python3 ~/x/rodar_suite.py --fast — ~/x/rodar_suite.py · score 3.25 Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g6_escalates_advisory_then_deny",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 rg -n 'padrao' src/lib.rs\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 rg -n 'padrao' src/lib.rs\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g6_live_state_allowlist_never_fires",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring doctor -j"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring doctor -j"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring doctor -j"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring doctor -j"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g6_another_project_does_not_inherit_the_counter",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'x' src/main.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'x' src/main.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 rg -n 'x' src/main.rs\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'x' src/main.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g6_another_session_does_not_inherit_the_counter",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'y' src/main.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'y' src/main.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'y' src/main.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'y' src/main.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 rg -n 'y' src/main.rs\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g6_a_different_command_in_the_same_session_is_a_new_call",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo check -p alfa"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo check -p beta"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo check -p alfa"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 cargo check -p alfa\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "kill_switch_turns_every_gate_off",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "kill_switch_control_the_repeat_fires_without_it",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'padrao' src/lib.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 rg -n 'padrao' src/lib.rs\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g6_a_mutation_in_the_middle_resets_the_repeat",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -n '10,20p' src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -n '10,20p' src/lib.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_second_passes_third_rewrites_with_the_burst_in_the_program",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_keeps_the_calls_timeout_and_fields",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs",
+            "description": "espera",
+            "timeout": 600000
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 595000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\",\"description\":\"espera\",\"timeout\":600000}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_default_budget_is_the_bash_default",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p10' src/f10.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p11' src/f11.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p12' src/f12.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p10'\\\\'' src/f10.rs\\n# já executado (não repetir): rg -n '\\\\''p11'\\\\'' src/f11.rs\\nrg -n '\\\\''p12'\\\\'' src/f12.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_in_background_takes_the_run_ceiling",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p20' src/f20.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p21' src/f21.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p22' src/f22.rs",
+            "run_in_background": true
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 600000 --code '# já executado (não repetir): rg -n '\\\\''p20'\\\\'' src/f20.rs\\n# já executado (não repetir): rg -n '\\\\''p21'\\\\'' src/f21.rs\\nrg -n '\\\\''p22'\\\\'' src/f22.rs'\",\"run_in_background\":true}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_a_third_of_a_different_class_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat src/lib.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_another_project_does_not_inherit_the_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'x' src/y.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_the_bypass_token_resets_the_window",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 rg -n 'w' src/z.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p10' src/f10.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p11' src/f11.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_autodemote_without_data_denies_the_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_autodemote_high_precision_still_rewrites",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_autodemote_low_volume_never_demotes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_autodemote_low_precision_with_volume_is_an_advisory",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de 0.7] 3ª inspeção `grep` desde o último disparo. ESTE comando roda NATIVO e intacto — não o repita. O programa abaixo é o FORMATO para a próxima rajada: junte as inspeções seguintes num só `touring run`:\\n  touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_continuation_after_a_deny_is_read_on_the_next_call",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p0' src/f0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p1' src/f1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'p2' src/f2.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Rode-o como programa — os já executados da rajada vêm como comentário e NUNCA são repetidos:\\n  touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\\nBypass por-comando: prefixe TOURING_GATE_OK=1 (reseta a janela e é contado).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n 'de novo' src/a.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_similar_second_call_names_the_similarity",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep alfa /x/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep alfa /x/b.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep alfa /x/a.rs\\ngrep alfa /x/b.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_a_near_identical_second_is_already_acted_on",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep alfa /x/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep alfa /x/b.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep alfa /x/a.rs\\ngrep alfa /x/b.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_a_different_second_of_the_same_class_still_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep alfa /x/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep beta_totalmente_outro /y/z/outro_arquivo.toml"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrites_the_burst_into_one_sandbox_run",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_disabled_falls_back_to_the_classic_deny",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Rode-o como programa — os já executados da rajada vêm como comentário e NUNCA são repetidos:\\n  touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\\nBypass por-comando: prefixe TOURING_GATE_OK=1 (reseta a janela e é contado).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_runs_only_the_triggering_command",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_tells_the_model_what_happened",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_rewrite_consumes_the_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -c delta README.md"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "a_touring_run_zeroes_the_g1_window",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'true'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g1_never_drops_an_oversized_triggering_command",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' src/a.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -n '\\\\''xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'\\\\'' src/a.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_fires_once_per_lot",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -c delta README.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -w epsilon lib/zeta.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -i omega tests/eta.toml"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -c delta README.md\\n# já executado (não repetir): grep -w epsilon lib/zeta.py\\ngrep -i omega tests/eta.toml'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_advisory_says_this_command_runs_native",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de 0.7] 3ª inspeção `grep` desde o último disparo. ESTE comando roda NATIVO e intacto — não o repita. O programa abaixo é o FORMATO para a próxima rajada: junte as inspeções seguintes num só `touring run`:\\n  touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g1_advisory_branch_also_consumes_the_lot",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de 0.7] 3ª inspeção `grep` desde o último disparo. ESTE comando roda NATIVO e intacto — não o repita. O programa abaixo é o FORMATO para a próxima rajada: junte as inspeções seguintes num só `touring run`:\\n  touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -c delta README.md"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_one_advisory_then_deny_and_a_read_resets",
+      "steps": [
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/a.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read src/a.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram src/a.rs. Proibido até lá: Edit de src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/b.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/b.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_new_session_starts_from_zero",
+      "steps": [
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/x.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/x.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/x.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/x.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read src/x.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram src/x.rs. Proibido até lá: Edit de src/x.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/x.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/x.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/x.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g7_second_advises_third_denies_distinct_files_nothing",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/x/src/lib.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/x/src/lib.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de crates/x/src/lib.rs na janela — programa-faltando? R1 instanciado: touring run --lang python --args '[\\\"crates/x/src/lib.rs\\\"]' --file /r1/r1_varredura_agregado.py (outros esqueletos: `touring memory query \\\"#kind:snippet #process:code-mode\\\"`) (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/x/src/lib.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G7 re-inspeção] 3ª leitura de crates/x/src/lib.rs na janela — reler é o sinal mais direto de programa-faltando (campeões medidos: adw.py 39×, cli_suggester.rs 32×). Varra de uma vez (R1): touring run --lang python --args '[\\\"crates/x/src/lib.rs\\\"]' --file /r1/r1_varredura_agregado.py (outros esqueletos: `touring memory query \\\"#kind:snippet #process:code-mode\\\"`). Um `touring run` citando crates/x/src/lib.rs reseta o gate.\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/y/src/lib.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "m3_the_tenth_distinct_file_advises_delegation_once",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_2.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_3.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_4.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_5.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_6.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_7.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_8.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_9.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[M3 delegação] 10º arquivo DISTINTO lido nesta janela — exploração desta largura paga o isolamento de contexto: delegue a 1-3 subagentes read-only (Explore/general-purpose), cada um com objetivo + formato de saída + fronteiras, e receba só as conclusões (50 arquivos lidos voltam como 3 achados). Leitura larga paraleliza; ESCRITA fica serial no contexto principal — decisões paralelas conflitam. Cadeia dependente (passo 2 precisa do output integral do passo 1) também fica no contexto único. Advisory único por sessão/1h.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/m3_10.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "m3_a_reread_is_not_a_distinct_file",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r0.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r2.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r3.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r4.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r5.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r6.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r7.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r0.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de src/r0.rs na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r8.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "src/r9.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[M3 delegação] 10º arquivo DISTINTO lido nesta janela — exploração desta largura paga o isolamento de contexto: delegue a 1-3 subagentes read-only (Explore/general-purpose), cada um com objetivo + formato de saída + fronteiras, e receba só as conclusões (50 arquivos lidos voltam como 3 achados). Leitura larga paraleliza; ESCRITA fica serial no contexto principal — decisões paralelas conflitam. Cadeia dependente (passo 2 precisa do output integral do passo 1) também fica no contexto único. Advisory único por sessão/1h.\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_creating_write_does_not_count_and_counts_as_a_read",
+      "steps": [
+        {
+          "tool": "Write",
+          "input": {
+            "content": "conteudo novo",
+            "file_path": "docs/a.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Write",
+          "input": {
+            "content": "conteudo novo",
+            "file_path": "docs/b.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Write",
+          "input": {
+            "content": "conteudo novo",
+            "file_path": "docs/c.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "docs/a.md",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "src/nunca_visto.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/nunca_visto.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/nunca_visto.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g7_a_run_citing_the_file_resets",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/mod.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/mod.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de crates/z/src/mod.rs na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang python --args '[\"crates/z/src/mod.rs\"]' --file r1.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/mod.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_the_reset_works_with_the_path_quoted_inside_code",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/mod.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/mod.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de crates/z/src/mod.rs na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang python --code 'import pathlib; print(pathlib.Path(\"crates/z/src/mod.rs\").exists())'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/mod.rs"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_message_names_the_query_when_there_is_no_skeleton",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/alvo.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/alvo.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de crates/z/src/alvo.rs na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g7_message_names_the_real_skeleton_when_it_exists",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/alvo.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "crates/z/src/alvo.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de crates/z/src/alvo.rs na janela — programa-faltando? R1 instanciado: touring run --lang python --args '[\\\"crates/z/src/alvo.rs\\\"]' --file /h/projects/touring/docs/r1_varredura_agregado.py (outros esqueletos: `touring memory query \\\"#kind:snippet #process:code-mode\\\"`) (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g5_a_single_advisory_at_the_end_of_an_unvalidated_burst",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "b.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "b.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "c.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "c.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo done"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G5 telemetria] rajada de 3 edits terminou sem build/teste — P9 medido em 17%. Valide agora (cargo check/test no crate tocado); a regressão silenciosa nasce aqui.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo again"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g5_a_validation_ends_the_burst_without_advisory",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "d.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "d.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "e.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "e.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "f.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "f.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo check -p x"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "e3_a_counterfactual_comment_advises_and_a_run_id_silences",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "m.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "m.rs",
+            "new_string": "// sandboxar este nó quebraria a escrita do marcador\nlet x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[E3 contrafactual-sem-endereço] comentário adicionado afirma o que ACONTECERIA sem citar um run_id — a classe do arm_marker de 24/08 (afirmação falsa nunca exercitada). Exercite (probe FACT= / touring run) e cite o run, ou remova o modal.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "m.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de m.rs na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "m.rs",
+            "new_string": "// quebraria sem pipefail — provado em run-1787618052969\nlet x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s3_the_second_inspection_warns_without_denying",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn alfa src/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta src/"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'grep -rn alfa src/\\ngrep -rn beta src/'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_one_warning_per_burst_and_a_run_rearms",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat a.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat b.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `cat` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'cat a.md\\ncat b.md'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat c.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat d.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `cat` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `cat` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): cat a.md\\n# já executado (não repetir): cat c.md\\ncat d.md'\"}}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'ls'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat e.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat f.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `cat` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'cat e.md\\ncat f.md'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_distinct_classes_do_not_form_a_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn x src/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat README.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "ls -la src/"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s3_a_scope_without_a_declaration_does_not_collapse",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn x src/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn y src/"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -rn x src/\\ngrep -rn y src/'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_a_mutation_and_a_build_never_enter_the_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo build"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cargo build"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 cargo build\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > out.txt <<EOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat >> out.txt <<EOF"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s3_read_only_python_inline_falls_in_the_inspection_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 - <<'EOF'\nimport json\nprint(json.load(open('a.json')))\nEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 -c 'import re; print(re.findall(\"x\", open(\"b.txt\").read()))'"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `python-inline` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang python --code 'import json\\nprint(json.load(open('\\\\''a.json'\\\\'')))\\n\\n# --- proximo comando da rajada ---\\nimport re; print(re.findall(\\\"x\\\", open(\\\"b.txt\\\").read()))'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_a_writing_python_inline_stays_out_of_the_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 - <<'EOF'\nopen('out.txt', 'w').write('x')\nEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 -c 'import shutil; shutil.copy(\"a\", \"b\")'"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s3_the_burst_leaves_durable_evidence_on_disk",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn a src/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn b src/"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'grep -rn a src/\\ngrep -rn b src/'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn c src/"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -rn a src/\\ngrep -rn c src/'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_the_class_sed-n_now_collapses_in_a_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -n 1,20p a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -n 30,50p b.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `sed-n` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'sed -n 1,20p a.rs\\nsed -n 30,50p b.rs'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_the_class_ls_now_collapses_in_a_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "ls -la src/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "ls -la crates/"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `ls` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'ls -la src/\\nls -la crates/'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_the_class_wc_now_collapses_in_a_burst",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "wc -l a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "wc -l b.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `wc` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'wc -l a.rs\\nwc -l b.rs'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_first_bypass_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g11_two_in_a_row_are_denied_by_the_strict_rule",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G11 orçamento de bypass] dois bypasses seguidos: 2 seguido(s), 2 desde a última rota, janela 600s. O token é por-comando, não uma rota. Use a rota sancionada — funda a família numa varredura única: `touring run --lang bash --file <script>` — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g11_an_interleaved_pair_is_not_a_strict_run",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_third_without_the_route_is_denied_even_when_spaced",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G11 orçamento de bypass] terceiro bypass sem usar a rota: 1 seguido(s), 3 desde a última rota, janela 600s. O token é por-comando, não uma rota. Use a rota sancionada — funda a família numa varredura única: `touring run --lang bash --file <script>` — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_route_credits_both_counts_back",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo d"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo e"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G11 orçamento de bypass] terceiro bypass sem usar a rota: 1 seguido(s), 3 desde a última rota, janela 600s. O token é por-comando, não uma rota. Use a rota sancionada — funda a família numa varredura única: `touring run --lang bash --file <script>` — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g11_an_echo_that_mentions_the_route_does_not_credit",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo touring running"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring index find X"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G11 orçamento de bypass] terceiro bypass sem usar a rota: 1 seguido(s), 3 desde a última rota, janela 600s. O token é por-comando, não uma rota. Use a rota sancionada — funda a família numa varredura única: `touring run --lang bash --file <script>` — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_route_form_0_is_sanctioned",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --file x.sh"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo d"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_route_form_1_is_sanctioned",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "  touring run --lang python --code 'x'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo d"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_route_form_2_is_sanctioned",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".touring/bin/touring run --lang bash --file x.sh"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo d"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g11_the_route_form_3_is_sanctioned",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo b"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "/home/u/.local/bin/touring run --code 'ls'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo c"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "true"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 true\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 echo d"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_counter_is_isolated_per_session_and_agent",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_probe.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_probe.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de /tmp/s23_g7_probe.py na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_probe.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_probe.py"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_third_read_by_the_same_actor_is_still_denied",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_same.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_same.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de /tmp/s23_g7_same.py na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s23_g7_same.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G7 re-inspeção] 3ª leitura de /tmp/s23_g7_same.py na janela — reler é o sinal mais direto de programa-faltando (campeões medidos: adw.py 39×, cli_suggester.rs 32×). Varra de uma vez (R1): esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"`. Um `touring run` citando /tmp/s23_g7_same.py reseta o gate.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "a_real_denial_carries_the_gate_id_the_tool_trio_reads",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s11_trio_g7.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s11_trio_g7.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de /tmp/s11_trio_g7.py na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "/tmp/s11_trio_g7.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G7 re-inspeção] 3ª leitura de /tmp/s11_trio_g7.py na janela — reler é o sinal mais direto de programa-faltando (campeões medidos: adw.py 39×, cli_suggester.rs 32×). Varra de uma vez (R1): esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"`. Um `touring run` citando /tmp/s11_trio_g7.py reseta o gate.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "the_burst_window_is_isolated_per_agent",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -c gamma README.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l delta docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l delta docs/x.md'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "the_g1_burst_window_is_per_session",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -c gamma README.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l delta docs/x.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n epsilon src/e.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -c gamma README.md\\n# já executado (não repetir): grep -l delta docs/x.md\\ngrep -n epsilon src/e.rs'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "the_bypass_budget_is_isolated_per_actor",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 ls /tmp"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 ls /var"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G11 orçamento de bypass] dois bypasses seguidos: 2 seguido(s), 2 desde a última rota, janela 600s. O token é por-comando, não uma rota. Use a rota sancionada — funda a família numa varredura única: `touring run --lang bash --file <script>` — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 ls /etc"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s24_a_loop_outside_the_sandbox_capability_is_not_rewritten",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "for s in a b c; do .touring/bin/touring decompose ready $s; done"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s24_a_burst_of_unreachable_commands_is_not_fused",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat .touring/bin/touring"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat .touring/bin/touring x"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat .touring/bin/touring y"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s24_a_burst_inside_the_project_is_still_fused",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alpha src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn beta crates/"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -l gamma docs/x.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+        }
+      ]
+    },
+    {
+      "scn": "s24_the_bypass_token_inside_a_heredoc_is_data",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > t.rs <<'EOF'\nlet x = \"TOURING_GATE_OK=1 ls\";\nEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > t.rs <<'EOF'\nlet x = \"TOURING_GATE_OK=1 ls\";\nEOF"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, prefixe o comando abaixo, verbatim, com `TOURING_GATE_OK=1 `.\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > t.rs <<'EOF'\nlet x = \"TOURING_GATE_OK=1 ls\";\nEOF"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, prefixe o comando abaixo, verbatim, com `TOURING_GATE_OK=1 `.\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\\nComando: cat > t.rs <<'EOF'\\nlet x = \\\"TOURING_GATE_OK=1 ls\\\";\\nEOF\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_body_that_writes_names_the_trusted_route",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 1\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 2\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 3\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 4\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_CODE_MODE=native .venv/bin/python3 - <<'EOF'\nimport pathlib\np = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\")\nt = p.read_text(encoding=\"utf-8\")\nvelho = \"> Estado 10/10 ~00:30:\"\nassert t.count(velho) == 1\np.write_text(t.replace(velho, \"> Estado 09/10 22:38 (o relógio da máquina; eu tinha escrito «10/10 ~00:30» — errado):\"), encoding=\"utf-8\")\nprint(\"ok\")\nEOF"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s) — a rajada desenrolada JÁ é o programa. Este corpo ESCREVE: o executor o nega no perfil Sandboxed (X6 denied the file-write capability 'write_text(' under profile 'Sandboxed'), então `touring run` sem `--allow-forbidden` falharia. A rota que executa é a Trusted, decidida POR COMANDO (TOURING_TRUSTED_OK=1 no próprio comando) e válida só dentro do workspace {ROOT}: o Landlock concede escrita apenas a ele e aos temporários do run. Rode-o de uma vez:\\n  TOURING_TRUSTED_OK=1 touring run --allow-forbidden --lang python --code 'import pathlib\\np = pathlib.Path(\\\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\\\")\\nt = p.read_text(encoding=\\\"utf-8\\\")\\nvelho = \\\"> Estado 10/10 ~00:30:\\\"\\nassert t.count(velho) == 1\\np.write_text(t.replace(velho, \\\"> Estado 09/10 22:38 (o relógio da máquina; eu tinha escrito «10/10 ~00:30» — errado):\\\"), encoding=\\\"utf-8\\\")\\nprint(\\\"ok\\\")'\\nSó o comando negado roda; os já executados da rajada vêm como comentário e NUNCA são repetidos (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra no spill. Os próximos comandos do lote entram no MESMO programa. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_destination_outside_the_workspace_promises_no_route",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 1\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 2\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 3\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 4\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{OUT}/saida.md\").write_text(\"x\")'"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s). Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed) ou aponte o destino para dentro do workspace. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\\\"{OUT}/saida.md\\\").write_text(\\\"x\\\")'\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_read_body_keeps_the_sandboxed_route",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 1\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 2\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 3\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 4\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; print(pathlib.Path(\"docs\").exists())'"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\\n  touring run --lang python --code 'import pathlib; print(pathlib.Path(\\\"docs\\\").exists())'\\nSó o comando negado roda; os já executados da rajada vêm como comentário e NUNCA são repetidos (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra no spill. Os próximos comandos do lote entram no MESMO programa. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_without_a_route_the_reason_hands_over_the_bypass_line_and_it_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 1\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 2\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 3\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; p = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\"); p.write_text(p.read_text() + \"# passo 4\")'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": ".venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{OUT}/saida.md\").write_text(\"x\")'"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s). Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed) ou aponte o destino para dentro do workspace. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\\\"{OUT}/saida.md\\\").write_text(\\\"x\\\")'\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{OUT}/saida.md\").write_text(\"x\")'"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_a_reread_after_an_external_modification_is_not_denied",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "limit": 8
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "limit": 8
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "limit": 8
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_a_third_read_of_an_unchanged_file_is_still_denied",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G7 re-inspeção] 3ª leitura de {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md na janela — reler é o sinal mais direto de programa-faltando (campeões medidos: adw.py 39×, cli_suggester.rs 32×). Varra de uma vez (R1): esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"`. Para EDITAR {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md: Edit direto — o arquivo não mudou desde a leitura registrada, então o G3 e o harness a aceitam; se ele mudar, a releitura é liberada. Um `touring run` citando {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md reseta o gate.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g7_the_deny_names_the_edit_route_and_the_promise_holds",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G7 re-inspeção] 3ª leitura de {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md na janela — reler é o sinal mais direto de programa-faltando (campeões medidos: adw.py 39×, cli_suggester.rs 32×). Varra de uma vez (R1): esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"`. Para EDITAR {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md: Edit direto — o arquivo não mudou desde a leitura registrada, então o G3 e o harness a aceitam; se ele mudar, a releitura é liberada. Um `touring run` citando {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md reseta o gate.\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g7_a_deny_without_a_measurement_promises_no_edit_route",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/nao-existe/ainda.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/nao-existe/ainda.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G7 re-inspeção] 2ª leitura de {ROOT}/nao-existe/ainda.md na janela — programa-faltando? R1 instanciado: esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"` (a 3ª leitura nega).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/nao-existe/ainda.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G7 re-inspeção] 3ª leitura de {ROOT}/nao-existe/ainda.md na janela — reler é o sinal mais direto de programa-faltando (campeões medidos: adw.py 39×, cli_suggester.rs 32×). Varra de uma vez (R1): esqueletos de varredura em `touring memory query \\\"#kind:snippet #process:code-mode\\\"`. Um `touring run` citando {ROOT}/nao-existe/ainda.md reseta o gate.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_writing_script_pair_names_the_trusted_route",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > {ROOT}/le.py <<'PYEOF'\nprint(1)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > {ROOT}/escreve.py <<'PYEOF'\nprint(2)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 {ROOT}/le.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 {ROOT}/escreve.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 write→run] 2º script escrito-e-executado na janela de 600s (`{ROOT}/escreve.py`) — o loop execute-observe manual paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO arquivo na rota que o executor aceita sem reescrever nada: Este corpo ESCREVE: o executor o nega no perfil Sandboxed (X6 denied the file-write capability 'write_text(' under profile 'Sandboxed'), então `touring run` sem `--allow-forbidden` falharia. A rota que executa é a Trusted, decidida POR COMANDO (TOURING_TRUSTED_OK=1 no próprio comando) e válida só dentro do workspace {ROOT}: o Landlock concede escrita apenas a ele e aos temporários do run.\\n  TOURING_TRUSTED_OK=1 touring run --allow-forbidden --lang python --file {ROOT}/escreve.py --timeout-ms 60000\\nO sandbox devolve só o que o script imprime (digest no contexto, íntegra no spill), e um `touring run` zera a janela. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_reading_script_pair_keeps_the_sandboxed_route",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > {ROOT}/a.py <<'PYEOF'\nprint(1)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > {ROOT}/b.py <<'PYEOF'\nprint(2)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 {ROOT}/a.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 {ROOT}/b.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 write→run] 2º script escrito-e-executado na janela de 600s (`{ROOT}/b.py`) — o loop execute-observe manual paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO arquivo no sandbox sem reescrever nada:\\n  touring run --lang python --file {ROOT}/b.py --timeout-ms 60000\\nO sandbox devolve só o que o script imprime (digest no contexto, íntegra no spill), e um `touring run` zera a janela. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g10_a_pair_with_a_destination_outside_promises_no_route",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > {ROOT}/a.py <<'PYEOF'\nprint(1)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > {ROOT}/b.py <<'PYEOF'\nprint(2)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 {ROOT}/a.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 {ROOT}/b.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 write→run] 2º script escrito-e-executado na janela de 600s (`{ROOT}/b.py`). Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed) ou aponte o destino para dentro do workspace. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 python3 {ROOT}/b.py\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s5_the_second_pair_denies_with_the_own_file",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > /tmp/s5/a.py <<'PYEOF'\nprint(1)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 /tmp/s5/a.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > /tmp/s5/b.py <<'PYEOF'\nprint(2)\nPYEOF\npython3 /tmp/s5/b.py"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 write→run] 2º script escrito-e-executado na janela de 600s (`/tmp/s5/b.py`) — o loop execute-observe manual paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO arquivo no sandbox sem reescrever nada:\\n  touring run --lang python --file /tmp/s5/b.py --timeout-ms 60000\\nO sandbox devolve só o que o script imprime (digest no contexto, íntegra no spill), e um `touring run` zera a janela. Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 /tmp/s5/alheio.py"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "s5_the_pair_window_does_not_leak_between_sessions",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat > /tmp/s5x/c.py <<'PYEOF'\nprint(1)\nPYEOF"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 /tmp/s5x/c.py 0"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 /tmp/s5x/c.py 1"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "python3 /tmp/s5x/c.py 2"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g5_an_advisory_does_not_swallow_the_g9_deny",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "limit": 8
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -i 's/a/b/' {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i '\\\\''s/a/b/'\\\\'' {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md'\\n  estrutural (N arquivos): touring ast grep {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\\n\\n[também, sem bloquear] [G5 telemetria] rajada de 3 edits terminou sem build/teste — P9 medido em 17%. Valide agora (cargo check/test no crate tocado); a regressão silenciosa nasce aqui.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g5_a_harmless_bash_after_3_edits_keeps_the_advisory",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "limit": 8
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "new_string": "b",
+            "old_string": "a"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo ok"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G5 telemetria] rajada de 3 edits terminou sem build/teste — P9 medido em 17%. Valide agora (cargo check/test no crate tocado); a regressão silenciosa nasce aqui.\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g9_sed_i_without_edits_before_has_no_g5_text",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -i 's/a/b/' {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i '\\\\''s/a/b/'\\\\'' {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md'\\n  estrutural (N arquivos): touring ast grep {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_an_advisory_does_not_swallow_the_g6_deny",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6a.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r1'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6a.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 cat docs/g6a.md\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r2'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6b.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6a.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 cat docs/g6a.md\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\\n\\n[também, sem bloquear] [CODE MODE · rajada] aviso — 2ª inspeção `cat` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'cat docs/g6b.md\\ncat docs/g6a.md'\\n\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "s3_a_similar_second_inspection_only_advises",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alfa docs/g6a.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n alfa docs/g6b.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\\n  touring run --lang bash --code 'grep -n alfa docs/g6a.md\\ngrep -n alfa docs/g6b.md'\\n\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g6_hands_over_the_bypass_line_of_the_own_command_and_it_passes",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6a.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r1'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6a.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 cat docs/g6a.md\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r2'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo outra-coisa"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat docs/g6a.md"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, rode exatamente:\\n  TOURING_GATE_OK=1 cat docs/g6a.md\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "TOURING_GATE_OK=1 cat docs/g6a.md"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g6_a_multi_line_command_gets_no_broken_ready_line",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo um\necho dois"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r1'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo um\necho dois"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, prefixe o comando abaixo, verbatim, com `TOURING_GATE_OK=1 `.\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r2'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo outra-coisa"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo um\necho dois"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, prefixe o comando abaixo, verbatim, com `TOURING_GATE_OK=1 `.\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\\nComando: echo um\\necho dois\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g6_a_command_too_long_for_one_line_gets_no_ready_line",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r1'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G6 redundant-exact-call] comando byte-idêntico há <300s sem nenhuma mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA idêntica será negada.\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, prefixe o comando abaixo, verbatim, com `TOURING_GATE_OK=1 `.\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "touring run --lang bash --code 'echo r2'"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo outra-coisa"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G6 redundant-exact-call] repetição byte-idêntica em 300s sem mutação no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\\nPróximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa em background, outra sessão) — repetir é legítimo, prefixe o comando abaixo, verbatim, com `TOURING_GATE_OK=1 `.\\nO bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` recarrega o crédito).\\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada de novo.\\nComando: echo xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_hands_over_the_read_window_and_the_read_unlocks_the_edit",
+      "steps": [
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/grande.rs",
+            "new_string": "x",
+            "old_string": "linha 120"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/grande.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/grande.rs offset=115 limit=11` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/grande.rs",
+            "new_string": "x",
+            "old_string": "linha 120"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/grande.rs offset=115 limit=11`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {ROOT}/grande.rs. Proibido até lá: Edit de {ROOT}/grande.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "{ROOT}/grande.rs",
+            "limit": 11,
+            "offset": 115
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/grande.rs",
+            "new_string": "x",
+            "old_string": "linha 120"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_short_file_hands_over_the_whole_file_read",
+      "steps": [
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/curto.rs",
+            "new_string": "x",
+            "old_string": "fn a"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/curto.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/curto.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/curto.rs",
+            "new_string": "x",
+            "old_string": "fn a"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/curto.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {ROOT}/curto.rs. Proibido até lá: Edit de {ROOT}/curto.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_missing_old_string_hands_over_the_whole_file_read",
+      "steps": [
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/grande.rs",
+            "new_string": "x",
+            "old_string": "texto que não existe no arquivo"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/grande.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/grande.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/grande.rs",
+            "new_string": "x",
+            "old_string": "texto que não existe no arquivo"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/grande.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {ROOT}/grande.rs. Proibido até lá: Edit de {ROOT}/grande.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    }
+  ],
+  "composition_calls": 30406,
+  "composition_digest": "313f79b2c9dd6816"
+}

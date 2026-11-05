@@ -53,7 +53,7 @@ pub(crate) fn handle_worktree_create(rt: &mut HookRuntime, input: &Value) -> Str
 /// directly via `super::worktree_create_hint` (after the re-export in
 /// `lifecycle.rs`). Re-export visibility must be ≤ item visibility, so the
 /// item needs to be at least `pub(crate)`.
-pub(crate) fn worktree_create_hint(worktree_path: &str, intent: &str) -> String {
+fn worktree_create_hint(worktree_path: &str, intent: &str) -> String {
     if worktree_path.is_empty() {
         return String::new();
     }

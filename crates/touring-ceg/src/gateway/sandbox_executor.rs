@@ -22,6 +22,7 @@ use thiserror::Error;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::time::timeout;
+use touring_foundation::run_outcome::ExitStatus;
 
 use crate::capability::{ResourceLimits, apply_resource_caps_to};
 use crate::gateway::exec_pool::ExecPool;
@@ -98,8 +99,8 @@ impl Default for SandboxConfig {
 /// Result of a sandbox subprocess execution.
 #[derive(Debug, Clone)]
 pub struct SandboxResult {
-    /// Process exit status code returned by the subprocess.
-    pub exit_code: i32,
+    /// How the subprocess ended; `-1`/`-2` exist only at serialization edges.
+    pub exit_code: ExitStatus,
     /// Number of stdout bytes captured (after any truncation).
     pub output_bytes: u64,
     /// `true` if captured stdout hit `max_output_bytes` and was cut short.
@@ -1407,7 +1408,9 @@ async fn spawn_and_capture_in(
             );
         }
     };
-    let exit_code = exit_status.code().unwrap_or(-1);
+    let exit_code = exit_status
+        .code()
+        .unwrap_or_else(|| ExitStatus::NoExitCode.to_wire());
     let signal = std::os::unix::process::ExitStatusExt::signal(&exit_status);
 
     let content_hash = hash_output(&output_bytes);
@@ -1437,7 +1440,7 @@ async fn spawn_and_capture_in(
     );
 
     Ok(SandboxResult {
-        exit_code,
+        exit_code: ExitStatus::from_wire(exit_code),
         output_bytes: output_bytes.len() as u64,
         was_truncated,
         content_hash,
@@ -1564,9 +1567,13 @@ fn timeout_outcome_with_cause(
             store_output(&content_hash, &partial_stdout).ok()
         };
         let summary = if partial_stdout.is_empty() {
-            OutputSummary::empty(-2)
+            OutputSummary::empty(ExitStatus::TimedOut.to_wire())
         } else {
-            summarize_output(&String::from_utf8_lossy(&partial_stdout), -2, true)
+            summarize_output(
+                &String::from_utf8_lossy(&partial_stdout),
+                ExitStatus::TimedOut.to_wire(),
+                true,
+            )
         };
         let stderr = if partial_stderr.is_empty() {
             stderr
@@ -1577,7 +1584,7 @@ fn timeout_outcome_with_cause(
             )
         };
         Ok(SandboxResult {
-            exit_code: -2,
+            exit_code: ExitStatus::TimedOut,
             output_bytes: partial_stdout.len() as u64,
             was_truncated: true,
             content_hash,
@@ -1663,7 +1670,7 @@ pub async fn compile_and_run_rust(
     apply_toolchain_env(&mut compile);
     apply_resource_caps_to(&mut compile, &ResourceLimits::sandboxed());
     let compiled = spawn_and_capture(compile, config).await?;
-    if compiled.exit_code != 0 {
+    if !compiled.exit_code.is_zero() {
         // Compilation failed — that IS the outcome; the binary never runs.
         return Ok(compiled);
     }
@@ -2058,7 +2065,7 @@ mod tests {
             b"trabalho parcial do filho".to_vec(),
         )
         .expect("com fallback_on_timeout o timeout tem resultado");
-        assert_eq!(r.exit_code, -2);
+        assert_eq!(r.exit_code, ExitStatus::TimedOut);
         let linhas: Vec<&str> = r.stderr.lines().collect();
         assert_eq!(
             linhas.first().copied(),
@@ -2149,7 +2156,8 @@ mod tests {
         )
         .expect("rustc is present in a Rust workspace");
         assert_eq!(
-            result.exit_code, 0,
+            result.exit_code,
+            ExitStatus::Code(0),
             "a valid Rust program must compile and run"
         );
         assert!(result.output_bytes > 0);
@@ -2179,7 +2187,11 @@ mod tests {
             SandboxConfig::default(),
         )
         .expect("the sandbox path returns Ok even for a compile failure");
-        assert_ne!(result.exit_code, 0, "a Rust compile error must be non-zero");
+        assert_ne!(
+            result.exit_code,
+            ExitStatus::Code(0),
+            "a Rust compile error must be non-zero"
+        );
     }
 
     #[test]
@@ -2195,7 +2207,11 @@ mod tests {
             },
         )
         .expect("a timeout is a fallback outcome, not an error");
-        assert_eq!(result.exit_code, -2, "timeout must yield the -2 sentinel");
+        assert_eq!(
+            result.exit_code,
+            ExitStatus::TimedOut,
+            "timeout must yield the -2 sentinel"
+        );
     }
 
     #[test]
@@ -2210,7 +2226,8 @@ mod tests {
         )
         .expect("go is present");
         assert_eq!(
-            result.exit_code, 0,
+            result.exit_code,
+            ExitStatus::Code(0),
             "a valid Go program must compile and run"
         );
         assert!(result.output_bytes > 0);
@@ -2246,7 +2263,11 @@ mod tests {
             SandboxConfig::default(),
         )
         .expect("the sandbox path returns Ok even for a compile failure");
-        assert_ne!(result.exit_code, 0, "a Go compile error must be non-zero");
+        assert_ne!(
+            result.exit_code,
+            ExitStatus::Code(0),
+            "a Go compile error must be non-zero"
+        );
     }
 
     // ── P4.3 — the X5 sandbox path is rlimit-capped ───────────────────────
@@ -2291,7 +2312,7 @@ mod tests {
             SandboxConfig::default(),
         )
         .expect("bash runs");
-        assert_eq!(result.exit_code, -1);
+        assert_eq!(result.exit_code, ExitStatus::NoExitCode);
         assert_eq!(result.signal, Some(libc::SIGTERM));
     }
 
@@ -2314,7 +2335,7 @@ mod tests {
             SandboxConfig::default(),
         )
         .expect("bash runs");
-        assert_eq!(result.exit_code, 0, "the program went on");
+        assert_eq!(result.exit_code, ExitStatus::Code(0), "the program went on");
         assert_eq!(result.capped_files, ["big.bin"]);
     }
 
@@ -2332,7 +2353,7 @@ mod tests {
             SandboxConfig::default(),
         )
         .expect("python sandbox runs");
-        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.exit_code, ExitStatus::Code(0));
         let path = result.stored_path.expect("stdout persisted");
         let captured = std::fs::read_to_string(&path).expect("read stored output");
         assert_eq!(
@@ -2698,7 +2719,7 @@ mod tests {
         let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
             .await
             .expect("execute");
-        assert_eq!(res.exit_code, 0);
+        assert_eq!(res.exit_code, ExitStatus::Code(0));
         assert!(res.output_bytes >= 10);
         assert!(!res.content_hash.is_empty());
         if let Some(p) = &res.stored_path {
@@ -2714,7 +2735,7 @@ mod tests {
         let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
             .await
             .expect("execute");
-        assert_eq!(res.exit_code, 7);
+        assert_eq!(res.exit_code, ExitStatus::Code(7));
         assert!(
             res.stderr.contains("errmark"),
             "stderr must carry the child's stderr, got: {:?}",
@@ -2800,7 +2821,8 @@ mod tests {
             let _ = std::fs::remove_file(p);
         }
         assert_eq!(
-            res.exit_code, 0,
+            res.exit_code,
+            ExitStatus::Code(0),
             "granted append must succeed, stderr: {:?}",
             res.stderr
         );
@@ -2831,7 +2853,11 @@ mod tests {
         if let Some(p) = &res.stored_path {
             let _ = std::fs::remove_file(p);
         }
-        assert_ne!(res.exit_code, 0, "kernel must deny the un-granted append");
+        assert_ne!(
+            res.exit_code,
+            ExitStatus::Code(0),
+            "kernel must deny the un-granted append"
+        );
         assert!(written.is_empty(), "no grant → no bytes, got: {written:?}");
     }
 
@@ -2851,7 +2877,11 @@ mod tests {
         let res = execute_in_sandbox("Bash", args, config)
             .await
             .expect("execute");
-        assert_eq!(res.exit_code, 0, "child must exit cleanly, not be killed");
+        assert_eq!(
+            res.exit_code,
+            ExitStatus::Code(0),
+            "child must exit cleanly, not be killed"
+        );
         assert!(
             start.elapsed() < Duration::from_millis(9_000),
             "must finish well before the timeout (no pipe deadlock)"
@@ -2878,7 +2908,7 @@ mod tests {
         let res = execute_in_sandbox("Bash", args, config)
             .await
             .expect("busy expiry is a fallback outcome");
-        assert_eq!(res.exit_code, -2, "timeout sentinel");
+        assert_eq!(res.exit_code, ExitStatus::TimedOut, "timeout sentinel");
         assert!(
             res.stderr.contains("busy") || res.stderr.contains("compute"),
             "busy expiry must be labeled distinctly from wall clock, got: {:?}",
@@ -2903,7 +2933,11 @@ mod tests {
         let res = execute_in_sandbox("Bash", args, config)
             .await
             .expect("execute");
-        assert_eq!(res.exit_code, 0, "sleep must not trip the busy budget");
+        assert_eq!(
+            res.exit_code,
+            ExitStatus::Code(0),
+            "sleep must not trip the busy budget"
+        );
         if let Some(p) = &res.stored_path {
             let _ = std::fs::remove_file(p);
         }
@@ -2917,7 +2951,7 @@ mod tests {
         };
         let res = timeout_outcome_with_cause(&config, TimeoutCause::Wall, Vec::new(), Vec::new())
             .expect("fallback_on_timeout=true yields Ok");
-        assert_eq!(res.exit_code, -2);
+        assert_eq!(res.exit_code, ExitStatus::TimedOut);
         assert!(
             res.stderr.contains("timeout") && res.stderr.contains("1234"),
             "timeout sentinel must teach its cause, got: {:?}",
@@ -2937,7 +2971,7 @@ mod tests {
             b"aviso do programa\n".to_vec(),
         )
         .expect("fallback_on_timeout=true yields Ok");
-        assert_eq!(res.exit_code, -2);
+        assert_eq!(res.exit_code, ExitStatus::TimedOut);
         assert_eq!(res.output_bytes, 27, "partial stdout length travels");
         assert!(!res.content_hash.is_empty(), "partial stdout is hashed");
         assert!(res.stored_path.is_some(), "partial stdout is persisted");
@@ -2963,7 +2997,7 @@ mod tests {
             let res = rt
                 .block_on(execute_in_sandbox("Bash", args, SandboxConfig::default()))
                 .expect("execute");
-            assert_eq!(res.exit_code, 3);
+            assert_eq!(res.exit_code, ExitStatus::Code(3));
             let tee_path = dir.join(format!("{}.log", res.content_hash));
             let tee = std::fs::read_to_string(&tee_path).expect("tee persisted on failure");
             assert!(tee.contains("--- stderr ---"), "tee carries the marker");
@@ -3000,7 +3034,11 @@ mod tests {
         for h in handles {
             let result = h.await.expect("the run task joins");
             let r = result.expect("each sandboxed run completes");
-            assert_eq!(r.exit_code, 0, "the bash run must succeed");
+            assert_eq!(
+                r.exit_code,
+                ExitStatus::Code(0),
+                "the bash run must succeed"
+            );
             if let Some(p) = &r.stored_path {
                 let _ = std::fs::remove_file(p);
             }
@@ -3556,7 +3594,12 @@ mod tests {
             SandboxConfig::default(),
         )
         .expect("python sandbox runs");
-        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        assert_eq!(
+            result.exit_code,
+            ExitStatus::Code(0),
+            "stderr: {}",
+            result.stderr
+        );
         let path = result.stored_path.expect("stdout persisted");
         let captured = std::fs::read_to_string(&path).expect("read stored output");
         let seen = captured.trim();

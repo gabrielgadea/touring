@@ -215,7 +215,7 @@ bytes da família:
 **Total: 13.193.705 de 18.910.157 bytes = 69,8% são repetição.**
 
 Os payloads mais repetidos: o aviso DEGRADED do `evidence-guard` **1.577x**
-(135 B) · `[generic]` **1.405x** (9 B) · `[gabrielgadea]` **1.206x** (14 B) · o log
+(135 B) · `[generic]` **1.405x** (9 B) · `[<user>]` **1.206x** (14 B) · o log
 `[EVENT_READER]` **1.854x** · `[mediacao sem relacao verificada]` **490x**
 (1.131 B) · **`[G2 exit-code-through-pipe -> REESCRITO]` 399x** (155 B — um dos
 "melhores blocos" do corpus!).
@@ -410,7 +410,7 @@ janela e um bem publico — *injecao nova **substitui**, nunca **soma***.
 | **C5** | `ANALISE-CONSOLIDADA.md` §4 e `IMPACTO-POR-HOOK.md` §4 (o contrato "So what?" aparece em 4 lugares) | "o mesmo contrato aparece em `pre_bash.rs:3`, `pre_edit.rs:582`, `instructions_loaded.rs:17` e `pre_edit_prevention.rs:309`" | **A letra do contrato existe em 1 lugar.** `pre_read.rs:3-7` tem as 3 clausulas; `pre_bash.rs:3-4` tem a variante "RELEVANT past failure"; `pre_edit.rs:580-586`, `instructions_loaded.rs:13-17` e `pre_edit_prevention.rs:306-310` tem **parafrase** ("HIGH-SIGNAL-ONLY", "if there is nothing actionable", "or stay silent") — nao o contrato. E o teste (`pre_read_tests.rs:1221`) cobre **um** caminho | leitura direta dos 5 arquivos |
 | **C6** | `IMPACTO-POR-HOOK.md` §5.1 — a proposta `FailureMatch { similarity, reason, command }` | a correcao e "de superficie" | **Metade nao e de superficie.** `FailedPath` (`pensieve.rs:23-33`) **nao tem campo de comando** — so `state_hash`, `reason`, `depth`, `timestamp`, `hit_count`. Nomear o comando exige **estender o registro**, nao so a consulta (§5) | `pensieve.rs:23-33` + `post_bash.rs:199-206` |
 | **C8** | `analysis-2026-10-26.md` §2 e `ANALISE-CONSOLIDADA.md` (o headline) | "injecao = **27,8%** da janela do modelo" | **12,0% medido hoje** (C-WIN: 400 sessões, transcript completo, separando stdout-cru). O **27,8%** fica como **numero herdado, nao reconciliado**: o numerador concorda (43,0 -> 37,1 B/sessão); o que diverge e o **denominador** (2,00x) — a rodada 1 mediu 200 sessões **com** o filtro `attachment\|assistant` e nao separou as **chamadas de ferramenta do modelo** (24,7% da janela). **Nenhum dos dois numeros foi apagado** | §1.3 · C-WIN |
-| **C9** | `ANALISE-CONSOLIDADA.md` §7 e §8 (o que falta) | a politica de injecao e a lacuna; o dedup e um detalhe de implementacao | **O dedup ja existe e e maior que a politica.** `injection_dedup::dedup_hook_output` tem **um unico call site de producao** (`crates/touring-dispatch/src/daemon.rs:623`), e **69,8% dos bytes injetados sao repeticao** (§1.4). O que falta nao e a **politica** — e o **alcance** do dedup: os hooks **Python** (`client/hooks/evidence_guard.py`, `delegation_nudge.py`, `check_context.sh`…) sao processos separados e **nunca passam** por `run_hook_command`; o caminho **standalone** tambem nao tem dedupe (declarado em `daemon.rs:518-521`); e `MIN_LINE_BYTES = 24` (`injection_dedup.rs:41`) faz `[generic]` (9 B) e `[gabrielgadea]` (14 B) **nunca** serem suprimidos. **E por isso que as 1.577 repeticoes do `evidence-guard` sobreviveram** | §1.4 · `injection_dedup.rs:41,271` · `daemon.rs:518-537,622-623` |
+| **C9** | `ANALISE-CONSOLIDADA.md` §7 e §8 (o que falta) | a politica de injecao e a lacuna; o dedup e um detalhe de implementacao | **O dedup ja existe e e maior que a politica.** `injection_dedup::dedup_hook_output` tem **um unico call site de producao** (`crates/touring-dispatch/src/daemon.rs:623`), e **69,8% dos bytes injetados sao repeticao** (§1.4). O que falta nao e a **politica** — e o **alcance** do dedup: os hooks **Python** (`client/hooks/evidence_guard.py`, `delegation_nudge.py`, `check_context.sh`…) sao processos separados e **nunca passam** por `run_hook_command`; o caminho **standalone** tambem nao tem dedupe (declarado em `daemon.rs:518-521`); e `MIN_LINE_BYTES = 24` (`injection_dedup.rs:41`) faz `[generic]` (9 B) e `[<user>]` (14 B) **nunca** serem suprimidos. **E por isso que as 1.577 repeticoes do `evidence-guard` sobreviveram** | §1.4 · `injection_dedup.rs:41,271` · `daemon.rs:518-537,622-623` |
 | **C7** | `ANALISE-CONSOLIDADA.md` §7 (a regua) e a premissa da matriz | "a regua mede o que emite" | A regua Rust conhece **8 familias**; a politica Python conhece **26**; o instrumento conhece **16**. **Tres vocabularios.** E o mesmo conteudo tem **nomes diferentes**: "Similar command failed recently" e `past-lessons` na regua Rust (`:229-232`) e `similar-fail` na politica Python. O principio "o nome e o contrato" (§8.4.2) **esta violado entre Rust e Python** | `context_budget.rs:201-237` x `injection_policy.py:82-130` x `measure_injection_effect.py:60-80` |
 
 ### 3.3 O que a analise consolidada **nao podia saber** (limites honestos)
@@ -959,7 +959,7 @@ decide: o dedup vale **8,4% da janela** contra **2,2%** do corte do sermao
 | hooks **Python** (processo separado) | `client/hooks/evidence_guard.py`, `delegation_nudge.py`, `check_context.sh`, `skill_picker_hook.py` | o dedup precisa alcancar o output **antes** do hook responder, ou o hook precisa reusar o mesmo estado |
 | caminho **standalone** (daemon fora) | `crates/touring-hooks/src/main.rs` (`forward_daemon_output`) | aplicar `dedup_hook_output` tambem ali — o precedente ja existe no mesmo crate (`injection_dedup`) |
 | campos na **raiz** | `additionalContext` / `systemMessage` na raiz | `dedup_hook_output` so le `/hookSpecificOutput/additionalContext` (`injection_dedup.rs:283-286`) |
-| linhas **curtas** | `[generic]` (9 B), `[gabrielgadea]` (14 B) | `MIN_LINE_BYTES = 24` (`injection_dedup.rs:41`) — o piso que protege a diretiva protege tambem o lixo |
+| linhas **curtas** | `[generic]` (9 B), `[<user>]` (14 B) | `MIN_LINE_BYTES = 24` (`injection_dedup.rs:41`) — o piso que protege a diretiva protege tambem o lixo |
 | **epoch** | a cada compact, o epoch avanca e o bloco volta | `advance_epoch` reemite o que ja foi dito (decisao declarada) |
 
 **S-4' e um CORTE, e o corte maior.** Ele e, por construcao, a unica das
@@ -1110,7 +1110,7 @@ licao *teste que passa sem provar*.
 | o dedup tem **um unico** call site de producao | `crates/touring-dispatch/src/daemon.rs:623` -> `maybe_dedup_output` (`:522-537`) -> `dedup_hook_output` (`:529`) |
 | o caminho **standalone** nao tem dedupe (declarado) | `daemon.rs:518-521` (docstring de `maybe_dedup_output`) |
 | o dedup so le `/hookSpecificOutput/additionalContext` | `crates/touring-hooks-shared/src/injection_dedup.rs:283-286` |
-| o piso de linha suprimivel e **24 B** — `[generic]` (9 B) e `[gabrielgadea]` (14 B) escapam | `injection_dedup.rs:41` (`MIN_LINE_BYTES`) + teste `:427` |
+| o piso de linha suprimivel e **24 B** — `[generic]` (9 B) e `[<user>]` (14 B) escapam | `injection_dedup.rs:41` (`MIN_LINE_BYTES`) + teste `:427` |
 | `evidence_guard.py` e hook **Python** — processo separado, nao passa por `run_hook_command` | `client/hooks/evidence_guard.py:311` (emite "EVIDENCE GUARD"); nenhum hook Python chama dedup (grep) |
 | o stdout cru do Touring e **695 B** em 400 sessoes | C-WIN |
 | a reconciliacao da janela: numerador concorda, denominador 2,00x | §1.3 |

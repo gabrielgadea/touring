@@ -276,6 +276,22 @@ fn recurso_ensina_o_nome_proximo_inclusive_na_caixa() {
     );
 }
 
+/// A document at the project root whose typo lives in the root directory itself: the directory IS
+/// a root, and listing a root is fine. (Before 02/11/2026 the listing was silently skipped — the
+/// containment predicate excluded the root as if it were a FILE — so the refusal taught nothing.)
+#[test]
+fn recurso_ensina_o_nome_proximo_no_diretorio_do_proprio_documento_na_raiz() {
+    let s = Site::novo();
+    s.escreve("logo.png", "x");
+    let v = s.mede("index.html", &pagina("<img src=\"logoo.png\">"));
+    ve(&v, "recurso", &["logoo.png"]);
+    assert!(
+        v.achados[0].sugestao.contains("Você quis dizer `logo.png`"),
+        "{}",
+        v.achados[0].sugestao
+    );
+}
+
 #[test]
 fn recurso_diretorio_inexistente_e_dito() {
     let s = Site::novo();

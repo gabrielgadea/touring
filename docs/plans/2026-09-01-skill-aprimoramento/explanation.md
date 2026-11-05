@@ -7,7 +7,7 @@
 | **Data** | 01/09/2026 |
 | **Modo TACO-skilling** | REFINE-EXPLAIN (auditoria pedagógica, sem aplicar Edits) |
 | **Audiência** | Gabriel Gadea (decisor) + futuros autores de skill |
-| **Persistência paralela** | `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (v4) — canônico cross-session |
+| **Persistência paralela** | `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` (v4) — canônico cross-session |
 
 > **Convite à leitura**: este documento é **independente do `plan.md`** — pode ser lido isoladamente. O `plan.md` traz análise + ranking; este traz **por que cada item** foi classificado como foi, com evidência verbatim e o snippet concreto de Edit/SKILL.md que cada item implica. Use este para entender; use o `plan.md` para executar.
 
@@ -15,7 +15,7 @@
 
 ## Glossário rápido
 
-- **A→G**: taxonomia dos 7 mecanismos de enforcement que forçam raciocínio estruturado em skills Claude Code. `(A)` HARD-GATE em prompt · `(B)` Exit-code gate · `(C)` Sequential phase protocol · `(D)` Adversarial / blind critic · `(E)` RED-GREEN-REFACTOR (TDD procedural) · `(F)` Human-in-the-loop checkpoint · `(G)` Pre-conditional gate. Canônico em `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md`.
+- **A→G**: taxonomia dos 7 mecanismos de enforcement que forçam raciocínio estruturado em skills Claude Code. `(A)` HARD-GATE em prompt · `(B)` Exit-code gate · `(C)` Sequential phase protocol · `(D)` Adversarial / blind critic · `(E)` RED-GREEN-REFACTOR (TDD procedural) · `(F)` Human-in-the-loop checkpoint · `(G)` Pre-conditional gate. Canônico em `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md`.
 - **obra/superpowers**: Jesse Vincent's Superpowers framework (200K ⭐ GitHub), 14 skills com Rule×Gate distinction canônica.
 - **mattpocock/skills**: Matt Pocock's skill suite (20.4K ⭐, v1.2.0 ago/2026), 22 skills + 4 primitives reutilizáveis (`grilling`, `tdd`, `code-review`, `domain-modeling`).
 - **TACO-house**: skills nossas (`~/.claude/skills/`), autoria Gabriel Gadea — `Touring`, `loop-engineering`, `TACO-cross-audit`, `TACO-skilling`, `TACO-subagent`, `TACO-wt`, `taco-planning`, `analysis-loop`, `Briah`, `plan-amplifier`.
@@ -572,7 +572,7 @@ grep -l "grilling" \
 
 ### Origem externa
 
-**TACO-house próprio fragmento ADW** (confirmado por `find /home/gabrielgadea/projects/touring -name "*critic*panel*"`):
+**TACO-house próprio fragmento ADW** (confirmado por `find ~/projects/touring -name "*critic*panel*"`):
 
 > `client/skills/Touring/adw-library/fragments/critic-panel.toml`
 
@@ -840,4 +840,4 @@ Cada item do roadmap acima tem **critério de pronto mensurável** (não auto-av
 
 ---
 
-*Documento versão v1.0 (explicação pedagógica) — `docs/plans/2026-09-01-skill-aprimoramento/explanation.md`. Complementa o `plan.md` no mesmo bundle. Persistência paralela: `~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` v4 (atualizada por Edit subseqüente). Autoria Gabriel Gadea + Touring orquestrador. Data 01/09/2026.*
+*Documento versão v1.0 (explicação pedagógica) — `docs/plans/2026-09-01-skill-aprimoramento/explanation.md`. Complementa o `plan.md` no mesmo bundle. Persistência paralela: `~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md` v4 (atualizada por Edit subseqüente). Autoria Gabriel Gadea + Touring orquestrador. Data 01/09/2026.*

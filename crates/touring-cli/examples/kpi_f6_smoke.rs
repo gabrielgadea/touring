@@ -10,6 +10,7 @@
 use std::path::PathBuf;
 
 use serde_json::json;
+use touring_foundation::run_outcome::{Journal, count_runs};
 
 fn code_mode_signal_use() -> serde_json::Value {
     const TOTAL_HOOKS: u64 = 8;
@@ -43,23 +44,12 @@ fn code_mode_signal_use() -> serde_json::Value {
 }
 
 fn code_mode_adherence() -> serde_json::Value {
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(journal) = Journal::from_env() else {
         return json!({"available": false});
     };
-    let path = PathBuf::from(home).join(".claude/touring/run_journal.jsonl");
-    match std::fs::read_to_string(&path) {
+    match journal.read_to_string() {
         Ok(content) => {
-            let mut total = 0u64;
-            let mut ok = 0u64;
-            for line in content.lines() {
-                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-                    continue;
-                };
-                total += 1;
-                if v.get("exit_code").and_then(serde_json::Value::as_i64) == Some(0) {
-                    ok += 1;
-                }
-            }
+            let (total, ok) = count_runs(&content);
             json!({"available": true, "runs_total": total, "runs_ok": ok,
                    "success_rate": if total > 0 { ok as f64 / total as f64 } else { 0.0 } })
         }

@@ -39,7 +39,7 @@ pub(crate) fn handle_cwd_changed(rt: &mut HookRuntime, input: &Value) -> String 
 ///
 /// `pub(crate)` so inline tests in `lifecycle::tests` continue to reach
 /// this helper via `super::cwd_wiring_hint` after the parent re-export.
-pub(crate) fn cwd_wiring_hint(new_dir: &str) -> String {
+fn cwd_wiring_hint(new_dir: &str) -> String {
     if new_dir.is_empty() {
         return String::new();
     }
@@ -70,7 +70,7 @@ fn maybe_generator_for_new_cwd(new_dir: &str) -> Option<String> {
 ///
 /// `pub(crate)` so inline tests can assert the mapping directly via
 /// `super::generator_kind_for_dir_pattern`.
-pub(crate) fn generator_kind_for_dir_pattern(new_dir: &str) -> Option<&'static str> {
+fn generator_kind_for_dir_pattern(new_dir: &str) -> Option<&'static str> {
     const PATTERNS: &[(&str, &str)] = &[
         ("/crates/", "rust_module"),
         ("/src", "rust_module"),

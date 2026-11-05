@@ -90,11 +90,10 @@ const MAX_CONCURRENT_CONNECTIONS_PER_PROJECT: usize = 56;
 /// (empty string = no output / allow).
 pub type HookHandler = fn(&mut HookRuntime, &serde_json::Value) -> String;
 
-/// Static dispatch table — built once, reused for every request.
-///
-/// S10: Delegates to the centralized hook registry for O(1) lookup.
-/// Single source of truth: `hook_registry::build_dispatch_table()`.
-static HOOK_TABLE: OnceLock<HashMap<&'static str, HookHandler>> = OnceLock::new();
+// The dispatch table is `hook_registry::dispatch_table()` — built once per process and
+// shared with the thin client's membership test (`hook_registry::is_daemon_hook`). This
+// module used to keep its own `OnceLock` over `build_dispatch_table`, a second cell for the
+// same fact.
 
 /// T3.6: Per-hook invocation metrics — accumulated during daemon lifetime.
 ///
@@ -151,8 +150,7 @@ fn pin_admits(pinned: &std::path::Path, client_root: &std::path::Path) -> bool {
 /// Initialize or retrieve the per-hook metrics map.
 fn hook_metrics_map() -> &'static HashMap<&'static str, (AtomicU64, AtomicU64)> {
     HOOK_METRICS.get_or_init(|| {
-        let table = HOOK_TABLE.get_or_init(crate::hook_registry::build_dispatch_table);
-        table
+        crate::hook_registry::dispatch_table()
             .keys()
             .map(|&name| (name, (AtomicU64::new(0), AtomicU64::new(0))))
             .collect()
@@ -272,8 +270,7 @@ impl ProjectRuntime {
 /// Each command is wrapped in a tracing span with hook_name + latency, so
 /// slow / failing handlers are identifiable from logs without extra state.
 fn run_project_actor(runtime: HookRuntime, cmd_rx: mpsc::Receiver<ProjectCommand>) {
-    let table = HOOK_TABLE.get_or_init(crate::hook_registry::build_dispatch_table);
-    run_project_actor_with(runtime, cmd_rx, table);
+    run_project_actor_with(runtime, cmd_rx, crate::hook_registry::dispatch_table());
 }
 
 /// [`run_project_actor`] over an explicit dispatch table (tests pass their own).

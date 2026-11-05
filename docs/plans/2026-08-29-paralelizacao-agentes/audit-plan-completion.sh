@@ -4,7 +4,7 @@
 # existem NO DISCO — spec, library, espelho de regra e contrato de KPI.
 # Consumido pela cláusula cross_audit do loop_converged.py (exit 0 = completo).
 set -euo pipefail
-R=/home/gabrielgadea/projects/touring
+R=${HOME}/projects/touring
 H="$HOME"
 
 fail() { echo "FALTA: $1"; exit 1; }

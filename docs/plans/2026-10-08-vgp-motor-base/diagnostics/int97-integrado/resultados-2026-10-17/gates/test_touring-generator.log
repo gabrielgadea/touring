@@ -1,11 +1,11 @@
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-generator)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-bindings v30.4.96 (~/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-generator v0.1.0 (~/projects/touring-wt-int97/crates/touring-generator)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 27.77s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_generator-d7a4386ac080c986)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_generator-d7a4386ac080c986)
 
 running 177 tests
 test core::adapters::concolic_pre_tool_adapter::tests::test_closures_are_send_sync ... ok
@@ -188,7 +188,7 @@ test core::context_fuzzy::fuzzy_tests::fuzzy_adapter_empty_pool_returns_empty ..
 
 test result: ok. 177 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
 
-     Running tests/bktree_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bktree_e2e-c2aeb70eb0f20cad)
+     Running tests/bktree_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/bktree_e2e-c2aeb70eb0f20cad)
 
 running 10 tests
 test bktree_e2e::test_bktree_exact_match_confidence_is_one ... ok
@@ -204,7 +204,7 @@ test bktree_e2e::test_bktree_empty_query_returns_empty ... ok
 
 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/e2e_cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_cross_audit-809eaa2ec79dbe17)
+     Running tests/e2e_cross_audit.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_cross_audit-809eaa2ec79dbe17)
 
 running 41 tests
 test all_cila_levels_have_nonzero_budget ... ok
@@ -251,7 +251,7 @@ test pipeline_with_empty_contracts_completes_verify_step ... ok
 
 test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
 
-     Running tests/e2e_diagnostic_rfc100.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-df57e21eed199544)
+     Running tests/e2e_diagnostic_rfc100.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-df57e21eed199544)
 
 running 3 tests
 test g400_emits_when_vgp_fails_for_missing_symbols ... ok
@@ -260,7 +260,7 @@ test generator_binary_wired_and_healthy ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
 
-     Running tests/e2e_pipeline.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_pipeline-274373b04ec8639c)
+     Running tests/e2e_pipeline.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_pipeline-274373b04ec8639c)
 
 running 143 tests
 test analysis_gate_adapter_tests::analysis_gate_count_pub_declarations_basic ... ok
@@ -409,7 +409,7 @@ test wiring_gate_rejection_blocks_commit ... ok
 
 test result: ok. 143 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
 
-     Running tests/path_boundary_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/path_boundary_e2e-26f257fe22a0c8b5)
+     Running tests/path_boundary_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/path_boundary_e2e-26f257fe22a0c8b5)
 
 running 16 tests
 test e2e_audit_warns_on_crate_write ... ok
@@ -431,7 +431,7 @@ test e2e_warn_only_warns_not_violations ... ok
 
 test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/seven_layer_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/seven_layer_e2e-a912b04bee63253c)
+     Running tests/seven_layer_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/seven_layer_e2e-a912b04bee63253c)
 
 running 14 tests
 test e2e_l3_allows_matching_kind ... ok
@@ -451,7 +451,7 @@ test e2e_passed_layer_has_score_one ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/skip_regions.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/skip_regions-6e9b28a3958b9810)
+     Running tests/skip_regions.rs (~/projects/touring/target/wt-int97/debug/deps/skip_regions-6e9b28a3958b9810)
 
 running 9 tests
 test javascript_line_comment_same_marker_works ... ok
@@ -466,7 +466,7 @@ test unclosed_region_extends_to_eof ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/snapshot_consumer_stub.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_consumer_stub-2c16d7065b466678)
+     Running tests/snapshot_consumer_stub.rs (~/projects/touring/target/wt-int97/debug/deps/snapshot_consumer_stub-2c16d7065b466678)
 
 running 5 tests
 test consumer_stub_returns_empty_on_invalid_orphan_name ... ok
@@ -477,7 +477,7 @@ test snapshot_consumer_stub_without_crate ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/snapshot_public_api.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_public_api-5cc894660e067ea2)
+     Running tests/snapshot_public_api.rs (~/projects/touring/target/wt-int97/debug/deps/snapshot_public_api-5cc894660e067ea2)
 
 running 4 tests
 test snapshot_generator_kinds_all_32_variants ... ok
@@ -487,7 +487,7 @@ test snapshot_failure_reason_json_schema ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/source_change_tests.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/source_change_tests-150bd99e835875a0)
+     Running tests/source_change_tests.rs (~/projects/touring/target/wt-int97/debug/deps/source_change_tests-150bd99e835875a0)
 
 running 11 tests
 test fs_edit_create_file ... ok

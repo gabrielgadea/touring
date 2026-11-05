@@ -25,14 +25,14 @@ FACT=templates.rs::ArchivedLearningParamsSnapshot/ArchivedQTableSnapshot=desvio 
 ## MAP+HARMONY (harmony_map)
 
 ```json
-python3: can't open file '/home/gabrielgadea/.claude/skills/TACO-cross-audit/scripts/harmony_map.py': [Errno 13] Permission denied
+python3: can't open file '~/.claude/skills/TACO-cross-audit/scripts/harmony_map.py': [Errno 13] Permission denied
 
 ```
 
 ## DEBT (scan_debt)
 
 ```json
-python3: can't open file '/home/gabrielgadea/.claude/skills/TACO-cross-audit/scripts/scan_debt.py': [Errno 13] Permission denied
+python3: can't open file '~/.claude/skills/TACO-cross-audit/scripts/scan_debt.py': [Errno 13] Permission denied
 
 ```
 

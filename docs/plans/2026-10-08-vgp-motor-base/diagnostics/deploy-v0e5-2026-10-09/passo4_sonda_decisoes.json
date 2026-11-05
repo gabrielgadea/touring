@@ -1,5 +1,5 @@
 {
- "hook": "/home/gabrielgadea/.local/bin/touring-hook",
+ "hook": "~/.local/bin/touring-hook",
  "casos": [
   {
    "caso": "S3 1ª passa",

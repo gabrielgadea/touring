@@ -80,7 +80,7 @@
   {
    "id": "eb2d7b7ba5b9",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mover_leitura_pura.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mover_leitura_pura.py",
    "achados": [
     {
      "classe": "membro",
@@ -103,7 +103,7 @@
   {
    "id": "b4aeefe5820e",
    "balde": "arquivo",
-   "path": "/home/gabrielgadea/projects/analise/docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/t006_diag_tls.py",
+   "path": "~/projects/analise/docs/plans/2026-10-06-geopolitica-logistica-eua/diagnostics/t006_diag_tls.py",
    "achados": [
     {
      "classe": "atributo",
@@ -118,7 +118,7 @@
   {
    "id": "9a8eed8a7502",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_g3.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_g3.py",
    "achados": [
     {
      "classe": "nome",

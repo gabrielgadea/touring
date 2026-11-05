@@ -3,7 +3,7 @@
 # adapt (INT-ADAPT). P0B: diff int97 -> p0b só nos arquivos do P0B (fora E2EHERM, CLI e bancos de runtime).
 # FRAG: diff frag-base -> frag. Uso: bash simula_r97.sh  (saída em ../simulacao_r97.txt e ../patches/)
 set -u
-P=/home/gabrielgadea/projects
+P=${HOME}/projects
 GIT_DIR=$P/touring/.git
 D=$P/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int-adapt
 OUT=$D/patches

@@ -11,15 +11,15 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
     <!-- Trunk-managed CSS, cascade order matters (SPEC §9.2):
          main.css (legacy, shrinking per-wave) → tokens.css → elite.css (canonical wins). -->
-    <link rel="stylesheet" href="/main-c5b86f63461bb00.css" integrity="sha384-aGvEjKecdn+Hj7Np07gLZ2IY1+PVJdbXD4UgBrLP5IGs//UjQXcXsyenie3luAB8"/>
+    <link rel="stylesheet" href="/main-0c5b86f63461bb00.css" integrity="sha384-aGvEjKecdn+Hj7Np07gLZ2IY1+PVJdbXD4UgBrLP5IGs//UjQXcXsyenie3luAB8"/>
     <link rel="stylesheet" href="/tokens-64df6318ea1c6115.css" integrity="sha384-S8edgizekodgv13MP0P8FkaIeWWbtkB7PXEXyi+2L1RWF3I3GKcB5z28nUFzCpA2"/>
-    <link rel="stylesheet" href="/elite-2d78b40e69f37fe2.css" integrity="sha384-hTa2zPal0a7KLX2QmTyrEhkTUCt4mOgcVMFSKXmlDHlUxKvOLv3KcffCtUcvv4Y5"/>
+    <link rel="stylesheet" href="/elite-e5dd829fcbb953b6.css" integrity="sha384-Ds1hKolHzrtBH8Ngc6LHqS1FqHxFW3YR84yaJBK2gcjFDxP9UBFCZy91nPMeRVJw"/>
     <link rel="stylesheet" href="/charts-c882165fa7d8f9c5.css" integrity="sha384-IDUlFArj75el8ReUeesfotdz9y6oB2uyPpst26cZkOyt59BISi8OoPl6Sk8rtIHa"/>
     <link rel="stylesheet" href="/pages-5fc053f1f0ecf9f7.css" integrity="sha384-jLA2/B1m6r4JPi3+YeTaXWzOGExo3Yx2iJr2EMyYH3TTtxYbVsHsJcLC4a3U5+y+"/>
     <!-- Vendored UMD scripts (three.js v0.149.0 UMD + 3d-force-graph + svg-pan-zoom).
          Hosted locally to avoid Chrome ORB blocking cross-origin CDN scripts. -->
     
-<link rel="modulepreload" href="/touring-web-d3e1b058fa9ce534.js" crossorigin="anonymous" integrity="sha384-sTIEwxQD9oowbVJ4L3sdO5F9gAzQoCeVNWfBnLBrPg6XNI4a5q9O86nd/aPURh6C"><link rel="preload" href="/touring-web-d3e1b058fa9ce534_bg.wasm" crossorigin="anonymous" integrity="sha384-6hbS+/tBOsWRcjReQBp3bP7pR0AJj89YCUd5G0zhS/hqWMz4IcXb1qddDrTZ5xMi" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/touring-web-594740b8269046aa.js" crossorigin="anonymous" integrity="sha384-hgCOiHYdcTKyPatkxCre/fTd7iUi+pmo78CO+7XZLTuha7lYajhuQ4zkz9VtxROm"><link rel="preload" href="/touring-web-c9c1bfb68dd372e9_bg.wasm" crossorigin="anonymous" integrity="sha384-VISA1AKcCGd4ZoJDJE5ER4kJfQkXPoC31Ov3X1INUktWGMriiOHTb549MnH3q0ip" as="fetch" type="application/wasm"></head>
 <body>
     <div class="cosmos-backdrop" aria-hidden="true">
         <div class="cosmos-nebula"></div>
@@ -84,18 +84,17 @@
         shellMeshes: {} // shell_level → [solidMesh, wireframeMesh]
     };
 
-    const WORKSPACE_PREFIXES = [
-        '/home/gabrielgadea/.claude/rust/',
-        '/home/gabrielgadea/.claude/rust'
-    ];
+    // The workspace root is DERIVED from the ids, never compiled in (it used to be one
+    // developer's checkout path — a root that exists on no other machine): a workspace
+    // node id is an absolute path whose repo-relative part starts at `crates/`, so the
+    // root is whatever precedes that first segment. Ids that are already relative, or
+    // that carry no `/crates/` segment, pass through unchanged.
+    const WORKSPACE_ROOT_RE = /^\/.*?\/(?=crates\/)/;
     function normalizePath(p) {
         if (!p) return p;
         // Preserve synthetic external-crate IDs (`ext:tokio`, `ext:serde`, …).
         if (p.startsWith('ext:')) return p;
-        for (let i = 0; i < WORKSPACE_PREFIXES.length; i++) {
-            if (p.startsWith(WORKSPACE_PREFIXES[i])) return p.slice(WORKSPACE_PREFIXES[i].length);
-        }
-        return p;
+        return p.replace(WORKSPACE_ROOT_RE, '');
     }
     /* Extract the crate name from a node path.
        Workspace nodes match `/crates/<name>/...` (e.g. `crates/touring-web/src/lib.rs`).
@@ -1989,8 +1988,8 @@
     </script>
 
 <script type="module">
-import init, * as bindings from '/touring-web-d3e1b058fa9ce534.js';
-const wasm = await init({ module_or_path: '/touring-web-d3e1b058fa9ce534_bg.wasm' });
+import init, * as bindings from '/touring-web-594740b8269046aa.js';
+const wasm = await init({ module_or_path: '/touring-web-c9c1bfb68dd372e9_bg.wasm' });
 
 
 window.wasmBindings = bindings;

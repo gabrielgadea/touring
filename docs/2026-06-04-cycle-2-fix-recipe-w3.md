@@ -41,7 +41,7 @@ import it.
 
 ```bash
 # If `gateway/shared.rs` doesn't exist:
-touch /home/gabrielgadea/.claude/rust/crates/touring-hooks/src/gateway/shared.rs
+touch ~/.claude/rust/crates/touring-hooks/src/gateway/shared.rs
 ```
 
 ```rust
@@ -74,7 +74,7 @@ use super::shared::SandboxOutcome;
 ### Step 5 — Verify
 
 ```bash
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 cargo check --workspace 2>&1 | tail -5     # MUST be exit 0
 touring wiring cycles --min-depth 2 2>&1 | head -20
 # Cycle #2 should no longer appear in the output.

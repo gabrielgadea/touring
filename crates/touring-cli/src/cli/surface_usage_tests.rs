@@ -2,7 +2,7 @@
 //! model against what was USED. Report only — nothing here prunes or writes.
 
 use super::*;
-use crate::cli::transcript_scan::fixtures::*;
+use crate::cli::transcript_scan::{fixtures::*, read_lines};
 use serde_json::json;
 
 /// A marker planted in the prose of every announcement the fixtures carry.
@@ -10,7 +10,7 @@ const CANARY: &str = "CANARIO-NAO-VAZAR";
 
 fn tracker(lines: &[String]) -> SurfaceTracker {
     let mut t = SurfaceTracker::default();
-    t.observe_lines(lines.iter().map(String::as_str));
+    read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
     t
 }
 

@@ -1,14 +1,14 @@
 == data utc: 2026-10-10T01:16:10Z
 == daemon pid file:
 751583== readlink symlinks:
-touring -> /home/gabrielgadea/projects/touring/target/release/touring
-touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
-touring-hook -> /home/gabrielgadea/projects/touring/target/release/touring-hook
-update-touring -> /home/gabrielgadea/projects/touring/scripts/update-touring
+touring -> ~/projects/touring/target/release/touring
+touring-daemon -> ~/projects/touring/target/release/touring-daemon
+touring-hook -> ~/projects/touring/target/release/touring-hook
+update-touring -> ~/projects/touring/scripts/update-touring
 == hook shim:
-lrwxrwxrwx 1 gabrielgadea gabrielgadea   58 Oct  9 13:31 /home/gabrielgadea/.claude/hooks/touring -> /home/gabrielgadea/projects/touring/target/release/touring
-lrwxrwxrwx 1 gabrielgadea gabrielgadea   65 Oct  9 13:31 /home/gabrielgadea/.claude/hooks/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
--rwxr-xr-x 1 gabrielgadea gabrielgadea 4704 Oct  9 13:31 /home/gabrielgadea/.claude/hooks/touring-hook
+lrwxrwxrwx 1 gabrielgadea gabrielgadea   58 Oct  9 13:31 ~/.claude/hooks/touring -> ~/projects/touring/target/release/touring
+lrwxrwxrwx 1 gabrielgadea gabrielgadea   65 Oct  9 13:31 ~/.claude/hooks/touring-daemon -> ~/projects/touring/target/release/touring-daemon
+-rwxr-xr-x 1 gabrielgadea gabrielgadea 4704 Oct  9 13:31 ~/.claude/hooks/touring-hook
 == toolchains:
 total 0
 drwxr-xr-x 1 gabrielgadea gabrielgadea 742 Oct  9 13:31 .
@@ -105,7 +105,7 @@ touring 30.4.95
   binary:   2026-10-09T16:31:28Z (mtime)
   features: analysis-gate,async-memory,build-info,cognitive-nexus,console,default,ebpf-telemetry,file-logs,generator-wasm-sandbox,generator-zero-copy,heap-profile,jemalloc,l7b-alpha,mcp-curated,mcts-synthesis,memory-integration,nlp-reranking,observability,otlp,rkyv-ipc,rl-integration,scip-emit,simd-fuzzy,syn-quote,tantivy-fts,wasm-plugins
 == daemon /proc exe:
-/home/gabrielgadea/projects/touring/target/release/touring-daemon
+~/projects/touring/target/release/touring-daemon
 touring-daemon
 == sha256 target/release:
 a33c60007f386f39ddcb3c253c74405501d223538197a963e4adc907a9c0bf1a  target/release/touring

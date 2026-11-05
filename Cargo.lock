@@ -13234,23 +13234,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "touring-capnp-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "capnp",
- "capnp-rpc",
- "futures",
- "hdrhistogram",
- "serde_json",
- "tempfile",
- "tokio",
- "tokio-util",
- "touring-bindings",
- "touring-foundation",
-]
-
-[[package]]
 name = "touring-ceg"
 version = "30.4.102"
 dependencies = [
@@ -13269,7 +13252,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "touring-code",
- "touring-contracts",
  "touring-foundation",
  "touring-hooks-shared",
  "touring-offensive",
@@ -13384,13 +13366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "touring-contracts"
-version = "30.4.102"
-dependencies = [
- "serde_json",
-]
-
-[[package]]
 name = "touring-cortex"
 version = "1.0.0"
 dependencies = [
@@ -13471,12 +13446,8 @@ dependencies = [
  "tokio",
  "toml 0.8.23",
  "touring-analysis",
- "touring-bindings",
- "touring-capnp-server",
  "touring-ceg",
  "touring-cli",
- "touring-code",
- "touring-contracts",
  "touring-foundation",
  "touring-hook-handlers",
  "touring-hook-runtime",
@@ -13486,11 +13457,9 @@ dependencies = [
  "touring-hooks-saga",
  "touring-hooks-shared",
  "touring-intelligence",
- "touring-offensive",
  "touring-orchestration",
  "touring-rkyv",
  "touring-simd",
- "touring-storage",
  "tracing",
  "tracing-subscriber",
  "tracing-test",
@@ -13583,6 +13552,7 @@ dependencies = [
  "touring-bindings",
  "touring-code",
  "touring-foundation",
+ "touring-hooks",
  "touring-hooks-shared",
  "touring-identity",
  "touring-intelligence",
@@ -13697,7 +13667,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "touring-analysis",
- "touring-capnp-server",
+ "touring-bindings",
  "touring-code",
  "touring-dispatch",
  "touring-foundation",
@@ -13740,7 +13710,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "touring-analysis",
- "touring-capnp-server",
+ "touring-bindings",
  "touring-ceg",
  "touring-code",
  "touring-foundation",

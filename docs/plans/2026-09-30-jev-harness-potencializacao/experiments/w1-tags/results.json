@@ -2,7 +2,7 @@
   "subtask": "S-1.1",
   "n": 100,
   "seed": 20260930,
-  "db": "/home/gabrielgadea/projects/touring/.claude/touring/memory.db",
+  "db": "~/projects/touring/.claude/touring/memory.db",
   "vocabulary": [
     "snippet",
     "doc",
@@ -4152,7 +4152,7 @@
       "route": "api"
     },
     {
-      "key": "vgp:create:/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/moka_policies.rs:FileKnowledgeDB",
+      "key": "vgp:create:~/.claude/rust/crates/touring-foundation/src/moka_policies.rs:FileKnowledgeDB",
       "current_tag": "lesson",
       "kind_tags_all": [
         {

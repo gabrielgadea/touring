@@ -4,5 +4,5 @@ status: [('arquivo-removido', 261), ('candidato', 71), ('teste-passa-hoje', 48),
 status em /tmp (trabalho de sessão): [('arquivo-removido', 213), ('candidato', 5), ('linha-mudou', 2)]
 vivo-estático por classe: []
 candidato por classe: [('ModuleNotFoundError', 13), ('AttributeError', 9), ('ValueError', 8), ('PermissionError', 7), ('KeyError', 5), ('NameError', 5), ('FileNotFoundError', 5), ('TypeError', 3)]
-detalhe: /home/gabrielgadea/.claude/touring/vgp/vivos.jsonl
+detalhe: ~/.claude/touring/vgp/vivos.jsonl
 vivos rc=0

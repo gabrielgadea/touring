@@ -1,0 +1,53 @@
+{
+  "adherence": {
+    "available": true,
+    "by_failure_kind": {
+      "exception": 217,
+      "other": 1,
+      "output-limit": 9,
+      "proc-exit": 4,
+      "timeout": 77
+    },
+    "by_language": {
+      "?": 8,
+      "bash": 220,
+      "go": 1,
+      "js": 31,
+      "perl": 3,
+      "php": 1,
+      "python": 197,
+      "ruby": 3,
+      "rust": 3,
+      "shell": 35,
+      "ts": 6,
+      "zig": 1
+    },
+    "malformed_lines": 5,
+    "note": "wasted = run da mesma linguagem <120s após uma falha (proxy); malformed_lines = linhas do journal que não parsearam (escrita concorrente) — contadas, nunca puladas em silêncio",
+    "runs_ok": 193,
+    "runs_total": 509,
+    "source": "run_journal.jsonl",
+    "success_rate": 0.3791748526522593,
+    "wasted_attempts_retry_pairs": 84
+  },
+  "reuse": {
+    "available": true,
+    "brief_runs": 4,
+    "file_runs": 106,
+    "floor": 0.2,
+    "harvested_runs": 0,
+    "hint_coverage": 0.024,
+    "hinted_runs": 6,
+    "inline_runs": 144,
+    "ladder_enrolled": 0,
+    "ladder_reused": 0,
+    "orchestrate_runs": 0,
+    "persistent_file_runs": 61,
+    "reuse_ratio": 0.244,
+    "scratch_file_runs": 45,
+    "status": "PASS",
+    "total_tmp_bytes": 2843522,
+    "v1_runs": 248,
+    "v2_runs": 250
+  }
+}

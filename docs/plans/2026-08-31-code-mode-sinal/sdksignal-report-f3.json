@@ -1,6 +1,6 @@
 {
   "generated_at_unix": 0,
-  "source_journal_path": "/home/gabrielgadea/.claude/touring/run_journal.jsonl",
+  "source_journal_path": "~/.claude/touring/run_journal.jsonl",
   "total_runs": 5679,
   "hooks": {
     "ast_blast": {

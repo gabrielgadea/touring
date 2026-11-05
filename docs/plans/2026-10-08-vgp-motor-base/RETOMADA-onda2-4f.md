@@ -65,7 +65,7 @@ disco nunca teve. O DELTA rotulado era `delta(HEAD → depois)`, não `delta(ant
 ## Comandos
 
 ```bash
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=~/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 O=~/.claude/touring/vgp/oss
 
 # selftests (todos rc=0)
@@ -83,7 +83,7 @@ python3 -I $B/scripts/rotular_oss.py --max-commits 200 --alvo 300
 python3 -I ~/.claude/touring/vgp/scratch/auditoria_oss.py
 
 # Rust real: PRECISA do hw-slot; não forçar
-cd /home/gabrielgadea/projects/touring-wt-semeado
+cd ~/projects/touring-wt-semeado
 hw-slot --class rust -- python3 -I $B/scripts/corpus_rust_real.py --selftest
 hw-slot --class rust -- python3 -I $B/scripts/corpus_rust_real.py --n 20
 
@@ -132,7 +132,7 @@ vezes isso me devolveu o conteúdo do arquivo errado e eu editei em cima da leit
 - hora: ~`2026-10-10T00:12Z`
 - o que eu digitei: um `sed -n` no `prova_equivalencia_js.py`
 - o que o hook devolveu: `[G10 exec-burst] 5ª chamada seriada ...` com
-  `# já executado (não repetir): ... /home/gabrielgadea/.cache/vgp-semeado/mede_teto_holdout.py`,
+  `# já executado (não repetir): ... ~/.cache/vgp-semeado/mede_teto_holdout.py`,
   `scripts/construir_holdout_web.py`, `prova_equivalencia_ls.py` — comandos meus de **rodadas
   anteriores**, nunca executados nesta janela.
 - contagem no transcript da sessão: **10 ocorrências** do padrão de replay.
@@ -1226,7 +1226,7 @@ de 177 KB — entao **nao e tamanho, nao e repo, nao e maquina**.
 | a resposta passa do buffer do pipe | eram **188 e 202 bytes** declarados |
 
 ### O que achei e era REAL, mas **nao e a causa**
-`getScriptFileNames` fazia `require("/home/gabrielgadea/projects/analise/frontend/...")` — caminho
+`getScriptFileNames` fazia `require("~/projects/analise/frontend/...")` — caminho
 ABSOLUTO de outra sessao, que **sombreava** o `ts` do repo rotulado. Um `npm ci` na sessao `analise`
 apagaria aquele `node_modules` e o `require` lancaria MODULE_NOT_FOUND dentro de um callback que o
 TypeScript chama durante o `delta` — fora do `try/catch` do handler. **Corrigido** (o `ts` do
@@ -1587,7 +1587,7 @@ precisa estar no `nome_esperado`: e o que o motor emite que tem de bater com o d
 ### VEREDITO do selftest 2 (apos a correcao da `mensagem`)
 
 ```
-selftest: 38/38 em 116s - sombra em /home/gabrielgadea/.cache/vgp-semeado/proj-atenn_7d/frontend
+selftest: 38/38 em 116s - sombra em ~/.cache/vgp-semeado/proj-atenn_7d/frontend
 FALHA count: 0     exit 0
 ```
 

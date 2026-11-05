@@ -4,16 +4,16 @@
 # (frag-base → frag) com a prova de que reconstrói a árvore do FRAG. Para no primeiro elo vermelho.
 # Uso: bash pipeline_frag.sh <pasta-de-saida>
 set -u
-D=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
+D=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
 S=$D/frag/scripts
 OUT=${1:?pasta de saida}
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
-P=/home/gabrielgadea/projects
+HW=${HOME}/projects/touring/scripts/hw-slot
+P=${HOME}/projects
 WT=$P/touring-wt-frag
 export CARGO_TARGET_DIR=$P/touring/target/wt-frag
-REF=/home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0/touring
-VGP=/home/gabrielgadea/.claude/touring/vgp
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+REF=${HOME}/.claude/touring/vgp/binarios/8fd0efb0/touring
+VGP=${HOME}/.claude/touring/vgp
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 mkdir -p "$OUT"
 L=$OUT/pipeline.rc
 : > "$L"
@@ -21,7 +21,7 @@ L=$OUT/pipeline.rc
 # ---------------------------------------------------------------- 1. gates
 cat > "$OUT/gates.sh" << 'GATES'
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-frag
+WT=${HOME}/projects/touring-wt-frag
 O=$1
 cd "$WT" || exit 9
 RC=$O/gates.rc
@@ -62,13 +62,13 @@ grep -a -E 'SOBREVIV|COMPILA_MAL|FANTASMA|ABORTA' "$OUT/mutantes.log" | sed 's/^
 cat > "$OUT/release.sh" << 'REL'
 set -u
 O=$1
-cd /home/gabrielgadea/projects/touring-wt-frag || exit 9
+cd ${HOME}/projects/touring-wt-frag || exit 9
 BIN=$CARGO_TARGET_DIR/release/touring
 RC=$O/release.rc
 : > "$RC"
 cargo build --release -p touring-server --bin touring > "$O/build1.log" 2>&1 || { echo "build 1 FALHOU" >> "$RC"; exit 1; }
 SHA=$(sha256sum "$BIN" | cut -d' ' -f1)
-DEST=/home/gabrielgadea/.claude/touring/vgp/binarios/${SHA:0:8}
+DEST=${HOME}/.claude/touring/vgp/binarios/${SHA:0:8}
 mkdir -p "$DEST"
 if [ -e "$DEST/touring" ]; then cmp -s "$BIN" "$DEST/touring" || { echo "CONFLITO em $DEST" >> "$RC"; exit 1; }; else cp "$BIN" "$DEST/touring"; chmod 755 "$DEST/touring"; echo "$SHA  touring" > "$DEST/touring.sha256"; fi
 echo "congelado $DEST sha $SHA" >> "$RC"
@@ -91,7 +91,7 @@ J=$OUT/juizes
 mkdir -p "$J"
 cat > "$OUT/juizes.sh" << JZ
 set -u
-cd /home/gabrielgadea/projects/analise || exit 9
+cd ${HOME}/projects/analise || exit 9
 export TOURING_CODE_MODE=native
 for c in vivo bak; do
   corpus=$VGP/corpus_v0d; [ "\$c" = bak ] && corpus=$VGP/corpus_v0d.bak-2026-10-09

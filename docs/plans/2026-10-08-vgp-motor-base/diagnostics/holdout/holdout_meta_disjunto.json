@@ -1,6 +1,6 @@
 {
  "corte": "2026-10-09T18:14:31.894Z",
- "saida": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto",
+ "saida": "~/.claude/touring/vgp/corpus_holdout_disjunto",
  "vivo_sha_tree_antes": "b06b89113c869097",
  "temporal_sha_tree_antes": "6f5fc46410884fd2",
  "parametros": {

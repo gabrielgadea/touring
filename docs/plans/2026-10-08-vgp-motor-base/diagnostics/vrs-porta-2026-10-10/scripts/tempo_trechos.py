@@ -3,6 +3,9 @@
 Uso: touring run --file tempo_trechos.py --args '[BIN1,BIN2, PATH_REAL, N, "trecho1", "trecho2", ...]'
 Um trecho que comeca por `@` e o caminho de um arquivo cujo conteudo inteiro e o trecho."""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import subprocess
 import sys
@@ -10,7 +13,7 @@ import tempfile
 
 bins, caminho, n, *trechos = sys.argv[1:]
 n = int(n)
-RAIZ = "/home/gabrielgadea/projects/touring"
+RAIZ = f"{_HOME}/projects/touring"
 for t in trechos:
     if t.startswith("@"):
         corpo = open(t[1:]).read()

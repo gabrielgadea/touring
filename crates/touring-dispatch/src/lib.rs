@@ -50,6 +50,7 @@ pub use touring_hooks_prediction::classifier; // Wave T1 handler — Wave C2 (20
 pub use touring_hooks_core::proc_identity;
 pub use touring_hooks_shared::action_signature; // 2026-05-15: ActionSignature — (tool_class, intent_class, context_qualifier) key for action-scoped outcome persistence
 // Wave R+C I2 (2026-06-10): pure extractors carved from post_read to the core.
+pub use touring_cli::cli::transcript_scan; // C1 (2026-11-04): the transcript READER (record-kind policy: main thread only, one tool_use per id) — reached by the server-side transcript miner through touring-hooks
 pub use touring_cli::cli_suggester; // PreToolUse classifier — Wave C2 (2026-06-10): lives in touring-cli
 pub use touring_cli::workflow; // CEG Pln2 P8 Workflow Intelligence — Wave C2 (2026-06-10): lives in touring-cli with its single consumer (cli_suggester)
 pub use touring_hook_runtime::gotcha_loader; // Wave Q3: YAML rule library loader for gotchas
@@ -57,7 +58,6 @@ pub use touring_hook_runtime::suggesters; // Pln3 suggestion detectors — Wave 
 pub use touring_hook_runtime::task_digest; // Wave H (2026-06-10): lives in the runtime layer
 pub use touring_hooks_core::mutation_test; // Wave T1: cargo-mutants wrapper lib (config + report + parser + cache)
 pub use touring_hooks_core::panic_log; // Sprint 4.5 (2026-05-23): std::panic::set_hook captures forensics to ~/.claude/touring/daemon-crash.jsonl before process abort
-pub use touring_hooks_core::pre_tool_validator;
 pub use touring_hooks_core::symbol_extractors; // Sprint 3 PC-1 (2026-05-23): set_process_name via extern prctl(PR_SET_NAME) — REGRA #19 process distinguishability
 pub use touring_hooks_core::workflow_templates; // TR-5 2026-05-19: W1-W10 reusable decompose blueprint catalog (Rn2 §6)
 pub use touring_hooks_prediction::pii;
@@ -65,7 +65,7 @@ pub use touring_hooks_prediction::tfidf_retriever;
 pub use touring_hooks_shared::memory_finding; // Wave Q4: M-500..M-530 diagnostic codes for memory recall outcomes // Wave M1 reescopado: TF-IDF over touring memory + decompose corpus // Pln3-P3: uniform Suggester trait + storage helpers for suggesters
 
 // Wave 5 (2026-04-18) — link-time declarative hook registration (side-by-side
-// with the manual ALL_DAEMON_HOOK_NAMES table). See inventory_registry.rs.
+// with the manual `hook_registry::build_dispatch_table` declaration). See inventory_registry.rs.
 pub use touring_hooks_core::inventory_registry;
 
 // Wave 5 (2026-04-18) — public Rust workflow advisory helpers

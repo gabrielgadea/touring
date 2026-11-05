@@ -12,4 +12,4 @@ timeouts da camada 2: 522/1064 · taxa 49.06% · patamar 20% · sinal presente �
   PENDENTE: p95 1119.7 ms > 1000.0 ms
   PENDENTE: taxa de timeout da camada 2 49.06% acima do patamar 20% (522/1064) — os denies perdidos pelas timeouts distorcem o falso deny (JUIZ-TIMEOUT)
 veredito: INCONCLUSIVO — taxa de timeout da camada 2 49.06% acima do patamar 20% (522/1064) — os denies perdidos pelas timeouts distorcem o falso deny (JUIZ-TIMEOUT)
-[instrumentado] 1064 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j15/8fd0efb0_v3.porid.json
+[instrumentado] 1064 veredictos do motor gravados em ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j15/8fd0efb0_v3.porid.json

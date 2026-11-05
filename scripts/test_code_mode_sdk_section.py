@@ -23,7 +23,13 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 HOOK = REPO / "scripts" / "hooks" / "code_mode_sdk_section.py"
 INSTALADA = REPO / "client" / "hooks" / "code_mode_sdk_section.py"
-SUGGESTER = REPO / "crates" / "touring-cli" / "src" / "cli_suggester.rs"
+# The executor's predicate lives in code_mode_gates since 02/11/2026 (it left cli_suggester.rs);
+# reading the old file made every D8 guard below fail on a missing constant, so the text drifted
+# from the executor unseen (the section kept promising a deny the S3 burst stopped applying on
+# 09/10/2026).
+GATES = REPO / "crates" / "touring-cli" / "src" / "code_mode_gates"
+SHELL = GATES / "shell.rs"
+SPEC = GATES / "spec.rs"
 
 spec = importlib.util.spec_from_file_location("code_mode_sdk_section", HOOK)
 hook = importlib.util.module_from_spec(spec)
@@ -100,7 +106,8 @@ def test_section_declares_mode_and_origin():
     body = hook.section(STUB, "code", "TOURING_CODE_MODE (sessão)")
     assert "apresentação `code`" in body
     assert "TOURING_CODE_MODE (sessão)" in body
-    assert "NEGADA" in body  # o efeito do modo code é dito com todas as letras
+    # o efeito do modo code é dito com todas as letras: a rajada AVISA (D, 09/10/2026), nunca nega
+    assert "aviso" in body.lower() and "nunca é negada" in body
 
 
 def test_section_native_says_induction_off():
@@ -170,28 +177,31 @@ def test_a_cut_is_declared_at_a_line_boundary():
 
 
 def _rust_collapsed_classes() -> list[str]:
-    src = SUGGESTER.read_text(encoding="utf-8")
+    src = SHELL.read_text(encoding="utf-8")
     m = re.search(
         r'CODE_MODE_COLLAPSED_CLASSES:\s*&\[&str\]\s*=\s*&\[([^\]]+)\]', src
     )
-    assert m, "CODE_MODE_COLLAPSED_CLASSES não encontrado no cli_suggester.rs"
+    assert m, f"CODE_MODE_COLLAPSED_CLASSES não encontrado em {SHELL}"
     # `[\w-]+`, não `\w+`: a classe `sed-n` tem hífen, e o `\w+` a lia como
     # `sed` — na prática ela era INVISÍVEL a este guard (furo achado no S3,
     # 27/08). Um verificador que casa menos que o extrator mede outra coisa.
     return re.findall(r'"([\w-]+)"', m.group(1))
 
 
-def _rust_deny_at() -> int:
-    src = SUGGESTER.read_text(encoding="utf-8")
-    m = re.search(r'INSPECT_BURST_DENY_AT:\s*u32\s*=\s*(\d+)', src)
-    assert m, "INSPECT_BURST_DENY_AT não encontrado no cli_suggester.rs"
-    return int(m.group(1))
+def _rust_trigger() -> tuple[str, int]:
+    """(verbo, N): o S3 avisa na N-ésima (`INSPECT_BURST_ADVISE_AT`, D 09/10/2026) ou, se um dia
+    voltar a negar, `INSPECT_BURST_DENY_AT`. Exatamente um dos dois existe."""
+    src = SPEC.read_text(encoding="utf-8")
+    advise = re.search(r'INSPECT_BURST_ADVISE_AT:\s*u32\s*=\s*(\d+)', src)
+    deny = re.search(r'INSPECT_BURST_DENY_AT:\s*u32\s*=\s*(\d+)', src)
+    assert bool(advise) != bool(deny), f"esperava exatamente um gatilho do S3 em {SPEC}"
+    return ("avisa", int(advise.group(1))) if advise else ("nega", int(deny.group(1)))
 
 
 def _rust_window_secs() -> int:
-    src = SUGGESTER.read_text(encoding="utf-8")
+    src = SPEC.read_text(encoding="utf-8")
     m = re.search(r'INSPECT_BURST_WINDOW_SECS:\s*u64\s*=\s*(\d+)', src)
-    assert m, "INSPECT_BURST_WINDOW_SECS não encontrado no cli_suggester.rs"
+    assert m, f"INSPECT_BURST_WINDOW_SECS não encontrado em {SPEC}"
     return int(m.group(1))
 
 
@@ -215,13 +225,25 @@ def test_d8_declared_trigger_matches_executor_predicate():
     está presente. Presença não é declaração. Aqui o que se compara é o
     GATILHO: se o executor nega a partir da N-ésima chamada em W segundos, a
     seção tem de dizer N e W — os dois números, do executor, no texto."""
-    deny_at, window = _rust_deny_at(), _rust_window_secs()
+    verbo, at = _rust_trigger()
+    window = _rust_window_secs()
     body = hook.section(STUB, "code", "default")
     efeito = next(l for l in body.splitlines() if l.startswith("Efeito:"))
-    ordinal = {2: "2ª", 3: "3ª", 4: "4ª"}.get(deny_at, f"{deny_at}ª")
+    ordinal = {2: "2ª", 3: "3ª", 4: "4ª"}.get(at, f"{at}ª")
     assert ordinal in efeito, (
-        f"executor nega na {ordinal} chamada, mas a seção não declara esse gatilho: {efeito}"
+        f"executor {verbo} na {ordinal} chamada, mas a seção não declara esse gatilho: {efeito}"
     )
+    # O VERBO também é contrato: prometer deny onde o executor só avisa faz o modelo pagar por
+    # uma negação que não existe (e o inverso o faz ignorar uma que existe).
+    if verbo == "avisa":
+        # Only the explicit negation may mention it; any other "negad…" is a promise of a deny.
+        sem_negacao_explicita = efeito.lower().replace("nunca é negada", "")
+        assert "negad" not in sem_negacao_explicita, (
+            f"o executor só AVISA na rajada, mas a seção promete negação: {efeito}"
+        )
+        assert "aviso" in efeito.lower(), f"a seção não declara o aviso: {efeito}"
+    else:
+        assert "NEGADA" in efeito.upper(), f"o executor nega, mas a seção não o diz: {efeito}"
     assert f"{window}s" in efeito, (
         f"executor usa janela de {window}s, mas a seção não a declara: {efeito}"
     )

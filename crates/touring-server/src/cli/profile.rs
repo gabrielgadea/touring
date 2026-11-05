@@ -136,19 +136,31 @@ fn profile_status(args: &[String]) -> Result<()> {
 
 // ── PARCER profile management ───────────────────────────────────────────────
 
-const PARCER_DIR: &str = "/home/gabrielgadea/.claude/agents";
+/// Directory of the PARCER agent profiles (`~/.claude/agents`). Errors when no home
+/// directory can be derived — there is no compiled-in default location.
+fn parcer_dir() -> Result<std::path::PathBuf> {
+    touring_foundation::user_home::claude_home()
+        .map(|claude| claude.join("agents"))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "{} — cannot locate the PARCER agents directory",
+                touring_foundation::user_home::NO_HOME_REASON
+            )
+        })
+}
 
 /// Schema file shipped inside the workspace — follows the canonical source
 /// root (Productization Fase 0: `TOURING_WORKSPACE_ROOT` env override →
-/// historical global default), unlike `PARCER_DIR` which is user config
-/// (`~/.claude/agents`) and does not move with the source tree.
+/// the resolved project root), unlike [`parcer_dir`] which is user config
+/// (`~/.claude/agents`) and does not move with the source tree. A root that does
+/// not hold the schema surfaces as the named read error in `profile_validate`.
 fn parcer_schema_path() -> String {
     let root = std::env::var("TOURING_WORKSPACE_ROOT")
-        .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring".to_string());
-    format!(
-        "{}/crates/touring-server/schemas/parcer-profile.schema.json",
-        root.trim_end_matches('/')
-    )
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| touring_foundation::config::resolve_project_root());
+    root.join("crates/touring-server/schemas/parcer-profile.schema.json")
+        .display()
+        .to_string()
 }
 
 fn profile_validate(args: &[String]) -> Result<()> {
@@ -164,7 +176,10 @@ fn profile_validate(args: &[String]) -> Result<()> {
             })
         })
         .unwrap_or_else(|| "touring-engineer".to_string());
-    let profile_path = format!("{PARCER_DIR}/touring-{agent}.parcer.yaml");
+    let profile_path = parcer_dir()?
+        .join(format!("touring-{agent}.parcer.yaml"))
+        .display()
+        .to_string();
 
     let profile_text = match std::fs::read_to_string(&profile_path) {
         Ok(t) => t,
@@ -292,8 +307,9 @@ fn profile_list(args: &[String]) -> Result<()> {
     // so power users can grep without piping (REGRA #0 potencializar).
     let filter: Option<String> = flag_value(args, "--filter").map(|s| s.to_lowercase());
 
+    let parcer_dir = parcer_dir()?;
     let mut agents = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(PARCER_DIR) {
+    if let Ok(entries) = std::fs::read_dir(&parcer_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
             if name.starts_with("touring-") && name.ends_with(".parcer.yaml") {
@@ -311,7 +327,10 @@ fn profile_list(args: &[String]) -> Result<()> {
                 agents.push(serde_json::json!({
                     "agent_id": agent,
                     "parcer_yaml": path,
-                    "md_fallback": format!("{PARCER_DIR}/touring-{agent}.md")
+                    "md_fallback": parcer_dir
+                        .join(format!("touring-{agent}.md"))
+                        .display()
+                        .to_string()
                 }));
             }
         }

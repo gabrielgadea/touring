@@ -791,26 +791,60 @@ pub fn cli_decompose_validate(rt: &mut HookRuntime, payload: &serde_json::Value)
     .to_string()
 }
 
-/// Summarizes progress across all decomposition tasks (subtask counts by status) as JSON.
+/// Summarizes the decomposition store as JSON: `total_tasks`, `total_subtasks` and
+/// `open_tasks` (tasks whose status is not terminal in the foundation's vocabulary).
+///
+/// `open_tasks` is the count a reader comparing "work in flight" wants: `total_tasks`
+/// includes every finalized plan ever recorded, so a reader that compared against it
+/// could never see a gap. The hook readers once read a `task_count` key this producer
+/// never emitted, so the DAG always counted 0 (aprofundamento #7, 04/11/2026).
+///
+/// `latest_plan_subtasks` is the size of the plan being worked on (see the body); the
+/// `dag-gap` hint compares a Claude Code task list against it.
 pub fn cli_decompose_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let db = &rt.ctx.knowledge;
     ensure_decompose_tables(db);
 
-    let total_tasks: i64 = db
+    // Every count is `null` when its query fails: a failed read must not answer "0 tasks"
+    // (a reader keyed on zero would conclude the store is idle). The readers already treat an
+    // absent or `null` count as unknown.
+    let total_tasks: Option<i64> = db
         .conn_ref()
         .query_row("SELECT COUNT(*) FROM task_decompositions", [], |r| r.get(0))
-        .unwrap_or(0);
+        .ok();
 
-    let total_subtasks: i64 = db
+    let total_subtasks: Option<i64> = db
         .conn_ref()
         .query_row("SELECT COUNT(*) FROM decomposition_subtasks", [], |r| {
             r.get(0)
         })
-        .unwrap_or(0);
+        .ok();
+
+    let open_sql = format!(
+        "SELECT COUNT(*) FROM task_decompositions WHERE status NOT IN ({})",
+        touring_foundation::task_lifecycle::terminal_status_sql_list()
+    );
+    let open_tasks: Option<i64> = db.conn_ref().query_row(&open_sql, [], |r| r.get(0)).ok();
+
+    // Subtasks of the plan being worked on: the open task updated most recently, the same
+    // one `ready` reads under `scope: "latest"`. This is what a Claude Code task list
+    // compares against — `open_tasks` counts every unfinished plan in the store (hundreds),
+    // so a gap against it could never open. `null` when the query fails: an absent signal
+    // must not read as "zero subtasks".
+    let latest_sql = format!(
+        "SELECT COUNT(*) FROM decomposition_subtasks WHERE task_id = (
+             SELECT task_id FROM task_decompositions WHERE status NOT IN ({})
+             ORDER BY updated_at DESC, task_id DESC LIMIT 1)",
+        touring_foundation::task_lifecycle::terminal_status_sql_list()
+    );
+    let latest_plan_subtasks: Option<i64> =
+        db.conn_ref().query_row(&latest_sql, [], |r| r.get(0)).ok();
 
     serde_json::json!({
         "total_tasks": total_tasks,
-        "total_subtasks": total_subtasks
+        "total_subtasks": total_subtasks,
+        "open_tasks": open_tasks,
+        "latest_plan_subtasks": latest_plan_subtasks
     })
     .to_string()
 }

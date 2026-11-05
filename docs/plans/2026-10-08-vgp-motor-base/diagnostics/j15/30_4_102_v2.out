@@ -4,4 +4,4 @@ timeouts da camada 2: 0/1064 · taxa 0.00% · patamar 20% · sinal nao_aplicavel
   falso deny (arquivo): 0/600 · taxa 0.000% · limite_superior_95 0.50% (teto 1%; o n=600 admite até 1 falso(s))
   falso deny (inline): 0/400 · taxa 0.000% · limite_superior_95 0.75% (teto 1%; o n=400 admite até 0 falso(s))
 veredito: PRONTO
-[instrumentado] 1064 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j15/30_4_102_v2.porid.json
+[instrumentado] 1064 veredictos do motor gravados em ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j15/30_4_102_v2.porid.json

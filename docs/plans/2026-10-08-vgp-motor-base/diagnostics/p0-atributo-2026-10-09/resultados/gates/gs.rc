@@ -1,8 +1,8 @@
 build touring rc=0
 build touring-daemon rc=0
--rwxr-xr-x 2 gabrielgadea gabrielgadea 320656584 Oct  9 23:10 /home/gabrielgadea/projects/touring/target/vgp-test/debug/touring
--rwxr-xr-x 2 gabrielgadea gabrielgadea 243800360 Oct  9 23:11 /home/gabrielgadea/projects/touring/target/vgp-test/debug/touring-daemon
-symlinks: target/debug/touring->/home/gabrielgadea/projects/touring/target/vgp-test/debug/touring target/debug/touring-daemon->/home/gabrielgadea/projects/touring/target/vgp-test/debug/touring-daemon 
+-rwxr-xr-x 2 gabrielgadea gabrielgadea 320656584 Oct  9 23:10 ~/projects/touring/target/vgp-test/debug/touring
+-rwxr-xr-x 2 gabrielgadea gabrielgadea 243800360 Oct  9 23:11 ~/projects/touring/target/vgp-test/debug/touring-daemon
+symlinks: target/debug/touring->~/projects/touring/target/vgp-test/debug/touring target/debug/touring-daemon->~/projects/touring/target/vgp-test/debug/touring-daemon 
 test touring-server rc=0
       1 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.39s
       1 test result: ok. 15 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out; finished in 0.40s

@@ -10,24 +10,30 @@ import r3_event_schema as schema  # noqa: E402
 import r3_s4_ab as ab  # noqa: E402
 
 ROOT = "/tmp/r3s4/on"
+HOME = "/home/u"   # synthetic: rewrite() takes the home to normalise as an argument
 PRE = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "session_id": "abc",
-       "cwd": "/home/gabrielgadea/projects/touring/scripts", "transcript_path": "/home/gabrielgadea/.claude/projects/x/y.jsonl",
-       "tool_input": {"command": "grep -n x /home/gabrielgadea/projects/touring/crates/a.rs ~/.claude/x /home/gabrielgadea/.claude/rules"}}
+       "cwd": f"{HOME}/projects/touring/scripts", "transcript_path": f"{HOME}/.claude/projects/x/y.jsonl",
+       "tool_input": {"command": f"grep -n x {HOME}/projects/touring/crates/a.rs ~/.claude/x {HOME}/.claude/rules"}}
 
 
 def test_rewrite_makes_every_real_path_relative_and_prefixes_the_session():
-    out = ab.rewrite(PRE, ROOT)
-    assert "/home/gabrielgadea" not in json.dumps(out)                    # no hook may read the live repository or home
+    out = ab.rewrite(PRE, ROOT, home=HOME)
+    assert HOME not in json.dumps(out)                    # no hook may read the live repository or home
     assert out["cwd"] == ROOT and out["transcript_path"] == ROOT + "/t.jsonl" and out["session_id"] == "s4ab-abc"
     cmd = out["tool_input"]["command"]
     assert cmd == "grep -n x crates/a.rs ~/.claude/x home/.claude/rules" and ROOT not in cmd
 
 
+def test_rewrite_derives_the_real_home_from_the_environment(monkeypatch):
+    monkeypatch.setenv("HOME", HOME)
+    assert ab.rewrite(PRE, ROOT) == ab.rewrite(PRE, ROOT, home=HOME)
+
+
 def test_rewrite_handles_the_bare_forms_without_a_trailing_slash():
-    bare = {**PRE, "tool_input": {"command": "cd /home/gabrielgadea/projects/touring && ls /home/gabrielgadea"}}
-    out = ab.rewrite(bare, ROOT)
+    bare = {**PRE, "tool_input": {"command": f"cd {HOME}/projects/touring && ls {HOME}"}}
+    out = ab.rewrite(bare, ROOT, home=HOME)
     assert out["tool_input"]["command"] == "cd . && ls home"
-    assert ab.rewrite(bare, "/tmp/r3s4/off")["tool_input"] == out["tool_input"]
+    assert ab.rewrite(bare, "/tmp/r3s4/off", home=HOME)["tool_input"] == out["tool_input"]
 
 
 def test_the_command_text_is_byte_identical_in_every_arm_because_the_pensieve_hashes_it():
@@ -156,7 +162,7 @@ def test_the_real_journal_is_searched_by_the_experiment_session_hashes(tmp_path)
 
 
 def test_hook_env_drops_the_session_touring_vars_and_pins_the_project(monkeypatch):
-    monkeypatch.setenv("TOURING_WORKSPACE_ROOT", "/home/gabrielgadea/projects/touring")
+    monkeypatch.setenv("TOURING_WORKSPACE_ROOT", f"{HOME}/projects/touring")
     monkeypatch.setenv("TOURING_PILLAR_INDUCTION_ARMED", "1")
     e = ab.hook_env(ROOT, {"TOURING_R3_EVENTS_FILE": "/tmp/x"})
     assert "TOURING_WORKSPACE_ROOT" not in e and e["TOURING_PILLAR_INDUCTION_ARMED"] == "1"

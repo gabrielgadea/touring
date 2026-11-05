@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter, OrderedDict
@@ -45,7 +46,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import r3_a1_kpi as kpi
 
-PROJ = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring")
+PROJ = os.path.join(os.path.expanduser("~/.claude/projects"),
+                    re.sub(r"[^A-Za-z0-9]", "-", os.path.expanduser("~/projects/touring")))
 OUT_DIR = Path("~/.claude/touring/r3-data").expanduser()
 SINCE = "2026-08-26"
 

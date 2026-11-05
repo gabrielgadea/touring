@@ -8,7 +8,7 @@ timestamp: 2026-08-24T20:50:00-03:00
 plan_id: 2026-08-24-code-mode-antecipa
 plan: code-mode-total
 intent: "potencializar o code mode em todo o modus operandi do Touring, do Claude Code e do LLM"
-scope: /home/gabrielgadea/projects/touring
+scope: ~/projects/touring
 ---
 
 # Code Mode Total (Pln2)

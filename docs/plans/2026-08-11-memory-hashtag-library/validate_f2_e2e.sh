@@ -4,7 +4,7 @@
 # source file becomes a tag-searchable snippet without opening the file,
 # and removing the anchor removes the snippet (code is source of truth).
 set -u
-cd /home/gabrielgadea/projects/touring
+cd ${HOME}/projects/touring
 D="docs/plans/2026-08-11-memory-hashtag-library/fixture"
 mkdir -p "$D"
 F="$D/codetag_fixture.py"

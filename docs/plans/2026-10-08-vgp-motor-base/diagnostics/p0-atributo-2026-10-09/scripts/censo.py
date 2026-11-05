@@ -9,13 +9,16 @@ Um BURACO = nome publico do runtime ausente do namespace estatico em modulo NAO 
 pacote) sao descontados: o motor os resolve por arquivo, nunca pelo namespace.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-SP = Path("/home/gabrielgadea/projects/analise/.venv/lib/python3.12/site-packages")
-PY = "/home/gabrielgadea/projects/analise/.venv/bin/python"
+SP = Path(f"{_HOME}/projects/analise/.venv/lib/python3.12/site-packages")
+PY = f"{_HOME}/projects/analise/.venv/bin/python"
 ALLOW = """numpy PIL pandas scipy requests httpx pydantic yaml attr attrs click rich jinja2 markupsafe dateutil pytz
 tqdm networkx sympy matplotlib sklearn openpyxl bs4 lxml tabulate packaging urllib3 certifi idna charset_normalizer
 anyio starlette fastapi sqlalchemy alembic typer tenacity regex pygments psutil cachetools filelock zipp

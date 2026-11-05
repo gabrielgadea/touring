@@ -46,7 +46,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REF = ROOT / "docs" / "reference"
 ```
 
-Assume layout `docs/gen_reference.py` (script atual). Confere: file está em `/home/gabrielgadea/projects/touring/docs/gen_reference.py` ✅.
+Assume layout `docs/gen_reference.py` (script atual). Confere: file está em `~/projects/touring/docs/gen_reference.py` ✅.
 
 ### 4. Identificar arquivos out-of-sync
 

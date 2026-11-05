@@ -34,6 +34,10 @@ const FRAMEWORK: &[&str] = &[
     // and KEEPS every decision field; its `"updatedInput":` lines are in-module test fixtures
     // proving the field survives the filter — it never originates one.
     "touring-foundation/src/injection_policy.rs",
+    // The hook trace (#6, 04/11/2026) READS the answer a hook printed to record its verdict
+    // (`classify_answer`: an `updatedInput` is a rewrite); its `"updatedInput":` line is an
+    // in-module test fixture of that classifier — it never originates one.
+    "touring-hook-runtime/src/hook_trace.rs",
 ];
 
 fn rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -63,6 +67,11 @@ fn is_production(path: &Path) -> bool {
 }
 
 /// A line that constructs the variant or writes the JSON key (comments excluded).
+///
+/// The `insert("updatedInput"` needle covers the key written through a `serde_json::Map`
+/// (`cli_suggester::verdict_json`, since the gates left `cli_suggester` for `code_mode_gates`
+/// on 02/11/2026): the literal-object forms above no longer matched it, so the pin stopped
+/// seeing a writer that still exists.
 fn produces(text: &str) -> bool {
     produces_any(
         text,
@@ -70,6 +79,7 @@ fn produces(text: &str) -> bool {
             "ContextWithUpdatedInput {",
             "\"updatedInput\":",
             "\"updatedInput\" :",
+            "insert(\"updatedInput\"",
         ],
     )
 }

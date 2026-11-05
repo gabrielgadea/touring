@@ -2,7 +2,7 @@
 
 > **Wave**: ES1 P4 (TIER 2 followup to ES1 P3.5) · **Date**: 2026-06-02 · **Budget**: 2ed · **Actual**: 2.0ed
 > **Roadmap**: `docs/2026-05-30-cah-epic-subsystems-roadmap.md` §"ES1 P2-P3 followups"
-> **Plan**: `/home/gabrielgadea/.claude/plans/robust-riding-rose.md`
+> **Plan**: `~/.claude/plans/robust-riding-rose.md`
 > **Checkpoint (TOON)**: `docs/checkpoints/2026-06-02-es1-p4-claim-from-intent.toon`
 > **DAG task**: `task_1780444790974816425` (3 subtasks S-4-1..S-4-3)
 > **Predecessor**: ES1 P3.5 (SHIPPED 2026-06-02) — wired `filter_by_proof` (single shared claim for all candidates). P3.5 meta-lesson hint: *"P3 meta-lesson's next-level mechanism: derive the ClaimKind that should be proved from the speculative driver's Action. Closure-injectable design, same pattern as filter_by_proof"*.

@@ -5,8 +5,8 @@ Para cada id do seu lote: reproduza OU refute **por comando** (grep, sed -n, `to
 sobre arquivo-fixture que VOCÊ cria em `$SCR`), e registre a linha-chave da saída. Nunca afirme sem ter rodado.
 
 Regras:
-- `SCR=/tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/triagem` para fixtures.
-- Só leitura no repositório `/home/gabrielgadea/projects/touring` e em `~/.claude`. Não edite nada fora de `$SCR` e do seu arquivo de saída.
+- `SCR=/tmp/claude-1000/-home-<user>-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/triagem` para fixtures.
+- Só leitura no repositório `~/projects/touring` e em `~/.claude`. Não edite nada fora de `$SCR` e do seu arquivo de saída.
 - NÃO rode comando que grave recompensa/aprendizado (`touring ast quality` grava reward: leia o código em vez de rodar),
   nem `touring daemon-ctl restart|stop`, nem `update-touring`, nem git que não seja leitura. Nunca kill/pkill.
 - Para «X não tem chamador»: `grep -rn` em `crates/ scripts/ client/ ~/.claude/settings.json ~/.claude/hooks` E `touring index find`.

@@ -4,9 +4,9 @@
    Compiling thiserror-impl v2.0.18
    Compiling thiserror v2.0.18
    Compiling serde v1.0.228
-   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring-wt-frag/crates/touring-pyright)
+   Compiling touring-pyright v30.4.96 (~/projects/touring-wt-frag/crates/touring-pyright)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 8.63s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/touring_pyright-a050e28069285cbb)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-frag/debug/deps/touring_pyright-a050e28069285cbb)
 
 running 173 tests
 test client::tests::any_other_server_request_answers_null ... ok
@@ -185,7 +185,7 @@ test tsserver::tests::a_silent_server_overruns_the_deadline_and_the_session_is_c
 
 test result: ok. 173 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.36s
 
-     Running tests/ausente.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/ausente-ac1a0ce64d6f5e84)
+     Running tests/ausente.rs (~/projects/touring/target/wt-frag/debug/deps/ausente-ac1a0ce64d6f5e84)
 
 running 2 tests
 test the_language_entry_point_routes_to_the_project_verifier_or_says_there_is_none ... ok
@@ -193,28 +193,28 @@ test every_absent_verifier_is_unknown_with_its_reason_and_starts_no_process ... 
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/deno_real.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/deno_real-e74662ee54b3bdb9)
+     Running tests/deno_real.rs (~/projects/touring/target/wt-frag/debug/deps/deno_real-e74662ee54b3bdb9)
 
 running 1 test
 test ts2304_ts2339_ts2305_are_found_by_deno_lsp_and_the_clean_original_is_zero ... ignored, needs deno on PATH
 
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/pool_guard.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/pool_guard-eabef93fd9609b01)
+     Running tests/pool_guard.rs (~/projects/touring/target/wt-frag/debug/deps/pool_guard-eabef93fd9609b01)
 
 running 1 test
 test a_process_that_never_opted_in_answers_unknown_and_executes_nothing ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/pool_real.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/pool_real-f5bce0b5a9e128b3)
+     Running tests/pool_real.rs (~/projects/touring/target/wt-frag/debug/deps/pool_real-f5bce0b5a9e128b3)
 
 running 1 test
 test twenty_checks_on_one_root_share_one_server_and_the_warm_ones_are_fast ... ignored, needs the real pyright-langserver of the analise project
 
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/pyright_real.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/pyright_real-3ac807412c287a8c)
+     Running tests/pyright_real.rs (~/projects/touring/target/wt-frag/debug/deps/pyright_real-3ac807412c287a8c)
 
 running 15 tests
 test clean_code_and_a_real_module_have_no_achado ... ignored, needs the real pyright-langserver of the analise project
@@ -235,7 +235,7 @@ test warm_latency_p95_fits_the_one_second_budget ... ignored, needs the real pyr
 
 test result: ok. 0 passed; 0 failed; 15 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/rust_real.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/rust_real-f89d826e2f329ee8)
+     Running tests/rust_real.rs (~/projects/touring/target/wt-frag/debug/deps/rust_real-f89d826e2f329ee8)
 
 running 3 tests
 test a_file_no_module_declares_is_unknown_not_allow ... ignored, needs rustup with the rust-analyzer component
@@ -244,14 +244,14 @@ test invented_name_field_and_method_are_found_and_the_clean_original_is_zero ...
 
 test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/sonda_custo.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/sonda_custo-cfaadbd0ae2507a9)
+     Running tests/sonda_custo.rs (~/projects/touring/target/wt-frag/debug/deps/sonda_custo-cfaadbd0ae2507a9)
 
 running 1 test
 test cost_of_one_verifier_on_one_project ... ignored, starts a real verifier on a real project; run alone, under hw-slot
 
 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/tsserver_real.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/tsserver_real-2b47f1622e2cae5c)
+     Running tests/tsserver_real.rs (~/projects/touring/target/wt-frag/debug/deps/tsserver_real-2b47f1622e2cae5c)
 
 running 3 tests
 test a_file_outside_every_tsconfig_and_a_syntax_error_are_unknown_not_allow ... ignored, needs the TypeScript install of analise/frontend and node

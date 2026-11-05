@@ -75,7 +75,7 @@ graph TD
 **TODOS os waves DEVEM passar este gate antes de iniciar:**
 
 ```bash
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 
 # Gate 1: Compilation
 cargo check --workspace 2>&1 | grep "^error\[" | wc -l

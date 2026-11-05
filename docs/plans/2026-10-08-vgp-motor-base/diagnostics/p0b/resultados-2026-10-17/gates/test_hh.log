@@ -116,7 +116,7 @@
    Compiling ravif v0.13.0
    Compiling toml_parser v1.1.2+spec-1.1.0
    Compiling tiff v0.11.3
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-p0b/crates/touring-foundation)
    Compiling exr v1.74.0
    Compiling indicatif v0.18.4
    Compiling ndarray v0.15.6
@@ -144,7 +144,7 @@
    Compiling hf-hub v0.5.0
    Compiling safetensors v0.8.0
    Compiling hashlink v0.9.1
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring-wt-p0b/crates/touring-rkyv)
    Compiling gemm-f32 v0.17.1
    Compiling gemm-c32 v0.18.2
    Compiling gemm-f64 v0.18.2
@@ -160,7 +160,7 @@
    Compiling tracing-subscriber v0.3.23
    Compiling toml v0.9.12+spec-1.1.0
    Compiling yoke v0.7.5
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-p0b/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-p0b/third_party/tree-sitter-md)
    Compiling gemm v0.18.2
    Compiling gemm-f16 v0.17.1
    Compiling notify v7.0.0
@@ -179,7 +179,7 @@
    Compiling memmap2 v0.9.11
    Compiling stringzilla v4.6.2
    Compiling toml_datetime v1.1.1+spec-1.1.0
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-p0b/crates/touring-simd)
    Compiling petgraph v0.6.5
    Compiling toml v1.1.2+spec-1.1.0
    Compiling ug v0.1.0
@@ -188,7 +188,7 @@
    Compiling ast-grep-language v0.42.3
    Compiling z3 v0.20.1
    Compiling zip v1.1.4
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-p0b/crates/touring-storage)
    Compiling pulley-interpreter v46.0.3
    Compiling notify-debouncer-mini v0.5.0
    Compiling fs-err v3.3.0
@@ -205,9 +205,9 @@
    Compiling parse-zoneinfo v0.3.1
    Compiling rustsec v0.33.0
    Compiling env_logger v0.11.11
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-p0b/crates/touring-code)
    Compiling candle-core v0.8.4
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-p0b/crates/touring-offensive)
    Compiling crunchy v0.2.4
    Compiling cranelift-entity v0.133.3
    Compiling sprs v0.11.1
@@ -235,7 +235,7 @@
    Compiling instant-distance v0.6.1
    Compiling candle-transformers v0.8.4
    Compiling tokenizers v0.20.4
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-p0b/crates/touring-analysis)
    Compiling linfa-ftrl v0.7.1
    Compiling deadpool-sqlite v0.14.0
    Compiling chrono-tz v0.9.0
@@ -245,7 +245,7 @@
    Compiling ndarray v0.16.1
    Compiling cranelift-control v0.133.3
    Compiling regalloc2 v0.15.1
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-intelligence)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-p0b/crates/touring-intelligence)
    Compiling phf v0.11.3
    Compiling pest_generator v2.8.6
    Compiling wasmparser v0.251.0
@@ -261,7 +261,7 @@
    Compiling wasmtime-internal-component-util v46.0.3
    Compiling wasmtime-environ v46.0.3
    Compiling tera v1.20.1
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hooks-shared)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-p0b/crates/touring-hooks-shared)
    Compiling enumflags2_derive v0.7.12
    Compiling enumflags2 v0.7.12
    Compiling wasmtime-internal-unwinder v46.0.3
@@ -270,37 +270,37 @@
    Compiling cranelift-frontend v0.133.3
    Compiling wasm-encoder v0.252.0
    Compiling proc-macro-error-attr2 v2.0.0
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/inferlets)
+   Compiling inferlets v0.1.0 (~/projects/touring-wt-p0b/crates/inferlets)
    Compiling proc-macro-error2 v2.0.1
    Compiling wast v252.0.0
    Compiling wasmtime-internal-cranelift v46.0.3
    Compiling landlock v0.4.5
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-quality)
+   Compiling touring-quality v30.4.96 (~/projects/touring-wt-p0b/crates/touring-quality)
    Compiling wasmtime-internal-jit-icache-coherence v46.0.3
-   Compiling touring-contracts v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-contracts)
+   Compiling touring-contracts v30.4.96 (~/projects/touring-wt-p0b/crates/touring-contracts)
    Compiling seccompiler v0.5.0
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-bindings)
-   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-ceg)
+   Compiling touring-bindings v30.4.96 (~/projects/touring-wt-p0b/crates/touring-bindings)
+   Compiling touring-ceg v30.4.96 (~/projects/touring-wt-p0b/crates/touring-ceg)
    Compiling wat v1.252.0
    Compiling validator_derive v0.20.0
    Compiling prost-derive v0.13.5
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hooks-prediction)
-   Compiling touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-orchestration)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring-wt-p0b/crates/touring-hooks-prediction)
+   Compiling touring-orchestration v30.4.96 (~/projects/touring-wt-p0b/crates/touring-orchestration)
    Compiling prost v0.13.5
-   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hooks-core)
+   Compiling touring-hooks-core v30.4.96 (~/projects/touring-wt-p0b/crates/touring-hooks-core)
    Compiling validator v0.20.0
-   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hooks-rl)
-   Compiling touring-hooks-saga v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hooks-saga)
-   Compiling touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-resilience)
-   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-pyright)
+   Compiling touring-hooks-rl v30.4.96 (~/projects/touring-wt-p0b/crates/touring-hooks-rl)
+   Compiling touring-hooks-saga v30.4.96 (~/projects/touring-wt-p0b/crates/touring-hooks-saga)
+   Compiling touring-resilience v30.4.96 (~/projects/touring-wt-p0b/crates/touring-resilience)
+   Compiling touring-pyright v30.4.96 (~/projects/touring-wt-p0b/crates/touring-pyright)
    Compiling serial_test v3.5.0
-   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-hook-handlers)
+   Compiling touring-hook-runtime v30.4.96 (~/projects/touring-wt-p0b/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.96 (~/projects/touring-wt-p0b/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (~/projects/touring-wt-p0b/crates/touring-hook-handlers)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4m 27s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0b/debug/deps/touring_hook_handlers-391d28973c80e1cc)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-p0b/debug/deps/touring_hook_handlers-391d28973c80e1cc)
 
 running 752 tests
 test check_compile::tests::cargo_mutants_only_for_rust_in_cargo_workspace ... ok

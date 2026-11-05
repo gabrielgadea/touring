@@ -1,5 +1,5 @@
 hw-slot: aguardando — temp 95C > 88C
-   Compiling touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-code v30.4.102 (~/projects/touring/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 19.51s
      Running unittests src/lib.rs (target/debug/deps/touring_code-91c008abebc4bd9a)
 

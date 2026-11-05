@@ -15,7 +15,7 @@
 #
 #   # para o Python 3.12 do analise (a d4 instala depois):
 #   /tmp/clk-build/bin/maturin build --release -m crates/touring-python/Cargo.toml \
-#     -i /home/gabrielgadea/projects/analise/.venv/bin/python3
+#     -i /path/to/project/.venv/bin/python3
 #
 #   # prova de fumaça sem instalar: descompacte a wheel e
 #   nm -D claude_learning_kernel/*.so | grep PyInit_claude_learning_kernel

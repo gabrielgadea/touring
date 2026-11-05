@@ -81,7 +81,7 @@ python3 ~/.claude/tools/holon/retention.py vacuum
     "mcpServers": {
       "holon": {
         "command": "python3",
-        "args": ["/home/gabrielgadea/.claude/tools/holon/mcp_server.py"]
+        "args": ["~/.claude/tools/holon/mcp_server.py"]
       }
     }
   }
@@ -180,8 +180,8 @@ exit=0 pyver=3.12.3 konverter_pyproject_version=0.1.0
 ### `holon doctor` — 4 holons, zero issues
 
 ```
-/home/gabrielgadea/projects/templates → 0 errors, 0 warnings
-/home/gabrielgadea/projects/konverter → 0 errors, 0 warnings
+~/projects/templates → 0 errors, 0 warnings
+~/projects/konverter → 0 errors, 0 warnings
 ```
 
 ### `holon discover` — 4 holons detectados

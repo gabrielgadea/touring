@@ -24,7 +24,7 @@ timestamp: "2026-08-31T15:35:00-03:00"
 | Camada | Componente | Estado |
 |---|---|---|
 | 1 | Claude Code session | 27 eventos × 82 handlers |
-| 2 | settings.json (CC) | `/home/gabrielgadea/.claude/settings.json` |
+| 2 | settings.json (CC) | `~/.claude/settings.json` |
 | 3 | cc-*.sh wrappers | 25 standalone (não via touring-hook) |
 | 4 | touring-hook shim (4-layer walk-up) | 1 binário |
 | 5 | touring-hook v11.0 subcmds | **47 sub-comandos registrados** |

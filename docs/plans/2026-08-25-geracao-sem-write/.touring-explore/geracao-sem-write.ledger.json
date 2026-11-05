@@ -1,7 +1,7 @@
 {
  "version": 2,
  "topic": "geracao-sem-write: ligar o pipeline GeneratorPlan e corrigir o que o exercicio revelar",
- "scope": "/home/gabrielgadea/projects/touring",
+ "scope": "~/projects/touring",
  "rounds": [
   {
    "round": 1,

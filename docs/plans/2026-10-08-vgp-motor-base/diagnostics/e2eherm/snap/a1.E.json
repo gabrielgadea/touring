@@ -1,5 +1,5 @@
 {
- "/home/gabrielgadea/.claude/touring/cross_agent_events.db": {
+ "~/.claude/touring/cross_agent_events.db": {
   "mtime": 1791073116,
   "size": 24576,
   "tables": {
@@ -7,7 +7,7 @@
    "events": 0
   }
  },
- "/home/gabrielgadea/.claude/touring/entity_registry.db": {
+ "~/.claude/touring/entity_registry.db": {
   "mtime": 1787516858,
   "size": 49152,
   "tables": {
@@ -16,14 +16,14 @@
    "symbol_disambiguation": 0
   }
  },
- "/home/gabrielgadea/.claude/touring/experiment_log.db": {
+ "~/.claude/touring/experiment_log.db": {
   "mtime": 1791291171,
   "size": 143360,
   "tables": {
    "experiment_log": 1536
   }
  },
- "/home/gabrielgadea/.claude/touring/graph.db": {
+ "~/.claude/touring/graph.db": {
   "mtime": 1791554541,
   "size": 1167360,
   "tables": {
@@ -42,7 +42,7 @@
    "symbols_fts_idx": 56
   }
  },
- "/home/gabrielgadea/.claude/touring/knowledge.db": {
+ "~/.claude/touring/knowledge.db": {
   "mtime": 1791554541,
   "size": 2375680,
   "tables": {
@@ -88,7 +88,7 @@
    "wiring_unresolved": 4
   }
  },
- "/home/gabrielgadea/.claude/touring/memory.db": {
+ "~/.claude/touring/memory.db": {
   "mtime": 1791637501,
   "size": 3723264,
   "tables": {
@@ -117,7 +117,7 @@
    "tags_fts_idx": 16
   }
  },
- "/home/gabrielgadea/.claude/touring/semantic.db": {
+ "~/.claude/touring/semantic.db": {
   "mtime": 1787627150,
   "size": 102400,
   "tables": {
@@ -129,7 +129,7 @@
    "chunks_fts_idx": 16
   }
  },
- "/home/gabrielgadea/.claude/touring/symbols.db": {
+ "~/.claude/touring/symbols.db": {
   "mtime": 1791213665,
   "size": 3747840,
   "tables": {
@@ -143,7 +143,7 @@
    "symbols_fts_idx": 132
   }
  },
- "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/graph.db": {
+ "~/projects/touring-wt-e2eherm/.claude/touring/graph.db": {
   "mtime": 1791640784,
   "size": 4096,
   "tables": {
@@ -157,7 +157,7 @@
    "symbols_fts_idx": 0
   }
  },
- "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/knowledge.db": {
+ "~/projects/touring-wt-e2eherm/.claude/touring/knowledge.db": {
   "mtime": 1791642231,
   "size": 503808,
   "tables": {
@@ -198,7 +198,7 @@
    "wiring_unresolved": 0
   }
  },
- "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/memory.db": {
+ "~/projects/touring-wt-e2eherm/.claude/touring/memory.db": {
   "mtime": 1791640784,
   "size": 4096,
   "tables": {
@@ -220,7 +220,7 @@
    "tags_fts_idx": 0
   }
  },
- "/home/gabrielgadea/projects/touring-wt-e2eherm/.claude/touring/symbols.db": {
+ "~/projects/touring-wt-e2eherm/.claude/touring/symbols.db": {
   "mtime": 1791640784,
   "size": 4096,
   "tables": {
@@ -234,7 +234,7 @@
    "symbols_fts_idx": 0
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/cross_agent_events.db": {
+ "~/projects/touring/.claude/touring/cross_agent_events.db": {
   "mtime": 1791073116,
   "size": 49152,
   "tables": {
@@ -242,7 +242,7 @@
    "events": 0
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/entity_registry.db": {
+ "~/projects/touring/.claude/touring/entity_registry.db": {
   "mtime": 1775925124,
   "size": 49152,
   "tables": {
@@ -251,14 +251,14 @@
    "symbol_disambiguation": 0
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/experiment_log.db": {
+ "~/projects/touring/.claude/touring/experiment_log.db": {
   "mtime": 1788489698,
   "size": 212992,
   "tables": {
    "experiment_log": 2403
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/graph.db": {
+ "~/projects/touring/.claude/touring/graph.db": {
   "mtime": 1791652215,
   "size": 355606528,
   "tables": {
@@ -278,7 +278,7 @@
    "touring_hook_events": 102
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/knowledge.db": {
+ "~/projects/touring/.claude/touring/knowledge.db": {
   "mtime": 1791652229,
   "size": 177156096,
   "tables": {
@@ -327,7 +327,7 @@
    "wiring_unresolved": 7689
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/memory.db": {
+ "~/projects/touring/.claude/touring/memory.db": {
   "mtime": 1791652261,
   "size": 175566848,
   "tables": {
@@ -356,7 +356,7 @@
    "tags_fts_idx": 63
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/semantic.db": {
+ "~/projects/touring/.claude/touring/semantic.db": {
   "mtime": 1787605653,
   "size": 315392,
   "tables": {
@@ -368,7 +368,7 @@
    "chunks_fts_idx": 29
   }
  },
- "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db": {
+ "~/projects/touring/.claude/touring/symbols.db": {
   "mtime": 1791643800,
   "size": 503709696,
   "tables": {

@@ -3,7 +3,7 @@
  "conteudo": "V0e (V0e6 git no sandbox, V0e1 G1 reescreve via updatedInput, V0e2 rotas nos guards, V0e4 rm ': >'/unlink, V0e3 G7 R1, jev:264) + conserto do propagate-release (unset do socket da sessao)",
  "deploy_utc": "2026-10-09T14:16:43Z",
  "metodo": "btime+starttime de /proc/<pid>/stat do daemon per-project do analise (PID 236242), nao o relogio de parede",
- "exe": "/home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-daemon",
+ "exe": "~/.touring/toolchains/30.4.94/bin/touring-daemon",
  "juiz_coordenadora": {
   "cargo_test_core3": "8 binarios 1620 passed / 0 failed",
   "cli_lib": "647/0",

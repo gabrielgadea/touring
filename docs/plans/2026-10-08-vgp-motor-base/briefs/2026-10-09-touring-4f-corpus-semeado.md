@@ -10,7 +10,7 @@ tags: ["#kind:plan", "#status:active", "#domain:harness"]
 # Brief touring-4f — corpora semeados
 
 Ordem do Gabriel (09/10): «prossiga com o mesmo, tanto delegando tarefas para agentes […] quanto para as sessões
-kimi e minimax ativas em projects/touring». B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+kimi e minimax ativas em projects/touring». B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 Contrato: `B/VL0-multilinguagem-spec.md` §4 (classes) e §7 (corpus e juiz por linguagem).
 
 ## Ponto de partida (leia antes de qualquer comando)

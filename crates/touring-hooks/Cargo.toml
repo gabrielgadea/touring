@@ -97,7 +97,7 @@ touring-rkyv = { path = "../touring-rkyv" }
 touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
 touring-code = { path = "../touring-code" }
 touring-intelligence = { path = "../touring-intelligence" }
-touring-capnp-server = { path = "../touring-capnp-server" }
+touring-bindings = { path = "../touring-bindings", features = ["bind-capnp"] }
 uuid = { workspace = true, features = ["v4"] }
 serial_test = { workspace = true }
 criterion = { workspace = true }
@@ -105,8 +105,8 @@ divan = { workspace = true }
 tempfile = { workspace = true }
 serde_json = { workspace = true }
 # Phase 5 Opt A E2E — capnp client stack used only in `tests/capnp_embed_e2e.rs`.
-# Mirrors the dev-deps of touring-capnp-server so the in-daemon embed
-# path can be exercised without depending on the standalone binary.
+# Mirrors the capnp client stack of touring-bindings (`bind-capnp`) so the
+# in-daemon embed path can be exercised without depending on the standalone binary.
 capnp = { workspace = true }
 capnp-rpc = { workspace = true }
 capnp-futures = { workspace = true }

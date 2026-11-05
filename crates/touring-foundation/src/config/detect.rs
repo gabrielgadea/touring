@@ -201,13 +201,20 @@ impl TouringConfig {
 
         tracing::debug!(root = %project_root.display(), "detect_tiered: resolving database paths");
 
-        // Global roots (HOME-relative)
-        let global_root = std::env::var("HOME")
-            .map(|h| PathBuf::from(h).join(".claude"))
-            .unwrap_or_else(|_| PathBuf::from("/home/gabrielgadea/.claude"));
-
-        let global_rust = global_root.join("rust");
-        let global_data = global_root.join("data");
+        // Global roots (HOME-relative). With no derivable home there IS no global
+        // tier: say so, and let each fallback collapse onto the project's own
+        // store instead of pointing at a guessed directory (a developer's
+        // `/home/<name>` is not a default).
+        let global_root = crate::user_home::claude_home();
+        if global_root.is_none() {
+            tracing::warn!(
+                "detect_tiered: {} — the global fallback tier is disabled, databases stay under \
+                 the project root",
+                crate::user_home::NO_HOME_REASON
+            );
+        }
+        let global_rust = global_root.as_ref().map(|r| r.join("rust"));
+        let global_data = global_root.as_ref().map(|r| r.join("data"));
 
         // Local roots
         let local_touring = project_root.join(".claude").join("touring");
@@ -222,7 +229,9 @@ impl TouringConfig {
             config.symbols_db_path = symbols_local.clone();
             tracing::debug!(path = %symbols_local.display(), tier = "local", "symbols_db");
         } else {
-            let fallback = global_rust.join("symbols.db");
+            let fallback = global_rust
+                .as_ref()
+                .map_or_else(|| symbols_local.clone(), |g| g.join("symbols.db"));
             tracing::debug!(path = %fallback.display(), tier = "global_fallback", "symbols_db");
             config.symbols_db_path = fallback;
         }
@@ -233,7 +242,9 @@ impl TouringConfig {
             config.rlm_db_path = rlm_local.clone();
             tracing::debug!(path = %rlm_local.display(), tier = "local", "rlm_db");
         } else {
-            let fallback = global_data.join("rlm_memory.db");
+            let fallback = global_data
+                .as_ref()
+                .map_or_else(|| rlm_local.clone(), |g| g.join("rlm_memory.db"));
             tracing::debug!(path = %fallback.display(), tier = "global_fallback", "rlm_db");
             config.rlm_db_path = fallback;
         }
@@ -244,7 +255,9 @@ impl TouringConfig {
             config.semantic_db_path = semantic_local.clone();
             tracing::debug!(path = %semantic_local.display(), tier = "local", "semantic_db");
         } else {
-            let fallback = global_data.join("semantic_recall.db");
+            let fallback = global_data
+                .as_ref()
+                .map_or_else(|| semantic_local.clone(), |g| g.join("semantic_recall.db"));
             tracing::debug!(path = %fallback.display(), tier = "global_fallback", "semantic_db");
             config.semantic_db_path = fallback;
         }

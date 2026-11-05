@@ -1,6 +1,6 @@
 {
- "binario": "/home/gabrielgadea/.claude/touring/vgp/binarios/70e0051a/touring",
- "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d",
+ "binario": "~/.claude/touring/vgp/binarios/70e0051a/touring",
+ "corpus": "~/.claude/touring/vgp/corpus_v0d",
  "runs_por_id": 5,
  "ids": 738,
  "ids_divergentes": 0,

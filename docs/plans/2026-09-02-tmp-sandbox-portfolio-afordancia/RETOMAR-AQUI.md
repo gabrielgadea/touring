@@ -48,10 +48,10 @@ Fases extras que a prova ao vivo obrigou: **B4** (`tmp_bytes` nunca chegava ao p
 setsid nohup update-touring --no-kill --no-restart > <scratch>/update.log 2>&1 < /dev/null &
 update-touring --no-build
 # 2. índice com o detector W no hook
-touring index rebuild --dir /home/gabrielgadea/projects/touring
+touring index rebuild --dir ~/projects/touring
 # 3. rejulgar TIER-2 (DAG já 0 pendentes) e este bundle
-python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task task_1788318067626657742 --scope /home/gabrielgadea/projects/touring --bundle docs/plans/2026-08-31-complementacao-hooks
-python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task task_1788340910617776382 --scope /home/gabrielgadea/projects/touring --bundle docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia
+python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task task_1788318067626657742 --scope ~/projects/touring --bundle docs/plans/2026-08-31-complementacao-hooks
+python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task task_1788340910617776382 --scope ~/projects/touring --bundle docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia
 # 4. propagar + registrar PostToolUseFailure → touring-hook post-bash (autorizado)
 scripts/propagate-release.sh <versão>
 ```

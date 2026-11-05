@@ -1,13 +1,13 @@
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
-   Compiling touring-lsp v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-lsp)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-quality v30.4.96 (~/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-lsp v30.4.96 (~/projects/touring-wt-int97/crates/touring-lsp)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 15.80s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_lsp-ae08b18b1756e1f2)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_lsp-ae08b18b1756e1f2)
 
 running 11 tests
 test mapping::tests::parse_references_handles_error_envelope ... ok
@@ -24,7 +24,7 @@ test types::tests::item_new_round_trip ... ok
 
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/integration_test.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/integration_test-fd4b61d992d9deac)
+     Running tests/integration_test.rs (~/projects/touring/target/wt-int97/debug/deps/integration_test-fd4b61d992d9deac)
 
 running 2 tests
 test integration_result_alias_compiles ... ok

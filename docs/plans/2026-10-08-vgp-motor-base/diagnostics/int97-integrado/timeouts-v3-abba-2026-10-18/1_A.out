@@ -3,4 +3,4 @@ recall de símbolo · arquivo 12/13 · inline 23/27 | forma (fora) {'arquivo': [
   falso deny (inline): 0/274 · taxa 0.000% · limite_superior_95 1.09% (teto 1%; o n=274 não prova o teto nem com 0 falsos; exige n ≥ 299) · limite acima do teto (só reprova com --exigir-limite-superior)
   PENDENTE: p95 1025.3 ms > 1000.0 ms
 veredito: NÃO PRONTO
-[instrumentado] 738 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97-integrado/timeouts-v3-abba-2026-10-18/1_A.porid.json
+[instrumentado] 738 veredictos do motor gravados em ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97-integrado/timeouts-v3-abba-2026-10-18/1_A.porid.json

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # Gates do vrs2 numa UNICA aquisicao do hw-slot (quem chama envolve em `slot.sh gates ... bash gates.sh`).
 # Cada gate grava log e rc proprios; nenhum `set -e` (o rc e lido explicitamente).
-WT=/home/gabrielgadea/projects/touring-wt-vrs2
-SC=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-vrs2
+WT=${HOME}/projects/touring-wt-vrs2
+SC=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/vrs
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/wt-vrs2
 cd "$WT" || exit 90
 : > "$SC/gates.rcs"
 gate() {

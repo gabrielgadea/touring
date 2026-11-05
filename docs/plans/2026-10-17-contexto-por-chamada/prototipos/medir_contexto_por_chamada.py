@@ -1,4 +1,9 @@
 """Context size per call (cache_read + cache_creation + input), by model family and main×subagent, last 14 days."""
+
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
 import collections
 import json
 import re
@@ -15,7 +20,7 @@ def familia(m):
     return "claude" if m.startswith("claude") else ("kimi" if ("k3" in m or "kimi" in m.lower()) else ("minimax" if "minimax" in m.lower() else "outro"))
 
 
-for proj in ("-home-gabrielgadea-projects-touring", "-home-gabrielgadea-projects-analise"):
+for proj in (f"{_HOME_SLUG}-projects-touring", f"{_HOME_SLUG}-projects-analise"):
     uso = {}
     for p in (PROJ / proj).rglob("*.jsonl"):
         if p.stat().st_mtime < corte:

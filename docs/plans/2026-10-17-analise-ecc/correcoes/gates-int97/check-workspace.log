@@ -172,7 +172,7 @@
    Compiling monostate-impl v0.1.18
    Compiling tree-sitter v0.26.9
     Checking strum v0.27.2
-    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+    Checking touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
     Checking naga v26.0.0
     Checking spm_precompiled v0.1.4
     Checking ndarray v0.15.6
@@ -200,7 +200,7 @@
     Checking hf-hub v0.5.0
     Checking ort v2.0.0-rc.12
     Checking wgpu-core-deps-windows-linux-android v26.0.0
-    Checking touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+    Checking touring-rkyv v0.1.0 (~/projects/touring-wt-int97/crates/touring-rkyv)
     Checking simba v0.8.1
     Checking wasm-bindgen-futures v0.4.76
     Checking safetensors v0.8.0
@@ -218,7 +218,7 @@
     Checking pulp v0.22.3
     Checking statrs v0.17.1
     Checking toml v0.9.12+spec-1.1.0
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling derive_more-impl v2.1.1
     Checking wgpu v26.0.1
     Checking notify v7.0.0
@@ -238,13 +238,13 @@
     Checking salsa v0.18.0
     Checking public-api v0.47.1
     Checking ropey v1.6.1
-    Checking touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Checking touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
     Checking petgraph v0.6.5
     Checking cargo_metadata v0.21.0
     Checking gemm-f16 v0.18.2
     Checking ast-grep-language v0.42.3
     Checking notify-debouncer-mini v0.5.0
-    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+    Checking touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
     Checking cargo-lock v11.0.1
     Checking gemm-f32 v0.17.1
     Checking gemm-c64 v0.18.2
@@ -263,12 +263,12 @@
     Checking send_wrapper v0.6.0
    Compiling pyo3-build-config v0.29.0
     Checking derive_more v2.1.1
-    Checking touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+    Checking touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
    Compiling sha1-checked v0.10.0
     Checking rustsec v0.33.0
     Checking gemm v0.18.2
     Checking gemm-f16 v0.17.1
-    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+    Checking touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling const_format v0.2.36
     Checking hydration_context v0.3.1
     Checking cranelift-bitset v0.133.3
@@ -290,7 +290,7 @@
     Checking sysctl v0.6.0
     Checking linfa v0.7.1
     Checking gemm v0.17.1
-    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+    Checking touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
    Compiling pulley-interpreter v46.0.3
    Compiling gix-hash v0.25.1
     Checking zip v1.1.4
@@ -387,7 +387,7 @@
     Checking leptos_server v0.8.7
     Checking leptos_config v0.8.10
    Compiling gix-object v0.62.0
-    Checking touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+    Checking touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
     Checking leptos_dom v0.8.8
    Compiling pyo3 v0.29.0
     Checking wasmparser v0.251.0
@@ -407,13 +407,13 @@
    Compiling gix-tempfile v23.0.2
     Checking wasmtime-internal-cranelift v46.0.3
    Compiling pest_generator v2.8.6
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-bindings v30.4.96 (~/projects/touring-wt-int97/crates/touring-bindings)
     Checking wasmtime-internal-jit-icache-coherence v46.0.3
     Checking chrono-tz v0.9.0
    Compiling pest_derive v2.8.6
     Checking capnp-rpc v0.24.0
     Checking leptos_meta v0.8.6
-    Checking inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/inferlets)
+    Checking inferlets v0.1.0 (~/projects/touring-wt-int97/crates/inferlets)
     Checking serde-wasm-bindgen v0.4.5
     Checking tera v1.20.1
     Checking arboard v3.6.1
@@ -424,10 +424,10 @@
     Checking leptos_axum v0.8.10
    Compiling gix-revwalk v0.33.0
    Compiling gix-lock v23.0.1
-    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+    Checking touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
     Checking tantivy-common v0.7.0
    Compiling prost-derive v0.13.5
-    Checking touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+    Checking touring-quality v30.4.96 (~/projects/touring-wt-int97/crates/touring-quality)
    Compiling gix-config-value v0.18.1
    Compiling enumflags2_derive v0.7.12
     Checking tantivy-stacker v0.3.0
@@ -441,31 +441,31 @@
     Checking sketches-ddsketch v0.2.2
     Checking tantivy-tokenizer-api v0.3.0
    Compiling darling_core v0.23.0
-    Checking touring-contracts v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-contracts)
+    Checking touring-contracts v30.4.96 (~/projects/touring-wt-int97/crates/touring-contracts)
     Checking tantivy v0.22.1
     Checking prost v0.13.5
-    Checking touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
+    Checking touring-ceg v30.4.96 (~/projects/touring-wt-int97/crates/touring-ceg)
    Compiling pyo3-macros v0.29.0
-    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
+    Checking touring-hooks-prediction v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-prediction)
    Compiling gix-ref v0.65.0
    Compiling gix-traverse v0.59.0
-    Checking touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-orchestration)
+    Checking touring-orchestration v30.4.96 (~/projects/touring-wt-int97/crates/touring-orchestration)
    Compiling gix-packetline v0.21.5
    Compiling validator_derive v0.20.0
    Compiling gix-index v0.53.0
-    Checking touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-rl)
+    Checking touring-hooks-rl v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-rl)
    Compiling darling_macro v0.23.0
    Compiling gix-ignore v0.21.1
-    Checking touring-hooks-saga v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-saga)
+    Checking touring-hooks-saga v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-saga)
    Compiling gix-worktree v0.54.0
    Compiling gix-pathspec v0.18.1
    Compiling darling v0.23.0
    Compiling gix-url v0.36.1
-    Checking touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-pyright)
+    Checking touring-pyright v30.4.96 (~/projects/touring-wt-int97/crates/touring-pyright)
    Compiling gix-filter v0.32.0
     Checking validator v0.20.0
    Compiling gix-revision v0.47.0
-    Checking touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-resilience)
+    Checking touring-resilience v30.4.96 (~/projects/touring-wt-int97/crates/touring-resilience)
     Checking hyper-timeout v0.5.2
    Compiling prost-derive v0.14.4
    Compiling gix-refspec v0.43.0
@@ -473,22 +473,22 @@
    Compiling gix-discover v0.53.0
    Compiling gix-prompt v0.15.1
    Compiling ref-cast-impl v1.0.25
-    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-capnp-server)
-    Checking touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
+    Checking touring-capnp-server v0.1.0 (~/projects/touring-wt-int97/crates/touring-capnp-server)
+    Checking touring-hooks-core v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-core)
    Compiling serde_derive_internals v0.29.1
     Checking prost v0.14.4
    Compiling gix-diff v0.65.0
-    Checking touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
+    Checking touring-hook-runtime v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-runtime)
     Checking ref-cast v1.0.25
    Compiling gix-credentials v0.38.1
    Compiling gix-dir v0.27.0
-    Checking touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
+    Checking touring-cli v30.4.96 (~/projects/touring-wt-int97/crates/touring-cli)
    Compiling gix-pack v0.72.0
    Compiling schemars_derive v1.2.1
    Compiling gix-transport v0.57.2
-    Checking touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-handlers)
+    Checking touring-hook-handlers v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-handlers)
    Compiling gix-config v0.58.0
-    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-dispatch)
+    Checking touring-dispatch v0.1.0 (~/projects/touring-wt-int97/crates/touring-dispatch)
    Compiling gix-shallow v0.12.1
    Compiling gix-negotiate v0.33.0
     Checking opentelemetry v0.31.0
@@ -496,7 +496,7 @@
    Compiling gix-worktree-state v0.32.0
    Compiling gix-odb v0.82.0
     Checking schemars v1.2.1
-    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks)
+    Checking touring-hooks v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks)
    Compiling gix-submodule v0.32.0
    Compiling gix-status v0.32.0
     Checking axum-core v0.4.5
@@ -510,12 +510,12 @@
    Compiling vergen v10.0.1
     Checking inferno v0.12.6
     Checking async-stream v0.3.6
-    Checking touring-identity v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-identity)
+    Checking touring-identity v30.4.96 (~/projects/touring-wt-int97/crates/touring-identity)
     Checking tonic v0.14.6
     Checking tower v0.4.13
     Checking tonic-prost v0.14.6
    Compiling vergen-gix v10.0.1
-    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-generator)
+    Checking touring-generator v0.1.0 (~/projects/touring-wt-int97/crates/touring-generator)
     Checking tonic v0.12.3
     Checking pprof_util v0.8.2
     Checking opentelemetry_sdk v0.31.0
@@ -538,31 +538,31 @@
     Checking criterion-plot v0.5.0
     Checking tracing-appender v0.2.5
     Checking jemalloc_pprof v0.8.2
-    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cortex)
+    Checking touring-cortex v1.0.0 (~/projects/touring-wt-int97/crates/touring-cortex)
     Checking plotters v0.3.7
     Checking ciborium v0.2.2
-    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-assists)
+    Checking touring-assists v0.1.0 (~/projects/touring-wt-int97/crates/touring-assists)
     Checking tracing-opentelemetry v0.32.1
-    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server-visual)
+    Checking touring-server-visual v30.0.0 (~/projects/touring-wt-int97/crates/touring-server-visual)
     Checking syntect v5.3.0
-    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server-reasoning)
+    Checking touring-server-reasoning v30.0.0 (~/projects/touring-wt-int97/crates/touring-server-reasoning)
     Checking clap_complete v4.6.5
-    Checking touring-server-session v30.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server-session)
+    Checking touring-server-session v30.0.0 (~/projects/touring-wt-int97/crates/touring-server-session)
     Checking tinytemplate v1.2.1
-    Checking touring-license v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-license)
+    Checking touring-license v30.4.96 (~/projects/touring-wt-int97/crates/touring-license)
     Checking is-terminal v0.4.17
     Checking oorandom v11.1.5
     Checking anes v0.1.6
-    Checking touring-web-server v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-web-server)
+    Checking touring-web-server v30.4.96 (~/projects/touring-wt-int97/crates/touring-web-server)
     Checking criterion v0.5.1
-    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-integration-tests)
-    Checking touring-web v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-web)
-    Checking touring-python v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-python)
-    Checking touring-lsp v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-lsp)
-    Checking touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/benches)
-    Checking touring-loom-proofs v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-loom-proofs)
+    Checking touring-integration-tests v0.1.0 (~/projects/touring-wt-int97/crates/touring-integration-tests)
+    Checking touring-web v30.4.96 (~/projects/touring-wt-int97/crates/touring-web)
+    Checking touring-python v0.1.0 (~/projects/touring-wt-int97/crates/touring-python)
+    Checking touring-lsp v30.4.96 (~/projects/touring-wt-int97/crates/touring-lsp)
+    Checking touring-search-fusion-bench v0.1.0 (~/projects/touring-wt-int97/benches)
+    Checking touring-loom-proofs v0.1.0 (~/projects/touring-wt-int97/crates/touring-loom-proofs)
     Checking rmcp v1.8.0
-   Compiling touring-server v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server)
+   Compiling touring-server v30.4.96 (~/projects/touring-wt-int97/crates/touring-server)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 5m 03s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`

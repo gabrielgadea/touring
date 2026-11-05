@@ -29,8 +29,8 @@
 //! does **not** execute. P3.7's gateway decides on the four *non-executing*
 //! analyses (X2 static, X3 VGP, X4 predict, X6 capability) — which is exactly
 //! what a gate should do before a safe room exists. [`guarded_dry_run`] is the
-//! opt-in real runner: it refuses the destructive-command catalogue outright
-//! and only ever spawns what the structural validator has cleared.
+//! opt-in real runner: it refuses the full destructive-command policy (structural
+//! and lexical readings) and only ever spawns what [`judge`] has cleared.
 //!
 //! # Where the hook driver lives (Session A · F2, 2026-06-10)
 //!
@@ -60,7 +60,8 @@ use super::typestate::{Evidence, ExecutionId, RawInvocation};
 use crate::capability::{CapabilityProfile, builtins};
 use crate::gateway::offensive_integration::prove_claim;
 use serde::Serialize;
-use touring_hooks_shared::bash_ast_validator::{Verdict as BashVerdict, validate_command};
+use touring_foundation::run_outcome::ExitStatus;
+use touring_hooks_shared::command_policy::{Verdict as BashVerdict, judge};
 
 // ── Gateway dependencies + outcome ────────────────────────────────────────────
 
@@ -151,7 +152,7 @@ pub const REFUSED_PROFILE_MARKER: &str = "<X5-refused:destructive-pattern>";
 #[must_use]
 pub fn deferred_dry_run(_raw: &RawInvocation) -> SandboxOutcome {
     SandboxOutcome {
-        exit_code: 0,
+        exit_code: ExitStatus::Code(0),
         output_bytes: 0,
         was_truncated: false,
         timed_out: false,
@@ -164,22 +165,23 @@ pub fn deferred_dry_run(_raw: &RawInvocation) -> SandboxOutcome {
 /// **X5 opt-in (real)** — run the sandbox dry-run, but refuse the destructive
 /// catalogue first.
 ///
-/// A structurally destructive command (`rm -rf`, `git push --force`, …) is
-/// caught by [`validate_command`] and reported as a refused outcome
-/// ([`REFUSED_PROFILE_MARKER`]) — it is **never spawned**. This keeps the real
-/// dry-run safe even before P4.2's landlock isolation. Everything the validator
-/// clears runs in the rlimit + timeout sandbox via [`cached_dry_run_in_sandbox`]
-/// — the content-hash-cached X5 runner (P4.5): a byte-identical code body skips
-/// the sandbox subprocess and returns the cached outcome.
+/// A destructive command under the full [`command_policy`](touring_hooks_shared::command_policy)
+/// (`rm -rf`, `dd`, `mkfs`, destructive git, …) is caught by [`judge`] and reported
+/// as a refused outcome ([`REFUSED_PROFILE_MARKER`]) — it is **never spawned**.
+/// This keeps the real dry-run safe even before P4.2's landlock isolation.
+/// Everything the policy clears runs in the rlimit + timeout sandbox via
+/// [`cached_dry_run_in_sandbox`] — the content-hash-cached X5 runner (P4.5): a
+/// byte-identical code body skips the sandbox subprocess and returns the cached
+/// outcome.
 ///
 /// P4.6 — before the sandbox, a provably-pure body (no I/O, network, or
 /// subprocess) takes the static-only fast path: [`fast_path_decision`] returns
 /// [`pure_skip_outcome`] without running anything at all.
 #[must_use]
 pub fn guarded_dry_run(raw: &RawInvocation, caps: &SandboxCapabilities) -> SandboxOutcome {
-    if let BashVerdict::Block { .. } = validate_command(&raw.payload) {
+    if let BashVerdict::Block { .. } = judge(&raw.payload) {
         return SandboxOutcome {
-            exit_code: 126,
+            exit_code: ExitStatus::Code(126),
             output_bytes: 0,
             was_truncated: false,
             timed_out: false,
@@ -332,7 +334,7 @@ pub fn run_gateway_speculative(
             Ok(ref outcome) if outcome.decision.verdict != Verdict::Deny
         );
         SandboxOutcome {
-            exit_code: if valid { 0 } else { 126 },
+            exit_code: ExitStatus::Code(if valid { 0 } else { 126 }),
             output_bytes: 0,
             was_truncated: false,
             timed_out: false,
@@ -443,15 +445,25 @@ mod tests {
 
     #[test]
     fn guarded_dry_run_refuses_destructive_without_spawning() {
-        // `rm -rf /` is in the destructive catalogue — `guarded_dry_run` must
-        // refuse it via the structural validator and NEVER spawn a subprocess.
-        let outcome = guarded_dry_run(&RawInvocation::new("Bash", "rm -rf /"), &trusted_caps());
-        assert_eq!(outcome.capability_profile, REFUSED_PROFILE_MARKER);
-        assert_eq!(outcome.exit_code, 126);
-        assert!(
-            !outcome.succeeded(),
-            "a refused command must not look successful"
-        );
+        // The full policy sees what the structural-only reading missed (`dd`,
+        // `mkfs`, destructive git). Every refusal keeps the marker and exit 126.
+        for command in [
+            "rm -rf /",
+            "dd if=/dev/zero of=/tmp/disk.img bs=1 count=1",
+            "mkfs.ext4 /dev/sdb1",
+            "git reset --hard HEAD",
+        ] {
+            let outcome = guarded_dry_run(&RawInvocation::new("Bash", command), &trusted_caps());
+            assert_eq!(
+                outcome.capability_profile, REFUSED_PROFILE_MARKER,
+                "{command}"
+            );
+            assert_eq!(outcome.exit_code, ExitStatus::Code(126), "{command}");
+            assert!(
+                !outcome.succeeded(),
+                "a refused command must not look successful: {command}"
+            );
+        }
     }
 
     // ── run_gateway ───────────────────────────────────────────────────────

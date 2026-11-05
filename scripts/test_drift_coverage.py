@@ -71,6 +71,19 @@ análises datadas), C5 touring-melhor (valor de enum), C6 as 2 vars propostas no
 de hooks e lista de desativação), as 2 do handler de worktree da R98 (código na branch R98, fora
 da árvore; citadas só por r98/RELATORIO.md, não rastreado) e a do tsc (lida por script de plano).
 Predicados novos com teste pos/neg em test_scanner_predicates.py → 401→396.
+11ª reconciliação (04/11/2026, checkout LIMPO do commit base — git worktree): 396→397 = C5 +2,
+C6 -1 (C1/C3/C4 inalterados). CAUSA RAIZ do "399 vs 396" que este teste acusava: o scanner tinha
+ROOT fixo no checkout principal e nunca leu o worktree — media os arquivos NÃO rastreados de outra
+sessão (3 sinais que não existem em nenhum arquivo rastreado: 1 versão e 2 vars). ROOT agora deriva
+do próprio arquivo (scripts/ → raiz); com a árvore certa a diferença real era outra: (1) C5 +2 —
+os crates touring-contracts (fundido no touring-ceg) e touring-capnp-server (pass-through apagado),
+removidos em 02/11, seguem citados em code fences de registros datados (sessões de abril, exploração
+de 21/06): (c), lote "2026-11-04-crates-removidos"; (2) C6 -1 — a var do handler de worktree da R98
+só era citada pelo relatório r98/RELATORIO.md, NÃO rastreado: some num checkout limpo, linha do
+ledger removida (precedente: 9ª e 10ª) — reaparece se o relatório for commitado, e aí o verificador
+exige a linha de volta (SEM DISPOSIÇÃO). Também: o total virou derivado de EXPECTED_BY_CAT.
+Dependência de estado: o scan lê o sistema de arquivos, não o git — docs não rastreados no
+checkout rodado entram na contagem; a medida reprodutível é a do checkout limpo.
 ARMADILHA (medida na própria 10ª): este arquivo é .py FORA de docs/, logo entra no ground truth
 do C6 — escrever aqui o nome literal de uma var citada pelas docs a transformava em "existente" e
 o sinal sumia do scan. Por isso este docstring não nomeia nenhuma delas; os nomes estão no ledger.
@@ -120,9 +133,10 @@ NUMERIC_CATEGORIES = ["C1", "C3", "C4", "C5", "C6"]
 FILES_ONLY_CATEGORIES = ["C2", "C7"]
 ALL_CATEGORIES = NUMERIC_CATEGORIES + FILES_ONLY_CATEGORIES
 
-# Totais reconciliados 01/11/2026, 10ª reconciliação (ver docstring do módulo).
-EXPECTED_TOTAL = 396
-EXPECTED_BY_CAT = {"C1": 90, "C3": 11, "C4": 111, "C5": 153, "C6": 31}
+# Contagens reconciliadas 04/11/2026, 11ª reconciliação (ver docstring do módulo).
+# Fonte única: o total é derivado, para que uma reconciliação mexa num literal só.
+EXPECTED_BY_CAT = {"C1": 90, "C3": 11, "C4": 111, "C5": 155, "C6": 30}
+EXPECTED_TOTAL = sum(EXPECTED_BY_CAT.values())
 
 _scan_check_cache: tuple[int, str, str] | None = None
 _scan_full_cache: tuple[int, dict] | None = None
@@ -212,7 +226,7 @@ def test_scan_check_exits_one(errors: list) -> None:
 
 
 def test_scan_check_total_reconciled(errors: list) -> None:
-    """Scan --check reporta EXATAMENTE 396 stale signals (C1+C3+C4+C5+C6).
+    """Scan --check reporta EXATAMENTE EXPECTED_TOTAL stale signals (C1+C3+C4+C5+C6).
 
     REQUIREMENT: a métrica reconciliada em 08/10/2026 é literal (era 561 até a
     reconciliação — ver ledger em docs/plans/2026-10-08-drift-reconciliacao/).
@@ -228,7 +242,7 @@ def test_scan_check_total_reconciled(errors: list) -> None:
 
 
 def test_scan_categories_breakdown(errors: list) -> None:
-    """Decomposição C1+C3+C4+C5+C6 = 90+11+111+153+31 = 396 (10ª reconciliação, 01/11, bump 30.4.102)."""
+    """Decomposição C1+C3+C4+C5+C6 == EXPECTED_BY_CAT (literais da última reconciliação)."""
     code, data = run_scan_full()
     if code != 0:
         errors.append(f"FAIL scan_categories_breakdown: scan default exit {code}")
@@ -284,7 +298,7 @@ def test_guard_covers_only_c3(errors: list) -> None:
 def test_files_only_categories_not_in_check(errors: list) -> None:
     """C2 (paths) e C7 (hooks) NÃO contam em --check (são files-only)."""
     _, _, stderr = run_scan_check()
-    # O stderr do check: "CHECK: 396 stale signals (C1=90, C3=11, C4=111, C5=153, C6=31)"
+    # O stderr do check: "CHECK: <N> stale signals (C1=…, C3=…, C4=…, C5=…, C6=…)"
     # Não menciona C2 nem C7.
     has_c2 = "C2=" in stderr
     has_c7 = "C7=" in stderr

@@ -109,7 +109,7 @@ Per-wave task lists executed in earlier sessions. Key W5/W7 tasks completed this
 
 ```bash
 # W0-W7 acceptance verification
-touring-quality score /home/gabrielgadea/.claude/rust --workspace --format json | jq '{composite, tier, blockers, warnings}'
+touring-quality score ~/.claude/rust --workspace --format json | jq '{composite, tier, blockers, warnings}'
 # Expected: composite ≥ 0.95, tier = "Diamond", blockers = [], warnings = []
 # Actual 2026-06-26: { "composite": 0.9890166, "tier": "Diamond", "blockers": [], "warnings": [] } ✅
 
@@ -119,12 +119,12 @@ cargo check --workspace 2>&1 | tail -1
 # Actual 2026-06-26: ✅ Finished (1 pre-existing warning about GateStatus unused import, unrelated to W5/W7)
 
 # Verify touring-harness gone
-ls /home/gabrielgadea/.claude/rust/crates/touring-harness 2>&1
+ls ~/.claude/rust/crates/touring-harness 2>&1
 # Expected: No such file or directory
 # Actual 2026-06-26: ✅ Removed
 
 # Verify touring-harness-mcp gone (closed earlier)
-ls /home/gabrielgadea/.claude/rust/crates/touring-harness-mcp 2>&1
+ls ~/.claude/rust/crates/touring-harness-mcp 2>&1
 # Expected: No such file or directory
 # Actual 2026-06-26: ✅ Removed
 ```
@@ -198,7 +198,7 @@ DIAMOND 0.989 — 0 BLOCKERS, 0 WARNINGS
 
 ```bash
 touring memory store "harness-consolidation-DIAMOND-MPV3-CLOSED-2026-06-26" \
-  "Master Plan v3 FULLY CLOSED 2026-06-26: composite 0.989 DIAMOND (up from 0.640), 0 BLOCKERS, 0 WARNINGS, 56 tasks across 8 waves DONE. W5 close: touring-harness + touring-harness-mcp crates deleted; builtins/* migrated to touring-quality/src/builtins/ (canonical home); builtin_default_gates re-exported from touring_quality; imports updated in touring-server/elite_tools.rs + touring-ceg/harness_extension.rs; root Cargo.toml [workspace] members updated. F4.5 fix: cargo-deny canonical unmaintained=workspace / unsound=workspace policy (per embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html) — 6 transitive informational deps filtered. F2.5 fix: extend load_advisories_ignore to walk up the lockfile's directory tree to find the workspace-root deny.toml (per-crate crates/<x>/Cargo.lock doesn't share location with workspace deny.toml); ignore list now honored by both F2.5 (CVE gate) and F4.5 (informational hygiene). F1.2 fix: split 4896-LOC generate_plan.py into 21 focused modules (plan_lib/ + plan_lib/data_waves/{w0_w3,w4_w7,w8_w11,w12_w14}.py + plan_lib/renderers/{utilities,index_wave,architecture,deployment,commercial,glossary,risks,metrics,rollback,contributing,changelog}.py) — every byte preserved per REGRA #0 potentialization. Master plan v3 hierarchical tracker: /home/gabrielgadea/.claude/rust/docs/2026-06-26-master-plan-v3-tracker.md" \
+  "Master Plan v3 FULLY CLOSED 2026-06-26: composite 0.989 DIAMOND (up from 0.640), 0 BLOCKERS, 0 WARNINGS, 56 tasks across 8 waves DONE. W5 close: touring-harness + touring-harness-mcp crates deleted; builtins/* migrated to touring-quality/src/builtins/ (canonical home); builtin_default_gates re-exported from touring_quality; imports updated in touring-server/elite_tools.rs + touring-ceg/harness_extension.rs; root Cargo.toml [workspace] members updated. F4.5 fix: cargo-deny canonical unmaintained=workspace / unsound=workspace policy (per embarkstudios.github.io/cargo-deny/checks/advisories/cfg.html) — 6 transitive informational deps filtered. F2.5 fix: extend load_advisories_ignore to walk up the lockfile's directory tree to find the workspace-root deny.toml (per-crate crates/<x>/Cargo.lock doesn't share location with workspace deny.toml); ignore list now honored by both F2.5 (CVE gate) and F4.5 (informational hygiene). F1.2 fix: split 4896-LOC generate_plan.py into 21 focused modules (plan_lib/ + plan_lib/data_waves/{w0_w3,w4_w7,w8_w11,w12_w14}.py + plan_lib/renderers/{utilities,index_wave,architecture,deployment,commercial,glossary,risks,metrics,rollback,contributing,changelog}.py) — every byte preserved per REGRA #0 potentialization. Master plan v3 hierarchical tracker: ~/.claude/rust/docs/2026-06-26-master-plan-v3-tracker.md" \
   --tier semantic
 ```
 

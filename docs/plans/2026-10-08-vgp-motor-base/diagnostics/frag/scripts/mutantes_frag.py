@@ -13,6 +13,9 @@ Regras (memória harness-de-mutacao-e-asercao-vacua):
 Uso: mutantes_frag.py <dir-de-saida> [--so M01,M02] [--lista]
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import os
 import re
@@ -21,9 +24,9 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path("/home/gabrielgadea/projects/touring-wt-frag")
+ROOT = Path(f"{_HOME}/projects/touring-wt-frag")
 CRATES = ROOT / "crates"
-TARGET = "/home/gabrielgadea/projects/touring/target/wt-frag"
+TARGET = f"{_HOME}/projects/touring/target/wt-frag"
 
 T = ["cargo", "test", "--locked", "--no-fail-fast"]
 CMDS = {

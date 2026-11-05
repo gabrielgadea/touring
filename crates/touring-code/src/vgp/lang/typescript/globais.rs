@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use super::projeto::{ConfigTs, Projeto};
 use super::tabelas::GLOBAIS;
 use super::util::palavra_presente;
+use crate::vgp::lang::caminho;
 
 /// Is `nome` one of the runtime globals (ES + DOM + Node + test runners)?
 pub(super) fn eh_global_conhecido(nome: &str) -> bool {
@@ -261,22 +262,22 @@ impl<'a> Mundo<'a> {
             if !visto.insert(d.clone()) {
                 continue;
             }
-            let Ok(entradas) = std::fs::read_dir(&d) else {
+            let Ok(entradas) = caminho::listar_contido(self.projeto.raizes(), &d) else {
                 continue;
             };
-            for e in entradas.flatten() {
-                let Ok(tipo) = e.file_type() else { continue };
+            for e in entradas {
+                let Some(tipo) = e.tipo else { continue };
                 if tipo.is_dir()
                     && !tipo.is_symlink()
                     && !plano
-                    && !SKIP_DIRS.iter().any(|s| e.file_name() == **s)
+                    && !SKIP_DIRS.iter().any(|s| e.nome == **s)
                 {
-                    pilha.push(e.path());
-                } else if tipo.is_file() && self.arquivo_candidato(&e.path()) {
+                    pilha.push(e.caminho);
+                } else if tipo.is_file() && self.arquivo_candidato(&e.caminho) {
                     if !orc.permite() {
                         return;
                     }
-                    self.ler_e_marcar(&e.path(), pendentes, achadas, orc);
+                    self.ler_e_marcar(&e.caminho, pendentes, achadas, orc);
                 }
             }
         }
@@ -328,7 +329,7 @@ impl<'a> Mundo<'a> {
         let Some(types) = dir
             .ancestors()
             .map(|d| d.join("node_modules").join("@types"))
-            .find(|c| c.is_dir())
+            .find(|c| caminho::e_diretorio(self.projeto.raizes(), c))
         else {
             return false;
         };
@@ -337,8 +338,8 @@ impl<'a> Mundo<'a> {
                 .iter()
                 .map(|t| types.join(t.split('/').next().unwrap_or(t)))
                 .collect(),
-            None => std::fs::read_dir(&types)
-                .map(|r| r.flatten().map(|e| e.path()).collect())
+            None => caminho::listar_contido(self.projeto.raizes(), &types)
+                .map(|r| r.into_iter().map(|e| e.caminho).collect())
                 .unwrap_or_default(),
         };
         pacotes.iter().any(|p| self.pacote_menciona(p, nome))
@@ -346,12 +347,12 @@ impl<'a> Mundo<'a> {
 
     /// The top-level `*.d.ts` of a declaration package mention `nome`?
     fn pacote_menciona(&self, pacote: &Path, nome: &str) -> bool {
-        let Ok(entradas) = std::fs::read_dir(pacote) else {
+        let Ok(entradas) = caminho::listar_contido(self.projeto.raizes(), pacote) else {
             return false;
         };
         entradas
-            .flatten()
-            .map(|e| e.path())
+            .into_iter()
+            .map(|e| e.caminho)
             .filter(|p| p.to_string_lossy().ends_with(".d.ts"))
             .any(|p| {
                 self.projeto
@@ -364,12 +365,12 @@ impl<'a> Mundo<'a> {
         let Some(ts) = self.projeto.dir_do_pacote(dir, "typescript") else {
             return false;
         };
-        let Ok(entradas) = std::fs::read_dir(ts.join("lib")) else {
+        let Ok(entradas) = caminho::listar_contido(self.projeto.raizes(), &ts.join("lib")) else {
             return false;
         };
         entradas
-            .flatten()
-            .map(|e| e.path())
+            .into_iter()
+            .map(|e| e.caminho)
             .filter(|p| {
                 p.file_name()
                     .and_then(|n| n.to_str())
@@ -497,6 +498,35 @@ mod tests {
             um(&mundo, "ninguemDefine"),
             Busca::NaoAchou { completo: true }
         );
+    }
+
+    /// The scan lists and reads through `caminho`: a directory OUTSIDE the roots is not listed, so
+    /// what lives there is not "found" (the control: the same word inside the roots is).
+    #[test]
+    fn a_varredura_nao_lista_um_diretorio_fora_das_raizes() {
+        let tmp = apoio::dir_temporario();
+        let raiz = tmp.path().join("proj");
+        let fora = tmp.path().join("fora");
+        std::fs::create_dir_all(&raiz).expect("d");
+        std::fs::create_dir_all(&fora).expect("d");
+        std::fs::write(raiz.join("package.json"), "{}").expect("w");
+        std::fs::write(raiz.join("a.js"), "x;\n").expect("w");
+        std::fs::write(raiz.join("b.js"), "function helperDeDentro() {}\n").expect("w");
+        std::fs::write(fora.join("lib.js"), "function helperDeFora() {}\n").expect("w");
+        let sobrepor = HashMap::new();
+        let projeto = Projeto::novo(&raiz, &sobrepor);
+        let arq = raiz.join("a.js");
+        let mundo = Mundo::novo(&projeto, &arq, false);
+        let varre = |dir: &Path, palavra: &str| -> HashSet<String> {
+            let pendentes: HashSet<&str> = [palavra].into_iter().collect();
+            let mut achadas = HashSet::new();
+            let mut visto = HashSet::new();
+            let mut orc = Orcamento::novo();
+            mundo.varrer_dir(dir, &pendentes, &mut achadas, &mut visto, &mut orc, false);
+            achadas
+        };
+        assert!(varre(&fora, "helperDeFora").is_empty(), "outside the roots");
+        assert!(varre(&raiz, "helperDeDentro").contains("helperDeDentro"));
     }
 
     #[test]

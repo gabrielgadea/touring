@@ -105,7 +105,7 @@
   "questions": [],
   "verdict": {
     "converged": true,
-    "statement": "6 institutional findings under meta-research lens after 1 round; new findings dry on subsequent rounds; durable artifact persisted to ~/.claude/projects/-home-gabrielgadea-projects-touring/memory/skill-structured-reasoning-2026-09-01.md",
+    "statement": "6 institutional findings under meta-research lens after 1 round; new findings dry on subsequent rounds; durable artifact persisted to ~/.claude/projects/-home-<user>-projects-touring/memory/skill-structured-reasoning-2026-09-01.md",
     "clauses": {
       "rounds_run": 1,
       "dry_tail": true,

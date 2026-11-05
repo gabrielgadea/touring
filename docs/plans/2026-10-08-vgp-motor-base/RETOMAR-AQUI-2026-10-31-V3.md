@@ -1,6 +1,6 @@
 # RETOMADA — V-3 pós-J14 (31/10/2026)
 
-B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
+B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`.
 
 ## Estado persistido
 

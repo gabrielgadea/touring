@@ -9,13 +9,16 @@ Uso: python3 -I varredura_real.py --touring <bin> --out <json> [--max N]
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import collections
 import json
 import subprocess
 from pathlib import Path
 
-RAIZ = Path("/home/gabrielgadea/projects/touring-wt-semeado")
+RAIZ = Path(f"{_HOME}/projects/touring-wt-semeado")
 CRATES = ["touring-code", "touring-identity", "touring-pyright"]
 
 

@@ -5,9 +5,9 @@
    Compiling serde_derive v1.0.228
    Compiling thiserror-impl v2.0.18
    Compiling thiserror v2.0.18
-   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0b/crates/touring-pyright)
+   Compiling touring-pyright v30.4.96 (~/projects/touring-wt-p0b/crates/touring-pyright)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 9.47s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0b/debug/deps/touring_pyright-a050e28069285cbb)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-p0b/debug/deps/touring_pyright-a050e28069285cbb)
 
 running 176 tests
 test client::tests::any_other_server_request_answers_null ... ok

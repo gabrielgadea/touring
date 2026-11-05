@@ -6,6 +6,9 @@ Uso: python3 -I -B construir_horust_real.py inventario | rodar <k> | lotes <k> <
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import collections
 import dataclasses
 import hashlib
@@ -25,8 +28,8 @@ import operadores_rust as op  # noqa: E402
 import oraculo_cargo_json as oc  # noqa: E402
 import selecao_horust as sel  # noqa: E402
 
-RAIZ = Path("/home/gabrielgadea/projects/touring-wt-horust-real")
-TARGET = Path("/home/gabrielgadea/projects/touring/target/horust-real")
+RAIZ = Path(f"{_HOME}/projects/touring-wt-horust-real")
+TARGET = Path(f"{_HOME}/projects/touring/target/horust-real")
 HEAD_ESPERADO = "c118aa524358d42b9bb2aa40b4794b2c5919a5ae"
 SEMENTE = "horust-real-20261010"
 TENTATIVAS_POR_CLASSE = 72
@@ -35,7 +38,7 @@ CORPUS = Path.home() / ".claude/touring/vgp/corpus_horust_real_20261010"
 ESTADO = HERE / "estado"
 VGP = Path.home() / ".claude/touring/vgp"
 BASE_CHECK = HERE / "base_check.jsonl"
-PREFIXOS_REPO = ("/home/gabrielgadea/projects/touring/", "/home/gabrielgadea/projects/touring-wt-semeado/")
+PREFIXOS_REPO = (f"{_HOME}/projects/touring/", f"{_HOME}/projects/touring-wt-semeado/")
 
 
 def semente_da_rodada(k: int) -> str:

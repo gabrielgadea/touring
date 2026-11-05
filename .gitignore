@@ -74,7 +74,13 @@ docs/plans/*/checkpoints/*.pre-*
 # Enquanto esses caches forem tracked, qualquer credencial digitada numa sessão
 # reentra no repo no commit seguinte. Removidos do histórico via git filter-repo;
 # os diretórios PERMANECEM em disco — só deixam de ser publicados.
-/.touring-cache/
+# The per-directory copies too (2026-11-04): `touring` leaves `.touring-cache/` beside
+# whichever directory it ran in, and 10 crate-level ones (tfidf indexes with the
+# developer's absolute paths, one mutation-test report) had been versioned under
+# crates/**. Nothing reads them from the source tree: both consumers
+# (`tfidf_retriever::default_cache_path`, `repo_score::score_testing`) resolve
+# `<project root>/.touring-cache`, and a crate directory is never that root.
+**/.touring-cache/
 /.cipher/
 /.local-cache/
 /.touring-explore/

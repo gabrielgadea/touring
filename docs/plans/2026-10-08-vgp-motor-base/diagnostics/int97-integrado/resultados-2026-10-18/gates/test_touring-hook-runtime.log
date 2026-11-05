@@ -1,8 +1,8 @@
-   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
+   Compiling touring-hook-runtime v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-runtime)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 18.19s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hook_runtime-4d0f89a5120a0c5d)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_hook_runtime-4d0f89a5120a0c5d)
 
 running 516 tests
 test actor_yield::tests::a_handler_served_during_a_yield_never_yields_again ... ok

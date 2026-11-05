@@ -1,5 +1,5 @@
     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0b/debug/deps/touring_pyright-a050e28069285cbb)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-p0b/debug/deps/touring_pyright-a050e28069285cbb)
 
 running 176 tests
 test client::tests::configuration_request_answers_each_section_and_null_for_unknown ... ok

@@ -16,7 +16,7 @@
 //! - [`run`] / [`run_returning`] — the `pre-exec` enforcement hook entry
 //!   points. X9 LEARN runs through the parent's [`HookRuntime`], which
 //!   implements the `CegRuntime` / `LearnRuntime` IoC traits
-//!   (`touring-contracts`), so `gateway::learn` stays runtime-agnostic.
+//!   (`touring_ceg::gateway::deps`), so `gateway::learn` stays runtime-agnostic.
 //! - [`run_observe_only`] — the S-01 universal observe hook (`ceg-observe`
 //!   one-shot + the in-daemon dispatch in `hook_registry`).
 //! - The verdict → [`HookResponse`] mapping and the hook-input parsing —

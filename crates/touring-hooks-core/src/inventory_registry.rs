@@ -1,8 +1,10 @@
 //! Wave 5 (2026-04-18) — side-by-side declarative hook registration.
 //!
-//! The canonical hook table is `touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES`
-//! — a hand-maintained list of 138 entries that the daemon dispatch
-//! path consults on every incoming request. Maintaining that list by
+//! The canonical hook table is `touring_hooks::hook_registry::build_dispatch_table`
+//! — a hand-maintained declaration (one `m.insert` per hook) that the daemon
+//! dispatch path consults on every incoming request; the hook names and the
+//! thin client's daemon-membership test are derived from it
+//! (`all_daemon_hook_names`, `is_daemon_hook`). Maintaining that declaration by
 //! hand is correct and stable, but adding a new hook requires three
 //! synchronized edits (handler impl, registry entry, test count).
 //!
@@ -14,7 +16,7 @@
 //!
 //! # Invariants
 //!
-//! 1. `ALL_DAEMON_HOOK_NAMES` remains the **single source of truth**
+//! 1. `build_dispatch_table` remains the **single source of truth**
 //!    for the daemon dispatch table. Inventory entries are
 //!    observability/discovery only — they do not replace dispatch.
 //! 2. `collect_inventory_hooks()` is called once during bootstrap to
@@ -49,7 +51,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HookEntry {
     /// Hook name as wired in the daemon dispatch table. MUST match
-    /// one entry in `touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES`.
+    /// one key of `touring_hooks::hook_registry::dispatch_table()`
+    /// (`all_daemon_hook_names()` lists them).
     pub name: &'static str,
     /// One-line description surfaced to `touring --help` and docs.
     pub description: &'static str,

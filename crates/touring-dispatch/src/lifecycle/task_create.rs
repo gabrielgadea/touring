@@ -256,7 +256,7 @@ pub(crate) fn handle_task_sync_post_create(rt: &mut HookRuntime, input: &Value) 
 /// so orphan symbols related to the new task surface immediately. This bridges TaskCreate
 /// → wiring analysis — Claude Code sees integration opportunities without an extra round-trip.
 /// Returns empty string when task_subject is empty.
-pub(crate) fn task_create_wiring_hint(task_subject: &str) -> String {
+fn task_create_wiring_hint(task_subject: &str) -> String {
     if task_subject.is_empty() {
         return String::new();
     }
@@ -289,7 +289,7 @@ pub(crate) fn task_create_wiring_hint(task_subject: &str) -> String {
 ///
 /// Priority: D > C > B > A. Records the winning class in gate metrics.
 /// Returns empty string for trivially short subjects (≤3 chars).
-pub(crate) fn jdm_routing_hint(subject: &str) -> String {
+fn jdm_routing_hint(subject: &str) -> String {
     if subject.len() <= 3 {
         return String::new();
     }
@@ -390,7 +390,7 @@ pub(crate) fn jdm_routing_hint(subject: &str) -> String {
 /// macro-task linearly (which collapses the context window).
 ///
 /// Returns an empty string for simple, single-goal subjects.
-pub(crate) fn task_sharding_hint(task_id: &str, subject: &str) -> String {
+fn task_sharding_hint(task_id: &str, subject: &str) -> String {
     if subject.len() <= 10 {
         return String::new();
     }
@@ -460,7 +460,7 @@ pub(crate) fn task_sharding_hint(task_id: &str, subject: &str) -> String {
 /// TaskCreate(subject) → gotcha check → failure prevention before any code is written.
 /// Complements R41-S3 (wiring) by adding failure-pattern awareness at task creation time.
 /// Returns empty string when task_subject is empty or trivially short.
-pub(crate) fn task_create_gotcha_hint(task_subject: &str) -> String {
+fn task_create_gotcha_hint(task_subject: &str) -> String {
     if task_subject.len() <= 3 {
         return String::new();
     }
@@ -488,7 +488,7 @@ pub(crate) fn task_create_gotcha_hint(task_subject: &str) -> String {
 /// directly to the touring-generator `task_scaffold` template, so the full YAML
 /// task plan (with CLI bootstrap commands) is one command away.
 /// Returns empty string when task_id is sentinel or task_subject is empty.
-pub(crate) fn task_scaffold_render_hint(task_id: &str, task_subject: &str) -> String {
+fn task_scaffold_render_hint(task_id: &str, task_subject: &str) -> String {
     if task_id.is_empty() || task_id == "unknown" || task_subject.is_empty() {
         return String::new();
     }
@@ -503,9 +503,9 @@ pub(crate) fn task_scaffold_render_hint(task_id: &str, task_subject: &str) -> St
 // ── Wave C2 inversion (2026-06-10): subject GeneratorKind hint matchers ──────
 // The 30 `maybe_*_hint_on_task_create` matchers + `collect_subject_generator_hints`
 // dispatcher moved to touring-hooks-core::generator_hints (pure &str -> Option<String>,
-// consumed by cli/decompose.rs in touring-cli and hook_registry here). Glob
-// re-export keeps every existing path (`super::maybe_*`, `crate::lifecycle::*`).
-pub(crate) use touring_hooks_core::generator_hints::*;
+// consumed by cli/decompose.rs in touring-cli and hook_registry here). The handler only needs
+// the dispatcher; `lifecycle.rs` re-exports it for `hook_registry`.
+use touring_hooks_core::generator_hints::collect_subject_generator_hints;
 
 // ── Pln3 R1: real-time plan_mode emission (CC=4) ─────────────────────────────
 
@@ -514,7 +514,7 @@ pub(crate) use touring_hooks_core::generator_hints::*;
 ///
 /// Returns an optional hint string to include in `additionalContext` parts.
 /// Extracted from `handle_task_sync_post_create` to keep that function CC ≤ 15.
-pub(crate) fn maybe_emit_plan_mode_suggestion(
+fn maybe_emit_plan_mode_suggestion(
     rt: &mut crate::runtime::HookRuntime,
     task_id: &str,
     task_subject: &str,

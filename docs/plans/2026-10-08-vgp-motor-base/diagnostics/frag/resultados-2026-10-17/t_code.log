@@ -385,7 +385,7 @@
    Compiling tree-sitter-java v0.23.5
    Compiling tree-sitter-go v0.25.0
    Compiling tree-sitter-ruby v0.23.1
-   Compiling tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring-wt-frag/third_party/tree-sitter-bash)
+   Compiling tree-sitter-bash v0.25.1 (~/projects/touring-wt-frag/third_party/tree-sitter-bash)
    Compiling tree-sitter-php v0.24.2
    Compiling tree-sitter-python v0.25.0
    Compiling ordered-float v2.10.1
@@ -403,7 +403,7 @@
    Compiling nu-ansi-term v0.50.3
    Compiling toml_edit v0.25.12+spec-1.1.0
    Compiling tracing-subscriber v0.3.23
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-frag/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-frag/crates/touring-foundation)
    Compiling bit-set v0.10.0
    Compiling plotters-svg v0.3.7
    Compiling tokenizers v0.22.2
@@ -423,7 +423,7 @@
    Compiling debugid v0.8.0
    Compiling salsa-macros v0.18.0
    Compiling tree-sitter-toml-ng v0.7.0
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-frag/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-frag/third_party/tree-sitter-md)
    Compiling tree-sitter-json v0.24.8
    Compiling findshlibs v0.10.2
    Compiling itertools v0.10.5
@@ -453,7 +453,7 @@
    Compiling plotters v0.3.7
    Compiling ast-grep-core v0.42.3
    Compiling proc-macro-crate v3.5.0
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-frag/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring-wt-frag/crates/touring-rkyv)
    Compiling rustdoc-types v0.39.0
    Compiling cargo-platform v0.2.0
    Compiling tinytemplate v1.2.1
@@ -478,10 +478,10 @@
    Compiling criterion v0.5.1
    Compiling rstest_macros v0.26.1
    Compiling rusty-fork v0.3.1
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-frag/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-frag/crates/touring-simd)
    Compiling petgraph v0.6.5
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-frag/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-frag/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling symbolic-demangle v12.18.3
    Compiling notify-debouncer-mini v0.5.0
@@ -509,10 +509,10 @@
    Compiling rstest v0.26.1
    Compiling pprof v0.14.1
    Compiling tracing-test v0.2.6
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-frag/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-frag/crates/touring-code)
    Compiling mockall v0.13.1
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4m 26s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/touring_code-98cfdccb77d8c4e2)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-frag/debug/deps/touring_code-98cfdccb77d8c4e2)
 
 running 950 tests
 test ast::api_cascade::tests::cascade_plan_is_empty_when_no_changes ... ok
@@ -1468,7 +1468,7 @@ test ast::watcher::tests::test_watcher_unwatch ... ok
 
 test result: ok. 949 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.42s
 
-     Running tests/bash_scanner_ctype.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/bash_scanner_ctype-a8a042fdf2c82aab)
+     Running tests/bash_scanner_ctype.rs (~/projects/touring/target/wt-frag/debug/deps/bash_scanner_ctype-a8a042fdf2c82aab)
 
 running 2 tests
 test bash_codepoint_sweep_child ... ok
@@ -1476,7 +1476,7 @@ test a_codepoint_in_a_bash_brace_expression_never_reads_outside_the_ctype_table 
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.33s
 
-     Running tests/cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/cross_audit-b86f29bc25b4afde)
+     Running tests/cross_audit.rs (~/projects/touring/target/wt-frag/debug/deps/cross_audit-b86f29bc25b4afde)
 
 running 31 tests
 test audit_01_ast_error_is_non_exhaustive ... ok
@@ -1513,7 +1513,7 @@ test full_flow_parse_extract_index_blast_radius ... ok
 
 test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
 
-     Running tests/fuzz_parsers.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/fuzz_parsers-330665618cb215fb)
+     Running tests/fuzz_parsers.rs (~/projects/touring/target/wt-frag/debug/deps/fuzz_parsers-330665618cb215fb)
 
 running 4 tests
 test parallel_parse_is_deterministic ... ok
@@ -1523,7 +1523,7 @@ test fuzz_every_language_does_not_panic ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.75s
 
-     Running tests/integration_test.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/integration_test-abf49287846a56c2)
+     Running tests/integration_test.rs (~/projects/touring/target/wt-frag/debug/deps/integration_test-abf49287846a56c2)
 
 running 2 tests
 test integration_item_construction ... ok
@@ -1531,7 +1531,7 @@ test integration_result_alias_compiles ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/latency_p99_guard.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/latency_p99_guard-55cfef7702c0c680)
+     Running tests/latency_p99_guard.rs (~/projects/touring/target/wt-frag/debug/deps/latency_p99_guard-55cfef7702c0c680)
 
 running 5 tests
 test histogram_records_monotonic_sequence ... ok
@@ -1542,7 +1542,7 @@ test quality_rust_p99_under_budget ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.78s
 
-     Running tests/markdown_scanner_overflow.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/markdown_scanner_overflow-383d5f87da2f9f10)
+     Running tests/markdown_scanner_overflow.rs (~/projects/touring/target/wt-frag/debug/deps/markdown_scanner_overflow-383d5f87da2f9f10)
 
 running 7 tests
 test the_ctype_guard_sees_through_comments_literals_parentheses_and_aliases ... ok
@@ -1555,7 +1555,7 @@ test a_codepoint_after_list_digits_never_reads_outside_the_ctype_table ... ok
 
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.30s
 
-     Running tests/mockall_observer.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/mockall_observer-a39aeaea833bba80)
+     Running tests/mockall_observer.rs (~/projects/touring/target/wt-frag/debug/deps/mockall_observer-a39aeaea833bba80)
 
 running 6 tests
 test empty_changeset_does_not_notify ... ok
@@ -1567,7 +1567,7 @@ test upsert_triggers_observer_exactly_once ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/parametric_multilang.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/parametric_multilang-c5e6238f840950c6)
+     Running tests/parametric_multilang.rs (~/projects/touring/target/wt-frag/debug/deps/parametric_multilang-c5e6238f840950c6)
 
 running 58 tests
 test lang_as_str_matches_display::case_03 ... ok
@@ -1631,7 +1631,7 @@ test symbol_extraction_finds_top_level_function::case_4 ... ok
 
 test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/property_tests.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/property_tests-419f754656b18dcd)
+     Running tests/property_tests.rs (~/projects/touring/target/wt-frag/debug/deps/property_tests-419f754656b18dcd)
 
 running 19 tests
 test filter_by_kind_correct ... ok
@@ -1656,7 +1656,7 @@ test symbols_valid_line_ranges ... ok
 
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.52s
 
-     Running tests/proptest_parser_fuzz.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/proptest_parser_fuzz-274a59d5754e2430)
+     Running tests/proptest_parser_fuzz.rs (~/projects/touring/target/wt-frag/debug/deps/proptest_parser_fuzz-274a59d5754e2430)
 
 running 8 tests
 test build_call_graph_never_panics ... ok
@@ -1670,7 +1670,7 @@ test pathological_inputs_dont_crash_pipeline ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.87s
 
-     Running tests/rusty_fork_isolation.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/rusty_fork_isolation-4f885c13ed5290c5)
+     Running tests/rusty_fork_isolation.rs (~/projects/touring/target/wt-frag/debug/deps/rusty_fork_isolation-4f885c13ed5290c5)
 
 running 4 tests
 test parent_sees_fresh_static_between_forks ... ok
@@ -1680,7 +1680,7 @@ test symbol_store_opens_in_fresh_child_process ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/semantics_tests.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/semantics_tests-2eed3f3d839c6929)
+     Running tests/semantics_tests.rs (~/projects/touring/target/wt-frag/debug/deps/semantics_tests-2eed3f3d839c6929)
 
 running 13 tests
 test test_is_valid_kind_rust_fn ... ok
@@ -1699,7 +1699,7 @@ test test_typescript_interface_resolution ... ok
 
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/snapshot_call_graph.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_call_graph-0cec6872197f6619)
+     Running tests/snapshot_call_graph.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_call_graph-0cec6872197f6619)
 
 running 2 tests
 test snapshot_python_nested_calls ... ok
@@ -1707,7 +1707,7 @@ test snapshot_rust_simple_call_graph ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/snapshot_call_graph_scc.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_call_graph_scc-d87b94f80842a239)
+     Running tests/snapshot_call_graph_scc.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_call_graph_scc-d87b94f80842a239)
 
 running 3 tests
 test snapshot_python_self_recursion ... ok
@@ -1716,7 +1716,7 @@ test snapshot_rust_three_node_cycle_plus_tail ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
 
-     Running tests/snapshot_complexity.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_complexity-6cdf00c9c2b3de35)
+     Running tests/snapshot_complexity.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_complexity-6cdf00c9c2b3de35)
 
 running 2 tests
 test snapshot_rust_complexity_branches ... ok
@@ -1724,7 +1724,7 @@ test snapshot_python_complexity_branches ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/snapshot_complexity_async.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_complexity_async-3029cf4fc19e4e2a)
+     Running tests/snapshot_complexity_async.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_complexity_async-3029cf4fc19e4e2a)
 
 running 2 tests
 test snapshot_rust_async_await_branches ... ok
@@ -1732,7 +1732,7 @@ test snapshot_python_async_await_branches ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/snapshot_imports.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_imports-fb58d1ad2d971bf3)
+     Running tests/snapshot_imports.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_imports-fb58d1ad2d971bf3)
 
 running 2 tests
 test snapshot_python_imports_mixed ... ok
@@ -1740,21 +1740,21 @@ test snapshot_rust_imports_mixed ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/snapshot_module_tree.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_module_tree-5351e364ce02dfd5)
+     Running tests/snapshot_module_tree.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_module_tree-5351e364ce02dfd5)
 
 running 1 test
 test snapshot_rust_module_tree_nested ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/snapshot_module_tree_deep.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_module_tree_deep-58ff62df2cde5ddc)
+     Running tests/snapshot_module_tree_deep.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_module_tree_deep-58ff62df2cde5ddc)
 
 running 1 test
 test snapshot_rust_module_tree_four_level_chained_reexports ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-     Running tests/snapshot_pheromone_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/snapshot_pheromone_e2e-e856b337d55af552)
+     Running tests/snapshot_pheromone_e2e.rs (~/projects/touring/target/wt-frag/debug/deps/snapshot_pheromone_e2e-e856b337d55af552)
 
 running 10 tests
 test e2e_enriched_blast_radius_empty_graph ... ok
@@ -1770,7 +1770,7 @@ test e2e_enriched_blast_radius_direct_and_transitive ... ok
 
 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
-     Running tests/strategies_audit.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/strategies_audit-6464d02bfde12555)
+     Running tests/strategies_audit.rs (~/projects/touring/target/wt-frag/debug/deps/strategies_audit-6464d02bfde12555)
 
 running 54 tests
 test audit_call_graph_detecta_chamadas_diretas ... ok
@@ -1830,14 +1830,14 @@ test audit_pipeline_edge_case_codigo_invalido_nao_crasha_sistema ... ok
 
 test result: ok. 54 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
 
-     Running tests/ts_parse_budget.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/ts_parse_budget-80f72b507761dc6c)
+     Running tests/ts_parse_budget.rs (~/projects/touring/target/wt-frag/debug/deps/ts_parse_budget-80f72b507761dc6c)
 
 running 1 test
 test a_parse_that_never_completes_is_halted_and_the_parser_recovers ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
 
-     Running tests/wave5_code_gen_workflow_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-frag/debug/deps/wave5_code_gen_workflow_e2e-f67862bd82010c5f)
+     Running tests/wave5_code_gen_workflow_e2e.rs (~/projects/touring/target/wt-frag/debug/deps/wave5_code_gen_workflow_e2e-f67862bd82010c5f)
 
 running 8 tests
 test workflow_robustness_malformed_source_errors_without_panic ... ok

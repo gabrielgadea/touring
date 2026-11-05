@@ -22,7 +22,7 @@ tantivy 0.22.1
 
 O manifesto original do sstable declara somente `zstd = { version = "0.13", features = ["experimental"] }` (`tantivy-sstable-0.3.0/Cargo.toml.orig:17`). O columnar não referencia `zstd` diretamente: chega a ele pelo sstable.
 
-Nos caminhos abaixo, `$REG` significa `/home/gabrielgadea/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f`.
+Nos caminhos abaixo, `$REG` significa `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f`.
 
 ## 2. Caminho zstd realmente executado
 

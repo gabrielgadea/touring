@@ -44,7 +44,7 @@ de `T1`. `T6` é gated por aprovação humana explícita.
 ## Gate de aceitação
 
 ```bash
-loop_converged.py --task task_1787118866702163488 --scope /home/gabrielgadea/projects/touring --rust-full
+loop_converged.py --task task_1787118866702163488 --scope ~/projects/touring --rust-full
 judge_attest.py && pytest test_adw.py && touring adw lint <specs>
 cargo test -p touring-cli          # só se T3 executar
 sync-client-skills.py --check && touring e2e -j

@@ -9,6 +9,11 @@
 //! `all-hooks` only forwarded to `touring-dispatch/all-hooks` — so every arm
 //! was compiled out and the daemon became a silent single point of failure.
 //!
+//! 02/11/2026: the standalone route is derived from the dispatch table
+//! (`src/standalone.rs`, guarded by `standalone_table_parity.rs`); this crate's own
+//! `pre-hooks`/`post-hooks`/… features now gate only the override bodies declared
+//! there, and the table's hooks follow `touring-dispatch`'s features.
+//!
 //! Two layers, D8-cruzado style: the DECLARATION (cfg) and the EXECUTOR (the
 //! real binary, spawned) must agree.
 
@@ -29,8 +34,8 @@ fn test_project() -> tempfile::TempDir {
 fn default_build_enables_standalone_hook_arms() {
     assert!(
         cfg!(feature = "pre-hooks"),
-        "feature `pre-hooks` is OFF in the default build — every standalone pre-hook arm \
-         in main.rs is compiled out (all-hooks must enable the crate's own features)"
+        "feature `pre-hooks` is OFF in the default build — every standalone pre-hook override \
+         in standalone.rs is compiled out (all-hooks must enable the crate's own features)"
     );
     assert!(
         cfg!(feature = "post-hooks"),
@@ -164,4 +169,35 @@ fn no_trace_file_without_env() {
         .filter(|e| e.path().extension().is_some_and(|x| x == "jsonl"))
         .collect();
     assert!(created.is_empty(), "trace is opt-in: {created:?}");
+}
+
+/// DECLARATION guard (01/11/2026): the daemon fast-path decision in `main.rs` asks the
+/// SAME predicate `touring-dispatch` tests (`hook_registry::is_daemon_hook`, a lookup in the
+/// dispatch table) — not a name list of its own.
+///
+/// Origin: `main.rs` decided the fast-path from a hand-written `ALL_DAEMON_HOOK_NAMES`
+/// constant that lagged the dispatch table by eight hooks, so those events never reached the
+/// daemon and no test noticed (the only registry test compared the cfg-aware function with
+/// the table, never the constant the client used). The predicate itself is covered in
+/// `touring-dispatch`; what only the client can break is WHICH predicate it calls, and this
+/// reads the production part of `src/main.rs` for it.
+#[test]
+fn main_rs_fast_path_asks_the_registry_predicate_not_a_list_of_its_own() {
+    let src = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs"))
+        .expect("read src/main.rs");
+    let prod = src.split("#[cfg(test)]").next().unwrap_or(&src);
+
+    assert_eq!(
+        prod.matches("touring_hooks::hook_registry::is_daemon_hook(subcommand)")
+            .count(),
+        1,
+        "the fast-path in main.rs must decide membership with hook_registry::is_daemon_hook"
+    );
+    for forbidden in ["ALL_DAEMON_HOOK_NAMES", ".contains(&subcommand)"] {
+        assert!(
+            !prod.contains(forbidden),
+            "main.rs must not decide the daemon fast-path from a name list (`{forbidden}`): \
+             that list drifts from the dispatch table the daemon serves"
+        );
+    }
 }

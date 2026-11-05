@@ -57,18 +57,22 @@ enum SnapshotCmd {
     },
 }
 
-/// Snapshot directory.
-fn snapshot_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/gabrielgadea".to_string());
-    PathBuf::from(home)
-        .join(".claude")
-        .join("touring")
-        .join("snapshots")
+/// Snapshot directory (`~/.claude/touring/snapshots`). Errors when no home directory
+/// can be derived — snapshots are never written to a guessed location.
+fn snapshot_dir() -> anyhow::Result<PathBuf> {
+    touring_foundation::user_home::claude_home()
+        .map(|claude| claude.join("touring").join("snapshots"))
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "{} — cannot locate the snapshots directory",
+                touring_foundation::user_home::NO_HOME_REASON
+            )
+        })
 }
 
 /// Ensure snapshot directory exists.
 fn ensure_snapshot_dir() -> anyhow::Result<PathBuf> {
-    let dir = snapshot_dir();
+    let dir = snapshot_dir()?;
     if !dir.exists() {
         fs::create_dir_all(&dir)?;
     }
@@ -105,7 +109,7 @@ pub struct SnapshotData {
 impl SnapshotData {
     /// Load a snapshot by name.
     fn load(name: &str) -> anyhow::Result<Self> {
-        let path = snapshot_dir().join(format!("{name}.json"));
+        let path = snapshot_dir()?.join(format!("{name}.json"));
         let content = fs::read_to_string(&path)?;
         serde_json::from_str(&content).map_err(|e| {
             anyhow::anyhow!(
@@ -271,7 +275,7 @@ fn run_create(name: &str) -> anyhow::Result<()> {
 
 /// `snapshot list` — list all available snapshots.
 fn run_list() -> anyhow::Result<()> {
-    let dir = snapshot_dir();
+    let dir = snapshot_dir()?;
     if !dir.exists() {
         println!("[]");
         return Ok(());
@@ -527,10 +531,22 @@ mod tests {
 
     #[test]
     fn snapshot_dir_path() {
-        let dir = snapshot_dir();
-        assert!(dir.to_string_lossy().contains(".claude"));
-        assert!(dir.to_string_lossy().contains("touring"));
-        assert!(dir.to_string_lossy().contains("snapshots"));
+        // Both outcomes are checked: a path under `~/.claude` when a home directory is
+        // derivable, and otherwise the named error (never a guessed path).
+        match snapshot_dir() {
+            Ok(dir) => {
+                assert!(dir.to_string_lossy().contains(".claude"));
+                assert!(dir.to_string_lossy().contains("touring"));
+                assert!(dir.to_string_lossy().contains("snapshots"));
+            }
+            Err(e) => {
+                assert!(touring_foundation::user_home::home_dir().is_none(), "{e:#}");
+                assert!(
+                    format!("{e:#}").contains(touring_foundation::user_home::NO_HOME_REASON),
+                    "{e:#}"
+                );
+            }
+        }
     }
 
     #[test]
@@ -546,7 +562,7 @@ mod tests {
         let data = SnapshotData {
             name: "test-snap".to_string(),
             timestamp: "2026-05-01T12:00:00Z".to_string(),
-            project_root: "/home/gabrielgadea".to_string(),
+            project_root: "/home/u".to_string(),
             node_count: 10,
             edge_count: 20,
             community_count: 3,

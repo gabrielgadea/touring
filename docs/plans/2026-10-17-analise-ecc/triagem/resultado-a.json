@@ -17,7 +17,7 @@
     "id": "D03",
     "estado": "confirmado",
     "comando": "grep -rn 'Context Window\\|20%' ~/.claude/rules ~/.claude/CLAUDE.md ~/.claude/skills/Touring/references; ls ~/.claude/rules/common/performance.md",
-    "saida_chave": "CLAUDE.md:111 'o aviso único aos 55%'; ls: cannot access '/home/gabrielgadea/.claude/rules/common/performance.md'",
+    "saida_chave": "CLAUDE.md:111 'o aviso único aos 55%'; ls: cannot access '~/.claude/rules/common/performance.md'",
     "nota": "Nenhuma regra de teto de 20% para refatoração grande no fluxo TACO. O aviso único aos 55% é o único limiar de contexto. O conteúdo do ECC performance.md não foi verificado aqui (arquivo ausente localmente)."
   },
   {
@@ -80,7 +80,7 @@
     "id": "D13",
     "estado": "confirmado",
     "comando": "ls ~/.claude/hooks/plan-detector.sh; sed -n 40,55p ~/.claude/commands/plan.md; grep -n 'plan-detector' ~/.claude/commands/plan.md",
-    "saida_chave": "ls: cannot access '/home/gabrielgadea/.claude/hooks/plan-detector.sh': No such file or directory; plan.md:68 e :97 citam o hook",
+    "saida_chave": "ls: cannot access '~/.claude/hooks/plan-detector.sh': No such file or directory; plan.md:68 e :97 citam o hook",
     "nota": "Confirmado: plan.md cita o E1 em plan-detector.sh, que não existe. A linha `TF_WORKSPACE=... /plan ou skill taco-planning ...` dentro do bloco bash é shell inválida, pois /plan não é executável."
   },
   {

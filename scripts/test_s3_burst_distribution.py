@@ -145,7 +145,8 @@ def test_classes_medidas_cobrem_as_que_o_gate_acompanha():
     falha `verificador-usa-menos-que-o-extrator`."""
     import re
     from pathlib import Path
-    rust = Path(__file__).resolve().parents[1] / "crates/touring-cli/src/cli_suggester.rs"
+    # code_mode_gates/shell.rs since 02/11/2026 (the constant left cli_suggester.rs)
+    rust = Path(__file__).resolve().parents[1] / "crates/touring-cli/src/code_mode_gates/shell.rs"
     m = re.search(r'CODE_MODE_COLLAPSED_CLASSES:\s*&\[&str\]\s*=\s*&\[([^\]]+)\]',
                   rust.read_text(encoding="utf-8"))
     assert m, "CODE_MODE_COLLAPSED_CLASSES não encontrado"

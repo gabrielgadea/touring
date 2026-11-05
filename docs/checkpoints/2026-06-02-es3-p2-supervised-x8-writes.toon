@@ -4,7 +4,7 @@
     "wave": "ES3 P2",
     "parent_task": "task_1780440816630657847",
     "roadmap_ref": "~/.claude/rust/docs/2026-05-30-cah-epic-subsystems-roadmap.md",
-    "plan_ref": "/home/gabrielgadea/.claude/plans/robust-riding-rose.md",
+    "plan_ref": "~/.claude/plans/robust-riding-rose.md",
     "shipped_at": "2026-06-02T22:53:50Z",
     "budget_ed": 6.0,
     "actual_ed": 6.0,

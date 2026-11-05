@@ -6,7 +6,7 @@ description: "O detector de escrita passa a ser fail-closed e a enxergar a escri
 tags: [adw, code-mode, deteccao-de-escrita, memoria, raiz-de-projeto]
 timestamp: 2026-08-24T16:05:00-03:00
 plan_id: 2026-08-24-work-outer
-scope: /home/gabrielgadea/projects/touring
+scope: ~/projects/touring
 ---
 
 # Estratégia — dois itens abertos, fechados por medição

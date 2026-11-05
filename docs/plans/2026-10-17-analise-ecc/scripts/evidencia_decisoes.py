@@ -2,6 +2,9 @@
 
 D1 tag signing · D2 git hook bypass · D3 quality-lock lanes · D4 /home/<user> in versioned files.
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import collections
 import json
 import re
@@ -83,14 +86,14 @@ print("  quem pede score de diretório do analise:",
       sh("bash", "-c", "grep -rln --include=*.py --include=*.sh -E 'touring-quality(-score)? score' ~/.claude/skills/loop-engineering/scripts ~/.claude/hooks ~/projects/analise/.claude 2>/dev/null | head -8"))
 
 print("== D4 /home/<user> em arquivos versionados ==")
-ls = sh("git", "grep", "-l", "-I", "/home/gabrielgadea").splitlines()
+ls = sh("git", "grep", "-l", "-I", f"{_HOME}").splitlines()
 cls = collections.Counter()
 for f in ls:
     parts = f.split("/")
     k = "/".join(parts[:2]) if parts[0] in ("docs", "crates", "client", "scripts") else parts[0]
     cls[k] += 1
 print("  arquivos:", len(ls), "· por área:", cls.most_common(12))
-oc = sh("bash", "-c", "git grep -I -o /home/gabrielgadea | wc -l")
+oc = sh("bash", "-c", f"git grep -I -o {_HOME} | wc -l")
 print("  ocorrências:", oc)
 codigo = [f for f in ls if f.endswith((".rs", ".py", ".sh", ".toml", ".ts", ".js")) and not f.startswith("docs/")]
 print("  em código fora de docs/:", len(codigo), codigo[:10])

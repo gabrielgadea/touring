@@ -106,6 +106,7 @@ pub mod profile;
 /// relocated from touring-hooks-shared (A5 Path-A step-3, 2026-06-16): its only
 /// `crate::` dep is `gate_metrics` (now in the kernel). Keys carry the scope.
 pub mod query_cache;
+pub mod run_outcome;
 pub mod schema;
 /// DDL table-validation helpers (relocated from touring-analysis::e2e in A5, 2026-06-15;
 /// validates the [`schema`] tables — its natural home is the kernel that owns the DDL).
@@ -125,6 +126,8 @@ pub mod task_lifecycle;
 /// `crate::TodoKind`, `crate::EdgeConfidence`, and the
 /// `truncate_str` UTF-8 safe string helper.
 pub mod types;
+/// The user's home directory and `~/.claude` — one resolver, no compiled-in fallback.
+pub mod user_home;
 
 // D39: Multi-Resolution Knowledge Layer (MVKL)
 pub mod mvkl;

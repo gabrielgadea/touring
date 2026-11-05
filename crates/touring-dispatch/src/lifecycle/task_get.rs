@@ -251,7 +251,7 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
 /// and returns a `decompose finalize` command hint when every subtask has
 /// `"status": "completed"` and at least one subtask exists.
 /// Returns empty string when subtasks are still in progress or JSON is unavailable.
-pub(crate) fn finalize_hint_if_dag_complete(dag_json: &str, task_id: &str) -> String {
+fn finalize_hint_if_dag_complete(dag_json: &str, task_id: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(dag_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -273,8 +273,8 @@ pub(crate) fn finalize_hint_if_dag_complete(dag_json: &str, task_id: &str) -> St
 }
 
 /// R42-S1: Predicate — true when subtask id ends with `::validate` and status is `pending`.
-pub(crate) fn is_validate_pending(s: &serde_json::Value) -> bool {
-    s.get("id")
+fn is_validate_pending(s: &serde_json::Value) -> bool {
+    s.get("subtask_id")
         .and_then(|i| i.as_str())
         .unwrap_or("")
         .ends_with("::validate")
@@ -282,8 +282,8 @@ pub(crate) fn is_validate_pending(s: &serde_json::Value) -> bool {
 }
 
 /// R42-S1: Predicate — true when subtask id ends with `::implement` and status is `completed`.
-pub(crate) fn is_implement_completed(s: &serde_json::Value) -> bool {
-    s.get("id")
+fn is_implement_completed(s: &serde_json::Value) -> bool {
+    s.get("subtask_id")
         .and_then(|i| i.as_str())
         .unwrap_or("")
         .ends_with("::implement")
@@ -296,7 +296,7 @@ pub(crate) fn is_implement_completed(s: &serde_json::Value) -> bool {
 /// exactly what to run next — cargo test, wiring orphan check, then decompose update.
 /// Predicates extracted to `is_validate_pending` and `is_implement_completed` to keep CC≤15.
 /// Returns empty string when the condition is not met or DAG JSON is unavailable.
-pub(crate) fn maybe_validate_phase_hint(dag_json: &str, task_id: &str) -> String {
+fn maybe_validate_phase_hint(dag_json: &str, task_id: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(dag_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -316,14 +316,14 @@ pub(crate) fn maybe_validate_phase_hint(dag_json: &str, task_id: &str) -> String
 }
 
 /// R45-S2 predicate: true when subtask status is "pending" (CC=1).
-pub(crate) fn is_subtask_pending(s: &serde_json::Value) -> bool {
+fn is_subtask_pending(s: &serde_json::Value) -> bool {
     s.get("status").and_then(|st| st.as_str()) == Some("pending")
 }
 
 /// R45-S2 predicate: true when subtask is pending AND has no declared dependencies (CC=2).
 ///
 /// Approximates "ready" status when the daemon does not provide an explicit ready_count.
-pub(crate) fn is_pending_no_deps(s: &serde_json::Value) -> bool {
+fn is_pending_no_deps(s: &serde_json::Value) -> bool {
     is_subtask_pending(s)
         && s.get("depends_on")
             .and_then(|d| d.as_array())
@@ -338,7 +338,7 @@ pub(crate) fn is_pending_no_deps(s: &serde_json::Value) -> bool {
 /// `touring mcts search "unblock <task_id>"` so Claude Code gets an alternative
 /// execution path. Returns empty when dag is unavailable, all tasks complete, or
 /// at least one ready subtask exists.
-pub(crate) fn maybe_mcts_unblock_on_no_ready(dag_json: &str, task_id: &str) -> String {
+fn maybe_mcts_unblock_on_no_ready(dag_json: &str, task_id: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(dag_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -370,7 +370,7 @@ pub(crate) fn maybe_mcts_unblock_on_no_ready(dag_json: &str, task_id: &str) -> S
 /// When found, surfaces `touring generate render migration` so the engineer can scaffold
 /// the migration file directly from the TaskGet context.
 /// Uses static keyword table + `find()` for zero if/else CC overhead.
-pub(crate) fn maybe_migration_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_migration_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "migration",
         "migrate",
@@ -392,7 +392,7 @@ pub(crate) fn maybe_migration_hint_on_task_get(dag_json: &str) -> Option<String>
 /// When TaskGet's DAG content references changelog, release notes, version bump, or semver topics,
 /// surfaces `touring generate render ChangelogEntry` so the engineer can scaffold a changelog
 /// entry immediately from the task context. Closes the TaskGet → changelog generator loop.
-pub(crate) fn maybe_changelog_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_changelog_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "changelog",
         "release notes",
@@ -413,7 +413,7 @@ pub(crate) fn maybe_changelog_hint_on_task_get(dag_json: &str) -> Option<String>
 /// When TaskGet's DAG content references kubernetes, k8s, helm, deployment, or pod topics,
 /// surfaces `touring generate render K8sManifest` so the engineer can scaffold a manifest
 /// immediately from the task context. Closes the TaskGet → k8s_manifest generator loop.
-pub(crate) fn maybe_k8s_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_k8s_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "kubernetes",
         "k8s",
@@ -435,7 +435,7 @@ pub(crate) fn maybe_k8s_hint_on_task_get(dag_json: &str) -> Option<String> {
 /// When TaskGet's DAG content references consumer wiring, orphan symbols, or integration gaps,
 /// surfaces `touring generate render ConsumerGenerator` so the engineer can scaffold a consumer
 /// immediately from the task context. Closes the TaskGet → consumer_generator loop.
-pub(crate) fn maybe_consumer_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_consumer_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "consumer",
         "wire orphan",
@@ -454,7 +454,7 @@ pub(crate) fn maybe_consumer_hint_on_task_get(dag_json: &str) -> Option<String> 
 /// R76-S1: hint for RustModule generator on TaskGet (CC=2).
 ///
 /// Fires when the DAG JSON contains keywords suggesting a Rust module should be scaffolded.
-pub(crate) fn maybe_rust_module_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_rust_module_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "rust module",
         "new crate",
@@ -474,7 +474,7 @@ pub(crate) fn maybe_rust_module_hint_on_task_get(dag_json: &str) -> Option<Strin
 /// R76-S2: hint for McpTool generator on TaskGet (CC=2).
 ///
 /// Fires when the DAG JSON contains keywords suggesting an MCP tool should be scaffolded.
-pub(crate) fn maybe_mcp_tool_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_mcp_tool_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "mcp tool",
         "mcp server",
@@ -495,7 +495,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_task_get(dag_json: &str) -> Option<String> 
 ///
 /// Fires when the DAG JSON contains keywords suggesting a JSON schema or data schema
 /// definition should be scaffolded.
-pub(crate) fn maybe_schema_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_schema_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "json schema",
         "data schema",
@@ -515,7 +515,7 @@ pub(crate) fn maybe_schema_hint_on_task_get(dag_json: &str) -> Option<String> {
 /// R87-S1: When DAG description mentions OpenAPI/Swagger, suggest `openapi_spec` generator (CC=2).
 ///
 /// Bridges TaskGet(openapi/swagger dag description) → touring-generator OpenApiSpec template.
-pub(crate) fn maybe_openapi_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_openapi_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "openapi",
         "swagger",
@@ -535,7 +535,7 @@ pub(crate) fn maybe_openapi_hint_on_task_get(dag_json: &str) -> Option<String> {
 /// R87-S2: When DAG description mentions ADR/architecture decision, suggest `adr` generator (CC=2).
 ///
 /// Bridges TaskGet(adr/decision dag description) → touring-generator Adr template.
-pub(crate) fn maybe_adr_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_adr_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "architecture decision",
         "adr",
@@ -555,7 +555,7 @@ pub(crate) fn maybe_adr_hint_on_task_get(dag_json: &str) -> Option<String> {
 /// R87-S3: When DAG description mentions changelog/release notes, suggest `changelog_entry` generator (CC=2).
 ///
 /// Bridges TaskGet(changelog dag description) → touring-generator ChangelogEntry template.
-pub(crate) fn maybe_changelog_entry_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_changelog_entry_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "changelog entry",
         "release note",
@@ -572,7 +572,7 @@ pub(crate) fn maybe_changelog_entry_hint_on_task_get(dag_json: &str) -> Option<S
 }
 
 /// R88-S1: When DAG description mentions Terraform/IaC, suggest `terraform_module` generator (CC=2).
-pub(crate) fn maybe_terraform_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_terraform_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "terraform",
         "infrastructure as code",
@@ -590,7 +590,7 @@ pub(crate) fn maybe_terraform_hint_on_task_get(dag_json: &str) -> Option<String>
 }
 
 /// R88-S2: When DAG description mentions CI/CD pipeline, suggest `ci_workflow` generator (CC=2).
-pub(crate) fn maybe_ci_workflow_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_ci_workflow_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "ci workflow",
         "github actions",
@@ -608,7 +608,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_task_get(dag_json: &str) -> Option<Strin
 }
 
 /// R88-S3: When DAG description mentions Docker/containers, suggest `dockerfile` generator (CC=2).
-pub(crate) fn maybe_dockerfile_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_dockerfile_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "dockerfile",
         "docker image",
@@ -626,7 +626,7 @@ pub(crate) fn maybe_dockerfile_hint_on_task_get(dag_json: &str) -> Option<String
 }
 
 /// R89-S1: When DAG description mentions benchmarks/perf, suggest `benchmark` generator (CC=2).
-pub(crate) fn maybe_benchmark_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_benchmark_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "benchmark",
         "criterion",
@@ -644,7 +644,7 @@ pub(crate) fn maybe_benchmark_hint_on_task_get(dag_json: &str) -> Option<String>
 }
 
 /// R89-S2: When DAG description mentions fuzzing, suggest `fuzz_target` generator (CC=2).
-pub(crate) fn maybe_fuzz_target_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_fuzz_target_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "fuzz target",
         "cargo fuzz",
@@ -662,7 +662,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_task_get(dag_json: &str) -> Option<Strin
 }
 
 /// R89-S3: When DAG description mentions derive macros, suggest `derive_macro` generator (CC=2).
-pub(crate) fn maybe_derive_macro_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_derive_macro_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "derive macro",
         "proc macro",
@@ -680,7 +680,7 @@ pub(crate) fn maybe_derive_macro_hint_on_task_get(dag_json: &str) -> Option<Stri
 }
 
 /// R90-S1: When DAG description mentions CLI handlers, suggest `cli_handler` generator (CC=2).
-pub(crate) fn maybe_cli_handler_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_cli_handler_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "cli handler",
         "command handler",
@@ -698,7 +698,7 @@ pub(crate) fn maybe_cli_handler_hint_on_task_get(dag_json: &str) -> Option<Strin
 }
 
 /// R90-S2: When DAG description mentions hook handlers, suggest `hook_handler` generator (CC=2).
-pub(crate) fn maybe_hook_handler_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_hook_handler_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "hook handler",
         "lifecycle hook",
@@ -716,7 +716,7 @@ pub(crate) fn maybe_hook_handler_hint_on_task_get(dag_json: &str) -> Option<Stri
 }
 
 /// R90-S3: When DAG description mentions planning docs, suggest `plan_md` generator (CC=2).
-pub(crate) fn maybe_plan_md_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_plan_md_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "plan.md",
         "markdown plan",
@@ -734,7 +734,7 @@ pub(crate) fn maybe_plan_md_hint_on_task_get(dag_json: &str) -> Option<String> {
 }
 
 /// R91-S1: When DAG description mentions tests/specs, suggest `test` generator (CC=2).
-pub(crate) fn maybe_test_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_test_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "write tests",
         "unit test",
@@ -752,7 +752,7 @@ pub(crate) fn maybe_test_hint_on_task_get(dag_json: &str) -> Option<String> {
 }
 
 /// R91-S2: When DAG description mentions Python scripts, suggest `python_script` generator (CC=2).
-pub(crate) fn maybe_python_script_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_python_script_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "python script",
         "python module",
@@ -770,7 +770,7 @@ pub(crate) fn maybe_python_script_hint_on_task_get(dag_json: &str) -> Option<Str
 }
 
 /// R91-S3: When DAG description mentions shell completions, suggest `shell_completion` generator (CC=2).
-pub(crate) fn maybe_shell_completion_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_shell_completion_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "shell completion",
         "bash completion",
@@ -788,7 +788,7 @@ pub(crate) fn maybe_shell_completion_hint_on_task_get(dag_json: &str) -> Option<
 }
 
 /// R92-S1: When DAG description mentions man pages, suggest `man_page` generator (CC=2).
-pub(crate) fn maybe_man_page_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_man_page_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "man page",
         "manpage",
@@ -806,7 +806,7 @@ pub(crate) fn maybe_man_page_hint_on_task_get(dag_json: &str) -> Option<String> 
 }
 
 /// R92-S2: When DAG description mentions error catalogs, suggest `error_catalog` generator (CC=2).
-pub(crate) fn maybe_error_catalog_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_error_catalog_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "error catalog",
         "error codes",
@@ -824,7 +824,7 @@ pub(crate) fn maybe_error_catalog_hint_on_task_get(dag_json: &str) -> Option<Str
 }
 
 /// R92-S3: When DAG description mentions incremental patches, suggest `incremental_patch` generator (CC=2).
-pub(crate) fn maybe_incremental_patch_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_incremental_patch_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "incremental patch",
         "apply patch",
@@ -842,7 +842,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_task_get(dag_json: &str) -> Option
 }
 
 /// R93-S1: When DAG description mentions skill documents, suggest `skill_document` generator (CC=2).
-pub(crate) fn maybe_skill_document_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_skill_document_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "skill document",
         "skill file",
@@ -860,7 +860,7 @@ pub(crate) fn maybe_skill_document_hint_on_task_get(dag_json: &str) -> Option<St
 }
 
 /// R93-S2: When DAG description mentions diary entries, suggest `diary_entry` generator (CC=2).
-pub(crate) fn maybe_diary_entry_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_diary_entry_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "diary entry",
         "agent diary",
@@ -878,7 +878,7 @@ pub(crate) fn maybe_diary_entry_hint_on_task_get(dag_json: &str) -> Option<Strin
 }
 
 /// R93-S3: When DAG description mentions AsyncAPI specs, suggest `asyncapi_spec` generator (CC=2).
-pub(crate) fn maybe_asyncapi_spec_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_asyncapi_spec_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "asyncapi",
         "async api",
@@ -896,7 +896,7 @@ pub(crate) fn maybe_asyncapi_spec_hint_on_task_get(dag_json: &str) -> Option<Str
 }
 
 /// R94-S1: When DAG description mentions FFI bindings, suggest `ffi_binding` generator (CC=2).
-pub(crate) fn maybe_ffi_binding_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_ffi_binding_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "ffi binding",
         "foreign function",
@@ -914,7 +914,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_task_get(dag_json: &str) -> Option<Strin
 }
 
 /// R94-S2: When DAG description mentions protobuf schemas, suggest `protobuf_schema` generator (CC=2).
-pub(crate) fn maybe_protobuf_schema_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_protobuf_schema_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "protobuf",
         "proto schema",
@@ -932,7 +932,7 @@ pub(crate) fn maybe_protobuf_schema_hint_on_task_get(dag_json: &str) -> Option<S
 }
 
 /// R94-S3: When DAG description mentions task scaffolds, suggest `task_scaffold` generator (CC=2).
-pub(crate) fn maybe_task_scaffold_hint_on_task_get(dag_json: &str) -> Option<String> {
+fn maybe_task_scaffold_hint_on_task_get(dag_json: &str) -> Option<String> {
     const KEYWORDS: &[&str] = &[
         "task scaffold",
         "taco scaffold",
@@ -957,7 +957,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_task_get(dag_json: &str) -> Option<Str
 /// CC task into the Touring decompose system in one copy-paste action.
 ///
 /// Returns empty string when a DAG entry already exists (dag_state contains "status").
-pub(crate) fn missing_dag_entry_creation_hint(dag_state: &str, task_id: &str) -> String {
+fn missing_dag_entry_creation_hint(dag_state: &str, task_id: &str) -> String {
     if dag_state.contains("\"status\"") {
         return String::new();
     }
@@ -972,7 +972,7 @@ pub(crate) fn missing_dag_entry_creation_hint(dag_state: &str, task_id: &str) ->
 /// `"status": "in_progress"`, extracts its `description`, then delegates to
 /// `plan_scaffold_for_subject`. Returns `None` when no active subtask exists,
 /// when the description contains no recognizable keyword, or when JSON parsing fails.
-pub(crate) fn plan_scaffold_for_active_subtask(dag_json: &str, task_id: &str) -> Option<String> {
+fn plan_scaffold_for_active_subtask(dag_json: &str, task_id: &str) -> Option<String> {
     let v = serde_json::from_str::<serde_json::Value>(dag_json).ok()?;
     let subtasks = v.get("subtasks").and_then(|s| s.as_array())?;
     let active = subtasks
@@ -991,7 +991,7 @@ pub(crate) fn plan_scaffold_for_active_subtask(dag_json: &str, task_id: &str) ->
 /// the next step is VGP verification before writing code. This hint closes the gap between
 /// "scout done" and "start coding" by surfacing the exact VGP command to verify symbols first.
 /// Returns empty string when ::implement is not pending or DAG JSON is unavailable.
-pub(crate) fn maybe_implement_vgp_hint(dag_json: &str, task_id: &str) -> String {
+fn maybe_implement_vgp_hint(dag_json: &str, task_id: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(dag_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -1001,7 +1001,7 @@ pub(crate) fn maybe_implement_vgp_hint(dag_json: &str, task_id: &str) -> String 
         None => return String::new(),
     };
     let implement_pending = subtasks.iter().any(|s| {
-        let id = s.get("id").and_then(|i| i.as_str()).unwrap_or("");
+        let id = s.get("subtask_id").and_then(|i| i.as_str()).unwrap_or("");
         let status = s.get("status").and_then(|st| st.as_str()).unwrap_or("");
         id.ends_with("::implement") && status == "pending"
     });
@@ -1021,7 +1021,7 @@ pub(crate) fn maybe_implement_vgp_hint(dag_json: &str, task_id: &str) -> String 
 /// whose `id` ends with `::scout` has status `"pending"` or `"in_progress"`, and surfaces
 /// a concrete `touring tantivy search + touring ast blast` command pair for Claude Code.
 /// Returns empty string when the scout subtask does not exist or has already completed.
-pub(crate) fn scout_tantivy_search_hint(dag_json: &str, task_id: &str) -> String {
+fn scout_tantivy_search_hint(dag_json: &str, task_id: &str) -> String {
     let v = match serde_json::from_str::<serde_json::Value>(dag_json) {
         Ok(v) => v,
         Err(_) => return String::new(),
@@ -1031,7 +1031,7 @@ pub(crate) fn scout_tantivy_search_hint(dag_json: &str, task_id: &str) -> String
         None => return String::new(),
     };
     let scout_active = subtasks.iter().any(|s| {
-        let id = s.get("id").and_then(|i| i.as_str()).unwrap_or("");
+        let id = s.get("subtask_id").and_then(|i| i.as_str()).unwrap_or("");
         let status = s.get("status").and_then(|st| st.as_str()).unwrap_or("");
         id.ends_with("::scout") && matches!(status, "pending" | "in_progress")
     });
@@ -1053,7 +1053,7 @@ pub(crate) fn scout_tantivy_search_hint(dag_json: &str, task_id: &str) -> String
 /// A raiz do projeto acompanha a operação: o store de decompose já é
 /// per-project (`locate_task_store`), então o espelho no Tantivy segue a
 /// fonte da verdade em vez de cair no índice legado compartilhado.
-pub(crate) fn search_tantivy_for_task(project_root: &std::path::Path, task_id: &str) -> String {
+fn search_tantivy_for_task(project_root: &std::path::Path, task_id: &str) -> String {
     #[cfg(feature = "tantivy-fts")]
     {
         if let Some(idx) = crate::tantivy_index::tantivy_for(Some(project_root)) {
@@ -1083,7 +1083,7 @@ pub(crate) fn search_tantivy_for_task(project_root: &std::path::Path, task_id: &
 /// Parses `dag_json` (output of `cli_decompose_get`), finds the first subtask whose
 /// `status` field is `"in_progress"`, and returns its `description`. Returns `None`
 /// when the JSON has no `subtasks` array or none are currently active.
-pub(crate) fn dag_json_to_active_description(dag_json: &str) -> Option<String> {
+fn dag_json_to_active_description(dag_json: &str) -> Option<String> {
     let v = serde_json::from_str::<serde_json::Value>(dag_json).ok()?;
     let subtasks = v.get("subtasks").and_then(|s| s.as_array())?;
     subtasks
@@ -1099,9 +1099,166 @@ pub(crate) fn dag_json_to_active_description(dag_json: &str) -> Option<String> {
 /// Calls `dag_json_to_active_description` to extract the first in_progress subtask
 /// description, then keyword-maps it to a `GeneratorKind` via `suggest_generator_for_task_subject`.
 /// Returns empty string when no in_progress subtask is found or no keyword matches.
-pub(crate) fn generator_for_active_subtask(dag_json: &str) -> String {
+fn generator_for_active_subtask(dag_json: &str) -> String {
     match dag_json_to_active_description(dag_json) {
         Some(desc) => suggest_generator_for_task_subject(&desc),
         None => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn plan_scaffold_for_active_subtask_returns_none_for_invalid_json() {
+        // Invalid JSON → graceful None, no panic
+        let result = super::plan_scaffold_for_active_subtask("not-json", "T-3");
+        assert!(
+            result.is_none(),
+            "invalid JSON must return None: {result:?}"
+        );
+    }
+
+    #[test]
+    fn scout_tantivy_search_hint_returns_hint_when_scout_pending() {
+        // ::scout with status=pending → hint contains scout-ready + tantivy search + ast blast
+        let dag_json = r#"{"subtasks": [{"subtask_id": "T-1::scout", "status": "pending"}, {"subtask_id": "T-1::implement", "status": "pending"}]}"#;
+        let hint = super::scout_tantivy_search_hint(dag_json, "T-1");
+        assert!(
+            hint.contains("scout-ready"),
+            "must include scout-ready prefix: {hint}"
+        );
+        assert!(
+            hint.contains("tantivy search"),
+            "must include tantivy search: {hint}"
+        );
+        assert!(hint.contains("ast blast"), "must include ast blast: {hint}");
+    }
+
+    #[test]
+    fn scout_tantivy_search_hint_silent_when_scout_completed() {
+        // ::scout completed (implement in_progress) → empty — no noise after scout phase done
+        let dag_json = r#"{"subtasks": [{"subtask_id": "T-1::scout", "status": "completed"}, {"subtask_id": "T-1::implement", "status": "in_progress"}]}"#;
+        let hint = super::scout_tantivy_search_hint(dag_json, "T-1");
+        assert!(
+            hint.is_empty(),
+            "completed scout must yield empty hint: {hint}"
+        );
+    }
+
+    #[test]
+    fn maybe_implement_vgp_hint_empty_for_invalid_dag_json() {
+        // R40-S3: malformed DAG JSON → empty hint (no panic)
+        let result = super::maybe_implement_vgp_hint("not-valid-json", "t-r40-s3");
+        assert!(
+            result.is_empty(),
+            "invalid JSON must return empty: {result}"
+        );
+    }
+
+    #[test]
+    fn maybe_implement_vgp_hint_returns_hint_when_implement_pending() {
+        // R40-S3: DAG JSON with ::implement subtask pending → vgp-ready hint
+        let dag_json = serde_json::json!({
+            "task_id": "t-r40-s3",
+            "subtasks": [
+                {"subtask_id": "t-r40-s3::scout", "status": "completed"},
+                {"subtask_id": "t-r40-s3::implement", "status": "pending"},
+                {"subtask_id": "t-r40-s3::validate", "status": "pending"}
+            ]
+        })
+        .to_string();
+        let result = super::maybe_implement_vgp_hint(&dag_json, "t-r40-s3");
+        assert!(
+            !result.is_empty(),
+            "pending implement must produce hint: {result}"
+        );
+        assert!(
+            result.contains("vgp-ready"),
+            "must include vgp-ready marker: {result}"
+        );
+        assert!(
+            result.contains("generate verify"),
+            "must include generate verify command: {result}"
+        );
+    }
+
+    #[test]
+    fn maybe_implement_vgp_hint_empty_when_implement_in_progress() {
+        // R40-S3: ::implement already in_progress (coding started) → no duplicate hint
+        let dag_json = serde_json::json!({
+            "task_id": "t-r40-s3b",
+            "subtasks": [
+                {"subtask_id": "t-r40-s3b::scout", "status": "completed"},
+                {"subtask_id": "t-r40-s3b::implement", "status": "in_progress"}
+            ]
+        })
+        .to_string();
+        let result = super::maybe_implement_vgp_hint(&dag_json, "t-r40-s3b");
+        assert!(
+            result.is_empty(),
+            "in_progress implement must not re-emit vgp hint: {result}"
+        );
+    }
+
+    #[test]
+    fn is_validate_pending_matches_correctly() {
+        // R42-S1: predicate correctly identifies ::validate pending subtask
+        let s = serde_json::json!({"subtask_id": "T-1::validate", "status": "pending"});
+        assert!(
+            super::is_validate_pending(&s),
+            "must match validate pending: {s}"
+        );
+        let s2 = serde_json::json!({"subtask_id": "T-1::validate", "status": "completed"});
+        assert!(
+            !super::is_validate_pending(&s2),
+            "completed validate must not match: {s2}"
+        );
+    }
+
+    #[test]
+    fn maybe_validate_phase_hint_emits_when_implement_done_and_validate_pending() {
+        // R42-S1: implement completed + validate pending → validate-ready hint
+        let dag_json = serde_json::json!({
+            "subtasks": [
+                {"subtask_id": "T-r42::scout", "status": "completed"},
+                {"subtask_id": "T-r42::implement", "status": "completed"},
+                {"subtask_id": "T-r42::validate", "status": "pending"}
+            ]
+        })
+        .to_string();
+        let result = super::maybe_validate_phase_hint(&dag_json, "T-r42");
+        assert!(
+            !result.is_empty(),
+            "validate-ready hint must be emitted: {result}"
+        );
+        assert!(
+            result.contains("validate-ready"),
+            "must include validate-ready marker: {result}"
+        );
+        assert!(
+            result.contains("cargo test"),
+            "must include cargo test command: {result}"
+        );
+        assert!(
+            result.contains("T-r42::validate"),
+            "must reference the subtask: {result}"
+        );
+    }
+
+    #[test]
+    fn maybe_validate_phase_hint_empty_when_implement_not_done() {
+        // R42-S1: implement still in_progress → no validate-ready hint
+        let dag_json = serde_json::json!({
+            "subtasks": [
+                {"subtask_id": "T-r42b::implement", "status": "in_progress"},
+                {"subtask_id": "T-r42b::validate", "status": "pending"}
+            ]
+        })
+        .to_string();
+        let result = super::maybe_validate_phase_hint(&dag_json, "T-r42b");
+        assert!(
+            result.is_empty(),
+            "in_progress implement must not trigger validate-ready: {result}"
+        );
     }
 }

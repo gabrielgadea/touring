@@ -1,0 +1,6 @@
+........................................................................ [ 85%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+=========================== short test summary info ============================
+XFAIL test_adw_node.py::test_shipped_library_files_have_no_schema_findings[fragments/skilling-pack.toml] - env is declared on node `should_skill` and never read
+507 passed, 1 xfailed in 2.16s

@@ -1,6 +1,6 @@
 ---
 type: AuditReport
-title: "cross-audit /home/gabrielgadea/projects/touring/scripts"
+title: "cross-audit ~/projects/touring/scripts"
 description: "Painel cego do flow ADW cross-audit sobre scripts/ (campos description/timestamp adicionados retroativamente em 30/08 — o template do flow gerava date: sem description; corrigido na library e no spec instanciado)."
 timestamp: 2026-08-28T12:00:00-03:00
 flow: cross-audit (adw)
@@ -8,7 +8,7 @@ flow: cross-audit (adw)
 
 ## PURPOSE AUDIT (FACT= por alvo)
 
-## Auditoria — `/home/gabrielgadea/projects/touring/scripts` (TACO-cross-audit · PURPOSE AUDIT + FIX & POTENTIALIZE, propor-nunca-editar)
+## Auditoria — `~/projects/touring/scripts` (TACO-cross-audit · PURPOSE AUDIT + FIX & POTENTIALIZE, propor-nunca-editar)
 
 Nota de escopo: a evidência de wiring (`orphan_symbols=5479`, `dependency_cycles=140`, `harmonious=false`) é do workspace Rust inteiro (202511 linhas de wiring, ver doctor); `scripts/` é majoritariamente Python/Shell fora do grafo AST Rust — não mapeia para símbolos desta árvore, exceto os fixtures Rust em `touring_premium_refactor_2026/staging/` (cobertos abaixo). Os 39 itens de débito foram integralmente contabilizados (32 todo_marker + 2 suppression + 4 unimplemented + 1 skipped_test = 39, confirmado via `scan_debt.py --json`).
 
@@ -40,7 +40,7 @@ FACT=
 
 ```json
 {
-  "root": "/home/gabrielgadea/projects/touring/scripts",
+  "root": "~/projects/touring/scripts",
   "total_debt": 39,
   "by_category": {
     "todo_marker": 32,
@@ -50,21 +50,21 @@ FACT=
     "skipped_test": 1
   },
   "by_file": {
-    "/home/gabrielgadea/projects/touring/scripts/test_ceg_serial_gate_metrics.py": [
+    "~/projects/touring/scripts/test_ceg_serial_gate_metrics.py": [
       {
         "category": "suppression",
         "line": 227,
         "text": "in _serial_groups(list(blk[\"attrs\"]))  # type: ignore[arg-type]"
       }
     ],
-    "/home/gabrielgadea/projects/touring/scripts/test_update_touring.py": [
+    "~/projects/touring/scripts/test_update_touring.py": [
       {
         "category": "skipped_test",
         "line": 55,
         "text": "@pytest.mark.skipif(shutil.which(\"shellcheck\") is None, reason=\"shellcheck not installed\")"
       }
     ],
-    "/home/gabrielgadea/projects/touring/scripts/touring_premium_refactor_2026/plan_lib/emit_scripts.py": [
+    "~/projects/touring/scripts/touring_premium_refactor_2026/plan_lib/emit_scripts.py": [
       {
         "category": "todo_marker",
         "line": 67,
@@ -76,21 +76,21 @@ FACT=
         "text": "# TODO: Implement real logic for wave {spec.wave} subtasks {spec.subtask_refs}."
       }
     ],
-    "/home/gabrielgadea/projects/touring/scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/decompose.rs": [
+    "~/projects/touring/scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/decompose.rs": [
       {
         "category": "todo_marker",
         "line": 7,
         "text": "/// TODO: real impl extracted from existing crates."
       }
     ],
-    "/home/gabrielgadea/projects/touring/scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/rl_bridge.rs": [
+    "~/projects/touring/scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/rl_bridge.rs": [
       {
         "category": "todo_marker",
         "line": 7,
         "text": "/// TODO: real impl extracted from existing crates."
       }
     ],
-    "/home/gabrielgadea/projects/touring/scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/session.rs": [
+    "~/projects/touring/scripts/touring_premium_refactor_2026/staging/w10-touring-orchestration/src/session.rs": [
       {
         "category": "todo_marker",
         "line": 7,
