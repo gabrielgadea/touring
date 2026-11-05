@@ -206,20 +206,7 @@ pub(super) fn mask_script_heredocs(command: &str) -> String {
                     return false;
                 };
                 let name = program.rsplit('/').next().unwrap_or(program);
-                if !matches!(
-                    name,
-                    "bash"
-                        | "sh"
-                        | "zsh"
-                        | "dash"
-                        | "ksh"
-                        | "ash"
-                        | "fish"
-                        | "mksh"
-                        | "rbash"
-                        | "csh"
-                        | "tcsh"
-                ) {
+                if !super::super::lexer::is_shell(name) {
                     return false;
                 }
                 let (payload, reads_stdin) = super::nested::shell_invocation(args);
