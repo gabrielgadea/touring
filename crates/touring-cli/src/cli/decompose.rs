@@ -942,7 +942,10 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // Forwarded verbatim: this wrapper is what the dispatch registry and every hook call,
     // so dropping the key here made `scope: "latest"` unreachable and each hook read every
     // open plan in the store.
-    let scope = payload.get("scope").cloned().unwrap_or(serde_json::Value::Null);
+    let scope = payload
+        .get("scope")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let by_priority = payload
         .get("by_priority")
         .and_then(|v| v.as_bool())

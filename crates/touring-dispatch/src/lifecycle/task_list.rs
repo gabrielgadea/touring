@@ -75,7 +75,8 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // TaskList (Claude Code) → cli_decompose_ready → SQLite → ready subtask list in context.
     // Skips the manual step of running `touring decompose ready` after every TaskList.
     // R21-S2: Reuse the same ready_json for BM25 symbol cross-reference (single DB call).
-    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
+    let ready_json =
+        crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let ready_hint = build_ready_subtasks_hint_from_json(&ready_json);
     let code_hint = code_symbols_for_active_tasks(&rt.project_root, &ready_json);
     // R25-S3: Surface generator kind for the first ready subtask so Claude Code
@@ -1330,10 +1331,7 @@ fn build_ready_subtasks_hint_from_json(ready_json: &str) -> String {
 ///
 /// Dispatches to `search_symbols_for_first_ready_task` when tantivy-fts is ON.
 /// Returns empty string if Tantivy is unavailable, no ready subtasks, or no non-DAG hits.
-fn code_symbols_for_active_tasks(
-    project_root: &std::path::Path,
-    ready_json: &str,
-) -> String {
+fn code_symbols_for_active_tasks(project_root: &std::path::Path, ready_json: &str) -> String {
     #[cfg(feature = "tantivy-fts")]
     if let Some(hint) = search_symbols_for_first_ready_task(project_root, ready_json) {
         return hint;
@@ -1720,7 +1718,8 @@ mod tests {
 
     #[test]
     fn live_dag_context_is_silent_on_an_idle_store_and_dense_otherwise() {
-        let idle = r#"{"total_tasks":0,"total_subtasks":0,"open_tasks":0,"latest_plan_subtasks":0}"#;
+        let idle =
+            r#"{"total_tasks":0,"total_subtasks":0,"open_tasks":0,"latest_plan_subtasks":0}"#;
         assert_eq!(super::live_dag_context(idle), "");
         assert_eq!(super::live_dag_context("not json"), "");
         let busy = r#"{"total_tasks":9,"open_tasks":3,"latest_plan_subtasks":4}"#;
@@ -1739,7 +1738,11 @@ mod tests {
                 "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}, {"id": "T-4"}, {"id": "T-5"}]
             }
         });
-        for dag_status in [r#"{"open_tasks": 0}"#, r#"{"latest_plan_subtasks": null}"#, "not json"] {
+        for dag_status in [
+            r#"{"open_tasks": 0}"#,
+            r#"{"latest_plan_subtasks": null}"#,
+            "not json",
+        ] {
             let result = super::dag_cc_task_ratio_hint(&input, dag_status);
             assert!(result.is_empty(), "{dag_status} must stay silent: {result}");
         }

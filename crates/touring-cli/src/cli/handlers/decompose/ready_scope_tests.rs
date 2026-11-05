@@ -125,7 +125,10 @@ fn status_counts_open_tasks_apart_from_the_total() {
     assert_eq!(v["total_tasks"], 3, "{v}");
     assert_eq!(v["open_tasks"], 2, "{v}");
     assert_eq!(v["total_subtasks"], 4, "{v}");
-    assert!(v.get("task_count").is_none(), "no reader may key on it: {v}");
+    assert!(
+        v.get("task_count").is_none(),
+        "no reader may key on it: {v}"
+    );
     // The plan being worked on is T-new (latest OPEN; T-done is newer but finalized).
     assert_eq!(v["latest_plan_subtasks"], 2, "{v}");
 }
