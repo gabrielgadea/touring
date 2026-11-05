@@ -878,22 +878,16 @@ pub fn cli_decompose_validate(rt: &mut HookRuntime, payload: &serde_json::Value)
     )
     .to_string()
 }
-/// Summarizes progress across all decomposition tasks (subtask counts by status) as JSON.
-pub fn cli_decompose_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
-    let db = &rt.ctx.knowledge;
-    ensure_decompose_tables(db);
-    let total_tasks: i64 = db
-        .conn_ref()
-        .query_row("SELECT COUNT(*) FROM task_decompositions", [], |r| r.get(0))
-        .unwrap_or(0);
-    let total_subtasks: i64 = db
-        .conn_ref()
-        .query_row("SELECT COUNT(*) FROM decomposition_subtasks", [], |r| {
-            r.get(0)
-        })
-        .unwrap_or(0);
-    serde_json::json!({ "total_tasks" : total_tasks, "total_subtasks" : total_subtasks })
-        .to_string()
+/// Summarizes the decomposition store as JSON — delegated to the one producer
+/// (`cli_handlers_decompose::cli_decompose_status`: `total_tasks`, `total_subtasks`,
+/// `open_tasks`, `latest_plan_subtasks`).
+///
+/// This wrapper is what the dispatch registry and every hook call. It used to be a second
+/// copy that emitted only the two totals, so the keys aprofundamento #7 added to the producer
+/// never reached a hook: `dag-gap` read an absent count as 0 and kept firing on every
+/// TaskList (cross-review 05/11/2026).
+pub fn cli_decompose_status(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    crate::cli_handlers_decompose::cli_decompose_status(rt, payload)
 }
 /// Finalize a task: verify all subtasks are terminal, compute per-status counts,
 /// mark the task as archived, and inject an RL reward on success.
@@ -936,13 +930,19 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
 }
 /// Return subtasks ready to start: status = 'pending' and all dependency subtasks completed.
 ///
-/// Optional `task_id` filter via payload; if empty, scans all tasks.
+/// Optional `task_id` filter via payload; without one, `scope: "latest"` reads only the
+/// most recently updated open task and no scope reads every open task (see `ready_scope`
+/// in the wayfinder delegate).
 /// Returns JSON: `{ready_count, ready_subtasks: [{task_id, subtask_id, description}]}`.
 pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let task_id = payload
         .get("task_id")
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    // Forwarded verbatim: this wrapper is what the dispatch registry and every hook call,
+    // so dropping the key here made `scope: "latest"` unreachable and each hook read every
+    // open plan in the store.
+    let scope = payload.get("scope").cloned().unwrap_or(serde_json::Value::Null);
     let by_priority = payload
         .get("by_priority")
         .and_then(|v| v.as_bool())
@@ -952,7 +952,7 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let delegate_payload = serde_json::json!(
-        { "task_id" : task_id, "only_ready" : only_ready }
+        { "task_id" : task_id, "only_ready" : only_ready, "scope" : scope }
     );
     let result = crate::cli_handlers_decompose::cli_decompose_ready(rt, &delegate_payload);
     // `--by-priority` é VERDADEIRA POR CONSTRUÇÃO desde a 30.4.67: o delegate

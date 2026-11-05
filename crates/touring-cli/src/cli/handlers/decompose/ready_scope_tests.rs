@@ -126,4 +126,47 @@ fn status_counts_open_tasks_apart_from_the_total() {
     assert_eq!(v["open_tasks"], 2, "{v}");
     assert_eq!(v["total_subtasks"], 4, "{v}");
     assert!(v.get("task_count").is_none(), "no reader may key on it: {v}");
+    // The plan being worked on is T-new (latest OPEN; T-done is newer but finalized).
+    assert_eq!(v["latest_plan_subtasks"], 2, "{v}");
+}
+
+#[test]
+fn status_latest_plan_subtasks_is_zero_on_an_empty_store() {
+    let (_tmp, mut rt) = rt();
+    let v = json(&cli_decompose_status(&mut rt, &serde_json::json!({})));
+    assert_eq!(v["latest_plan_subtasks"], 0, "{v}");
+}
+
+/// The status the hooks read is the producer's: `crate::cli::decompose::cli_decompose_status`
+/// (what the dispatch registry and `task_list` call) was a second copy that emitted only the two
+/// totals, so `open_tasks` / `latest_plan_subtasks` never reached a hook.
+#[test]
+fn the_public_status_wrapper_emits_the_producer_keys() {
+    let (_tmp, mut rt) = rt();
+    three_plans(&rt);
+    let v = json(&crate::cli::decompose::cli_decompose_status(
+        &mut rt,
+        &serde_json::json!({}),
+    ));
+    assert_eq!(v["open_tasks"], 2, "{v}");
+    assert_eq!(v["latest_plan_subtasks"], 2, "{v}");
+}
+
+/// The wrapper every hook and the dispatch registry call (`crate::cli::decompose`) must
+/// forward `scope`: it used to rebuild the payload with only `task_id`/`only_ready`, so
+/// `scope: "latest"` never reached `ready_scope` and each hook read every open plan.
+#[test]
+fn the_public_ready_wrapper_forwards_scope_to_the_delegate() {
+    let (_tmp, mut rt) = rt();
+    three_plans(&rt);
+    let v = json(&crate::cli::decompose::cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"scope": "latest"}),
+    ));
+    assert_eq!(ready_ids(&v), vec!["T-new::b"], "{v}");
+    let all = json(&crate::cli::decompose::cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({}),
+    ));
+    assert_eq!(ready_ids(&all), vec!["T-new::b", "T-old::a"], "{all}");
 }
