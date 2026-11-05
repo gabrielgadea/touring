@@ -99,8 +99,6 @@ pub mod nlp_bridge;
 // ── Hook helpers with zero HookRuntime coupling ─────────────────────────
 #[path = "hooks/activity_hook.rs"]
 pub mod activity_hook;
-#[path = "hooks/pre_tool_validator.rs"]
-pub mod pre_tool_validator;
 #[path = "hooks/session_guide.rs"]
 pub mod session_guide;
 #[cfg(feature = "session-hooks")]

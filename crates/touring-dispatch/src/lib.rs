@@ -57,7 +57,6 @@ pub use touring_hook_runtime::suggesters; // Pln3 suggestion detectors — Wave 
 pub use touring_hook_runtime::task_digest; // Wave H (2026-06-10): lives in the runtime layer
 pub use touring_hooks_core::mutation_test; // Wave T1: cargo-mutants wrapper lib (config + report + parser + cache)
 pub use touring_hooks_core::panic_log; // Sprint 4.5 (2026-05-23): std::panic::set_hook captures forensics to ~/.claude/touring/daemon-crash.jsonl before process abort
-pub use touring_hooks_core::pre_tool_validator;
 pub use touring_hooks_core::symbol_extractors; // Sprint 3 PC-1 (2026-05-23): set_process_name via extern prctl(PR_SET_NAME) — REGRA #19 process distinguishability
 pub use touring_hooks_core::workflow_templates; // TR-5 2026-05-19: W1-W10 reusable decompose blueprint catalog (Rn2 §6)
 pub use touring_hooks_prediction::pii;
