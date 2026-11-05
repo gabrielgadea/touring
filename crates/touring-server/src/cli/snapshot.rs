@@ -64,7 +64,8 @@ fn snapshot_dir() -> anyhow::Result<PathBuf> {
         .map(|claude| claude.join("touring").join("snapshots"))
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "no home directory derivable ($HOME unset, no passwd entry) — cannot locate the snapshots directory"
+                "{} — cannot locate the snapshots directory",
+                touring_foundation::user_home::NO_HOME_REASON
             )
         })
 }
@@ -530,12 +531,21 @@ mod tests {
 
     #[test]
     fn snapshot_dir_path() {
-        // `Err` only without a derivable home directory (stripped container): there is
-        // no path to check then, and the error itself is the specified behavior.
-        if let Ok(dir) = snapshot_dir() {
-            assert!(dir.to_string_lossy().contains(".claude"));
-            assert!(dir.to_string_lossy().contains("touring"));
-            assert!(dir.to_string_lossy().contains("snapshots"));
+        // Both outcomes are checked: a path under `~/.claude` when a home directory is
+        // derivable, and otherwise the named error (never a guessed path).
+        match snapshot_dir() {
+            Ok(dir) => {
+                assert!(dir.to_string_lossy().contains(".claude"));
+                assert!(dir.to_string_lossy().contains("touring"));
+                assert!(dir.to_string_lossy().contains("snapshots"));
+            }
+            Err(e) => {
+                assert!(touring_foundation::user_home::home_dir().is_none(), "{e:#}");
+                assert!(
+                    format!("{e:#}").contains(touring_foundation::user_home::NO_HOME_REASON),
+                    "{e:#}"
+                );
+            }
         }
     }
 

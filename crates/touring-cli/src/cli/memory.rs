@@ -421,7 +421,7 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // cross-project lessons federation exists to surface (cross-audit
     // 04/08/2026).
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
-    let memory_dbs = discover_canonical_dbs(&memory_db_path, &touring_claude_dir(), "memory.db");
+    let memory_dbs = discover_canonical_dbs(&memory_db_path, touring_claude_dir().as_deref(), "memory.db");
 
     let served: usize = claims.iter().map(|(_, keys)| keys.len()).sum();
     let claimed_queries: Vec<&str> = claims.iter().map(|(q, _)| q.as_str()).collect();
@@ -782,7 +782,7 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // Federated recall — search the current project's memory.db AND every
     // other project's, so a lesson stored under one project is recallable
     // from any other (the `where` half of "always know where to look").
-    let memory_dbs = discover_canonical_dbs(&memory_db_path, &touring_claude_dir(), "memory.db");
+    let memory_dbs = discover_canonical_dbs(&memory_db_path, touring_claude_dir().as_deref(), "memory.db");
     // The tag filter spans the SAME corpus the recall searches (D3): built
     // after discovery, from every federated DB, not the canonical one alone.
     let tag_filter = compute_tag_filter(&memory_dbs, &required_tags);

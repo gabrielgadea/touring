@@ -30,7 +30,12 @@ use super::daemon_query;
 fn clones_dir() -> anyhow::Result<PathBuf> {
     touring_foundation::user_home::claude_home()
         .map(|claude| claude.join("touring").join("clones"))
-        .context("no home directory derivable ($HOME unset, no passwd entry) — cannot locate the clones directory")
+        .with_context(|| {
+            format!(
+                "{} — cannot locate the clones directory",
+                touring_foundation::user_home::NO_HOME_REASON
+            )
+        })
 }
 
 /// Ensure clones directory exists.
@@ -520,11 +525,20 @@ mod tests {
 
     #[test]
     fn clones_dir_path() {
-        // `Err` only without a derivable home directory (stripped container): there is
-        // no path to check then, and the error itself is the specified behavior.
-        if let Ok(dir) = clones_dir() {
-            assert!(dir.to_string_lossy().contains(".claude"));
-            assert!(dir.to_string_lossy().contains("clones"));
+        // Both outcomes are checked: a path under `~/.claude` when a home directory is
+        // derivable, and otherwise the named error (never a guessed path).
+        match clones_dir() {
+            Ok(dir) => {
+                assert!(dir.to_string_lossy().contains(".claude"));
+                assert!(dir.to_string_lossy().contains("clones"));
+            }
+            Err(e) => {
+                assert!(touring_foundation::user_home::home_dir().is_none(), "{e:#}");
+                assert!(
+                    format!("{e:#}").contains(touring_foundation::user_home::NO_HOME_REASON),
+                    "{e:#}"
+                );
+            }
         }
     }
 

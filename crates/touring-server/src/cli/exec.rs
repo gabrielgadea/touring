@@ -1625,10 +1625,16 @@ pub fn run_world_model_status(args: &[String]) -> anyhow::Result<()> {
 ///
 /// # Errors
 ///
-/// Returns an error only if stdout serialization fails.
+/// Returns an error when no home directory can be derived (no constitution root to
+/// attest) or when stdout serialization fails.
 pub fn run_attest_contract(args: &[String]) -> anyhow::Result<()> {
     let (flags, _rest) = parse_global_flags(sub_command_args(args));
-    let root = touring_hooks::cli_handlers::touring_claude_dir();
+    let root = touring_hooks::cli_handlers::touring_claude_dir().ok_or_else(|| {
+        anyhow::anyhow!(
+            "{} — cannot locate the constitution root",
+            touring_foundation::user_home::NO_HOME_REASON
+        )
+    })?;
     let contract = touring_hooks::gateway::harness_contract::HarnessContract::attest(&root);
 
     if flags.json {

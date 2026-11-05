@@ -143,7 +143,8 @@ fn parcer_dir() -> Result<std::path::PathBuf> {
         .map(|claude| claude.join("agents"))
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "no home directory derivable ($HOME unset, no passwd entry) — cannot locate the PARCER agents directory"
+                "{} — cannot locate the PARCER agents directory",
+                touring_foundation::user_home::NO_HOME_REASON
             )
         })
 }

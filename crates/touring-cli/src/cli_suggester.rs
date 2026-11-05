@@ -1865,9 +1865,9 @@ fn federated_db_paths(
     let mem_primary = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     let know_primary = touring_foundation::TouringConfig::knowledge_db_canonical(&rt.project_root);
     let mem: std::sync::Arc<[std::path::PathBuf]> =
-        crate::cli_handlers::discover_canonical_dbs(&mem_primary, &claude_dir, "memory.db").into();
+        crate::cli_handlers::discover_canonical_dbs(&mem_primary, claude_dir.as_deref(), "memory.db").into();
     let know: std::sync::Arc<[std::path::PathBuf]> =
-        crate::cli_handlers::discover_canonical_dbs(&know_primary, &claude_dir, "knowledge.db")
+        crate::cli_handlers::discover_canonical_dbs(&know_primary, claude_dir.as_deref(), "knowledge.db")
             .into();
     *guard = Some((
         std::time::Instant::now(),
