@@ -105,9 +105,9 @@ fn run_chain(
     // `command_policy::judge`: the structural reading first (quoted strings and
     // `#` comments stripped, so `echo "rm -rf"` and `# rm -rf` do NOT block; its
     // precise reason wins on overlap), then the lexical one (every simple command
-    // of the line by its own words, 18/09/2026). Only a `Block` stops here: a
-    // structural `Warn` is left to flow through — git is `block_git.sh`'s, and we
-    // don't want to surface two different warnings for the same command.
+    // of the line by its own words, 18/09/2026; destructive git is judged there and
+    // is always a `Block`). Only a `Block` stops here: a structural `Warn` (e.g.
+    // `chmod -R 777`) is not surfaced by this hook and the command runs.
     if let crate::shared::command_policy::Verdict::Block { reason } =
         crate::shared::command_policy::judge(command)
     {

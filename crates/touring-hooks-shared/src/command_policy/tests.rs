@@ -501,8 +501,8 @@ fn every_row_of_the_verdict_table_holds() {
 }
 
 /// `(tool, params, refused)` through the `(tool, params)` form — what the
-/// facade `PreToolValidator::validate` has always answered, tool name
-/// case-folded. Here the command is not stripped of its `sudo`, so
+/// facade `PreToolValidator::validate` answered until its removal (04/11/2026;
+/// the form lives on as `judge_tool`), tool name case-folded. Here the command is not stripped of its `sudo`, so
 /// `sudo rm …` is judged as `sudo`.
 const TOOL_TABLE: &[(&str, &str, bool)] = &[
     ("ls", "-la", false),
@@ -885,6 +885,7 @@ fn expand(reason: &str) -> String {
         .replace("{DELETE_ROUTE}", DELETE_ROUTE)
         .replace("{DD_ROUTE}", DD_ROUTE)
         .replace("{PIPE_SHELL_ROUTE}", PIPE_SHELL_ROUTE)
+        .replace("{GIT_ROUTE}", super::vocabulary::GIT_ROUTE)
 }
 
 /// `"allow"`, `"warn: <reason>"` or `"block: <reason>"`.
