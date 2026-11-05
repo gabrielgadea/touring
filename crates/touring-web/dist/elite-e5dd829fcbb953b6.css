@@ -509,6 +509,12 @@
   50%      { opacity: 0.35; }
 }
 
+.el-prog-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .el-prog-track {
   height: 2px;
   border-radius: 1px;
