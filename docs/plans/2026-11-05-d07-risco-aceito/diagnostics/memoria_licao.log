@@ -1,0 +1,2 @@
+{"chave": "licao:risco-aceito-exige-data-id-e-evidencia:2026-11-05", "gravado": true, "arestas": "1/1", "recuperado_por": "#domain:security #kind:lesson #process:verification #status:verified", "total": 1, "integro": true, "avisos": []}
+{"chave": "diagnostico:wrapper-antigo-evita-regressao-sem-arquivo-de-risco:2026-11-05", "gravado": true, "arestas": "1/1", "recuperado_por": "#domain:security #kind:lesson #process:verification #status:verified", "total": 2, "integro": true, "avisos": []}

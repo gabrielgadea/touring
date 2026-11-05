@@ -1,0 +1,47 @@
+[
+  {
+    "name": "binary_version",
+    "status": "ok",
+    "detail": "touring 30.4.102"
+  },
+  {
+    "name": "daemon_socket",
+    "status": "ok",
+    "detail": "/home/gabrielgadea/projects/analise/.touring/daemon.sock"
+  },
+  {
+    "name": "daemon_health",
+    "status": "ok",
+    "detail": "status=healthy, projects=2"
+  },
+  {
+    "name": "circuit_breaker",
+    "status": "ok",
+    "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{\"Medium\":{\"failure_count\":1,\"last_failure_ts\":1793911248,\"open_until_ts\":0}},\"by_project\":{\"/home/gabrielgadea/projects/analise\":{\"failure_count\":1,\"last_failure_ts\":1793911248,\"open_until_ts\":0,\"weighted_score\":1.0}},\"by_session\":{\"863a423d-9b8d-4f90-96b1-a01fb4483ca9\":{\"failure_count\":1,\"last_failure_ts\":1793911248,\"open_until_ts\":0}}}"
+  },
+  {
+    "name": "project_db",
+    "status": "ok",
+    "detail": "/home/gabrielgadea/projects/analise/.claude/touring/symbols.db (1847447552 bytes)"
+  },
+  {
+    "name": "project_actor",
+    "status": "ok",
+    "detail": "responsive (3183 ms)"
+  },
+  {
+    "name": "wiring_diagnostic",
+    "status": "ok",
+    "detail": "root=/home/gabrielgadea/projects/analise/ polyglot=on rows=189466 producers=59729 consumers=129737 pub=59658 kind_unknown=0 non_wireable=0 unread=0 abs_paths=0"
+  },
+  {
+    "name": "index_generation",
+    "status": "ok",
+    "detail": "generation 15 complete at 2026-11-02 19:45:55 (47379 files, 1047547 symbols)"
+  },
+  {
+    "name": "gpu_embeddings",
+    "status": "ok",
+    "detail": "cuda — 8928 texts embedded on the GPU by this daemon"
+  }
+]

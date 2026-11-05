@@ -1,0 +1,2 @@
+[2m2026-11-05T21:02:00.321975Z[0m [33m WARN[0m [2mtouring_hook_runtime::hook_runtime_ext[0m[2m:[0m hook stdin: empty payload — handler runs on `{}`
+{"hookSpecificOutput":{"hookEventName":"pre_edit","permissionDecision":"deny","permissionDecisionReason":"validation_failed: tool_input: tool_input missing from input"}}

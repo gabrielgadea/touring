@@ -1,0 +1,2 @@
+pii_acervo: APROVADO (examinados=37) — 37 arquivo(s) inspecionado(s), sem PII bloqueante
+inspecionados 37 · reprovados 0 (0 CPF, 0 e-mail) · avisos 0 (0 telefone, 0 e-mail pessoal em domínio público; não bloqueiam) · isentos 0 + 0 por classe (0 ocorrências dispensadas) · não inspecionados 0 · rebaixados a aviso no acervo 0 · já no HEAD (não bloqueiam no --staged) 0

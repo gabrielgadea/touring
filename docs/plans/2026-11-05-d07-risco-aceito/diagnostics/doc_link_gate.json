@@ -1,0 +1,13 @@
+{
+  "bundle": "/home/gabrielgadea/projects/touring-d07-risco/docs/plans/2026-11-05-d07-risco-aceito",
+  "docs_checked": 6,
+  "missing_type": [],
+  "missing_plan_id": [],
+  "broken_links": [],
+  "orphan_docs": [],
+  "contradictions": [],
+  "world_rites": [
+    "/strategy-2026-11-05-d07-risco-aceito.md: Strategy com 0 elo(s) se\u2192ent\u00e3o \u2014 Yetzirah exige cadeia causal de \u22655 (adicione a se\u00e7\u00e3o '## Cadeia causal')"
+  ],
+  "ok": true
+}

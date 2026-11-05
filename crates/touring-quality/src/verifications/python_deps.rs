@@ -116,6 +116,91 @@ struct AuditedDep {
     ids: Vec<String>,
 }
 
+/// A vulnerability accepted by the project owner for a bounded period.
+#[derive(Debug, Clone)]
+struct AcceptedRisk {
+    ids: Vec<String>,
+    expires: chrono::NaiveDate,
+    reason: String,
+}
+
+fn unquote(value: &str) -> String {
+    value.trim().trim_matches('"').to_string()
+}
+
+fn string_array(value: &str) -> Vec<String> {
+    value
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .map(unquote)
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
+fn apply_risk_field(risk: &mut AcceptedRisk, key: &str, value: &str) {
+    match key {
+        "id" => risk.ids.push(unquote(value)),
+        "aliases" => risk.ids.extend(string_array(value)),
+        "expira" => {
+            if let Ok(date) = chrono::NaiveDate::parse_from_str(&unquote(value), "%Y-%m-%d") {
+                risk.expires = date;
+            }
+        }
+        "controle" | "descricao" => risk.reason = unquote(value),
+        _ => {}
+    }
+}
+
+/// Reads only dated `[[aceito]]` tables; every other table is inert.
+fn load_accepted_risks(root: &Path) -> Vec<AcceptedRisk> {
+    let Ok(text) = std::fs::read_to_string(root.join("scripts/utils/gate_risco_aceito.toml"))
+    else {
+        return Vec::new();
+    };
+    let mut risks = Vec::new();
+    let mut current: Option<AcceptedRisk> = None;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            if let Some(risk) = current.take() {
+                risks.push(risk);
+            }
+            current = (line == "[[aceito]]").then(|| AcceptedRisk {
+                ids: Vec::new(),
+                expires: chrono::NaiveDate::MIN,
+                reason: String::new(),
+            });
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let Some(risk) = current.as_mut() else {
+            continue;
+        };
+        apply_risk_field(risk, key.trim(), value);
+    }
+    if let Some(risk) = current {
+        risks.push(risk);
+    }
+    risks.retain(|risk| {
+        !risk.ids.is_empty()
+            && risk.expires != chrono::NaiveDate::MIN
+            && !risk.reason.trim().is_empty()
+    });
+    risks
+}
+
+fn today_from_secs(now_secs: u64) -> chrono::NaiveDate {
+    // America/Sao_Paulo has observed UTC-03:00 without DST since 2019.
+    let offset = chrono::FixedOffset::west_opt(3 * 3600).expect("valid fixed BRT offset");
+    chrono::DateTime::from_timestamp(now_secs as i64, 0).map_or(chrono::NaiveDate::MIN, |date| {
+        date.with_timezone(&offset).date_naive()
+    })
+}
+
 /// A parsed pip-audit `-f json` report.
 #[derive(Debug)]
 struct Audit {
@@ -162,9 +247,61 @@ fn parse_audit(stdout: &str) -> Result<Audit, String> {
     Ok(audit)
 }
 
+fn open_dependencies(
+    audit: &Audit,
+    risks: &[AcceptedRisk],
+    today: chrono::NaiveDate,
+) -> (Vec<AuditedDep>, String, String) {
+    let mut accepted_notes = Vec::new();
+    let mut expired_notes = Vec::new();
+    let mut open = Vec::new();
+    for dep in &audit.audited {
+        let mut ids = Vec::new();
+        for id in &dep.ids {
+            if let Some(risk) = risks.iter().find(|risk| risk.ids.contains(id)) {
+                if today <= risk.expires {
+                    accepted_notes.push(format!(
+                        "{}@{} {} accepted risk until {} — {}",
+                        dep.name, dep.version, id, risk.expires, risk.reason
+                    ));
+                    continue;
+                }
+                expired_notes.push(format!("{id} expired accepted risk {}", risk.expires));
+            }
+            ids.push(id.clone());
+        }
+        if !ids.is_empty() {
+            open.push(AuditedDep {
+                name: dep.name.clone(),
+                version: dep.version.clone(),
+                ids,
+            });
+        }
+    }
+    let accepted_note = if accepted_notes.is_empty() {
+        String::new()
+    } else {
+        format!(" | {}", accepted_notes.join(", "))
+    };
+    let expired_note = if expired_notes.is_empty() {
+        String::new()
+    } else {
+        format!(" | {}", expired_notes.join(", "))
+    };
+    (open, accepted_note, expired_note)
+}
+
 /// F2.5 verdict of a pip-audit `-f json` report — pure, so a recorded OSV
 /// response drives the tests. Unparseable or empty ⇒ UNVERIFIED, never a pass.
 pub(crate) fn score_pip_audit(stdout: &str) -> (f32, String) {
+    score_pip_audit_with_risks(stdout, &[], chrono::NaiveDate::MIN)
+}
+
+fn score_pip_audit_with_risks(
+    stdout: &str,
+    risks: &[AcceptedRisk],
+    today: chrono::NaiveDate,
+) -> (f32, String) {
     let audit = match parse_audit(stdout) {
         Ok(audit) => audit,
         Err(why) => {
@@ -195,14 +332,14 @@ pub(crate) fn score_pip_audit(stdout: &str) -> (f32, String) {
             names.join(", ")
         )
     };
-    let mut vulnerable: Vec<&AuditedDep> =
-        audit.audited.iter().filter(|d| !d.ids.is_empty()).collect();
+    let (open, accepted_note, expired_note) = open_dependencies(&audit, risks, today);
+    let mut vulnerable: Vec<&AuditedDep> = open.iter().collect();
     if vulnerable.is_empty() {
         return (
             1.0,
             format!(
                 "F2.5: 0 known vulnerabilities in {} Python dependencies (OSV via pip-audit \
-                 {PIP_AUDIT_PIN}){skipped_note}",
+                 {PIP_AUDIT_PIN}){accepted_note}{expired_note}{skipped_note}",
                 audit.audited.len()
             ),
         );
@@ -223,7 +360,7 @@ pub(crate) fn score_pip_audit(stdout: &str) -> (f32, String) {
         0.0,
         format!(
             "F2.5: {total} known vulnerabilit{} in {} of {} Python dependencies (OSV via \
-             pip-audit {PIP_AUDIT_PIN}): {}{more}{skipped_note}",
+             pip-audit {PIP_AUDIT_PIN}): {}{more}{accepted_note}{expired_note}{skipped_note}",
             if total == 1 { "y" } else { "ies" },
             vulnerable.len(),
             audit.audited.len(),
@@ -264,6 +401,14 @@ fn write_cache(file: &Path, report: &str, now_secs: u64) {
     }
 }
 
+fn score_report(report: &str, risks: &[AcceptedRisk], today: chrono::NaiveDate) -> (f32, String) {
+    if risks.is_empty() {
+        score_pip_audit(report)
+    } else {
+        score_pip_audit_with_risks(report, risks, today)
+    }
+}
+
 /// F2.5 over the resolved Python dependency tree of `root`.
 pub(crate) fn f2_5(root: &Path, cfg: &AuditConfig) -> (f32, String) {
     let Ok(lock) = std::fs::read(root.join("uv.lock")) else {
@@ -277,12 +422,14 @@ pub(crate) fn f2_5(root: &Path, cfg: &AuditConfig) -> (f32, String) {
             ),
         );
     };
+    let risks = load_accepted_risks(root);
+    let today = today_from_secs(cfg.now_secs);
     let key = cache_key(&lock);
     let cache_file = cfg
         .cache_dir
         .join(format!("{key}-pip-audit-{PIP_AUDIT_PIN}.json"));
     if let Some((report, age)) = read_fresh_cache(&cache_file, cfg.now_secs) {
-        let (score, evidence) = score_pip_audit(&report);
+        let (score, evidence) = score_report(&report, &risks, today);
         return (
             score,
             format!("{evidence} [audit of this uv.lock, {}h old]", age / 3600),
@@ -302,7 +449,7 @@ pub(crate) fn f2_5(root: &Path, cfg: &AuditConfig) -> (f32, String) {
     match live_audit(root, &cfg.cache_dir, &key) {
         Ok(report) => {
             write_cache(&cache_file, &report, cfg.now_secs);
-            score_pip_audit(&report)
+            score_report(&report, &risks, today)
         }
         Err(why) => (
             0.5,
@@ -665,6 +812,170 @@ mod tests {
         );
         assert!(evidence.contains("pypdf@6.6.0 (2)"), "{evidence}");
         assert!(evidence.contains("pt-core-news-lg"), "{evidence}");
+    }
+
+    const RISK_REPORT: &str = r#"{"dependencies": [{"name": "diskcache", "version": "5.6.3", "vulns": [{"id": "PYSEC-2026-2447", "aliases": ["CVE-2025-69872"]}]}], "fixes": []}"#;
+    const ALIAS_REPORT: &str = r#"{"dependencies": [{"name": "diskcache", "version": "5.6.3", "vulns": [{"id": "GHSA-w8v5-vhqr-4h9v", "aliases": []}]}], "fixes": []}"#;
+
+    fn accepted(id: &str, expires: chrono::NaiveDate) -> AcceptedRisk {
+        AcceptedRisk {
+            ids: vec![id.to_string(), "GHSA-w8v5-vhqr-4h9v".to_string()],
+            expires,
+            reason: "cache próprio, não compartilhado".to_string(),
+        }
+    }
+
+    fn day(year: i32, month: u32, day: u32) -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(year, month, day).expect("valid date")
+    }
+
+    #[test]
+    fn accepted_risk_within_deadline_is_ignored_and_listed() {
+        let (score, evidence) = score_pip_audit_with_risks(
+            RISK_REPORT,
+            &[accepted("PYSEC-2026-2447", day(2026, 12, 5))],
+            day(2026, 11, 5),
+        );
+        assert!((score - 1.0).abs() < f32::EPSILON, "{evidence}");
+        assert!(evidence.contains("PYSEC-2026-2447"), "{evidence}");
+        assert!(evidence.contains("2026-12-05"), "{evidence}");
+        assert!(evidence.contains("cache próprio"), "{evidence}");
+        assert!(evidence.contains("accepted risk"), "{evidence}");
+    }
+
+    #[test]
+    fn accepted_alias_also_matches() {
+        let (score, evidence) = score_pip_audit_with_risks(
+            ALIAS_REPORT,
+            &[accepted("PYSEC-2026-2447", day(2026, 12, 5))],
+            day(2026, 11, 5),
+        );
+        assert!((score - 1.0).abs() < f32::EPSILON, "{evidence}");
+        assert!(evidence.contains("GHSA-w8v5-vhqr-4h9v"), "{evidence}");
+    }
+
+    #[test]
+    fn expired_risk_blocks_with_id_and_date() {
+        let (score, evidence) = score_pip_audit_with_risks(
+            RISK_REPORT,
+            &[accepted("PYSEC-2026-2447", day(2026, 12, 5))],
+            day(2026, 12, 6),
+        );
+        assert!(score.abs() < f32::EPSILON, "{evidence}");
+        assert!(evidence.contains("PYSEC-2026-2447"), "{evidence}");
+        assert!(evidence.contains("2026-12-05"), "{evidence}");
+        assert!(evidence.contains("expired"), "{evidence}");
+    }
+
+    #[test]
+    fn expiration_is_inclusive_on_the_last_day() {
+        let risk = accepted("PYSEC-2026-2447", day(2026, 12, 5));
+        let (last_day, _) =
+            score_pip_audit_with_risks(RISK_REPORT, std::slice::from_ref(&risk), day(2026, 12, 5));
+        let (next_day, _) = score_pip_audit_with_risks(RISK_REPORT, &[risk], day(2026, 12, 6));
+        assert!((last_day - 1.0).abs() < f32::EPSILON);
+        assert!(next_day.abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn wrong_accepted_id_does_not_hide_the_finding() {
+        let (score, evidence) = score_pip_audit_with_risks(
+            RISK_REPORT,
+            &[accepted("PYSEC-2099-9999", day(2026, 12, 5))],
+            day(2026, 11, 5),
+        );
+        assert!(score.abs() < f32::EPSILON, "{evidence}");
+        assert!(!evidence.contains("accepted risk"), "{evidence}");
+    }
+
+    #[test]
+    fn no_accepted_file_preserves_the_previous_verdict() {
+        let root = tempfile::tempdir().expect("root");
+        assert!(load_accepted_risks(root.path()).is_empty());
+        let previous = score_pip_audit(RECORDED);
+        let current = score_pip_audit_with_risks(RECORDED, &[], day(2026, 11, 5));
+        assert_eq!(previous, current);
+    }
+
+    #[test]
+    fn parser_accepts_only_dated_accepted_tables() {
+        let root = tempfile::tempdir().expect("root");
+        let utils = root.path().join("scripts/utils");
+        std::fs::create_dir_all(&utils).expect("utils");
+        std::fs::write(
+            utils.join("gate_risco_aceito.toml"),
+            r#"[[aceito]]
+id = "PYSEC-2026-2447"
+aliases = ["CVE-2025-69872", "GHSA-w8v5-vhqr-4h9v"]
+expira = 2026-12-05
+controle = "cache próprio, não compartilhado"
+[[em_onda]]
+id = "PYSEC-2099-9999"
+expira = 2026-12-31
+[[aceito]]
+id = "PYSEC-2000-0001"
+"#,
+        )
+        .expect("risk file");
+        let risks = load_accepted_risks(root.path());
+        assert_eq!(risks.len(), 1);
+        assert_eq!(risks[0].ids.len(), 3);
+        assert_eq!(risks[0].expires, day(2026, 12, 5));
+        assert!(risks[0].reason.contains("cache próprio"));
+    }
+
+    #[test]
+    fn simple_table_cannot_extend_the_previous_accepted_risk() {
+        let root = tempfile::tempdir().expect("root");
+        let utils = root.path().join("scripts/utils");
+        std::fs::create_dir_all(&utils).expect("utils");
+        std::fs::write(
+            utils.join("gate_risco_aceito.toml"),
+            r#"[[aceito]]
+id = "PYSEC-2026-2447"
+expira = 2026-11-01
+controle = "cache próprio"
+[em_onda]
+expira = 2026-12-05
+"#,
+        )
+        .expect("risk file");
+        let risks = load_accepted_risks(root.path());
+        assert_eq!(risks.len(), 1);
+        assert_eq!(risks[0].expires, day(2026, 11, 1));
+    }
+
+    #[test]
+    fn accepted_entry_without_a_reason_is_inert() {
+        let root = tempfile::tempdir().expect("root");
+        let utils = root.path().join("scripts/utils");
+        std::fs::create_dir_all(&utils).expect("utils");
+        std::fs::write(
+            utils.join("gate_risco_aceito.toml"),
+            r#"[[aceito]]
+id = "PYSEC-2026-2447"
+expira = 2026-12-05
+"#,
+        )
+        .expect("risk file");
+        assert!(load_accepted_risks(root.path()).is_empty());
+    }
+
+    #[test]
+    fn expiration_uses_the_sao_paulo_calendar_day() {
+        let timestamp = |text: &str| {
+            chrono::DateTime::parse_from_rfc3339(text)
+                .expect("RFC 3339 timestamp")
+                .timestamp() as u64
+        };
+        assert_eq!(
+            today_from_secs(timestamp("2026-12-06T02:59:59Z")),
+            day(2026, 12, 5)
+        );
+        assert_eq!(
+            today_from_secs(timestamp("2026-12-06T03:00:00Z")),
+            day(2026, 12, 6)
+        );
     }
 
     #[test]

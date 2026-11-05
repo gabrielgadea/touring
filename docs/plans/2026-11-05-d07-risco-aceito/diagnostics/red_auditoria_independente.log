@@ -1,0 +1,57 @@
+Running as unit: run-p2404375-i10799279.scope; invocation ID: 2c8287e1c5174e90a59921fcdc747618
+   Compiling touring-quality v30.4.102 (/home/gabrielgadea/projects/touring-d07-risco/crates/touring-quality)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.54s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring-d07-risco/target/debug/deps/touring_quality-970b8322c0e7cbbd)
+
+running 19 tests
+test verifications::python_deps::tests::a_comment_inside_the_array_is_not_syntax ... ok
+test verifications::python_deps::tests::a_workspace_or_path_source_is_a_bound_and_an_index_is_not ... ok
+test verifications::python_deps::tests::a_clean_report_passes_and_names_its_denominator ... ok
+test verifications::python_deps::tests::accepted_alias_also_matches ... ok
+test verifications::python_deps::tests::a_fresh_cached_audit_answers_without_the_network ... ok
+test verifications::python_deps::tests::accepted_entry_without_a_reason_is_inert ... FAILED
+test verifications::python_deps::tests::a_recorded_osv_response_blocks_with_distinct_findings ... ok
+test verifications::python_deps::tests::no_report_is_unverified_never_a_pass ... ok
+test verifications::python_deps::tests::no_accepted_file_preserves_the_previous_verdict ... ok
+test verifications::python_deps::tests::expiration_uses_the_sao_paulo_calendar_day ... FAILED
+test verifications::python_deps::tests::unbounded_requirements_are_the_ones_without_a_bound ... ok
+test verifications::python_deps::tests::wrong_accepted_id_does_not_hide_the_finding ... ok
+test verifications::python_deps::tests::expiration_is_inclusive_on_the_last_day ... ok
+test verifications::python_deps::tests::python_root_claims_python_manifests_and_leaves_rust_roots ... ok
+test verifications::python_deps::tests::the_osv_evidence_names_the_opt_in_this_backend_honours ... ok
+test verifications::python_deps::tests::expired_risk_blocks_with_id_and_date ... ok
+test verifications::python_deps::tests::accepted_risk_within_deadline_is_ignored_and_listed ... ok
+test verifications::python_deps::tests::simple_table_cannot_extend_the_previous_accepted_risk ... FAILED
+test verifications::python_deps::tests::parser_accepts_only_dated_accepted_tables ... ok
+
+failures:
+
+---- verifications::python_deps::tests::accepted_entry_without_a_reason_is_inert stdout ----
+
+thread 'verifications::python_deps::tests::accepted_entry_without_a_reason_is_inert' (2404789) panicked at crates/touring-quality/src/verifications/python_deps.rs:954:9:
+assertion failed: load_accepted_risks(root.path()).is_empty()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- verifications::python_deps::tests::expiration_uses_the_sao_paulo_calendar_day stdout ----
+
+thread 'verifications::python_deps::tests::expiration_uses_the_sao_paulo_calendar_day' (2404792) panicked at crates/touring-quality/src/verifications/python_deps.rs:964:9:
+assertion `left == right` failed
+  left: 2026-12-06
+ right: 2026-12-05
+
+---- verifications::python_deps::tests::simple_table_cannot_extend_the_previous_accepted_risk stdout ----
+
+thread 'verifications::python_deps::tests::simple_table_cannot_extend_the_previous_accepted_risk' (2404798) panicked at crates/touring-quality/src/verifications/python_deps.rs:938:9:
+assertion `left == right` failed
+  left: 2026-12-05
+ right: 2026-11-01
+
+
+failures:
+    verifications::python_deps::tests::accepted_entry_without_a_reason_is_inert
+    verifications::python_deps::tests::expiration_uses_the_sao_paulo_calendar_day
+    verifications::python_deps::tests::simple_table_cannot_extend_the_previous_accepted_risk
+
+test result: FAILED. 16 passed; 3 failed; 0 ignored; 0 measured; 499 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`
