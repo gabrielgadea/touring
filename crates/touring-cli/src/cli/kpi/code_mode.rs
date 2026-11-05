@@ -6,7 +6,7 @@
 //! inspecao, aderencia, reuso da escada e uso do sinal do SDK.
 
 use super::*;
-use touring_foundation::run_outcome::{Familia, Journal, Line, classify_line};
+use touring_foundation::run_outcome::{Journal, Line, LineFamily, classify_line};
 /// P5b (achado de Gabriel, 2026-08-26) — dos programas que o modelo rodou,
 /// qual fração FUNDIU round-trips.
 ///
@@ -743,16 +743,16 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
         // C3a: the line's FAMILY decides whether it is a run. The repeat-gate's refusal
         // carries `repeat_blocked` and the non-object line is not even an object — neither
         // describes a process that ran.
-        match run.familia() {
-            Familia::Recusa => {
+        match run.family() {
+            LineFamily::Refusal => {
                 refused_events += 1;
                 continue;
             }
-            Familia::NaoObjeto => {
+            LineFamily::NotObject => {
                 non_object_lines += 1;
                 continue;
             }
-            Familia::Run => {}
+            LineFamily::Run => {}
         }
         total += 1;
         let lang = run.language().unwrap_or("?").to_string();

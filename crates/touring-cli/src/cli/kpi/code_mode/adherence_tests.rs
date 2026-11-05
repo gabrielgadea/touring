@@ -23,7 +23,10 @@ fn the_real_journal_sample_reads_exactly_as_the_old_ruler_did() {
     // put under language "?" go with them, one "retry" that was a refusal stops counting as wasted
     // (84 → 83), and the two families are exposed as counters. `runs_ok` does not move.
     let mut expected = golden["adherence"].clone();
-    assert_eq!(expected["runs_total"], 509, "the golden changed under this test");
+    assert_eq!(
+        expected["runs_total"], 509,
+        "the golden changed under this test"
+    );
     expected["runs_total"] = 501.into();
     expected["success_rate"] = serde_json::json!(193.0 / 501.0);
     expected["wasted_attempts_retry_pairs"] = 83.into();
@@ -68,7 +71,10 @@ fn success_is_exit_zero_and_a_missing_exit_is_not_ok() {
     assert_eq!(v["refused_events"], 1);
     assert_eq!(v["by_failure_kind"]["output-limit"], 1);
     assert_eq!(v["by_failure_kind"]["timeout"], 1);
-    assert!(v["by_language"].get("?").is_none(), "a refusal is not a run of any language");
+    assert!(
+        v["by_language"].get("?").is_none(),
+        "a refusal is not a run of any language"
+    );
 }
 
 /// A blank line is counted with the corrupt ones — the ruler's historical
