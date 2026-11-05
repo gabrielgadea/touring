@@ -119,7 +119,7 @@
    "tier": "exact",
    "query": "LearnRuntime",
    "expected": [
-    "crates/touring-contracts/src/lib.rs::LearnRuntime"
+    "crates/touring-ceg/src/gateway/deps.rs::LearnRuntime"
    ]
   },
   {
@@ -127,7 +127,7 @@
    "tier": "exact",
    "query": "learn_runtime_methods_return_json_string",
    "expected": [
-    "crates/touring-contracts/src/lib.rs::learn_runtime_methods_return_json_string"
+    "crates/touring-ceg/src/gateway/deps.rs::learn_runtime_methods_return_json_string"
    ]
   },
   {

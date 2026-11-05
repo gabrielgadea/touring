@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # As 3 falhas de touring-hooks (cli_suggester_e2e x1, wave25_task_enrichment_e2e x2) reproduzem SEM a minha mudanca?
 # Troca temporariamente os 4 arquivos tocados pelos de 88c7cc8b (git show, leitura) e poe namespace.rs/namespace/ de lado
 # (mv); roda os dois alvos de teste; restaura por cp/mv e confere os sha256. Nada de git checkout/restore/stash.
 set -u
-WT=/home/gabrielgadea/projects/touring-wt-vgp-attr
-P0=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
+WT=${HOME}/projects/touring-wt-vgp-attr
+P0=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
 V=crates/touring-code/src/vgp
 SAVE=$P0/fonte_final
 cd "$WT" || exit 9
-export CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/vgp-test
+export CARGO_TARGET_DIR=${HOME}/projects/touring/target/vgp-test
 mkdir -p "$SAVE/checks" "$SAVE/namespace"
 : > "$P0/bh.rc"
 for f in modules.rs checks.rs mod.rs checks/tests.rs namespace.rs namespace/tests.rs; do cp "$V/$f" "$SAVE/$f"; done

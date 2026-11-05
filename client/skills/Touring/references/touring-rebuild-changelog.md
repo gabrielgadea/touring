@@ -136,7 +136,7 @@ Criado — descobriu desincronia `~/.claude/hooks/` (debug) vs `~/.local/bin/` (
 
 ```
 COMANDO REAL:  touring-hook --start-daemon
-PROCESSO:      /home/gabrielgadea/projects/touring/target/release/touring-hook
+PROCESSO:      ~/projects/touring/target/release/touring-hook
 ```
 
 Auto-spawn: quando um cliente CLI (`touring <cmd>`) ou hook (`touring-hook <event>`) detectava que o socket `/tmp/touring-daemon-1000.sock` não respondia, ele invocava `touring-hook --start-daemon` para iniciar o daemon detached.

@@ -3,13 +3,13 @@
 # por id contra o P0 final 4501e1e5 (saídas já gravadas em p0-atributo-2026-10-09/resultados/juizes_dc_{ev,bak}).
 # Para no primeiro elo vermelho. Uso: bash pipeline_int97.sh <pasta-de-saida>
 set -u
-D=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
+D=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics
 S=$D/int97/scripts
 OUT=${1:?pasta de saida}
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
+HW=${HOME}/projects/touring/scripts/hw-slot
 P0=$D/p0-atributo-2026-10-09/resultados
-REF=/home/gabrielgadea/.claude/touring/vgp/binarios/4501e1e5/touring
-VGP=/home/gabrielgadea/.claude/touring/vgp
+REF=${HOME}/.claude/touring/vgp/binarios/4501e1e5/touring
+VGP=${HOME}/.claude/touring/vgp
 mkdir -p "$OUT"
 L=$OUT/pipeline.rc
 : > "$L"

@@ -1,6 +1,6 @@
 ---
 type: Diagnostic
-title: Diagnostic — /home/gabrielgadea/.claude/skills/loop-engineering
+title: Diagnostic — ~/.claude/skills/loop-engineering
 description: One-shot deep diagnostic digest (health, 50-dim quality, wiring, memory, structure).
 plan_id: task_1782996878252842489
 tags: [loop, diagnostic]
@@ -8,7 +8,7 @@ timestamp: 2026-07-02T10:34:33.527898-03:00
 okf_version: "0.1"
 ---
 
-# Diagnostic — `/home/gabrielgadea/.claude/skills/loop-engineering`
+# Diagnostic — `~/.claude/skills/loop-engineering`
 
 Part of the [bundle](/index.md).
 

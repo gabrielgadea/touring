@@ -6,8 +6,8 @@
 //! through the capnp RPC pipe.
 //!
 //! This is the crucial test that validates the co-hosted broadcast
-//! channel actually works — the E2E tests in `touring-capnp-server`
-//! spawn the server directly (bypassing `install`), so they don't
+//! channel actually works — the E2E tests in `touring-bindings`
+//! (`bind-capnp`) spawn the server directly (bypassing `install`), so they don't
 //! exercise the thread-based embed lifecycle.
 
 #![cfg(feature = "capnp-server")]
@@ -23,8 +23,8 @@ use tempfile::TempDir;
 use tokio::task::LocalSet;
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use touring_capnp_server::EmbedConfig;
-use touring_capnp_server::holon_generator_capnp::{generator_health, health_delta_listener};
+use touring_bindings::capnp::EmbedConfig;
+use touring_bindings::capnp::holon_generator_capnp::{generator_health, health_delta_listener};
 use touring_foundation::{DeltaOutcome, HealthDeltaEvent};
 
 struct Collector {

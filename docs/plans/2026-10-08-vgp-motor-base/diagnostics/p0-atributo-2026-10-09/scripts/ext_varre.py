@@ -1,5 +1,8 @@
 """Submodulos compilados (.so) no 1o nivel de cada pacote do venv: `from pkg import ext` nao pode negar."""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import re
 import subprocess
@@ -7,8 +10,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-SP = Path("/home/gabrielgadea/projects/analise/.venv/lib/python3.12/site-packages")
-ROOT = "/home/gabrielgadea/projects/analise"
+SP = Path(f"{_HOME}/projects/analise/.venv/lib/python3.12/site-packages")
+ROOT = f"{_HOME}/projects/analise"
 BIN = sys.argv[1]
 
 progs = {}

@@ -10,7 +10,7 @@ timestamp: 2026-08-22T01:00:00-03:00
 
 # Bundle — suite isolation + actor yield
 
-DAG: `task_1787365388353596293` · escopo: `/home/gabrielgadea/projects/touring`
+DAG: `task_1787365388353596293` · escopo: `~/projects/touring`
 Origem do diagnóstico: `/docs/plans/2026-08-20-work-outer/diagnostics/2026-08-21-cargo-green-starvation.md`
 
 ## Documentos

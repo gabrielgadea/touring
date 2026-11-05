@@ -69,7 +69,7 @@ timestamp: 2026-10-26
 | `git` | 95.085 | git |
 | `echo` | 78.875 | marcadores |
 
-**Achado**: o modelo **repete o caminho inteiro** (`cd /home/gabrielgadea/projects/touring && …`)
+**Achado**: o modelo **repete o caminho inteiro** (`cd ~/projects/touring && …`)
 em vez de usar o caminho relativo — e o `cd` é o maior consumidor de bytes do Bash.
 
 ### 1.2 Os resultados (43,2% da janela)

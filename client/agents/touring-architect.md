@@ -104,7 +104,7 @@ Proactive TACO Phase 2 trigger: scouter output feeds touring-architect as pre-co
 
 ## MANDATORY EXECUTION PROTOCOL
 
-> **TACO Binding**: When deployed as a TACO Phase 2 subagent, the prompt MUST start with `@/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md` as the first line.
+> **TACO Binding**: When deployed as a TACO Phase 2 subagent, the prompt MUST start with `@~/.claude/skills/Touring/references/TACO-subagent-rule.md` as the first line.
 
 ### Phase 0: Pre-flight (ALWAYS first, no exceptions)
 

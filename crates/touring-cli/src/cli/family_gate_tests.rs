@@ -4,7 +4,7 @@
 
 use super::*;
 use crate::cli::context_budget::{ContextBudgetAggregate, aggregate_session_lines};
-use crate::cli::transcript_scan::{KPI_CAPS, fixtures::*};
+use crate::cli::transcript_scan::{KPI_CAPS, fixtures::*, read_lines};
 use serde_json::json;
 
 /// A touring-suggest block asking for `touring index …` (target: the two words after `MUST`).
@@ -22,8 +22,8 @@ fn bash(i: usize, cmd: &str) -> String {
 
 fn session(lines: &[String]) -> SessionFamilies {
     let mut t = FamilyTracker::default();
-    t.observe_lines(lines.iter().map(String::as_str));
-    t.finish()
+    let read = read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
+    t.finish(read.started_on)
 }
 
 fn stats(emitted: u64, denied: u64, followed: u64) -> FamilyFollow {

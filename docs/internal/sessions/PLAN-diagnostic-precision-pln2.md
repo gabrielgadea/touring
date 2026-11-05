@@ -156,7 +156,7 @@ Pln1 **não mediu nada**. Pln2 baseline completo:
 - Severity: 90 warning, 1 low, 1 high
 - `post-tool-failure` auto-cria gotchas com patterns extraídos do path do erro — sem quality filter
 
-**Root Cause**: O `post-tool-failure` hook extrai o path do erro e cria gotcha com pattern = primeiro segmento do path. Para erros em `/home/gabrielgadea/.claude/rust/crates/touring-hooks/...`, o pattern vira `"touring-hooks"` ou pior, `"touring"`. Como TUDO no workspace tem "touring" no path, o gotcha matcha em tudo.
+**Root Cause**: O `post-tool-failure` hook extrai o path do erro e cria gotcha com pattern = primeiro segmento do path. Para erros em `~/.claude/rust/crates/touring-hooks/...`, o pattern vira `"touring-hooks"` ou pior, `"touring"`. Como TUDO no workspace tem "touring" no path, o gotcha matcha em tudo.
 
 **Impacto**: Gotcha system consome cycles de matching (106ms wiring orphans inclui gotcha scan) e injeta warnings inúteis no context. É **anti-productive** — pior que não ter gotchas.
 

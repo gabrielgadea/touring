@@ -69,12 +69,12 @@ fn test_find_all_cycles_workspace_root_filter() {
     // Insert a phantom cycle x↔y that lives in analise/ (cross-tree pollution).
     conn.execute(
             "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, workspace_root) \
-             VALUES ('/home/gabrielgadea/projects/analise/packages/x.rs', 'X', 'struct', 'public', '/home/gabrielgadea/projects/analise/packages/y.rs', 'analise')",
+             VALUES ('/home/u/projects/analise/packages/x.rs', 'X', 'struct', 'public', '/home/u/projects/analise/packages/y.rs', 'analise')",
             [],
         ).unwrap();
     conn.execute(
             "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, workspace_root) \
-             VALUES ('/home/gabrielgadea/projects/analise/packages/y.rs', 'Y', 'fn', 'public', '/home/gabrielgadea/projects/analise/packages/x.rs', 'analise')",
+             VALUES ('/home/u/projects/analise/packages/y.rs', 'Y', 'fn', 'public', '/home/u/projects/analise/packages/x.rs', 'analise')",
             [],
         ).unwrap();
 
@@ -130,7 +130,7 @@ fn test_find_all_cycles_workspace_root_filter() {
     assert!(
         analise_modules
             .iter()
-            .all(|m| m.starts_with("/home/gabrielgadea/projects/analise/")),
+            .all(|m| m.starts_with("/home/u/projects/analise/")),
         "analise-filtered cycle must contain only abs_path rows, got {analise_modules:?}"
     );
 }

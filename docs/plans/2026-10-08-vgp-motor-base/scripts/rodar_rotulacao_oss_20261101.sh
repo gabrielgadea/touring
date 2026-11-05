@@ -13,7 +13,7 @@
 # `propagate-release.sh`, nao faz `cargo build --release`. O AB34 esta armado ate 08/11 00:10.
 set -uo pipefail
 
-BUNDLE=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+BUNDLE=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 VG=$HOME/.claude/touring/vgp
 
 SAIDA="$VG/oss_rotulado_20261101"

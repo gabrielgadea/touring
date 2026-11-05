@@ -26,25 +26,28 @@ fn spec_version_is_semver_like() {
 
 #[test]
 fn server_construct_with_explicit_root() {
-    let srv = TouringCapnpServer::new("/home/gabrielgadea");
-    assert_eq!(srv.root, PathBuf::from("/home/gabrielgadea"));
+    let srv = TouringCapnpServer::new("/home/u");
+    assert_eq!(srv.root, PathBuf::from("/home/u"));
 }
 
 #[test]
 fn server_default_root_honours_home() {
-    let srv = TouringCapnpServer::default_root();
-    assert!(
-        srv.root.is_absolute(),
-        "default_root must be absolute, got {:?}",
-        srv.root
-    );
+    // `None` only without a derivable home directory (stripped container): the
+    // default root is then deliberately absent, not a guessed path.
+    if let Some(srv) = TouringCapnpServer::default_root() {
+        assert!(
+            srv.root.is_absolute(),
+            "default_root must be absolute, got {:?}",
+            srv.root
+        );
+    }
 }
 
 #[test]
 fn holon_impl_construct() {
-    let h = TouringHolonImpl::new("touring-master", "/home/gabrielgadea");
+    let h = TouringHolonImpl::new("touring-master", "/home/u");
     assert_eq!(h.name, "touring-master");
-    assert_eq!(h.root, PathBuf::from("/home/gabrielgadea"));
+    assert_eq!(h.root, PathBuf::from("/home/u"));
 }
 
 #[test]

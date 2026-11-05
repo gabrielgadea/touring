@@ -8,23 +8,23 @@ Estado: **entregue como hipótese até o juiz da coordenadora** (nada commitado,
 
 | Campo | Valor |
 |---|---|
-| Worktree | `/home/gabrielgadea/projects/touring-wt-gates97` |
+| Worktree | `~/projects/touring-wt-gates97` |
 | Branch | `fix/2026-10-10-gates-97` (HEAD `c118aa52`; a árvore tem o WIP implantado da 30.4.96 no index, sem commit) |
-| Alvo de build | `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-gates97` |
+| Alvo de build | `CARGO_TARGET_DIR=~/projects/touring/target/wt-gates97` |
 | Cargo | sempre sob `scripts/hw-slot --class rust --wait N -- …` (uma vaga por lote; ver seção 4) |
-| Scratchpad (logs, scripts, manifestos) | `/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/` |
+| Scratchpad (logs, scripts, manifestos) | `/tmp/claude-1000/-home-<user>-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/` |
 
 ## 2. Feito, com evidência
 
 ### 2.1 Os três casos reais (linhas literais dos transcritos)
 
-**G10ROTA** — `~/.claude/projects/-home-gabrielgadea-projects-analise/05166acc-ff08-4644-8481-ab8c2316c4a4.jsonl`, 10/10/2026 01:39Z:
+**G10ROTA** — `~/.claude/projects/-home-<user>-projects-analise/05166acc-ff08-4644-8481-ab8c2316c4a4.jsonl`, 10/10/2026 01:39Z:
 
 - L5786 (assistant, Bash): `TOURING_CODE_MODE=native .venv/bin/python3 - <<'EOF' … p.write_text(t.replace(velho, "> Estado 09/10 22:38 (o relógio da máquina; eu tinha escrito «10/10 ~00:30» — errado):"), encoding="utf-8") …`
 - L5789 (resultado): `PreToolUse:Bash hook error: [G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:  touring run --lang python --code 'import pathlib …p.write_text(…)…'` (a rota nomeada é `touring run --lang python`, que o X6 nega sob Sandboxed por `file-write`).
 - L5798 (a rota que de fato funcionou): `TOURING_TRUSTED_OK=1 .touring/bin/touring run --allow-forbidden --lang python --code 'import pathlib … p.write_text(…)'`.
 
-**G7G3G9** — mesma sessão, L5441-5448, e `~/.claude/projects/-home-gabrielgadea-projects-touring/2e4db816-c57e-43e8-9a44-aca77d1874da.jsonl`, L14641-14650:
+**G7G3G9** — mesma sessão, L5441-5448, e `~/.claude/projects/-home-<user>-projects-touring/2e4db816-c57e-43e8-9a44-aca77d1874da.jsonl`, L14641-14650:
 
 - 05166acc L5441: `Read` de `…/RETOMADA.md` (limit 8); L5442: `PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de …/RETOMADA.md na janela — reler é o sinal mais direto de programa-faltando …`; L5448: o agente cai para `TOURING_CODE_MODE=native .venv/bin/python3 - <<'EOF'` (edição por python).
 - 2e4db816 L14641: `Edit` em `…/prova_equivalencia_js.py`; L14642: `<tool_use_error>File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.</tool_use_error>`; L14644: `Read` (offset 53, limit 20); L14647: `PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de …/prova_equivalencia_js.py na janela …`; L14649 (assistant): «O gate G7 pede um programa em vez da3ª leitura. Faço a edição por script …». É o círculo: Edit obsoleto -> a releitura que o harness exige é a 3ª -> G7 nega -> só sobra python.

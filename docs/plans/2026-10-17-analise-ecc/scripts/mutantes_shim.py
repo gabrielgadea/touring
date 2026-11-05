@@ -2,13 +2,16 @@
 
 Usage: mutantes_shim.py   (exit 0 only when every mutant is killed and the unmutated shim passes)
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path("/home/gabrielgadea/projects/touring")
+REPO = Path(f"{_HOME}/projects/touring")
 SHIM = REPO / "scripts/hooks/touring-hook-shim.sh"
 TEST = REPO / "scripts/test_touring_hook_shim.py"
 MUTANTES = {

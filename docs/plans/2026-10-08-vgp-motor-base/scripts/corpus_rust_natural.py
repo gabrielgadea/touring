@@ -1,7 +1,7 @@
 """VRS — the NATURAL Rust corpus the VGP motor is measured against (VL0-multilinguagem-spec.md §7).
 
 Same schema `juiz_motor_vgp.py` already reads (`entradas.jsonl` + `snap/` + `estado_no_instante/manifesto.json`), built
-from what the sessions really did: no crate, only the transcripts of `~/.claude/projects/-home-gabrielgadea-projects-{analise,touring}`.
+from what the sessions really did: no crate, only the transcripts of `~/.claude/projects/-home-<user>-projects-{analise,touring}`.
 
 POSITIVES — a Bash result carrying a rustc error of an invented-NAME class (E0425 E0432 E0433 E0412 E0599 E0609 E0560
 E0559 E0061 E0063 E0026). The file is rebuilt AS IT WAS when the command started (`base_no_instante` + the fold of every
@@ -31,6 +31,11 @@ Usage (native — the `touring run` sandbox cannot read ~/.claude/projects):
 """
 
 from __future__ import annotations
+
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
 
 import argparse
 import collections
@@ -1778,7 +1783,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.selftest:
         return selftest()
     transcripts = tuple(
-        (p, replay.PROJECTS / f"-home-gabrielgadea-projects-{p}") for p in PROJETOS
+        (p, replay.PROJECTS / f"{_HOME_SLUG}-projects-{p}") for p in PROJETOS
     )
     cfg = Config(transcripts, args.saida, (Path.home() / "projects",), corte=args.corte)
     sys.stdout.write(json.dumps(construir(cfg), ensure_ascii=False, indent=1) + "\n")

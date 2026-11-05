@@ -1,5 +1,5 @@
 //! E2E tests for RFC-100 G-4xx diagnostic codes from touring-generator.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //!
 //! Covers:
 //! - G-400: `VgpFailed` (VGP verification fails — missing symbols)
@@ -18,6 +18,13 @@ use std::process::{Command, Stdio};
 #[allow(dead_code)]
 mod private_daemon;
 use private_daemon::{locate_binary, private_daemon_env};
+
+// The closed world the doctor tests run in: a seeded project in a tempdir and a private daemon
+// pinned to it (same helper as touring-hooks; it resolves `super::private_daemon` above).
+#[path = "../../touring-hooks/tests/common/hermetic_doctor.rs"]
+#[allow(dead_code)]
+mod hermetic_doctor;
+use hermetic_doctor::DoctorWorld;
 
 /// Resolve the binary or SKIP the test — never panic with a "skipping" message.
 ///
@@ -191,24 +198,28 @@ fn g401_path_responds_to_plan_speculate_command() {
 
 // ── Generator health: binary has all hooks wired ─────────────────────────────
 
+/// The doctor runs in a closed world ([`DoctorWorld`]). It reads the project state from the
+/// CLIENT's cwd; with cwd = `crates/touring-generator` it read that package's
+/// `.claude/touring/*.db` — gitignored runtime state that a clean checkout does not have, so the
+/// test failed in every fresh clone or worktree (`project_db`, `wiring_diagnostic`, `index_generation`:
+/// `missing`) and passed only where an old index happened to sit.
 #[test]
 fn generator_binary_wired_and_healthy() {
-    let Some(bin) = locate_binary("touring") else {
-        eprintln!("touring binary not built — skipping health check");
+    let Some(world) = DoctorWorld::start("gen-rfc100-doctor") else {
+        eprintln!(
+            "SKIP generator_binary_wired_and_healthy: touring / touring-daemon not built, or the \
+             private daemon was not ready — nothing was tested"
+        );
         return;
     };
-    let out = Command::new(&bin)
-        .envs(private_daemon_env())
-        .args(["doctor", "-j"])
-        .output()
-        .expect("spawn doctor");
-    assert_eq!(out.status.code().unwrap_or(-1), 0, "doctor -j must exit 0");
-    let json: serde_json::Value =
-        serde_json::from_slice(&out.stdout).expect("doctor -j must emit JSON");
-    let checks = json.as_array().expect("doctor -j returns array");
-    let failures: Vec<_> = checks
+    let run = world.doctor();
+    assert_eq!(run.code, 0, "doctor -j must exit 0: {:?}", run.checks);
+    let failures: Vec<_> = run
+        .checks
         .iter()
         .filter(|c| c.get("status").and_then(|s| s.as_str()) != Some("ok"))
         .collect();
     assert!(failures.is_empty(), "doctor failing checks: {failures:?}");
+    world.assert_state_was_read_from_this_world(&run.checks);
+    eprintln!("E2EDOCTOR-RAN generator_binary_wired_and_healthy");
 }

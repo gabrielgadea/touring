@@ -6,13 +6,16 @@ Plan: touring-v19-improvements
 Runs all validation checks for phase 2 and exits 1 if any FAIL.
 Usage: python validate_phase02.py [--verbose]
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import argparse
 import shlex
 import subprocess
 import sys
 from pathlib import Path
 
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path(f"{_HOME}/.claude/rust")
 PLAN_DIR = Path(__file__).parent
 VERBOSE = False
 
@@ -39,8 +42,8 @@ def check(name: str, fn) -> bool:
 
 def run_cmd(cmd: str, cwd=None) -> tuple[int, str]:
     """Run a shell command and return (returncode, stdout+stderr)."""
-    r = # OWASP A03 (W8 fix): shell=True replaced by shlex.split list-of-args
-    subprocess.run(shlex.split(cmd), capture_output=True, text=True, cwd=cwd or WORKSPACE, shell=False)
+    # OWASP A03 (W8 fix): shell=True replaced by shlex.split list-of-args
+    r = subprocess.run(shlex.split(cmd), capture_output=True, text=True, cwd=cwd or WORKSPACE, shell=False)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -61,7 +64,7 @@ def main() -> int:
     # INS-3: Plugin/Phase Registry Dynamic
     results.append(check(
         "INS-3: src/aco/registry.rs exists",
-        lambda: Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/registry.rs").exists()
+        lambda: Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/registry.rs").exists()
     ))
     results.append(check(
         "INS-3: MutableGeneratorGraph struct verified",
@@ -90,7 +93,7 @@ def main() -> int:
     # INS-4: Deterministic Topological Sort + Graph Analytics
     results.append(check(
         "INS-4: src/aco/graph.rs exists",
-        lambda: Path("/home/gabrielgadea/.claude/rust/crates/touring-learning/src/aco/graph.rs").exists()
+        lambda: Path(f"{_HOME}/.claude/rust/crates/touring-learning/src/aco/graph.rs").exists()
     ))
     results.append(check(
         "INS-4: MutableGeneratorGraph struct verified",

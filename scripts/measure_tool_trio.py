@@ -31,11 +31,12 @@ from dataclasses import dataclass, field
 
 WINDOW = 8
 EMPTY_BYTES = 50
-DEFAULT_DIRS = (
-    "-home-gabrielgadea-projects-touring",
-    "-home-gabrielgadea-projects-analise",
-    "-home-gabrielgadea-projects-konverter",
-)
+def _project_dir(name: str) -> str:
+    """Transcript dir Claude Code uses for ~/projects/<name>: every non-alphanumeric char of the path becomes '-'."""
+    return re.sub(r"[^A-Za-z0-9]", "-", os.path.expanduser(f"~/projects/{name}"))
+
+
+DEFAULT_DIRS = tuple(_project_dir(name) for name in ("touring", "analise", "konverter"))
 PREFIX_VERBS = {"cd", "export", "set", "source", ".", "pushd", "popd", "true", "unset", "shopt"}
 WRAPPERS = {"env", "time", "nice", "nohup", "command", "exec"}
 DECORATIVE_VERBS = {"echo", "printf"}

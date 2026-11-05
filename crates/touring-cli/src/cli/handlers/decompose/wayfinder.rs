@@ -960,15 +960,22 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 
     let now_epoch = chrono::Utc::now().timestamp();
 
-    // Load all subtasks for this task
+    let (where_clause, bind) = ready_scope(task_id, payload);
+    let sql = format!(
+        "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at, autonomy FROM decomposition_subtasks WHERE {where_clause}"
+    );
+
+    // Load the subtasks in scope
     let subtasks: Vec<SubtaskInfo> = {
-        let mut stmt = match db.conn_ref().prepare(
-            "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at, autonomy FROM decomposition_subtasks WHERE task_id = ?1",
-        ) {
+        let mut stmt = match db.conn_ref().prepare(&sql) {
             Ok(s) => s,
             Err(_) => return serde_json::json!({"error": "db error"}).to_string(),
         };
-        stmt.query_map(params![task_id], |r| {
+        let binds: Vec<&dyn rusqlite::ToSql> = match &bind {
+            Some(b) => vec![b as &dyn rusqlite::ToSql],
+            None => Vec::new(),
+        };
+        stmt.query_map(binds.as_slice(), |r| {
             let deps_str = r.get::<_, String>(2)?;
             let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_else(|_| {
                 deps_str
@@ -1065,9 +1072,13 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         })
         .collect();
 
+    // `ready_count` is emitted because four hook readers (plan mode enter/exit, task list,
+    // task update) key on it; before 04/11/2026 no producer wrote it and they never fired.
+    let ready_count = ready.len();
     if only_ready {
         serde_json::json!({
             "task_id": task_id,
+            "ready_count": ready_count,
             "ready_subtasks": ready,
             "parallel_groups": parallel_groups
         })
@@ -1075,12 +1086,38 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     } else {
         serde_json::json!({
             "task_id": task_id,
+            "ready_count": ready_count,
             "ready_subtasks": ready,
             "blocked_subtasks": blocked,
             "parallel_groups": parallel_groups
         })
         .to_string()
     }
+}
+
+/// Which subtasks `ready` reads, as a `WHERE` clause plus its optional bind value
+/// (aprofundamento #7, 04/11/2026).
+///
+/// The CLI documents `task_id` as an OPTIONAL filter, but an absent one used to run
+/// `WHERE task_id = ''` and always answered empty — so every hook that asked with `{}`
+/// saw no ready work. Now:
+/// * `task_id` given    → that task only;
+/// * `scope = "latest"` → the open task updated most recently: what a hook means by "the
+///   DAG being worked on", with bounded output (the store holds hundreds of open plans);
+/// * neither            → every open task (status not terminal in the foundation).
+fn ready_scope(task_id: &str, payload: &serde_json::Value) -> (String, Option<String>) {
+    if !task_id.is_empty() {
+        return ("task_id = ?1".to_owned(), Some(task_id.to_owned()));
+    }
+    let open_tasks = format!(
+        "SELECT task_id FROM task_decompositions WHERE status NOT IN ({})",
+        touring_foundation::task_lifecycle::terminal_status_sql_list()
+    );
+    if payload.get("scope").and_then(|v| v.as_str()) == Some("latest") {
+        let latest = format!("{open_tasks} ORDER BY updated_at DESC, task_id DESC LIMIT 1");
+        return (format!("task_id = ({latest})"), None);
+    }
+    (format!("task_id IN ({open_tasks})"), None)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

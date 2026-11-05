@@ -1,7 +1,7 @@
 ---
 type: OperationsManual
 title: "Manual — Touring 100% local + descolamento do root global ~/.claude"
-description: "Como a topologia per-project funciona em operação, e o mapa item-a-item de /home/gabrielgadea/.claude (o que fica, o que sai, o que transforma) com os passos ordenados, verificáveis e reversíveis do descolamento"
+description: "Como a topologia per-project funciona em operação, e o mapa item-a-item de ~/.claude (o que fica, o que sai, o que transforma) com os passos ordenados, verificáveis e reversíveis do descolamento"
 tags: [manual, per-project, descolamento, claude-root, pln2]
 timestamp: 2026-07-25
 plan: /00-INDEX.md
@@ -9,7 +9,7 @@ plan: /00-INDEX.md
 
 # Manual — Touring local & Descolamento do `~/.claude`
 
-> Baseado em exploração REAL de `/home/gabrielgadea/.claude` em 25/07/2026
+> Baseado em exploração REAL de `~/.claude` em 25/07/2026
 > (tamanhos medidos, hooks contados, acoplamentos verificados). Estado de
 > partida: Pln2 completo (F0-F5+PILOT), release v30.3.0 publicada no GitHub,
 > konverter operando per-project.

@@ -291,19 +291,19 @@ via `pip install hdrhistogram` — o switch é automático (a abstração
 
 ```bash
 # Build prerequisites
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 cargo build --release -p touring-capnp-server
 cargo build --release -p touring-capnp-server --example bench_d34
 
 # Run full benchmark
-/home/gabrielgadea/.claude/tools/holon/benchmarks/bench_d34.sh
+~/.claude/tools/holon/benchmarks/bench_d34.sh
 
 # Run smoke (100 runs, 10s total)
 THSF_D34_RUNS=100 THSF_D34_WARMUP=20 THSF_D34_INVOKE_RUNS=20 \
-    /home/gabrielgadea/.claude/tools/holon/benchmarks/bench_d34.sh
+    ~/.claude/tools/holon/benchmarks/bench_d34.sh
 
 # Inspect results
-ls /home/gabrielgadea/.claude/tools/holon/benchmarks/results/
+ls ~/.claude/tools/holon/benchmarks/results/
 jq '.scenarios."capnp.spec_version".p50_us' results/rust-*.json
 ```
 

@@ -6,7 +6,7 @@ description: "Medição da sessão 24/08 (4% de adoção, 33 rajadas, 135 round-
 tags: [code-mode, afordancia, medicao, antipadrao, protocolo]
 timestamp: 2026-08-24T18:25:00-03:00
 plan_id: 2026-08-24-code-mode-antecipa
-scope: /home/gabrielgadea/projects/touring
+scope: ~/projects/touring
 ---
 
 # Code mode antes da declaração

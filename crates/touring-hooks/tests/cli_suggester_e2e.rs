@@ -8,8 +8,8 @@
 //!    explicitly checks the silent-path contract (non-code Read returns "{}").
 //!
 //! 2. **`hook_registry` wiring** — `cli-suggest` (added 2026-05-10) and
-//!    `cli-index-ingest` (B3 fix) are both present in `ALL_DAEMON_HOOK_NAMES`
-//!    and in the dispatch table built by `build_dispatch_table`.
+//!    `cli-index-ingest` (B3 fix) are both daemon hooks (`is_daemon_hook`) and in
+//!    the dispatch table built by `build_dispatch_table`.
 //!
 //! 3. **JSON output schema invariant** — every non-empty response is a valid
 //!    JSON object with a `hookSpecificOutput.additionalContext: String` field;
@@ -423,14 +423,14 @@ fn every_non_empty_output_is_a_valid_json_object_with_additional_context() {
 
 #[test]
 fn hook_registry_contains_session_handlers() {
-    use touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES;
+    use touring_hooks::hook_registry::is_daemon_hook;
     assert!(
-        ALL_DAEMON_HOOK_NAMES.contains(&"cli-suggest"),
-        "cli-suggest missing from ALL_DAEMON_HOOK_NAMES"
+        is_daemon_hook("cli-suggest"),
+        "cli-suggest is not a daemon hook (dispatch table)"
     );
     assert!(
-        ALL_DAEMON_HOOK_NAMES.contains(&"cli-index-ingest"),
-        "cli-index-ingest missing from ALL_DAEMON_HOOK_NAMES"
+        is_daemon_hook("cli-index-ingest"),
+        "cli-index-ingest is not a daemon hook (dispatch table)"
     );
 }
 

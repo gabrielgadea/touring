@@ -34,7 +34,7 @@ pub fn sandbox_result_to_doc(
         tool_name: tool_name.to_string(),
         summary,
         full_output_path: stored,
-        exit_code: i64::from(result.exit_code),
+        exit_code: i64::from(result.exit_code.to_wire()),
         output_bytes: result.output_bytes,
         was_truncated: result.was_truncated,
         stored_at_unix: std::time::SystemTime::now()
@@ -73,7 +73,7 @@ pub fn derive_summary_with_tool(
     tool_name: &str,
     tool_args: &Value,
 ) -> String {
-    if result.exit_code == -2 {
+    if result.exit_code.is_timed_out() {
         return format!(
             "<sandbox_timeout fallback exit=-2 truncated={}>",
             result.was_truncated

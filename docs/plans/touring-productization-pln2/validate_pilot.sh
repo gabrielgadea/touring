@@ -9,7 +9,7 @@
 set -uo pipefail
 
 PASS=0; FAIL=0
-KONVERTER=/home/gabrielgadea/projects/konverter
+KONVERTER=${HOME}/projects/konverter
 TH=$HOME/.touring
 TOURING_BIN="${TOURING_BIN:-$HOME/.local/bin/touring}"
 KSOCK="$KONVERTER/.touring/daemon.sock"
@@ -23,7 +23,7 @@ OK=1
 [ -d "$TH/toolchains/30.3.0/bin" ] \
   && [ -x "$TH/toolchains/30.3.0/bin/touring-daemon" ] \
   && META=$(cat "$TH/toolchains/30.3.0/meta.toml" 2>/dev/null) \
-  && echo "$META" | grep -q "local-source:/home/gabrielgadea/projects/touring" && OK=0
+  && echo "$META" | grep -q "local-source:${HOME}/projects/touring" && OK=0
 check "1. ~/.touring/toolchains/30.3.0 installed from canonical source" $OK
 
 # 2. Default channel recorded

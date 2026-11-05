@@ -103,6 +103,10 @@ tokio-test = { workspace = true }
 # as a dependency only produced cargo's "ignoring invalid dependency" warning on
 # every build and was never referenced in src/tests.
 tempfile.workspace = true
+# The hermetic doctor world (tests/e2e_diagnostic_rfc100.rs) seeds knowledge.db with the
+# product's own constructor, re-exported by the touring-hooks facade. No cycle: no crate under
+# touring-hooks depends on touring-generator.
+touring-hooks = { path = "../touring-hooks" }
 # serial_test: serialize env-var-mutating tests (analysis_gate_open_with_env_*)
 # so std::env::set_var in one test cannot leak into another running in parallel.
 serial_test = { workspace = true }

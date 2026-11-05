@@ -58,7 +58,7 @@ df -h /home | tail -1
 ~/.claude/tools/disk-watch.sh
 
 # Top 5 ofensores
-du -sh /home/gabrielgadea/projects/*/target ~/projects/touring/target 2>/dev/null | sort -rh | head -5
+du -sh ~/projects/*/target ~/projects/touring/target 2>/dev/null | sort -rh | head -5
 
 # Sccache health
 sccache --show-stats | head -25

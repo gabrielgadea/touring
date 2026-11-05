@@ -202,7 +202,7 @@ projects/analise/.holon/schemas/{evtea-model,sicro-parser,traffic-graph,
 - ✅ Zero `allow(unused)` / zero pending
 - ✅ 3 adapters todos testados E2E via `holon invoke`
 - ✅ Manifest conforma RFC-001 (passa validator + schema)
-- ✅ `holon doctor /home/gabrielgadea/projects/analise` → 0 errors
+- ✅ `holon doctor ~/projects/analise` → 0 errors
 - ✅ 21/21 audit gates verdes, incluindo 4 novos analise
 
 ---

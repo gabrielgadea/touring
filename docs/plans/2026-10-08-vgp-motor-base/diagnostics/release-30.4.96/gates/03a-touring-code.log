@@ -5,7 +5,7 @@
 hw-slot: aguardando — temp 93C > 88C
    Compiling ring v0.17.14
    Compiling ast-grep-language v0.42.3
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring/third_party/tree-sitter-md)
    Compiling rustls-webpki v0.103.13
    Compiling rustls v0.23.41
    Compiling tokio-rustls v0.26.4
@@ -13,11 +13,11 @@ hw-slot: aguardando — temp 93C > 88C
    Compiling hyper-rustls v0.27.9
    Compiling hf-hub v0.5.0
    Compiling reqwest v0.12.28
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
    Compiling fastembed v5.17.2
-   Compiling touring-storage v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
-   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-storage v30.4.95 (~/projects/touring/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+   Compiling touring-code v30.4.95 (~/projects/touring/crates/touring-code)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 52.16s
      Running unittests src/lib.rs (target/debug/deps/touring_code-0b4d13284784e7a9)
 

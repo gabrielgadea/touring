@@ -15,10 +15,29 @@ use rusqlite::params;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-/// Cache database path for pre-task-scout results.
-fn pre_task_scout_cache_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/gabrielgadea".to_string());
-    Path::new(&home).join(".claude/data/pre_task_scout_cache.db")
+/// Cache database path for pre-task-scout results (`~/.claude/data/…`), or `None`
+/// when no home directory can be derived — there is no compiled-in default.
+fn pre_task_scout_cache_path() -> Option<PathBuf> {
+    touring_foundation::user_home::claude_home()
+        .map(|claude| claude.join("data/pre_task_scout_cache.db"))
+}
+
+/// Open the pre-task-scout cache, creating its directory. `Err` carries the named
+/// reason the cache is off, so the caller degrades to the uncached quick-mode scout.
+fn open_pre_task_scout_cache() -> Result<rusqlite::Connection, String> {
+    let Some(cache_path) = pre_task_scout_cache_path() else {
+        let reason = touring_foundation::user_home::NO_HOME_REASON;
+        tracing::warn!("pre_task_scout: {reason} — cache disabled, scouting uncached");
+        return Err(reason.to_string());
+    };
+    if let Some(parent) = cache_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        // Not fatal on its own: the open below then fails with its own named error and the
+        // caller degrades to the uncached scout. Logged so the cause is not only the symptom.
+        tracing::warn!("pre_task_scout: cannot create {}: {e}", parent.display());
+    }
+    rusqlite::Connection::open(&cache_path).map_err(|e| format!("{}: {e}", cache_path.display()))
 }
 
 /// Initialize the pre_task_scout cache schema.
@@ -129,6 +148,22 @@ fn run_quick(touring_bin: &str, args: &[&str], out: &mut String, timeout: Durati
     }
 }
 
+/// The `touring` binary the quick-mode probes run: `TOURING_BIN` when set, else
+/// `~/.local/bin/touring` when that file exists, else the bare name — which the OS
+/// resolves on `PATH`, so nothing here is a guessed absolute path. A spawn that finds
+/// no binary is logged by [`run_in_process_group_timeout`].
+fn resolve_touring_bin(env_bin: Option<String>, home: Option<&Path>) -> String {
+    if let Some(bin) = env_bin.filter(|b| !b.is_empty()) {
+        return bin;
+    }
+    if let Some(installed) = home.map(|h| h.join(".local/bin/touring"))
+        && installed.is_file()
+    {
+        return installed.to_string_lossy().into_owned();
+    }
+    "touring".to_string()
+}
+
 /// Run touring-scouter quick-mode for a file and return the findings. Each of the three
 /// probes is process-group-bounded (see `run_quick`) so the fallback never out-blocks the
 /// cortex path it backstops.
@@ -137,8 +172,10 @@ fn run_scouter_quick_mode(file_path: &str) -> String {
         // No real-binary spawn under test — return empty findings in-process.
         return String::new();
     }
-    let touring_bin = std::env::var("TOURING_BIN")
-        .unwrap_or_else(|_| "/home/gabrielgadea/.local/bin/touring".to_string());
+    let touring_bin = resolve_touring_bin(
+        std::env::var("TOURING_BIN").ok(),
+        touring_foundation::user_home::home_dir().as_deref(),
+    );
     let quick = Duration::from_secs(4);
     let mut output = String::new();
     if let Some(basename) = Path::new(file_path).file_name().and_then(|n| n.to_str()) {
@@ -179,7 +216,19 @@ fn spawn_scouter_for_file(file_path: &str, tool_name: &str) -> String {
     if subprocess_suppressed() {
         return run_scouter_quick_mode(file_path);
     }
-    let mut cmd = std::process::Command::new("/home/gabrielgadea/.claude/hooks/touring");
+    // The hook shim lives under `~/.claude/hooks`; without a home directory or the
+    // shim itself the full scout cannot run, and the in-process quick-mode is the
+    // (already existing) answer to "the spawn did not produce findings".
+    let Some(shim) = touring_foundation::user_home::claude_home()
+        .map(|claude| claude.join("hooks/touring"))
+        .filter(|shim| shim.is_file())
+    else {
+        tracing::debug!(
+            "pre_task_scout: no ~/.claude/hooks/touring shim (or no home directory) — quick-mode scout"
+        );
+        return run_scouter_quick_mode(file_path);
+    };
+    let mut cmd = std::process::Command::new(shim);
     cmd.args(["cortex", "pre-task-scout"])
         .env("TOURING_SCOUT_FILE", file_path)
         .env("TOURING_SCOUT_TOOL", tool_name);
@@ -217,7 +266,13 @@ fn run_in_process_group_timeout(
         .stderr(Stdio::null())
         // New process group (pgid == child pid) so `killpg` reaches every descendant.
         .process_group(0);
-    let mut child = cmd.spawn().ok()?;
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(e) => {
+            tracing::warn!(program = ?cmd.get_program(), error = %e, "pre_task_scout: spawn failed");
+            return None;
+        }
+    };
     let pgid: libc::pid_t = child.id().try_into().ok()?;
     let mut stdout = child.stdout.take()?;
     let (tx, rx) = std::sync::mpsc::channel();
@@ -279,7 +334,9 @@ fn run_scouter_task_mode(rt: &mut HookRuntime, subject: &str, tool_name: &str) -
             parts.push(format!("memory: {}", keys.join(", ")));
         }
     }
-    let ready_raw = cli_decompose_ready(rt, &serde_json::json!({}));
+    // The DAG being worked on, not every open plan in the store: unscoped, this line
+    // reported the ready count of hundreds of stale plans on every pre-task scout.
+    let ready_raw = cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     if let Ok(ready) = serde_json::from_str::<serde_json::Value>(&ready_raw) {
         let count = ready
             .get("ready_count")
@@ -444,11 +501,7 @@ pub fn cli_pre_task_scout(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
     let mtime = file_mtime(file_path);
     let session_discriminant = payload.session_id.as_deref().unwrap_or("no-session");
     let cache_key = pre_task_scout_cache_key(file_path, tool_name, mtime, session_discriminant);
-    let cache_path = pre_task_scout_cache_path();
-    if let Some(parent) = cache_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    let conn = match rusqlite::Connection::open(&cache_path) {
+    let conn = match open_pre_task_scout_cache() {
         Ok(c) => c,
         Err(e) => {
             tracing::debug!("pre_task_scout: failed to open cache DB: {}", e);
@@ -504,8 +557,8 @@ pub fn cli_pre_task_scout(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
 #[cfg(test)]
 mod tests {
     use super::{
-        run_in_process_group_timeout, run_scouter_quick_mode, run_scouter_task_mode,
-        spawn_scouter_for_file, subprocess_suppressed,
+        resolve_touring_bin, run_in_process_group_timeout, run_scouter_quick_mode,
+        run_scouter_task_mode, spawn_scouter_for_file, subprocess_suppressed,
     };
     use crate::runtime::HookRuntime;
     use std::time::Duration;
@@ -608,6 +661,41 @@ mod tests {
             out.is_empty(),
             "guarded file-branch must not spawn; got: {out}"
         );
+    }
+
+    #[test]
+    fn touring_bin_prefers_the_env_override() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let bin_dir = home.path().join(".local/bin");
+        std::fs::create_dir_all(&bin_dir).expect("mkdir");
+        std::fs::write(bin_dir.join("touring"), b"").expect("write");
+        assert_eq!(
+            resolve_touring_bin(Some("/opt/t/touring".to_string()), Some(home.path())),
+            "/opt/t/touring"
+        );
+    }
+
+    #[test]
+    fn touring_bin_uses_the_installed_binary_under_home() {
+        let home = tempfile::tempdir().expect("tempdir");
+        let bin_dir = home.path().join(".local/bin");
+        std::fs::create_dir_all(&bin_dir).expect("mkdir");
+        std::fs::write(bin_dir.join("touring"), b"").expect("write");
+        // An empty override is "unset", not a path.
+        assert_eq!(
+            resolve_touring_bin(Some(String::new()), Some(home.path())),
+            bin_dir.join("touring").to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn touring_bin_falls_back_to_path_lookup_never_to_a_guessed_path() {
+        let empty_home = tempfile::tempdir().expect("tempdir");
+        assert_eq!(
+            resolve_touring_bin(None, Some(empty_home.path())),
+            "touring"
+        );
+        assert_eq!(resolve_touring_bin(None, None), "touring");
     }
 
     #[test]

@@ -1,0 +1,4 @@
+files with [node.*]: 161   nodes checked: 508
+schema findings: 2 distinct
+  [library] fragments/skilling-pack.toml: node `should_skill`: unknown key `env` — the runner never reads it, so it silently does nothing
+  [omarchy-kit] fragments/skilling-pack.toml: node `should_skill`: unknown key `env` — the runner never reads it, so it silently does nothing

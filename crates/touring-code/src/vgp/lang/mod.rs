@@ -31,6 +31,7 @@ pub mod caminho;
 pub mod cdn;
 pub mod classe_css;
 pub mod css;
+pub mod distancia;
 pub mod html;
 pub mod javascript;
 pub mod python;

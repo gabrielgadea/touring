@@ -6,7 +6,7 @@
 # rótulos commitados, o hash do pré-registro, a varredura do repo. Os fragmentos corrompidos vão como escapes
 # \u, para que este arquivo não seja ele mesmo uma detecção do gate.
 set -euo pipefail
-R=/home/gabrielgadea/projects/touring
+R=${HOME}/projects/touring
 B="$R/docs/plans/2026-10-04-integridade-prosa"
 GATE="$HOME/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py"
 fail() { echo "FALTA: $1"; exit 1; }
@@ -56,7 +56,7 @@ ok "critério reproduz o veredito do README"
 # 6. A corrupção limpa não voltou ao repo, e o espelho é o vivo.
 python3 - <<'EOF' || fail "corrupção limpa reapareceu"
 import pathlib
-R = pathlib.Path("/home/gabrielgadea/projects/touring")
+R = pathlib.Path.home() / "projects" / "touring"
 gone = {
   "crates/touring-storage/src/embeddings/providers/voyage.rs": "the\u516c\u5171",
   "crates/touring-assists/tests/e2e_assist_pipeline.rs": "foo\u8fbe\u6210",

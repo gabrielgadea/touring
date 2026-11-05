@@ -4,12 +4,17 @@ gerador atual so le analise e touring). Mesmo `construir_positivos` e mesmo funi
 Uso (nativo): python3 -I -B outros_projetos.py <sessoes_vgp.json> <saida.json>
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import collections
 import json
 import sys
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 sys.path.insert(0, str(B / "scripts"))
 sys.path.insert(0, str(B / "diagnostics/horust-2026-10-10"))
 import corpus_rust_natural as crn  # noqa: E402
@@ -24,7 +29,7 @@ def main() -> int:
     mh.memoizar_git()
     saida = {}
     for nome in DIRS:
-        raiz = replay.PROJECTS / f"-home-gabrielgadea-projects-{nome}"
+        raiz = replay.PROJECTS / f"{_HOME_SLUG}-projects-{nome}"
         if not raiz.is_dir():
             saida[nome] = {"erro": "diretorio inexistente"}
             continue

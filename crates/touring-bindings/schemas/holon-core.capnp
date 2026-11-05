@@ -185,7 +185,7 @@ interface HolonRegistry {
   findByCapability @2 (capability :Text) -> (holons :List(HolonInfo));
 
   # Run a symbiosis cycle synchronously and return the report.
-  # Equivalent to `holon symbiosis /home/gabrielgadea` in the CLI.
+  # Equivalent to `holon symbiosis ~` in the CLI.
   symbiosis @3 () -> (report :SymbiosisReport);
 
   # Spec version string this server implements. MUST match the one

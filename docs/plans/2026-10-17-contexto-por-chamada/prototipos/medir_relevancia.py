@@ -1,5 +1,10 @@
 """Relevance of billion-context, measured: (A) what Touring already has; (B) Claude Code cache + compaction in the
 transcripts of the last 14 days (touring, analise); (C) tool-output shape per project. Read-only; dedup by message.id."""
+
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
 import collections
 import json
 import os
@@ -9,7 +14,7 @@ import subprocess
 import time
 from pathlib import Path
 
-M = Path("/home/gabrielgadea/projects/touring")
+M = Path(f"{_HOME}/projects/touring")
 PROJ = Path.home() / ".claude/projects"
 DIAS = 14
 corte = time.time() - DIAS * 86400
@@ -36,7 +41,7 @@ seguras = {k: env[k] for k in env if re.match(r"(CLAUDE_AUTOCOMPACT|DISABLE_AUTO
 print("\n== B0. settings do CC (só chaves de compactação) ==", seguras, "· ANTHROPIC_BASE_URL definido no settings?", "ANTHROPIC_BASE_URL" in env)
 
 print(f"\n== B. transcripts dos últimos {DIAS} dias (dedup por message.id) ==")
-for proj in ("-home-gabrielgadea-projects-touring", "-home-gabrielgadea-projects-analise"):
+for proj in (f"{_HOME_SLUG}-projects-touring", f"{_HOME_SLUG}-projects-analise"):
     base = PROJ / proj
     arquivos = [p for p in base.rglob("*.jsonl") if p.stat().st_mtime >= corte]
     uso = {}  # message.id -> usage (last record wins)

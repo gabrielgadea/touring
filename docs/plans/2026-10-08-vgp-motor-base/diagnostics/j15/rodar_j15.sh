@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # J15 (31/10/2026): judge the installed 30.4.102 binary on the sealed held-out
 # corpus_holdout_disjunto_20261101, with 8fd0efb0 as the discrimination control.
 # Cold runs preserve the judge's recall/false-deny/comparative evidence; their
 # p95 is informational only. The preregistered latency verdict comes from the
 # live hot daemon: p95 <= 1000 ms, with layer-2 timeout/signal fail-closed.
 set -u
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 O=$B/diagnostics/j15
-S=/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad
+S=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad
 C=$HOME/.claude/touring/vgp/corpus_holdout_disjunto_20261101
 SELO=$B/diagnostics/holdout-20261101/selo.json
 CTL=$S/j15_hibrido_20261101
@@ -15,7 +16,7 @@ I=$B/diagnostics/instrumentos-2026-10-09
 INST=$I/rodar_juiz_instrumentado.py
 J=$B/scripts/juiz_motor_vgp.py
 HOT=$B/diagnostics/j14/medir_daemon_quente.py
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
+HW=${HOME}/projects/touring/scripts/hw-slot
 NOVO=$HOME/.claude/touring/vgp/binarios/30.4.102/touring
 REF=$HOME/.claude/touring/vgp/binarios/8fd0efb0/touring
 R=$O/rcs.txt
@@ -46,7 +47,7 @@ done
 for bin in 30_4_102:$NOVO 8fd0efb0:$REF; do
   n=${bin%%:*}
   t=${bin#*:}
-  (cd /home/gabrielgadea/projects/analise && TOURING_CODE_MODE=native "$HW" --class rust --label "j15-$n-v3" --wait 7200 -- \
+  (cd ${HOME}/projects/analise && TOURING_CODE_MODE=native "$HW" --class rust --label "j15-$n-v3" --wait 7200 -- \
     python3 -I "$INST" "$J" "$O/${n}_v3.porid.json" --touring "$t" --corpus "$CTL" --v5-estrito \
     --arg-motor=--camadas --arg-motor=1,2 --p95-ms 1000 --exigir-limite-superior --base "$O/${n}_v2.json" \
     --json "$O/${n}_v3.json" > "$O/${n}_v3.out" 2>&1)

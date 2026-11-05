@@ -43,8 +43,9 @@ fn check_daemon_socket() -> Check {
 }
 
 fn check_circuit_breaker() -> Check {
-    let uid = unsafe { super::libc_getuid() };
-    let state_path = PathBuf::from(format!("/tmp/touring-circuit-{uid}.state"));
+    // The breaker's own resolver: the file inspected here is the file the breaker writes
+    // (one predicate, not a second copy of the path that can drift from it).
+    let state_path = touring_hooks::circuit_breaker::circuit_state_path();
 
     if state_path.exists() {
         match std::fs::read_to_string(&state_path) {

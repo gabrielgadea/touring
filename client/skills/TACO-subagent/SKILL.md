@@ -46,7 +46,7 @@ Todo prompt de subagent começa com a linha de binding — é o mecanismo que fa
 reference chegar ao executor sem esta skill precisar reproduzi-lo:
 
 ```
-@/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md
+@~/.claude/skills/Touring/references/TACO-subagent-rule.md
 ```
 
 ## ██ REGRA #15 — SYMBOL VERIFICATION (CONSTITUTIONAL) ██
@@ -136,19 +136,19 @@ touring status -j | jq '{idx: .index.symbol_count, orphans: .wiring.orphan_count
 
 # Exemplo: 3 scouters em paralelo
 result_scout_1 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: scout\n## TASK: [descricao da tarefa de scouting 1]\n## ORCHESTRATOR: TACO\n\n[Include full context]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: scout\n## TASK: [descricao da tarefa de scouting 1]\n## ORCHESTRATOR: TACO\n\n[Include full context]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="feature-dev:code-explorer",
   run_in_background=True
 )
 
 result_scout_2 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: scout\n## TASK: [descricao da tarefa de scouting 2]\n## ORCHESTRATOR: TACO\n\n[Include full context]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: scout\n## TASK: [descricao da tarefa de scouting 2]\n## ORCHESTRATOR: TACO\n\n[Include full context]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="feature-dev:code-explorer",
   run_in_background=True
 )
 
 result_scout_3 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: scout\n## TASK: [descricao da tarefa de scouting 3]\n## ORCHESTRATOR: TACO\n\n[Include full context]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: scout\n## TASK: [descricao da tarefa de scouting 3]\n## ORCHESTRATOR: TACO\n\n[Include full context]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="feature-dev:code-explorer",
   run_in_background=True
 )
@@ -175,13 +175,13 @@ mcp__sequential-thinking__sequentialthinking(
 # AGUARDAR todos os resultados antes de prosseguir
 
 result_architect_1 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: architect\n## TASK: [descricao da tarefa arquitetural 1]\n## ORCHESTRATOR: TACO\n\n[Include scout results + context]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: architect\n## TASK: [descricao da tarefa arquitetural 1]\n## ORCHESTRATOR: TACO\n\n[Include scout results + context]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="touring-architect",
   run_in_background=True
 )
 
 result_architect_2 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: architect\n## TASK: [descricao da tarefa arquitetural 2]\n## ORCHESTRATOR: TACO\n\n[Include scout results + context]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: architect\n## TASK: [descricao da tarefa arquitetural 2]\n## ORCHESTRATOR: TACO\n\n[Include scout results + context]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="touring-architect",
   run_in_background=True
 )
@@ -275,13 +275,13 @@ mcp__sequential-thinking__sequentialthinking(
 
 # GRUPO PARALELO 1 (sem dependências)
 result_engineer_1 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: engineer\n## TASK: [implementar modulo A]\n## ORCHESTRATOR: TACO\n\n[Include full context + DAG]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: engineer\n## TASK: [implementar modulo A]\n## ORCHESTRATOR: TACO\n\n[Include full context + DAG]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="general-purpose",
   run_in_background=True
 )
 
 result_engineer_2 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: engineer\n## TASK: [implementar modulo B]\n## ORCHESTRATOR: TACO\n\n[Include full context + DAG]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: engineer\n## TASK: [implementar modulo B]\n## ORCHESTRATOR: TACO\n\n[Include full context + DAG]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="general-purpose",
   run_in_background=True
 )
@@ -290,7 +290,7 @@ result_engineer_2 = Agent(
 
 # GRUPO SEQUENCIAL (depende do grupo 1)
 result_engineer_3 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: engineer\n## TASK: [implementar modulo C que depende de A e B]\n## ORCHESTRATOR: TACO\n\n[Include results from A and B + full context]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: engineer\n## TASK: [implementar modulo C que depende de A e B]\n## ORCHESTRATOR: TACO\n\n[Include results from A and B + full context]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="general-purpose",
   run_in_background=False  # SEQUENCIAL após grupo 1
 )
@@ -303,13 +303,13 @@ result_engineer_3 = Agent(
 ```bash
 # Auditors podem executar em paralelo para cobrir mais código
 result_auditor_1 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: validator\n## TASK: [auditar modulo A - code review completo]\n## ORCHESTRATOR: TACO\n\n[Include implementation results]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: validator\n## TASK: [auditar modulo A - code review completo]\n## ORCHESTRATOR: TACO\n\n[Include implementation results]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="feature-dev:code-reviewer",
   run_in_background=True
 )
 
 result_auditor_2 = Agent(
-  prompt="@/home/gabrielgadea/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: validator\n## TASK: [auditar modulo B - code review completo]\n## ORCHESTRATOR: TACO\n\n[Include implementation results]\n\n## RETURN: ONLY JSON, NO PROSE",
+  prompt="@~/.claude/rules/TACO-subagent.md\n\n# TACO SUBAGENT\n\n## ROLE: validator\n## TASK: [auditar modulo B - code review completo]\n## ORCHESTRATOR: TACO\n\n[Include implementation results]\n\n## RETURN: ONLY JSON, NO PROSE",
   subagent_type="feature-dev:code-reviewer",
   run_in_background=True
 )
@@ -359,7 +359,7 @@ touring learning reward orchestrate 1.0 "sequential phases completed successfull
 Every subagent MUST start with:
 
 ```
-@/home/gabrielgadea/.claude/rules/TACO-subagent.md
+@~/.claude/rules/TACO-subagent.md
 ```
 
 This directive **BONDS** the subagent to the TACO rule. Without it, the subagent is NOT operating under TACO protocol.
@@ -369,7 +369,7 @@ This directive **BONDS** the subagent to the TACO rule. Without it, the subagent
 ## Subagent Prompt Template
 
 ```markdown
-@/home/gabrielgadea/.claude/rules/TACO-subagent.md
+@~/.claude/rules/TACO-subagent.md
 
 # TACO SUBAGENT — BOUND TO RULE
 
@@ -478,7 +478,7 @@ Os quatro que esta skill de fato exige por fase — `touring index find` (VGP),
 
 ## Hard Rules
 
-1. **BOUND to rule**: `@/home/gabrielgadea/.claude/rules/TACO-subagent.md` as FIRST LINE
+1. **BOUND to rule**: `@~/.claude/rules/TACO-subagent.md` as FIRST LINE
 2. **VGP**: Verify symbols via `touring index find` before code gen
 3. **Speculate**: `touring shadow validate` before applying changes
 4. **Exit 0**: Never block user operations

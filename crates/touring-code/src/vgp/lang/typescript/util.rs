@@ -3,6 +3,8 @@
 
 use tree_sitter::Node;
 
+use crate::vgp::lang::distancia::levenshtein;
+
 /// The source text of `no`.
 pub(super) fn texto<'s>(src: &'s str, no: Node) -> &'s str {
     src.get(no.start_byte()..no.end_byte()).unwrap_or("")
@@ -69,27 +71,6 @@ pub(super) fn palavra_presente(texto: &str, palavra: &str) -> bool {
     false
 }
 
-/// Levenshtein distance (chars).
-pub(super) fn distancia(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.chars().collect();
-    let b: Vec<char> = b.chars().collect();
-    let mut linha: Vec<usize> = (0..=b.len()).collect();
-    for (i, ca) in a.iter().enumerate() {
-        let mut anterior = linha[0];
-        linha[0] = i + 1;
-        for (j, cb) in b.iter().enumerate() {
-            let tmp = linha[j + 1];
-            linha[j + 1] = if ca == cb {
-                anterior
-            } else {
-                1 + anterior.min(linha[j]).min(linha[j + 1])
-            };
-            anterior = tmp;
-        }
-    }
-    linha[b.len()]
-}
-
 /// The real name closest to `nome` (edit distance 1..=2), if any — the refusal teaches the way.
 pub(super) fn mais_proximo<'a>(
     nome: &str,
@@ -97,7 +78,7 @@ pub(super) fn mais_proximo<'a>(
 ) -> Option<String> {
     reais
         .into_iter()
-        .map(|r| (distancia(nome, r), r))
+        .map(|r| (levenshtein(nome, r), r))
         .filter(|(d, _)| *d > 0 && *d <= 2)
         .min_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)))
         .map(|(_, r)| r.clone())
@@ -174,8 +155,8 @@ mod tests {
 
     #[test]
     fn distancia_e_sugestao() {
-        assert_eq!(distancia("getTime", "getTim"), 1);
-        assert_eq!(distancia("a", "a"), 0);
+        assert_eq!(levenshtein("getTime", "getTim"), 1);
+        assert_eq!(levenshtein("a", "a"), 0);
         let reais = vec!["getTime".to_string(), "setTime".to_string()];
         assert_eq!(mais_proximo("getTim", &reais).as_deref(), Some("getTime"));
         assert_eq!(mais_proximo("zzzzzz", &reais), None);

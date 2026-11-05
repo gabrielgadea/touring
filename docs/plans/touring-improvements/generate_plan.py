@@ -17,6 +17,9 @@ Usage:
 
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import hashlib
 import sys
@@ -36,7 +39,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════════
 
 OUTPUT_DIR = Path(__file__).parent
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path(f"{_HOME}/.claude/rust")
 TODAY = str(date.today())
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1584,7 +1587,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-WORKSPACE = Path("/home/gabrielgadea/.claude/rust")
+WORKSPACE = Path("{_HOME}/.claude/rust")
 PLAN_DIR = Path(__file__).parent
 
 

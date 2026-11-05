@@ -561,7 +561,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node \"/home/gabrielgadea/.claude/hooks/gitnexus/gitnexus-hook.cjs\"",
+          "command": "node \"$HOME/.claude/hooks/gitnexus/gitnexus-hook.cjs\"",
           "timeout": 8,
           "statusMessage": "Enriching with GitNexus graph context..."
         }

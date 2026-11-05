@@ -4,16 +4,19 @@ Nao e o juiz (que chama o motor): e a auditoria do CORPUS — existe snap, exist
 o id e unico, o positivo reproduz, e a mensagem classifica como `simbolo` sob o juiz novo.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import sys
 from collections import Counter
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts")
 sys.path.insert(0, str(B))
 from juiz_motor_vgp import classe_erro  # noqa: E402
 
-C = Path("/home/gabrielgadea/.claude/touring/vgp/corpus_semeado")
+C = Path(f"{_HOME}/.claude/touring/vgp/corpus_semeado")
 REQ = {
     "id", "rotulo", "reproduz", "classe", "nome_esperado", "origem", "lang",
     "path", "project_root", "snap", "mensagem", "contexto",

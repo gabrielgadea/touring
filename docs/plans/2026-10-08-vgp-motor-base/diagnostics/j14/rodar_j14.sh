@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
 # J14 (31/10/2026): judge the 30.4.101 binary (a6b9a550) on the sealed held-out
 # corpus_holdout_disjunto_20261031b, with 8fd0efb0 as the discrimination control.
 # The seal is checked before and after. The hybrid corpus adds live positives only
@@ -7,16 +8,16 @@
 # <= 1% per bucket, --exigir-limite-superior, p95 <= 1000 ms. The HEAD judge also
 # returns INCONCLUSIVE (exit 3) when layer-2 timeouts exceed the 0.20 threshold.
 set -u
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 O=$B/diagnostics/j14
-S=/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad
+S=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad
 C=$HOME/.claude/touring/vgp/corpus_holdout_disjunto_20261031b
 SELO=$B/diagnostics/holdout-20261031/selo.json
 CTL=$S/j14_hibrido_20261031b
 I=$B/diagnostics/instrumentos-2026-10-09
 INST=$I/rodar_juiz_instrumentado.py
 J=$B/scripts/juiz_motor_vgp.py
-HW=/home/gabrielgadea/projects/touring/scripts/hw-slot
+HW=${HOME}/projects/touring/scripts/hw-slot
 NOVO=$HOME/.claude/touring/vgp/binarios/a6b9a550/touring
 REF=$HOME/.claude/touring/vgp/binarios/8fd0efb0/touring
 R=$O/rcs.txt
@@ -44,7 +45,7 @@ done
 for bin in a6b9a550:$NOVO 8fd0efb0:$REF; do
   n=${bin%%:*}
   t=${bin#*:}
-  (cd /home/gabrielgadea/projects/analise && TOURING_CODE_MODE=native "$HW" --class rust --label "j14-$n-v3" --wait 7200 -- \
+  (cd ${HOME}/projects/analise && TOURING_CODE_MODE=native "$HW" --class rust --label "j14-$n-v3" --wait 7200 -- \
     python3 -I "$INST" "$J" "$O/${n}_v3.porid.json" --touring "$t" --corpus "$CTL" --v5-estrito \
     --arg-motor=--camadas --arg-motor=1,2 --p95-ms 1000 --exigir-limite-superior --base "$O/${n}_v2.json" \
     --json "$O/${n}_v3.json" > "$O/${n}_v3.out" 2>&1)

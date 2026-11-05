@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 mod common;
+use common::hermetic_doctor::DoctorWorld;
 use common::private_daemon::locate_binary;
 
 /// Resolve the binary or SKIP the test — never panic with a "skipping" message.
@@ -374,30 +375,25 @@ fn b320_emits_when_blast_crosses_feature_boundaries() {
 // ── Integration: binary wired and healthy ────────────────────────────────────
 
 /// Smoke test: touring binary built with all hooks wired.
-/// Skipped when daemon is unavailable (daemon degraded mode).
+///
+/// Runs in a closed world ([`DoctorWorld`]): a project in a tempdir with `symbols.db` and
+/// `knowledge.db` created by the product's constructors, plus a private daemon. The `doctor`
+/// reads the project state from the client's CWD; the test used to read
+/// `crates/touring-hooks/.claude/touring/*.db`, runtime state outside the index (D4,
+/// 18/10/2026), and failed on a clean clone.
+/// Skipped when the binaries are not built (announced on stderr, never a silent pass).
 #[test]
 fn touring_binary_wired_and_healthy() {
-    let Some(bin) = locate_binary("touring") else {
-        eprintln!("touring binary not built — skipping health check");
+    let Some(world) = DoctorWorld::start("rfc100-doctor") else {
+        eprintln!(
+            "SKIP touring_binary_wired_and_healthy: touring / touring-daemon not built, or the \
+             private daemon was not ready — nothing was tested"
+        );
         return;
     };
-    let out = Command::new(&bin)
-        .args(["doctor", "-j"])
-        .output()
-        .expect("spawn doctor");
-
-    let code = out.status.code().unwrap_or(-1);
-    if code != 0 {
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        if stderr.contains("Connection refused") || stderr.contains("daemon") {
-            eprintln!("daemon unavailable — skipping health check: {stderr}");
-            return;
-        }
-    }
-    let json: serde_json::Value =
-        serde_json::from_slice(&out.stdout).expect("doctor -j must emit JSON");
-    let checks = json.as_array().expect("doctor -j returns array");
-    let critical_failures: Vec<_> = checks
+    let run = world.doctor();
+    let critical_failures: Vec<_> = run
+        .checks
         .iter()
         .filter(|c| {
             let status = c.get("status").and_then(|s| s.as_str());
@@ -412,4 +408,32 @@ fn touring_binary_wired_and_healthy() {
         critical_failures.is_empty(),
         "doctor failing critical checks: {critical_failures:?}"
     );
+    world.assert_state_was_read_from_this_world(&run.checks);
+    eprintln!("E2EDOCTOR-RAN touring_binary_wired_and_healthy");
+}
+
+/// The `doctor` reads THIS world's circuit breaker state: closed at birth (no breaker from the
+/// machine leaks into the verdict) and `open` after the world opens it — proof that the path the
+/// `doctor` inspects is the one the breaker's resolver returns.
+#[test]
+fn doctor_reads_the_circuit_breaker_of_its_own_world() {
+    let Some(world) = DoctorWorld::start("rfc100-circuit") else {
+        eprintln!(
+            "SKIP doctor_reads_the_circuit_breaker_of_its_own_world: touring / touring-daemon \
+             not built, or the private daemon was not ready — nothing was tested"
+        );
+        return;
+    };
+    let status = |run: &common::hermetic_doctor::DoctorRun| {
+        run.checks
+            .iter()
+            .find(|c| c.get("name").and_then(serde_json::Value::as_str) == Some("circuit_breaker"))
+            .and_then(|c| c.get("status").and_then(serde_json::Value::as_str))
+            .map(str::to_string)
+            .unwrap_or_else(|| panic!("`doctor -j` has no circuit_breaker check: {:?}", run.checks))
+    };
+    assert_eq!(status(&world.doctor()), "ok", "a fresh world has a closed breaker");
+    world.trip_circuit_breaker();
+    assert_eq!(status(&world.doctor()), "open", "the doctor must read this world's state file");
+    eprintln!("E2EDOCTOR-RAN doctor_reads_the_circuit_breaker_of_its_own_world");
 }

@@ -15,6 +15,9 @@ Usage:
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import sys
@@ -24,8 +27,8 @@ from pathlib import Path
 
 HOME = Path.home()
 CLAUDE = HOME / ".claude"
-OLD = "/home/gabrielgadea/.claude/rust"
-NEW = "/home/gabrielgadea/projects/touring"
+OLD = f"{_HOME}/.claude/rust"
+NEW = f"{_HOME}/projects/touring"
 REWRITES = [
     (f"{HOME}/.claude/rust", f"{HOME}/projects/touring"),
     ("~/.claude/rust", "~/projects/touring"),

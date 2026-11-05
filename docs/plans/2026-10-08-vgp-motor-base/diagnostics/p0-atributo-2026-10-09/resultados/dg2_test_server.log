@@ -1,26 +1,26 @@
-   Compiling touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-intelligence)
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/inferlets)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
-   Compiling touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-server-visual)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
-   Compiling touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-ceg)
-   Compiling touring-hooks-rl v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
-   Compiling touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-bindings)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-capnp-server)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-generator)
-   Compiling touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
-   Compiling touring-assists v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-assists)
-   Compiling touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks)
-   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cortex)
-   Compiling touring-server v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-server)
+   Compiling touring-intelligence v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-intelligence)
+   Compiling inferlets v0.1.0 (~/projects/touring-wt-vgp-attr/crates/inferlets)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
+   Compiling touring-server-visual v30.0.0 (~/projects/touring-wt-vgp-attr/crates/touring-server-visual)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
+   Compiling touring-bindings v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-capnp-server)
+   Compiling touring-generator v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-generator)
+   Compiling touring-hooks-core v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
+   Compiling touring-assists v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-assists)
+   Compiling touring-hook-runtime v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring-wt-vgp-attr/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (~/projects/touring-wt-vgp-attr/crates/touring-cortex)
+   Compiling touring-server v30.4.95 (~/projects/touring-wt-vgp-attr/crates/touring-server)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 10s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring_server-eb175adeab5edf38)
+     Running unittests src/lib.rs (~/projects/touring/target/vgp-test/debug/deps/touring_server-eb175adeab5edf38)
 
 running 1652 tests
 test agent_diary::tests::test_diary_builder ... ok
@@ -1678,7 +1678,7 @@ test elite_tools::tests::dispatch_badge_works ... ok
 
 test result: ok. 1652 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.34s
 
-     Running unittests src/main.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring-5ef958de811d081b)
+     Running unittests src/main.rs (~/projects/touring/target/vgp-test/debug/deps/touring-5ef958de811d081b)
 
 running 4 tests
 test tests::binary_mtime_is_read_from_disk_not_a_compile_time_constant ... ok
@@ -1688,7 +1688,7 @@ test tests::trailing_globals_and_builtins_preserved ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/binary_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/binary_e2e-1c06eb794440b397)
+     Running tests/binary_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/binary_e2e-1c06eb794440b397)
 
 running 14 tests
 test context_compile_produces_json ... ok
@@ -1708,7 +1708,7 @@ test hook_session_start_exits_0 ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.83s
 
-     Running tests/cli_language_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_language_e2e-e01d062930834e62)
+     Running tests/cli_language_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/cli_language_e2e-e01d062930834e62)
 
 running 9 tests
 test language_help_flag ... ok
@@ -1723,7 +1723,7 @@ test language_unknown_error ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
 
-     Running tests/cli_semantic_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_semantic_e2e-63be485b418bf359)
+     Running tests/cli_semantic_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/cli_semantic_e2e-63be485b418bf359)
 
 running 24 tests
 test find_references_params_accepts_project_scope ... ok
@@ -1753,7 +1753,7 @@ test resolve_def_with_json_flag_emits_json_to_stdout ... ok
 
 test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
 
-     Running tests/cli_smoke.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_smoke-7f580e6bdb1f27b1)
+     Running tests/cli_smoke.rs (~/projects/touring/target/vgp-test/debug/deps/cli_smoke-7f580e6bdb1f27b1)
 
 running 27 tests
 test ast_blast_returns_dependency_tree ... ignored, requires daemon socket
@@ -1786,7 +1786,7 @@ test status_json_returns_valid_json_shape ... ok
 
 test result: ok. 8 passed; 0 failed; 19 ignored; 0 measured; 0 filtered out; finished in 0.42s
 
-     Running tests/cli_wave5_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_wave5_e2e-43e205e88e385682)
+     Running tests/cli_wave5_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/cli_wave5_e2e-43e205e88e385682)
 
 running 7 tests
 test ast_format_rust_emits_rustfmt_clean_output ... ok
@@ -1799,7 +1799,7 @@ test doctor_json_output_contains_binary_version_check ... ok
 
 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-     Running tests/cli_wave6_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/cli_wave6_e2e-7bde0745cdd48807)
+     Running tests/cli_wave6_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/cli_wave6_e2e-7bde0745cdd48807)
 
 running 5 tests
 test test_diary_write_project_scoped ... ok
@@ -1810,7 +1810,7 @@ test test_diary_write_project_with_topic ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.05s
 
-     Running tests/ctx_execute_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/ctx_execute_e2e-5127977c942d3cc8)
+     Running tests/ctx_execute_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/ctx_execute_e2e-5127977c942d3cc8)
 
 running 21 tests
 test ctx_execute_returns_bash_stderr_marker ... ok
@@ -1837,7 +1837,7 @@ test failure_kind_timeout_is_not_exception ... ok
 
 test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.53s
 
-     Running tests/e2e_diary.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/e2e_diary-531ea4c26d00e1f1)
+     Running tests/e2e_diary.rs (~/projects/touring/target/vgp-test/debug/deps/e2e_diary-531ea4c26d00e1f1)
 
 running 9 tests
 test test_diary_meta_after_write ... ok
@@ -1852,7 +1852,7 @@ test test_diary_write_exit_code ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.14s
 
-     Running tests/e2e_hook_integration.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/e2e_hook_integration-f64cab55408705c6)
+     Running tests/e2e_hook_integration.rs (~/projects/touring/target/vgp-test/debug/deps/e2e_hook_integration-f64cab55408705c6)
 
 running 6 tests
 test test_build_consumer_generator_plans_returns_valid_shape ... ok
@@ -1864,7 +1864,7 @@ test test_hook_task_validation_accepts_payload_exits_0 ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
 
-     Running tests/f3_update_component_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/f3_update_component_e2e-742a33ccd31bc998)
+     Running tests/f3_update_component_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/f3_update_component_e2e-742a33ccd31bc998)
 
 running 5 tests
 test test_update_refuses_unknown_toolchain_loud ... ok
@@ -1875,7 +1875,7 @@ test test_component_list_add_remove_lifecycle ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
 
-     Running tests/graph_service_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/graph_service_e2e-2c7caee2bab79e2f)
+     Running tests/graph_service_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/graph_service_e2e-2c7caee2bab79e2f)
 
 running 25 tests
 test test_graph_blast_alias ... ignored
@@ -1906,7 +1906,7 @@ test test_graph_svg_output ... ok
 
 test result: ok. 15 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out; finished in 0.59s
 
-     Running tests/graph_service_moka_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/graph_service_moka_e2e-cf5b0043f153c2c3)
+     Running tests/graph_service_moka_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/graph_service_moka_e2e-cf5b0043f153c2c3)
 
 running 4 tests
 test moka_e2e_unknown_file_falls_back_to_current_project ... ok
@@ -1916,7 +1916,7 @@ test moka_e2e_concurrent_resolvers_do_not_block_each_other ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/snapshot_wiring_audit.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/snapshot_wiring_audit-9ea1e7f2059bb9ad)
+     Running tests/snapshot_wiring_audit.rs (~/projects/touring/target/vgp-test/debug/deps/snapshot_wiring_audit-9ea1e7f2059bb9ad)
 
 running 4 tests
 test snapshot_low_integration_only ... ok
@@ -1926,7 +1926,7 @@ test snapshot_both_recommendations_fire ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/token_efficiency_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/token_efficiency_e2e-c64bf84e93113cdc)
+     Running tests/token_efficiency_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/token_efficiency_e2e-c64bf84e93113cdc)
 
 running 8 tests
 test e2e_full_workflow_minimal_context_to_detect_changes ... ok
@@ -1940,7 +1940,7 @@ test e2e_token_savings_meet_targets ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/w12_5_per_project_daemon_e2e.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/w12_5_per_project_daemon_e2e-225d4811459ea4fa)
+     Running tests/w12_5_per_project_daemon_e2e.rs (~/projects/touring/target/vgp-test/debug/deps/w12_5_per_project_daemon_e2e-225d4811459ea4fa)
 
 running 3 tests
 test test_same_socket_second_daemon_exits_idempotently ... ok

@@ -7,6 +7,9 @@ original: um cp -p deixou build velho no P0). Marcador .TROCA-EM-CURSO fica a ca
 
 Uso: python3 mut_p0b.py <worktree> <saida.json> [--checar] [ID ...]    (sem ID = todos, na ordem de MUTANTES)
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import json
 import os
 import re
@@ -19,7 +22,7 @@ ARGS = sys.argv[3:]
 CHECAR = "--checar" in ARGS
 SO = [a for a in ARGS if not a.startswith("--")]
 CR = f"{WT}/crates"
-ENV = dict(os.environ, CARGO_TARGET_DIR="/home/gabrielgadea/projects/touring/target/wt-p0b")
+ENV = dict(os.environ, CARGO_TARGET_DIR=f"{_HOME}/projects/touring/target/wt-p0b")
 
 PY = "touring-code/src/vgp/lang/python.rs"
 MOD = "touring-code/src/vgp/lang/python/modules.rs"

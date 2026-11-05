@@ -118,7 +118,7 @@ $ ./target/debug/touring pub-api --file crates/touring-server/src/cli/pub_api.rs
 
 ```bash
 $ ./target/debug/touring scan crates/touring-server/src/cli/pub_api.rs
-{"file_path":"/home/gabrielgadea/projects/touring/target/debug/touring","cwes":[],"p0_block":false}
+{"file_path":"~/projects/touring/target/debug/touring","cwes":[],"p0_block":false}
 ```
 
 ```bash

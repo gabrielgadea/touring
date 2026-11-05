@@ -137,7 +137,7 @@ Cada D01-D15 é detectável combinando primitivas touring que **já existem** (�
 
 ## 3. Mapeamento de capabilities touring (catalog completo)
 
-Esta seção inventaria QUE primitivas existem e como o autopilot consome cada uma. Confidence: 1.0 — todas verificadas em código (`/home/gabrielgadea/.claude/rust/crates/`).
+Esta seção inventaria QUE primitivas existem e como o autopilot consome cada uma. Confidence: 1.0 — todas verificadas em código (`~/.claude/rust/crates/`).
 
 ### 3.1 touring-ast (modulo + grep + semantic)
 
@@ -1178,7 +1178,7 @@ Cada phase é um deliverable atômico, validado por Gabriel antes da próxima co
 **Acceptance criteria (Pre-A)**:
 - [ ] `cargo check --workspace` exit 0
 - [ ] 41 unit tests PASS
-- [ ] `touring autopilot workspace list -j` retorna `[{"uri":"file:///home/gabrielgadea/.claude/rust","name":"touring-workspace","capabilities":[8 items]}]`
+- [ ] `touring autopilot workspace list -j` retorna `[{"uri":"file://~/.claude/rust","name":"touring-workspace","capabilities":[8 items]}]`
 - [ ] `touring autopilot workspace info <uri>` retorna policy completa + cache_root + autopilot_db_path
 - [ ] `GenericWorkspaceProfile::from_path("/tmp/dummy")` constrói com `capabilities = []` (graceful)
 - [ ] `WorkspaceRegistry::handle_change(added=[uri], removed=[])` é idempotente (re-add é no-op)

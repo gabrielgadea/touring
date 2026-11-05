@@ -1,5 +1,8 @@
 """CPU (user/sys) e parede de `vgp check` num snap, por binario. Uso: python3 -I cpu_vs_wall.py PATH SNAP N BIN..."""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import resource
 import subprocess
@@ -7,7 +10,7 @@ import sys
 import time
 
 caminho, snap, n, *bins = sys.argv[1:]
-RAIZ = "/home/gabrielgadea/projects/touring"
+RAIZ = f"{_HOME}/projects/touring"
 for b in bins:
     u0 = resource.getrusage(resource.RUSAGE_CHILDREN)
     t0 = time.time()

@@ -14,7 +14,7 @@ E           let a = "mod x;"; // mod y;
 E         ?          +++
 E           /* mod z; /* aninhado */ mod w; */ let b = r#"mod v;"#; let c = 'm'; fn f<'a>() {}
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:70: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:70: AssertionError
 _________ test_declaracoes_mod_externas_inline_atributos_e_aninhamento _________
 
     def test_declaracoes_mod_externas_inline_atributos_e_aninhamento():
@@ -43,7 +43,7 @@ E         'fundo'...
 E         
 E         ...Full output truncated (3 lines hidden), use '-vv' to show
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:88: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:88: AssertionError
 ________________ test_arvore_basica_mod_rs_e_arquivo_com_filhos ________________
 
     def test_arvore_basica_mod_rs_e_arquivo_com_filhos():
@@ -61,7 +61,7 @@ E
 E         Right contains 5 more items, first extra item: 'src/lib.rs'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:106: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:106: AssertionError
 _____________________ test_todas_as_raizes_do_crate_entram _____________________
 
     def test_todas_as_raizes_do_crate_entram():
@@ -77,7 +77,7 @@ E
 E         Right contains 11 more items, first extra item: 'benches/b.rs'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:120: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:120: AssertionError
 ____________ test_raiz_declarada_no_manifesto_entra_por_extras_raiz ____________
 
     def test_raiz_declarada_no_manifesto_entra_por_extras_raiz():
@@ -89,7 +89,7 @@ E
 E         Right contains 2 more items, first extra item: 'custom/a.rs'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:127: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:127: AssertionError
 _____________ test_orfao_nao_entra_e_nao_torna_o_crate_incompleto ______________
 
     def test_orfao_nao_entra_e_nao_torna_o_crate_incompleto():
@@ -101,7 +101,7 @@ E
 E         Right contains 2 more items, first extra item: 'src/a.rs'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:133: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:133: AssertionError
 _ test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs __
 
     def test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs():
@@ -120,7 +120,7 @@ E
 E         Right contains 6 more items, first extra item: 'shared/s.rs'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:148: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:148: AssertionError
 _______________ test_modulo_inline_aninha_o_diretorio_dos_filhos _______________
 
     def test_modulo_inline_aninha_o_diretorio_dos_filhos():
@@ -138,7 +138,7 @@ E
 E         Right contains 5 more items, first extra item: 'src/a/b.rs'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:160: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:160: AssertionError
 _______________________ test_ciclo_por_path_attr_termina _______________________
 
     def test_ciclo_por_path_attr_termina():
@@ -150,7 +150,7 @@ E
 E         Right contains 2 more items, first extra item: 'src/a.rs'
 E         Use -v to get more diff)
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:166: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:166: AssertionError
 __________ test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto __________
 
     def test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto():
@@ -166,7 +166,7 @@ E         Right contains 1 more item:
 E         {'src/z/mod.rs': 'mod_sem_arquivo'}
 E         Use -v to get more diff)
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:171: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:171: AssertionError
 ____ test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod _____
 
     def test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod():
@@ -178,7 +178,7 @@ E
 E         Right contains one more item: 'dobra_quebrada'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:179: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:179: AssertionError
 _ test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay __
 
     def test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay():
@@ -191,7 +191,7 @@ E         Right contains 1 more item:
 E         {'src/m.rs': 'reescrito_por_bash'}
 E         Use -v to get more diff)
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:186: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:186: AssertionError
 _________________ test_crate_sem_raiz_no_instante_e_incompleto _________________
 
     def test_crate_sem_raiz_no_instante_e_incompleto():
@@ -202,7 +202,7 @@ E
 E         Right contains one more item: 'sem_raiz'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:192: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:192: AssertionError
 _____________ test_entrada_fora_da_arvore_de_modulos_e_incompleta ______________
 
     def test_entrada_fora_da_arvore_de_modulos_e_incompleta():
@@ -215,7 +215,7 @@ E
 E         Right contains one more item: 'entrada_fora_da_arvore'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:200: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:200: AssertionError
 ________________________ test_prioridade_entre_motivos _________________________
 
     def test_prioridade_entre_motivos():
@@ -229,7 +229,7 @@ E         'dobra_quebrada'
 E         'mod_sem_arquivo'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:208: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:208: AssertionError
 _ test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante _
 
     def test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante():
@@ -242,10 +242,10 @@ E
 E         Right contains one more item: ('/c/src/m.rs', 'pub fn f() {}\n')
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:216: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:216: AssertionError
 __________ test_materializar_grava_os_modulos_no_formato_do_manifesto __________
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_materializar_grava_os_mod0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_materializar_grava_os_mod0')
 
     def test_materializar_grava_os_modulos_no_formato_do_manifesto(tmp_path):
         arq = {"/c/src/lib.rs": "mod m;\n", "/c/src/m.rs": "pub fn f() {}\n"}
@@ -259,7 +259,7 @@ E
 E         Right contains one more item: ('/c/src/m.rs', '16c2fca9e371936458d01576b4ca311c22d166a45539ccbc9104823d0b10db47')
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:226: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:226: AssertionError
 ________ test_item_declarado_no_modulo_do_uso_e_classe_a[fn alvo() {}] _________
 
 decl = 'fn alvo() {}'
@@ -274,7 +274,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nfn alvo() {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ___ test_item_declarado_no_modulo_do_uso_e_classe_a[pub(crate) fn alvo() {}] ___
 
 decl = 'pub(crate) fn alvo() {}'
@@ -289,7 +289,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\npub(crate) fn alvo() {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 _____ test_item_declarado_no_modulo_do_uso_e_classe_a[async fn alvo() {}] ______
 
 decl = 'async fn alvo() {}'
@@ -304,7 +304,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nasync fn alvo() {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ________ test_item_declarado_no_modulo_do_uso_e_classe_a[struct alvo;] _________
 
 decl = 'struct alvo;'
@@ -319,7 +319,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nstruct alvo;\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 _______ test_item_declarado_no_modulo_do_uso_e_classe_a[enum alvo { A }] _______
 
 decl = 'enum alvo { A }'
@@ -334,7 +334,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nenum alvo { A }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ________ test_item_declarado_no_modulo_do_uso_e_classe_a[trait alvo {}] ________
 
 decl = 'trait alvo {}'
@@ -349,7 +349,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\ntrait alvo {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ______ test_item_declarado_no_modulo_do_uso_e_classe_a[type alvo = u32;] _______
 
 decl = 'type alvo = u32;'
@@ -364,7 +364,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\ntype alvo = u32;\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ____ test_item_declarado_no_modulo_do_uso_e_classe_a[const alvo: u32 = 1;] _____
 
 decl = 'const alvo: u32 = 1;'
@@ -379,7 +379,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nconst alvo: u32 = 1;\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ____ test_item_declarado_no_modulo_do_uso_e_classe_a[static alvo: u32 = 1;] ____
 
 decl = 'static alvo: u32 = 1;'
@@ -394,7 +394,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nstatic alvo: u32 = 1;\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 _________ test_item_declarado_no_modulo_do_uso_e_classe_a[mod alvo {}] _________
 
 decl = 'mod alvo {}'
@@ -409,7 +409,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nmod alvo {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ____ test_item_declarado_no_modulo_do_uso_e_classe_a[union alvo { a: u32 }] ____
 
 decl = 'union alvo { a: u32 }'
@@ -424,7 +424,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nunion alvo { a: u32 }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 _ test_item_declarado_no_modulo_do_uso_e_classe_a[macro_rules! alvo { () => {} }] _
 
 decl = 'macro_rules! alvo { () => {} }'
@@ -439,7 +439,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn principal() { @@alvo(); }\nmacro_rules! alvo { () => {} }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:250: AssertionError
 ______________________ test_use_traz_o_nome_para_o_modulo ______________________
 
     def test_use_traz_o_nome_para_o_modulo():
@@ -451,7 +451,7 @@ E            +  where False = <built-in method startswith of str object at 0x7e2
 E            +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E            +      where None = A('use a::b::alvo;\nfn principal() { @@alvo(); }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:255: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:255: AssertionError
 _______________ test_item_no_mesmo_mod_inline_do_uso_e_classe_a ________________
 
     def test_item_no_mesmo_mod_inline_do_uso_e_classe_a():
@@ -461,7 +461,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('mod tests { fn principal() { @@alvo(); }\nfn alvo() {} }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:265: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:265: AssertionError
 _____________________ test_parametro_da_funcao_e_classe_a ______________________
 
     def test_parametro_da_funcao_e_classe_a():
@@ -471,7 +471,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn g(x: u32, mut alvo: u32) -> u32 { @@alvo }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:274: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:274: AssertionError
 _ test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao __
 
     def test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao():
@@ -481,7 +481,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn g() { let mut alvo = 1; @@alvo += 1; }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:280: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:280: AssertionError
 ______________ test_binding_de_padrao_do_bloco_que_envolve_o_uso _______________
 
     def test_binding_de_padrao_do_bloco_que_envolve_o_uso():
@@ -491,7 +491,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn g(x: Option<u32>) { if let Some(alvo) = x { @@alvo; } }\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:287: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:287: AssertionError
 ______________________ test_parametro_generico_e_classe_a ______________________
 
     def test_parametro_generico_e_classe_a():
@@ -501,7 +501,7 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('fn g<T: Clone>(x: T) -> @@T { x }\n', 'T')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:294: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:294: AssertionError
 _____________ test_posicao_com_caractere_nao_ascii_antes_da_coluna _____________
 
     def test_posicao_com_caractere_nao_ascii_antes_da_coluna():
@@ -511,10 +511,10 @@ E        +  where False = <built-in method startswith of str object at 0x7e26587
 E        +    where <built-in method startswith of str object at 0x7e26587ccc28> = (None or '').startswith
 E        +      where None = A('const S: &str = "ç ã é"; fn principal() { let _x = "ñ"; @@alvo(); }\nfn alvo() {}\n', 'alvo')
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:298: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:298: AssertionError
 _ test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje __
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_crate_m_f_com_f_so_no_ins0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_crate_m_f_com_f_so_no_ins0')
 
     def test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje(tmp_path):
         r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() -> u32 { 1 }\n"},
@@ -528,10 +528,10 @@ E         Right contains 1 more item:
 E         {'src/m.rs': 'pub fn f() -> u32 { 1 }\n'}
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:363: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:363: AssertionError
 ____ test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao ____
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_da_sessao_antes_do0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_edicao_da_sessao_antes_do0')
 
     def test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao(tmp_path):
         r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() -> u32 { 1 }\n"}, {"src/m.rs": "pub fn g() -> u32 { 2 }\n"})
@@ -545,10 +545,10 @@ E         Right contains 1 more item:
 E         {'src/m.rs': 'pub fn f() -> u32 { 11 }\n'}
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:373: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:373: AssertionError
 _ test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante _
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_use_super_glob_com_o_pai_0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_use_super_glob_com_o_pai_0')
 
     def test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante(tmp_path):
         antes = {"src/lib.rs": "mod m;\n", "src/m/mod.rs": "mod filho;\npub fn helper() -> u32 { 1 }\n",
@@ -564,25 +564,25 @@ E         'src/m/mod.rs'
 E         'src/lib.rs'
 E         Use -v to get more diff)
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:382: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:382: AssertionError
 ____________ test_modulo_criado_por_write_da_sessao_entra_no_crate _____________
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_criado_por_write_d0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_modulo_criado_por_write_d0')
 
     def test_modulo_criado_por_write_da_sessao_entra_no_crate(tmp_path):
 >       r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() {}\n"}, {})
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:386: 
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:386: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
     git(r, "commit", "-q", "-m", "hoje", data=D3)
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
     subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 input = None, capture_output = True, timeout = None, check = True
-popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_criado_por_write_d0/proj', 'commit', '-q', '-m', ...],)
+popenargs = (['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_modulo_criado_por_write_d0/proj', 'commit', '-q', '-m', ...],)
 kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
 
     def run(*popenargs,
@@ -652,12 +652,12 @@ kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COR
             if check and retcode:
 >               raise CalledProcessError(retcode, process.args,
                                          output=stdout, stderr=stderr)
-E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_criado_por_write_d0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_modulo_criado_por_write_d0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
 
 /usr/lib/python3.14/subprocess.py:578: CalledProcessError
 ____ test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto _____
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_modulo_declarado_mas_cria0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_modulo_declarado_mas_cria0')
 
     def test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto(tmp_path):
         r = repo(tmp_path, {"src/lib.rs": "pub mod m;\npub mod z;\n", "src/m.rs": ""}, {"src/z.rs": "pub fn z() {}\n"})
@@ -669,25 +669,25 @@ E
 E         At index 1 diff: 'ok' != 'estado incompleto: mod_sem_arquivo'
 E         Use -v to get more diff
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:398: AssertionError
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:398: AssertionError
 _ test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto _
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_que_nao_casa_com_a0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_edicao_que_nao_casa_com_a0')
 
     def test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto(tmp_path):
 >       r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() {}\n"}, {})
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:402: 
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:402: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
     git(r, "commit", "-q", "-m", "hoje", data=D3)
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
     subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 input = None, capture_output = True, timeout = None, check = True
-popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_que_nao_casa_com_a0/proj', 'commit', '-q', '-m', ...],)
+popenargs = (['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_edicao_que_nao_casa_com_a0/proj', 'commit', '-q', '-m', ...],)
 kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
 
     def run(*popenargs,
@@ -757,27 +757,27 @@ kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COR
             if check and retcode:
 >               raise CalledProcessError(retcode, process.args,
                                          output=stdout, stderr=stderr)
-E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_edicao_que_nao_casa_com_a0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_edicao_que_nao_casa_com_a0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
 
 /usr/lib/python3.14/subprocess.py:578: CalledProcessError
 ______ test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa _______
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_provedor_marca_como_suspe0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_provedor_marca_como_suspe0')
 
     def test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa(tmp_path):
 >       r = repo(tmp_path, {"src/lib.rs": "pub mod m;\n", "src/m.rs": "pub fn f() {}\n"}, {})
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:409: 
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:409: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
     git(r, "commit", "-q", "-m", "hoje", data=D3)
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
     subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 input = None, capture_output = True, timeout = None, check = True
-popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_provedor_marca_como_suspe0/proj', 'commit', '-q', '-m', ...],)
+popenargs = (['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_provedor_marca_como_suspe0/proj', 'commit', '-q', '-m', ...],)
 kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
 
     def run(*popenargs,
@@ -847,27 +847,27 @@ kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COR
             if check and retcode:
 >               raise CalledProcessError(retcode, process.args,
                                          output=stdout, stderr=stderr)
-E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_provedor_marca_como_suspe0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_provedor_marca_como_suspe0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
 
 /usr/lib/python3.14/subprocess.py:578: CalledProcessError
 __________________ test_extras_de_raiz_do_manifesto_do_crate ___________________
 
-tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-745/test_extras_de_raiz_do_manifes0')
+tmp_path = PosixPath('/tmp/pytest-of-<user>/pytest-745/test_extras_de_raiz_do_manifes0')
 
     def test_extras_de_raiz_do_manifesto_do_crate(tmp_path):
 >       r = repo(tmp_path, {"custom/entrada.rs": "mod a;\n", "custom/a.rs": ""}, {})
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:417: 
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:417: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:336: in repo
     git(r, "commit", "-q", "-m", "hoje", data=D3)
-/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
+~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:317: in git
     subprocess.run(["git", "-C", str(raiz), *args], check=True, capture_output=True, env=env)
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
 input = None, capture_output = True, timeout = None, check = True
-popenargs = (['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_extras_de_raiz_do_manifes0/proj', 'commit', '-q', '-m', ...],)
+popenargs = (['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_extras_de_raiz_do_manifes0/proj', 'commit', '-q', '-m', ...],)
 kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COREPACK_ENABLE_AUTO_PIN': '0', 'WINDOWID': '12884902437', ...}, 'stdout': -1, 'stderr': -1}
 
     def run(*popenargs,
@@ -937,52 +937,52 @@ kwargs = {'env': {'PYTHONDONTWRITEBYTECODE': '1', 'SHELL': '/usr/bin/bash', 'COR
             if check and retcode:
 >               raise CalledProcessError(retcode, process.args,
                                          output=stdout, stderr=stderr)
-E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-gabrielgadea/pytest-745/test_extras_de_raiz_do_manifes0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
+E               subprocess.CalledProcessError: Command '['git', '-C', '/tmp/pytest-of-<user>/pytest-745/test_extras_de_raiz_do_manifes0/proj', 'commit', '-q', '-m', 'hoje']' returned non-zero exit status 1.
 
 /usr/lib/python3.14/subprocess.py:578: CalledProcessError
 =========================== short test summary info ============================
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_limpar_apaga_comentarios_e_strings_e_preserva_os_offsets
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_declaracoes_mod_externas_inline_atributos_e_aninhamento
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_arvore_basica_mod_rs_e_arquivo_com_filhos
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_todas_as_raizes_do_crate_entram
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_raiz_declarada_no_manifesto_entra_por_extras_raiz
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_orfao_nao_entra_e_nao_torna_o_crate_incompleto
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_inline_aninha_o_diretorio_dos_filhos
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_ciclo_por_path_attr_termina
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_crate_sem_raiz_no_instante_e_incompleto
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_entrada_fora_da_arvore_de_modulos_e_incompleta
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_prioridade_entre_motivos
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_materializar_grava_os_modulos_no_formato_do_manifesto
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[fn alvo() {}]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[pub(crate) fn alvo() {}]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[async fn alvo() {}]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[struct alvo;]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[enum alvo { A }]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[trait alvo {}]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[type alvo = u32;]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[const alvo: u32 = 1;]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[static alvo: u32 = 1;]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[mod alvo {}]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[union alvo { a: u32 }]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[macro_rules! alvo { () => {} }]
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_use_traz_o_nome_para_o_modulo
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_no_mesmo_mod_inline_do_uso_e_classe_a
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_parametro_da_funcao_e_classe_a
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_binding_de_padrao_do_bloco_que_envolve_o_uso
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_parametro_generico_e_classe_a
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_posicao_com_caractere_nao_ascii_antes_da_coluna
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_criado_por_write_da_sessao_entra_no_crate
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa
-FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_extras_de_raiz_do_manifesto_do_crate
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_limpar_apaga_comentarios_e_strings_e_preserva_os_offsets
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_declaracoes_mod_externas_inline_atributos_e_aninhamento
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_arvore_basica_mod_rs_e_arquivo_com_filhos
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_todas_as_raizes_do_crate_entram
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_raiz_declarada_no_manifesto_entra_por_extras_raiz
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_orfao_nao_entra_e_nao_torna_o_crate_incompleto
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_inline_aninha_o_diretorio_dos_filhos
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_ciclo_por_path_attr_termina
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_arquivo_reescrito_por_bash_deixa_o_crate_incompleto_e_nao_vira_overlay
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_crate_sem_raiz_no_instante_e_incompleto
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_entrada_fora_da_arvore_de_modulos_e_incompleta
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_prioridade_entre_motivos
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_materializar_grava_os_modulos_no_formato_do_manifesto
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[fn alvo() {}]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[pub(crate) fn alvo() {}]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[async fn alvo() {}]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[struct alvo;]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[enum alvo { A }]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[trait alvo {}]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[type alvo = u32;]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[const alvo: u32 = 1;]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[static alvo: u32 = 1;]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[mod alvo {}]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[union alvo { a: u32 }]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_declarado_no_modulo_do_uso_e_classe_a[macro_rules! alvo { () => {} }]
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_use_traz_o_nome_para_o_modulo
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_item_no_mesmo_mod_inline_do_uso_e_classe_a
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_parametro_da_funcao_e_classe_a
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_binding_de_padrao_do_bloco_que_envolve_o_uso
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_parametro_generico_e_classe_a
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_posicao_com_caractere_nao_ascii_antes_da_coluna
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_criado_por_write_da_sessao_entra_no_crate
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa
+FAILED ..~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_extras_de_raiz_do_manifesto_do_crate
 44 failed, 4 passed in 0.55s

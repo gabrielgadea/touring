@@ -45,7 +45,7 @@
   {
    "id": "e7255aa75a8c",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/suspeitos_f24.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/suspeitos_f24.py",
    "achados": [
     {
      "classe": "nome",
@@ -60,7 +60,7 @@
   {
    "id": "6f1b6c846cbb",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/1f1e4e03-b445-4255-b5f2-3159ee53fa23/scratchpad/diag_rodada2.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-touring/1f1e4e03-b445-4255-b5f2-3159ee53fa23/scratchpad/diag_rodada2.py",
    "achados": [
     {
      "classe": "nome",
@@ -75,7 +75,7 @@
   {
    "id": "17fb28bf43ba",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/ponto_cego.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/ponto_cego.py",
    "achados": [
     {
      "classe": "nome",
@@ -106,7 +106,7 @@
   {
    "id": "31aedc219d95",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/f13_antes_depois.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/f13_antes_depois.py",
    "achados": [
     {
      "classe": "nome",
@@ -129,7 +129,7 @@
   {
    "id": "625521f5c882",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/medir_folhas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/medir_folhas.py",
    "achados": [
     {
      "classe": "nome",
@@ -160,7 +160,7 @@
   {
    "id": "7a0e29a86dcb",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/medir_harmonia_regex.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/medir_harmonia_regex.py",
    "achados": [
     {
      "classe": "import",
@@ -218,7 +218,7 @@
   {
    "id": "a9f7768df724",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/repro_learning_startup.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/repro_learning_startup.py",
    "achados": [
     {
      "classe": "nome",
@@ -241,7 +241,7 @@
   {
    "id": "d11496a72eaf",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h2/deltas_novos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h2/deltas_novos.py",
    "achados": [
     {
      "classe": "atributo",
@@ -272,7 +272,7 @@
   {
    "id": "2f0e257f3dfa",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/aritmetica_do_corte.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/aritmetica_do_corte.py",
    "achados": [
     {
      "classe": "nome",
@@ -295,7 +295,7 @@
   {
    "id": "edb28aeb300d",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/registro_das_cinzas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/registro_das_cinzas.py",
    "achados": [
     {
      "classe": "atributo",
@@ -310,7 +310,7 @@
   {
    "id": "5b580d56570d",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/foto_painel_carto.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/foto_painel_carto.py",
    "achados": [
     {
      "classe": "nome",
@@ -325,7 +325,7 @@
   {
    "id": "70d906195042",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h2/gravar_methodus_gov.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h2/gravar_methodus_gov.py",
    "achados": [
     {
      "classe": "atributo",
@@ -356,7 +356,7 @@
   {
    "id": "c0dfc6b4a2d4",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/soltos_contra_o_disco2.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/soltos_contra_o_disco2.py",
    "achados": [
     {
      "classe": "nome",
@@ -387,7 +387,7 @@
   {
    "id": "3a8596c3ad65",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/recon_bloco1b.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/recon_bloco1b.py",
    "achados": [
     {
      "classe": "nome",
@@ -418,7 +418,7 @@
   {
    "id": "c864dcf4d415",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_capas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_capas.py",
    "achados": [
     {
      "classe": "nome",
@@ -441,7 +441,7 @@
   {
    "id": "7a4ad8f765aa",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/baixar_2010_2012.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/baixar_2010_2012.py",
    "achados": [
     {
      "classe": "nome",
@@ -472,7 +472,7 @@
   {
    "id": "34c2cee385d0",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/verificar_trechos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/verificar_trechos.py",
    "achados": [
     {
      "classe": "nome",
@@ -487,7 +487,7 @@
   {
    "id": "f4189f4953e3",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/forense_agentes3.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/forense_agentes3.py",
    "achados": [
     {
      "classe": "nome",
@@ -502,7 +502,7 @@
   {
    "id": "c04326890b25",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/juiz_argv.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/juiz_argv.py",
    "achados": [
     {
      "classe": "atributo",
@@ -526,7 +526,7 @@
   {
    "id": "67f785d34743",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_escritores_cegos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_escritores_cegos.py",
    "achados": [
     {
      "classe": "nome",
@@ -541,7 +541,7 @@
   {
    "id": "06ee050667c1",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/gravar_decisoes_2009.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/gravar_decisoes_2009.py",
    "achados": [
     {
      "classe": "nome",
@@ -564,7 +564,7 @@
   {
    "id": "9a9ecb68e563",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/verificar_artigos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/verificar_artigos.py",
    "achados": [
     {
      "classe": "nome",
@@ -579,7 +579,7 @@
   {
    "id": "b5fa66fc737e",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/0c0fc94f-7bb6-423f-af39-e47892a0341d/scratchpad/otimizar_janelas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/0c0fc94f-7bb6-423f-af39-e47892a0341d/scratchpad/otimizar_janelas.py",
    "achados": [
     {
      "classe": "nome",
@@ -594,7 +594,7 @@
   {
    "id": "090b6fe6fe49",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/junit_summary.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/junit_summary.py",
    "achados": [
     {
      "classe": "nome",
@@ -609,7 +609,7 @@
   {
    "id": "b66b58737cdb",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/o_gate_reprova_mesmo.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/o_gate_reprova_mesmo.py",
    "achados": [
     {
      "classe": "nome",
@@ -670,7 +670,7 @@
   {
    "id": "e8b46a78ff77",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/deps/falhas_conhecidas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/deps/falhas_conhecidas.py",
    "achados": [
     {
      "classe": "import",
@@ -707,7 +707,7 @@
   {
    "id": "4e9ddab107f8",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l4plugin/l4_vmsize.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l4plugin/l4_vmsize.py",
    "achados": [
     {
      "classe": "nome",
@@ -730,7 +730,7 @@
   {
    "id": "11caf962ca53",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/c10_assimetria.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/c10_assimetria.py",
    "achados": [
     {
      "classe": "import",
@@ -771,7 +771,7 @@
   {
    "id": "df01a7516476",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_deriva.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_deriva.py",
    "achados": [
     {
      "classe": "atributo",
@@ -794,7 +794,7 @@
   {
    "id": "e1d24250b3e7",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/medir_s1_uri.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/medir_s1_uri.py",
    "achados": [
     {
      "classe": "nome",
@@ -825,7 +825,7 @@
   {
    "id": "67afb1b2a427",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/mutacao_ausencias.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/mutacao_ausencias.py",
    "achados": [
     {
      "classe": "nome",
@@ -871,7 +871,7 @@
   {
    "id": "6f7e0cb610ff",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/onde_o_gate_age.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/onde_o_gate_age.py",
    "achados": [
     {
      "classe": "nome",
@@ -886,7 +886,7 @@
   {
    "id": "aae8b8426894",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/numeros_rastreio.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/numeros_rastreio.py",
    "achados": [
     {
      "classe": "nome",
@@ -970,7 +970,7 @@
   {
    "id": "cb305b52d196",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/dx_dois_pontos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/dx_dois_pontos.py",
    "achados": [
     {
      "classe": "nome",
@@ -993,7 +993,7 @@
   {
    "id": "6d0a764a6878",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s81_levanta.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s81_levanta.py",
    "achados": [
     {
      "classe": "nome",
@@ -1016,7 +1016,7 @@
   {
    "id": "ddbb2cfb4afc",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_pctx.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_pctx.py",
    "achados": [
     {
      "classe": "nome",
@@ -1047,7 +1047,7 @@
   {
    "id": "d34ee10959e6",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/ab_converted_dir.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/ab_converted_dir.py",
    "achados": [
     {
      "classe": "nome",
@@ -1070,7 +1070,7 @@
   {
    "id": "b34a2b305638",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/neokemp_antes/verificar_publicacao.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/neokemp_antes/verificar_publicacao.py",
    "achados": [
     {
      "classe": "nome",
@@ -1101,7 +1101,7 @@
   {
    "id": "bf2259af1078",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/arsenal2/portao_complemento.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/arsenal2/portao_complemento.py",
    "achados": [
     {
      "classe": "nome",
@@ -1116,7 +1116,7 @@
   {
    "id": "30a0414609bc",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/tirar_argumento_morto.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/tirar_argumento_morto.py",
    "achados": [
     {
      "classe": "nome",
@@ -1147,7 +1147,7 @@
   {
    "id": "bb69126c6351",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/a87daea8-3105-4a9e-b47c-0a0d4d23c9d0/scratchpad/controle_e2e.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/a87daea8-3105-4a9e-b47c-0a0d4d23c9d0/scratchpad/controle_e2e.py",
    "achados": [
     {
      "classe": "nome",
@@ -1178,7 +1178,7 @@
   {
    "id": "74f04a24de12",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/retrieval_bench.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/retrieval_bench.py",
    "achados": [
     {
      "classe": "nome",
@@ -1193,7 +1193,7 @@
   {
    "id": "a08af4eb6d7a",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/0909c80d-b7b9-43e3-997b-3657c8f93cf8/scratchpad/fronteiras_votos_z1.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/0909c80d-b7b9-43e3-997b-3657c8f93cf8/scratchpad/fronteiras_votos_z1.py",
    "achados": [
     {
      "classe": "nome",
@@ -1224,7 +1224,7 @@
   {
    "id": "c35d78e3eb25",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s24_route_patch.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s24_route_patch.py",
    "achados": [
     {
      "classe": "nome",
@@ -1239,7 +1239,7 @@
   {
    "id": "04bac2c9809a",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/block_git_candidato.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/block_git_candidato.py",
    "achados": [
     {
      "classe": "nome",
@@ -1254,7 +1254,7 @@
   {
    "id": "4072490ee778",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/e7_mapa_e_site.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/e7_mapa_e_site.py",
    "achados": [
     {
      "classe": "atributo",
@@ -1285,7 +1285,7 @@
   {
    "id": "e54b3aa6c73e",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/le_correlacoes2.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/le_correlacoes2.py",
    "achados": [
     {
      "classe": "nome",
@@ -1300,7 +1300,7 @@
   {
    "id": "f78d676216b5",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/regioes/miudos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/regioes/miudos.py",
    "achados": [
     {
      "classe": "atributo",
@@ -1341,7 +1341,7 @@
   {
    "id": "a49a312585d9",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_uniao_universo_completo.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_uniao_universo_completo.py",
    "achados": [
     {
      "classe": "atributo",
@@ -1372,7 +1372,7 @@
   {
    "id": "fc4a4d65016c",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h1/ensaio.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h1/ensaio.py",
    "achados": [
     {
      "classe": "nome",
@@ -1403,7 +1403,7 @@
   {
    "id": "1e682b98370b",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/de0c97e0-8d67-43c6-a369-13280034772e/scratchpad/briefing/tarifas_fontes.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/de0c97e0-8d67-43c6-a369-13280034772e/scratchpad/briefing/tarifas_fontes.py",
    "achados": [
     {
      "classe": "nome",
@@ -1418,7 +1418,7 @@
   {
    "id": "89547b1f5625",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/mapa_da_cobertura.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/mapa_da_cobertura.py",
    "achados": [
     {
      "classe": "nome",
@@ -1441,7 +1441,7 @@
   {
    "id": "968f80f58eb4",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/precheck_4_escritores.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/precheck_4_escritores.py",
    "achados": [
     {
      "classe": "nome",
@@ -1456,7 +1456,7 @@
   {
    "id": "1942ac408433",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/arsenal2/patch_r2e_criticos_vb.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/arsenal2/patch_r2e_criticos_vb.py",
    "achados": [
     {
      "classe": "nome",
@@ -1471,7 +1471,7 @@
   {
    "id": "bd4cfc7dd1e1",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_prova_caminho.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_prova_caminho.py",
    "achados": [
     {
      "classe": "nome",
@@ -1502,7 +1502,7 @@
   {
    "id": "249447daab1f",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/gravar_f3b.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/gravar_f3b.py",
    "achados": [
     {
      "classe": "nome",
@@ -1548,7 +1548,7 @@
   {
    "id": "8948156306b0",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/combustivel.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/combustivel.py",
    "achados": [
     {
      "classe": "nome",
@@ -1579,7 +1579,7 @@
   {
    "id": "eba3a9f14d0c",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/correlacao_senado_rs.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/correlacao_senado_rs.py",
    "achados": [
     {
      "classe": "nome",
@@ -1609,7 +1609,7 @@
   {
    "id": "7d3298be1b2a",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/juiz_frescor.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/juiz_frescor.py",
    "achados": [
     {
      "classe": "atributo",
@@ -1632,7 +1632,7 @@
   {
    "id": "74bc40ec09e6",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/mutacao.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/mutacao.py",
    "achados": [
     {
      "classe": "nome",
@@ -1647,7 +1647,7 @@
   {
    "id": "33aa94490685",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/dou_sonda.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/dou_sonda.py",
    "achados": [
     {
      "classe": "nome",
@@ -1687,7 +1687,7 @@
   {
    "id": "e4cf815f9634",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/1c5a47e9-b086-4bc3-927d-2b668cb7928a/scratchpad/p10/patch_agenda.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/1c5a47e9-b086-4bc3-927d-2b668cb7928a/scratchpad/p10/patch_agenda.py",
    "achados": [
     {
      "classe": "nome",

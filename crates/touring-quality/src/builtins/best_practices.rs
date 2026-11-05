@@ -19,6 +19,8 @@
 
 use std::path::{Path, PathBuf};
 
+use touring_foundation::run_outcome::{Journal, count_runs};
+
 use crate::change::Change;
 use crate::gate::{Gate, GateId, GateOutcome, GateSeverity};
 
@@ -49,23 +51,6 @@ fn declaration_site(root: &Path, home: Option<&Path>) -> Option<PathBuf> {
     let rule = home?.join(".claude/rules/code-elaboration-directives.md");
     let t = std::fs::read_to_string(&rule).ok()?;
     (t.contains(CATALOG_MARKER)).then_some(rule)
-}
-
-/// `(runs_total, runs_ok)` do journal — a fração é a régua M1. Linha ilegível
-/// é pulada (o journal é append-only de processos que morrem no meio).
-fn adherence_counts(journal: &str) -> (u64, u64) {
-    let mut total = 0u64;
-    let mut ok = 0u64;
-    for line in journal.lines() {
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-            continue;
-        };
-        total += 1;
-        if v.get("exit_code").and_then(serde_json::Value::as_i64) == Some(0) {
-            ok += 1;
-        }
-    }
-    (total, ok)
 }
 
 /// Tabela canônica dos 15 sinais reativos definidos em
@@ -192,11 +177,13 @@ impl Gate for BestPracticesGate {
         let home = std::env::var_os("HOME").map(PathBuf::from);
         let declared = declaration_site(&root, home.as_deref());
 
+        // `(runs_total, ok)` — a fração é a régua M1 (PROCESS-level: `exited_zero`);
+        // linha ilegível é pulada (o journal é append-only de processos que
+        // morrem no meio). A leitura é do módulo `run_outcome`.
         let journal = home
             .as_ref()
-            .map(|h| h.join(".claude/touring/run_journal.jsonl"))
-            .and_then(|p| std::fs::read_to_string(p).ok());
-        let (runs, ok) = journal.as_deref().map(adherence_counts).unwrap_or((0, 0));
+            .and_then(|h| Journal::under_home(h).read_to_string().ok());
+        let (runs, ok) = journal.as_deref().map(count_runs).unwrap_or((0, 0));
         let rate = (runs > 0).then(|| ok as f64 / runs as f64);
 
         let payload = serde_json::json!({
@@ -353,17 +340,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn adherence_counts_reads_exit_codes_and_skips_garbage() {
-        let journal = concat!(
-            "{\"exit_code\":0,\"language\":\"python\"}\n",
-            "lixo-nao-json\n",
-            "{\"exit_code\":1,\"language\":\"bash\"}\n",
-            "{\"exit_code\":0}\n",
-        );
-        assert_eq!(adherence_counts(journal), (3, 2));
-    }
-
     // F5 — signal_use counts distinct canonical SDK hooks in the mirror.
     #[test]
     fn signal_use_counts_missing_file_returns_zero() {
@@ -418,5 +394,28 @@ mod tests {
                 .is_some_and(|s| s.contains("A1-A14")),
             "o catálogo A inclui o cap A14"
         );
+    }
+}
+
+/// Replay probe (2026-11-02) — M1 counts over a journal COPY.
+#[cfg(test)]
+mod replay_probe {
+    #[test]
+    #[ignore = "replay probe: needs TOURING_REPLAY_JOURNAL and TOURING_REPLAY_OUT"]
+    fn replay_m1_counts_over_a_journal() {
+        let (Some(j), Some(out)) = (
+            std::env::var_os("TOURING_REPLAY_JOURNAL"),
+            std::env::var_os("TOURING_REPLAY_OUT"),
+        ) else {
+            return;
+        };
+        let text = std::fs::read_to_string(&j).expect("journal readable");
+        let (total, ok) = touring_foundation::run_outcome::count_runs(&text);
+        std::fs::write(
+            std::path::Path::new(&out).join("m1.json"),
+            serde_json::to_string_pretty(&serde_json::json!({"runs_total": total, "runs_ok": ok}))
+                .expect("serialize"),
+        )
+        .expect("write");
     }
 }

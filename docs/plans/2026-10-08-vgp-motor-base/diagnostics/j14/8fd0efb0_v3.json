@@ -74,7 +74,7 @@
   {
    "id": "9ed99fb98cbf",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/aposenta_v1.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/aposenta_v1.py",
    "achados": [
     {
      "classe": "membro",
@@ -89,7 +89,7 @@
   {
    "id": "f2fe38f67432",
    "balde": "arquivo",
-   "path": "/home/gabrielgadea/projects/analise/backend/tests/unit/services/test_hybrid_pipeline_flags.py",
+   "path": "~/projects/analise/backend/tests/unit/services/test_hybrid_pipeline_flags.py",
    "achados": [
     {
      "classe": "atributo",
@@ -120,7 +120,7 @@
   {
    "id": "16a0a0f8019e",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/r19/mover_esquerda.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/r19/mover_esquerda.py",
    "achados": [
     {
      "classe": "membro",
@@ -135,7 +135,7 @@
   {
    "id": "6fc020dcec27",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/converte_carregadores.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/converte_carregadores.py",
    "achados": [
     {
      "classe": "membro",
@@ -150,7 +150,7 @@
   {
    "id": "59803cbd8d0b",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/placar_rootdir.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/placar_rootdir.py",
    "achados": [
     {
      "classe": "nome",
@@ -165,7 +165,7 @@
   {
    "id": "6a324204bcea",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/wilson_vivos.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/wilson_vivos.py",
    "achados": [
     {
      "classe": "membro",
@@ -180,7 +180,7 @@
   {
    "id": "8e4e8fb32f64",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/deps/v3_corte.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/deps/v3_corte.py",
    "achados": [
     {
      "classe": "membro",
@@ -195,7 +195,7 @@
   {
    "id": "7dc34b129481",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/dividir_figuras.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/dividir_figuras.py",
    "achados": [
     {
      "classe": "membro",
@@ -210,7 +210,7 @@
   {
    "id": "8aea29a769e2",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_donas.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_donas.py",
    "achados": [
     {
      "classe": "nome",
@@ -241,7 +241,7 @@
   {
    "id": "842eaf471b82",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/remove_testes_v1.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/remove_testes_v1.py",
    "achados": [
     {
      "classe": "membro",

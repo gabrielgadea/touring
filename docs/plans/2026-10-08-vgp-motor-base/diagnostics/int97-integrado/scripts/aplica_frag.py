@@ -12,13 +12,16 @@ would be unused outside cfg(test) (clippy -D warnings), so the tests module impo
 
 Usage: aplica_frag.py --dry-run <scratch-dir> | --apply <backup-dir>
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-P = Path("/home/gabrielgadea/projects")
+P = Path(f"{_HOME}/projects")
 F = P / "touring-wt-frag"
 # APLICA_FRAG_ALVO: another worktree holding the SAME int97 content (the P0B-d base, 17/10) — default the int97 itself
 I = Path(os.environ.get("APLICA_FRAG_ALVO", str(P / "touring-wt-int97")))

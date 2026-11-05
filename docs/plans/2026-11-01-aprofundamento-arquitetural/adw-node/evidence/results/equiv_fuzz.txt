@@ -1,0 +1,25 @@
+samples: 40000  (of which with a full_ref/omitted_bytes/facts form: 34845)
+render_template mismatches old-vs-new:      0
+_namespace_node_refs mismatches old-vs-new: 0  (3 local-name sets per sample)
+node_data_reads == what the runtime resolves:
+   NEW wrong: 0
+   OLD wrong on samples WITHOUT an extended form: 16
+   OLD wrong on samples WITH an extended form:    7367 / 34845
+  !! old_reads_vs_runtime(no ext form): '{{nodes..summary}}}x'
+       a=['']
+       b=['.summary']
+  !! old_reads_vs_runtime(no ext form): '"{{nodes..summary}}}{{nodes..review.}}}}}{{inputs.n_1.bogus} }}{{nodes.p.q.r.summary}}}}"'
+       a=['', '.review.', 'p.q.r']
+       b=['.review.', '.summary', 'p.q.r']
+  !! old_reads_vs_runtime(no ext form): '}{{nodes..summary}}}x'
+       a=['']
+       b=['.summary']
+  !! old_reads_vs_runtime(no ext form): '"{{nodes .rev.summary.summary}"{{nodes..summary}}{{{nodes.a}}}}}'
+       a=['', 'a']
+       b=['.summary', 'a']
+  !! old_reads_vs_runtime(no ext form): '"{{nodes..summary}}}}'
+       a=['']
+       b=['.summary']
+  !! old_reads_vs_runtime(no ext form): "x{{nodes..summary}}}}'"
+       a=['']
+       b=['.summary']

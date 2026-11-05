@@ -394,7 +394,7 @@ fn discover_canonical_dbs_finds_nested_project_dbs() {
         std::fs::File::create(&db).expect("touch");
     }
     let mem_primary = claude.join("rust/.claude/touring/memory.db");
-    let mem = discover_canonical_dbs(&mem_primary, &claude, "memory.db");
+    let mem = discover_canonical_dbs(&mem_primary, Some(claude.as_path()), "memory.db");
     assert!(
         mem.len() >= 3,
         "discovers claude-root + child + grandchild memory DBs, got {}",
@@ -407,7 +407,7 @@ fn discover_canonical_dbs_finds_nested_project_dbs() {
     assert_eq!(mem[0], primary_canon, "primary DB must come first");
     // The db_filename parameter is honored — knowledge.db discovered too.
     let know_primary = claude.join("rust/.claude/touring/knowledge.db");
-    let know = discover_canonical_dbs(&know_primary, &claude, "knowledge.db");
+    let know = discover_canonical_dbs(&know_primary, Some(claude.as_path()), "knowledge.db");
     assert!(
         know.len() >= 2,
         "discovers knowledge.db at claude-root + child, got {}",
@@ -417,6 +417,23 @@ fn discover_canonical_dbs_finds_nested_project_dbs() {
         know.iter().all(|p| p.ends_with("knowledge.db")),
         "knowledge.db query returns only knowledge.db files"
     );
+}
+
+/// Without a home directory the federation is the local project's database alone: no
+/// guessed root is scanned. (`touring_claude_dir` used to answer a relative `.claude`, which
+/// made this scan walk the working directory and its parent.)
+#[test]
+fn discover_canonical_dbs_without_a_home_reads_only_the_primary() {
+    let root = tempfile::TempDir::new().expect("tempdir");
+    let primary = root.path().join("proj/.claude/touring/memory.db");
+    let sibling = root.path().join("other/.claude/touring/memory.db");
+    for db in [&primary, &sibling] {
+        std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+        std::fs::File::create(db).expect("touch");
+    }
+    let found = discover_canonical_dbs(&primary, None, "memory.db");
+    let primary_canon = primary.canonicalize().expect("canonical primary");
+    assert_eq!(found, vec![primary_canon]);
 }
 #[test]
 fn memory_recall_sql_federated_merges_and_dedups() {

@@ -27,20 +27,23 @@ SAIDA
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import re
 from pathlib import Path
 
-BUNDLE = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65")
+BUNDLE = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-compactacao-65")
 BACKUP = BUNDLE / "skills-backup"
 RULES_BACKUP = BUNDLE / "rules-backup"
 AGENTS_BACKUP = BUNDLE / "agents-backup"
 SAIDA = BUNDLE / "conservacao.json"
 
 HOME = Path.home()
-TOURING_SRC = Path("/home/gabrielgadea/projects/touring")
-PROJ = Path("/home/gabrielgadea/projects/analise")
+TOURING_SRC = Path(f"{_HOME}/projects/touring")
+PROJ = Path(f"{_HOME}/projects/analise")
 TOURING_REF = HOME / ".claude/skills/Touring/references"
 ELITE_REF = HOME / ".claude/skills/touring-elite/references"
 HOME_RULES = HOME / ".claude/rules"

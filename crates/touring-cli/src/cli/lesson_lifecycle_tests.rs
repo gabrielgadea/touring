@@ -7,7 +7,7 @@
 //! the probe, not here.
 
 use super::*;
-use crate::cli::transcript_scan::{KPI_CAPS, fixtures::*};
+use crate::cli::transcript_scan::{KPI_CAPS, fixtures::*, read_lines};
 use rusqlite::Connection;
 use serde_json::json;
 
@@ -18,7 +18,7 @@ const WIDE: &str = "€";
 
 fn lessons(lines: &[String]) -> Vec<RawPair> {
     let mut t = LessonTracker::default();
-    t.observe_lines(lines.iter().map(String::as_str));
+    read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
     t.finish().pairs
 }
 
@@ -51,7 +51,7 @@ fn no_db() -> Result<StoredLessons, String> {
 #[test]
 fn normalize_key_replaces_paths_hex_numbers_and_collapses_whitespace() {
     assert_eq!(
-        normalize_key("error: cannot open /home/gabrielgadea/projects/x.rs at line 42"),
+        normalize_key("error: cannot open /home/u/projects/x.rs at line 42"),
         "error: cannot open <path> at line <n>"
     );
     assert_eq!(normalize_key("commit deadbeefcafe0123 failed"), "commit <hex> failed");

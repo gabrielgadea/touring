@@ -13,7 +13,7 @@ use touring_foundation::truncate_str;
 /// A raiz do projeto acompanha a operação: o store de decompose já é
 /// per-project (`locate_task_store`), então o espelho no Tantivy segue a
 /// fonte da verdade em vez de cair no índice legado compartilhado.
-pub(crate) fn upsert_plan_session_to_tantivy(
+pub(super) fn upsert_plan_session_to_tantivy(
     project_root: &std::path::Path,
     plan_task_id: &str,
     intent: &str,
@@ -59,7 +59,7 @@ pub(crate) fn upsert_plan_session_to_tantivy(
 /// `touring generate render adr` so Claude Code captures the decision rationale as an ADR
 /// artifact. Closes the loop: planning intent → adr.tera → touring-generator registry.
 /// Returns `None` when intent is empty or contains no ADR-worthy keywords.
-pub(crate) fn maybe_adr_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_adr_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -95,7 +95,7 @@ pub(crate) fn maybe_adr_hint_on_enter_plan(intent: &str) -> Option<String> {
 /// so Claude Code scaffolds the async API contract before implementation.
 /// Closes the loop: EnterPlanMode(async intent) → asyncapi_spec.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no async messaging keywords.
-pub(crate) fn maybe_asyncapi_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_asyncapi_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -132,7 +132,7 @@ pub(crate) fn maybe_asyncapi_hint_on_enter_plan(intent: &str) -> Option<String> 
 /// so Claude Code scaffolds a structured error catalog before implementing error paths.
 /// Closes the loop: EnterPlanMode(error intent) → error_catalog.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no error-related keywords.
-pub(crate) fn maybe_error_catalog_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_error_catalog_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -167,7 +167,7 @@ pub(crate) fn maybe_error_catalog_hint_on_enter_plan(intent: &str) -> Option<Str
 /// to the Touring decompose DAG.
 /// Closes the loop: EnterPlanMode(DAG planning) → task_scaffold.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no DAG-planning keywords.
-pub(crate) fn maybe_task_scaffold_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_task_scaffold_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -201,7 +201,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_enter_plan(intent: &str) -> Option<Str
 /// implementing the automation.
 /// Closes the loop: EnterPlanMode(CI/CD intent) → ci_workflow.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no CI/CD-related keywords.
-pub(crate) fn maybe_ci_workflow_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_ci_workflow_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -236,7 +236,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_enter_plan(intent: &str) -> Option<Strin
 /// so Claude Code scaffolds the container build before implementation.
 /// Closes the loop: EnterPlanMode(Docker intent) → dockerfile.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no container-related keywords.
-pub(crate) fn maybe_dockerfile_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_dockerfile_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -269,7 +269,7 @@ pub(crate) fn maybe_dockerfile_hint_on_enter_plan(intent: &str) -> Option<String
 /// so Claude Code scaffolds the Terraform module before implementation.
 /// Closes the loop: EnterPlanMode(IaC intent) → terraform_module.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no IaC-related keywords.
-pub(crate) fn maybe_terraform_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_terraform_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -301,7 +301,7 @@ pub(crate) fn maybe_terraform_hint_on_enter_plan(intent: &str) -> Option<String>
 /// R96-S1: Suggest `rust_module` generator when EnterPlanMode intent involves Rust module creation (CC=2).
 ///
 /// Closes the loop: EnterPlanMode(rust module intent) → rust_module.tera → touring-generator.
-pub(crate) fn maybe_rust_module_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_rust_module_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -330,7 +330,7 @@ pub(crate) fn maybe_rust_module_hint_on_enter_plan(intent: &str) -> Option<Strin
 /// R96-S2: Suggest `migration` generator when EnterPlanMode intent involves database migrations (CC=2).
 ///
 /// Closes the loop: EnterPlanMode(migration intent) → migration.tera → touring-generator.
-pub(crate) fn maybe_migration_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_migration_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -359,7 +359,7 @@ pub(crate) fn maybe_migration_hint_on_enter_plan(intent: &str) -> Option<String>
 /// R96-S3: Suggest `protobuf_schema` generator when EnterPlanMode intent involves protobuf/gRPC (CC=2).
 ///
 /// Closes the loop: EnterPlanMode(gRPC intent) → protobuf_schema.tera → touring-generator.
-pub(crate) fn maybe_protobuf_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_protobuf_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -386,7 +386,7 @@ pub(crate) fn maybe_protobuf_hint_on_enter_plan(intent: &str) -> Option<String> 
 }
 
 /// R102-S1: Suggest `k8s_manifest` generator when EnterPlanMode intent involves Kubernetes (CC=2).
-pub(crate) fn maybe_k8s_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_k8s_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -414,7 +414,7 @@ pub(crate) fn maybe_k8s_hint_on_enter_plan(intent: &str) -> Option<String> {
 }
 
 /// R102-S2: Suggest `openapi_spec` generator when EnterPlanMode intent involves REST APIs (CC=2).
-pub(crate) fn maybe_openapi_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_openapi_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -441,7 +441,7 @@ pub(crate) fn maybe_openapi_hint_on_enter_plan(intent: &str) -> Option<String> {
 }
 
 /// R102-S3: Suggest `shell_completion` generator when EnterPlanMode intent involves CLI completions (CC=2).
-pub(crate) fn maybe_shell_completion_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_shell_completion_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -468,7 +468,7 @@ pub(crate) fn maybe_shell_completion_hint_on_enter_plan(intent: &str) -> Option<
 }
 
 /// R105-S1: Suggest `man_page` generator when EnterPlanMode intent involves Unix man pages (CC=2).
-pub(crate) fn maybe_man_page_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_man_page_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -495,7 +495,7 @@ pub(crate) fn maybe_man_page_hint_on_enter_plan(intent: &str) -> Option<String> 
 }
 
 /// R105-S2: Suggest `changelog_entry` generator when EnterPlanMode intent involves releases (CC=2).
-pub(crate) fn maybe_changelog_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_changelog_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -522,7 +522,7 @@ pub(crate) fn maybe_changelog_hint_on_enter_plan(intent: &str) -> Option<String>
 }
 
 /// R105-S3: Suggest `skill_document` generator when EnterPlanMode intent involves skills/docs (CC=2).
-pub(crate) fn maybe_skill_document_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_skill_document_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -549,7 +549,7 @@ pub(crate) fn maybe_skill_document_hint_on_enter_plan(intent: &str) -> Option<St
 }
 
 /// R108-S1: Suggest `ffi_binding` generator when EnterPlanMode intent involves FFI/native (CC=2).
-pub(crate) fn maybe_ffi_binding_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_ffi_binding_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -576,7 +576,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_enter_plan(intent: &str) -> Option<Strin
 }
 
 /// R108-S2: Suggest `python_script` generator when EnterPlanMode intent involves Python (CC=2).
-pub(crate) fn maybe_python_script_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_python_script_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -603,7 +603,7 @@ pub(crate) fn maybe_python_script_hint_on_enter_plan(intent: &str) -> Option<Str
 }
 
 /// R108-S3: Suggest `benchmark` generator when EnterPlanMode intent involves perf benchmarks (CC=2).
-pub(crate) fn maybe_benchmark_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_benchmark_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -630,7 +630,7 @@ pub(crate) fn maybe_benchmark_hint_on_enter_plan(intent: &str) -> Option<String>
 }
 
 /// R111-S1: Suggest `fuzz_target` generator when EnterPlanMode intent involves fuzzing (CC=2).
-pub(crate) fn maybe_fuzz_target_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_fuzz_target_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -657,7 +657,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_enter_plan(intent: &str) -> Option<Strin
 }
 
 /// R111-S2: Suggest `derive_macro` generator when EnterPlanMode intent involves proc-macros (CC=2).
-pub(crate) fn maybe_derive_macro_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_derive_macro_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -684,7 +684,7 @@ pub(crate) fn maybe_derive_macro_hint_on_enter_plan(intent: &str) -> Option<Stri
 }
 
 /// R111-S3: Suggest `diary_entry` generator when EnterPlanMode intent involves lessons/diary (CC=2).
-pub(crate) fn maybe_diary_entry_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_diary_entry_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -711,7 +711,7 @@ pub(crate) fn maybe_diary_entry_hint_on_enter_plan(intent: &str) -> Option<Strin
 }
 
 /// R115-S1: Suggest `cli_handler` generator when EnterPlanMode intent involves CLI commands (CC=2).
-pub(crate) fn maybe_cli_handler_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_cli_handler_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -738,7 +738,7 @@ pub(crate) fn maybe_cli_handler_hint_on_enter_plan(intent: &str) -> Option<Strin
 }
 
 /// R115-S2: Suggest `mcp_tool` generator when EnterPlanMode intent involves MCP tool design (CC=2).
-pub(crate) fn maybe_mcp_tool_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_mcp_tool_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -765,7 +765,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_enter_plan(intent: &str) -> Option<String> 
 }
 
 /// R115-S3: Suggest `hook_handler` generator when EnterPlanMode intent involves hook handlers (CC=2).
-pub(crate) fn maybe_hook_handler_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_hook_handler_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -792,7 +792,7 @@ pub(crate) fn maybe_hook_handler_hint_on_enter_plan(intent: &str) -> Option<Stri
 }
 
 /// R116-S1: Suggest `plan_md` generator when EnterPlanMode intent involves project planning (CC=2).
-pub(crate) fn maybe_plan_md_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_plan_md_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -819,7 +819,7 @@ pub(crate) fn maybe_plan_md_hint_on_enter_plan(intent: &str) -> Option<String> {
 }
 
 /// R116-S2: Suggest `schema` generator when EnterPlanMode intent involves data schema design (CC=2).
-pub(crate) fn maybe_schema_hint_on_enter_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_schema_hint_on_enter_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -854,7 +854,7 @@ pub(crate) fn maybe_schema_hint_on_enter_plan(intent: &str) -> Option<String> {
 /// `touring generate render error_catalog` so Claude Code scaffolds an error catalog at exit.
 /// Closes the loop: ExitPlanMode(error design intent) → error_catalog.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no error catalog keywords.
-pub(crate) fn maybe_error_catalog_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_error_catalog_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -887,7 +887,7 @@ pub(crate) fn maybe_error_catalog_hint_on_exit_plan(intent: &str) -> Option<Stri
 /// Claude Code scaffolds a structured planning document at exit time.
 /// Closes the loop: ExitPlanMode(project plan intent) → plan.md.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no planning document keywords.
-pub(crate) fn maybe_plan_md_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_plan_md_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -920,7 +920,7 @@ pub(crate) fn maybe_plan_md_hint_on_exit_plan(intent: &str) -> Option<String> {
 /// asyncapi_spec` so Claude Code scaffolds an AsyncAPI specification at planning exit time.
 /// Closes the loop: ExitPlanMode(async API intent) → asyncapi_spec.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no async API keywords.
-pub(crate) fn maybe_asyncapi_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_asyncapi_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -954,7 +954,7 @@ pub(crate) fn maybe_asyncapi_hint_on_exit_plan(intent: &str) -> Option<String> {
 /// so Claude Code scaffolds the CI workflow immediately after completing the planning phase.
 /// Closes the loop: ExitPlanMode(CI/CD intent) → ci_workflow.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no CI/CD keywords.
-pub(crate) fn maybe_ci_workflow_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_ci_workflow_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -988,7 +988,7 @@ pub(crate) fn maybe_ci_workflow_hint_on_exit_plan(intent: &str) -> Option<String
 /// `touring generate render dockerfile` so Claude Code scaffolds the Dockerfile at planning exit.
 /// Closes the loop: ExitPlanMode(Docker intent) → dockerfile.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no Docker/container keywords.
-pub(crate) fn maybe_dockerfile_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_dockerfile_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1021,7 +1021,7 @@ pub(crate) fn maybe_dockerfile_hint_on_exit_plan(intent: &str) -> Option<String>
 /// so Claude Code scaffolds the Kubernetes manifest immediately after planning.
 /// Closes the loop: ExitPlanMode(K8s intent) → k8s_manifest.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no Kubernetes keywords.
-pub(crate) fn maybe_k8s_manifest_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_k8s_manifest_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1057,7 +1057,7 @@ pub(crate) fn maybe_k8s_manifest_hint_on_exit_plan(intent: &str) -> Option<Strin
 /// scaffolds a Unix man page at planning exit time.
 /// Closes the loop: ExitPlanMode(man page intent) → man_page.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no man-page keywords.
-pub(crate) fn maybe_man_page_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_man_page_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1089,7 +1089,7 @@ pub(crate) fn maybe_man_page_hint_on_exit_plan(intent: &str) -> Option<String> {
 /// hook_handler` so Claude Code scaffolds a new hook handler at planning exit time.
 /// Closes the loop: ExitPlanMode(hook intent) → hook_handler.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no hook-related keywords.
-pub(crate) fn maybe_hook_handler_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_hook_handler_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1120,7 +1120,7 @@ pub(crate) fn maybe_hook_handler_hint_on_exit_plan(intent: &str) -> Option<Strin
 /// R97-S1: Suggest `rust_module` generator when ExitPlanMode intent involves Rust modules (CC=2).
 ///
 /// Closes the loop: ExitPlanMode(rust module intent) → rust_module.tera → touring-generator.
-pub(crate) fn maybe_rust_module_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_rust_module_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1149,7 +1149,7 @@ pub(crate) fn maybe_rust_module_hint_on_exit_plan(intent: &str) -> Option<String
 /// R97-S2: Suggest `migration` generator when ExitPlanMode intent involves database migrations (CC=2).
 ///
 /// Closes the loop: ExitPlanMode(migration intent) → migration.tera → touring-generator.
-pub(crate) fn maybe_migration_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_migration_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1178,7 +1178,7 @@ pub(crate) fn maybe_migration_hint_on_exit_plan(intent: &str) -> Option<String> 
 /// R97-S3: Suggest `protobuf_schema` generator when ExitPlanMode intent involves gRPC/protobuf (CC=2).
 ///
 /// Closes the loop: ExitPlanMode(gRPC intent) → protobuf_schema.tera → touring-generator.
-pub(crate) fn maybe_protobuf_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_protobuf_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1205,7 +1205,7 @@ pub(crate) fn maybe_protobuf_hint_on_exit_plan(intent: &str) -> Option<String> {
 }
 
 /// R109-S1: Suggest `python_script` generator when ExitPlanMode intent involves Python (CC=2).
-pub(crate) fn maybe_python_script_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_python_script_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1232,7 +1232,7 @@ pub(crate) fn maybe_python_script_hint_on_exit_plan(intent: &str) -> Option<Stri
 }
 
 /// R109-S2: Suggest `benchmark` generator when ExitPlanMode intent involves perf benchmarks (CC=2).
-pub(crate) fn maybe_benchmark_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_benchmark_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1259,7 +1259,7 @@ pub(crate) fn maybe_benchmark_hint_on_exit_plan(intent: &str) -> Option<String> 
 }
 
 /// R109-S3: Suggest `incremental_patch` generator when ExitPlanMode intent involves patches (CC=2).
-pub(crate) fn maybe_incremental_patch_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_incremental_patch_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1286,7 +1286,7 @@ pub(crate) fn maybe_incremental_patch_hint_on_exit_plan(intent: &str) -> Option<
 }
 
 /// R112-S1: Suggest `cli_handler` generator when ExitPlanMode intent involves CLI commands (CC=2).
-pub(crate) fn maybe_cli_handler_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_cli_handler_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1313,7 +1313,7 @@ pub(crate) fn maybe_cli_handler_hint_on_exit_plan(intent: &str) -> Option<String
 }
 
 /// R112-S2: Suggest `mcp_tool` generator when ExitPlanMode intent involves MCP/tool definitions (CC=2).
-pub(crate) fn maybe_mcp_tool_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_mcp_tool_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1340,7 +1340,7 @@ pub(crate) fn maybe_mcp_tool_hint_on_exit_plan(intent: &str) -> Option<String> {
 }
 
 /// R112-S3: Suggest `schema` generator when ExitPlanMode intent involves data schema design (CC=2).
-pub(crate) fn maybe_schema_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_schema_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1373,7 +1373,7 @@ pub(crate) fn maybe_schema_hint_on_exit_plan(intent: &str) -> Option<String> {
 /// Claude Code scaffolds a skill/guide artifact immediately after planning.
 /// Closes the loop: ExitPlanMode(doc intent) → skill_document.tera → touring-generator skill doc.
 /// Returns `None` when intent is empty or contains no documentation-related keywords.
-pub(crate) fn maybe_skill_document_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_skill_document_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1408,7 +1408,7 @@ pub(crate) fn maybe_skill_document_hint_on_exit_plan(intent: &str) -> Option<Str
 /// Claude Code scaffolds IaC modules immediately after planning.
 /// Closes the loop: ExitPlanMode(IaC intent) → terraform_module.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no IaC-related keywords.
-pub(crate) fn maybe_terraform_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_terraform_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1442,7 +1442,7 @@ pub(crate) fn maybe_terraform_hint_on_exit_plan(intent: &str) -> Option<String> 
 /// scaffolds shell completion scripts immediately after planning.
 /// Closes the loop: ExitPlanMode(CLI intent) → shell_completion.tera → touring-generator.
 /// Returns `None` when intent is empty or contains no CLI-related keywords.
-pub(crate) fn maybe_shell_completion_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_shell_completion_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1477,7 +1477,7 @@ pub(crate) fn maybe_shell_completion_hint_on_exit_plan(intent: &str) -> Option<S
 /// `touring generate render changelog_entry` so Claude Code documents what was planned/built
 /// in the changelog artifact. Closes the loop: ExitPlanMode → changelog_entry.tera → generator.
 /// Returns `None` when intent is empty or too short to produce a useful entry.
-pub(crate) fn maybe_changelog_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_changelog_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.len() < 3 {
         return None;
     }
@@ -1490,7 +1490,7 @@ pub(crate) fn maybe_changelog_hint_on_exit_plan(intent: &str) -> Option<String> 
 }
 
 /// R103-S1: Suggest `adr` generator when ExitPlanMode intent involves architecture decisions (CC=2).
-pub(crate) fn maybe_adr_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_adr_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1517,7 +1517,7 @@ pub(crate) fn maybe_adr_hint_on_exit_plan(intent: &str) -> Option<String> {
 }
 
 /// R103-S2: Suggest `task_scaffold` generator when ExitPlanMode intent involves decompose/DAG (CC=2).
-pub(crate) fn maybe_task_scaffold_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_task_scaffold_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1545,7 +1545,7 @@ pub(crate) fn maybe_task_scaffold_hint_on_exit_plan(intent: &str) -> Option<Stri
 }
 
 /// R103-S3: Suggest `test` generator when ExitPlanMode intent involves test suites (CC=2).
-pub(crate) fn maybe_test_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_test_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1573,7 +1573,7 @@ pub(crate) fn maybe_test_hint_on_exit_plan(intent: &str) -> Option<String> {
 }
 
 /// R106-S1: Suggest `openapi_spec` generator when ExitPlanMode intent involves REST APIs (CC=2).
-pub(crate) fn maybe_openapi_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_openapi_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1600,7 +1600,7 @@ pub(crate) fn maybe_openapi_hint_on_exit_plan(intent: &str) -> Option<String> {
 }
 
 /// R106-S2: Suggest `consumer_generator` when ExitPlanMode intent involves event consumers (CC=2).
-pub(crate) fn maybe_consumer_generator_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_consumer_generator_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1627,7 +1627,7 @@ pub(crate) fn maybe_consumer_generator_hint_on_exit_plan(intent: &str) -> Option
 }
 
 /// R106-S3: Suggest `ffi_binding` generator when ExitPlanMode intent involves FFI/native libs (CC=2).
-pub(crate) fn maybe_ffi_binding_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_ffi_binding_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1654,7 +1654,7 @@ pub(crate) fn maybe_ffi_binding_hint_on_exit_plan(intent: &str) -> Option<String
 }
 
 /// R117-S1: Suggest `diary_entry` generator when ExitPlanMode intent involves lessons/diary (CC=2).
-pub(crate) fn maybe_diary_entry_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_diary_entry_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1681,7 +1681,7 @@ pub(crate) fn maybe_diary_entry_hint_on_exit_plan(intent: &str) -> Option<String
 }
 
 /// R117-S2: Suggest `fuzz_target` generator when ExitPlanMode intent involves fuzzing (CC=2).
-pub(crate) fn maybe_fuzz_target_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_fuzz_target_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -1708,7 +1708,7 @@ pub(crate) fn maybe_fuzz_target_hint_on_exit_plan(intent: &str) -> Option<String
 }
 
 /// R117-S3: Suggest `derive_macro` generator when ExitPlanMode intent involves proc-macros (CC=2).
-pub(crate) fn maybe_derive_macro_hint_on_exit_plan(intent: &str) -> Option<String> {
+pub(super) fn maybe_derive_macro_hint_on_exit_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }

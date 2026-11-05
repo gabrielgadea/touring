@@ -28,6 +28,8 @@
 use super::outcome_learner::ActionFeatures;
 use super::predict::{ExecutionOutcomePredictor, PredictionConfidence};
 use super::sandbox_stage::SandboxOutcome;
+#[cfg(test)]
+use touring_foundation::run_outcome::ExitStatus;
 use touring_hooks_shared::action_signature::ActionSignature;
 
 /// A drafted candidate action awaiting verification.
@@ -302,7 +304,7 @@ mod tests {
 
     fn outcome(exit_code: i32) -> SandboxOutcome {
         SandboxOutcome {
-            exit_code,
+            exit_code: ExitStatus::Code(exit_code),
             output_bytes: 4,
             was_truncated: false,
             timed_out: false,
@@ -320,7 +322,7 @@ mod tests {
         assert_eq!(result.valid_indices, vec![0, 1]);
         assert_eq!(result.len(), 2);
         assert!(result.final_outcome.is_some());
-        assert_eq!(result.final_outcome.unwrap().exit_code, 0);
+        assert_eq!(result.final_outcome.unwrap().exit_code, ExitStatus::Code(0));
     }
 
     #[test]
@@ -348,7 +350,7 @@ mod tests {
     fn timed_out_candidate_breaks_the_prefix() {
         let candidates = vec![cand("a", "cargo"), cand("b", "cargo")];
         let timeout = SandboxOutcome {
-            exit_code: 0,
+            exit_code: ExitStatus::TimedOut,
             output_bytes: 0,
             was_truncated: false,
             timed_out: true,

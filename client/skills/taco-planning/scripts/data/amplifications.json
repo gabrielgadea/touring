@@ -2,7 +2,7 @@
   "status": "WARN",
   "script": "dimension_amplifier",
   "timestamp": "2026-10-01T01:39:31+00:00",
-  "source": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+  "source": "~/projects/touring/docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
   "threshold": 7.0,
   "composite_current": 5.78,
   "below_threshold_dims": [

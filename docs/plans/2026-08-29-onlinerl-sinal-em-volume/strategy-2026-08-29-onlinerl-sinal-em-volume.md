@@ -69,5 +69,5 @@ P1 retenção → P2 replay+honestidade → P3 régua+provas vivas → P4 gates+
 ## Links
 
 - Diagnóstico OUTER: `diagnostics/touring-20260829T203038.md` · Ledger CCE do tema (explore)
-- Âncora anterior: `/home/gabrielgadea/projects/touring/docs/plans/2026-08-25-autoresearch-rl-intelligence/RETOMAR-AQUI.md`
+- Âncora anterior: `~/projects/touring/docs/plans/2026-08-25-autoresearch-rl-intelligence/RETOMAR-AQUI.md`
 - Wave que limpou o sinal: `docs/plans/2026-08-29-ligar-nao-construir/`

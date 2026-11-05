@@ -244,7 +244,7 @@ def test_stop_guard_no_longer_blocks_the_outer():
 # "funcionou certo", "não foi chamado" e "foi chamado com o instrumento mudo" —
 # indistinguíveis no verde.
 
-REPO = Path("/home/gabrielgadea/projects/touring")
+REPO = Path.home() / "projects" / "touring"
 _VIVO = REPO.exists() and shutil.which("touring") is not None
 
 

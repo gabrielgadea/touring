@@ -6,7 +6,7 @@ description: "Auditoria por execução das 7 dimensões do code mode do Touring;
 tags: [code-mode, adw, sandbox, observabilidade, afordancia]
 timestamp: 2026-08-24T15:30:00-03:00
 plan_id: 2026-08-24-code-mode-max
-scope: /home/gabrielgadea/projects/touring
+scope: ~/projects/touring
 ---
 
 # Estratégia — Code Mode Máximo (24/08/2026)

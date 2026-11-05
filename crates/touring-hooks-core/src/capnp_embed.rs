@@ -4,7 +4,7 @@
 //! same process as the hook runtime is what keeps the
 //! `touring_foundation::health_events` broadcast singleton shared between the
 //! producer (`compute_signals_delta` in this crate) and the consumer
-//! (`GeneratorHealthImpl` in `touring-capnp-server`). A standalone
+//! (`GeneratorHealthImpl` in `touring_bindings::capnp`). A standalone
 //! `touring-capnp` daemon would own its own singleton and never see
 //! events emitted here.
 //!
@@ -37,7 +37,7 @@ use std::thread::JoinHandle;
 
 use tokio::sync::Notify;
 
-use touring_capnp_server::{EmbedConfig, serve_with_shutdown};
+use touring_bindings::capnp::{EmbedConfig, serve_with_shutdown};
 
 /// Process-wide singleton holding the embed thread + shutdown notify.
 ///

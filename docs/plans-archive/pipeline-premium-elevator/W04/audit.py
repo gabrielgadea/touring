@@ -17,6 +17,9 @@ Usage
 # Phase 1 — Imports + constants
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import logging
@@ -81,7 +84,7 @@ def scan_workspace(_root: Path) -> list[dict]:
     Evidence: plan.md lines 78, 200-213.
     """
     findings: list[dict] = []
-    target = Path("/home/gabrielgadea/projects/analise/scripts/process_analysis/pipeline_runner.py")
+    target = Path(f"{_HOME}/projects/analise/scripts/process_analysis/pipeline_runner.py")
 
     if not target.exists():
         findings.append({

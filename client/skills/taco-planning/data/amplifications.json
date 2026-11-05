@@ -2,7 +2,7 @@
   "status": "WARN",
   "script": "dimension_amplifier",
   "timestamp": "2026-05-27T10:24:48+00:00",
-  "source": "/home/gabrielgadea/.claude/plans/pipeline-premium-elevator/plan.md",
+  "source": "~/.claude/plans/pipeline-premium-elevator/plan.md",
   "threshold": 7.0,
   "composite_current": 5.33,
   "below_threshold_dims": [

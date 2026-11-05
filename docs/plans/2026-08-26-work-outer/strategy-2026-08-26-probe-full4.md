@@ -7,7 +7,7 @@ Probe de sessão FULL4: criar `/tmp/probeFULL4.md` com conteúdo `FULL4-ok` e pa
 ## Evidência OUTER (Lei L3 — artefato, não narrativa)
 
 - **diagnostic-okf**: `diagnostics/touring-20260826T140042.md` — composite health 0.7702, quality50 Platinum (0.918), 0 blockers, 2357 orphans (baseline).
-- **explore-ledger**: `/home/gabrielgadea/projects/touring/.touring-explore/probe-full4--criacao-de--tmp-probefull4-md-com-c.ledger.json` — `verdict.converged: true` (2 rodadas dry, 7/7 lentes: 6 auto + `external` waived — probe local trivial, nenhuma fonte externa aplicável).
+- **explore-ledger**: `~/projects/touring/.touring-explore/probe-full4--criacao-de--tmp-probefull4-md-com-c.ledger.json` — `verdict.converged: true` (2 rodadas dry, 7/7 lentes: 6 auto + `external` waived — probe local trivial, nenhuma fonte externa aplicável).
 - **strategy-loop ADW**: run com `evidence_report` verdict `pass`.
 
 ## Estratégia

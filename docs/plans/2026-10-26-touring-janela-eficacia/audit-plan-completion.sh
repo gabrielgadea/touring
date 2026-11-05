@@ -8,7 +8,7 @@
 # juiz só converge com o plano inteiro). Tudo aqui é leitura ou roda testes; nada
 # é implantado e nada é escrito fora de diretórios temporários.
 set -uo pipefail
-R=/home/gabrielgadea/projects/touring
+R=${HOME}/projects/touring
 B="$R/docs/plans/2026-10-26-touring-janela-eficacia"
 cd "$R" || exit 3
 faltas=0

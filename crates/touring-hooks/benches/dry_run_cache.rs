@@ -10,6 +10,7 @@
 //! Run: `cargo bench -p touring-hooks --bench dry_run_cache`
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use touring_foundation::run_outcome::ExitStatus;
 
 use touring_hooks::capability::{CapabilityProfile, Decision};
 use touring_hooks::gateway::{
@@ -20,7 +21,7 @@ use touring_hooks::gateway::{
 /// A representative cached outcome for the warm-cache bench.
 fn warm_outcome() -> SandboxOutcome {
     SandboxOutcome {
-        exit_code: 0,
+        exit_code: ExitStatus::Code(0),
         output_bytes: 16,
         was_truncated: false,
         timed_out: false,

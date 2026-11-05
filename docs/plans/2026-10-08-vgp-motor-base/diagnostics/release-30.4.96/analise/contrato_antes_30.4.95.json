@@ -1,5 +1,5 @@
 {
- "projeto": "/home/gabrielgadea/projects/analise",
+ "projeto": "~/projects/analise",
  "versao": "touring 30.4.95",
  "contratos": [
   {
@@ -30,7 +30,7 @@
   {
    "contrato": "a sonda não deixa resíduo no projeto",
    "ok": true,
-   "evidencia": "/home/gabrielgadea/projects/analise/.touring/contrato-probe-contrato-5cc2380d.txt"
+   "evidencia": "~/projects/analise/.touring/contrato-probe-contrato-5cc2380d.txt"
   }
  ],
  "falhas": []

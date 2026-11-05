@@ -59,7 +59,7 @@ S7 → S8 (H3.1/H3.2 BranchFS) — pesquisa, consome experiência de S7
 
 ### S0.1 — deadpool-sqlite ao workspace
 
-**Arquivo:** `/home/gabrielgadea/.claude/rust/Cargo.toml`
+**Arquivo:** `~/.claude/rust/Cargo.toml`
 **Seção:** `[workspace.dependencies]` após `rusqlite`
 
 ```toml
@@ -71,7 +71,7 @@ deadpool-sqlite = "0.9"
 
 ### S0.2 — Features async + pooling-allocator no wasmtime
 
-**Arquivo:** `/home/gabrielgadea/.claude/rust/Cargo.toml`
+**Arquivo:** `~/.claude/rust/Cargo.toml`
 **Linha atual:** `wasmtime = { version = "42", default-features = false, features = ["cranelift", "runtime"] }`
 **Substituir por:**
 
@@ -85,7 +85,7 @@ wasmtime = { version = "42", default-features = false, features = [
 
 ### S0.3 — wit-bindgen (feature-gated, apenas touring-wasm)
 
-**Arquivo:** `/home/gabrielgadea/.claude/rust/Cargo.toml`
+**Arquivo:** `~/.claude/rust/Cargo.toml`
 **Adicionar:**
 
 ```toml

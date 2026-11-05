@@ -24,7 +24,7 @@
    Compiling wasmtime-c-api-impl v36.0.12
    Compiling miette v7.6.0
    Compiling regex-automata v0.4.14
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling tree-sitter v0.26.9
    Compiling regex v1.12.4
    Compiling wgpu-core-deps-windows-linux-android v26.0.0
@@ -39,34 +39,34 @@
    Compiling wgpu v26.0.1
    Compiling ast-grep-core v0.42.3
    Compiling deadpool-runtime v0.3.1
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling candle-core v0.8.4
    Compiling notify-debouncer-mini v0.5.0
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling cargo-lock v11.0.1
    Compiling tracing-error v0.2.1
    Compiling parse-zoneinfo v0.3.1
    Compiling rustsec v0.33.0
    Compiling quickcheck v1.1.0
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
    Compiling chrono-tz-build v0.3.0
    Compiling candle-nn v0.8.4
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling deadpool v0.13.1
    Compiling deadpool-sync v0.2.0
    Compiling gethostname v1.1.0
    Compiling x11rb v0.13.2
    Compiling candle-transformers v0.8.4
    Compiling deadpool-sqlite v0.14.0
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
    Compiling crdts v7.3.2
    Compiling chrono-tz v0.9.0
    Compiling arboard v3.6.1
    Compiling wasmtime v46.0.3
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
    Compiling mpatch v1.6.4
    Compiling smol_str v0.1.24
    Compiling wait-timeout v0.2.1
@@ -74,8 +74,8 @@
    Compiling rstest_macros v0.26.1
    Compiling schemars v1.2.1
    Compiling tera v1.20.1
-   Compiling touring-identity v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-identity)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-identity v30.4.96 (~/projects/touring-wt-int97/crates/touring-identity)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
    Compiling tokio-stream v0.1.18
    Compiling rand_xorshift v0.4.0
    Compiling criterion v0.5.1
@@ -83,10 +83,10 @@
    Compiling rstest v0.26.1
    Compiling tokio-test v0.4.5
    Compiling insta v1.48.0
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-generator)
+   Compiling touring-bindings v30.4.96 (~/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-generator v0.1.0 (~/projects/touring-wt-int97/crates/touring-generator)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 28s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_generator-d7a4386ac080c986)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_generator-d7a4386ac080c986)
 
 running 177 tests
 test core::adapters::concolic_pre_tool_adapter::tests::test_closures_are_send_sync ... ok
@@ -269,7 +269,7 @@ test vgp::fuzzy::tests::noop_fuzzy_searcher_fail_open ... ok
 
 test result: ok. 177 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
-     Running tests/bktree_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bktree_e2e-c2aeb70eb0f20cad)
+     Running tests/bktree_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/bktree_e2e-c2aeb70eb0f20cad)
 
 running 10 tests
 test bktree_e2e::test_bktree_exact_match_confidence_is_one ... ok
@@ -285,7 +285,7 @@ test bktree_e2e::test_bktree_empty_query_returns_empty ... ok
 
 test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/e2e_cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_cross_audit-809eaa2ec79dbe17)
+     Running tests/e2e_cross_audit.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_cross_audit-809eaa2ec79dbe17)
 
 running 41 tests
 test all_cila_levels_have_nonzero_budget ... ok
@@ -332,7 +332,7 @@ test pipeline_with_empty_contracts_completes_verify_step ... ok
 
 test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/e2e_diagnostic_rfc100.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-df57e21eed199544)
+     Running tests/e2e_diagnostic_rfc100.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-df57e21eed199544)
 
 running 3 tests
 test g401_path_responds_to_plan_speculate_command ... ok
@@ -341,7 +341,7 @@ test generator_binary_wired_and_healthy ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
 
-     Running tests/e2e_pipeline.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_pipeline-274373b04ec8639c)
+     Running tests/e2e_pipeline.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_pipeline-274373b04ec8639c)
 
 running 143 tests
 test all_generator_kinds_have_nonempty_template_names ... ok
@@ -490,7 +490,7 @@ test vgp_engine_invalidate_and_reset_counters ... ok
 
 test result: ok. 143 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
 
-     Running tests/path_boundary_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/path_boundary_e2e-26f257fe22a0c8b5)
+     Running tests/path_boundary_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/path_boundary_e2e-26f257fe22a0c8b5)
 
 running 16 tests
 test e2e_audit_warns_on_crate_write ... ok
@@ -512,7 +512,7 @@ test e2e_warn_only_warns_not_violations ... ok
 
 test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/seven_layer_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/seven_layer_e2e-a912b04bee63253c)
+     Running tests/seven_layer_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/seven_layer_e2e-a912b04bee63253c)
 
 running 14 tests
 test e2e_all_layers_pass_rust_module ... ok
@@ -532,7 +532,7 @@ test e2e_passed_layer_has_score_one ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/skip_regions.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/skip_regions-6e9b28a3958b9810)
+     Running tests/skip_regions.rs (~/projects/touring/target/wt-int97/debug/deps/skip_regions-6e9b28a3958b9810)
 
 running 9 tests
 test javascript_line_comment_same_marker_works ... ok
@@ -547,7 +547,7 @@ test unclosed_region_extends_to_eof ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/snapshot_consumer_stub.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_consumer_stub-2c16d7065b466678)
+     Running tests/snapshot_consumer_stub.rs (~/projects/touring/target/wt-int97/debug/deps/snapshot_consumer_stub-2c16d7065b466678)
 
 running 5 tests
 test consumer_stub_is_deterministic ... ok
@@ -558,7 +558,7 @@ test snapshot_consumer_stub_without_crate ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
-     Running tests/snapshot_public_api.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_public_api-5cc894660e067ea2)
+     Running tests/snapshot_public_api.rs (~/projects/touring/target/wt-int97/debug/deps/snapshot_public_api-5cc894660e067ea2)
 
 running 4 tests
 test snapshot_suggestion_source_variants ... ok
@@ -568,7 +568,7 @@ test snapshot_failure_reason_json_schema ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/source_change_tests.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/source_change_tests-150bd99e835875a0)
+     Running tests/source_change_tests.rs (~/projects/touring/target/wt-int97/debug/deps/source_change_tests-150bd99e835875a0)
 
 running 11 tests
 test empty_source_change_commits ... ok

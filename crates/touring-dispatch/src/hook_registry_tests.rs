@@ -1,41 +1,218 @@
 use super::*;
 
-/// T3.10: Use cfg-aware `all_daemon_hook_names()` for registry↔dispatch matching.
+// ── One source of truth (01/11/2026) ──────────────────────────────────────────────
+//
+// The names and the membership the thin client uses are DERIVED from the dispatch table.
+// These tests therefore go through the interface the client calls (`is_daemon_hook`) and
+// guard what a derived list can still get wrong: a name declared twice, a wrong membership
+// verdict, the scan itself going blind.
+
+/// The production source of `hook_registry.rs`: everything before the trailing
+/// `#[cfg(test)] #[path = …] mod tests;`.
+///
+/// NOT everything before the FIRST `#[cfg(test)]`: the `task-completed` handler inside
+/// `build_dispatch_table` carries a `#[cfg(test)]` statement, so cutting there reads under
+/// half the file and silently skips every entry declared after it.
+fn registry_production_source() -> &'static str {
+    let full = include_str!("hook_registry.rs");
+    &full[..full.rfind("#[cfg(test)]").unwrap_or(full.len())]
+}
+
+/// The literal name of every `m.insert("<name>", …)` in `build_dispatch_table`, in source
+/// order — every declaration, whatever `#[cfg(feature)]` gates it.
+fn declared_hook_names() -> Vec<&'static str> {
+    let src = registry_production_source();
+    let start = src
+        .find("pub fn build_dispatch_table")
+        .expect("build_dispatch_table must exist in hook_registry.rs");
+    let mut rest = &src[start..];
+    let mut names = Vec::new();
+    while let Some(at) = rest.find("m.insert(") {
+        rest = &rest[at + "m.insert(".len()..];
+        if let Some(literal) = rest.trim_start().strip_prefix('"')
+            && let Some(end) = literal.find('"')
+        {
+            names.push(&literal[..end]);
+        }
+    }
+    names
+}
+
+/// Every name the daemon answers routes to a handler, and the predicate the thin client
+/// calls (`is_daemon_hook`, `main.rs` fast-path) agrees — the membership test and the
+/// dispatch are one fact, not two lists.
 #[test]
-fn registry_names_match_dispatch_table() {
-    let table = build_dispatch_table();
+fn every_daemon_hook_name_routes_to_a_handler_through_the_predicate() {
     let names = all_daemon_hook_names();
-    for name in &names {
+    assert!(!names.is_empty(), "an empty registry would pass vacuously");
+    for name in names {
         assert!(
-            table.contains_key(name),
-            "Hook '{name}' is in all_daemon_hook_names() but missing from dispatch table"
+            is_daemon_hook(name),
+            "'{name}' is a daemon hook name but is_daemon_hook rejects it"
+        );
+        assert!(
+            dispatch_table().get(name).is_some(),
+            "'{name}' is a daemon hook name but has no handler in the dispatch table"
         );
     }
 }
 
-/// T3.10: Reverse check — every dispatch entry must be in the cfg-aware list.
+/// The names ARE the table's keys — sorted (so the order is deterministic) and unique —
+/// and the shared per-process cell holds exactly what `build_dispatch_table` declares.
 #[test]
-fn dispatch_table_entries_are_in_registry() {
-    let table = build_dispatch_table();
+fn names_are_exactly_the_dispatch_table_keys() {
     let names = all_daemon_hook_names();
-    for key in table.keys() {
-        assert!(
-            names.contains(key),
-            "Hook '{key}' is in dispatch table but missing from all_daemon_hook_names()"
-        );
-    }
+    assert!(
+        names.windows(2).all(|w| w[0] < w[1]),
+        "all_daemon_hook_names must be strictly sorted (sorted + unique)"
+    );
+    let fresh: std::collections::BTreeSet<&str> = build_dispatch_table().keys().copied().collect();
+    let listed: std::collections::BTreeSet<&str> = names.iter().copied().collect();
+    assert_eq!(
+        listed, fresh,
+        "all_daemon_hook_names must list exactly the keys build_dispatch_table declares"
+    );
+    assert_eq!(dispatch_table().len(), names.len());
 }
 
+/// A name inserted twice is silent in a `HashMap` — the later handler overwrites the earlier
+/// and the table just has one key — so the names derived from it cannot show it. This reads
+/// the declarations instead, and checks the scan sees every key the table has (a scan that
+/// found nothing would pass the duplicate check vacuously).
 #[test]
-fn no_duplicate_hook_names() {
+fn hook_names_are_declared_once() {
+    let declared = declared_hook_names();
     let mut seen = std::collections::HashSet::new();
-    let names = all_daemon_hook_names();
-    for name in &names {
+    for name in &declared {
         assert!(
-            seen.insert(name),
-            "Duplicate hook name in registry: '{name}'"
+            seen.insert(*name),
+            "hook '{name}' is inserted into the dispatch table twice — the later handler \
+             would silently replace the earlier one"
         );
     }
+    for name in all_daemon_hook_names() {
+        assert!(
+            seen.contains(name),
+            "the declaration scan missed '{name}' — update `declared_hook_names`"
+        );
+    }
+}
+
+/// Six hooks the dispatch table served that the old hand-written list never named (plus the
+/// two `acp-protocol` ones under that feature), so `touring-hook` never routed them to the
+/// daemon and no test saw it. They are members now, by construction.
+#[test]
+fn hooks_the_hand_written_list_dropped_are_members() {
+    for name in [
+        "cli-ast-callgraph",
+        "cli-decompose-archive",
+        "cli-decompose-reconcile-stages",
+        "cli-mcp-overhead",
+        "cli-ssr-apply",
+        "cli-ssr-status",
+    ] {
+        assert!(
+            is_daemon_hook(name),
+            "'{name}' must take the daemon fast-path"
+        );
+    }
+    for name in ["cli-acp-discover", "cli-acp-message"] {
+        // Feature-aware, as the table is: the verdict follows the `acp-protocol` gate.
+        assert_eq!(
+            is_daemon_hook(name),
+            cfg!(feature = "acp-protocol"),
+            "'{name}' membership must follow the acp-protocol feature"
+        );
+    }
+}
+
+/// Subcommands the standalone path answers on its own are not daemon hooks, and neither is a
+/// name nobody registered — membership is not "anything non-empty".
+#[test]
+fn stateless_subcommands_are_not_daemon_hooks() {
+    for name in [
+        "prompt-enhance",
+        "qa-syntax",
+        "classify",
+        "pii-scan",
+        "no-such-hook",
+        "",
+    ] {
+        assert!(!is_daemon_hook(name), "'{name}' must not be a daemon hook");
+    }
+}
+
+/// The table holds hook events AND the CLI's query handlers (`cli-…`); `is_rpc_endpoint` is
+/// the line between them. The namespace is the rule, `cli-suggest` its only hook, and a stale
+/// exception (an entry that is no table key, or not in the namespace) must fail here rather
+/// than silently turn a hook into an "endpoint" — or the reverse.
+#[test]
+fn rpc_endpoints_are_the_cli_namespace_minus_its_hooks() {
+    let names = all_daemon_hook_names();
+    let rpc: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|n| is_rpc_endpoint(n))
+        .collect();
+    assert!(
+        !rpc.is_empty() && rpc.contains(&"cli-doctor"),
+        "the CLI query handlers are RPC endpoints (an empty set would pass vacuously)"
+    );
+    for name in HOOKS_IN_RPC_NAMESPACE {
+        assert!(
+            name.starts_with(RPC_NAMESPACE_PREFIX),
+            "'{name}' is listed as an exception to the prefix rule but is outside the prefix"
+        );
+        assert!(
+            is_daemon_hook(name),
+            "'{name}' is listed as a hook in the cli- namespace but is no table key"
+        );
+        assert!(!is_rpc_endpoint(name), "'{name}' is a hook, not an endpoint");
+    }
+    for name in names.iter().filter(|n| !n.starts_with(RPC_NAMESPACE_PREFIX)) {
+        assert!(
+            !is_rpc_endpoint(name),
+            "'{name}' is outside the cli- namespace and cannot be an RPC endpoint"
+        );
+    }
+    for name in ["pre-bash", "session-start", "user_prompt_submit", "no-such-hook", ""] {
+        assert!(!is_rpc_endpoint(name), "'{name}' is no RPC endpoint");
+    }
+}
+
+/// Answering membership builds the table in the short-lived `touring-hook` process, so the
+/// cost is measured, not assumed: the median of 101 builds, in the (pessimistic) debug test
+/// profile, stays under 1 ms — the line above which a compile-time name list would be
+/// needed instead. Prints the figures (`--nocapture`): the first membership query in this
+/// process (cold only when this test runs alone) and the median build, in microseconds.
+#[test]
+fn building_the_table_to_answer_membership_is_cheap() {
+    let first = std::time::Instant::now();
+    std::hint::black_box(is_daemon_hook("pre-bash"));
+    let first_us = first.elapsed().as_secs_f64() * 1e6;
+
+    let mut samples: Vec<f64> = (0..101)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            let table = build_dispatch_table();
+            let us = t.elapsed().as_secs_f64() * 1e6;
+            std::hint::black_box(&table);
+            us
+        })
+        .collect();
+    samples.sort_by(f64::total_cmp);
+    let median_us = samples[samples.len() / 2];
+    eprintln!(
+        "[hook_registry] first membership query {first_us:.1} us; build_dispatch_table \
+         median {median_us:.1} us (min {:.1}, max {:.1}, n=101, debug profile)",
+        samples[0],
+        samples[samples.len() - 1]
+    );
+    assert!(
+        median_us < 1000.0,
+        "building the dispatch table costs {median_us:.1} us (median) — over the 1 ms budget \
+         for the thin client; derive a compile-time name list instead"
+    );
 }
 
 #[test]
@@ -77,9 +254,9 @@ fn registry_has_expected_count() {
     // + 2 Wave 8 collateral fix (cli-tasksfile-validate/export) = 174
     // + 2 Wave 9 collateral fix (cli-devrcfile-import/export) = 176
     // D.2: resolve-def + find-references + rename
-    // NOTE: constant (182) and function (184) diverge on feature-gated entries
-    // and 'stop' which is in constant but not in function.
-    // test_hook_registry_no_duplicates validates no duplicates.
+    // NOTE (01/11/2026): the hand-written ALL_DAEMON_HOOK_NAMES constant is gone — the names
+    // are the dispatch table's keys, so the count below is the table's size.
+    // `hook_names_are_declared_once` validates no duplicates.
     let names = all_daemon_hook_names();
     // D43 (W2): +2 pre-hooks (pre-grep, pre-glob) for Grep/Glob enrichment
     // D27: +4 plugin DI CLI
@@ -156,32 +333,6 @@ fn registry_has_expected_count() {
     #[cfg(not(feature = "acp-protocol"))]
     const EXPECTED_NAMES: usize = 247;
     assert_eq!(names.len(), EXPECTED_NAMES);
-    // Backward-compat constant (204, feature-gated entries differ)
-    // 2026-05-07: +1 user_prompt_submit = 205
-    // 2026-05-10 (B3): +1 cli-index-ingest = 206
-    // 2026-05-10 (suggester): +1 cli-suggest = 207
-    // 2026-05-29 (elite-harness S-01): +1 ceg-observe + 1 pre-existing
-    //   tripwire-drift reconciliation = 209.
-    // 2026-05-29 (elite-harness S-04): +1 cli-memory-reindex = 210.
-    // 2026-05-30 (B-5): +1 cli-predict-action + 2 pre-existing tripwire-drift
-    //   reconciliation = 213.
-    // 2026-05-30 (A-A1): +1 cli-calibrate-confidence = 214.
-    // 2026-05-30 (Cold-start): +1 cli-rl-warmstart = 215.
-    // 2026-05-30 (ES4 P1): +1 cli-world-model-status = 216.
-    // 2026-05-30 (ES2 P2): +1 cli-attest-contract = 217.
-    // 2026-06-01 (ES1 P4): +1 cli-prove-claim = 218.
-    // 2026-08-04: +1 cli-memory-credit = 219.
-    // 2026-08-12 (hashtag library F1-F6): +10 memory facet commands = 229.
-    // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest = 230.
-    // 2026-08-18 (C2+C3): +4 cli-decompose-{claim,release,ticket,frontier} = 234.
-    // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run = 235.
-    // 2026-08-29 (R1): +1 cli-gotcha-resolve = 236.
-    // 2026-08-29 (R4): +2 cli-experiment-{record,list} = 238.
-    // 2026-08-29 (P2 replay): +1 cli-learning-replay = 239.
-    // 2026-09-13 (I13): +1 cli-index-why = 240.
-    // 2026-09-20: +1 cli-decompose-reconcile-stages = 241 (o e7f47c1d não
-    //   bumpou NENHUMA das 4 cópias do tripwire; corrigido 25/09, REGRA #21).
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 241);
 }
 
 /// The tripwire literal is duplicated across four files; this asserts they agree.
@@ -316,12 +467,13 @@ fn sprint_4_6_no_dispatch_entry_may_call_an_emitting_run() {
         "stop",
     ];
 
-    let full_src = include_str!("hook_registry.rs");
     // Restrict the scan to production code only — exclude the `mod tests`
     // block which contains string literals citing the anti-pattern as
     // part of its own failure messages (those would be self-matches).
-    let prod_end = full_src.find("#[cfg(test)]").unwrap_or(full_src.len());
-    let src = &full_src[..prod_end];
+    // `registry_production_source` cuts at the LAST `#[cfg(test)]`: this scan used to cut at
+    // the FIRST, which sits inside the `task-completed` handler (a `#[cfg(test)]` statement) —
+    // so it read under half of the file and never saw the entries declared after it.
+    let src = registry_production_source();
     let mut violations: Vec<String> = Vec::new();
 
     for module in DANGEROUS_MODULES {
@@ -420,9 +572,11 @@ fn guard_set_matches_the_handlers_that_can_deny() {
 /// advisories — the rest of the registry — are not guards.
 #[test]
 fn guards_are_registered_hooks_and_advisories_are_not_guards() {
-    let names = all_daemon_hook_names();
     for g in GUARD_HOOK_NAMES {
-        assert!(names.contains(g), "guard '{g}' is not a registered hook");
+        assert!(
+            is_daemon_hook(g),
+            "guard '{g}' is not a registered daemon hook"
+        );
         assert!(is_guard_hook(g));
     }
     for advisory in [
@@ -442,4 +596,69 @@ fn guards_are_registered_hooks_and_advisories_are_not_guards() {
             "'{advisory}' must stay an advisory"
         );
     }
+}
+
+// ── #4 (04/11/2026): every hook answers JSON or nothing ───────────────────────────
+//
+// Claude Code applies a hook's stdout fields only when it is a JSON object that passes the
+// schema; plain text at exit 0 is "success" and changes nothing (code.claude.com/docs/en/hooks,
+// "Exit code output"). Both routes of touring-hook turn prose into the canonical `{}`, so a
+// handler that answers prose has its message thrown away on every route. The aprofundamento
+// (#4 phase 2) measured 11 such handlers; this sweep is the guard that keeps the set empty.
+
+/// A payload with the fields the hook handlers read, so each one reaches its answer path.
+fn sweep_payload(root: &std::path::Path) -> serde_json::Value {
+    let file = root.join("src/lib.rs");
+    serde_json::json!({
+        "session_id": "contract-sweep",
+        "transcript_path": root.join("transcript.jsonl"),
+        "cwd": root,
+        "new_cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls", "file_path": file, "pattern": "fn", "path": root},
+        "tool_response": {"stdout": "", "stderr": "", "exit_code": 0, "success": true},
+        "prompt": "explain the module",
+        "message": "note",
+        "file_path": file,
+        "task_id": "T-sweep",
+        "subject": "sweep",
+        "trigger": "manual",
+        "source": "startup"
+    })
+}
+
+#[test]
+fn every_hook_handler_answers_a_json_object_or_nothing() {
+    let mut prose: Vec<String> = Vec::new();
+    let mut swept = 0usize;
+    for name in all_daemon_hook_names() {
+        if is_rpc_endpoint(name) {
+            continue;
+        }
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join("src")).expect("src dir");
+        std::fs::write(tmp.path().join("src/lib.rs"), "pub fn f() {}\n").expect("lib.rs");
+        let mut rt = crate::runtime::HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        let out = dispatch_table()[name](&mut rt, &sweep_payload(tmp.path()));
+        swept += 1;
+        let text = out.trim();
+        if text.is_empty() {
+            continue;
+        }
+        if !matches!(
+            serde_json::from_str::<serde_json::Value>(text),
+            Ok(serde_json::Value::Object(_))
+        ) {
+            prose.push(format!("{name}: {}", truncate_str(text, 120)));
+        }
+    }
+    assert!(swept > 20, "the sweep reached only {swept} hooks — vacuous");
+    assert!(
+        prose.is_empty(),
+        "{} hook handler(s) answer text that is not a JSON object; both routes turn it into \
+         `{{}}` and the message is lost. Wrap it (HookResponse::context(..).to_json()):\n{}",
+        prose.len(),
+        prose.join("\n")
+    );
 }

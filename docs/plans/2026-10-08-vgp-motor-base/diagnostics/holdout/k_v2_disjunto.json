@@ -40,7 +40,7 @@
   {
    "id": "7a4ad8f765aa",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/baixar_2010_2012.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/baixar_2010_2012.py",
    "achados": [
     {
      "classe": "import",
@@ -64,7 +64,7 @@
   {
    "id": "ddbb2cfb4afc",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_pctx.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_pctx.py",
    "achados": [
     {
      "classe": "nome",
@@ -95,7 +95,7 @@
   {
    "id": "74f04a24de12",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/retrieval_bench.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/retrieval_bench.py",
    "achados": [
     {
      "classe": "nome",
@@ -110,7 +110,7 @@
   {
    "id": "c35d78e3eb25",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s24_route_patch.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s24_route_patch.py",
    "achados": [
     {
      "classe": "nome",
@@ -125,7 +125,7 @@
   {
    "id": "bd4cfc7dd1e1",
    "balde": "arquivo",
-   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_prova_caminho.py",
+   "path": "/tmp/claude-1000/-home-<user>-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_prova_caminho.py",
    "achados": [
     {
      "classe": "atributo",

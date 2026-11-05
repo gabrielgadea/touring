@@ -1,4 +1,4 @@
-# 🔬 Exploração Profunda: `/home/gabrielgadea/.claude/rust` — Oportunidades, Aperfeiçoamentos & Insights Estratégicos
+# 🔬 Exploração Profunda: `~/.claude/rust` — Oportunidades, Aperfeiçoamentos & Insights Estratégicos
 
 **Modo:** Ultrathink + Sequential Thinking (Layer 3 scripts + touring CLI + cargo metadata + memory recall)
 **Data:** 21/06/2026 · Sessão L4 (Arquitetural)
@@ -138,16 +138,16 @@ O `/goal` de 2026-06-21 fechou **TODAS** as 231 `pub fn -> Result<_,String>` via
 
 #### **O2. Index Coverage: Cross-Workspace Strategy**
 
-**Problema:** Index coverage 8% (31.405/385.977 files) — o daemon indexa `/home/gabrielgadea` inteiro, mas só workspace Rust é "oficial". Arquivos fora (Python em `telegram-claude-bot`, `inter-agent-relay`, etc.) são indexados mas com baixa qualidade de metadata.
+**Problema:** Index coverage 8% (31.405/385.977 files) — o daemon indexa `~` inteiro, mas só workspace Rust é "oficial". Arquivos fora (Python em `telegram-claude-bot`, `inter-agent-relay`, etc.) são indexados mas com baixa qualidade de metadata.
 
 **Path:**
 ```bash
 # OPÇÃO A: Filtering
-touring index rebuild /home/gabrielgadea/.claude/rust --strict  # só workspace Rust
+touring index rebuild ~/.claude/rust --strict  # só workspace Rust
 
 # OPÇÃO B: Dual-target
-touring index rebuild /home/gabrielgadea/.claude/rust  # workspace full
-touring index rebuild /home/gabrielgadea/.claude       # Claude stack
+touring index rebuild ~/.claude/rust  # workspace full
+touring index rebuild ~/.claude       # Claude stack
 # (separar contexts para qualidade diferenciada)
 ```
 
@@ -497,7 +497,7 @@ touring-{server,server-reasoning,server-session,server-visual}@30.0.0
 
 **TOTAL: 610.090 LOC, 1.650 files, ~10.963 pub symbols (estimated)**
 
-### 5.4 Sessions Reports Recentes (em /home/gabrielgadea/.claude/rust/docs/)
+### 5.4 Sessions Reports Recentes (em ~/.claude/rust/docs/)
 
 | Data | Doc | Topico |
 |---|---|---|

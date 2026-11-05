@@ -46,7 +46,7 @@ FOLGA = 2_000  # alvo do gerador = LIMITE - FOLGA
 #: o mesmo padrao de scripts/test_drift_coverage.py.
 SKILLS_DIRS: tuple[Path, ...] = (
     Path.home() / ".claude/skills",
-    Path("/home/gabrielgadea/projects/analise/.claude/skills"),
+    Path.home() / "projects/analise/.claude/skills",
 )
 
 #: Prefixos isentos, com a razao — exigida pelo pedido da analise-6b.

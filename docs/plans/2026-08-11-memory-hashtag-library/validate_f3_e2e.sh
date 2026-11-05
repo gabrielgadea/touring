@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # F3 E2E gate — typed link graph + tag-filtered hybrid recall (live daemon).
 set -u
-cd /home/gabrielgadea/projects/touring
+cd ${HOME}/projects/touring
 TS=$(date +%s)
 KA="e2e:f3:map-pattern:$TS"
 KB="e2e:f3:diorama-impl:$TS"

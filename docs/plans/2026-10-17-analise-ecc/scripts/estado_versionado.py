@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 repo = Path(sys.argv[1])
+home = str(Path.home())  # derived at runtime: the repository is public
 ls = subprocess.run(["git", "-C", str(repo), "ls-files", "-z"], capture_output=True, text=True, check=True).stdout.split("\0")
 alvo = [f for f in ls if f and (re.search(r"\.(db|sqlite3?|rkyv|db-wal|db-shm)$", f) or "/.claude/touring/" in f or "/.claude/data/" in f)]
 print(f"arquivos de estado versionados: {len(alvo)}")
@@ -22,7 +23,7 @@ for f in alvo:
     if p.exists():
         bruto = p.read_bytes()
         achados = sorted({m.group(0)[:8].decode("latin-1") + "…" for m in segredo.finditer(bruto)})
-        linha += f" · padrões de segredo: {len(achados)} {achados[:3]} · /home/gabrielgadea: {bruto.count(b'/home/gabrielgadea')}"
+        linha += f" · padrões de segredo: {len(achados)} {achados[:3]} · {home}: {bruto.count(home.encode())}"
         if f.endswith(".db"):
             try:
                 con = sqlite3.connect(f"file:{p}?mode=ro&immutable=1", uri=True)

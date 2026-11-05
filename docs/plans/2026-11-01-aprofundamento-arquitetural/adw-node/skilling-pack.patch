@@ -1,0 +1,14 @@
+--- a/adw-library/fragments/skilling-pack.toml
++++ b/adw-library/fragments/skilling-pack.toml
+@@ -17,8 +17,9 @@
+ [node.should_skill]
+ type = "code"
+ # Exit 0 (the procedure recurred) → skill it. Non-zero → this was a one-off.
+-command = ["bash", "-c", "test \"${RECURRENCE:-0}\" -ge 2"]
+-env = { RECURRENCE = "{{inputs.recurrence}}" }
++# The count travels as argv[1] ("$1"), never inside the -c string: a rendered value
++# is never parsed by the shell, and a non-numeric one makes `test` fail closed.
++command = ["bash", "-c", "test \"$1\" -ge 2", "_", "{{inputs.recurrence}}"]
+ readonly = true
+ on_pass = "skilling"
+ on_fail = "__exit__"   # one-off: nothing to capture, hand control back

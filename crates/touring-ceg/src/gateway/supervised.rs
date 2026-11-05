@@ -30,6 +30,8 @@ use crate::gateway::sandbox_executor::{
 };
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+#[cfg(test)]
+use touring_foundation::run_outcome::ExitStatus;
 // NOT feature-gated: `SupervisedOutcome.lock_id` / `with_lock` exist in both
 // configurations (`mod txn` itself is never gated). The parent's default-on
 // forward masked this — building touring-ceg standalone (default = []) exposed
@@ -606,7 +608,7 @@ mod tests {
         let policy = SupervisionPolicy::confined(dir.path(), vec![]);
         let outcome = run_supervised_blocking("echo ceg-p42-hello", &policy, &cfg())
             .expect("a confined `echo` must run");
-        assert_eq!(outcome.result.exit_code, 0);
+        assert_eq!(outcome.result.exit_code, ExitStatus::Code(0));
         assert!(outcome.result.output_bytes > 0);
         assert_eq!(outcome.enforcement, EnforcementLevel::KernelEnforced);
     }
@@ -635,7 +637,11 @@ mod tests {
             SupervisionPolicy::confined(allowed.path(), vec![allowed.path().to_path_buf()]);
         let command = format!("echo granted > {}", target.display());
         let outcome = run_supervised_blocking(&command, &policy, &cfg()).expect("ran");
-        assert_eq!(outcome.result.exit_code, 0, "a granted write must succeed");
+        assert_eq!(
+            outcome.result.exit_code,
+            ExitStatus::Code(0),
+            "a granted write must succeed"
+        );
         assert!(
             target.exists(),
             "the file must have been created in the granted root"
@@ -660,7 +666,8 @@ mod tests {
             "landlock MUST block a write outside the granted roots"
         );
         assert_ne!(
-            outcome.result.exit_code, 0,
+            outcome.result.exit_code,
+            ExitStatus::Code(0),
             "the kernel-blocked write must fail the command"
         );
     }
@@ -679,7 +686,7 @@ mod tests {
             !target.exists(),
             "a read-only root must not be writable under landlock"
         );
-        assert_ne!(outcome.result.exit_code, 0);
+        assert_ne!(outcome.result.exit_code, ExitStatus::Code(0));
     }
 
     #[cfg(target_os = "linux")]
@@ -759,7 +766,8 @@ mod tests {
 
         // Keystone assertion: the kernel denied the bind.
         assert_ne!(
-            outcome.result.exit_code, 0,
+            outcome.result.exit_code,
+            ExitStatus::Code(0),
             "Sandboxed policy on Linux 6.7+ MUST kernel-deny TCP bind — \
              this is the elite-path regression detector"
         );
@@ -798,7 +806,8 @@ mod tests {
         let outcome = run_supervised_blocking(command, &policy, &cfg()).expect("ran (blocked)");
 
         assert_ne!(
-            outcome.result.exit_code, 0,
+            outcome.result.exit_code,
+            ExitStatus::Code(0),
             "Connect grant alone must not authorise TCP bind — \
              landlock V4 access types are independent"
         );
@@ -875,7 +884,7 @@ mod tests {
             "plain run_supervised leaves lock_id None"
         );
         assert!(outcome.audit.is_none());
-        assert_eq!(outcome.result.exit_code, 0);
+        assert_eq!(outcome.result.exit_code, ExitStatus::Code(0));
         // Ensure the decl alone is well-formed (consumed by the with_locks
         // test below).
         let _ = decl;

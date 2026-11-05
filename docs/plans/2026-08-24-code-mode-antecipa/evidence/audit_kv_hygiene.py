@@ -10,9 +10,14 @@ variáveis repetidos em toda chamada. Este script MEDE, por família de injeçã
 total de bytes, bytes variáveis (timestamps/sig=/cached/counters) e a posição
 do primeiro byte variável. Saída: só o agregado.
 """
+
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
 import json, re, sys, glob, os, collections
 
-base = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring")
+base = os.path.expanduser(f"~/.claude/projects/{_HOME_SLUG}-projects-touring")
 alvo = sys.argv[1] if len(sys.argv) > 1 else max(glob.glob(f"{base}/*.jsonl"), key=os.path.getmtime)
 
 VARIAVEIS = [

@@ -12,6 +12,11 @@ Nao grava corpus nenhum, nao toca `corpus_rust_natural/`, nao roda o motor nem o
 Uso (nativo, o sandbox nao le ~/.claude/projects): python3 -I -B medir_horust.py <sessoes_vgp.json> <saida_dir>
 """
 
+import os as _os
+import re as _re
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+_HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
+
 import collections
 import json
 import os
@@ -22,7 +27,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-B = Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
+B = Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base")
 sys.path.insert(0, str(B / "scripts"))
 import corpus_rust_natural as crn  # noqa: E402
 import corpus_v0d  # noqa: E402
@@ -172,7 +177,7 @@ def main() -> int:
     memo = memoizar_git()
     uni = crn.Universo(CORTE_C)
     for proj in crn.PROJETOS:
-        uni.varrer(proj, replay.PROJECTS / f"-home-gabrielgadea-projects-{proj}")
+        uni.varrer(proj, replay.PROJECTS / f"{_HOME_SLUG}-projects-{proj}")
     uni.fechar()
     cfg = crn.Config((), saida, (Path.home() / "projects",), corte=CORTE_C)
     ctx = crn.Ctx(cfg, uni, crn.Reconstrutor(uni.idx, uni.erros))

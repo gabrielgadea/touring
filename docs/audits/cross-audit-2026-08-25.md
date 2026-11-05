@@ -4,7 +4,7 @@ title: "Cross-audit — code mode opera de forma automática (sem prompt deliber
 description: "Auditoria cruzada de tudo que foi implementado no plano afordância code mode, com prova executada de que os gates disparam sobre trabalho normal"
 tags: [cross-audit, code-mode, afordancia, e2e-proof]
 timestamp: 2026-08-25T18:30:00-03:00
-scope: /home/gabrielgadea/projects/touring
+scope: ~/projects/touring
 auditor: TACO-cross-audit (7 fases)
 ---
 

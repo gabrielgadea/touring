@@ -22,136 +22,25 @@
 //! }
 //! ```
 //!
-//! Failure taxonomy follows the E/A/M directives (`rules/code-elaboration-directives.md`,
-//! A5). New kinds MUST be added to the parser or the aggregate will silently
-//! lump them under `Other`.
+//! The failure taxonomy (E/A/M directive A5), the exit-status type, the journal
+//! path, the line parsers and the writer live in
+//! `touring_foundation::run_outcome`; this module is the AGGREGATE over the
+//! entries its strict reader returns. `failure_counts` is keyed by the label AS
+//! WRITTEN (the KPI ruler, by contrast, buckets by the canonical class).
 
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use thiserror::Error;
 
-/// Canonical failure kinds from the code-mode E/A/M error taxonomy.
-///
-/// `Other` is a catch-all so a parser running on a journal emitted by a future
-/// Touring version never panics. The strategy-doc's `when_not_to_use` field
-/// also lands here when the analyst flags a kind as out-of-scope.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum FailureKind {
-    /// Unhandled runtime exception in the sandboxed program.
-    Exception,
-    /// Wall-clock timeout (program exceeded `--timeout).
-    Timeout,
-    /// User-initiated abort (SIGINT, `KeyboardInterrupt`).
-    Abort,
-    /// Non-zero subprocess exit (shell wrapper, Python script, etc).
-    ProcExit,
-    /// Program ran but produced malformed/non-JSON output.
-    InvalidOutput,
-    /// Program output exceeded `--output-limit`.
-    OutputLimit,
-    /// Unknown kind — catch-all so future taxonomy additions never panic the parser.
-    Other,
-}
+use touring_foundation::run_outcome::scan_entries;
 
-impl FailureKind {
-    /// Parse from the journal's `failure_kind` string field.
-    ///
-    /// `None` is the success case — `failure_kind` is `null` in the journal.
-    pub fn from_str_opt(s: Option<&str>) -> Self {
-        match s {
-            Some("exception") => Self::Exception,
-            Some("timeout") => Self::Timeout,
-            Some("abort") => Self::Abort,
-            Some("proc-exit") => Self::ProcExit,
-            Some("invalid-output") => Self::InvalidOutput,
-            Some("output-limit") => Self::OutputLimit,
-            Some(other) => {
-                tracing::debug!(kind = %other, "unknown failure_kind, classified as Other");
-                Self::Other
-            }
-            None => Self::Exception, // unreachable: gated by Option
-        }
-    }
-
-    /// O nome canônico da classe — o mesmo que o journal grava.
-    ///
-    /// Cross-audit 04/09/2026: `by_failure_kind` no KPI era um histograma da string
-    /// CRUA do journal, então uma classe desconhecida (ou grafada errado) virava um
-    /// balde próprio em vez de cair em `Other`, e a taxonomia declarada na diretriz
-    /// A5 não valia na ponta que lê. Com `from_str_opt` + `as_str` o KPI passa a
-    /// contar as 7 classes que existem, e só elas.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Exception => "exception",
-            Self::Timeout => "timeout",
-            Self::Abort => "abort",
-            Self::ProcExit => "proc-exit",
-            Self::InvalidOutput => "invalid-output",
-            Self::OutputLimit => "output-limit",
-            Self::Other => "other",
-        }
-    }
-}
-
-/// N6 (2026-09-23): the ladder's top similar block for the run's program,
-/// journaled at execution time (was display-only and never measured).
-#[derive(Debug, Clone, Deserialize)]
-pub struct JournalHint {
-    /// The ladder key of the top similar snippet.
-    pub key: String,
-    /// Jaccard similarity of the match, in `[0.0, 1.0]`.
-    pub sim: f64,
-}
-
-/// One journal entry. Field order matches the on-disk JSON.
-#[derive(Debug, Clone, Deserialize)]
-pub struct JournalEntry {
-    /// Unix timestamp (seconds) of the run.
-    pub ts: u64,
-    /// Program language (`bash` | `python` | `js` | `shell` | `rust`).
-    pub language: String,
-    /// Process exit code; `-2` is reserved for timeouts.
-    pub exit_code: i32,
-    /// `None` on success; otherwise the `FailureKind` string label.
-    #[serde(default)]
-    pub failure_kind: Option<String>,
-    /// Wall-clock duration in milliseconds.
-    pub duration_ms: u32,
-    /// Output payload size in bytes (post-elision).
-    #[serde(default)]
-    pub code_hash_stdout_bytes: u64,
-    /// Bytes omitted from the journal by the elision step (token-budget).
-    #[serde(default)]
-    pub bytes_elided: u64,
-    /// B2 (2026-09-02): where the body came from — `file` | `inline` | `stdin`.
-    /// `None` on v1 lines (written before the field existed).
-    #[serde(default)]
-    pub source: Option<String>,
-    /// B2: the script path when `source == "file"`.
-    #[serde(default)]
-    pub file: Option<String>,
-    /// B2: the `--harvest <slug>` this run enrolled, if any.
-    #[serde(default)]
-    pub harvest: Option<String>,
-    /// B2: `--brief` was requested.
-    #[serde(default)]
-    pub brief: bool,
-    /// B2: `--orchestrate` SDK was injected.
-    #[serde(default)]
-    pub orchestrate: bool,
-    /// B2: bytes the run left in its private temp dir (B1), measured before
-    /// removal.
-    #[serde(default)]
-    pub tmp_bytes: u64,
-    /// N6: the ladder's top similar block at run time, when one existed.
-    #[serde(default)]
-    pub hint: Option<JournalHint>,
-}
+/// The strictly-typed journal entry and its ladder hint (defined with the line
+/// parser in `touring_foundation::run_outcome`).
+pub use touring_foundation::run_outcome::{JournalEntry, JournalHint};
 
 /// Prefix of the Claude Code per-session scratchpad — a script that lives
 /// there is one-off by construction (tmpfs, per session).
@@ -264,37 +153,9 @@ pub fn read_journal_iter<I>(iter: I) -> Result<JournalAggregate, JournalError>
 where
     I: IntoIterator<Item = (usize, std::io::Result<String>)>,
 {
-    let mut all_entries: Vec<JournalEntry> = Vec::new();
-    let mut first_err: Option<(usize, serde_json::Error)> = None;
-    let mut malformed_lines = 0u64;
-    let mut malformed_first_line: Option<u64> = None;
-
-    for (line_no, line_res) in iter {
-        let line = match line_res {
-            Ok(l) => l,
-            Err(e) => return Err(JournalError::Io(e)),
-        };
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        match serde_json::from_str::<JournalEntry>(trimmed) {
-            Ok(entry) => all_entries.push(entry),
-            Err(e) => {
-                malformed_lines += 1;
-                if malformed_first_line.is_none() {
-                    malformed_first_line = Some(line_no as u64);
-                }
-                if first_err.is_none() {
-                    first_err = Some((line_no, e));
-                }
-                // skip the line; first_err surfaces if nothing was readable.
-            }
-        }
-    }
-
-    if all_entries.is_empty()
-        && let Some((line_no, e)) = first_err
+    let scan = scan_entries(iter)?;
+    if scan.entries.is_empty()
+        && let Some((line_no, e)) = scan.first_error
     {
         return Err(JournalError::Malformed {
             line: line_no,
@@ -303,9 +164,9 @@ where
     }
     // All lines empty / no parseable entries fall through to the empty aggregate.
 
-    let mut agg = aggregate(&all_entries);
-    agg.malformed_lines = malformed_lines;
-    agg.malformed_first_line = malformed_first_line;
+    let mut agg = aggregate(&scan.entries);
+    agg.malformed_lines = scan.malformed_lines;
+    agg.malformed_first_line = scan.malformed_first_line;
     Ok(agg)
 }
 
@@ -361,7 +222,7 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
         let count = durs.len() as u64;
         let failure_count = entries
             .iter()
-            .filter(|e| e.language == lang && e.failure_kind.is_some())
+            .filter(|e| e.language == lang && e.outcome().has_failure())
             .count() as u64;
         let (p50, p99) = percentiles(&mut { durs });
         lang_stats.insert(
@@ -464,17 +325,6 @@ mod v2_tests {
     }
 }
 
-/// The canonical journal path under the active user's `$HOME`.
-///
-/// Pure function of `home_dir` — no env-reading side effect, so tests can
-/// pass a `tempfile` cleanly.
-pub fn default_journal_path(home_dir: &Path) -> std::path::PathBuf {
-    home_dir
-        .join(".claude")
-        .join("touring")
-        .join("run_journal.jsonl")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -518,22 +368,6 @@ mod tests {
         assert_eq!(agg.total_entries, 3);
         assert_eq!(agg.by_language["bash"].count, 2);
         assert_eq!(agg.by_language["python"].count, 1);
-    }
-
-    #[test]
-    fn failure_kind_taxonomy() {
-        assert_eq!(
-            FailureKind::from_str_opt(Some("exception")),
-            FailureKind::Exception
-        );
-        assert_eq!(
-            FailureKind::from_str_opt(Some("timeout")),
-            FailureKind::Timeout
-        );
-        assert_eq!(
-            FailureKind::from_str_opt(Some("unknown-kind")),
-            FailureKind::Other
-        );
     }
 
     #[test]
@@ -587,19 +421,72 @@ TAMBEM NAO JSON"#;
         assert_eq!(agg.total_bytes_elided, 768);
     }
 
+    /// The aggregate over a sanitized sample of the REAL journal (and the
+    /// oddities the real file carries) is exactly what the reader produced
+    /// BEFORE the line parser moved to `touring_foundation::run_outcome` — the
+    /// golden was computed by the old code, on this very file.
     #[test]
-    fn default_path_is_canonical() {
-        let home = std::path::Path::new("/home/test");
-        let p = default_journal_path(home);
-        assert_eq!(
-            p.to_str().expect("hardcoded test path must be valid UTF-8"),
-            "/home/test/.claude/touring/run_journal.jsonl"
+    fn the_real_journal_sample_aggregates_exactly_as_the_old_reader_did() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../touring-foundation/tests/fixtures/run_journal_sample.jsonl");
+        let agg = read_journal(&path).expect("the fixture reads");
+        let golden: serde_json::Value = serde_json::from_str(include_str!(
+            "../../touring-foundation/tests/fixtures/run_journal_sample.golden.aggregate.json"
+        ))
+        .expect("golden parses");
+        assert_eq!(serde_json::to_value(&agg).expect("serializes"), golden);
+    }
+
+    /// `failure_count` counts runs the executor CLASSIFIED, whatever their exit:
+    /// a clean exit with a failure class is a failure there (and a non-zero
+    /// exit with no class is not) — the `has_failure` meaning.
+    #[test]
+    fn failure_count_follows_the_failure_class_not_the_exit_code() {
+        let s = concat!(
+            r#"{"ts":1,"language":"bash","exit_code":0,"failure_kind":"output-limit","duration_ms":1}"#,
+            "\n",
+            r#"{"ts":2,"language":"bash","exit_code":1,"duration_ms":1}"#,
+            "\n",
+            r#"{"ts":3,"language":"bash","exit_code":-2,"failure_kind":"timeout","duration_ms":1}"#,
+            "\n",
+            r#"{"ts":4,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":1}"#,
         );
+        let agg = read_journal_iter(lines_iter(s)).expect("parses");
+        assert_eq!(agg.by_language["bash"].count, 4);
+        assert_eq!(agg.by_language["bash"].failure_count, 2);
+        assert_eq!(agg.failure_counts["output-limit"], 1);
+        assert_eq!(agg.failure_counts["timeout"], 1);
     }
 
     #[test]
     fn read_journal_missing_file_is_error() {
         let res = read_journal(std::path::Path::new("/nonexistent/path/xyz.jsonl"));
         assert!(matches!(res, Err(JournalError::NotFound(_))));
+    }
+}
+
+/// Replay probe (2026-11-02) — the aggregate over a journal COPY.
+#[cfg(test)]
+mod replay_probe {
+    use super::*;
+
+    #[test]
+    #[ignore = "replay probe: needs TOURING_REPLAY_JOURNAL and TOURING_REPLAY_OUT"]
+    fn replay_aggregate_over_a_journal() {
+        let (Some(j), Some(out)) = (
+            std::env::var_os("TOURING_REPLAY_JOURNAL"),
+            std::env::var_os("TOURING_REPLAY_OUT"),
+        ) else {
+            return;
+        };
+        let v = match read_journal(Path::new(&j)) {
+            Ok(agg) => serde_json::to_value(&agg).expect("aggregate serializes"),
+            Err(e) => serde_json::json!({"error": e.to_string()}),
+        };
+        std::fs::write(
+            Path::new(&out).join("aggregate.json"),
+            serde_json::to_string_pretty(&v).expect("serialize"),
+        )
+        .expect("write");
     }
 }

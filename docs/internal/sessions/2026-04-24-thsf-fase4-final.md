@@ -201,7 +201,7 @@ chamador (`_invoke_wasm` em `holon.py` faz via `bytes(...).decode()`).
 ### Intocados (invariante)
 
 - `crates/` Touring workspace — **zero** rebuilds, **zero** mudanças em código Rust do workspace
-- `/home/gabrielgadea/projects/konverter/` — **zero** arquivos alterados
+- `~/projects/konverter/` — **zero** arquivos alterados
 - Nenhum holon existente (touring-master, analise, claude-trading, etc.) precisou mudar
 
 ---

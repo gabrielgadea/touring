@@ -26,7 +26,7 @@ from collections import Counter
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
-_ROOT = Path("/home/gabrielgadea/.claude/rust")
+_ROOT = Path(__file__).resolve().parents[1]
 _CRATES = _ROOT / "crates"
 
 # A "pub use" re-export.

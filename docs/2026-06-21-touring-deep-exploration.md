@@ -618,16 +618,16 @@ target → QualityReport { dimensions: BTreeMap<DimId, DimScore>, composite, tie
 
 #### **O2. Index Coverage Strategy**
 
-**Problema:** 8% coverage (31.405/385.977 files) — daemon indexa `/home/gabrielgadea` inteiro, mas só workspace Rust é "oficial". Files fora (Python telegram-claude-bot, inter-agent-relay) são indexados mas com metadata de baixa qualidade.
+**Problema:** 8% coverage (31.405/385.977 files) — daemon indexa `~` inteiro, mas só workspace Rust é "oficial". Files fora (Python telegram-claude-bot, inter-agent-relay) são indexados mas com metadata de baixa qualidade.
 
 **Path:**
 ```bash
 # OPÇÃO A: Strict mode
-touring index rebuild /home/gabrielgadea/.claude/rust --strict
+touring index rebuild ~/.claude/rust --strict
 
 # OPÇÃO B: Dual-target
-touring index rebuild /home/gabrielgadea/.claude/rust   # workspace
-touring index rebuild /home/gabrielgadea/.claude        # Claude stack (separar)
+touring index rebuild ~/.claude/rust   # workspace
+touring index rebuild ~/.claude        # Claude stack (separar)
 ```
 
 **Effort:** 0.5 dia. **Value:** 7/10. **Priority:** 🟢 P0.

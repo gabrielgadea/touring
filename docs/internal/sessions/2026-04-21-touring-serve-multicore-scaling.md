@@ -49,7 +49,7 @@ WARN touring_telemetry: eBPF init failed (eBPF not available: eBPF bytecode
   not loaded - provide compiled eBPF program bytes), falling back to polling
   collector
 WARN touring_server::server: SymbolRefresh: bootstrap non-zero exit: /usr/
-  bin/python3.12: can't open file '/home/gabrielgadea/.claude/rust/scripts/
+  bin/python3.12: can't open file '~/.claude/rust/scripts/
   touring_bootstrap_symbols.py': [Errno 2] No such file or directory
 ```
 
@@ -229,7 +229,7 @@ loop {
 `<project_root>/scripts/`, skip silencioso (debug-level) sem executar python3
 que falharia com ENOENT. O loop continua a cada 30 min verificando — se
 Gabriel criar o arquivo (ou symlinkar de
-`/home/gabrielgadea/projects/analise/scripts/`), o refresh volta a funcionar
+`~/projects/analise/scripts/`), o refresh volta a funcionar
 automaticamente.
 
 ---

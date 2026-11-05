@@ -45,7 +45,7 @@ use crate::cli::context_budget::{
     attributed_family, hook_injections, must_followed_by, must_request, transcript_dir_for,
 };
 use crate::cli::context_cost::{TOKENS_PER_BYTE, merge, round_to, scan_meta};
-use crate::cli::transcript_scan::{SHADOW_CAPS, ScanCaps, scan_dir, tool_calls};
+use crate::cli::transcript_scan::{AssistantTurn, Event, SHADOW_CAPS, ScanCaps, scan_dir};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -232,58 +232,27 @@ pub struct SessionFamilies {
     pub families: BTreeMap<String, FamilyFollow>,
 }
 
-/// `YYYY-MM-DD` when `ts` starts with one.
-fn date_prefix(ts: &str) -> Option<&str> {
-    let d = ts.get(..10)?;
-    let shaped = d.bytes().enumerate().all(|(i, b)| {
-        if i == 4 || i == 7 {
-            b == b'-'
-        } else {
-            b.is_ascii_digit()
-        }
-    });
-    shaped.then_some(d)
-}
-
 /// Walks one session's records, crediting every MUST to the family that emitted it.
 #[derive(Debug, Default)]
 pub struct FamilyTracker {
     families: BTreeMap<String, FamilyFollow>,
     /// The check the last non-denied MUST armed: `(target, family)`.
     pending: Option<(String, String)>,
-    date: Option<String>,
 }
 
 impl FamilyTracker {
-    /// Fold one transcript record in.
-    pub fn observe(&mut self, rec: &Value) {
-        if self.date.is_none()
-            && let Some(d) = rec
-                .get("timestamp")
-                .and_then(Value::as_str)
-                .and_then(date_prefix)
-        {
-            self.date = Some(d.to_string());
-        }
-        match rec.get("type").and_then(Value::as_str) {
-            Some("attachment") => self.observe_injections(rec),
-            Some("assistant") => self.observe_calls(rec),
+    /// Fold one event of the main thread in. A repeated `tool_use` block never reaches here: the
+    /// reader hands each call out once, so one call consumes one armed MUST.
+    pub fn observe(&mut self, event: &Event<'_>) {
+        match event {
+            Event::Attachment(att) => self.observe_injections(att),
+            Event::Assistant(turn) => self.observe_calls(turn),
             _ => {}
         }
     }
 
-    /// [`observe`](Self::observe) over raw JSONL lines; a line that is not JSON is skipped.
-    #[cfg(test)]
-    pub fn observe_lines<'a>(&mut self, lines: impl Iterator<Item = &'a str>) {
-        for line in lines {
-            if let Ok(rec) = serde_json::from_str::<Value>(line) {
-                self.observe(&rec);
-            }
-        }
-    }
-
-    fn observe_injections(&mut self, rec: &Value) {
-        for inj in hook_injections(rec) {
+    fn observe_injections(&mut self, att: &Value) {
+        for inj in hook_injections(att) {
             let family = attributed_family(&inj.text, inj.emitter.as_deref());
             let stats = self.families.entry(family.to_string()).or_default();
             stats.blocks += 1;
@@ -300,8 +269,8 @@ impl FamilyTracker {
         }
     }
 
-    fn observe_calls(&mut self, rec: &Value) {
-        for call in tool_calls(rec).filter(|c| c.name == "Bash") {
+    fn observe_calls(&mut self, turn: &AssistantTurn<'_>) {
+        for call in turn.tool_calls().filter(|c| c.name == "Bash") {
             let Some((target, family)) = self.pending.take() else {
                 continue;
             };
@@ -316,11 +285,12 @@ impl FamilyTracker {
         }
     }
 
-    /// The session's result.
+    /// The session's result; `started_on` is the day the reader dated the session
+    /// (`ReadStats::started_on`).
     #[must_use]
-    pub fn finish(self) -> SessionFamilies {
+    pub fn finish(self, started_on: Option<String>) -> SessionFamilies {
         SessionFamilies {
-            date: self.date,
+            date: started_on,
             families: self.families,
         }
     }
@@ -561,11 +531,11 @@ pub fn family_gate(project_root: &Path) -> Value {
 #[must_use]
 pub fn family_gate_in(home: &Path, project_root: &Path, caps: &ScanCaps) -> Value {
     let dir = transcript_dir_for(home, project_root);
-    let scan = match scan_dir::<FamilyTracker>(&dir, caps, &mut |t, rec| t.observe(rec)) {
+    let scan = match scan_dir::<FamilyTracker>(&dir, caps, &mut |t, event| t.observe(event)) {
         Ok(scan) => scan,
         Err(reason) => return json!({"available": false, "reason": reason}),
     };
-    let malformed: u64 = scan.sessions.iter().map(|s| s.malformed_lines).sum();
+    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
     let meta = scan_meta(
         scan.sessions.len(),
         scan.bytes_scanned,
@@ -576,7 +546,7 @@ pub fn family_gate_in(home: &Path, project_root: &Path, caps: &ScanCaps) -> Valu
     let sessions: Vec<SessionFamilies> = scan
         .sessions
         .into_iter()
-        .map(|s| s.state.finish())
+        .map(|s| s.state.finish(s.read.started_on))
         .collect();
     let mut out = family_gate_report(&sessions);
     merge(&mut out, meta);

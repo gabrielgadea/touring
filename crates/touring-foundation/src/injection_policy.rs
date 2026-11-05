@@ -753,7 +753,7 @@ mod tests {
 
     #[test]
     fn o_desconhecido_passa_em_no_advisory_e_sai_em_off() {
-        let unknown = "[gabrielgadea] payload sem nenhum marcador";
+        let unknown = "[owner] payload sem nenhum marcador";
         assert!(allows_payload(unknown, Some(InjectionLevel::NoAdvisory)));
         assert!(
             !allows_payload(unknown, Some(InjectionLevel::Off)),

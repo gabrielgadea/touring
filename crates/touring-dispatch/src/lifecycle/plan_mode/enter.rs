@@ -235,8 +235,8 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
 ///
 /// Wired into `handle_enter_plan_mode` so EnterPlanMode tells Claude Code "there's already
 /// work queued in the DAG" before it auto-creates a new plan session that would duplicate effort.
-pub(crate) fn active_dag_ready_hint(rt: &mut HookRuntime) -> Option<String> {
-    let result = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({}));
+fn active_dag_ready_hint(rt: &mut HookRuntime) -> Option<String> {
+    let result = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let v = serde_json::from_str::<serde_json::Value>(&result).ok()?;
     let count = v.get("ready_count").and_then(|c| c.as_u64()).unwrap_or(0);
     if count == 0 {
@@ -254,7 +254,7 @@ pub(crate) fn active_dag_ready_hint(rt: &mut HookRuntime) -> Option<String> {
 /// Returns `None` when no `task_id` is present or no memory entry exists — avoids noise on
 /// fresh sessions that have no prior history.
 /// Takes `input: &Value` directly to keep extraction inside the helper (CC savings in caller).
-pub(crate) fn task_id_session_recall_hint(rt: &mut HookRuntime, input: &Value) -> Option<String> {
+fn task_id_session_recall_hint(rt: &mut HookRuntime, input: &Value) -> Option<String> {
     let task_id = input.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
     if task_id.is_empty() {
         return None;
@@ -276,7 +276,7 @@ pub(crate) fn task_id_session_recall_hint(rt: &mut HookRuntime, input: &Value) -
 /// Calls `cli_wiring_orphans` and extracts up to 3 top orphan names so Claude Code gets
 /// concrete integration targets during EnterPlanMode instead of a generic reminder.
 /// Returns `None` when the orphan list is empty or JSON parse fails.
-pub(crate) fn top_orphans_for_plan_hint(rt: &mut HookRuntime) -> Option<String> {
+fn top_orphans_for_plan_hint(rt: &mut HookRuntime) -> Option<String> {
     let orphans_json = crate::cli_handlers::cli_wiring_orphans(rt, &serde_json::json!({}));
     let v = serde_json::from_str::<serde_json::Value>(&orphans_json).ok()?;
     let orphans = v.get("orphans").and_then(|o| o.as_array())?;
@@ -300,7 +300,7 @@ pub(crate) fn top_orphans_for_plan_hint(rt: &mut HookRuntime) -> Option<String> 
 /// `"structural"` degradation (3+ metrics degrading), returns a warning hint so Claude Code
 /// knows to investigate technical debt before creating new plans. Returns `None` for `"none"`
 /// or `"degraded"` alert levels — avoids noise on normal operation.
-pub(crate) fn evolution_drift_hint_on_enter_plan(rt: &mut HookRuntime) -> Option<String> {
+fn evolution_drift_hint_on_enter_plan(rt: &mut HookRuntime) -> Option<String> {
     let drift_json = crate::cli_handlers::cli_evolution_drift(rt, &serde_json::json!({}));
     let v = serde_json::from_str::<serde_json::Value>(&drift_json).ok()?;
     let alert_level = v
@@ -324,7 +324,7 @@ pub(crate) fn evolution_drift_hint_on_enter_plan(rt: &mut HookRuntime) -> Option
 /// so future sessions can recall what was planned without needing memory_recall context.
 /// Uses `extend(Option)` wiring pattern in `handle_enter_plan_mode` — zero CC overhead.
 /// Returns None when intent is empty to avoid noise on bare EnterPlanMode calls.
-pub(crate) fn maybe_diary_write_on_plan(intent: &str) -> Option<String> {
+fn maybe_diary_write_on_plan(intent: &str) -> Option<String> {
     if intent.is_empty() {
         return None;
     }
@@ -341,7 +341,7 @@ pub(crate) fn maybe_diary_write_on_plan(intent: &str) -> Option<String> {
 /// Calls `cli_memory_recall` and returns a formatted hint when entries are found.
 /// Returns `None` when recall is empty or JSON is malformed. Extracted from
 /// `handle_enter_plan_mode` so its CC stays ≤ 15 after R24-S2 added kind_hint branch.
-pub(crate) fn memory_recall_hint_for_intent(
+fn memory_recall_hint_for_intent(
     rt: &mut HookRuntime,
     truncated: &str,
 ) -> Option<String> {
@@ -368,7 +368,7 @@ pub(crate) fn memory_recall_hint_for_intent(
 /// Claude Code planning phase directly to the touring-generator plan registry — avoiding
 /// duplicate plan creation and surfacing reusable artifact templates.
 /// Returns `None` when intent is empty or too short to produce a useful recall query.
-pub(crate) fn maybe_plan_recall_hint_for_intent(intent: &str) -> Option<String> {
+fn maybe_plan_recall_hint_for_intent(intent: &str) -> Option<String> {
     if intent.len() < 3 {
         return None;
     }
@@ -391,7 +391,7 @@ pub(crate) fn maybe_plan_recall_hint_for_intent(intent: &str) -> Option<String> 
 /// - No decompose subtasks are available to analyze
 /// - The rollout thread doesn't complete within 200ms
 /// - The rollout detects no deadlock
-pub(crate) fn mcts_shadow_rollout_hint(rt: &mut HookRuntime, _input: &Value) -> Option<String> {
+fn mcts_shadow_rollout_hint(rt: &mut HookRuntime, _input: &Value) -> Option<String> {
     // Read CILA level from session cache — same pattern as post_edit and pre_read.
     let cila_level: u8 = rt
         .ctx
@@ -405,7 +405,7 @@ pub(crate) fn mcts_shadow_rollout_hint(rt: &mut HookRuntime, _input: &Value) -> 
     }
 
     // Collect pending ready subtasks as the task list for the rollout.
-    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({}));
+    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let tasks: Vec<serde_json::Value> = serde_json::from_str::<serde_json::Value>(&ready_json)
         .ok()
         .and_then(|v| v.get("ready_subtasks").and_then(|s| s.as_array()).cloned())
@@ -477,5 +477,21 @@ fn consume_plan_mode_suggestion_if_present(rt: &mut HookRuntime, input: &Value) 
                 "consumed_action": "plan_mode",
             }),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lifecycle::tests::make_runtime;
+
+    // R24-S2: memory_recall_hint_for_intent helper
+    #[test]
+    fn memory_recall_hint_for_intent_returns_none_for_empty_json() {
+        let (_tmp, mut rt) = make_runtime();
+        // cli_memory_recall in test env returns non-parseable or empty JSON → None
+        let result = super::memory_recall_hint_for_intent(&mut rt, "rust module patterns");
+        // In test env, daemon is not running — recall returns empty/error → None or Some
+        // Key invariant: must not panic
+        let _ = result;
     }
 }

@@ -11,12 +11,12 @@ NOVO=${2:?novo}
 CORPUS=${3:?corpus}
 BASE=${4:?base v2 json}
 OUT=${5:?out}
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
 JUIZ=$B/scripts/juiz_motor_vgp.py
 INST=$B/diagnostics/instrumentos-2026-10-09/rodar_juiz_instrumentado.py
 mkdir -p "$OUT"
 : > "$OUT/abba.rc"
-cd /home/gabrielgadea/projects/analise || exit 9
+cd ${HOME}/projects/analise || exit 9
 export TOURING_CODE_MODE=native
 n=0
 for lado in A B B A; do

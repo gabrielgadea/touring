@@ -2,7 +2,7 @@
 """test_triggering_audit.py — regression suite for triggering_audit.py.
 
 The auditor shipped without one and was caught lying twice (25/10/2026, measured
-on the 11 project skills of /home/gabrielgadea/projects/analise):
+on the 11 project skills of ~/projects/analise):
 
   * It only looked for skills under ``~/.claude/skills``. A PROJECT skill came back
     ``description_present=false`` with ``live/dead keywords = (none)`` — and the

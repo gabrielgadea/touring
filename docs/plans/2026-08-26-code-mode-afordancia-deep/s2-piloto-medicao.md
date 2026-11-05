@@ -19,7 +19,7 @@ plan_id: task_1787767900017576294
 ## Prova comportamental pós-deploy (regra 10 — nunca por rótulo)
 
 ```bash
-cd /home/gabrielgadea/projects/analise
+cd ~/projects/analise
 echo '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"grep foo src/"},"session_id":"s2-proof"}' \
   | ./.touring/bin/touring-hook cli-suggest     # → deny [CODE MODE] com a rota derivada
 ./.touring/bin/touring run --lang bash --code 'echo hi' \
@@ -35,5 +35,5 @@ TOURING_DAEMON_SOCKET=$PWD/.touring/daemon.sock touring gate-metrics -j \
   (elegível = antipattern + touring; meta: touring/(touring+antipattern) > 0.60);
 - **gate-fatigue < 5%**: `gate_fatigue.bypass_ratio` no snapshot do daemon do analise;
 - **injeção nativa followed → ~0** no corpus do analise:
-  `python3 scripts/n5_injection_kpi.py --dir ~/.claude/projects/-home-gabrielgadea-projects-analise/`
+  `python3 scripts/n5_injection_kpi.py --dir ~/.claude/projects/-home-<user>-projects-analise/`
   (rodar após N sessões de piloto e comparar com o baseline acima).

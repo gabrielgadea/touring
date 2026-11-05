@@ -1,7 +1,9 @@
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 from pathlib import Path
 
 p = Path(
-    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base"
+    f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base"
     "/scripts/oraculo_instancia_git.py"
 )
 t = p.read_text()

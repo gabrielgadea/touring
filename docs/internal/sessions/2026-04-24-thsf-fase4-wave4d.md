@@ -96,7 +96,7 @@ wasm_component = "../target/wasm32-wasip2/release/holon_quality_gate.wasm"
 ### 3.2 Validation E2E (3 capabilities)
 
 ```bash
-$ holon doctor /home/gabrielgadea/.claude/rust/holon-wasm-components
+$ holon doctor ~/.claude/rust/holon-wasm-components
 { "total_issues": 0, "errors": 0, "warnings": 0 }
 
 $ holon invoke --root .../holon-wasm-components holon-wasm-components spec-version '{}'
@@ -114,7 +114,7 @@ $ holon invoke ... holon-wasm-components quality-gate '{"source":"fn clean() -> 
 O novo holon é descoberto automaticamente em:
 
 ```bash
-holon symbiosis /home/gabrielgadea
+holon symbiosis ~
 ```
 
 sem erros. `konverter.requires.quality-gate` continua satisfeito (o
@@ -205,7 +205,7 @@ cross-language** (um .wasm binário roda em Go, Zig, JS, etc via
 | `CLAUDE.md` | EDIT | Fase 4 → 80% |
 
 **Alterações em `crates/` Touring workspace**: **zero**.
-**Alterações em `/home/gabrielgadea/projects/konverter/`**: **zero**.
+**Alterações em `~/projects/konverter/`**: **zero**.
 
 ---
 

@@ -12,7 +12,7 @@
 //!   structurally unskippable); X8 supervised execution
 //!   ([`gateway::supervised`]) and X9 LEARN ([`gateway::learn`]) close the
 //!   loop. The X9 LEARN stage is generic over the `CegRuntime` /
-//!   `LearnRuntime` IoC traits (`touring-contracts` + [`gateway::deps`]), so
+//!   `LearnRuntime` IoC traits ([`gateway::deps`]), so
 //!   this crate never names a host runtime type.
 //! - [`capability`] — `Capability` / `CapabilityProfile` + the four built-in
 //!   profiles (ReadOnly / StagedWrite / Trusted / Sandboxed), with landlock +

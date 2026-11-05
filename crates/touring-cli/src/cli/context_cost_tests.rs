@@ -2,7 +2,7 @@
 //! can redo by hand: `TOKENS_PER_BYTE` is 0.25, so a window byte count divides by 4 exactly.
 
 use super::*;
-use crate::cli::transcript_scan::fixtures::*;
+use crate::cli::transcript_scan::{fixtures::*, read_lines};
 use serde_json::json;
 
 const OPUS: &str = "claude-opus-5-5";
@@ -11,8 +11,8 @@ const CANARY: &str = "CANARIO-NAO-VAZAR";
 
 fn summary(lines: &[String]) -> CostSummary {
     let mut t = CostTracker::default();
-    t.observe_lines(lines.iter().map(String::as_str));
-    t.finish()
+    let read = read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
+    t.finish(read.sidechain_dropped)
 }
 
 fn payload(lines: &[String]) -> Value {

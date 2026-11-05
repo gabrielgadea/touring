@@ -127,7 +127,7 @@ test task_create_payload_returns_enriched_context ... FAILED
 test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.45s
 symlinks removidos
 rebuild release rc=0
-4501e1e56294a81a  /home/gabrielgadea/projects/touring/target/vgp-judge/release/touring
-4501e1e56294a81a  /home/gabrielgadea/.claude/touring/vgp/binarios/4501e1e5/touring
+4501e1e56294a81a  ~/projects/touring/target/vgp-judge/release/touring
+4501e1e56294a81a  ~/.claude/touring/vgp/binarios/4501e1e5/touring
 cmp rc=0
 FIM

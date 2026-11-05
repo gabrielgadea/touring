@@ -1,3 +1,5 @@
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import collections
 import json
 import pathlib
@@ -21,7 +23,7 @@ for x in d:
     arqs[z].add(x["arquivo"])
     cls[z][x["classe"]] += 1
 tot = collections.Counter()
-raiz = pathlib.Path("/home/gabrielgadea/projects/touring-wt-semeado")
+raiz = pathlib.Path(f"{_HOME}/projects/touring-wt-semeado")
 for p in (raiz / "crates").rglob("*.rs"):
     if any(c in p.parts for c in ("touring-code", "touring-identity", "touring-pyright")) and "target" not in p.parts:
         tot[zona(str(p.relative_to(raiz)))] += 1

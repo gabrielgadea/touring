@@ -1,0 +1,38 @@
+--- a/scripts/test_adw.py
++++ b/scripts/test_adw.py
+@@ -1231,7 +1231,7 @@
+ entry = "sign"
+ [node.sign]
+ type = "human"
+-prompt = "approve the brief?"
++message = "approve the brief?"
+ on_pass = "c1"
+ on_fail = "__fail__"
+ [node.c1]
+@@ -1276,7 +1276,7 @@
+ entry = "brief"
+ [node.brief]
+ type = "human"
+-prompt = "approve the brief?"
++message = "approve the brief?"
+ on_pass = "p1"
+ on_fail = "__fail__"
+ [[use]]
+@@ -1309,7 +1309,7 @@
+ entry = "brief"
+ [node.brief]
+ type = "human"
+-prompt = "approve?"
++message = "approve?"
+ on_pass = "a"
+ on_fail = "__fail__"
+ [[use]]
+@@ -4393,7 +4393,7 @@
+     write_spec(root, "w84", base % """
+ [node.aprova]
+ type = "human"
+-prompt = "pode escrever?"
++message = "pode escrever?"
+ on_pass = "__end__"
+ on_fail = "__fail__"
+ """)

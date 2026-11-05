@@ -1,6 +1,9 @@
 """Mutantes do DETERMINISMO (P0 + pedido 2 da coordenadora): aplica cada mutação, roda os testes vgp::, registra rc + testes que falharam,
 restaura o arquivo (cp do backup, nunca git). Uso: python3 mutantes.py <worktree> <saida.json> [M...]
 Cada mutante e (arquivo, antigo, novo[, antigo2, novo2...]) sobre o texto do arquivo."""
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import json
 import os
 import re
@@ -12,7 +15,7 @@ WT = sys.argv[1]
 SAIDA = sys.argv[2]
 SO = {a for a in sys.argv[3:] if not a.startswith('--')}
 V = f"{WT}/crates/touring-code/src/vgp"
-ENV = dict(os.environ, CARGO_TARGET_DIR="/home/gabrielgadea/projects/touring/target/vgp-test")
+ENV = dict(os.environ, CARGO_TARGET_DIR=f"{_HOME}/projects/touring/target/vgp-test")
 
 MUTANTES = {
     # sem ordenar: o `take(8)` volta a cortar o conjunto na ordem aleatoria da instancia

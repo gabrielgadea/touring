@@ -73,7 +73,7 @@
     "mb": 1.2,
     "files": 279,
     "class": "pytest_basetemp",
-    "name": "pytest-of-gabrielgadea",
+    "name": "pytest-of-<user>",
     "age_h": 0.2
    },
    {
@@ -121,12 +121,12 @@
     "mb": 0.0,
     "files": 0
    },
-   "-home-gabrielgadea-projects-analise": {
+   "-home-<user>-projects-analise": {
     "sessions": 2,
     "mb": 4.8,
     "files": 987
    },
-   "-home-gabrielgadea-projects-touring": {
+   "-home-<user>-projects-touring": {
     "sessions": 2,
     "mb": 20.1,
     "files": 134
@@ -562,6 +562,6 @@
   }
  },
  "F_cc_settings": {
-  "_err": "[Errno 13] Permission denied: '/home/gabrielgadea/.claude/settings.json'"
+  "_err": "[Errno 13] Permission denied: '~/.claude/settings.json'"
  }
 }

@@ -3,7 +3,7 @@
     "time": "1791484108783",
     "generalDiagnostics": [
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "\"nao_existe_aqui\" is unknown import symbol",
             "range": {
@@ -19,7 +19,7 @@
             "rule": "reportAttributeAccessIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "\"joinx\" is not a known attribute of module \"..path\"",
             "range": {
@@ -35,7 +35,7 @@
             "rule": "reportAttributeAccessIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "Cannot access attribute \"read_textx\" for class \"Path\"\n  Attribute \"read_textx\" is unknown",
             "range": {
@@ -51,7 +51,7 @@
             "rule": "reportAttributeAccessIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "Cannot access attribute \"campo_inventado\" for class \"No\"\n  Attribute \"campo_inventado\" is unknown",
             "range": {
@@ -67,7 +67,7 @@
             "rule": "reportAttributeAccessIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "Operator \"+=\" not supported for types \"Counter[Unknown] | defaultdict[Unknown, Counter[Unknown]] | int\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"Counter[Unknown]\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"defaultdict[Unknown, Counter[Unknown]]\" and \"Literal[1]\"",
             "range": {
@@ -83,7 +83,7 @@
             "rule": "reportOperatorIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "Cannot access attribute \"most_common\" for class \"defaultdict[Unknown, Counter[Unknown]]\"\n  Attribute \"most_common\" is unknown",
             "range": {
@@ -99,7 +99,7 @@
             "rule": "reportAttributeAccessIssue"
         },
         {
-            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "file": "/tmp/claude-1000/-home-<user>-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
             "severity": "error",
             "message": "Cannot access attribute \"most_common\" for class \"int\"\n  Attribute \"most_common\" is unknown",
             "range": {

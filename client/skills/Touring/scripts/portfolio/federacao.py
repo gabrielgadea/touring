@@ -23,6 +23,8 @@ simply not consulted); a present but unreadable or wrong-version index RAISES, s
 from __future__ import annotations
 
 import json
+import marshal
+import os
 import sys
 from pathlib import Path
 
@@ -51,8 +53,62 @@ def achar_indice(cwd: str | None) -> Path | None:
     return None
 
 
+#: Binary cache of the parsed index, next to it (``indice.marshal``). D09, 05/11/2026: parsing the 2,7 MB JSON
+#: and building 7 973 ``Registro`` cost 31 ms of every hook call (cProfile + perf_counter); marshal of the same
+#: rows, frozensets included, rebuilds them in 11 ms, identical (``==``).
+#: Trust: marshal, not pickle — ``loads`` rebuilds plain values and never calls code (no __reduce__, no imports),
+#: and the rows only feed a slots dataclass. The file lives in the project's git-ignored ``.claude/portfolio/``,
+#: the same boundary as ``indice.json``, which this module already trusts; a malformed file only falls back.
+_CACHE_FMT = 1
+
+
+def _cache_de(indice: Path) -> Path:
+    return indice.with_suffix(".marshal")
+
+
+def _do_cache(indice: Path, chave: tuple) -> list[Registro] | None:
+    """The cached rows when the header matches ``chave`` (format, mtime_ns, size, root); None otherwise."""
+    try:
+        cab, linhas = marshal.loads(_cache_de(indice).read_bytes())  # noqa: S302 — trust note above _CACHE_FMT
+    except (OSError, ValueError, EOFError, TypeError):
+        return None
+    if cab != chave:
+        return None
+    return [Registro(a, b, c, li, t) for a, b, c, li, t in linhas]
+
+
+def _gravar_cache(indice: Path, chave: tuple, regs: list[Registro]) -> None:
+    """Best effort, atomic (tmp + replace): a failed write only costs the next call the JSON path."""
+    linhas = [(r.caminho, r.rel, r.hash_pre, r.linhas_pre, r.termos_pre) for r in regs]
+    destino = _cache_de(indice)
+    tmp = destino.with_name(f"{destino.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_bytes(marshal.dumps((chave, linhas)))
+        os.replace(tmp, destino)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+
+
 def fonte_projeto(indice: Path) -> list[Registro]:
-    """The entries of one project index; raises ``IndiceInvalido`` instead of returning an empty list."""
+    """The entries of one project index; raises ``IndiceInvalido`` instead of returning an empty list.
+
+    Served from ``indice.marshal`` when its header matches the index's (mtime_ns, size) and root; any mismatch or
+    unreadable cache falls back to the JSON, which stays the only source of truth, and rewrites the cache."""
+    try:
+        st = indice.stat()
+    except OSError as exc:
+        raise IndiceInvalido(f"{indice}: ilegível ({type(exc).__name__})") from exc
+    chave = (_CACHE_FMT, st.st_mtime_ns, st.st_size, str(indice.parents[2]))
+    em_cache = _do_cache(indice, chave)
+    if em_cache is not None:
+        return em_cache
+    regs = _fonte_projeto_json(indice)
+    _gravar_cache(indice, chave, regs)
+    return regs
+
+
+def _fonte_projeto_json(indice: Path) -> list[Registro]:
+    """The JSON path (the truth): parse, validate version and shape, build one ``Registro`` per entry."""
     try:
         dados = json.loads(indice.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:

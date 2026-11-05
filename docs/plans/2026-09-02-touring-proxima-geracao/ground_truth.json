@@ -92,7 +92,7 @@
    {
     "name": "project_db",
     "status": "ok",
-    "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (382586880 bytes)"
+    "detail": "~/projects/touring/.claude/touring/symbols.db (382586880 bytes)"
    },
    {
     "name": "project_actor",
@@ -102,7 +102,7 @@
    {
     "name": "wiring_diagnostic",
     "status": "warning",
-    "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=204851 producers=24168 consumers=180683 pub=22486 kind_unknown=4 non_wireable=0 unread=0 abs_paths=0"
+    "detail": "root=~/projects/touring/ polyglot=off rows=204851 producers=24168 consumers=180683 pub=22486 kind_unknown=4 non_wireable=0 unread=0 abs_paths=0"
    }
   ]
  },
@@ -632,7 +632,7 @@
     "total_functions": 14589,
     "total_nodes": 1367
    },
-   "root": "/home/gabrielgadea/projects/touring",
+   "root": "~/projects/touring",
    "root_causes": {
     "acyclicity": 0.058823529411764705,
     "depth": 0.4,
@@ -816,7 +816,7 @@
  },
  "e2e": {
   "version": "30.4.30",
-  "target": "/home/gabrielgadea/projects/touring",
+  "target": "~/projects/touring",
   "depth": "standard",
   "timestamp": "1788342145",
   "overall_score": 0.8434082206264818,
@@ -1196,7 +1196,7 @@
    "score": 0.3840571618165605,
    "source": "ann",
    "stored_at": "2026-09-02 09:29:59",
-   "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-02-touring-proxima-geracao/diagnostics/touring-20260902T062959.md"
+   "value": "OKF: Diagnostic — ~/projects/touring — docs/plans/2026-09-02-touring-proxima-geracao/diagnostics/touring-20260902T062959.md"
   },
   {
    "key": "aprovacao:touring-proxima-geracao:strategy-l4:2026-09-02",
@@ -1217,7 +1217,7 @@
    "score": 0.3713769010012336,
    "source": "ann",
    "stored_at": "2026-09-01 19:36:34",
-   "value": "OKF: Recuperação e continuidade — sinais dos hooks do touring — /home/gabrielgadea/projects/touring/docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md"
+   "value": "OKF: Recuperação e continuidade — sinais dos hooks do touring — ~/projects/touring/docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md"
   }
  ],
  "gotcha_per_file": {},

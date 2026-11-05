@@ -89,15 +89,23 @@ pub fn run_session_start_returning(
     // Loads all *.yaml/*.yml rules under the gotchas/ directory into the knowledge DB
     // so that pre_read/pre_edit hooks can surface them as GOTCHA signals.
     {
-        use crate::gotcha_loader::sync_to_sqlite;
+        use crate::gotcha_loader::{default_gotcha_dir, sync_to_sqlite};
         // Productization Fase 0: follow the canonical workspace root
-        // (`TOURING_WORKSPACE_ROOT` override → historical global default).
-        let gotcha_root = std::env::var("TOURING_WORKSPACE_ROOT")
-            .map(|r| format!("{}/docs/gotchas", r.trim_end_matches('/')))
-            .unwrap_or_else(|_| "/home/gabrielgadea/projects/touring/docs/gotchas".to_string());
-        let gotcha_dir = std::path::Path::new(&gotcha_root);
-        if gotcha_dir.is_dir() {
-            let _ = sync_to_sqlite(runtime, gotcha_dir);
+        // (`TOURING_WORKSPACE_ROOT` override → `$HOME/projects/touring` if present).
+        // The session's own project is NEVER a source of rules: a cloned repo that
+        // ships `docs/gotchas/*.yaml` would otherwise reach the model's context.
+        match default_gotcha_dir() {
+            Some(gotcha_dir) if gotcha_dir.is_dir() => {
+                let _ = sync_to_sqlite(runtime, &gotcha_dir);
+            }
+            Some(gotcha_dir) => tracing::debug!(
+                dir = %gotcha_dir.display(),
+                "session_start: gotcha library not synced — directory does not exist"
+            ),
+            None => tracing::debug!(
+                "session_start: gotcha library not synced — TOURING_WORKSPACE_ROOT unset \
+                 and no $HOME/projects/touring/docs/gotchas"
+            ),
         }
     }
 
@@ -548,8 +556,11 @@ pub fn run_session_stop(
                 summary["quality_report"] = quality;
             }
         }
-        // Output summary to stdout (shown in transcript for Stop hooks)
-        println!("{}", serde_json::to_string(&summary).unwrap_or_default());
+        // The summary goes to stderr, the diagnostics channel (#4, 04/11/2026). On stdout its
+        // `event`/`session_id`/`stats` keys are outside Claude Code's output contract: a JSON
+        // object failing the schema is a non-blocking hook error on every Stop
+        // (code.claude.com/docs/en/hooks, "Exit code output") — it was never shown as intended.
+        eprintln!("{}", serde_json::to_string(&summary).unwrap_or_default());
     }
 
     // C1: Flush per-session OnceLock caches — prevents stale mtime/pipeline entries

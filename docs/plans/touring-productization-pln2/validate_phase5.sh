@@ -11,7 +11,7 @@
 set -uo pipefail
 
 PASS=0; FAIL=0
-WS=/home/gabrielgadea/projects/touring
+WS=${HOME}/projects/touring
 INSTALLER="$WS/scripts/packaging/install.touring.dev.sh"
 PACKAGER="$WS/scripts/packaging/package_release.sh"
 

@@ -10,8 +10,9 @@ O QUE ESTE TESTE IMPEDE
     predicado aplicado têm de derivar da MESMA fonte.
 
     O predicado aqui decide duas coisas caras:
-      * `context_budget.rs`  — o DENOMINADOR de `injected_bytes_per_turn`, a
-        métrica-manchete do plano;
+      * `transcript_scan.rs` — o leitor de transcript, que decide UMA vez o que é um
+        prompt humano (e, portanto, o DENOMINADOR de `injected_bytes_per_turn` de
+        `context_budget.rs`, a métrica-manchete do plano);
       * `loop_turn_record.py` — ONDE COMEÇA o registro do turno (classe B).
 
     Medido em 04/09/2026 sobre 5 transcripts: 35 de 172 records contados como
@@ -36,14 +37,15 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-RUST = REPO / "crates/touring-cli/src/cli/context_budget.rs"
+RUST = REPO / "crates/touring-cli/src/cli/transcript_scan.rs"
 PY_MIRROR = REPO / "client/skills/loop-engineering/scripts/hooks/loop_turn_record.py"
 
-# `pub` OPCIONAL: no executor a constante é privada (`const`, sem `pub`) — e o
-# guard exigia `pub`, então ele deixou de guardar, EM SILÊNCIO: a lista mudou e
-# ninguém foi avisado. O predicado é o mesmo; o que mudou foi a visibilidade.
+# Visibilidade OPCIONAL (`const`, `pub` ou `pub(crate)`): o guard exigia `pub` quando
+# a constante virou privada, e deixou de guardar, EM SILÊNCIO: a lista mudou e
+# ninguém foi avisado. O predicado é o mesmo; o que mudou foi a visibilidade (e,
+# em 01/11/2026, o arquivo: a constante mora no leitor, `pub(crate)`).
 _RUST_ARRAY = re.compile(
-    r"(?:pub\s+)?const NON_HUMAN_TURN_MARKERS:\s*\[&str;\s*\d+\]\s*=\s*\[(?P<body>.*?)\];",
+    r"(?:pub(?:\([a-z]+\))?\s+)?const NON_HUMAN_TURN_MARKERS:\s*\[&str;\s*\d+\]\s*=\s*\[(?P<body>.*?)\];",
     re.S,
 )
 
@@ -51,7 +53,7 @@ _RUST_ARRAY = re.compile(
 def rust_markers(source: str) -> list[str]:
     """Os marcadores como o EXECUTOR Rust os declara."""
     m = _RUST_ARRAY.search(source)
-    assert m, "NON_HUMAN_TURN_MARKERS não encontrado em context_budget.rs"
+    assert m, "NON_HUMAN_TURN_MARKERS não encontrado em transcript_scan.rs"
     # Literais Rust simples (sem raw strings nem escapes exóticos neste array).
     return re.findall(r'"((?:[^"\\]|\\.)*)"', m.group("body"))
 

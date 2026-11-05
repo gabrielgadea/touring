@@ -1,4 +1,4 @@
-[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m workspace : ~/projects/touring
 [1m[propagate][0m versão    : 30.4.95
 [33m[propagate] WARN[0m modo DRY-RUN — nada será aplicado
 
@@ -16,16 +16,16 @@
 [33m[propagate] WARN[0m dry-run: a checagem de rótulo não roda (build simulado)
 
 [1m── 3/6 FREEZE — snapshot imutável em ~/.touring/toolchains/30.4.95 ──[0m
-  [33m[dry-run][0m touring toolchain install --from-source /home/gabrielgadea/projects/touring 30.4.95 --force
+  [33m[dry-run][0m touring toolchain install --from-source ~/projects/touring 30.4.95 --force
 
 [1m── 4/6 DEFAULT — canal default → 30.4.95 ──[0m
   [33m[dry-run][0m touring toolchain default 30.4.95
 
 [1m── 5/6 PROPAGATE — canal 30.4.95 para cada projeto consumidor (fonte permanece em 'dev') ──[0m
-touring update: FAILED /home/gabrielgadea/projects/analise: toolchain 30.4.95 is not installed (expected /home/gabrielgadea/.touring/toolchains/30.4.95). Run `touring toolchain install` first.
+touring update: FAILED ~/projects/analise: toolchain 30.4.95 is not installed (expected ~/.touring/toolchains/30.4.95). Run `touring toolchain install` first.
 [2m2026-10-09T16:19:38.480888Z[0m [31mERROR[0m [2mtouring[0m[2m:[0m update failed: 1 project(s) failed to update — run `touring help` for details
 [33m[propagate] WARN[0m esperado em dry-run: toolchain 30.4.95 ainda não instalada (o passo 3/6 a criaria)
-touring update: FAILED /home/gabrielgadea/projects/konverter: toolchain 30.4.95 is not installed (expected /home/gabrielgadea/.touring/toolchains/30.4.95). Run `touring toolchain install` first.
+touring update: FAILED ~/projects/konverter: toolchain 30.4.95 is not installed (expected ~/.touring/toolchains/30.4.95). Run `touring toolchain install` first.
 [2m2026-10-09T16:19:38.497257Z[0m [31mERROR[0m [2mtouring[0m[2m:[0m update failed: 1 project(s) failed to update — run `touring help` for details
 [33m[propagate] WARN[0m esperado em dry-run: toolchain 30.4.95 ainda não instalada (o passo 3/6 a criaria)
 [1m[propagate][0m projetos alcançados: 2

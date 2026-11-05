@@ -187,7 +187,7 @@ touring gate-metrics -j | jq '.pre_grep_enrichment_count, .pre_grep_zero_results
 
 # E2E proof (PascalCase pattern → 20-location enrichment)
 echo '{"hook_event_name":"PreToolUse","tool_name":"Grep","tool_input":{"pattern":"HookRuntime","path":"crates"}}' \
-  | CLAUDE_PROJECT_DIR=/home/gabrielgadea/projects/touring touring-hook pre-grep
+  | CLAUDE_PROJECT_DIR=~/projects/touring touring-hook pre-grep
 
 # Disable enrichment (rollback path)
 TOURING_DISABLE_PREGREP=1 update-touring

@@ -1,5 +1,5 @@
 {
- "estado": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py",
+ "estado": "~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py",
  "sha_antes": "031a6fb8e59dc83d1ddc0bd2cff52310e6ec8364e2ab4e93f2bbd579a34bea11",
  "sha_depois": "031a6fb8e59dc83d1ddc0bd2cff52310e6ec8364e2ab4e93f2bbd579a34bea11",
  "controle_sem_mutacao": {

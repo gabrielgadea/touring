@@ -3,7 +3,7 @@ type: Strategy
 title: "Parallel Workers Configuration — Quais processos beneficiam?"
 description: "Análise ultra-think de quais processos do notebook podem ser configurados para rodar com parallel workers. 5 candidatos ranqueados por ROI. Achado crítico: paralelismo JÁ está implementado em quase tudo (rayon, tokio, tantivy, cargo, claude, chrome). O que falta é TUNING fino, não adicionar paralelismo."
 plan_id: "2026-09-01-parallel-workers-config"
-scope: "/home/gabrielgadea (Omarchy notebook)"
+scope: "~ (Omarchy notebook)"
 bundle: "docs/plans/2026-09-01-parallel-workers-config"
 okf_version: "0.1"
 timestamp: "2026-09-01T04:25:00-03:00"

@@ -42,7 +42,7 @@ test result: ok. 752 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fi
 test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
 build touring (debug) rc=0
 build touring-daemon (debug) rc=0
-symlinks: target/debug/touring->/home/gabrielgadea/projects/touring/target/wt-p0b/debug/touring target/debug/touring-daemon->/home/gabrielgadea/projects/touring/target/wt-p0b/debug/touring-daemon 
+symlinks: target/debug/touring->~/projects/touring/target/wt-p0b/debug/touring target/debug/touring-daemon->~/projects/touring/target/wt-p0b/debug/touring-daemon 
 test touring-server rc=0
 test result: ok. 1661 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.09s
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

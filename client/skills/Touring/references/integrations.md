@@ -349,7 +349,7 @@ touring index find "U4_DOT_SHADER" -j
 touring index find "LINUCB_UCB_SHADER" -j
 touring index find "MCTS_ROLLOUT_SHADER" -j
 
-cd /home/gabrielgadea/projects/touring
+cd ~/projects/touring
 RUSTFLAGS="--cfg tokio_unstable" cargo check --workspace
 ```
 

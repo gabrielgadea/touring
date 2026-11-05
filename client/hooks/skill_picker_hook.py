@@ -21,7 +21,13 @@ import sys
 import time
 from pathlib import Path
 
-PICKER = Path("/home/gabrielgadea/projects/touring/scripts/skill_picker.py")
+# The hook is installed as a symlink into this checkout (`~/.claude/hooks/` -> `client/hooks/`), so the
+# repository root is two levels above the resolved file; a copied install falls back to the default
+# checkout under the home directory. Never a developer's absolute path (the repository is public).
+_REPO = Path(__file__).resolve().parents[2]
+PICKER = _REPO / "scripts" / "skill_picker.py"
+if not PICKER.is_file():
+    PICKER = Path.home() / "projects" / "touring" / "scripts" / "skill_picker.py"
 SUGGESTION_FILE = Path("~/.claude/touring/skill_suggestion.json").expanduser()
 JOURNAL_FILE = Path("~/.claude/touring/logs/skill_suggestion_journal.jsonl").expanduser()
 PICKER_TIMEOUT_S = 60

@@ -27,6 +27,7 @@ use crate::tools::ctx_execute_tools::{CtxExecuteOutput, ctx_execute_impl};
 /// da string Python), o guard era um atributo mutável do cliente — um programa
 /// no sandbox reescrevia `touring.READONLY_HOOKS` e chamava o que quisesse.
 use touring_foundation::orchestrate_allowlist::READONLY_HOOKS;
+use touring_foundation::run_outcome::{ExitStatus, Journal, SimhashVersion};
 // 30.4.97 (G10ROTA, D8): the admission predicate is ONE definition, shared with the code-mode gates.
 use touring_ceg::gateway::run_admission::{
     admission_outcome, blocking_reason, only_subprocess_denials,
@@ -931,17 +932,16 @@ pub fn run(args: &[String]) -> Result<()> {
     // pre-execution (repeat_gate, ordem do Gabriel: semelhança + bloqueio na
     // 2ª inline) — um hint pós-execução para um corpo que o gate já barrou
     // seria morto.
-    let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit_code)
-        .or_else(|| harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some()));
+    let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit)
+        .or_else(|| harvest_hint(&user_code, &cli.lang, out.exit, cli.harvest.is_some()));
     // W3b — the executor settles the ladder itself: harvesting when asked, and
     // otherwise recognising a re-run of an already-harvested body. Both operate
     // on the USER's code, never the injected SDK (same rule as the hint).
-    let trust = settle_snippet_ladder(&user_code, &cli.lang, out.exit_code, cli.harvest.as_deref());
+    let trust = settle_snippet_ladder(&user_code, &cli.lang, out.exit, cli.harvest.as_deref());
     // C2 (2026-09-02) — a scratchpad block that ran clean is copied into the
     // project, where the next session can find it (the harness scratchpad is
     // a per-session tmpfs: 560 scripts in 14 days, 82% ran once, none findable).
-    let persisted_as =
-        persist_scratch_block(cli.file.as_deref(), &user_code, &cli.lang, out.exit_code);
+    let persisted_as = persist_scratch_block(cli.file.as_deref(), &user_code, &cli.lang, out.exit);
     emit_output(
         &out,
         cli.brief,
@@ -954,8 +954,8 @@ pub fn run(args: &[String]) -> Result<()> {
 
     // Propagate the sandboxed program's exit code as the CLI exit code so callers (and
     // code-mode orchestration) see a faithful success/failure signal, not just rc=0.
-    if out.exit_code != 0 {
-        std::process::exit(out.exit_code);
+    if !out.exit.is_zero() {
+        std::process::exit(out.exit.to_wire());
     }
     Ok(())
 }
@@ -1241,7 +1241,7 @@ fn emit_output(
     if brief && brief_pays_off(&out.stdout, out.stdout_truncated) {
         let summary = touring_ceg::gateway::summarize_output(
             &out.stdout,
-            out.exit_code,
+            out.exit.to_wire(),
             out.stdout_truncated,
         );
         let mut v = serde_json::to_value(&summary)?;
@@ -1282,7 +1282,7 @@ fn emit_output(
 fn settle_snippet_ladder(
     user_code: &str,
     lang: &str,
-    exit_code: i32,
+    exit: ExitStatus,
     harvest_slug: Option<&str>,
 ) -> Option<String> {
     use touring_intelligence::rl::memory::snippet_stats;
@@ -1332,12 +1332,12 @@ fn settle_snippet_ladder(
         // and nobody typed `--harvest` for them (29 times in 4.383 runs).
         None => match snippet_stats::by_sig(&conn, &sig).ok().flatten() {
             Some(key) => key,
-            None if auto_harvest_candidate(user_code, lang, exit_code) => auto_harvest_key(&sig),
+            None if auto_harvest_candidate(user_code, lang, exit) => auto_harvest_key(&sig),
             None => return None,
         },
     };
 
-    let trust = snippet_stats::record_execution(&conn, &entry_key, exit_code == 0, &sig).ok()?;
+    let trust = snippet_stats::record_execution(&conn, &entry_key, exit.is_zero(), &sig).ok()?;
     if is_auto_harvest_key(&entry_key) {
         let executions = snippet_stats::trust_of(&conn, &entry_key)
             .ok()
@@ -1406,8 +1406,8 @@ pub(crate) fn should_auto_persist(executions: u64) -> bool {
 
 /// C1 — a body worth auto-enrolling: the same predicate the harvest hint
 /// applies (successful, ≥5 lines, parametrized, no ephemeral identifiers).
-pub(crate) fn auto_harvest_candidate(code: &str, lang: &str, exit_code: i32) -> bool {
-    harvest_hint(code, lang, exit_code, false).is_some()
+pub(crate) fn auto_harvest_candidate(code: &str, lang: &str, exit: ExitStatus) -> bool {
+    harvest_hint(code, lang, exit, false).is_some()
 }
 
 /// Tell the author which blocks the library already holds for this work.
@@ -1444,12 +1444,12 @@ fn raiz_do_acervo() -> Option<std::path::PathBuf> {
     ))
 }
 
-fn similar_blocks_hint(user_code: &str, lang: &str, exit_code: i32) -> Option<String> {
+fn similar_blocks_hint(user_code: &str, lang: &str, exit: ExitStatus) -> Option<String> {
     use touring_intelligence::rl::memory::snippet_stats;
 
     // Only for programs the harvest predicate would consider a block at all —
     // a two-line probe has no business dragging the library into the answer.
-    if !auto_harvest_candidate(user_code, lang, exit_code) {
+    if !auto_harvest_candidate(user_code, lang, exit) {
         return None;
     }
     let root = raiz_do_acervo()?;
@@ -1498,13 +1498,13 @@ fn persist_scratch_block(
     file: Option<&str>,
     user_code: &str,
     lang: &str,
-    exit_code: i32,
+    exit: ExitStatus,
 ) -> Option<String> {
     let file = file?;
     if !file.starts_with(touring_code::journal::HARNESS_SCRATCH_PREFIX) {
         return None;
     }
-    if !auto_harvest_candidate(user_code, lang, exit_code) {
+    if !auto_harvest_candidate(user_code, lang, exit) {
         return None;
     }
     let root = raiz_do_acervo()?;
@@ -1575,11 +1575,17 @@ mod scratch_persist_tests {
     fn only_a_clean_reusable_scratchpad_run_is_persisted() {
         let block = "import sys\n\ndef main(path):\n    data = open(path).read()\n    print(len(data))\n\nmain(sys.argv[1])\n";
         assert!(
-            persist_scratch_block(None, block, "python", 0).is_none(),
+            persist_scratch_block(None, block, "python", ExitStatus::Code(0)).is_none(),
             "no file → nothing"
         );
         assert!(
-            persist_scratch_block(Some("scripts/keep.py"), block, "python", 0).is_none(),
+            persist_scratch_block(
+                Some("scripts/keep.py"),
+                block,
+                "python",
+                ExitStatus::Code(0)
+            )
+            .is_none(),
             "a project file already persists"
         );
         assert!(
@@ -1587,7 +1593,7 @@ mod scratch_persist_tests {
                 Some("/tmp/claude-1000/s/scratchpad/a.py"),
                 block,
                 "python",
-                1
+                ExitStatus::Code(1)
             )
             .is_none(),
             "a failed run is not a block"
@@ -1637,18 +1643,18 @@ mod auto_harvest_tests {
     #[test]
     fn candidate_follows_the_hint_predicate() {
         let block = "import sys\n\ndef main(path):\n    data = open(path).read()\n    print(len(data))\n\nmain(sys.argv[1])\n";
-        assert!(auto_harvest_candidate(block, "python", 0));
+        assert!(auto_harvest_candidate(block, "python", ExitStatus::Code(0)));
         assert!(
-            !auto_harvest_candidate(block, "python", 1),
+            !auto_harvest_candidate(block, "python", ExitStatus::Code(1)),
             "a failing run is not a block"
         );
         assert!(
-            !auto_harvest_candidate("print(1)", "python", 0),
+            !auto_harvest_candidate("print(1)", "python", ExitStatus::Code(0)),
             "a one-liner is not a block"
         );
         let ephemeral = "def f(p):\n    return p\n\nf('/tmp/claude-1000/x/scratchpad/a.py')\nprint(1)\nprint(2)\n";
         assert!(
-            !auto_harvest_candidate(ephemeral, "python", 0),
+            !auto_harvest_candidate(ephemeral, "python", ExitStatus::Code(0)),
             "scratchpad path = one-off"
         );
     }
@@ -1660,8 +1666,13 @@ mod auto_harvest_tests {
 /// "≥5 lines OR has def" offered for 77% of one-off programs; requiring
 /// parametrization AND no ephemeral identifiers lands at ~26% with the
 /// genuine candidates captured. NEVER automatic — an offer the caller runs.
-fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool) -> Option<String> {
-    if exit_code != 0 || already_harvested {
+fn harvest_hint(
+    code: &str,
+    lang: &str,
+    exit: ExitStatus,
+    already_harvested: bool,
+) -> Option<String> {
+    if !exit.is_zero() || already_harvested {
         return None;
     }
     let lines = code.lines().filter(|l| !l.trim().is_empty()).count();
@@ -1700,7 +1711,7 @@ fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool)
 /// colidia programas sem relação por causa de linhas decorativas). O payload já carrega
 /// as rotas nomeadas (D8: o deny ENSINA a rota de volta).
 fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
-    use crate::tools::ctx_execute_tools::{SIMHASH_V2_TAU, code_simhash_v2, find_prior_similar};
+    use crate::tools::ctx_execute_tools::{SIMHASH_V2_TAU, code_simhash_v2};
     // Piso de substância (mesmo piso do harvest_hint): abaixo de 5 linhas não
     // vazias o SimHash é ruidoso DEMAIS para bloquear (medido 27/10: 1 char
     // trocado num corpo de 3 linhas move 11 bits) — e reescrever 3 linhas é
@@ -1708,11 +1719,10 @@ fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
     if user_code.lines().filter(|l| !l.trim().is_empty()).count() < 5 {
         return None;
     }
-    let home = std::env::var_os("HOME")?;
-    let journal = std::path::Path::new(&home).join(".claude/touring/run_journal.jsonl");
+    let journal = Journal::from_env()?;
     let simhash = code_simhash_v2(user_code);
     // só v2 contra v2: as linhas do journal anteriores ao v2 não têm o campo e não casam
-    let busca = find_prior_similar(&journal, "code_simhash_v2", simhash, SIMHASH_V2_TAU);
+    let busca = journal.find_prior_similar(SimhashVersion::V2, simhash, SIMHASH_V2_TAU);
     let best = busca.priors.first()?;
     let rota_harvest = best.harvest.as_deref().map(|s| {
         format!("a execução anterior já virou snippet: reutilize com `touring memory recall '{s}'` e rode com --file")
@@ -1755,23 +1765,18 @@ fn repeat_gate(user_code: &str) {
         eprintln!("[repeat-gate SHADOW] {payload}");
         return;
     }
-    if let Some(home) = std::env::var_os("HOME") {
-        let journal = std::path::Path::new(&home).join(".claude/touring/run_journal.jsonl");
-        use std::io::Write;
-        if let Ok(mut f) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&journal)
-        {
-            let mut linha = payload.clone();
-            linha["repeat_blocked"]["ts"] = serde_json::json!(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0)
-            );
-            let _ = writeln!(f, "{linha}");
-        }
+    if let Some(journal) = Journal::from_env() {
+        let mut linha = payload.clone();
+        linha["repeat_blocked"]["ts"] = serde_json::json!(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+        );
+        // One write, the whole line: `writeln!` on an unbuffered File issues a
+        // `write` per formatted piece — the splice the journal's single-write
+        // append exists to prevent.
+        journal.append_json(&linha);
     }
     println!("{payload}");
     std::process::exit(2);
@@ -1872,6 +1877,7 @@ fn snippet_preamble(orchestrate: bool, lang: &str) -> (String, serde_json::Value
 
 #[cfg(test)]
 mod tests {
+    use touring_foundation::run_outcome::ExitStatus;
     // ── W2 d1 — SDK stub + allowlist contract ─────────────────────────────
 
     // ── W3 d2/S-3.3 — harvest threshold (calibrated in P33) ───────────────
@@ -1879,7 +1885,7 @@ mod tests {
     #[test]
     fn successful_run_emits_harvest_hint_with_real_values() {
         let code = "import sys\ndef clean(path):\n    return path.strip()\nfor a in sys.argv[1:]:\n    print(clean(a))";
-        let hint = super::harvest_hint(code, "python", 0, false)
+        let hint = super::harvest_hint(code, "python", ExitStatus::Code(0), false)
             .expect("parametrized multi-line code is offerable");
         assert!(
             hint.contains("#kind:snippet"),
@@ -1916,8 +1922,8 @@ mod tests {
         // The executor just persisted and enrolled this body; repeating the
         // offer would ask the caller to do what already happened.
         let code = "import sys\ndef clean(path):\n    return path.strip()\nfor a in sys.argv[1:]:\n    print(clean(a))";
-        assert!(super::harvest_hint(code, "python", 0, true).is_none());
-        assert!(super::harvest_hint(code, "python", 0, false).is_some());
+        assert!(super::harvest_hint(code, "python", ExitStatus::Code(0), true).is_none());
+        assert!(super::harvest_hint(code, "python", ExitStatus::Code(0), false).is_some());
     }
 
     #[test]
@@ -1964,17 +1970,23 @@ mod tests {
     #[test]
     fn harvest_hint_skips_one_offs_and_failures() {
         // too short
-        assert!(super::harvest_hint("print(1)", "python", 0, false).is_none());
+        assert!(super::harvest_hint("print(1)", "python", ExitStatus::Code(0), false).is_none());
         // not parametrized
         assert!(
-            super::harvest_hint("a=1\nb=2\nc=3\nd=4\nprint(a+b+c+d)", "python", 0, false).is_none()
+            super::harvest_hint(
+                "a=1\nb=2\nc=3\nd=4\nprint(a+b+c+d)",
+                "python",
+                ExitStatus::Code(0),
+                false
+            )
+            .is_none()
         );
         // ephemeral identifiers (session path / absolute date)
         assert!(
             super::harvest_hint(
                 "def f(x):\n    return x\nopen('/tmp/claude-1000/x')\nf(1)\nf(2)",
                 "python",
-                0,
+                ExitStatus::Code(0),
                 false
             )
             .is_none()
@@ -1984,7 +1996,7 @@ mod tests {
             super::harvest_hint(
                 "def f(x):\n    return x\nf(1)\nf(2)\nf(3)",
                 "python",
-                3,
+                ExitStatus::Code(3),
                 false
             )
             .is_none()
@@ -2840,7 +2852,7 @@ mod tmp_bytes_payload_tests {
     fn out_with(tmp_bytes: u64) -> CtxExecuteOutput {
         CtxExecuteOutput {
             stdout: "ok\n".into(),
-            exit_code: 0,
+            exit: ExitStatus::Code(0),
             tmp_bytes,
             run_id: "run-1-2".into(),
             ..Default::default()

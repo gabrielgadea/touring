@@ -333,7 +333,7 @@
    Compiling dirs-sys v0.5.0
    Compiling wgpu-hal v26.0.6
    Compiling macro_rules_attribute v0.2.2
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling spm_precompiled v0.1.4
    Compiling wasmtime-c-api-impl v36.0.12
    Compiling monostate v0.1.18
@@ -391,7 +391,7 @@
    Compiling gemm-f64 v0.18.2
    Compiling gemm-c32 v0.18.2
    Compiling gemm-c64 v0.18.2
-   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+   Compiling touring-rkyv v0.1.0 (~/projects/touring-wt-int97/crates/touring-rkyv)
    Compiling hashlink v0.9.1
    Compiling memmap2 v0.9.11
    Compiling toml_datetime v0.7.5+spec-1.1.0
@@ -437,7 +437,7 @@
    Compiling tree-sitter-lua v0.5.0
    Compiling tree-sitter-cpp v0.23.4
    Compiling tree-sitter-yaml v0.7.2
-   Compiling tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-bash)
+   Compiling tree-sitter-bash v0.25.1 (~/projects/touring-wt-int97/third_party/tree-sitter-bash)
    Compiling camino v1.2.3
    Compiling cranelift-bitset v0.133.3
    Compiling gemm-f64 v0.17.1
@@ -455,7 +455,7 @@
    Compiling bit-vec v0.6.3
    Compiling ropey v1.6.1
    Compiling bit-set v0.5.3
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
    Compiling petgraph v0.6.5
    Compiling public-api v0.47.1
    Compiling toml v1.1.2+spec-1.1.0
@@ -467,13 +467,13 @@
    Compiling ast-grep-language v0.42.3
    Compiling prettyplease v0.2.37
    Compiling z3 v0.20.1
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
    Compiling notify-debouncer-mini v0.5.0
    Compiling derive_more v2.1.1
    Compiling nix v0.30.1
    Compiling cargo-lock v11.0.1
    Compiling fs-err v3.3.0
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
    Compiling tree-sitter-toml-ng v0.7.0
    Compiling tree-sitter-json v0.24.8
    Compiling zip v1.1.4
@@ -498,9 +498,9 @@
    Compiling anndists v0.1.5
    Compiling rustsec v0.33.0
    Compiling nalgebra v0.33.3
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
    Compiling candle-core v0.8.4
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
    Compiling generator v0.8.9
    Compiling stringzilla v4.6.2
    Compiling fancy-regex v0.13.0
@@ -525,7 +525,7 @@
    Compiling quickcheck v1.1.0
    Compiling cranelift-bforest v0.133.3
    Compiling candle-nn v0.8.4
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
    Compiling nalgebra-sparse v0.10.0
    Compiling hnsw_rs v0.3.4
    Compiling tiny-keccak v2.0.2
@@ -551,7 +551,7 @@
    Compiling cranelift-control v0.133.3
    Compiling regalloc2 v0.15.1
    Compiling cranelift-codegen v0.133.3
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
    Compiling wasmparser v0.251.0
    Compiling gethostname v1.1.0
    Compiling x11rb-protocol v0.13.2
@@ -581,7 +581,7 @@
    Compiling tera v1.20.1
    Compiling wast v252.0.0
    Compiling wasmtime-internal-cranelift v46.0.3
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
    Compiling zstd-sys v2.0.16+zstd.1.5.7
    Compiling capnp-futures v0.24.0
    Compiling wasmtime-internal-jit-icache-coherence v46.0.3
@@ -591,7 +591,7 @@
    Compiling capnp-rpc v0.24.0
    Compiling zstd-safe v7.2.4
    Compiling wat v1.252.0
-   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/inferlets)
+   Compiling inferlets v0.1.0 (~/projects/touring-wt-int97/crates/inferlets)
    Compiling bitpacking v0.9.3
    Compiling utf8-ranges v1.0.5
    Compiling tantivy-fst v0.5.0
@@ -609,10 +609,10 @@
    Compiling tantivy-columnar v0.3.0
    Compiling landlock v0.4.5
    Compiling fs4 v0.8.4
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-quality v30.4.96 (~/projects/touring-wt-int97/crates/touring-quality)
    Compiling measure_time v0.8.3
    Compiling tantivy-query-grammar v0.22.0
-   Compiling touring-contracts v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-contracts)
+   Compiling touring-contracts v30.4.96 (~/projects/touring-wt-int97/crates/touring-contracts)
    Compiling lru v0.12.5
    Compiling tantivy-tokenizer-api v0.3.0
    Compiling rust-stemmers v1.2.0
@@ -624,25 +624,25 @@
    Compiling census v0.4.2
    Compiling htmlescape v0.3.1
    Compiling tantivy v0.22.1
-   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
-   Compiling touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-orchestration)
+   Compiling touring-ceg v30.4.96 (~/projects/touring-wt-int97/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-prediction)
+   Compiling touring-orchestration v30.4.96 (~/projects/touring-wt-int97/crates/touring-orchestration)
    Compiling inventory v0.3.24
    Compiling pin-project v1.1.13
    Compiling validator v0.20.0
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
-   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-rl)
-   Compiling touring-hooks-saga v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-saga)
+   Compiling touring-bindings v30.4.96 (~/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-hooks-rl v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-rl)
+   Compiling touring-hooks-saga v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-saga)
    Compiling tokio-stream v0.1.18
    Compiling hyper-timeout v0.5.2
    Compiling prost v0.14.4
-   Compiling touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-resilience)
-   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-pyright)
+   Compiling touring-resilience v30.4.96 (~/projects/touring-wt-int97/crates/touring-resilience)
+   Compiling touring-pyright v30.4.96 (~/projects/touring-wt-int97/crates/touring-pyright)
    Compiling opentelemetry v0.31.0
    Compiling ref-cast v1.0.25
    Compiling tiktoken-rs v0.9.1
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring-wt-int97/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-core)
    Compiling axum-core v0.4.5
    Compiling num-format v0.4.4
    Compiling quick-xml v0.39.4
@@ -651,31 +651,31 @@
    Compiling dyn-clone v1.0.20
    Compiling schemars v1.2.1
    Compiling inferno v0.12.6
-   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
+   Compiling touring-hook-runtime v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-runtime)
    Compiling axum v0.7.9
    Compiling async-stream v0.3.6
    Compiling tikv-jemalloc-sys v0.6.1+5.3.0-1-ge13ca993e8ccb9ba9847cc330696e02839f328f7
    Compiling tonic v0.14.6
-   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
+   Compiling touring-cli v30.4.96 (~/projects/touring-wt-int97/crates/touring-cli)
    Compiling tower v0.4.13
    Compiling smol_str v0.1.24
    Compiling socket2 v0.5.10
    Compiling tonic v0.12.3
-   Compiling touring-identity v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-identity)
+   Compiling touring-identity v30.4.96 (~/projects/touring-wt-int97/crates/touring-identity)
    Compiling tonic-prost v0.14.6
    Compiling pprof_util v0.8.2
-   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-handlers)
+   Compiling touring-hook-handlers v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-handlers)
    Compiling opentelemetry_sdk v0.31.0
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-dispatch)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring-wt-int97/crates/touring-dispatch)
    Compiling prost-types v0.13.5
    Compiling crossbeam v0.8.4
    Compiling mentedb-core v0.5.2
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks)
+   Compiling touring-hooks v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks)
    Compiling mentedb-cognitive v0.5.2
    Compiling console-api v0.8.1
    Compiling opentelemetry-proto v0.31.0
    Compiling mappings v0.7.2
-   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-generator)
+   Compiling touring-generator v0.1.0 (~/projects/touring-wt-int97/crates/touring-generator)
    Compiling tikv-jemalloc-ctl v0.6.1
    Compiling opentelemetry-http v0.31.0
    Compiling symlink v0.1.0
@@ -684,21 +684,21 @@
    Compiling opentelemetry-otlp v0.31.1
    Compiling clap_mangen v0.2.33
    Compiling console-subscriber v0.4.1
-   Compiling touring-assists v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-assists)
+   Compiling touring-assists v0.1.0 (~/projects/touring-wt-int97/crates/touring-assists)
    Compiling rmcp v1.8.0
    Compiling tracing-appender v0.2.5
    Compiling jemalloc_pprof v0.8.2
-   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cortex)
+   Compiling touring-cortex v1.0.0 (~/projects/touring-wt-int97/crates/touring-cortex)
    Compiling tikv-jemallocator v0.6.1
    Compiling tracing-opentelemetry v0.32.1
-   Compiling touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server-visual)
+   Compiling touring-server-visual v30.0.0 (~/projects/touring-wt-int97/crates/touring-server-visual)
    Compiling syntect v5.3.0
-   Compiling touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server-reasoning)
-   Compiling touring-server-session v30.0.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server-session)
+   Compiling touring-server-reasoning v30.0.0 (~/projects/touring-wt-int97/crates/touring-server-reasoning)
+   Compiling touring-server-session v30.0.0 (~/projects/touring-wt-int97/crates/touring-server-session)
    Compiling clap_complete v4.6.5
-   Compiling touring-license v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-license)
+   Compiling touring-license v30.4.96 (~/projects/touring-wt-int97/crates/touring-license)
    Compiling termtree v0.5.1
-   Compiling touring-server v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-server)
+   Compiling touring-server v30.4.96 (~/projects/touring-wt-int97/crates/touring-server)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 9m 15s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

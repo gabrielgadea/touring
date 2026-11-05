@@ -4,6 +4,9 @@ Roda o binario congelado em 3 programas minimos, cada um com UM atributo suspeit
 (atributo inexistente de verdade) e um controle negativo (atributo de topo comum). Leitura apenas: nada e gravado fora do scratchpad.
 """
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import subprocess
 import tempfile
@@ -11,7 +14,7 @@ from pathlib import Path
 
 SP = Path(__file__).resolve().parent
 BIN = SP / "touring_kimi_e935"
-ROOT = "/home/gabrielgadea/projects/analise"
+ROOT = f"{_HOME}/projects/analise"
 
 CASOS = {
     "numpy np.array + np.where (suspeito)": "import numpy as np\n\nx = np.array([1, 0, 2])\nprint(np.where(x))\n",

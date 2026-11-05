@@ -4,7 +4,7 @@
 //!
 //! The wiring DB tracks consumer relationships in `wiring_map.consumer_type`:
 //! - `'rust_import'`   — Rust crate-to-crate via `use`/`mod` statements
-//! - `'daemon_hook'`   — touring-daemon dispatch table (`ALL_DAEMON_HOOK_NAMES`)
+//! - `'daemon_hook'`   — touring-daemon dispatch table (`hook_registry::build_dispatch_table`)
 //! - `'ipc_socket'`    — Unix socket client connection
 //! - `'cli_handler'`  — touring CLI subcommand handler
 //!

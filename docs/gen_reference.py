@@ -5,7 +5,7 @@ Dogfooding documentation generation (Master Plan H1 - D.W2.P1.T4): MCP tool name
 daemon hook names, and generator kinds are extracted deterministically from the
 code/CLI, never hand-written, so the reference docs cannot drift from reality.
 
-Hardened 2026-06-11: the daemon-lib-rearch moved ALL_DAEMON_HOOK_NAMES out of
+Hardened 2026-06-11: the daemon-lib-rearch moved the hook registry out of
 touring-hooks; sources are now discovered across crates, generator kinds fall
 back to source parsing when the daemon CLI is unavailable (CI), and any section
 that resolves to 0 items aborts loudly instead of silently writing an empty doc.
@@ -82,30 +82,33 @@ def mcp_tools() -> list[str]:
 
 
 def hook_names() -> list[str]:
-    """Lifecycle hook names parsed from the ALL_DAEMON_HOOK_NAMES constant.
+    """Daemon hook names parsed from the dispatch table: every `m.insert("<name>", ...)`
+    in `hook_registry::build_dispatch_table`, whatever `#[cfg(feature)]` gates it.
 
-    The constant moved crates during the daemon-lib-rearch (2026-06-11):
-    known homes are checked first, then a workspace-wide scan."""
-    candidates = [
-        ROOT / "crates" / "touring-hooks-core" / "src" / "inventory_registry.rs",
-        ROOT / "crates" / "touring-hooks" / "src" / "hook_registry.rs",
-    ]
+    The dispatch table is the single declaration of the hooks the daemon serves; the
+    hand-written `ALL_DAEMON_HOOK_NAMES` constant this used to parse was removed on
+    01/11/2026 (it lagged the table by eight hooks). The registry lives in
+    `touring-dispatch` since the daemon-lib-rearch (2026-06-11): the known home is
+    checked first, then a workspace-wide scan."""
+    candidates = [ROOT / "crates" / "touring-dispatch" / "src" / "hook_registry.rs"]
     seen = set(candidates)
-    for path in sorted((ROOT / "crates").rglob("*.rs")):
-        if "target" in path.parts or path in seen:
-            continue
-        if path.name in ("inventory_registry.rs", "hook_registry.rs"):
+    for path in sorted((ROOT / "crates").rglob("hook_registry.rs")):
+        if "target" not in path.parts and path not in seen:
             candidates.append(path)
     for reg in candidates:
         try:
             text = reg.read_text(errors="ignore")
         except Exception:
             continue
-        m = re.search(r"ALL_DAEMON_HOOK_NAMES[^=]*=\s*&\[(.*?)\];", text, re.S)
-        if m:
-            names = sorted(set(re.findall(r'"([a-z0-9\-_]+)"', m.group(1))))
-            if names:
-                return names
+        start = text.find("pub fn build_dispatch_table")
+        if start < 0:
+            continue
+        body = "\n".join(
+            line for line in text[start:].splitlines() if not line.lstrip().startswith("//")
+        )
+        names = sorted(set(re.findall(r'\bm\.insert\(\s*"([a-z0-9\-_]+)"', body)))
+        if names:
+            return names
     return []
 
 
@@ -161,7 +164,9 @@ SECTIONS = [
      "`--features mcp-curated` (default OFF), so this count is the full defined set, not the "
      "curated surface.", mcp_tools),
     ("hooks.md", "Touring Daemon Hooks",
-     "Lifecycle hook names registered in `ALL_DAEMON_HOOK_NAMES`.", hook_names),
+     "Hook names the daemon serves, declared once in the dispatch table "
+     "(`hook_registry::build_dispatch_table`): every `m.insert`, including the "
+     "feature-gated ones.", hook_names),
     ("modules.md", "Touring Crate Modules",
      "Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` "
      "(closes Master Plan D.W2.P1.T4's 4th reference subcommand).", crate_modules),

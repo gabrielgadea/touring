@@ -104,7 +104,7 @@
     Checking esaxx-rs v0.1.10
     Checking ndarray v0.17.2
     Checking instant v0.1.13
-    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+    Checking touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
     Checking wasmtime v36.0.14
     Checking nalgebra v0.32.6
     Checking ort v2.0.0-rc.12
@@ -149,19 +149,19 @@
     Checking tree-sitter-nix v0.3.0
     Checking tree-sitter-python v0.25.0
     Checking tree-sitter-java v0.23.5
-    Checking tree-sitter-bash v0.25.1 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-bash)
-    Checking touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+    Checking tree-sitter-bash v0.25.1 (~/projects/touring-wt-int97/third_party/tree-sitter-bash)
+    Checking touring-rkyv v0.1.0 (~/projects/touring-wt-int97/crates/touring-rkyv)
     Checking petgraph v0.6.5
     Checking ast-grep-language v0.42.3
     Checking cargo_metadata v0.21.0
-    Checking touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Checking touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
     Checking wgpu v26.0.1
     Checking notify-debouncer-mini v0.5.0
     Checking tracing-error v0.2.1
     Checking tree-sitter-json v0.24.8
-    Checking tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+    Checking tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
     Checking tree-sitter-toml-ng v0.7.0
-    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
- Documenting touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+    Checking touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+ Documenting touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.26s
-   Generated /home/gabrielgadea/projects/touring/target/wt-int97/doc/touring_code/index.html
+   Generated ~/projects/touring/target/wt-int97/doc/touring_code/index.html

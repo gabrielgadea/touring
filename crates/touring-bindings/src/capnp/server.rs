@@ -23,8 +23,8 @@ use crate::capnp::holon_impl::TouringHolonImpl;
 /// holarchies; caching is a Fase 3 D3.4 optimization).
 #[derive(Debug, Clone)]
 pub struct TouringCapnpServer {
-    /// Root of the THSF holarchy. Defaults to `/home/gabrielgadea`
-    /// to match the Fase 1+2 baseline.
+    /// Root of the THSF holarchy. [`TouringCapnpServer::default_root`] uses the
+    /// user's home directory (the Fase 1+2 baseline scanned from there).
     pub root: PathBuf,
 }
 
@@ -34,12 +34,12 @@ impl TouringCapnpServer {
         Self { root: root.into() }
     }
 
-    /// Default server rooted at `$HOME` when available, or `/` otherwise.
-    pub fn default_root() -> Self {
-        let root = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("/"));
-        Self::new(root)
+    /// Default server rooted at the user's home directory, or `None` when no home
+    /// directory can be derived. There is no fallback root: scanning `/` (or a
+    /// guessed path) for manifests is not a default — pass an explicit root to
+    /// [`TouringCapnpServer::new`] instead.
+    pub fn default_root() -> Option<Self> {
+        touring_foundation::user_home::home_dir().map(Self::new)
     }
 
     /// Scan the filesystem (blocking). Should be called inside

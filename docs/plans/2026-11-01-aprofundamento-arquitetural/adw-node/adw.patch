@@ -1,0 +1,417 @@
+--- a/scripts/adw.py
++++ b/scripts/adw.py
+@@ -9,7 +9,8 @@
+ 
+ Subcommands:
+   list                          — specs available in .touring/adw/
+-  lint <name>                   — validate spec (edges, orphans, cycles, budget-verify)
++  lint <name>                   — validate spec (keys vs NODE_FIELDS, edges, orphans, cycles,
++                                  budget-verify)
+   run <name> [--resume-run ID] [--approve NODE] [--record] [--var k=v ...]
+   test <name>                   — run with agent nodes mocked from recordings (edge test)
+   from-template <name>          — scaffold a spec skeleton (G1-seed)
+@@ -49,6 +50,7 @@
+ from __future__ import annotations
+ 
+ import argparse
++import difflib
+ import fcntl
+ import hashlib
+ import json
+@@ -251,6 +253,59 @@
+     return role, definition
+ 
+ 
++# ── template references: ONE grammar ──────────────────────────────────────────
++# `{{nodes.X[.field]}}` / `{{vars.k}}` is read by the runtime resolver, by the
++# fragment namespacer, by the data-graph lints and by the sandbox-text lint. Until
++# 2026-11 each had its own regex (or a bare `f"nodes.{name}" in text`), and they
++# accepted four different languages: the lint saw `{{nodes.X.full_ref}}` as a node
++# called `X.full_ref`, so a node consumed only through `full_ref`/`facts` read as
++# dead weight; and `nodes.rev` matched inside `nodes.review`. Every reader now goes
++# through `REF_RE` + `parse_node_ref`; the runtime semantics below are the ones the
++# runner actually executes.
++REF_RE = re.compile(r"\{\{(nodes|vars)\.([\w.-]+?)\}\}")
++#: The three fields Law L4 promises as inter-node context. Until 2026-08-20 the resolver
++#: silently DROPPED the suffix and always returned `summary`, so `{{nodes.X.full_ref}}`
++#: rendered the truncated summary instead of the path to the whole output — two thirds of
++#: the contract were unreachable from any template.
++#:
++#: Measured cost: `critic-panel`'s quorum counts `^VERDICT=` over `{{nodes.panel.summary}}`,
++#: and a critic emits its verdict at the END of its report. With SUMMARY_LIMIT at 2000
++#: bytes and 14 718 omitted, the quorum saw ZERO verdicts and escalated — while all three
++#: critics had returned REJECT. A panel that can never count is not a panel.
++#:
++#: Omitted, the field is `summary` — the dense inline default of Law L4. An unknown
++#: suffix is part of the node NAME, not a field, so a node called `a.b` keeps resolving.
++RESULT_FIELDS = ("summary", "full_ref", "omitted_bytes")
++FACTS_SEP = ".facts."
++
++
++@dataclass(frozen=True)
++class NodeRef:
++    """One parsed `{{nodes.<body>}}`: which node, which of its result fields."""
++
++    node: str
++    field: str = "summary"  # a RESULT_FIELDS member, or "facts"
++    fact: str = ""  # the fact key, when field == "facts"
++
++
++def parse_node_ref(body: str) -> NodeRef:
++    """`X`, `X.summary`, `X.full_ref`, `X.omitted_bytes`, `X.facts.k` → NodeRef."""
++    if FACTS_SEP in body:
++        # W4 S-4.4 — {{nodes.X.facts.chave}}: o fato de um probe, endereçável a
++        # jusante (E3 ganha o endereço que faltava).
++        node, fact = body.split(FACTS_SEP, 1)
++        return NodeRef(node, "facts", fact)
++    for field_name in RESULT_FIELDS:
++        if body.endswith(f".{field_name}"):
++            return NodeRef(body[: -len(field_name) - 1], field_name)
++    return NodeRef(body)
++
++
++def node_refs(text: str) -> list[NodeRef]:
++    """Every node reference in ``text``, in order — the lints' view of the runtime."""
++    return [parse_node_ref(body) for kind, body in REF_RE.findall(text) if kind == "nodes"]
++
++
+ # ── spec model ────────────────────────────────────────────────────────────────
+ 
+ 
+@@ -397,13 +452,12 @@
+     """`{{nodes.<local>.summary}}` → `{{nodes.<ns>.<local>.summary}}` inside a fragment."""
+     if isinstance(value, str):
+         def sub(match: re.Match) -> str:
+-            key = match.group(1)
+-            tail = match.group(2) or ""
+-            head = key.split(NAMESPACE_SEP)[0]
+-            if head in local_names:
+-                return f"{{{{nodes.{namespace}{NAMESPACE_SEP}{key}{tail}}}}}"
++            kind, body = match.group(1), match.group(2)
++            head = parse_node_ref(body).node.split(NAMESPACE_SEP)[0]
++            if kind == "nodes" and head in local_names:
++                return f"{{{{nodes.{namespace}{NAMESPACE_SEP}{body}}}}}"
+             return match.group(0)
+-        return re.sub(r"\{\{nodes\.([\w.-]+?)(\.summary)?\}\}", sub, value)
++        return REF_RE.sub(sub, value)
+     if isinstance(value, list):
+         return [_namespace_node_refs(v, namespace, local_names) for v in value]
+     if isinstance(value, dict):
+@@ -560,6 +614,181 @@
+     )
+ 
+ 
++# ── node schema: what a [node.X] table may say, in ONE place ──────────────────
++# `Node.raw` is the TOML table verbatim, so the node's interface used to be
++# implicit: ~180 `.raw[...]` reads spread over ~65 functions, no lint for a key
++# nobody reads, and a typo (or a field the runner does not implement) was a silent
++# no-op. Measured 2026-11-02 over the shipped libraries: `env` sits in
++# `skilling-pack` (a code node that sets RECURRENCE for its own command) and the
++# runner has never read it — the gate always saw RECURRENCE unset and answered
++# "one-off". This table is that interface. `schema_findings` (lint) derives
++# from it; `test_node_schema_covers_every_key_the_runtime_reads` ties it to the
++# code, so a key read at run time and absent here fails the build.
++
++
++@dataclass(frozen=True)
++class NodeField:
++    """One key of a `[node.X]` table: its TOML kind(s) and who honours it."""
++
++    kinds: tuple[type, ...]
++    #: node types that read it; empty = every type.
++    types: frozenset[str] = frozenset()
++    #: element type, for list values.
++    of: type | None = None
++    #: closed vocabulary — only where no dedicated lint already owns it.
++    choices: tuple[str, ...] = ()
++    #: a dedicated lint already validates this key's shape/placement; the table
++    #: only vouches that the key EXISTS (never a second message for one defect).
++    dedicated: bool = False
++    #: accepted but not honoured (yet): the warning says why.
++    reserved: str = ""
++    #: refused: not a field, and the message names the one that is.
++    refused: str = ""
++
++
++def _field(kinds, *types: str, of: type | None = None, choices: tuple[str, ...] = (),
++           dedicated: bool = False, reserved: str = "", refused: str = "") -> NodeField:
++    kinds = tuple(kinds) if isinstance(kinds, (tuple, list)) else (kinds,)
++    return NodeField(kinds, frozenset(types), of, choices, dedicated, reserved, refused)
++
++
++_EXEC = ("code", "gate", "probe", "control")  # nodes that run `command`
++NODE_FIELDS: dict[str, NodeField] = {
++    # identity and edges (every node; targets are checked by `_lint_node`)
++    "type": _field(str, dedicated=True),
++    **{edge: _field(str, dedicated=True) for edge in ("on_pass", "on_fail", "on_dry")},
++    "on_escalate": _field(str, "gate", "agent", dedicated=True),
++    **{edge: _field(str, "loop", dedicated=True)
++       for edge in ("on_stable", "on_covered", "on_calibrated")},
++    # any node
++    "readonly": _field(bool),
++    "budget_tokens": _field(int),
++    "max_retries": _field(int),
++    # code / gate / probe / control
++    "command": _field(list, *_EXEC, of=str),
++    "timeout_ms": _field(int, *_EXEC, "agent"),
++    "retries": _field(int, "code", "gate", "probe", "agent"),
++    "idempotent": _field(bool, "code", "gate"),
++    "sandbox": _field(bool, "code", "gate", "probe"),
++    "verdict_contract": _field(bool, "gate"),
++    # truthy waives the control lint; the shipped flows pass the REASON as a string.
++    "control_waived": _field((bool, str), "gate"),
++    "stagnation_rounds": _field(int, "gate"),
++    "good_input": _field(str, "control", dedicated=True),
++    "bad_input": _field(str, "control", dedicated=True),
++    # agent
++    "driver": _field(str, "agent", dedicated=True),
++    "prompt": _field(str, "agent"),
++    "tier": _field(str, "agent"),
++    "allowed_tools": _field(list, "agent", of=str),
++    "tools": _field(str, "agent", dedicated=True),
++    "skill": _field((str, list), "agent", of=str),
++    "budget_usd": _field((int, float), "agent"),
++    "permission_mode": _field(str, "agent"),
++    "session": _field(str, "agent", choices=("fresh", "resume_on_fail")),
++    "session_persistence": _field(bool, "agent", dedicated=True),
++    "mcp": _field(str, "agent", dedicated=True),
++    "add_dirs": _field(list, "agent", of=str),
++    "persona": _field(dict, "agent", dedicated=True),
++    "must_read": _field(list, "agent", dedicated=True),
++    "findings_contract": _field(bool, "agent", dedicated=True),
++    "max_major": _field(int, "agent", dedicated=True),
++    "triage_of": _field(str, "agent", dedicated=True),
++    "output_schema": _field(dict, "agent", dedicated=True),
++    "max_turns": _field(int, "agent", reserved="documented in the module header but the "
++                        "headless driver does not pass it to `claude -p` yet"),
++    # loop
++    "body": _field(str, "loop", dedicated=True),
++    "max_iters": _field(int, "loop", dedicated=True),
++    "predicate": _field(str, "loop", dedicated=True),
++    "churn_limit": _field(int, "loop", dedicated=True),
++    "dry_rounds": _field(int, "loop"),
++    "stable_rounds": _field(int, "loop"),
++    "min_discovered": _field(int, "loop"),
++    # human
++    "message": _field(str, "human"),
++    "zte": _field(bool, "human"),
++    "zte_warmup": _field(int, "human"),
++    # parallel
++    "branches": _field((list, str), "parallel", dedicated=True),
++    "template": _field((str, dict), "parallel", dedicated=True),
++    "max_branches": _field(int, "parallel", dedicated=True),
++    "merge": _field(str, "parallel", dedicated=True),
++    "on_branch_fail": _field(str, "parallel", dedicated=True),
++    # `policy` is the cartografia's third field for the same decision. Two fields
++    # meaning one thing is how a spec ends up contradicting itself (its own example
++    # pairs policy = "quorum:2" with on_branch_fail = "all"), so it is refused with
++    # the name that owns the semantics rather than silently ignored.
++    "policy": _field(str, "parallel", dedicated=True, refused=(
++        "`policy` is not a field — the pass condition is `on_branch_fail` "
++        "(all|any|ignore|best_effort|quorum:N)")),
++}
++
++_KIND_NAMES = {str: "a string", int: "an integer", float: "a number", bool: "a boolean",
++               list: "a list", dict: "a table"}
++
++
++def _kind_ok(value, kinds: tuple[type, ...]) -> bool:
++    """TOML kinds, with the Python trap closed: `True` is an `int` to isinstance, but
++    `retries = true` is not a retry count. (Numbers declare `(int, float)`.)"""
++    if isinstance(value, bool):
++        return bool in kinds
++    return isinstance(value, kinds)
++
++
++def _kind_label(field_def: NodeField) -> str:
++    label = " or ".join(_KIND_NAMES[k] for k in field_def.kinds)
++    return f"{label} of {field_def.of.__name__}" if field_def.of else label
++
++
++def _unknown_key(node: Node, key: str) -> str:
++    close = difflib.get_close_matches(key, NODE_FIELDS, n=1, cutoff=0.75)
++    hint = f" — did you mean `{close[0]}`?" if close else ""
++    return (f"node `{node.name}`: unknown key `{key}`{hint} — the runner never reads it, "
++            f"so it silently does nothing")
++
++
++def _field_findings(node: Node, key: str, value, field_def: NodeField) -> tuple[list[str], list[str]]:
++    """Errors/warnings for one KNOWN key of one node."""
++    if field_def.refused:
++        return [f"{node.type} `{node.name}`: {field_def.refused}"], []
++    warnings = ([f"node `{node.name}`: `{key}` is accepted but not honoured yet — "
++                 f"{field_def.reserved}"] if field_def.reserved else [])
++    if field_def.dedicated:
++        return [], warnings
++    if field_def.types and node.type not in field_def.types:
++        return [], warnings + [f"node `{node.name}`: `{key}` has no effect on a `{node.type}` "
++                               f"node (read by: {', '.join(sorted(field_def.types))})"]
++    elements_ok = not (field_def.of and isinstance(value, list)) or all(
++        isinstance(v, field_def.of) for v in value)
++    if not (_kind_ok(value, field_def.kinds) and elements_ok):
++        return [f"node `{node.name}`: `{key}` must be {_kind_label(field_def)} (got {value!r})"], warnings
++    if field_def.choices and value not in field_def.choices:
++        return [f"node `{node.name}`: `{key}` = {value!r} — want one of "
++                f"{list(field_def.choices)}"], warnings
++    return [], warnings
++
++
++def schema_findings(node: Node) -> tuple[list[str], list[str]]:
++    """(errors, warnings) for the KEYS of one node table — not for what they mean.
++
++    · unknown key → error (+ did-you-mean): the runner never reads it;
++    · wrong TOML kind / outside the closed vocabulary → error;
++    · a key another node type reads → warning (it does nothing here);
++    · a reserved key → warning (accepted, not honoured)."""
++    errors: list[str] = []
++    warnings: list[str] = []
++    for key, value in node.raw.items():
++        field_def = NODE_FIELDS.get(key)
++        if field_def is None:
++            errors.append(_unknown_key(node, key))
++            continue
++        found_errors, found_warnings = _field_findings(node, key, value, field_def)
++        errors += found_errors
++        warnings += found_warnings
++    return errors, warnings
++
++
+ # ── lint (G19 + budget-verify) ────────────────────────────────────────────────
+ 
+ 
+@@ -577,11 +806,6 @@
+ # constructive half of "the goal is the SMALLEST graph that improves the quality
+ # of the work", which beats capping node counts by decree.
+ 
+-#: Mirrors the runtime resolver in `render_template`, minus `vars`. Kept adjacent
+-#: on purpose: if one accepts a form the other does not, the lint reasons about a
+-#: graph the runner never executes.
+-NODE_REF_RE = re.compile(r"\{\{nodes\.([\w.-]+?)(?:\.summary)?\}\}")
+-
+ #: Tools that cannot mutate anything. `Bash` is deliberately absent — it is a
+ #: general-purpose writer wearing a read-only-looking name.
+ READ_ONLY_TOOLS = frozenset({"Read", "Grep", "Glob", "WebFetch", "WebSearch", "NotebookRead", "LS"})
+@@ -708,7 +932,7 @@
+     hands it that node's numbered findings — so that is a data edge too."""
+     found: set[str] = set()
+     for text in _interpolable_strings(node):
+-        found.update(NODE_REF_RE.findall(text))
++        found.update(ref.node for ref in node_refs(text))
+     if node.raw.get("triage_of"):
+         found.add(str(node.raw["triage_of"]))
+     return found
+@@ -1479,13 +1703,6 @@
+     if quorum and branch_count and int(quorum.group(1)) > branch_count:
+         errors.append(f"parallel `{node.name}`: `on_branch_fail = {policy}` needs more "
+                       f"passing branches than the {branch_count} declared — unsatisfiable")
+-    # `policy` is the cartografia's third field for the same decision. Two fields
+-    # meaning one thing is how a spec ends up contradicting itself (its own example
+-    # pairs policy = "quorum:2" with on_branch_fail = "all"), so it is refused with
+-    # the name that owns the semantics rather than silently ignored.
+-    if node.raw.get("policy") is not None:
+-        errors.append(f"parallel `{node.name}`: `policy` is not a field — the pass "
+-                      f"condition is `on_branch_fail` (all|any|ignore|best_effort|quorum:N)")
+     max_branches = int(node.raw.get("max_branches", 0))
+     if max_branches <= 0:
+         errors.append(f"parallel `{node.name}`: `max_branches` must be >= 1 — an unbounded "
+@@ -1559,8 +1776,9 @@
+     if not str(persona.get("bar", "")).strip():
+         warnings.append(f"critic `{node.name}`: no `bar` — 'looks good' is not a stopping criterion")
+     prompt = str(node.raw.get("prompt", ""))
++    read_by_prompt = {ref.node for ref in node_refs(prompt)}
+     for hidden in persona.get("blind_to") or []:
+-        if f"nodes.{hidden}" in prompt:
++        if hidden in read_by_prompt:
+             errors.append(f"critic `{node.name}`: declares blindness to `{hidden}` yet its prompt "
+                           f"reads `{{{{nodes.{hidden}.summary}}}}` — the blindness is fiction")
+ 
+@@ -1581,7 +1799,7 @@
+         target = spec.nodes.get(node.on_fail)
+         if target is None or target.type != "agent":
+             continue
+-        if f"nodes.{node.name}" in str(target.raw.get("prompt", "")):
++        if node.name in {r.node for r in node_refs(str(target.raw.get("prompt", "")))}:
+             continue
+         warnings.append(
+             f"gate `{node.name}`: on_fail → agent `{target.name}`, whose prompt never reads "
+@@ -1790,7 +2008,8 @@
+                 f"ligue `sandbox = true`, ou declare a intenção no header.")
+ 
+ 
+-_AGENT_TEXT_REF_RE = re.compile(r"\{\{nodes\.([\w.-]+)\.(?:summary|full_ref)\}\}")
++#: Result fields that carry the node's TEXT (the bare `{{nodes.X}}` is `summary`).
++_TEXT_FIELDS = frozenset({"summary", "full_ref"})
+ 
+ 
+ def _agent_text_sources(spec: Spec) -> set[str]:
+@@ -1816,7 +2035,7 @@
+ def _command_agent_text_refs(node: Node, sources: set[str]) -> set[str]:
+     refs: set[str] = set()
+     for part in node.raw.get("command") or []:
+-        refs.update(_AGENT_TEXT_REF_RE.findall(str(part)))
++        refs.update(ref.node for ref in node_refs(str(part)) if ref.field in _TEXT_FIELDS)
+     return refs & sources
+ 
+ 
+@@ -2090,6 +2309,9 @@
+     warnings: list[str] = []
+     names = set(spec.nodes)
+     for node in spec.nodes.values():
++        schema_errors, schema_warnings = schema_findings(node)
++        errors.extend(schema_errors)
++        warnings.extend(schema_warnings)
+         _lint_node(node, names, errors, warnings)
+         _lint_persona(node, errors, warnings)
+         _lint_agent_contracts(spec, node, errors)
+@@ -2223,43 +2445,26 @@
+     return artifact
+ 
+ 
+-#: The three fields Law L4 promises as inter-node context. Until 2026-08-20 the resolver
+-#: silently DROPPED the suffix and always returned `summary`, so `{{nodes.X.full_ref}}`
+-#: rendered the truncated summary instead of the path to the whole output — two thirds of
+-#: the contract were unreachable from any template.
+-#:
+-#: Measured cost: `critic-panel`'s quorum counts `^VERDICT=` over `{{nodes.panel.summary}}`,
+-#: and a critic emits its verdict at the END of its report. With SUMMARY_LIMIT at 2000
+-#: bytes and 14 718 omitted, the quorum saw ZERO verdicts and escalated — while all three
+-#: critics had returned REJECT. A panel that can never count is not a panel.
+-RESULT_FIELDS = ("summary", "full_ref", "omitted_bytes")
+-
+-
+ def render_template(text: str, results: dict[str, dict], variables: dict[str, str]) -> str:
+     """Resolve {{nodes.X.<field>}} / {{vars.k}} references (inter-node context).
+ 
+     `<field>` is one of :data:`RESULT_FIELDS`; omitted, it is `summary` — the dense
+     inline default of Law L4. An unknown suffix is part of the node NAME, not a field,
+-    so a node called `a.b` keeps resolving as before.
++    so a node called `a.b` keeps resolving as before. The grammar lives in
++    :func:`parse_node_ref`; this function only looks the parsed reference up.
+     """
+ 
+     def sub(match: re.Match) -> str:
+         kind, key = match.group(1), match.group(2)
+         if kind != "nodes":
+             return variables.get(key, "")
+-        if ".facts." in key:
+-            # W4 S-4.4 — {{nodes.X.facts.chave}}: o fato de um probe, endereçável
+-            # a jusante (E3 ganha o endereço que faltava).
+-            node_key, fact_key = key.split(".facts.", 1)
+-            return str(results.get(node_key, {}).get("facts", {}).get(fact_key, ""))
+-        campo = "summary"
+-        for f in RESULT_FIELDS:
+-            if key.endswith(f".{f}"):
+-                key, campo = key[: -len(f) - 1], f
+-                break
+-        return str(results.get(key, {}).get(campo, ""))
++        ref = parse_node_ref(key)
++        entry = results.get(ref.node, {})
++        if ref.field == "facts":
++            return str(entry.get("facts", {}).get(ref.fact, ""))
++        return str(entry.get(ref.field, ""))
+ 
+-    return re.sub(r"\{\{(nodes|vars)\.([\w.-]+?)\}\}", sub, text)
++    return REF_RE.sub(sub, text)
+ 
+ 
+ # ── activity mirror (best-effort) ─────────────────────────────────────────────

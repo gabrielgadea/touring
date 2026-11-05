@@ -1,27 +1,27 @@
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
-   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
-   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
-   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-rl)
-   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
-   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-capnp-server)
-   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
-   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
-   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
-   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-handlers)
-   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-dispatch)
-   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-quality v30.4.96 (~/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-ceg v30.4.96 (~/projects/touring-wt-int97/crates/touring-ceg)
+   Compiling touring-hooks-prediction v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-prediction)
+   Compiling touring-hooks-rl v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-rl)
+   Compiling touring-bindings v30.4.96 (~/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (~/projects/touring-wt-int97/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.96 (~/projects/touring-wt-int97/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.96 (~/projects/touring-wt-int97/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (~/projects/touring-wt-int97/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (~/projects/touring-wt-int97/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 01s
 warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hooks-066e65e1bbce1818)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_hooks-066e65e1bbce1818)
 
 running 2 tests
 test token_meter::tests::empty_text_is_zero_tokens_not_a_failure ... ok
@@ -29,7 +29,7 @@ test token_meter::tests::cl100k_counts_are_real_not_a_byte_heuristic ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running unittests src/daemon_main.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_daemon-abcc15374cd4ee43)
+     Running unittests src/daemon_main.rs (~/projects/touring/target/wt-int97/debug/deps/touring_daemon-abcc15374cd4ee43)
 
 running 4 tests
 test tests::no_argument_runs_the_daemon ... ok
@@ -39,7 +39,7 @@ test tests::an_unknown_argument_is_refused_with_the_accepted_ones ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/main.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hook-7433623113c02867)
+     Running unittests src/main.rs (~/projects/touring/target/wt-int97/debug/deps/touring_hook-7433623113c02867)
 
 running 4 tests
 test hookcwd_tests::o_cwd_do_payload_so_vale_quando_e_texto_nao_vazio ... ok
@@ -49,7 +49,7 @@ test hookcwd_tests::o_sucesso_continua_daemon_json ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/aco_rl_integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/aco_rl_integration_e2e-7776ee05be879845)
+     Running tests/aco_rl_integration_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/aco_rl_integration_e2e-7776ee05be879845)
 
 running 30 tests
 test test_circuit_breaker_op_class_defaults ... ok
@@ -85,7 +85,7 @@ test test_cli_learning_reward_requires_tool_name ... ok
 
 test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
-     Running tests/bidirectional_suggestions_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bidirectional_suggestions_e2e-dcf0c3be1ef06a91)
+     Running tests/bidirectional_suggestions_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/bidirectional_suggestions_e2e-dcf0c3be1ef06a91)
 
 running 22 tests
 test cli_suggest_action_rejects_empty_fields ... ok
@@ -113,7 +113,7 @@ test stuck_subtask_detector_respects_rate_limit ... ok
 
 test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
 
-     Running tests/bidirectional_task_flow_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bidirectional_task_flow_e2e-186b7234fa3a220e)
+     Running tests/bidirectional_task_flow_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/bidirectional_task_flow_e2e-186b7234fa3a220e)
 
 running 11 tests
 test digest_returns_none_on_empty_db ... ok
@@ -130,7 +130,7 @@ test touring_cli_origin_sets_mirrored_to_cc_false ... ok
 
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
 
-     Running tests/blast_radius_consistency.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/blast_radius_consistency-a8a8b00c6c1cc9c7)
+     Running tests/blast_radius_consistency.rs (~/projects/touring/target/wt-int97/debug/deps/blast_radius_consistency-a8a8b00c6c1cc9c7)
 
 running 6 tests
 test test_blast_radius_isolated_node_has_zero_dependents ... ok
@@ -142,7 +142,7 @@ test test_direct_only_chain ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/capnp_embed_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/capnp_embed_e2e-9e023f6b81cd3200)
+     Running tests/capnp_embed_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/capnp_embed_e2e-9e023f6b81cd3200)
 
 running 2 tests
 test embed_install_serves_capnp_and_delivers_events ... ok
@@ -150,7 +150,7 @@ test install_is_idempotent ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
 
-     Running tests/ceg_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/ceg_e2e-20c5491c7a1cb6c2)
+     Running tests/ceg_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/ceg_e2e-20c5491c7a1cb6c2)
 
 running 118 tests
 test bash_go_clean_run_is_allowed ... ok
@@ -274,7 +274,7 @@ test x9_learn_persist_forbidden_skips_non_deny_and_is_fail_open ... ok
 
 test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 
-     Running tests/cli_handlers_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cli_handlers_e2e-c1551f790d6af6ca)
+     Running tests/cli_handlers_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/cli_handlers_e2e-c1551f790d6af6ca)
 
 running 159 tests
 test a_claim_is_refused_without_an_owner_to_attribute_it_to ... ok
@@ -439,7 +439,7 @@ test two_sessions_claiming_never_receive_the_same_subtask ... ok
 
 test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.56s
 
-     Running tests/cli_suggester_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cli_suggester_e2e-3aef4a409a47a452)
+     Running tests/cli_suggester_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/cli_suggester_e2e-3aef4a409a47a452)
 
 running 20 tests
 test classifier_bash_cargo_routes_to_doctor ... ok
@@ -471,7 +471,7 @@ test every_non_empty_output_is_a_valid_json_object_with_additional_context ... o
 
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
 
-     Running tests/cognitive_integration.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cognitive_integration-5286ab3f0dbb8748)
+     Running tests/cognitive_integration.rs (~/projects/touring/target/wt-int97/debug/deps/cognitive_integration-5286ab3f0dbb8748)
 
 running 5 tests
 test test_cognitive_graph_compaction ... ok
@@ -482,14 +482,14 @@ test test_session_predictor_learns_from_tool_sequence ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 
-     Running tests/compression_kill_switch_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/compression_kill_switch_e2e-0dd64371c1159512)
+     Running tests/compression_kill_switch_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/compression_kill_switch_e2e-0dd64371c1159512)
 
 running 1 test
 test disabled_flag_returns_raw_passthrough ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/compression_profiles_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/compression_profiles_e2e-197ebaf4384a75e5)
+     Running tests/compression_profiles_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/compression_profiles_e2e-197ebaf4384a75e5)
 
 running 33 tests
 test audit_p01_cargo_test_keeps_failures ... ok
@@ -528,7 +528,7 @@ test audit_unknown_tool_passthrough ... ok
 
 test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/context_mode_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/context_mode_e2e-3ee659e1462c9b66)
+     Running tests/context_mode_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/context_mode_e2e-3ee659e1462c9b66)
 
 running 17 tests
 test audit_ctx_insight_returns_no_placeholder_strings ... ok
@@ -551,7 +551,7 @@ test audit_tool_outputs_store_and_retrieve_via_router ... ok
 
 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-     Running tests/d2_predictive_blast_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d2_predictive_blast_e2e-c6a34c44744f195f)
+     Running tests/d2_predictive_blast_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/d2_predictive_blast_e2e-c6a34c44744f195f)
 
 running 8 tests
 test test_many_symbols_completes_without_panic ... ok
@@ -565,7 +565,7 @@ test test_non_task_tools_never_inject ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s
 
-     Running tests/d3_linucb_router_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d3_linucb_router_e2e-56b928d4c6e3072f)
+     Running tests/d3_linucb_router_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/d3_linucb_router_e2e-56b928d4c6e3072f)
 
 running 20 tests
 test all_arm_ids_map_to_valid_decisions ... ok
@@ -591,7 +591,7 @@ test case1_linucb_bandit_initialized_and_selects_arm ... ok
 
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
-     Running tests/d43_pre_grep_glob_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d43_pre_grep_glob_e2e-4b8bea40de1d490f)
+     Running tests/d43_pre_grep_glob_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/d43_pre_grep_glob_e2e-4b8bea40de1d490f)
 
 running 20 tests
 test bare_payload_without_tool_input_works ... ok
@@ -617,7 +617,7 @@ test zero_results_increments_counter_for_made_up_symbol ... ok
 
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
 
-     Running tests/d4_mcts_shadow_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d4_mcts_shadow_e2e-cc2725470b29d216)
+     Running tests/d4_mcts_shadow_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/d4_mcts_shadow_e2e-cc2725470b29d216)
 
 running 5 tests
 test test_case1_empty_tasks_returns_none ... ok
@@ -628,7 +628,7 @@ test test_case5_tasks_without_id_use_index_fallback ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/dag_lifecycle_closure_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/dag_lifecycle_closure_e2e-bacbeef34b62c65e)
+     Running tests/dag_lifecycle_closure_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/dag_lifecycle_closure_e2e-bacbeef34b62c65e)
 
 running 39 tests
 test a_failed_subtask_with_a_retry_policy_goes_back_to_pending_until_the_attempts_run_out ... ok
@@ -673,7 +673,7 @@ test the_parent_derivation_closes_on_every_status_the_foundation_calls_terminal 
 
 test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
 
-     Running tests/e2e_activity_hook.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_activity_hook-c428ed1c20b9641e)
+     Running tests/e2e_activity_hook.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_activity_hook-c428ed1c20b9641e)
 
 running 8 tests
 test e2e_instructions_loaded_one_event ... ok
@@ -687,7 +687,7 @@ test e2e_gate_metrics_counters_increment ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/e2e_diagnostic_rfc100.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-27f6b1fbfb17d4c9)
+     Running tests/e2e_diagnostic_rfc100.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-27f6b1fbfb17d4c9)
 
 running 5 tests
 test b320_emits_when_blast_crosses_feature_boundaries ... ok
@@ -698,7 +698,7 @@ test b310_path_wired_when_predictive_blast_injects_symbols ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.49s
 
-     Running tests/e2e_r1_to_r20.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_r1_to_r20-580be7ea08e60a2f)
+     Running tests/e2e_r1_to_r20.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_r1_to_r20-580be7ea08e60a2f)
 
 running 24 tests
 test i1_count_errors_utf8_multibyte_no_panic ... ok
@@ -728,7 +728,7 @@ test r2_r4_hook_runtime_bandit_lifecycle ... ok
 
 test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
 
-     Running tests/e2e_touring_hooks_integration.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_touring_hooks_integration-1882724e57c36557)
+     Running tests/e2e_touring_hooks_integration.rs (~/projects/touring/target/wt-int97/debug/deps/e2e_touring_hooks_integration-1882724e57c36557)
 
 running 11 tests
 test e2e_aco_bridge::test_hook_outcome_recording ... ok
@@ -745,7 +745,7 @@ test e2e_knowledge_db::test_knowledge_db_initializes ... ok
 
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/event_name_stamp.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/event_name_stamp-b075333db63577e5)
+     Running tests/event_name_stamp.rs (~/projects/touring/target/wt-int97/debug/deps/event_name_stamp-b075333db63577e5)
 
 running 2 tests
 test validation_deny_answers_with_the_invoking_event_not_the_handler_name ... ok
@@ -753,7 +753,7 @@ test post_bash_answers_a_failure_as_post_tool_use_failure ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/feature_parity_standalone.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/feature_parity_standalone-8422a322c1572d03)
+     Running tests/feature_parity_standalone.rs (~/projects/touring/target/wt-int97/debug/deps/feature_parity_standalone-8422a322c1572d03)
 
 running 4 tests
 test default_build_enables_standalone_hook_arms ... ok
@@ -763,7 +763,7 @@ test standalone_post_bash_is_alive_and_traced ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/full_integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/full_integration_e2e-b9c90366e36e14ff)
+     Running tests/full_integration_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/full_integration_e2e-b9c90366e36e14ff)
 
 running 6 tests
 test mcts_materialized_tasks_flow_through_pln2_digest ... ok
@@ -775,7 +775,7 @@ test suggestion_list_and_stats_reflect_inserted_suggestions ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
 
-     Running tests/granularity_bandit_runtime_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/granularity_bandit_runtime_e2e-0af040ca880078de)
+     Running tests/granularity_bandit_runtime_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/granularity_bandit_runtime_e2e-0af040ca880078de)
 
 running 12 tests
 test cli_granularity_reset_clears_state ... ok
@@ -793,14 +793,14 @@ test snapshot_roundtrip_across_runtime_instances_preserves_pulls ... ok
 
 test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
 
-     Running tests/health_delta_audit_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/health_delta_audit_e2e-3d52963f1619a9a4)
+     Running tests/health_delta_audit_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/health_delta_audit_e2e-3d52963f1619a9a4)
 
 running 1 test
 test wave_i_full_pipeline ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/hook_chain_synergy_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/hook_chain_synergy_e2e-7f7c2a36c1312049)
+     Running tests/hook_chain_synergy_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/hook_chain_synergy_e2e-7f7c2a36c1312049)
 
 running 27 tests
 test i3_fuse_quality_evidence_returns_none_for_unsupported_file ... ok
@@ -833,7 +833,7 @@ test test_hook_chaining_full_chain_pre_read_pre_edit_post_edit ... ok
 
 test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
 
-     Running tests/hook_lifecycle_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/hook_lifecycle_e2e-52e851956183811c)
+     Running tests/hook_lifecycle_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/hook_lifecycle_e2e-52e851956183811c)
 
 running 29 tests
 test test_cila_budget_write_different_levels ... ok
@@ -868,14 +868,14 @@ test test_runtime_init_multiple_roots_independence ... ok
 
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
 
-     Running tests/hook_root_payload_cwd_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/hook_root_payload_cwd_e2e-e769d6e969c35cc4)
+     Running tests/hook_root_payload_cwd_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/hook_root_payload_cwd_e2e-e769d6e969c35cc4)
 
 running 1 test
 test a_raiz_do_hook_segue_o_cwd_do_payload_e_a_recusa_tem_exit_reason_proprio ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.92s
 
-     Running tests/implementation_cross_audit_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/implementation_cross_audit_e2e-0627d683d23b82eb)
+     Running tests/implementation_cross_audit_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/implementation_cross_audit_e2e-0627d683d23b82eb)
 
 running 6 tests
 test test_latency_marker_helper_functions ... ok
@@ -887,7 +887,7 @@ test test_user_prompt_submit_hook_response_format ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/integration_e2e-34f5935d4bfc4aa5)
+     Running tests/integration_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/integration_e2e-34f5935d4bfc4aa5)
 
 running 33 tests
 test test_classifier_antt_process_l3 ... ok
@@ -926,7 +926,7 @@ test test_symbol_store_persistence ... ok
 
 test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
 
-     Running tests/l7b_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/l7b_e2e-26789dcf48cdb946)
+     Running tests/l7b_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/l7b_e2e-26789dcf48cdb946)
 
 running 15 tests
 test e2e_beta_enrichment_gate_l2_plus_allows_mutation_only ... ok
@@ -947,7 +947,7 @@ test e2e_gamma_job_list_includes_spawned_jobs ... ok
 
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 
-     Running tests/locate_binary_roots.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/locate_binary_roots-070265b1de2a2078)
+     Running tests/locate_binary_roots.rs (~/projects/touring/target/wt-int97/debug/deps/locate_binary_roots-070265b1de2a2078)
 
 running 6 tests
 test a_plain_run_never_picks_a_stale_coverage_binary ... ok
@@ -959,7 +959,7 @@ test coverage_is_still_found_when_it_is_the_only_build ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/master_plan_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/master_plan_e2e-e9643115d2122262)
+     Running tests/master_plan_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/master_plan_e2e-e9643115d2122262)
 
 running 16 tests
 test audit_i01_trigram_substring_match_via_search_rrf ... ok
@@ -981,7 +981,7 @@ test audit_i11_sandbox_language_resolution ... ok
 
 test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/mcts_materializer_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/mcts_materializer_e2e-1bd220e7f17b279a)
+     Running tests/mcts_materializer_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/mcts_materializer_e2e-1bd220e7f17b279a)
 
 running 5 tests
 test materialize_from_payload_uses_defaults_when_keys_absent ... ok
@@ -992,7 +992,7 @@ test materialize_zero_subgoals_clamped_to_one ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
 
-     Running tests/module_contracts.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/module_contracts-c4fe3fe5a7b76b8b)
+     Running tests/module_contracts.rs (~/projects/touring/target/wt-int97/debug/deps/module_contracts-c4fe3fe5a7b76b8b)
 
 running 13 tests
 test test_async_config_validate ... ok
@@ -1011,7 +1011,7 @@ test test_touring_error_knowledge ... ok
 
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/moka_caches_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/moka_caches_e2e-477c02bdae24d9f6)
+     Running tests/moka_caches_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/moka_caches_e2e-477c02bdae24d9f6)
 
 running 9 tests
 test community_and_coverage_writes_invalidate_cache ... ok
@@ -1026,14 +1026,14 @@ test upsert_invalidates_extended_cache ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/no_test_exits_the_harness.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/no_test_exits_the_harness-1a035d9f787bf5bc)
+     Running tests/no_test_exits_the_harness.rs (~/projects/touring/target/wt-int97/debug/deps/no_test_exits_the_harness-1a035d9f787bf5bc)
 
 running 1 test
 test no_test_calls_a_diverging_hook_run ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
 
-     Running tests/orphan_diagnostic_audit_2026_05_11.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/orphan_diagnostic_audit_2026_05_11-fd1624bdeb4f6d64)
+     Running tests/orphan_diagnostic_audit_2026_05_11.rs (~/projects/touring/target/wt-int97/debug/deps/orphan_diagnostic_audit_2026_05_11-fd1624bdeb4f6d64)
 
 running 27 tests
 test a_rust_file_the_gate_rejects_is_still_pollution ... ok
@@ -1066,7 +1066,7 @@ test migration_evicts_foreign_rows_and_keeps_local_ones ... ok
 
 test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
 
-     Running tests/pln2_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pln2_e2e-20038d5e3350048f)
+     Running tests/pln2_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/pln2_e2e-20038d5e3350048f)
 
 running 32 tests
 test pln2_all_tables_have_schema_constants ... ok
@@ -1104,7 +1104,7 @@ test pln2_wiring_suggestions_workflow ... ok
 
 test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
 
-     Running tests/post_edit_cascade_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_edit_cascade_e2e-ac1e34716ae643ca)
+     Running tests/post_edit_cascade_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/post_edit_cascade_e2e-ac1e34716ae643ca)
 
 running 4 tests
 test post_edit_non_rust_skips_cascade ... ok
@@ -1114,7 +1114,7 @@ test post_edit_second_rust_edit_emits_cascade_plan ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/post_edit_rule_engine_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_edit_rule_engine_e2e-a70c38336e925938)
+     Running tests/post_edit_rule_engine_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/post_edit_rule_engine_e2e-a70c38336e925938)
 
 running 4 tests
 test hook_runtime_cascade_queue_accepts_proposal ... ok
@@ -1124,7 +1124,7 @@ test bridge_no_match_returns_no_rule ... ok
 
 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
 
-     Running tests/post_wave_orchestration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_wave_orchestration_e2e-4b5aa9806b18b91d)
+     Running tests/post_wave_orchestration_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/post_wave_orchestration_e2e-4b5aa9806b18b91d)
 
 running 11 tests
 test audit_new1_15_profiles_registered ... ok
@@ -1141,7 +1141,7 @@ test audit_new5_rewrite_shell_passthrough ... ok
 
 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/post_wave_rtk_cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_wave_rtk_cross_audit-723663185b3e6f05)
+     Running tests/post_wave_rtk_cross_audit.rs (~/projects/touring/target/wt-int97/debug/deps/post_wave_rtk_cross_audit-723663185b3e6f05)
 
 running 15 tests
 test cross_audit_full_pipeline_user_filter_to_tee ... ok
@@ -1162,7 +1162,7 @@ test cross_audit_post_wave_rtk_5_initiatives_complete ... ok
 
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/potentialization_comprehensive_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/potentialization_comprehensive_e2e-44185b6290caacdc)
+     Running tests/potentialization_comprehensive_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/potentialization_comprehensive_e2e-44185b6290caacdc)
 
 running 22 tests
 test complexity_cila_budget_respected ... ok
@@ -1190,7 +1190,7 @@ test scalability_backpressure_handling ... ok
 
 test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
 
-     Running tests/pre_hooks_potentialization_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pre_hooks_potentialization_e2e-4d45c27604a1731c)
+     Running tests/pre_hooks_potentialization_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/pre_hooks_potentialization_e2e-4d45c27604a1731c)
 
 running 28 tests
 test blast_radius_signal_layer_cila_gate_at_2 ... ok
@@ -1224,7 +1224,7 @@ test gate_metrics_record_metadata_backpressure_dropped_increments_counter ... ok
 
 test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/predictive_wave_p99_guards.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/predictive_wave_p99_guards-0ef0e6584ae1e93c)
+     Running tests/predictive_wave_p99_guards.rs (~/projects/touring/target/wt-int97/debug/deps/predictive_wave_p99_guards-0ef0e6584ae1e93c)
 
 running 9 tests
 test test_d3_extract_task_features_empty_task_p99_under_100us ... ok
@@ -1239,7 +1239,7 @@ test test_d2_pre_tool_use_cli_p99_under_2s ... ok
 
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
 
-     Running tests/rkyv_ipc_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/rkyv_ipc_e2e-440c414b4b2ff849)
+     Running tests/rkyv_ipc_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/rkyv_ipc_e2e-440c414b4b2ff849)
 
 running 3 tests
 test rkyv_response_roundtrips_through_socket ... ok
@@ -1248,7 +1248,7 @@ test rkyv_framed_request_reaches_mock_daemon ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/runtime_traits_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/runtime_traits_e2e-7c3b24f04b56c18c)
+     Running tests/runtime_traits_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/runtime_traits_e2e-7c3b24f04b56c18c)
 
 running 38 tests
 test aco_wiring_flush_metrics ... ok
@@ -1292,7 +1292,7 @@ test tool_predictor_ref ... ok
 
 test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
 
-     Running tests/saga_coordinator.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/saga_coordinator-10f02114cd8c0f76)
+     Running tests/saga_coordinator.rs (~/projects/touring/target/wt-int97/debug/deps/saga_coordinator-10f02114cd8c0f76)
 
 running 12 tests
 test test_agent_accessible_after_register ... ok
@@ -1310,7 +1310,7 @@ test test_store_delta_unknown_tx ... ok
 
 test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
 
-     Running tests/signal_pipeline_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/signal_pipeline_e2e-448282f7ee76544b)
+     Running tests/signal_pipeline_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/signal_pipeline_e2e-448282f7ee76544b)
 
 running 52 tests
 test budget_empty_when_all_signals_exceed ... ok
@@ -1368,7 +1368,7 @@ test hook_runtime_initialization_succeeds ... ok
 
 test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
 
-     Running tests/snapshot_file_digest_signal.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_file_digest_signal-30c752000b703219)
+     Running tests/snapshot_file_digest_signal.rs (~/projects/touring/target/wt-int97/debug/deps/snapshot_file_digest_signal-30c752000b703219)
 
 running 5 tests
 test boundary_kill_gt_mutation_via_cc_calibration ... ok
@@ -1379,14 +1379,14 @@ test snapshot_rust_with_hot_function ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/standalone_parity.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/standalone_parity-a68425231b1dc06b)
+     Running tests/standalone_parity.rs (~/projects/touring/target/wt-int97/debug/deps/standalone_parity-a68425231b1dc06b)
 
 running 1 test
 test standalone_task_completed_keeps_stdout_in_contract_and_the_receipt_on_stderr ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/stringzilla_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/stringzilla_e2e-272a8aa0279aed30)
+     Running tests/stringzilla_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/stringzilla_e2e-272a8aa0279aed30)
 
 running 13 tests
 test test_ahocorasick_suggest_skill_hook_wired ... ok
@@ -1405,7 +1405,7 @@ test test_static_prefix_validator_rm_blocked ... ok
 
 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/tantivy_signals_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/tantivy_signals_e2e-2c847927a27bded0)
+     Running tests/tantivy_signals_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/tantivy_signals_e2e-2c847927a27bded0)
 
 running 12 tests
 test tests::empty_path_does_not_panic ... ok
@@ -1423,7 +1423,7 @@ test tests::fast_metadata_full_enrichment_chain ... ok
 
 test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 
-     Running tests/token_meter_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/token_meter_e2e-4413f9c826ea2422)
+     Running tests/token_meter_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/token_meter_e2e-4413f9c826ea2422)
 
 running 2 tests
 test the_ledger_measures_bytes_exactly_and_tokens_only_when_it_can ... ok
@@ -1431,7 +1431,7 @@ test routing_events_contribute_bytes_and_declare_no_tokens ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/tracing_instrumentation.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/tracing_instrumentation-a7bc63ce041b24d4)
+     Running tests/tracing_instrumentation.rs (~/projects/touring/target/wt-int97/debug/deps/tracing_instrumentation-a7bc63ce041b24d4)
 
 running 3 tests
 test unrelated_event_does_not_produce_false_positive ... ok
@@ -1440,7 +1440,7 @@ test concept_drift_event_message_and_field_are_captured ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/vgp_ativo_ordem_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/vgp_ativo_ordem_e2e-abfd1e74c5eb7e1b)
+     Running tests/vgp_ativo_ordem_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/vgp_ativo_ordem_e2e-abfd1e74c5eb7e1b)
 
 running 6 tests
 test bash_controle_inofensivo_segue_com_o_aviso ... ok
@@ -1452,7 +1452,7 @@ test write_aviso_do_vgp_segue_junto_do_pipeline ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
 
-     Running tests/wave24_hook_integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave24_hook_integration_e2e-70abb3859f3d4f04)
+     Running tests/wave24_hook_integration_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave24_hook_integration_e2e-70abb3859f3d4f04)
 
 running 5 tests
 test settings_json_contains_wave24_hooks ... ok
@@ -1463,7 +1463,7 @@ test task_completed_event_returns_full_outcome_receipt ... ok
 
 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.99s
 
-     Running tests/wave25_task_enrichment_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave25_task_enrichment_e2e-f28cc280f4785c7e)
+     Running tests/wave25_task_enrichment_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave25_task_enrichment_e2e-f28cc280f4785c7e)
 
 running 6 tests
 test file_based_tool_preserves_existing_shape ... ok
@@ -1475,7 +1475,7 @@ test task_create_payload_returns_enriched_context ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.78s
 
-     Running tests/wave2_4_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave2_4_e2e-a0578d7c28e7f758)
+     Running tests/wave2_4_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave2_4_e2e-a0578d7c28e7f758)
 
 running 20 tests
 test file_knowledge_enriched_default_is_all_none_or_zero ... ok
@@ -1501,7 +1501,7 @@ test query_extended_returns_none_for_unknown_file ... ok
 
 test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
-     Running tests/wave3_extended_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave3_extended_e2e-f8efeed8f66d18b0)
+     Running tests/wave3_extended_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave3_extended_e2e-f8efeed8f66d18b0)
 
 running 28 tests
 test audit_t203_precompact_recompress ... ok
@@ -1535,7 +1535,7 @@ test audit_t210_roi_sonnet_pricing ... ok
 
 test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/wave3_intelligence_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave3_intelligence_e2e-f66516bd079365c9)
+     Running tests/wave3_intelligence_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave3_intelligence_e2e-f66516bd079365c9)
 
 running 29 tests
 test audit_mcp_tool_names_count_27 ... ok
@@ -1570,7 +1570,7 @@ test batch_doctor_reports_the_given_root_not_the_process_cwd ... ok
 
 test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 
-     Running tests/wave_c_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave_c_e2e-0484172de5d766d8)
+     Running tests/wave_c_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave_c_e2e-0484172de5d766d8)
 
 running 3 tests
 test cascade_queue_low_severity_not_enqueued ... ok
@@ -1579,7 +1579,7 @@ test hook_registry_has_cascade_queue_handlers ... ok
 
 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/wave_v429_ast_grep_hooks_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave_v429_ast_grep_hooks_e2e-ba4888120da6ae4d)
+     Running tests/wave_v429_ast_grep_hooks_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wave_v429_ast_grep_hooks_e2e-ba4888120da6ae4d)
 
 running 30 tests
 test cross_lang_for_path_resolves_known_extensions ... ok
@@ -1615,7 +1615,7 @@ test s3_shape_skips_env_assignments ... ok
 
 test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running tests/wiring_aggregate_equivalence_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wiring_aggregate_equivalence_e2e-7d0fcaca4600853d)
+     Running tests/wiring_aggregate_equivalence_e2e.rs (~/projects/touring/target/wt-int97/debug/deps/wiring_aggregate_equivalence_e2e-7d0fcaca4600853d)
 
 running 3 tests
 test wiring_modules_aggregate_empty_db_matches_legacy ... ok

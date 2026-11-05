@@ -5,7 +5,7 @@
   "origem": "entradas_inline_neg.jsonl:ee50d81d4f6a"
  },
  "ate": "2026-10-09T21:12:22.428Z",
- "saida": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout",
+ "saida": "~/.claude/touring/vgp/corpus_holdout",
  "vivo_sha_tree_antes": "b06b89113c869097",
  "parametros": {
   "SEED": 20261008,

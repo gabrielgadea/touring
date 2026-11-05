@@ -10,14 +10,14 @@ tags: ["#kind:report", "#status:done-with-1-foreign-failure", "#domain:hooks", "
 
 # RELATORIO-E2EHERM
 
-Evidência em `B/diagnostics/e2eherm/` (B = `/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base`);
+Evidência em `B/diagnostics/e2eherm/` (B = `~/projects/touring/docs/plans/2026-10-08-vgp-motor-base`);
 índice de hashes em `B/diagnostics/e2eherm/SHA256SUMS`. Os números abaixo vêm desses arquivos.
 
 ## 1. Identidade
 
 - Engenheiro `e2eherm`, modelo Sonnet 5.5, sob a coordenadora touring-09. Brief: `B/briefs/2026-10-10-e2eherm.md`.
-- Worktree `/home/gabrielgadea/projects/touring-wt-e2eherm`, branch `fix/2026-10-10-e2eherm`, base `c118aa52`.
-- `CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/wt-e2eherm` (exclusivo; perfil `dev`).
+- Worktree `~/projects/touring-wt-e2eherm`, branch `fix/2026-10-10-e2eherm`, base `c118aa52`.
+- `CARGO_TARGET_DIR=~/projects/touring/target/wt-e2eherm` (exclusivo; perfil `dev`).
 - Todo `cargo` passou pelo `hw-slot --class rust`; a fila por temperatura (88 °C) custou horas, nunca contornei.
 
 ## 2. O que foi feito, com evidência
@@ -92,8 +92,8 @@ Evidência em `B/diagnostics/e2eherm/` (B = `/home/gabrielgadea/projects/touring
 - Builds: baseline 9 min 41 s (`touring` + `touring-daemon`), depois incrementais de ~11 s por fase de mutante.
 
 **INCIDENTE (registro pedido pela coordenadora).** ~14:02Z (11:02 BRT), experimento exploratório `exp1.sh` com binários release da árvore principal: daemon scratch com `TOURING_PROJECT_ROOT=tmp`
-e `HOME=tmp`, mas o CLIENTE com cwd `/home/gabrielgadea/projects/touring`. Um `touring memory store e2eherm-seed-wiring-orphans …` gravou 1 linha na base REAL
-`/home/gabrielgadea/projects/touring/.claude/touring/memory.db` (`memory_entries`, tier semantic). **Causa**: o daemon resolve o projeto pelo cwd/ambiente do cliente — exatamente a lição da memória
+e `HOME=tmp`, mas o CLIENTE com cwd `~/projects/touring`. Um `touring memory store e2eherm-seed-wiring-orphans …` gravou 1 linha na base REAL
+`~/projects/touring/.claude/touring/memory.db` (`memory_entries`, tier semantic). **Causa**: o daemon resolve o projeto pelo cwd/ambiente do cliente — exatamente a lição da memória
 `daemon-resolve-projeto-pelo-cwd-do-cliente`, que eu tinha disponível e não apliquei ao desenhar o experimento (pinei só o daemon). Avisei a coordenadora na hora, com a evidência.
 **Remediação feita pela coordenadora (~14:12Z)**: removeu numa transação a entrada e as dependentes (memory_entries 1, memory_tags 3, embeddings 1, memory_coserved 18; FTS limpo pelos triggers; `integrity-check` de
 `memories_fts`/`tags_fts` ok). Eu não toquei no banco. Minhas baselines de contagem são posteriores (snapshots de 14:12:37–14:12:44 BRT = 17:12Z). Daí em diante todo experimento meu rodou com cwd, HOME e raiz em tmp, cliente e daemon.
@@ -123,7 +123,7 @@ O resto (logs de baseline, gates, cadeia de mutantes, snapshots A–F/S/R, scrip
 ## 7. Git
 
 ```
-$ git -C /home/gabrielgadea/projects/touring-wt-e2eherm status --short
+$ git -C ~/projects/touring-wt-e2eherm status --short
  M crates/touring-hooks/tests/common/private_daemon.rs
  M crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs
 $ git -C … log --oneline -1

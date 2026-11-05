@@ -1,6 +1,8 @@
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import sys
 
-sys.path.insert(0, "/home/gabrielgadea/projects/analise/.venv/lib/python3.12/site-packages")
+sys.path.insert(0, f"{_HOME}/projects/analise/.venv/lib/python3.12/site-packages")
 import tree_sitter_python as tsp
 from tree_sitter import Language, Parser
 

@@ -25,15 +25,18 @@
 //! and the edge now points the correct way for extraction
 //! (`cli_handlers → gateway::deps`, i.e. parent → leaf).
 //!
-//! As of 2026-06-09 (Master Plan **A.W3.P1**) the [`LearnRuntime`] trait itself
-//! was promoted out of this module into the leaf crate **`touring-contracts`**
-//! (zero parent deps) and is **re-exported here for source compatibility** —
-//! every `crate::gateway::deps::LearnRuntime` path and the `impl … for
-//! HookRuntime` in `cli/handlers/dispatch.rs` are unchanged. [`CegRuntime`] stays
-//! in this module because it references the CEG-domain `HarnessContract`; it
-//! still extends the (now leaf-crate) [`LearnRuntime`]. Promoting the trait to a
-//! leaf crate makes the seam reusable beyond the CEG and is the foundation for a
-//! future `touring-ceg` extraction.
+//! From 2026-06-09 (Master Plan **A.W3.P1**) until 2026-11-02 the
+//! [`LearnRuntime`] trait lived in a separate leaf crate, `touring-contracts`,
+//! re-exported here, as the foundation for this very `touring-ceg` extraction.
+//! The extraction landed (see below) and that crate never gained a second
+//! consumer or a second trait: `touring-ceg` was its only dependent, and the
+//! only production implementor of [`LearnRuntime`] (`HookRuntime`) also
+//! implements [`CegRuntime`] — which lives here and extends it — so it could
+//! not avoid depending on `touring-ceg` anyway (the rest are test mocks). The
+//! trait is therefore defined below, next to [`CegRuntime`]; the
+//! `crate::gateway::deps::LearnRuntime` path and the `impl … for HookRuntime`
+//! are unchanged. If a crate *below* the CEG ever needs the seam, extract it
+//! again then — with a real second consumer.
 //!
 //! # CEG → parent extraction map (remaining edges — S-13 follow-up)
 //!
@@ -60,10 +63,33 @@
 //! both at its root (`pub use touring_ceg::{gateway, capability}`) — zero churn
 //! for the 3 touring-server consumers, the `ceg_e2e` suite, and parent modules.
 
-/// The X9 LEARN persistence seam, now housed in the leaf crate
-/// [`touring_contracts`] (Master Plan A.W3.P1, 2026-06-09) and re-exported here
-/// so existing `crate::gateway::deps::LearnRuntime` paths keep resolving.
-pub use touring_contracts::LearnRuntime;
+use serde_json::Value;
+
+/// The X9 LEARN persistence operations a subsystem needs from its host runtime.
+///
+/// Implemented by the host (e.g. `touring_hook_runtime::HookRuntime`) by
+/// delegating to the canonical `cli_learning_reward` / `cli_gotcha_add` /
+/// `cli_memory_store` handlers. Abstracting them here lets the CEG
+/// (`gateway/learn.rs`) close the RL / gotcha / memory feedback loops without
+/// importing the host's handler module — inverting that edge so the gateway
+/// stays a standalone crate.
+///
+/// Every method mirrors the underlying handler contract: it returns the
+/// handler's JSON string (which may itself encode an error) and is **fail-open**
+/// — an implementation must never panic.
+pub trait LearnRuntime {
+    /// Inject an RL reward. `payload` carries `{tool_name, reward, context}`.
+    /// Mirrors `cli_learning_reward`.
+    fn learning_reward(&mut self, payload: &Value) -> String;
+
+    /// Persist a gotcha entry. `payload` carries `{pattern, description, severity}`.
+    /// Mirrors `cli_gotcha_add`.
+    fn gotcha_add(&mut self, payload: &Value) -> String;
+
+    /// Persist a memory entry. `payload` carries `{key, value, tier, type}`.
+    /// Mirrors `cli_memory_store`.
+    fn memory_store(&mut self, payload: &Value) -> String;
+}
 
 /// The full X9 LEARN runtime-service surface the gateway needs from the host
 /// runtime — a superset of [`LearnRuntime`] that additionally abstracts the
@@ -99,15 +125,15 @@ pub trait CegRuntime: LearnRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
 
-    /// A mock [`LearnRuntime`] proving the re-exported leaf-crate contract is
-    /// satisfiable by a host-side type here (the trait moved to
-    /// `touring-contracts`; this confirms `crate::gateway::deps::LearnRuntime`
-    /// still resolves and is implementable from inside `touring-hooks`).
+    /// A mock [`LearnRuntime`] that records calls without any runtime — proves
+    /// the seam is host-agnostic and that callers compile against the trait
+    /// alone (no host runtime, no handler module).
     #[derive(Default)]
     struct MockLearn {
         rewards: Vec<String>,
+        gotchas: Vec<String>,
+        memories: Vec<String>,
     }
 
     impl LearnRuntime for MockLearn {
@@ -115,22 +141,33 @@ mod tests {
             self.rewards.push(payload.to_string());
             "{\"ok\":true}".to_owned()
         }
-        fn gotcha_add(&mut self, _payload: &Value) -> String {
+        fn gotcha_add(&mut self, payload: &Value) -> String {
+            self.gotchas.push(payload.to_string());
             "{\"ok\":true}".to_owned()
         }
-        fn memory_store(&mut self, _payload: &Value) -> String {
+        fn memory_store(&mut self, payload: &Value) -> String {
+            self.memories.push(payload.to_string());
             "{\"ok\":true}".to_owned()
         }
     }
 
     #[test]
-    fn reexported_learn_runtime_is_implementable_in_parent() {
+    fn mock_learn_records_each_op_independently() {
         let mut m = MockLearn::default();
-        let out = m.learning_reward(&serde_json::json!({"tool_name": "ceg", "reward": 1.0}));
-        assert_eq!(m.rewards.len(), 1, "reward recorded via re-exported trait");
-        assert!(
-            out.starts_with('{'),
-            "fail-open JSON string contract preserved"
-        );
+        let _ = m.learning_reward(&serde_json::json!({"tool_name": "ceg", "reward": 1.0}));
+        let _ = m.gotcha_add(&serde_json::json!({"pattern": "rm -rf /"}));
+        let _ = m.memory_store(&serde_json::json!({"key": "k", "value": "v"}));
+        assert_eq!(m.rewards.len(), 1, "reward recorded");
+        assert_eq!(m.gotchas.len(), 1, "gotcha recorded");
+        assert_eq!(m.memories.len(), 1, "memory recorded");
+    }
+
+    /// Fail-open contract: a returned JSON string (even an error one) is the
+    /// only channel — the trait surface itself cannot panic the caller.
+    #[test]
+    fn learn_runtime_methods_return_json_string() {
+        let mut m = MockLearn::default();
+        let out = m.learning_reward(&serde_json::json!({}));
+        assert!(out.starts_with('{'), "must return a JSON object string");
     }
 }

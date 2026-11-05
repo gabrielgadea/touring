@@ -30,7 +30,7 @@ Precedente de estilo: `docs/plans/2026-09-30-jev-harness-potencializacao/harness
 **`other` não é uma família: é o resto.** A taxonomia é UMA fonte
 (`crates/touring-cli/src/cli/context_budget.rs:141` `injection_family`, tabela em `:142-178`) e o catch-all está em
 `:184`. Quem produz seus maiores blocos, pelo comentário do próprio código
-(`crates/touring-cli/src/cli/context_budget.rs:192`): `[gabrielgadea]` 384×, `[generic]` 188×,
+(`crates/touring-cli/src/cli/context_budget.rs:192`): `[<user>]` 384×, `[generic]` 188×,
 `post-tool-batch: batch of 1 tools …` 422×. Medido nos 3 transcripts mais recentes:
 `skill_listing` (89.976 B, 1ª linha `- academic-research-writer`) e o bloco
 `=== REMEMBER ===` (21.894 B) — ou seja, **`other` é majoritariamente listagem de skills e

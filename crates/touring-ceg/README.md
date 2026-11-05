@@ -36,7 +36,7 @@ structurally unskippable.
 ## IoC contract (how X9 LEARN stays host-agnostic)
 
 `gateway::learn` is generic over `CegRuntime` (supertrait of
-`touring-contracts::LearnRuntime`). The host runtime implements the traits;
+`gateway::LearnRuntime`; both live in `gateway::deps`). The host runtime implements the traits;
 this crate never names a host type. The Claude Code **hook driver** lives in
 the parent (`touring_hooks::ceg_adapter`) and maps `GatewayOutcome` to the
 hook protocol.
@@ -105,7 +105,7 @@ tp/fp test fixtures, (5) run
 `touring-quality score crates/touring-ceg --fail-below 0.80`.
 
 The crate must never name a concrete host type — X9 LEARN stays host-agnostic
-via `CegRuntime` (supertrait of `touring-contracts::LearnRuntime`).
+via `CegRuntime` (supertrait of `gateway::LearnRuntime`).
 
 ## License
 

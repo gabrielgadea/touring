@@ -3,6 +3,9 @@ PROPRIO snapshot (raiz do arquivo ou dentro de qual `mod` inline), o que o motor
 
 Uso: python3 -I categoriza_perdas.py SC ROTULO   (le var_<ROTULO>_ids_natural.json)"""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import json
 import pathlib
 import re
@@ -10,7 +13,7 @@ import sys
 
 SC = pathlib.Path(sys.argv[1])
 ROT = sys.argv[2]
-N = pathlib.Path("/home/gabrielgadea/.claude/touring/vgp/corpus_rust_natural")
+N = pathlib.Path(f"{_HOME}/.claude/touring/vgp/corpus_rust_natural")
 ent = {}
 for ln in (N / "entradas.jsonl").read_text().splitlines():
     e = json.loads(ln)

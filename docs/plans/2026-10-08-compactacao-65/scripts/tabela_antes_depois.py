@@ -13,20 +13,23 @@ colunas de destino, e nao so "antes/depois":
 Se a coluna "sob demanda" fosse zero, a compactacao teria DESTRUIDido conteudo
 em vez de move-lo — e a conservacao (exit 0) seria a unica coisa que diria.
 """
+
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 import pathlib
 import re
 import sys
 
-B = pathlib.Path("/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65")
+B = pathlib.Path(f"{_HOME}/projects/touring/docs/plans/2026-10-08-compactacao-65")
 sys.path.insert(0, str(B / "scripts"))
 
 HOME = pathlib.Path.home()
-PROJ = pathlib.Path("/home/gabrielgadea/projects/analise")
+PROJ = pathlib.Path(f"{_HOME}/projects/analise")
 RULES_BKP = B / "rules-backup"
 AGENTS_BKP = B / "agents-backup"
 TOURING_REF = HOME / ".claude/skills/Touring/references"
 ELITE_REF = HOME / ".claude/skills/touring-elite/references"
-CLIENT = pathlib.Path("/home/gabrielgadea/projects/touring/client/agents")
+CLIENT = pathlib.Path(f"{_HOME}/projects/touring/client/agents")
 
 REGRAS = {
     "git-safety-protocol": (HOME / ".claude/rules/git-safety-protocol.md",

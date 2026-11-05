@@ -2,13 +2,16 @@
 
 Uso: touring run --file p95_ab.py --args '[CORPUS_DIR, BIN_A, BIN_B]'"""
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import importlib.util
 import statistics
 import sys
 from pathlib import Path
 
 JUIZ = Path(
-    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py"
+    f"{_HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py"
 )
 spec = importlib.util.spec_from_file_location("juiz_motor_vgp_ro", JUIZ)
 juiz = importlib.util.module_from_spec(spec)

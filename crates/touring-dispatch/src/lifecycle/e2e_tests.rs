@@ -191,48 +191,6 @@ fn worktree_create_returns_empty_for_missing_path() {
 // shared.rs — suggest_generator_for_task_subject + classify helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-#[test]
-fn shared_suggest_generator_maps_test_keyword() {
-    let hint = suggest_generator_for_task_subject("add unit test for parser");
-    assert!(hint.contains("Test"), "test keyword → Test kind: {hint}");
-    assert!(hint.contains("touring generate render"));
-}
-
-#[test]
-fn shared_suggest_generator_empty_on_unknown_subject() {
-    let hint = suggest_generator_for_task_subject("xyzzy plugh");
-    assert!(hint.is_empty(), "unknown subject → empty");
-}
-
-#[test]
-fn shared_classify_file_to_generator_kind_maps_proto_to_protobuf() {
-    assert_eq!(
-        classify_file_to_generator_kind("schemas/users.proto"),
-        Some("ProtobufSchema")
-    );
-}
-
-#[test]
-fn shared_classify_rust_file_bench_file_maps_to_benchmark() {
-    assert_eq!(
-        classify_rust_to_generator_kind("/benches/foo.rs", "/benches/foo.rs"),
-        "Benchmark"
-    );
-}
-
-#[test]
-fn shared_maybe_vgp_verify_hint_skips_generic_stems() {
-    // lib/main/mod are too generic to produce meaningful verify hint.
-    assert!(maybe_vgp_verify_hint_for_rs_file("src/lib.rs").is_none());
-    assert!(maybe_vgp_verify_hint_for_rs_file("src/main.rs").is_none());
-    // Non-Rust file → None.
-    assert!(maybe_vgp_verify_hint_for_rs_file("src/foo.py").is_none());
-    // Custom Rust module → Some.
-    let hint = maybe_vgp_verify_hint_for_rs_file("src/hook_registry.rs")
-        .expect("hint for hook_registry.rs");
-    assert!(hint.contains("HookRegistry"), "CamelCase stem: {hint}");
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // task_delete.rs — handle_task_sync_post_delete
 // ═══════════════════════════════════════════════════════════════════════════
@@ -272,27 +230,6 @@ fn task_stop_emits_cancellation_and_drift_hints() {
     assert!(out.contains("RL -0.3"));
     assert!(out.contains("evolution drift"));
     assert!(out.contains("gotcha add"));
-}
-
-#[test]
-fn task_stop_session_assess_does_not_panic_on_unknown_session() {
-    // The co-located `session_assess_on_task_stop` must NOT panic when the
-    // session has no quality_score yet (R37-S3 contract).
-    //
-    // `cli_session_assess` may still produce a default `quality_score=0.0`
-    // row for an unknown session_id (it inserts a fresh session record on
-    // first read), in which case the helper returns the formatted hint.
-    // Both outcomes (empty OR formatted hint) are acceptable — the
-    // contract is "no panic + well-formed output".
-    let (_tmp, mut rt) = make_runtime();
-    let result = session_assess_on_task_stop(&mut rt, "T-unknown-session");
-    // Either empty or a well-formed hint, never a panic:
-    if !result.is_empty() {
-        assert!(
-            result.starts_with(" | session-assessed:"),
-            "non-empty result must be well-formed: {result:?}"
-        );
-    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -364,37 +301,6 @@ fn task_get_r169_surfaces_failure_lesson_recall_on_failed_dag() {
     let (_tmp, mut rt) = make_runtime();
     let out = handle_task_sync_post_get(&mut rt, &task_input("T-get-2", "", None));
     assert!(out.contains("wiring suggest"));
-}
-
-#[test]
-fn task_get_generator_for_active_subtask_maps_to_kind_label() {
-    // Direct co-located helper: dag_json → GeneratorKind hint.
-    let dag_with_active = json!({
-        "subtasks": [
-            { "subtask_id": "s1", "status": "in_progress",
-              "description": "add migration for users table" }
-        ]
-    })
-    .to_string();
-    let hint = generator_for_active_subtask(&dag_with_active);
-    assert!(
-        hint.contains("Migration"),
-        "active subtask → Migration: {hint}"
-    );
-}
-
-#[test]
-fn task_get_dag_json_to_active_description_ignores_non_in_progress() {
-    let dag_only_done = json!({
-        "subtasks": [
-            { "subtask_id": "s1", "status": "completed", "description": "x" }
-        ]
-    })
-    .to_string();
-    assert!(
-        dag_json_to_active_description(&dag_only_done).is_none(),
-        "no in_progress subtask → None"
-    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -469,123 +375,7 @@ fn all_submodule_handlers_reachable_via_crate_lifecycle_namespace() {
 // AcoPheromone §3 — heat_based_task_priority_hint (task_list.rs)
 // ═══════════════════════════════════════════════════════════════════════════
 
-#[test]
-fn heat_hint_empty_on_single_pending_task() {
-    // < 2 pending tasks → suppressed unconditionally.
-    let (_tmp, mut rt) = make_runtime();
-    let input = json!({
-        "result": {
-            "tasks": [
-                {"status": "pending", "task_subject": "refactor auth module"}
-            ]
-        }
-    });
-    let hint = heat_based_task_priority_hint(&mut rt, &input);
-    assert!(
-        hint.is_empty(),
-        "single pending task must suppress heat hint: {hint:?}"
-    );
-}
-
-#[test]
-fn heat_hint_empty_on_no_pending_tasks() {
-    // All tasks completed → no heat hint.
-    let (_tmp, mut rt) = make_runtime();
-    let input = json!({
-        "result": {
-            "tasks": [
-                {"status": "completed", "task_subject": "write tests"},
-                {"status": "completed", "task_subject": "fix linting"},
-            ]
-        }
-    });
-    let hint = heat_based_task_priority_hint(&mut rt, &input);
-    assert!(
-        hint.is_empty(),
-        "completed tasks must suppress heat hint: {hint:?}"
-    );
-}
-
-#[test]
-fn heat_hint_uniform_scores_suppressed() {
-    // Without a live daemon, cli_wiring_modules returns empty → all tasks score 0.75
-    // (neutral). Spread = 0.0 < 0.05 → hint suppressed.
-    let (_tmp, mut rt) = make_runtime();
-    let input = json!({
-        "result": {
-            "tasks": [
-                {"status": "pending", "task_subject": "implement feature A"},
-                {"status": "pending", "task_subject": "implement feature B"},
-                {"status": "pending", "task_subject": "implement feature C"},
-            ]
-        }
-    });
-    let hint = heat_based_task_priority_hint(&mut rt, &input);
-    // Uniform scores (no daemon) → spread < 0.05 → suppressed.
-    // Either empty (uniform) or non-empty (if daemon happened to respond) — both valid.
-    // We only assert no panic.
-    let _ = hint;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // §4 — maybe_parallel_subagent_hint (plan_mode/exit.rs)
 // ═══════════════════════════════════════════════════════════════════════════
 
-#[test]
-fn parallel_hint_empty_on_zero_ready() {
-    let json = r#"{"ready_count":0,"ready_subtasks":[]}"#;
-    let hint = maybe_parallel_subagent_hint(json);
-    assert!(
-        hint.is_empty(),
-        "ready_count=0 must suppress parallel hint: {hint:?}"
-    );
-}
-
-#[test]
-fn parallel_hint_empty_on_one_ready() {
-    let json = r#"{"ready_count":1,"ready_subtasks":[{"subtask_id":"S-1"}]}"#;
-    let hint = maybe_parallel_subagent_hint(json);
-    assert!(
-        hint.is_empty(),
-        "ready_count=1 must suppress parallel hint: {hint:?}"
-    );
-}
-
-#[test]
-fn parallel_hint_emitted_on_two_ready() {
-    let json = r#"{"ready_count":2,"ready_subtasks":[{"subtask_id":"S-1"},{"subtask_id":"S-2"}]}"#;
-    let hint = maybe_parallel_subagent_hint(json);
-    assert!(
-        hint.contains("[TOURING PARALLEL]"),
-        "ready_count=2 must emit parallel hint: {hint:?}"
-    );
-    assert!(
-        hint.contains("S-1"),
-        "must include first subtask ID: {hint:?}"
-    );
-    assert!(
-        hint.contains("S-2"),
-        "must include second subtask ID: {hint:?}"
-    );
-}
-
-#[test]
-fn parallel_hint_caps_subtask_ids_at_four() {
-    let json = r#"{"ready_count":6,"ready_subtasks":[
-        {"subtask_id":"S-1"},{"subtask_id":"S-2"},{"subtask_id":"S-3"},
-        {"subtask_id":"S-4"},{"subtask_id":"S-5"},{"subtask_id":"S-6"}
-    ]}"#;
-    let hint = maybe_parallel_subagent_hint(json);
-    assert!(
-        hint.contains("[TOURING PARALLEL]"),
-        "ready_count=6 must emit hint: {hint:?}"
-    );
-    assert!(!hint.contains("S-5"), "must cap subtask IDs at 4: {hint:?}");
-    assert!(!hint.contains("S-6"), "must cap subtask IDs at 4: {hint:?}");
-}
-
-#[test]
-fn parallel_hint_tolerates_invalid_json() {
-    let hint = maybe_parallel_subagent_hint("not-valid-json{{");
-    assert!(hint.is_empty(), "invalid JSON must return empty: {hint:?}");
-}

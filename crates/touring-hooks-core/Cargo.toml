@@ -16,7 +16,7 @@ path = "src/lib.rs"
 # cfg-gated modules keep identical semantics after the Phase C carve.
 tantivy-fts = ["dep:tantivy"]
 shadow-workspace = []
-capnp-server = ["dep:touring-capnp-server"]
+capnp-server = ["dep:touring-bindings"]
 session-hooks = []
 nlp-enrichment = []
 utilities = []
@@ -49,7 +49,7 @@ touring-code = { path = "../touring-code" }
 touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gpu-compute", "quantization", "ann"] }
 touring-intelligence = { path = "../touring-intelligence" }
 touring-rkyv = { path = "../touring-rkyv" }
-touring-capnp-server = { path = "../touring-capnp-server", optional = true }
+touring-bindings = { path = "../touring-bindings", optional = true, features = ["bind-capnp"] } # `capnp-server`: the in-daemon Cap'n Proto embed (capnp_embed.rs)
 blake3 = { workspace = true }
 chrono = { workspace = true }
 dashmap = { workspace = true }

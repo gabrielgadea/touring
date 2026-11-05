@@ -10,53 +10,53 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/skills/Touring/SKILL.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/VP-Scout-rule.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/agents.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/api_reference.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/architecture.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/changelog.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/code-execution-gateway.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/code-mode-operational.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/code_generator.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/code_mode_recipes.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/context-enrichment.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/disk-hygiene-detail.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/entity-identity.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/generate-and-evolution.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/git-safety-protocol.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/inferlet_stdlib.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/integrations.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/mcp_tools.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/memory-hashtags.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/scip-export.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/skill-operating-principles.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/symbol_verification.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/taco-subagent-detail.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/taco_protocol.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-4-pillars-provenance.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-assists.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-debugging-bugstalker.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-e-contexto.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-generate.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-hooks.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-index-tiers-2-3.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-intelligence.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-meta.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-overview.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-rl-quality.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-rl-stack.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-tasks.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-tiers-4-9.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-decision-matrix-lessons.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-per-project.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-process-hygiene.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-rebuild-changelog.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/touring-rebuild-rule.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/verification-before-completion.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/vp-scout-examples.md",
-    "/home/gabrielgadea/.claude/skills/Touring/references/workflows.md"
+    "~/.claude/skills/Touring/SKILL.md",
+    "~/.claude/skills/Touring/references/TACO-subagent-rule.md",
+    "~/.claude/skills/Touring/references/VP-Scout-rule.md",
+    "~/.claude/skills/Touring/references/agents.md",
+    "~/.claude/skills/Touring/references/api_reference.md",
+    "~/.claude/skills/Touring/references/architecture.md",
+    "~/.claude/skills/Touring/references/changelog.md",
+    "~/.claude/skills/Touring/references/code-execution-gateway.md",
+    "~/.claude/skills/Touring/references/code-mode-operational.md",
+    "~/.claude/skills/Touring/references/code_generator.md",
+    "~/.claude/skills/Touring/references/code_mode_recipes.md",
+    "~/.claude/skills/Touring/references/context-enrichment.md",
+    "~/.claude/skills/Touring/references/disk-hygiene-detail.md",
+    "~/.claude/skills/Touring/references/entity-identity.md",
+    "~/.claude/skills/Touring/references/generate-and-evolution.md",
+    "~/.claude/skills/Touring/references/git-safety-protocol.md",
+    "~/.claude/skills/Touring/references/inferlet_stdlib.md",
+    "~/.claude/skills/Touring/references/integrations.md",
+    "~/.claude/skills/Touring/references/mcp_tools.md",
+    "~/.claude/skills/Touring/references/memory-hashtags.md",
+    "~/.claude/skills/Touring/references/scip-export.md",
+    "~/.claude/skills/Touring/references/skill-operating-principles.md",
+    "~/.claude/skills/Touring/references/symbol_verification.md",
+    "~/.claude/skills/Touring/references/taco-subagent-detail.md",
+    "~/.claude/skills/Touring/references/taco_protocol.md",
+    "~/.claude/skills/Touring/references/touring-4-pillars-provenance.md",
+    "~/.claude/skills/Touring/references/touring-cli-assists.md",
+    "~/.claude/skills/Touring/references/touring-cli-debugging-bugstalker.md",
+    "~/.claude/skills/Touring/references/touring-cli-e-contexto.md",
+    "~/.claude/skills/Touring/references/touring-cli-generate.md",
+    "~/.claude/skills/Touring/references/touring-cli-hooks.md",
+    "~/.claude/skills/Touring/references/touring-cli-index-tiers-2-3.md",
+    "~/.claude/skills/Touring/references/touring-cli-intelligence.md",
+    "~/.claude/skills/Touring/references/touring-cli-meta.md",
+    "~/.claude/skills/Touring/references/touring-cli-overview.md",
+    "~/.claude/skills/Touring/references/touring-cli-rl-quality.md",
+    "~/.claude/skills/Touring/references/touring-cli-rl-stack.md",
+    "~/.claude/skills/Touring/references/touring-cli-tasks.md",
+    "~/.claude/skills/Touring/references/touring-cli-tiers-4-9.md",
+    "~/.claude/skills/Touring/references/touring-decision-matrix-lessons.md",
+    "~/.claude/skills/Touring/references/touring-per-project.md",
+    "~/.claude/skills/Touring/references/touring-process-hygiene.md",
+    "~/.claude/skills/Touring/references/touring-rebuild-changelog.md",
+    "~/.claude/skills/Touring/references/touring-rebuild-rule.md",
+    "~/.claude/skills/Touring/references/verification-before-completion.md",
+    "~/.claude/skills/Touring/references/vp-scout-examples.md",
+    "~/.claude/skills/Touring/references/workflows.md"
    ]
   },
   {
@@ -69,9 +69,9 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/skills/loop-engineering/SKILL.md",
-    "/home/gabrielgadea/.claude/skills/loop-engineering/references/loop-camada-3-e-hooks.md",
-    "/home/gabrielgadea/.claude/skills/loop-engineering/references/okf-format.md"
+    "~/.claude/skills/loop-engineering/SKILL.md",
+    "~/.claude/skills/loop-engineering/references/loop-camada-3-e-hooks.md",
+    "~/.claude/skills/loop-engineering/references/okf-format.md"
    ]
   },
   {
@@ -84,15 +84,15 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/skills/analysis-loop/SKILL.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/analise-camadas-e-contexto.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/arquivo-de-teses.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/clausulas-de-convergencia.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/description-original.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/familias-de-defeito.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/lentes.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/linkagem-e-acervo.md",
-    "/home/gabrielgadea/.claude/skills/analysis-loop/references/mapa-do-pipeline.md"
+    "~/.claude/skills/analysis-loop/SKILL.md",
+    "~/.claude/skills/analysis-loop/references/analise-camadas-e-contexto.md",
+    "~/.claude/skills/analysis-loop/references/arquivo-de-teses.md",
+    "~/.claude/skills/analysis-loop/references/clausulas-de-convergencia.md",
+    "~/.claude/skills/analysis-loop/references/description-original.md",
+    "~/.claude/skills/analysis-loop/references/familias-de-defeito.md",
+    "~/.claude/skills/analysis-loop/references/lentes.md",
+    "~/.claude/skills/analysis-loop/references/linkagem-e-acervo.md",
+    "~/.claude/skills/analysis-loop/references/mapa-do-pipeline.md"
    ]
   },
   {
@@ -105,12 +105,12 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/SKILL.md",
-    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/audit-workflow.md",
-    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/cross-audit-camadas.md",
-    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/e2e-proof.md",
-    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/potentialization.md",
-    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/purpose-fidelity.md"
+    "~/.claude/skills/TACO-cross-audit/SKILL.md",
+    "~/.claude/skills/TACO-cross-audit/references/audit-workflow.md",
+    "~/.claude/skills/TACO-cross-audit/references/cross-audit-camadas.md",
+    "~/.claude/skills/TACO-cross-audit/references/e2e-proof.md",
+    "~/.claude/skills/TACO-cross-audit/references/potentialization.md",
+    "~/.claude/skills/TACO-cross-audit/references/purpose-fidelity.md"
    ]
   },
   {
@@ -123,13 +123,13 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/.claude/skills/scientific-writing/SKILL.md",
-    "/home/gabrielgadea/.claude/skills/scientific-writing/references/citation_styles.md",
-    "/home/gabrielgadea/.claude/skills/scientific-writing/references/figures_tables.md",
-    "/home/gabrielgadea/.claude/skills/scientific-writing/references/imrad_structure.md",
-    "/home/gabrielgadea/.claude/skills/scientific-writing/references/reporting_guidelines.md",
-    "/home/gabrielgadea/.claude/skills/scientific-writing/references/scientific-writing-detalhe.md",
-    "/home/gabrielgadea/.claude/skills/scientific-writing/references/writing_principles.md"
+    "~/.claude/skills/scientific-writing/SKILL.md",
+    "~/.claude/skills/scientific-writing/references/citation_styles.md",
+    "~/.claude/skills/scientific-writing/references/figures_tables.md",
+    "~/.claude/skills/scientific-writing/references/imrad_structure.md",
+    "~/.claude/skills/scientific-writing/references/reporting_guidelines.md",
+    "~/.claude/skills/scientific-writing/references/scientific-writing-detalhe.md",
+    "~/.claude/skills/scientific-writing/references/writing_principles.md"
    ]
   },
   {
@@ -142,13 +142,13 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/SKILL.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/recommendation-formulation-process.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/required-inputs.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/resolution-protocol.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/sintese-extras-e-integracao.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/sintese-workflow-detalhado.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/validation-checklist.md"
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/SKILL.md",
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/references/recommendation-formulation-process.md",
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/references/required-inputs.md",
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/references/resolution-protocol.md",
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/references/sintese-extras-e-integracao.md",
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/references/sintese-workflow-detalhado.md",
+    "~/projects/analise/.claude/skills/antt-final-synthesizer/references/validation-checklist.md"
    ]
   },
   {
@@ -161,8 +161,8 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/skills/transformational-story-architect/SKILL.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/transformational-story-architect/references/story-workflow-e-tecnicas.md"
+    "~/projects/analise/.claude/skills/transformational-story-architect/SKILL.md",
+    "~/projects/analise/.claude/skills/transformational-story-architect/references/story-workflow-e-tecnicas.md"
    ]
   },
   {
@@ -175,21 +175,21 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/SKILL.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/best-practices.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/data-argument-mapping.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/evidence-chains.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/example-1-transforming-technical-analysis-into.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/multi-dimensional-convergence.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/narrate-data-framework.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/narrativa-integracao-e-exemplos.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/rastreabilidade-de-decisões.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/risk-mitigation-cascade.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/tcu-consolidation.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/tcu-jurisprudence.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/templates.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/tese-central-unificada.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/timeline-patterns.md"
+    "~/projects/analise/.claude/skills/antt-narrative-architect/SKILL.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/best-practices.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/data-argument-mapping.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/evidence-chains.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/example-1-transforming-technical-analysis-into.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/multi-dimensional-convergence.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/narrate-data-framework.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/narrativa-integracao-e-exemplos.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/rastreabilidade-de-decisões.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/risk-mitigation-cascade.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/tcu-consolidation.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/tcu-jurisprudence.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/templates.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/tese-central-unificada.md",
+    "~/projects/analise/.claude/skills/antt-narrative-architect/references/timeline-patterns.md"
    ]
   },
   {
@@ -202,9 +202,9 @@
    "ok": true,
    "pct": 100.0,
    "arquivos_varidos": [
-    "/home/gabrielgadea/projects/analise/.claude/skills/design-elite/SKILL.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/design-elite/references/capitulos-17-29.md",
-    "/home/gabrielgadea/projects/analise/.claude/skills/design-elite/references/design-elite-roteiro-e-gates.md"
+    "~/projects/analise/.claude/skills/design-elite/SKILL.md",
+    "~/projects/analise/.claude/skills/design-elite/references/capitulos-17-29.md",
+    "~/projects/analise/.claude/skills/design-elite/references/design-elite-roteiro-e-gates.md"
    ]
   }
  ],

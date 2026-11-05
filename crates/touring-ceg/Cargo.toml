@@ -20,7 +20,6 @@ txn_lock_enforcement = []
 
 [dependencies]
 # Leaf-internal stack (the Session A/B inversion targets)
-touring-contracts = { path = "../touring-contracts" }
 touring-foundation = { path = "../touring-foundation" } # outcome_learner: TouringConfig::world_model_canonical
 touring-hooks-shared = { path = "../touring-hooks-shared" }
 touring-offensive = { path = "../touring-offensive" }

@@ -5,7 +5,7 @@ description: Auto-load rule for the Touring Elite 17-Dimensional Harness. Activa
 
 # Touring Elite — Auto-Load (constitutional, 2026-06-13)
 
-> **Composite Score 0.9703 (Diamond tier)** — see [skill](file:///home/gabrielgadea/.claude/skills/touring-elite/SKILL.md) for full 17-dim catalog.
+> **Composite Score 0.9703 (Diamond tier)** — see [skill](~/.claude/skills/touring-elite/SKILL.md) for full 17-dim catalog.
 
 ## Mandatory Reflex Triggers
 

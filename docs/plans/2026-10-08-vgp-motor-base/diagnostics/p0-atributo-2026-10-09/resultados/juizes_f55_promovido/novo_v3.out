@@ -3,4 +3,4 @@ recall de símbolo · arquivo 12/13 · inline 23/27 | forma (fora) {'arquivo': [
   falso deny (inline): 0/274 · taxa 0.000% · limite_superior_95 1.09% (teto 1%; o n=274 não prova o teto nem com 0 falsos; exige n ≥ 299) · limite acima do teto (só reprova com --exigir-limite-superior)
   PENDENTE: p95 1119.6 ms > 1000.0 ms
 veredito: NÃO PRONTO
-[instrumentado] 738 veredictos do motor gravados em /tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0/juizes_f55/novo_v3.porid.json
+[instrumentado] 738 veredictos do motor gravados em /tmp/claude-1000/-home-<user>-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0/juizes_f55/novo_v3.porid.json

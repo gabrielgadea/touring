@@ -3,7 +3,7 @@
    Compiling tower-http v0.6.11
    Compiling miette v7.6.0
    Compiling reqwest v0.12.28
-   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-foundation v0.1.0 (~/projects/touring-wt-int97/crates/touring-foundation)
    Compiling wgpu-hal v26.0.6
    Compiling wasmtime-c-api-impl v36.0.12
    Compiling tree-sitter v0.26.9
@@ -15,26 +15,26 @@
    Compiling wgpu v26.0.1
    Compiling cargo-util-schemas v0.8.2
    Compiling ast-grep-core v0.42.3
-   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-simd v0.2.0 (~/projects/touring-wt-int97/crates/touring-simd)
    Compiling cargo_metadata v0.21.0
-   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-storage v30.4.96 (~/projects/touring-wt-int97/crates/touring-storage)
    Compiling ast-grep-language v0.42.3
    Compiling zip v1.1.4
-   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
-   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling tree-sitter-md v0.5.3 (~/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
    Compiling candle-core v0.8.4
-   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
-   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-offensive v0.1.0 (~/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-analysis v0.3.3 (~/projects/touring-wt-int97/crates/touring-analysis)
    Compiling candle-nn v0.8.4
    Compiling candle-transformers v0.8.4
    Compiling deadpool-sqlite v0.14.0
    Compiling tera v1.20.1
-   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
-   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
-   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
-   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
+   Compiling touring-quality v30.4.96 (~/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-intelligence v30.4.96 (~/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-hooks-shared v0.1.0 (~/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-ceg v30.4.96 (~/projects/touring-wt-int97/crates/touring-ceg)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 22s
-     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_ceg-cc5e9ea2a924e2db)
+     Running unittests src/lib.rs (~/projects/touring/target/wt-int97/debug/deps/touring_ceg-cc5e9ea2a924e2db)
 
 running 608 tests
 test capability::builtins::tests::builtin_profile_use_case_is_documented ... ok

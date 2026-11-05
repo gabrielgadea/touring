@@ -42,7 +42,7 @@ touring migrate to-global --from <project>     # reverse (merge to global)
 ## Migration steps (from-global)
 
 1. **Inspect** existing global state:
-   - `~/.claude/projects/-home-gabrielgadea/memory/` (memory tier=*)
+   - `~/.claude/projects/-home-<user>/memory/` (memory tier=*)
    - `~/.claude/rust/.touring-cache/` (knowledge_db, tantivy)
 2. **Filter** by project path: keep only entries with path-prefix matching `<project>`
 3. **Copy** filtered subset to `<project>/.touring/data/`:

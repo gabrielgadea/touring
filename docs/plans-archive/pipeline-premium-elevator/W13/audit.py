@@ -20,6 +20,9 @@ Usage
 """
 from __future__ import annotations
 
+import os as _os
+_HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
+
 import argparse
 import json
 import logging
@@ -41,7 +44,7 @@ _EXIT_INTERRUPTED = 130
 _RE_AS_COMPLETED = re.compile(r"as_completed\s*\(")
 _RE_EXECUTOR_SUBMIT = re.compile(r"executor\.submit\s*\(")
 
-_TARGET_FILE = Path("/home/gabrielgadea/projects/analise/scripts/process_analysis/pipeline_runner.py")
+_TARGET_FILE = Path(f"{_HOME}/projects/analise/scripts/process_analysis/pipeline_runner.py")
 
 
 def _find_def_lineno(content: str, pattern: str) -> int:

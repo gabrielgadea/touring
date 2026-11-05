@@ -8,9 +8,8 @@
 //! Runtimes (node/bun/python3) must be installed — tests SKIP if missing.
 
 use std::process::Command;
-use touring_server::tools::ctx_execute_tools::{
-    CtxExecuteInput, CtxExecuteOutput, RunFailureKind, RunPhase,
-};
+use touring_foundation::run_outcome::{ExitStatus, FailureKind};
+use touring_server::tools::ctx_execute_tools::{CtxExecuteInput, CtxExecuteOutput, RunPhase};
 
 fn runtime_available(name: &str) -> bool {
     Command::new(name)
@@ -57,7 +56,12 @@ fn test_js_execution() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 0, "JS should exit 0: {}", out.stderr);
+    assert_eq!(
+        out.exit,
+        ExitStatus::Code(0),
+        "JS should exit 0: {}",
+        out.stderr
+    );
     assert!(
         out.stdout.contains("42"),
         "expected 42 in stdout: {}",
@@ -80,7 +84,12 @@ fn test_python_execution() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 0, "Python should exit 0: {}", out.stderr);
+    assert_eq!(
+        out.exit,
+        ExitStatus::Code(0),
+        "Python should exit 0: {}",
+        out.stderr
+    );
     assert!(
         out.stdout.contains("42"),
         "expected 42 in stdout: {}",
@@ -103,7 +112,12 @@ fn test_typescript_execution() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 0, "TS should exit 0: {}", out.stderr);
+    assert_eq!(
+        out.exit,
+        ExitStatus::Code(0),
+        "TS should exit 0: {}",
+        out.stderr
+    );
     assert!(
         out.stdout.contains("42"),
         "expected 42 in stdout: {}",
@@ -122,7 +136,12 @@ fn test_shell_execution() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 0, "Shell should exit 0: {}", out.stderr);
+    assert_eq!(
+        out.exit,
+        ExitStatus::Code(0),
+        "Shell should exit 0: {}",
+        out.stderr
+    );
     assert!(
         out.stdout.contains("42"),
         "expected 42 in stdout: {}",
@@ -141,14 +160,14 @@ fn test_timeout_enforcement() {
         cwd: None,
     };
     let out = run_ctx(input);
-    let timed_out = out.exit_code != 0
+    let timed_out = !out.exit.is_zero()
         || out.stderr.contains("timeout")
         || out.stderr.contains("Timeout")
         || out.duration_ms < 5000;
     assert!(
         timed_out,
-        "Should timeout: exit={} stderr={}",
-        out.exit_code, out.stderr
+        "Should timeout: exit={:?} stderr={}",
+        out.exit, out.stderr
     );
 }
 
@@ -220,9 +239,9 @@ fn test_error_propagation() {
     };
     let out = run_ctx(input);
     assert!(
-        out.exit_code != 0 || out.stdout.contains("traceback") || out.stdout.contains("Error"),
-        "Should propagate error: exit={} stdout={}",
-        out.exit_code,
+        !out.exit.is_zero() || out.stdout.contains("traceback") || out.stdout.contains("Error"),
+        "Should propagate error: exit={:?} stdout={}",
+        out.exit,
         out.stdout
     );
 }
@@ -409,7 +428,7 @@ fn ctx_execute_returns_python_traceback_in_stderr() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 3);
+    assert_eq!(out.exit, ExitStatus::Code(3));
     assert!(out.stdout.contains("stdout-ok"));
     assert!(
         out.stderr.contains("stderr-marker"),
@@ -428,7 +447,7 @@ fn ctx_execute_returns_bash_stderr_marker() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 5);
+    assert_eq!(out.exit, ExitStatus::Code(5));
     assert!(out.stdout.contains("out"));
     assert!(
         out.stderr.contains("errmark"),
@@ -451,7 +470,11 @@ fn ctx_execute_timeout_stderr_teaches_cause() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, -2, "timeout sentinel");
+    assert_eq!(
+        out.exit,
+        ExitStatus::TimedOut,
+        "a budget kill is not a process exit"
+    );
     assert!(
         out.stderr.contains("timeout"),
         "timeout must be labeled in stderr, got: {:?}",
@@ -480,7 +503,7 @@ fn failure_kind_timeout_is_not_exception() {
         .expect("timeout must carry a structured failure");
     assert_eq!(
         f.kind,
-        RunFailureKind::Timeout,
+        FailureKind::Timeout,
         "a budget expiry is not an exception"
     );
     assert_eq!(f.phase, RunPhase::Execute);
@@ -498,7 +521,7 @@ fn failure_message_names_next_action_on_nonzero_exit() {
     };
     let out = run_ctx(input);
     let f = out.failure.expect("non-zero exit must carry a failure");
-    assert_eq!(f.kind, RunFailureKind::Exception);
+    assert_eq!(f.kind, FailureKind::Exception);
     assert!(
         f.message.contains("boom-cause"),
         "message carries the first stderr line, got: {:?}",
@@ -531,7 +554,7 @@ fn spill_locator_present_when_inline_view_truncated() {
         cwd: None,
     };
     let out = run_ctx(input);
-    assert_eq!(out.exit_code, 0);
+    assert_eq!(out.exit, ExitStatus::Code(0));
     assert!(out.stdout_truncated, "inline view must be truncated");
     assert!(
         out.stdout.contains("bytes elided"),

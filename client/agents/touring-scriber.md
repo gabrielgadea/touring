@@ -198,7 +198,7 @@ touring memory recall "wave:<id>:<topic>" -j
 # Se 0 results → wave NÃO está registrada → CHECK se é nova ou erro de nome
 
 # Para CADA wired_pair / synergy entry citar:
-grep -n "<pair_label>" /home/gabrielgadea/projects/touring/crates/touring-server/src/cli/synergy.rs
+grep -n "<pair_label>" ~/projects/touring/crates/touring-server/src/cli/synergy.rs
 # Se 0 hits → pair NÃO está wired → NÃO citar como "wired"
 ```
 

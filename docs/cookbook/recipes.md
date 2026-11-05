@@ -14,7 +14,7 @@ documented.
 **Solution**: Use `scripts/doc-coverage.py` (W6 deliverable).
 
 ```bash
-cd /home/gabrielgadea/.claude/rust
+cd ~/.claude/rust
 python3 scripts/doc-coverage.py              # all crates (28 measured)
 python3 scripts/doc-coverage.py --crate touring-hooks  # one crate
 python3 scripts/doc-coverage.py --top 10    # top 10 by coverage %
@@ -72,8 +72,11 @@ EOF
 grep -q "pub mod my_new_hook" crates/touring-hooks/src/lib.rs || \
   echo "pub mod my_new_hook;" >> crates/touring-hooks/src/lib.rs
 
-# 3. Add to ALL_DAEMON_HOOK_NAMES in crates/touring-hooks/src/hook_registry.rs:
-#    (Edit the file, add "my-new-hook" to the const)
+# 3. Declare it in the dispatch table, crates/touring-dispatch/src/hook_registry.rs:
+#    (Edit build_dispatch_table: add m.insert("my-new-hook", |rt, v| ...) with its
+#    #[cfg(feature)] gate. That is the ONLY declaration — all_daemon_hook_names() and
+#    is_daemon_hook() derive from it, so there is no second list to update; only the
+#    hook-count tripwires (EXPECTED_NAMES, 4 test files) change with it.)
 
 # 4. Wire in settings.json:
 #    Add to PreToolUse (or other event) section:

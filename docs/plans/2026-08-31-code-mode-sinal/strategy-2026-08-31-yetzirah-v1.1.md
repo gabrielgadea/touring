@@ -53,7 +53,7 @@ timestamp: 2026-08-31T13:48:00-03:00
 
 **`prompt-enhance` (UserPromptSubmit) é o paralelo exato do que o canal precisa fazer** — injeta `additionalContext` no prompt do modelo antes do processamento. É literalmente o mesmo contrato que o canal teria com o programa in-sandbox.
 
-**P4 — SEG-2 paths confirmados:** todos os hooks vivem em `/home/gabrielgadea/.claude/skills/...` (dentro do allowlist SEG-2). SEG-2 é o allowlist real (não `~/.claude/{skills,rules,agents,commands}` como eu disse — é mais restrito: apenas `skills/`).
+**P4 — SEG-2 paths confirmados:** todos os hooks vivem em `~/.claude/skills/...` (dentro do allowlist SEG-2). SEG-2 é o allowlist real (não `~/.claude/{skills,rules,agents,commands}` como eu disse — é mais restrito: apenas `skills/`).
 
 **P6 — CEG profile do code mode:**
 - `profile: Sandboxed` (não Trusted)

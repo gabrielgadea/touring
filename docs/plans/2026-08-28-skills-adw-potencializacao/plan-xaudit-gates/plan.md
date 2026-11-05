@@ -92,8 +92,8 @@ already-implemented check):
 | Guard estrutural anti-injeção varre `.touring/adw/*.toml` (inclui specs locais) | `client/skills/Touring/scripts/test_adw.py:1475-1478` (`ADW_LIBRARY_DIRS` inclui `projects/touring/.touring/adw`) | confidence: FACT [1.0] — lido |
 | Guard: nenhum `{{vars.X}}`/`{{inputs.X}}` pode estar DENTRO do script bash — só como argv posicional após `--` | `client/skills/Touring/scripts/test_adw.py:1512-1534` (`test_no_data_variable_is_interpolated_inside_a_shell_script`) | confidence: FACT [1.0] — lido |
 | Teste-irmão que prova o valor chega intacto via `$1` | `client/skills/Touring/scripts/test_adw.py:1537-1547` (`test_positional_values_reach_the_script_intact`) | confidence: FACT [1.0] — lido |
-| `touring-quality` binário standalone existe no PATH | `/home/gabrielgadea/.local/bin/touring-quality` | confidence: FACT [1.0] — `which touring-quality` executado |
-| `scripts/sync-client-skills.py` existe (consumido por `mirror_check`) | `/home/gabrielgadea/projects/touring/scripts/sync-client-skills.py` | confidence: FACT [1.0] — `test -f` executado |
+| `touring-quality` binário standalone existe no PATH | `~/.local/bin/touring-quality` | confidence: FACT [1.0] — `which touring-quality` executado |
+| `scripts/sync-client-skills.py` existe (consumido por `mirror_check`) | `~/projects/touring/scripts/sync-client-skills.py` | confidence: FACT [1.0] — `test -f` executado |
 | Baseline de lint do spec ANTES da mudança | `touring adw lint xaudit-gates` → `valid: true`, `errors: []`, **6 warnings** (todos "escreve sem sandbox e sem gate humano") | confidence: FACT [1.0] — comando executado nesta sessão |
 | Baseline do guard de injeção (test suite) | `client/skills/Touring/scripts/test_adw.py` tem **205** funções `def test_*` (`Grep -c '^def test_'`) | confidence: FACT [1.0] — comando executado nesta sessão |
 | Grafo atual do flow (5 gates sequenciais, sem paralelismo) | `touring adw explain xaudit-gates --mermaid` executado — `clean_mirror → check → clippy → pytest_scripts → mirror_check → rust_tests → __end__` | confidence: FACT [1.0] — comando executado nesta sessão |
@@ -210,7 +210,7 @@ inputs = [
 - **File**: `.touring/adw/xaudit-gates.toml:35`
 - **Source truth**:
 ```toml
-command = ["bash", "-c", "find /home/gabrielgadea/projects/touring/client -type d \\( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache \\) -exec rm -rf {} + ; true"]
+command = ["bash", "-c", "find ~/projects/touring/client -type d \\( -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache \\) -exec rm -rf {} + ; true"]
 ```
 - **Change**:
 ```toml
@@ -219,14 +219,14 @@ command = ["bash", "-c", "[ -d client ] && find client -type d \\( -name __pycac
 - **Blast radius**: 0 — nó `code`, sem consumidores de output (`on_pass`/`on_fail` ambos vão para `check`).
 - **Test**: `test_positional_values_reach_the_script_intact`-style manual check — `cwd` já é `ctx.root` (`adw.py:2438`), então `client` relativo resolve para `<root>/client`; `[ -d client ]` faz o nó ser NO-OP fora de projetos com essa pasta (portabilidade).
 - **Dimensions**: [a:9, b:8, f:9]
-- **Enables**: primeiro passo de tornar o spec executável fora de `/home/gabrielgadea/projects/touring` — pré-requisito de qualquer promoção futura à `adw-library/`.
+- **Enables**: primeiro passo de tornar o spec executável fora de `~/projects/touring` — pré-requisito de qualquer promoção futura à `adw-library/`.
 
 #### S-1.3: `check` e `clippy` — var `crates` com fallback `--workspace` [P0] [confidence: FACT]
 
 - **File**: `.touring/adw/xaudit-gates.toml:43` e `:51`
 - **Source truth** (`check`, linha 43):
 ```toml
-command = ["bash", "-c", "cd /home/gabrielgadea/projects/touring && cargo check --workspace --all-targets --message-format short > /tmp/xaudit_check.log 2>&1"]
+command = ["bash", "-c", "cd ~/projects/touring && cargo check --workspace --all-targets --message-format short > /tmp/xaudit_check.log 2>&1"]
 ```
 - **Change** (`check`):
 ```toml
@@ -247,7 +247,7 @@ command = ["bash", "-c", "if [ -n \"$1\" ]; then a=; for c in $1; do a=\"$a -p $
 - **File**: `.touring/adw/xaudit-gates.toml:75`
 - **Source truth**:
 ```toml
-command = ["bash", "-c", "cd /home/gabrielgadea/projects/touring && cargo test -p touring-foundation -p touring-intelligence -p touring-storage -p touring-hooks-core -p touring-simd -p touring-quality -p touring-identity -p touring-hook-runtime --no-fail-fast > /tmp/xaudit_tests.log 2>&1"]
+command = ["bash", "-c", "cd ~/projects/touring && cargo test -p touring-foundation -p touring-intelligence -p touring-storage -p touring-hooks-core -p touring-simd -p touring-quality -p touring-identity -p touring-hook-runtime --no-fail-fast > /tmp/xaudit_tests.log 2>&1"]
 ```
 - **Change**:
 ```toml
@@ -268,7 +268,7 @@ command = ["bash", "-c", "crates=\"${1:-touring-foundation touring-intelligence 
 - **File**: `.touring/adw/xaudit-gates.toml:59` e `:67`
 - **Source truth** (`pytest_scripts`, linha 59):
 ```toml
-command = ["bash", "-c", "cd /home/gabrielgadea/projects/touring && PYTHONDONTWRITEBYTECODE=1 python3 -m pytest scripts/test_update_touring.py scripts/test_sync_client_skills.py scripts/test_mutants_config.py client/skills/loop-engineering/scripts/hooks/test_flow_guard.py client/skills/TACO-skilling/scripts/test_skill_gates.py client/skills/loop-engineering/scripts/test_judge_attest.py client/skills/loop-engineering/scripts/test_variant_archive.py client/skills/loop-engineering/scripts/test_cargo_diagnosis.py -q -p no:cacheprovider > /tmp/xaudit_pytest.log 2>&1"]
+command = ["bash", "-c", "cd ~/projects/touring && PYTHONDONTWRITEBYTECODE=1 python3 -m pytest scripts/test_update_touring.py scripts/test_sync_client_skills.py scripts/test_mutants_config.py client/skills/loop-engineering/scripts/hooks/test_flow_guard.py client/skills/TACO-skilling/scripts/test_skill_gates.py client/skills/loop-engineering/scripts/test_judge_attest.py client/skills/loop-engineering/scripts/test_variant_archive.py client/skills/loop-engineering/scripts/test_cargo_diagnosis.py -q -p no:cacheprovider > /tmp/xaudit_pytest.log 2>&1"]
 ```
 - **Change** (`pytest_scripts`):
 ```toml
@@ -276,7 +276,7 @@ command = ["bash", "-c", "files=\"${1:-scripts/test_update_touring.py scripts/te
 ```
 - **Source truth** (`mirror_check`, linha 67):
 ```toml
-command = ["bash", "-c", "cd /home/gabrielgadea/projects/touring && python3 scripts/sync-client-skills.py --check > /tmp/xaudit_mirror.log 2>&1"]
+command = ["bash", "-c", "cd ~/projects/touring && python3 scripts/sync-client-skills.py --check > /tmp/xaudit_mirror.log 2>&1"]
 ```
 - **Change** (`mirror_check`, degrade declarado — mesmo idioma de `release-gate.toml:64`):
 ```toml
@@ -529,7 +529,7 @@ Acceptance:
 | Change | Enables |
 |--------|---------|
 | S-1.1 — header + `[purpose] inputs` documentado | Contrato de escopo citável por qualquer wave futura sem ler o TOML inteiro |
-| S-1.2 — `clean_mirror` relativo + guardado por `[ -d client ]` | Primeiro passo de portabilidade fora de `/home/gabrielgadea/projects/touring` |
+| S-1.2 — `clean_mirror` relativo + guardado por `[ -d client ]` | Primeiro passo de portabilidade fora de `~/projects/touring` |
 | S-1.3 — `check`/`clippy` com `--var crates` | Gate rápido escopado por wave; mesma var reaproveitada em S-1.4 |
 | S-1.4 — `rust_tests` com `--var crates` (default = 8 crates atuais) | Fecha o "subconjunto fixo" citado em `cross-audit-2026-08-23.md:156-172` |
 | S-1.5 — `pytest_scripts`/`mirror_check` com `--var pytest_files` + degrade declarado | `mirror_check` deixa de quebrar fora deste repo — pré-requisito de promoção à `adw-library/` |

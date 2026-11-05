@@ -14,7 +14,7 @@ timestamp: 2026-10-26
 > Este documento responde à pergunta que faltava: **para CADA conteúdo injetado por
 > CADA hook, o modelo fez o que se esperava — e de que forma?**
 >
-> Corpus: **400 sessões** (`-home-gabrielgadea-projects-touring`,
+> Corpus: **400 sessões** (`-home-<user>-projects-touring`,
 > `-analise`, `-konverter`), **28.295 blocos de contexto do Touring**.
 > Instrumento: `scripts/measure_injection_effect.py` (reescrito nesta rodada).
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-cd /home/gabrielgadea/projects/analise || exit 9
+_HOME_SLUG=$(printf '%s' "$HOME" | tr -c 'A-Za-z0-9' '-')  # Claude Code project-dir slug of $HOME
+cd ${HOME}/projects/analise || exit 9
 export TOURING_CODE_MODE=native
-P0=/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
-B=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base
-BASE=/home/gabrielgadea/.claude/touring/vgp/binarios/e935aaf1/touring
-NOVO=/home/gabrielgadea/.claude/touring/vgp/binarios/f55ec4b5/touring
-CORP=/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-2026-10-09
+P0=/tmp/claude-1000/${_HOME_SLUG}-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/p0
+B=${HOME}/projects/touring/docs/plans/2026-10-08-vgp-motor-base
+BASE=${HOME}/.claude/touring/vgp/binarios/e935aaf1/touring
+NOVO=${HOME}/.claude/touring/vgp/binarios/f55ec4b5/touring
+CORP=${HOME}/.claude/touring/vgp/corpus_v0d.bak-2026-10-09
 for i in 1 2 3; do
   for lado in base novo; do
     if [ $lado = base ]; then BIN=$BASE; else BIN=$NOVO; fi

@@ -2,7 +2,7 @@
 //!
 //! This module hosts a singleton `tokio::sync::broadcast::Sender<HealthDeltaEvent>`
 //! published by `touring-hooks::health_delta::compute_health_delta` and
-//! subscribed by `touring-capnp-server`'s `GeneratorHealth` RPC fan-out
+//! subscribed by `touring_bindings::capnp`'s `GeneratorHealth` RPC fan-out
 //! (THSF Phase 5 — COMBO F).
 //!
 //! # Design
@@ -26,7 +26,7 @@
 //! # Non-invasion
 //!
 //! Keeping this channel in `touring-foundation` (a leaf dependency) lets both
-//! `touring-hooks` (heavy, with GPU/tantivy deps) and `touring-capnp-server`
+//! `touring-hooks` (heavy, with GPU/tantivy deps) and `touring_bindings::capnp`
 //! (isolation-preserving, subprocess-driven) share the bus without
 //! either pulling the other into its compile graph.
 

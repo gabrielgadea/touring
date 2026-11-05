@@ -16,7 +16,8 @@
 //! * the `invoked_skills` attachment lists it. That one also re-lists what a compaction carried
 //!   over, so it marks a skill used but is never counted as another use.
 //!
-//! Subagent records inside the main transcript are another window and are skipped.
+//! Subagent records inside the main transcript are another window; the reader drops them
+//! (`transcript_scan`), and only what a PERSON typed counts as typed.
 //!
 //! # Report only
 //!
@@ -30,7 +31,7 @@
 
 use crate::cli::context_cost::{TOKENS_PER_BYTE, round_to};
 use crate::cli::transcript_scan::{
-    AnnKind, Announcement, is_sidechain, parse_announcement, tool_calls, typed_commands,
+    AnnKind, Announcement, Event, UserTurn, parse_announcement, typed_commands,
 };
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
@@ -78,51 +79,25 @@ pub struct SurfaceTracker {
     agents: Surface,
     tools: Surface,
     mcp_bytes: BTreeMap<String, u64>,
-    /// Tool-use ids already counted: a block is counted once however many records repeat it.
-    seen_tool_use: BTreeSet<String>,
-}
-
-/// The texts of a user record: its string content, or its text blocks.
-fn user_texts(rec: &Value) -> Vec<&str> {
-    match rec.pointer("/message/content") {
-        Some(Value::String(s)) => vec![s.as_str()],
-        Some(Value::Array(blocks)) => blocks
-            .iter()
-            .filter(|b| b.get("type").and_then(Value::as_str) == Some("text"))
-            .filter_map(|b| b.get("text").and_then(Value::as_str))
-            .collect(),
-        _ => Vec::new(),
-    }
 }
 
 impl SurfaceTracker {
-    /// Fold one transcript record into the session's surface.
-    pub fn observe(&mut self, rec: &Value) {
-        if is_sidechain(rec) {
-            return;
-        }
-        match rec.get("type").and_then(Value::as_str) {
-            Some("attachment") => self.observe_attachment(rec),
-            Some("user") => self.observe_user(rec),
-            Some("assistant") => self.observe_assistant(rec),
+    /// Fold one event of the main thread into the session's surface. A tool call is counted once
+    /// however many records repeat its block: the reader hands it out once per id.
+    pub fn observe(&mut self, event: &Event<'_>) {
+        match event {
+            Event::Attachment(att) => self.observe_attachment(att),
+            Event::User(user) if user.is_prompt => self.observe_prompt(user),
+            Event::Assistant(turn) => {
+                for call in turn.tool_calls() {
+                    self.count_call(call.name, call.input);
+                }
+            }
             _ => {}
         }
     }
 
-    /// [`observe`](Self::observe) over raw JSONL lines; a line that is not JSON is skipped.
-    #[cfg(test)]
-    pub fn observe_lines<'a>(&mut self, lines: impl Iterator<Item = &'a str>) {
-        for line in lines {
-            if let Ok(rec) = serde_json::from_str::<Value>(line) {
-                self.observe(&rec);
-            }
-        }
-    }
-
-    fn observe_attachment(&mut self, rec: &Value) {
-        let Some(att) = rec.get("attachment") else {
-            return;
-        };
+    fn observe_attachment(&mut self, att: &Value) {
         if let Some(a) = parse_announcement(att) {
             match a.kind {
                 AnnKind::Skill => self.skills.announce(a),
@@ -147,25 +122,15 @@ impl SurfaceTracker {
         }
     }
 
-    fn observe_user(&mut self, rec: &Value) {
-        for text in user_texts(rec) {
+    /// What the person typed: `/name` commands.
+    fn observe_prompt(&mut self, prompt: &UserTurn<'_>) {
+        for text in &prompt.texts {
             // A typed command opens the record; a prompt that merely quotes the tag does not.
             if !text.trim_start().starts_with("<command-") {
                 continue;
             }
             for name in typed_commands(text) {
                 *self.skills.used_typed.entry(name).or_default() += 1;
-            }
-        }
-    }
-
-    fn observe_assistant(&mut self, rec: &Value) {
-        for call in tool_calls(rec) {
-            let fresh = call
-                .id
-                .is_none_or(|id| self.seen_tool_use.insert(id.to_string()));
-            if fresh {
-                self.count_call(call.name, call.input);
             }
         }
     }

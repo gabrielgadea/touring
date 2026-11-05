@@ -5,7 +5,7 @@
 
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock};
 use std::time::SystemTime;
 
@@ -13,6 +13,7 @@ use parking_lot::Mutex;
 use regex::Regex;
 use tree_sitter::Node;
 
+use crate::vgp::lang::caminho;
 use crate::vgp::lang::cdn::cache::{self, Cache, Veredito};
 use crate::vgp::lang::parse;
 
@@ -247,66 +248,50 @@ impl<'a> Leitor<'a> {
         self.cdn.get_or_init(|| cache::padrao().0)
     }
 
-    pub fn existe(&self, caminho: &Path) -> bool {
-        self.overlays.contains_key(&*caminho.to_string_lossy()) || caminho.is_file()
+    /// Is `arquivo` a sheet — in the overlays, or a file on the disk INSIDE `raizes`?
+    pub fn existe(&self, arquivo: &Path, raizes: &[&Path]) -> bool {
+        self.overlays.contains_key(&*arquivo.to_string_lossy())
+            || caminho::e_arquivo(raizes, arquivo)
     }
 
-    pub fn ler(&self, caminho: &Path) -> Result<String, String> {
-        if let Some(texto) = self.overlays.get(&*caminho.to_string_lossy()) {
+    /// The text of the sheet: the overlay, else the file if it is inside `raizes` and not over
+    /// [`MAX_BYTES_FOLHA`]. A refusal for being outside the roots does not echo the path.
+    pub fn ler(&self, arquivo: &Path, raizes: &[&Path]) -> Result<String, String> {
+        if let Some(texto) = self.overlays.get(&*arquivo.to_string_lossy()) {
             return Ok(texto.clone());
         }
-        let tamanho = std::fs::metadata(caminho)
-            .map_err(|e| format!("{}: {e}", caminho.display()))?
-            .len();
-        if tamanho > MAX_BYTES_FOLHA {
-            return Err(format!(
-                "{}: {tamanho} bytes, acima do limite de {MAX_BYTES_FOLHA}",
-                caminho.display()
-            ));
-        }
-        std::fs::read_to_string(caminho).map_err(|e| format!("{}: {e}", caminho.display()))
+        caminho::ler_contido_ate(raizes, arquivo, MAX_BYTES_FOLHA).map_err(|recusa| {
+            if recusa.fora_das_raizes() {
+                recusa.to_string()
+            } else {
+                format!("{}: {recusa}", arquivo.display())
+            }
+        })
     }
 
     /// The parsed sheet at `caminho`: from the overlay, else from the process memo when the file
     /// has not changed (mtime and length), else read and parsed now.
-    fn definicoes(&self, caminho: &Path) -> Result<Arc<Definicoes>, String> {
-        if self.overlays.contains_key(&*caminho.to_string_lossy()) {
-            return ler_css(&self.ler(caminho)?).map(Arc::new);
+    fn definicoes(&self, arquivo: &Path, raizes: &[&Path]) -> Result<Arc<Definicoes>, String> {
+        if self.overlays.contains_key(&*arquivo.to_string_lossy()) {
+            return ler_css(&self.ler(arquivo, raizes)?).map(Arc::new);
         }
-        let assinatura = std::fs::metadata(caminho)
-            .ok()
-            .and_then(|m| Some((m.modified().ok()?, m.len())));
+        let assinatura = caminho::assinatura_contida(raizes, arquivo);
         if let Some(a) = assinatura
-            && let Some((guardada, def)) = MEMO.lock().get(caminho)
+            && let Some((guardada, def)) = MEMO.lock().get(arquivo)
             && *guardada == a
         {
             return Ok(Arc::clone(def));
         }
-        let def = Arc::new(ler_css(&self.ler(caminho)?)?);
+        let def = Arc::new(ler_css(&self.ler(arquivo, raizes)?)?);
         if let Some(a) = assinatura {
             let mut memo = MEMO.lock();
             if memo.len() >= MAX_MEMO {
                 memo.clear();
             }
-            memo.insert(caminho.to_path_buf(), (a, Arc::clone(&def)));
+            memo.insert(arquivo.to_path_buf(), (a, Arc::clone(&def)));
         }
         Ok(def)
     }
-}
-
-/// `a/./b/../c` → `a/c`, lexically (overlay keys are absolute and already normalised).
-pub(super) fn normaliza_caminho(caminho: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for componente in caminho.components() {
-        match componente {
-            Component::ParentDir => {
-                out.pop();
-            }
-            Component::CurDir => {}
-            outro => out.push(outro.as_os_str()),
-        }
-    }
-    out
 }
 
 /// How a `href` / `@import` target resolved.
@@ -344,20 +329,20 @@ fn e_url_absoluta(alvo: &str) -> bool {
 /// The files a local `href` may name: root-relative (`/x.css`) tries the usual web roots,
 /// anything else is relative to the document's directory.
 fn candidatos_locais(limpo: &str, base: &Path, raiz: &Path) -> Vec<PathBuf> {
-    let candidatos = match limpo.strip_prefix('/') {
-        Some(abs) => RAIZES_WEB
-            .iter()
-            .map(|d| normaliza_caminho(&raiz.join(d).join(abs)))
-            .collect(),
-        None => vec![normaliza_caminho(&base.join(limpo))],
-    };
     // V-4 (31/10/2026): the CONTENT names the target — only what is inside the
     // allowed roots (the project root and the document's own directory) is a
     // candidate. A `..` that leaves them is not a file of the project.
-    candidatos
-        .into_iter()
-        .filter(|c| crate::vgp::lang::caminho::dentro_das_raizes(&[raiz, base], c))
-        .collect()
+    let raizes = [raiz, base];
+    match limpo.strip_prefix('/') {
+        Some(abs) => RAIZES_WEB
+            .iter()
+            .filter_map(|d| caminho::derivar(&raizes, &raiz.join(d), abs))
+            .map(|c| caminho::normaliza(&c))
+            .collect(),
+        None => caminho::derivar(&raizes, base, limpo)
+            .map(|c| vec![caminho::normaliza(&c)])
+            .unwrap_or_default(),
+    }
 }
 
 /// Why a target cannot even be looked up on the disk, if so.
@@ -385,7 +370,7 @@ pub(super) fn resolver(href: &str, base: &Path, raiz: &Path, leitor: &Leitor) ->
         return Resolucao::Ilegivel(motivo);
     }
     let candidatos = candidatos_locais(limpo, base, raiz);
-    match candidatos.iter().find(|c| leitor.existe(c)) {
+    match candidatos.iter().find(|c| leitor.existe(c, &[raiz, base])) {
         Some(achado) => Resolucao::Local(achado.clone()),
         None => Resolucao::Ilegivel(format!(
             "arquivo inexistente: {}",
@@ -495,7 +480,13 @@ impl Folhas {
                     ));
                     return;
                 }
-                self.adicionar_local(&caminho, ctx.raiz, ctx.leitor, ctx.profundidade + 1);
+                self.adicionar_local(
+                    &caminho,
+                    ctx.raiz,
+                    ctx.base,
+                    ctx.leitor,
+                    ctx.profundidade + 1,
+                );
             }
         }
     }
@@ -564,11 +555,12 @@ impl Folhas {
         &mut self,
         caminho: &Path,
         raiz: &Path,
+        base: &Path,
         leitor: &Leitor,
         profundidade: usize,
     ) {
         let nome = caminho.display().to_string();
-        match leitor.definicoes(caminho) {
+        match leitor.definicoes(caminho, &[raiz, base]) {
             Ok(def) => {
                 let ctx = Contexto {
                     origem: &nome,
@@ -611,16 +603,17 @@ impl Folhas {
                 .push(format!("folha `{href}` ({origem}) não resolvida: {motivo}")),
             Resolucao::Local(caminho) => {
                 if self.visitados.insert(caminho.clone()) {
-                    self.adicionar_local(&caminho, raiz, leitor, 0);
+                    self.adicionar_local(&caminho, raiz, base, leitor, 0);
                 }
             }
         }
     }
 
-    /// Read the file at `caminho` and add it (with its `@import`s).
-    pub fn adicionar_arquivo(&mut self, caminho: &Path, raiz: &Path, leitor: &Leitor) {
+    /// Read the file at `caminho` and add it (with its `@import`s). `base` is the directory of
+    /// whoever named the file: with `raiz`, the roots the read may come from.
+    pub fn adicionar_arquivo(&mut self, caminho: &Path, raiz: &Path, base: &Path, leitor: &Leitor) {
         if self.visitados.insert(caminho.to_path_buf()) {
-            self.adicionar_local(caminho, raiz, leitor, 0);
+            self.adicionar_local(caminho, raiz, base, leitor, 0);
         }
     }
 }

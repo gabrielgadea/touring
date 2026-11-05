@@ -14,7 +14,9 @@ Dispara quando o Write cria um script (.py/.sh/.js/.mjs/.ts/.rb/.pl) E:
 
 A consulta, em ordem de custo (fail-open em cada degrau, teto total ~3s):
   1. `~/.claude/scripts-portfolio/MANIFEST.json` (P1) — registro tipado local, <1ms;
-  2. `touring tantivy search "<stem>" 3` — índice BM25 (memória companion inclui snippets).
+  2. tantivy BM25 (memória companion inclui snippets) — pelo SOCKET do daemon já residente (`recuperar.fonte_tantivy`,
+     sem fork+exec do CLI); se o daemon não responde, cai no subprocesso `touring tantivy search` e o hook AVISA
+     (D09, 05/11/2026: `rota_tantivy` no evento, linha `[PORTFOLIO · aviso]` no contexto, `por_rota_tantivy` no --stats).
 
 Sombra = nunca bloqueia: emite additionalContext com os 3 candidatos mais próximos e grava
 `~/.claude/touring/portfolio_gate/events.jsonl` (um JSON por evento) para medir quantas criações
@@ -169,6 +171,14 @@ def log_event(event: dict) -> None:
         pass
 
 
+def _classe_da_rota(rota: object) -> str:
+    """The ``--stats`` bucket of an event's tantivy route: ``socket``, ``subprocesso`` (any fall back), ``nenhuma``,
+    or ``legado`` for an event written before D09 (no route field: visible, never counted as a route)."""
+    if rota is None:
+        return "legado"
+    return "subprocesso" if str(rota).startswith("subprocesso") else str(rota)
+
+
 def stats() -> int:
     """Resumo do events.jsonl: volume, candidatos e, desde a P1 (28/10/2026), a contagem por estado do veredito.
 
@@ -186,9 +196,12 @@ def stats() -> int:
     com_cand = sum(1 for r in rows if r.get("n_candidates"))
     evit = sum(1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado")
     por_estado: dict[str, int] = {}
+    por_rota: dict[str, int] = {}
     for r in rows:
         chave = r.get("estado", "legado")
         por_estado[chave] = por_estado.get(chave, 0) + 1
+        rota = _classe_da_rota(r.get("rota_tantivy"))
+        por_rota[rota] = por_rota.get(rota, 0) + 1
     print(
         json.dumps(
             {
@@ -197,6 +210,7 @@ def stats() -> int:
                 "would_avoid": evit,
                 "pct_evitaveis": round(100 * evit / n, 1) if n else 0.0,
                 "por_estado": por_estado,
+                "por_rota_tantivy": por_rota,
                 "sinteticos": len(todos) - n,
             },
             ensure_ascii=False,
@@ -382,18 +396,45 @@ def _destino(path: str, cwd: str | None) -> dict:
     return {"plano_ativo_erro": erro} if erro else {}
 
 
+def _rota_tantivy() -> str:
+    """How the tantivy query of THIS call travelled: ``socket``, ``subprocesso (queda do socket: <why>)`` or ``nenhuma``.
+
+    ``recuperar.ULTIMA_ROTA_TANTIVY`` is a module variable and the hook is a fresh process per call, so the name
+    never left the process (D09, 05/11/2026): a lost daemon silently cost ~+110 ms of tail per call. It is read here,
+    right after ``consultar``, and lands in the event and in the warning. ``nenhuma``: no query was made (empty terms,
+    or ``consultar`` raised before asking).
+    """
+    modulo = sys.modules.get("portfolio_recuperar")
+    return str(getattr(modulo, "ULTIMA_ROTA_TANTIVY", "") or "nenhuma")
+
+
+def _aviso_de_rota(rota: str) -> str | None:
+    """The warning line when the query fell back from the daemon to the subprocess; None on the healthy routes."""
+    if not rota.startswith("subprocesso"):
+        return None
+    motivo = rota[len("subprocesso") :].strip(" ()")
+    return (
+        f"[PORTFOLIO · aviso] o tantivy foi consultado pelo subprocesso `touring`, não pelo daemon ({motivo}): "
+        f"a consulta paga ~+110 ms de cauda por chamada (medido em 01/11/2026). "
+        f"Conferir: `touring daemon-ctl status --project .`."
+    )
+
+
 def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None) -> str | None:
-    """Consult, record the event, and return the context line when there are candidates."""
+    """Consult, record the event, and return the context lines (candidates, active plan, route warning)."""
     path, content, ephemeral, generic, origem = alvo
     v, erro = _consultar_seguro(path, content, cwd)
+    rota = _rota_tantivy()
     extra = _destino(path, cwd) if ephemeral else {}
-    log_event({**_evento(path, ephemeral, generic, v, erro, origem), **extra})
+    log_event({**_evento(path, ephemeral, generic, v, erro, origem), "rota_tantivy": rota, **extra})
     linhas = [_contexto(v, Path(path).name, ephemeral)] if v is not None and v.candidatos else []
     if "destino_sugerido" in extra:
         linhas.append(
             f"[PORTFOLIO · plano ativo] grave o script em {extra['destino_sugerido']} (diagnostics/ do plano declarado "
             f"em .claude/plano_ativo.json) — o que nasce em destino efêmero morre com a sessão."
         )
+    if (aviso := _aviso_de_rota(rota)) is not None:
+        linhas.append(aviso)
     return "\n".join(linhas) or None
 
 

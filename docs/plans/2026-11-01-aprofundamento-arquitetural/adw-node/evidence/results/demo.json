@@ -1,0 +1,120 @@
+{
+ "d1_env_in_skilling_pack": {
+  "old": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": [
+    "node `skill.should_skill`: not marked idempotent — resume replays at-least-once",
+    "node `skill.should_skill`: nothing downstream reads `{{nodes.skill.should_skill.summary}}` and it does not end the flow — either wire its result in, or drop the node",
+    "critique without brief: `skill.skilling` judges before anything in this flow produced or approved what it judges — a panel is a polishing instrument, and pointed at nothing it optimises towards a direction nobody chose"
+   ]
+  },
+  "new": {
+   "rc": 1,
+   "valid": false,
+   "errors": [
+    "node `skill.should_skill`: unknown key `env` — the runner never reads it, so it silently does nothing"
+   ],
+   "warnings": [
+    "node `skill.should_skill`: not marked idempotent — resume replays at-least-once",
+    "node `skill.should_skill`: nothing downstream reads `{{nodes.skill.should_skill.summary}}` and it does not end the flow — either wire its result in, or drop the node",
+    "critique without brief: `skill.skilling` judges before anything in this flow produced or approved what it judges — a panel is a polishing instrument, and pointed at nothing it optimises towards a direction nobody chose"
+   ]
+  }
+ },
+ "d2_blind_to_prefix": {
+  "old": {
+   "rc": 1,
+   "valid": false,
+   "errors": [
+    "critic `crit`: declares blindness to `rev` yet its prompt reads `{{nodes.rev.summary}}` — the blindness is fiction"
+   ],
+   "warnings": [
+    "node `rev`: unreachable from entry `review` (orphan)"
+   ]
+  },
+  "new": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": [
+    "node `rev`: unreachable from entry `review` (orphan)"
+   ]
+  }
+ },
+ "d3_gate_feedback_prefix": {
+  "old": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": [
+    "node `check2`: unreachable from entry `work` (orphan)"
+   ]
+  },
+  "new": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": [
+    "node `check2`: unreachable from entry `work` (orphan)",
+    "gate `check`: on_fail → agent `work`, whose prompt never reads `{{nodes.check.summary}}` — the retry re-runs the agent blind to the verdict that rejected it"
+   ]
+  }
+ },
+ "d4_consumed_via_full_ref": {
+  "old": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": [
+    "fake waiting: `use` runs after `scan` but never reads `{{nodes.scan.summary}}`, and both are read-only — the wait buys latency, not order. Consider one `parallel` block.",
+    "node `scan`: nothing downstream reads `{{nodes.scan.summary}}` and it does not end the flow — either wire its result in, or drop the node"
+   ]
+  },
+  "new": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": []
+  }
+ },
+ "d5_sandbox_bare_ref": {
+  "old": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": []
+  },
+  "new": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": [
+    "nó `check`: sandbox = true com texto de agente no command (writer) — o X6 classifica o programa INTEIRO (args inclusos) e prosa com cara de comando vira deny não-determinístico (estreia cross-audit 28/08). Remova o sandbox: predicado de string é leitor puro e posicionais já bloqueiam injection."
+   ]
+  }
+ },
+ "d6_typo_and_string_bool": {
+  "old": {
+   "rc": 0,
+   "valid": true,
+   "errors": [],
+   "warnings": []
+  },
+  "new": {
+   "rc": 1,
+   "valid": false,
+   "errors": [
+    "node `run`: `idempotent` must be a boolean (got 'false')",
+    "node `run`: unknown key `timeuot_ms` — did you mean `timeout_ms`? — the runner never reads it, so it silently does nothing"
+   ],
+   "warnings": []
+  }
+ },
+ "d1_runtime_evidence": {
+  "recurrence_declared_in_env": 5,
+  "exit_code": 1,
+  "meaning": "exit 0 would mean 'recurred, capture a skill'; 1 = 'one-off'"
+ }
+}

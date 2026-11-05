@@ -71,7 +71,7 @@ def _assert_silent(result: HookResult) -> None:
 @pytest.mark.parametrize("command", [
     f"{CLI} --consentir-fable 2h",
     f'{CLI} --consentir-fable 30m --motivo "causa-raiz do deadlock"',
-    "python3 /home/gabrielgadea/.claude/hooks/agent_model_gate.py --consentir-fable 1h",
+    "python3 /home/u/.claude/hooks/agent_model_gate.py --consentir-fable 1h",
     "cd client/hooks && python3 agent_model_gate.py --consentir-fable 90m",
     f"sh -c '{CLI} --consentir-fable 2h'",
     f'bash -lc "{CLI} --consentir-fable 2h"',
@@ -87,7 +87,7 @@ def test_the_consent_cli_is_denied_to_the_model(command: str) -> None:
 
 @pytest.mark.parametrize("command", [
     f"echo '{{\"valido_ate\": \"2099-01-01T00:00:00+00:00\"}}' > {CONSENT}",
-    "echo x > /home/gabrielgadea/.claude/touring/fable_consent.json",
+    "echo x > /home/u/.claude/touring/fable_consent.json",
     f"cat > {CONSENT} <<'EOF'\n{{\"valido_ate\": \"2099-01-01T00:00:00+00:00\"}}\nEOF",
     f"printf '{{}}' | tee {CONSENT}",
     f"cp /tmp/x.json {CONSENT}",
@@ -102,7 +102,7 @@ def test_writing_the_consent_file_by_bash_is_denied(command: str) -> None:
 # --- Write / Edit / MultiEdit / NotebookEdit: the path ---------------------------------------------
 
 @pytest.mark.parametrize("tool_name", ["Write", "Edit", "MultiEdit"])
-@pytest.mark.parametrize("path", ["/home/gabrielgadea/.claude/touring/fable_consent.json",
+@pytest.mark.parametrize("path", ["/home/u/.claude/touring/fable_consent.json",
                                   "~/.claude/touring/fable_consent.json",
                                   "/tmp/qualquer/fable_consent.json"])
 def test_file_tools_aimed_at_the_consent_file_are_denied(tool_name: str, path: str) -> None:

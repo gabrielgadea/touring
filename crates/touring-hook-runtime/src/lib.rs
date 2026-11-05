@@ -104,7 +104,6 @@ pub use touring_hooks_core::knowledge::{
 pub use touring_hooks_core::knowledge_index_generation;
 pub use touring_hooks_core::knowledge_symbol_bridge;
 pub use touring_hooks_core::knowledge_wiring;
-pub use touring_hooks_core::pre_tool_validator;
 pub use touring_hooks_core::symbol_extractors;
 #[cfg(feature = "tantivy-fts")]
 pub use touring_hooks_core::tantivy_index;

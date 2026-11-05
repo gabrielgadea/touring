@@ -1,4 +1,4 @@
- Documenting touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+ Documenting touring-code v30.4.96 (~/projects/touring-wt-int97/crates/touring-code)
 error: public documentation for `fundir_findings` links to private item `corrobora_tipo_fechado`
    --> crates/touring-code/src/vgp/sombra.rs:369:15
     |

@@ -24,7 +24,7 @@ HOOKS = Path(__file__).resolve().parent
 sys.path.insert(0, str(HOOKS))
 import loop_task_signal as ts  # noqa: E402
 
-REPO = Path("/home/gabrielgadea/projects/touring")
+REPO = Path.home() / "projects" / "touring"
 
 
 def _fake_cli(blast=None, meta=None, route=None):

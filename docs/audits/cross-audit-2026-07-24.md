@@ -46,7 +46,7 @@ sobre a **cópia congelada**. Fixes: (1) `settings.json` env +=
 (2) `update-touring` agora `export TOURING_WORKSPACE_ROOT="$RUST_WORKSPACE"`
 (todo daemon spawnado pelo pipeline herda o root com que foi instalado);
 (3) daemon reiniciado com a env — **prova forense**: `/proc/1514405/environ`
-contém `TOURING_WORKSPACE_ROOT=/home/gabrielgadea/projects/touring`, exe =
+contém `TOURING_WORKSPACE_ROOT=~/projects/touring`, exe =
 binário novo. Pendência estrutural roteada para F1: flip do fallback hardcoded
 + camada config real (exige rebuild — F1 já rebuilda).
 
