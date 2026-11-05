@@ -38,6 +38,16 @@ import re as _re
 _HOME = _os.path.expanduser("~")  # derived at runtime: the repository is public
 _HOME_SLUG = _re.sub(r"[^A-Za-z0-9]", "-", _HOME)  # Claude Code project-dir slug of $HOME
 
+#: The calendar stores transcript dirs with this marker instead of the slug of one machine's home
+#: (the repository is public); ``transcript_dirs_of`` expands it at read time. The bare slug a
+#: developer types still works.
+HOME_SLUG_MARKER = "{home_slug}"
+
+
+def transcript_dirs_of(cal: dict) -> list[str]:
+    """The calendar's transcript dirs with ``HOME_SLUG_MARKER`` expanded for this machine."""
+    return [d.replace(HOME_SLUG_MARKER, _HOME_SLUG) for d in cal["transcript_dirs"]]
+
 import argparse
 import collections
 import datetime as dt
@@ -189,7 +199,7 @@ def make_calendar(seed: int, day0: str | None = None) -> dict:
         "seed": seed,
         "blocks": schedule_from_seed(seed),
         "daemon_socket": "/tmp/touring-daemon-1000.sock",
-        "transcript_dirs": [f"{_HOME_SLUG}-projects-touring"],
+        "transcript_dirs": [f"{HOME_SLUG_MARKER}-projects-touring"],
     }
 
 
@@ -1278,7 +1288,7 @@ def cmd_analyze(args, cal: dict, _host, now: dt.datetime) -> int:
         raise Refusal("experimento não ativado (day0 = null): nada a analisar")
     as_of = parse_ts(args.as_of) if args.as_of else now
     dirs = (
-        [d for d in args.dirs.split(",") if d] if args.dirs else cal["transcript_dirs"]
+        [d for d in args.dirs.split(",") if d] if args.dirs else transcript_dirs_of(cal)
     )
     floor = day_start_utc(cal, 0).timestamp()
     files = [f for f in m.corpus(dirs, args.sessions) if os.path.getmtime(f) >= floor]

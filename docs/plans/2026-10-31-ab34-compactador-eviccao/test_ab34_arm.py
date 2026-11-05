@@ -161,7 +161,18 @@ def test_shipped_calendar_is_the_one_its_seed_makes():
     cal = json.loads((HERE / "ab34-calendario.json").read_text(encoding="utf-8"))
     assert cal["blocks"] == ab.schedule_from_seed(cal["seed"])
     assert cal["day0"] is None  # the orchestrator sets it, in a commit of its own
+    # An aborted or finished run keeps its record (R4: `encerrado`, and the day 0 it had).
+    for closure_key in ("encerrado", "day0_original"):
+        cal.pop(closure_key, None)
     assert cal == ab.make_calendar(cal["seed"])
+
+
+def test_transcript_dirs_carry_no_home_and_expand_to_this_machine():
+    cal = json.loads((HERE / "ab34-calendario.json").read_text(encoding="utf-8"))
+    assert all(d.startswith(ab.HOME_SLUG_MARKER) for d in cal["transcript_dirs"])
+    expanded = ab.transcript_dirs_of(cal)
+    assert expanded == [ab._HOME_SLUG + "-projects-touring"]
+    assert ab.transcript_dirs_of({"transcript_dirs": ["-literal-dir"]}) == ["-literal-dir"]
 
 
 def test_seed_is_reproducible_and_the_shuffle_is_pinned():
