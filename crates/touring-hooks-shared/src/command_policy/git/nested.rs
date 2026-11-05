@@ -1,5 +1,6 @@
 //! Shells, launchers and the programs they hand to another execution layer.
 
+use super::super::lexer::is_shell;
 use super::direct::scan_git_invocation;
 use super::interpreter::{Language, exec_scan, interpreter_invocation, language};
 use super::text::substitutions;
@@ -424,13 +425,6 @@ fn is_assignment(word: &str) -> bool {
 
 fn basename(word: &str) -> &str {
     word.rsplit('/').next().unwrap_or(word)
-}
-
-fn is_shell(name: &str) -> bool {
-    matches!(
-        name,
-        "bash" | "sh" | "zsh" | "dash" | "ksh" | "ash" | "fish" | "mksh" | "rbash" | "csh" | "tcsh"
-    )
 }
 
 fn is_wrapper(name: &str) -> bool {

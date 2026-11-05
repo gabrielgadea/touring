@@ -358,13 +358,22 @@ fn written_paths(words: &[String]) -> Vec<String> {
     paths
 }
 
-/// What takes text as shell code: the shells, what runs on a shell elsewhere
-/// (`ssh`, `su`, `sudo`, `doas`) and what reads a script (`eval`, `source`,
-/// `at`, `batch`) — and `.`, matched as a whole word.
-const TEXT_RUNNERS: &[&str] = &[
-    "bash", "sh", "zsh", "dash", "ksh", "ash", "fish", "mksh", "rbash", "csh", "tcsh", "eval",
-    "source", "ssh", "su", "sudo", "doas", "at", "batch",
+/// The shells, by program basename — the one list every reader of "is this a shell?" asks
+/// ([`is_shell`]). It used to be spelled three times (here, `git/nested.rs`, `git/text.rs`),
+/// so a shell added to one reading would have been missed by the others.
+const SHELLS: &[&str] = &[
+    "bash", "sh", "zsh", "dash", "ksh", "ash", "fish", "mksh", "rbash", "csh", "tcsh",
 ];
+
+/// `true` when `name` (a program basename) is a shell.
+pub(super) fn is_shell(name: &str) -> bool {
+    SHELLS.contains(&name)
+}
+
+/// What else takes text as shell code besides the shells: what runs on a shell elsewhere
+/// (`ssh`, `su`, `sudo`, `doas`) and what reads a script (`eval`, `source`, `at`,
+/// `batch`) — and `.`, matched as a whole word in [`may_run_text`].
+const OTHER_TEXT_RUNNERS: &[&str] = &["eval", "source", "ssh", "su", "sudo", "doas", "at", "batch"];
 
 /// `true` when a command with these words may run text as shell code — in any
 /// word, since `docker exec -i app bash`, `y=$(bash` and `/bin/sh` do.
@@ -373,7 +382,7 @@ fn may_run_text(words: &[String]) -> bool {
         word == "."
             || word
                 .split(|c: char| c.is_whitespace() || "/()`".contains(c))
-                .any(|part| TEXT_RUNNERS.contains(&part))
+                .any(|part| is_shell(part) || OTHER_TEXT_RUNNERS.contains(&part))
     })
 }
 

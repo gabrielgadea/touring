@@ -56,7 +56,7 @@ fn heredoc_body_words_do_not_reach_the_lexer_output() {
 
 #[test]
 fn heredoc_the_programs_that_run_text() {
-    // Spelled out, not read from `TEXT_RUNNERS`: a name dropped from the
+    // Spelled out, not read from `SHELLS`/`OTHER_TEXT_RUNNERS`: a name dropped from the
     // list must fail here.
     for name in [
         "bash", "sh", "zsh", "dash", "ksh", "ash", "fish", "mksh", "rbash", "csh", "tcsh", "eval",
