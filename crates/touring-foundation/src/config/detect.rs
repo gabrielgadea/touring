@@ -208,8 +208,9 @@ impl TouringConfig {
         let global_root = crate::user_home::claude_home();
         if global_root.is_none() {
             tracing::warn!(
-                "detect_tiered: no home directory derivable ($HOME unset, no passwd entry) — \
-                 the global fallback tier is disabled, databases stay under the project root"
+                "detect_tiered: {} — the global fallback tier is disabled, databases stay under \
+                 the project root",
+                crate::user_home::NO_HOME_REASON
             );
         }
         let global_rust = global_root.as_ref().map(|r| r.join("rust"));

@@ -26,14 +26,16 @@ fn pre_task_scout_cache_path() -> Option<PathBuf> {
 /// reason the cache is off, so the caller degrades to the uncached quick-mode scout.
 fn open_pre_task_scout_cache() -> Result<rusqlite::Connection, String> {
     let Some(cache_path) = pre_task_scout_cache_path() else {
-        tracing::warn!(
-            "pre_task_scout: no home directory derivable ($HOME unset, no passwd entry) — \
-             cache disabled, scouting uncached"
-        );
-        return Err("no home directory derivable".to_string());
+        let reason = touring_foundation::user_home::NO_HOME_REASON;
+        tracing::warn!("pre_task_scout: {reason} — cache disabled, scouting uncached");
+        return Err(reason.to_string());
     };
-    if let Some(parent) = cache_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+    if let Some(parent) = cache_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        // Not fatal on its own: the open below then fails with its own named error and the
+        // caller degrades to the uncached scout. Logged so the cause is not only the symptom.
+        tracing::warn!("pre_task_scout: cannot create {}: {e}", parent.display());
     }
     rusqlite::Connection::open(&cache_path).map_err(|e| format!("{}: {e}", cache_path.display()))
 }

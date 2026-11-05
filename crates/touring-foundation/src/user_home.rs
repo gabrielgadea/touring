@@ -17,6 +17,11 @@ use std::path::{Path, PathBuf};
 /// Directory name of the Claude Code config root under the home directory.
 const CLAUDE_DIR: &str = ".claude";
 
+/// Why a home-relative path could not be resolved — the one wording every caller that
+/// degrades or fails on a `None` from this module puts in front of its own consequence
+/// (`"{NO_HOME_REASON} — cannot locate the clones directory"`).
+pub const NO_HOME_REASON: &str = "no home directory derivable ($HOME unset, no passwd entry)";
+
 /// The current user's home directory, or `None` when it cannot be derived.
 ///
 /// See the [module docs](self) for why there is no fallback value.

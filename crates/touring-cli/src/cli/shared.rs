@@ -482,16 +482,19 @@ pub(crate) use touring_hook_runtime::embeddings::{
 pub(crate) const ARCTIC_QUERY_PREFIX: &str =
     "Represent this sentence for searching relevant passages: ";
 
-/// The `~/.claude` directory (HOME-based), falling back to a relative
-/// `.claude` when `HOME` is unset.
+/// The `~/.claude` directory, through the one home resolver
+/// ([`touring_foundation::user_home::claude_home`]); `None` when no home directory can be
+/// derived.
+///
+/// It used to read `$HOME` itself and fall back to a relative `.claude`: without a home, the
+/// federation scan then walked the working directory and its parent, and the contract was
+/// attested against whatever `.claude` sat there — the guessed default the resolver exists to
+/// refuse.
 ///
 /// `pub` (ES2 P2): the single source of truth for the constitution root, shared
 /// with the `touring attest-contract` CLI in touring-server (`HarnessContract`).
-pub fn touring_claude_dir() -> std::path::PathBuf {
-    std::env::var_os("HOME")
-        .map(std::path::PathBuf::from)
-        .map(|home| home.join(".claude"))
-        .unwrap_or_else(|| std::path::PathBuf::from(".claude"))
+pub fn touring_claude_dir() -> Option<std::path::PathBuf> {
+    touring_foundation::user_home::claude_home()
 }
 
 /// Short, HOME-relative label for a `memory.db` path, used to tag a federated
@@ -518,22 +521,28 @@ fn memory_db_label(db: &std::path::Path) -> String {
 /// skipped. Paths are canonicalized and de-duplicated; only existing files
 /// are kept. Used for `memory.db` (federated recall) and `knowledge.db`
 /// (federated PreToolUse lesson retrieval).
+///
+/// `claude_dir` is `None` when no home directory can be derived: then only `primary` is a
+/// candidate (the local project's database), never a guessed directory.
 pub(crate) fn discover_canonical_dbs(
     primary: &std::path::Path,
-    claude_dir: &std::path::Path,
+    claude_dir: Option<&std::path::Path>,
     db_filename: &str,
 ) -> Vec<std::path::PathBuf> {
     let mut candidates: Vec<std::path::PathBuf> = vec![primary.to_path_buf()];
-    let mut roots: Vec<std::path::PathBuf> = vec![claude_dir.to_path_buf()];
-    if let Some(parent) = claude_dir.parent() {
-        roots.push(parent.to_path_buf());
-    }
-    if let Ok(rd) = std::fs::read_dir(claude_dir) {
-        for child in rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
-            if let Ok(rd2) = std::fs::read_dir(&child) {
-                roots.extend(rd2.flatten().map(|e| e.path()).filter(|p| p.is_dir()));
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    if let Some(claude_dir) = claude_dir {
+        roots.push(claude_dir.to_path_buf());
+        if let Some(parent) = claude_dir.parent() {
+            roots.push(parent.to_path_buf());
+        }
+        if let Ok(rd) = std::fs::read_dir(claude_dir) {
+            for child in rd.flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
+                if let Ok(rd2) = std::fs::read_dir(&child) {
+                    roots.extend(rd2.flatten().map(|e| e.path()).filter(|p| p.is_dir()));
+                }
+                roots.push(child);
             }
-            roots.push(child);
         }
     }
     let rel = format!(".claude/touring/{db_filename}");
