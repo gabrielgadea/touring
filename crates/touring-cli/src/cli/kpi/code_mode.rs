@@ -710,10 +710,10 @@ pub(crate) fn hooks_complement_from<'a>(
 
 /// A agregação pura por trás de [`code_mode_adherence`] — testável sem FS.
 ///
-/// C3a (04/11/2026): uma RECUSA e uma LINHA NÃO-OBJETO saem do denominador
-/// e do numerador — recusa não é run (o programa nunca arrancou) e `123` não é
-/// registro nenhum. As duas famílias são CONTADAS e EXPOSTAS
-/// (`refused_events`, `non_object_lines`): nada some em silêncio.
+/// C3a (04/11/2026): a REFUSAL and a NON-OBJECT LINE leave both the denominator
+/// and the numerator — a refusal is not a run (the program never started) and `123` is not a
+/// record at all. Both families are COUNTED and EXPOSED
+/// (`refused_events`, `non_object_lines`): nothing disappears silently.
 pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
     let mut total = 0u64;
     let mut ok = 0u64;
@@ -725,7 +725,7 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
     // em silêncio, ela escondia a corrupção do journal — e o denominador de
     // `runs_total` ficava menor sem ninguém saber.
     let mut malformed_lines = 0u64;
-    // C3a (04/11/2026): as duas famílias que NÃO são runs, contadas à parte.
+    // C3a (04/11/2026): the two families that are NOT runs, counted separately.
     let mut refused_events = 0u64;
     let mut non_object_lines = 0u64;
     for line in lines {
@@ -740,9 +740,9 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
                 continue;
             }
         };
-        // C3a: a FAMÍLIA da linha decide se ela é run. A recusa do repeat-gate
-        // tem `repeat_blocked` e a linha não-objeto nem é objeto — nenhuma das
-        // duas descreve um processo que rodou.
+        // C3a: the line's FAMILY decides whether it is a run. The repeat-gate's refusal
+        // carries `repeat_blocked` and the non-object line is not even an object — neither
+        // describes a process that ran.
         match run.familia() {
             Familia::Recusa => {
                 refused_events += 1;
