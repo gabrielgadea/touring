@@ -110,15 +110,17 @@ fn gate_tag(text: &str) -> Option<String> {
     let rest = &text[start + 1..];
     let end = rest.find(']')?;
     let tag = rest[..end].trim();
-    let clean = !tag.is_empty()
-        && tag.chars().count() <= 48
-        && !tag.contains(['/', '\\', '~', '\n']);
+    let clean =
+        !tag.is_empty() && tag.chars().count() <= 48 && !tag.contains(['/', '\\', '~', '\n']);
     if !clean {
         return None;
     }
     let head = tag.split_whitespace().next().unwrap_or(tag);
     let letters = head.chars().take_while(char::is_ascii_uppercase).count();
-    let digits = head[letters..].chars().take_while(char::is_ascii_digit).count();
+    let digits = head[letters..]
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .count();
     let canonical = (1..=3).contains(&letters) && digits > 0 && letters + digits == head.len();
     Some(if canonical { head } else { tag }.to_owned())
 }
@@ -502,11 +504,21 @@ mod decision_fields_tests {
     #[test]
     fn the_class_is_the_bare_program_never_an_argument_or_a_path() {
         assert_eq!(command_class("cargo test -p x").as_deref(), Some("cargo"));
-        assert_eq!(command_class("RUST_LOG=debug cargo t").as_deref(), Some("cargo"));
-        assert_eq!(command_class("/usr/bin/grep -rn secret /home/u").as_deref(), Some("grep"));
+        assert_eq!(
+            command_class("RUST_LOG=debug cargo t").as_deref(),
+            Some("cargo")
+        );
+        assert_eq!(
+            command_class("/usr/bin/grep -rn secret /home/u").as_deref(),
+            Some("grep")
+        );
         assert_eq!(command_class("~/bin/x").as_deref(), Some("x"));
         assert_eq!(command_class("   ").as_deref(), None);
-        assert_eq!(command_class("$(evil)").as_deref(), None, "nothing outside the safe set");
+        assert_eq!(
+            command_class("$(evil)").as_deref(),
+            None,
+            "nothing outside the safe set"
+        );
     }
 
     #[test]
@@ -514,10 +526,22 @@ mod decision_fields_tests {
         assert_eq!(classify_answer("").0, "silent");
         assert_eq!(classify_answer("{}").0, "silent");
         assert_eq!(classify_answer("prose").0, "silent");
-        assert_eq!(classify_answer(&HookResponse::deny("[G7 re-inspeção] x").to_json()).0, "deny");
-        assert_eq!(classify_answer(&HookResponse::block("go on").to_json()).0, "block");
-        assert_eq!(classify_answer(&HookResponse::halt("stop").to_json()).0, "halt");
-        assert_eq!(classify_answer(&HookResponse::context("hint").to_json()).0, "context");
+        assert_eq!(
+            classify_answer(&HookResponse::deny("[G7 re-inspeção] x").to_json()).0,
+            "deny"
+        );
+        assert_eq!(
+            classify_answer(&HookResponse::block("go on").to_json()).0,
+            "block"
+        );
+        assert_eq!(
+            classify_answer(&HookResponse::halt("stop").to_json()).0,
+            "halt"
+        );
+        assert_eq!(
+            classify_answer(&HookResponse::context("hint").to_json()).0,
+            "context"
+        );
         let rewrite = r#"{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":"ls"}}}"#;
         assert_eq!(classify_answer(rewrite).0, "rewrite");
         let allow = r#"{"hookSpecificOutput":{"permissionDecision":"allow"}}"#;
@@ -526,9 +550,15 @@ mod decision_fields_tests {
 
     #[test]
     fn the_gate_is_the_canonical_id_or_a_short_pathless_tag() {
-        assert_eq!(gate_tag("[G7 re-inspeção] 3ª leitura").as_deref(), Some("G7"));
+        assert_eq!(
+            gate_tag("[G7 re-inspeção] 3ª leitura").as_deref(),
+            Some("G7")
+        );
         assert_eq!(gate_tag("[E3 contrafactual] x").as_deref(), Some("E3"));
-        assert_eq!(gate_tag("[CODE MODE · rajada] x").as_deref(), Some("CODE MODE · rajada"));
+        assert_eq!(
+            gate_tag("[CODE MODE · rajada] x").as_deref(),
+            Some("CODE MODE · rajada")
+        );
         assert_eq!(gate_tag("[/home/u/secret] x"), None, "a path never leaves");
         assert_eq!(gate_tag("no tag at all"), None);
         let deny = HookResponse::deny("[G10 exec-burst] 5ª execução").to_json();
