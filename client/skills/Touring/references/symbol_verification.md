@@ -284,7 +284,7 @@ touring ast overview <file> -j | jq --arg s "<symbol>" '.symbols[] | select(.nam
 touring index find "<symbol>" -j      # confirma existência
 ls -la "<file_path>"                  # confirma path real
 touring memory recall "wave:<id>"     # confirma wave registrada
-grep -n "<wired_pair>" /home/gabrielgadea/projects/touring/crates/touring-server/src/cli/synergy.rs
+grep -n "<wired_pair>" ~/projects/touring/crates/touring-server/src/cli/synergy.rs
 ```
 
 ---

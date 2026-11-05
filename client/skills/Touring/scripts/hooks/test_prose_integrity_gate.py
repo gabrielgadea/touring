@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -110,11 +111,17 @@ def run_hook(payload, tmp_path, **env):
     for k in ("TOURING_PROSE_GATE_MODE", "TOURING_PROSE_GATE_FILE_MODE"):
         if k not in env:
             e.pop(k, None)
+    if isinstance(payload, dict) and "session_id" in payload:
+        # The advice passes through injection_dedup, which keeps CROSS-PROCESS state per session and epoch: a
+        # fixed "s1" made the 2nd run of an epoch see its own earlier advice and omit it (KeyError on
+        # additionalContext; green on the 1st run, red after — 04/11/2026). A fresh id per call isolates the
+        # test while still exercising the dedup path (the human kill switch stays untouched).
+        payload = {**payload, "session_id": f"test-{uuid.uuid4().hex}"}
     data = payload if isinstance(payload, str) else json.dumps(payload)
     p = subprocess.run([sys.executable, str(GATE)], input=data, capture_output=True, check=False, text=True,
                        env=e, timeout=20)
     log = tmp_path / "events.jsonl"
-    events = [json.loads(l) for l in log.read_text().splitlines()] if log.exists() else []
+    events = [json.loads(linha) for linha in log.read_text().splitlines()] if log.exists() else []
     return p.returncode, p.stdout, p.stderr, events
 
 

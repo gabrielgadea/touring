@@ -66,7 +66,10 @@ IGNORED_DIRS = {
     ".baseline",
 }
 IGNORED_SUFFIXES = {".pyc", ".pyo", ".swp", ".db", ".db-wal", ".db-shm", ".sqlite", ".sqlite3"}
-IGNORED_NAMES = {".DS_Store"}
+# `.coverage` is coverage.py's SQLite data file: a pytest run with coverage inside a skill
+# directory leaves one there, carrying absolute paths of the machine that ran it (05/11/2026:
+# `skills/Touring/scripts/.coverage` reached the public mirror and its MANIFEST that way).
+IGNORED_NAMES = {".DS_Store", ".coverage"}
 
 
 def live_root() -> Path:

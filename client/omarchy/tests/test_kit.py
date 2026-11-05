@@ -252,4 +252,5 @@ def test_real_kit_symlinks_match_kit_json_and_allowlist() -> None:
     abs_rows = [r for r in rows if r[2] == "abs"]
     assert abs_rows, "a kit with no absolute symlink means the analise skills were not captured"
     for _path, target, _kind in abs_rows:
-        assert target.startswith(("/home/gabrielgadea/projects/analise/", "/home/gabrielgadea/projects/touring/")), target
+        projects = f"{Path.home()}/projects"
+        assert target.startswith((f"{projects}/analise/", f"{projects}/touring/")), target

@@ -26,9 +26,11 @@ import bisect
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -362,24 +364,230 @@ def _candidato_tantivy(row: dict, base: Path) -> Candidato | None:
     )
 
 
-def fonte_tantivy(consulta: str, cwd: str | None = None, timeout: float = 2.5) -> list[Candidato]:
-    """Indexed scripts close to the query terms. Any failure raises: the caller turns it into ``inaferivel``."""
-    if not consulta.strip():
-        return []
+#: How the last tantivy query travelled: ``socket``, or ``subprocesso (queda do socket: <why>)``. A fallback is NAMED
+#: here instead of in ``falhas``: a query the subprocess recovered must not turn the source into ``inaferivel``.
+ULTIMA_ROTA_TANTIVY = ""
+_MAX_RESPOSTA = 4 * 1024 * 1024
+
+
+class _SocketIndisponivel(Exception):
+    """The daemon could not answer (absent, refused, malformed, error): the caller falls back to the subprocess."""
+
+
+def _e_socket(caminho: str) -> bool:
+    try:
+        return stat.S_ISSOCK(os.stat(caminho).st_mode)
+    except OSError:
+        return False
+
+
+def _socket_do_daemon(base: str) -> str | None:
+    """The daemon socket the ``touring`` CLI would use: the env override if it exists, else the nearest
+    ``.touring/daemon.sock`` walking up from ``$CLAUDE_PROJECT_DIR`` or the cwd (touring-foundation
+    ``config/paths.rs:46-175``, minus the global fallback: the subprocess still covers it)."""
+    override = os.environ.get("TOURING_DAEMON_SOCKET") or os.environ.get("TOURING_DAEMON_SOCK")
+    if override and _e_socket(override):
+        return override
+    inicio = Path(os.environ.get("CLAUDE_PROJECT_DIR") or base)
+    for d in (inicio, *inicio.parents):
+        candidato = str(d / ".touring" / "daemon.sock")
+        if _e_socket(candidato):
+            return candidato
+    return None
+
+
+def _raiz_do_projeto(cwd: str) -> str:
+    """Port of ``TouringConfig::normalize_project_root`` (``config/paths.rs:367-428``): the nearest dir holding
+    ``.touring/``, ``.git`` or a ``Cargo.toml`` with ``[workspace]``; the walk stops at ``$HOME``, the fallback."""
+    home = os.environ.get("HOME", "")
+    if not os.path.isabs(cwd):
+        return home or cwd
+    config = os.path.join(home, ".claude") if home else ""
+    d = Path(cwd)
+    for atual in (d, *d.parents):
+        if str(atual) != config and _tem_marca_de_projeto(atual):
+            return str(atual)
+        if str(atual) == home:
+            break
+    return home or cwd
+
+
+def _tem_marca_de_projeto(d: Path) -> bool:
+    if (d / ".touring").is_dir() or (d / ".git").exists():
+        return True
+    try:
+        return "[workspace]" in (d / "Cargo.toml").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
+def _linhas_do_daemon(buf: bytes) -> list:
+    """The daemon's one answer line, ``{"output": <json str>, "success": bool}``, as the list of search rows."""
+    try:
+        resposta = json.loads(buf)
+        sucesso, saida = resposta["success"], resposta["output"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise _SocketIndisponivel("resposta invalida") from exc
+    if sucesso is not True:
+        raise _SocketIndisponivel("success=false")
+    try:
+        rows = json.loads(saida)
+    except (ValueError, TypeError) as exc:
+        raise _SocketIndisponivel("output invalido") from exc
+    if isinstance(rows, dict) and "error" in rows:
+        raise _SocketIndisponivel("erro do daemon")  # same shape the CLI turns into a non-zero exit
+    return rows if isinstance(rows, list) else []
+
+
+class _SocketPendente:
+    """A ``cli-tantivy-search`` request already written to the daemon; ``coletar`` reads the answer later.
+
+    Wire format: one newline-delimited JSON request, one answer line (``touring-server/src/daemon_client.rs:119-240``,
+    ``touring-dispatch/src/daemon.rs:1204``). A timeout propagates (the same daemon would stall the subprocess too);
+    every other failure raises ``_SocketIndisponivel``."""
+
+    def __init__(self, conn, prazo: float) -> None:
+        self._conn = conn
+        self._prazo = prazo
+
+    def coletar(self) -> list:
+        buf = bytearray()
+        try:
+            with self._conn as s:
+                while not buf.endswith(b"\n") and len(buf) < _MAX_RESPOSTA:
+                    s.settimeout(max(0.001, self._prazo - time.monotonic()))
+                    pedaco = s.recv(65536)
+                    if not pedaco:
+                        break
+                    buf += pedaco
+        except TimeoutError:
+            raise
+        except OSError as exc:
+            raise _SocketIndisponivel(type(exc).__name__) from exc
+        return _linhas_do_daemon(bytes(buf))
+
+
+def _enviar_tantivy(sock_path: str, consulta: str, projeto: str, limite: float) -> _SocketPendente:
+    """Connect and write the request; the answer is read by ``coletar``. Costs ~0.2 ms: the daemon computes after."""
+    import socket  # lazy: the hook is a fresh process per call and ``socket`` costs import time
+
+    pedido = (
+        json.dumps(
+            {"hook": "cli-tantivy-search", "payload": {"query": consulta, "top": 5}, "project_root": projeto}
+        ).encode()
+        + b"\n"
+    )
+    prazo = time.monotonic() + limite
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        s.settimeout(limite)
+        s.connect(sock_path)
+        s.sendall(pedido)
+    except TimeoutError:
+        s.close()
+        raise
+    except OSError as exc:
+        s.close()
+        raise _SocketIndisponivel(type(exc).__name__) from exc
+    return _SocketPendente(s, prazo)
+
+
+def _tantivy_subprocesso(consulta: str, cwd: str | None, timeout: float) -> list:
     r = subprocess.run(
         ["touring", "tantivy", "search", consulta, "5"],
         capture_output=True,
         text=True,
         timeout=timeout,
         check=False,
-        cwd=_diretorio_existente(cwd),
+        cwd=cwd,
     )
     if r.returncode != 0:
         raise RuntimeError(f"tantivy rc={r.returncode}")
     rows = json.loads(r.stdout or "[]")
-    base = Path(cwd or ".")
-    candidatos = (_candidato_tantivy(row, base) for row in (rows if isinstance(rows, list) else []))
+    return rows if isinstance(rows, list) else []
+
+
+def _abrir_socket(
+    consulta: str, cwd: str | None, timeout: float
+) -> tuple[_SocketPendente | None, str, str | None, float]:
+    """Resolve the daemon and write the request: ``(pending | None, why none, subprocess cwd, deadline)``."""
+    prazo = time.monotonic() + timeout
+    base = _diretorio_existente(cwd)
+    try:
+        ancora = base or os.getcwd()
+    except OSError:
+        ancora = os.environ.get("HOME", "/")
+    sock_path = _socket_do_daemon(ancora)
+    if sock_path is None:
+        return None, "ausente", base, prazo
+    try:
+        return _enviar_tantivy(sock_path, consulta, _raiz_do_projeto(ancora), timeout), "", base, prazo
+    except _SocketIndisponivel as exc:
+        return None, str(exc), base, prazo
+
+
+def _desfecho_tantivy(
+    pendente: _SocketPendente | None, queda: str, consulta: str, cwd: str | None, base: str | None, prazo: float
+) -> list[Candidato]:
+    """The candidates from the pending daemon answer, or from the subprocess when the daemon could not answer."""
+    global ULTIMA_ROTA_TANTIVY
+    rows: list | None = None
+    if pendente is not None:
+        try:
+            rows = pendente.coletar()
+            ULTIMA_ROTA_TANTIVY = "socket"
+        except _SocketIndisponivel as exc:
+            queda = str(exc)
+    if rows is None:
+        ULTIMA_ROTA_TANTIVY = f"subprocesso (queda do socket: {queda})"
+        rows = _tantivy_subprocesso(consulta, base, max(0.05, prazo - time.monotonic()))
+    raiz = Path(cwd or ".")
+    candidatos = (_candidato_tantivy(row, raiz) for row in rows)
     return [c for c in candidatos if c is not None]
+
+
+def fonte_tantivy(consulta: str, cwd: str | None = None, timeout: float = 2.5) -> list[Candidato]:
+    """Indexed scripts close to the query terms, asked of the running daemon first (no fork+exec of the CLI) and
+    of the ``touring`` subprocess when the daemon cannot answer. ONE ``timeout`` covers both. Any failure raises:
+    the caller turns it into ``inaferivel``."""
+    if not consulta.strip():
+        return []
+    pendente, queda, base, prazo = _abrir_socket(consulta, cwd, timeout)
+    return _desfecho_tantivy(pendente, queda, consulta, cwd, base, prazo)
+
+
+def iniciar_tantivy(consulta: str, cwd: str | None = None, timeout: float = 2.5) -> Callable[[], list[Candidato]]:
+    """Start the lookup now, collect it later: ``coletar()`` returns what ``fonte_tantivy`` would (same raises).
+
+    With a daemon the request is written on the CALLER's thread and the daemon computes while the caller loads the
+    other sources: no worker thread, so nothing fights that CPU-bound load for the GIL. (The threaded variant was
+    measured 04/11/2026 with no gain: each of its syscalls waited up to a 5 ms switch interval behind the load.)
+    Without a daemon the subprocess runs on a worker thread, overlapped with the caller's work as before."""
+    if not consulta.strip():
+        return list
+    try:
+        pendente, queda, base, prazo = _abrir_socket(consulta, cwd, timeout)
+    except TimeoutError as exc:
+        estouro = exc
+
+        def _estourou() -> list[Candidato]:
+            raise estouro
+
+        return _estourou
+    if pendente is not None:
+        return lambda: _desfecho_tantivy(pendente, queda, consulta, cwd, base, prazo)
+    from concurrent.futures import ThreadPoolExecutor  # only the no-daemon path needs a thread
+
+    pool = ThreadPoolExecutor(max_workers=1)
+    futuro = pool.submit(_desfecho_tantivy, None, queda, consulta, cwd, base, prazo)
+
+    def coletar() -> list[Candidato]:
+        try:
+            return futuro.result()
+        finally:
+            pool.shutdown(wait=False)
+
+    return coletar
 
 
 def consultar(caminho: str, conteudo: str, cwd: str | None = None, params: Parametros = Parametros()) -> Veredito:
@@ -400,15 +608,13 @@ def consultar(caminho: str, conteudo: str, cwd: str | None = None, params: Param
 
 def _coletar(nome: str, conteudo: str, cwd: str | None) -> tuple[list[Candidato], list[str]]:
     """Federated sources (project index > global MANIFEST, project wins by name) plus tantivy; failures named."""
-    from concurrent.futures import ThreadPoolExecutor
-
     import federacao  # local import: federacao imports Candidato from this module
 
     falhas: list[str] = []
-    # tantivy is a subprocess and independent of the index load: start it first, overlap both (A7).
+    # tantivy is independent of the index load: ask it FIRST and collect after, so both overlap (A7). With a daemon
+    # the request is just written here (no worker thread to fight the index load for the GIL).
     termos = " ".join(sorted(_termos(f"{Path(nome).stem} {proposito_de(conteudo)}"))[:6])
-    pool = ThreadPoolExecutor(max_workers=1)
-    busca = pool.submit(fonte_tantivy, termos, cwd)
+    busca = iniciar_tantivy(termos, cwd)
     projeto: list[Candidato] = []
     indice = federacao.achar_indice(cwd)
     if indice is not None:
@@ -423,11 +629,9 @@ def _coletar(nome: str, conteudo: str, cwd: str | None) -> tuple[list[Candidato]
         falhas.append(f"global ({type(exc).__name__})")
     achados: list[Candidato] = []
     try:
-        achados = busca.result()
+        achados = busca()
     except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as exc:
         falhas.append(f"tantivy ({type(exc).__name__})")
-    finally:
-        pool.shutdown(wait=False)
     return federacao.federar(projeto, globais) + achados, falhas
 
 

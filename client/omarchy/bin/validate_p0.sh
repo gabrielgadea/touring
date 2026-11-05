@@ -64,7 +64,7 @@ if [[ -f "$SYMLINKS_TSV" ]]; then
     # Omarchy (D7: clone `analise`; P4: `update-touring` rebuilds target/release).
     # An absolute target outside that allowlist is a skill that would silently
     # die after the wipe — stronger than asserting "exactly N abs".
-    unknown_abs=$(awk -F'\t' 'NR>1 && $3=="abs" && $2 !~ "^/home/gabrielgadea/projects/(analise|touring)/" {print $1" -> "$2}' "$SYMLINKS_TSV")
+    unknown_abs=$(awk -F'\t' -v home="$HOME" 'NR>1 && $3=="abs" && $2 !~ ("^" home "/projects/(analise|touring)/") {print $1" -> "$2}' "$SYMLINKS_TSV")
     if [[ -z "$unknown_abs" ]]; then
         check_ok "symlinks-abs-allowlist" "${tsv_abs} abs targets all under ~/projects/{analise,touring}"
     else

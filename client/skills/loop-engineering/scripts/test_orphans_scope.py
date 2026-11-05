@@ -1,6 +1,6 @@
 """orphans_base must filter to the scope — a relative path is not "in scope" just because it is relative.
 
-Origin (2026-09-14, measured on /home/gabrielgadea/projects/analise with --scope scripts/eleitoral): the
+Origin (2026-09-14, measured on ~/projects/analise with --scope scripts/eleitoral): the
 clause reported 6488 NEW orphans "in scope"; all 6488 lived in 818 files OUTSIDE the scope
 (``.claude/config/checkpoint_config.py``, ``.claude/hooks/...``). ``module_file`` arrives relative to the
 INDEX root, the clause joined it to the SCOPE, and ``Path.resolve()`` does not require existence — so

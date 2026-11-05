@@ -11,6 +11,14 @@ Dispara quando o destino é efêmero (`/tmp`, `.cache`, scratchpad, `tool-result
 **Sombra**: nunca nega e nunca reescreve a entrada. Log (sem conteúdo): `~/.claude/touring/portfolio_gate/events.jsonl`.
 Kill switch humano: `TOURING_PORTFOLIO_GATE_DISABLED=1`.
 
+**Rota do tantivy (D09, 05/11/2026)**: a busca BM25 vai pelo **socket do daemon** residente (`.touring/daemon.sock`,
+linha JSON `cli-tantivy-search`), sem fork+exec do CLI — a cauda de +111,6 ms do subprocesso (medida em 01/11) era a fase
+culpada do p99. Se o daemon não responde (ausente, recusado, resposta inválida, `success=false`), cai no subprocesso
+`touring tantivy search` e o hook **avisa**: o evento ganha `rota_tantivy` (`socket` · `subprocesso (queda do socket:
+<motivo>)` · `nenhuma`) e o contexto ganha a linha `[PORTFOLIO · aviso]` com o motivo. Daemon fora do ar = `touring
+daemon-ctl status --project .`. Medições: `docs/plans/2026-10-27-portfolio-scripts-harness/diagnostics/ab_tantivy_socket.py`
+e `docs/plans/2026-11-05-portfolio-socket/` (repo `analise`).
+
 ## Os 4 estados do veredito (`veredito_gate/1`)
 
 | Estado | Exit | Significa |
@@ -31,7 +39,8 @@ Cada projeto exporta o próprio índice em `<projeto>/.claude/portfolio/indice.j
 ## Medir: `--stats`
 
 `python3 ~/.claude/skills/Touring/scripts/hooks/script_portfolio_gate.py --stats` resume o log: `eventos`,
-`com_candidato`, `would_avoid`, `pct_evitaveis`, `por_estado` e `sinteticos`. Eventos de instrumento de medição
+`com_candidato`, `would_avoid`, `pct_evitaveis`, `por_estado`, `por_rota_tantivy` (`socket` · `subprocesso` = toda queda ·
+`nenhuma` · `legado` = evento anterior a D09, sem o campo) e `sinteticos`. Eventos de instrumento de medição
 (`/tmp/medicao-latencia-hook/`, `/tmp/auditoria-portfolio/`) ficam FORA dos totais e só aparecem em `sinteticos`;
 eventos anteriores à P1 entram como `legado`.
 

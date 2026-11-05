@@ -2,7 +2,7 @@
   "status": "OK",
   "script": "dimension_scorer",
   "timestamp": "2026-05-23T22:48:19+00:00",
-  "source": "/home/gabrielgadea/.claude/plans/touring-process-hygiene-2026-05-23/plan.md",
+  "source": "~/.claude/plans/touring-process-hygiene-2026-05-23/plan.md",
   "ground_truth_used": false,
   "composite_current": 3.78,
   "composite_target": 8.83,

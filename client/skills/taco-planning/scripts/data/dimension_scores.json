@@ -2,7 +2,7 @@
   "status": "OK",
   "script": "dimension_scorer",
   "timestamp": "2026-10-01T01:44:09+00:00",
-  "source": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+  "source": "~/projects/touring/docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
   "ground_truth_used": false,
   "composite_current": 5.89,
   "composite_target": 9.0,

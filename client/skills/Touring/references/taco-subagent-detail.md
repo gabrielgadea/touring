@@ -244,7 +244,7 @@ Se `engineers_receive` está VAZIO: Orchestrator deve REPORTAR ao usuário antes
 When spawned, you MUST start with the rule directive as FIRST LINE:
 
 ```
-@/home/gabrielgadea/.claude/rules/TACO-subagent.md
+@~/.claude/rules/TACO-subagent.md
 
 # TACO SUBAGENT — BOUND TO RULE
 

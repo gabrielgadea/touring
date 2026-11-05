@@ -112,8 +112,8 @@ cargo clean --dry-run                   # preview SEM destrutivo
 Cron diário 03:00 (instalado via Wave 2026-04-26):
 
 ```cron
-0 3 * * * DISK_WATCH_QUIET=1 /home/gabrielgadea/.claude/tools/disk-watch.sh >/dev/null 2>&1
-0 4 * * 0 /home/gabrielgadea/.claude/tools/safe-clean.sh sweep >>/home/gabrielgadea/.claude/touring/disk_cleanup.log 2>&1
+0 3 * * * DISK_WATCH_QUIET=1 $HOME/.claude/tools/disk-watch.sh >/dev/null 2>&1
+0 4 * * 0 $HOME/.claude/tools/safe-clean.sh sweep >>$HOME/.claude/touring/disk_cleanup.log 2>&1
 ```
 
 **Output**:

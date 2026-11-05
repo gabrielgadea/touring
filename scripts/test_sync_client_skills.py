@@ -100,6 +100,7 @@ def test_runtime_state_can_never_be_mirrored_again():
         Path("skills/x/.pytest_cache/v/cache/nodeids"),
         Path("skills/x/.ruff_cache/CACHEDIR.TAG"),
         Path("skills/x/symbols.db"),
+        Path("skills/Touring/scripts/.coverage"),
     ):
         assert sync.is_noise(probe), f"{probe} would be mirrored"
     assert not sync.is_noise(Path("skills/Touring/SKILL.md"))

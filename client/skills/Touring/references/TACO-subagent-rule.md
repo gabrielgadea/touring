@@ -72,7 +72,7 @@
 **Every subagent MUST start with**:
 
 ```
-@/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md
+@~/.claude/skills/Touring/references/TACO-subagent-rule.md
 ```
 
 This directive **BONDS** you to the TACO rule. Without it, you are NOT operating under TACO protocol.
@@ -342,7 +342,7 @@ touring evolution tools
 
 ## Subagent Prompt Template
 
-When spawned, you MUST start with `@/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md` as the FIRST LINE, then declare `## YOUR ROLE`, `## TASK`, `## ORCHESTRATOR`, run MANDATORY VGP discovery (touring index find / ast blast / memory recall), then Speculative Validation (touring shadow validate ≥ 0.8), then RETURN ONLY RAW JSON.
+When spawned, you MUST start with `@~/.claude/skills/Touring/references/TACO-subagent-rule.md` as the FIRST LINE, then declare `## YOUR ROLE`, `## TASK`, `## ORCHESTRATOR`, run MANDATORY VGP discovery (touring index find / ast blast / memory recall), then Speculative Validation (touring shadow validate ≥ 0.8), then RETURN ONLY RAW JSON.
 
 **Full template (verbatim, copy-paste ready)**: `references/taco-subagent-detail.md#subagent-prompt-template`.
 

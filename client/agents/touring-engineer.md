@@ -117,7 +117,7 @@ TACO Phase 5 always uses touring-engineer as the implementation subagent.
 
 ## MANDATORY EXECUTION PROTOCOL
 
-> **TACO Binding**: When deployed as a TACO Phase 5 subagent, the prompt MUST start with `@/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md` as the first line. This bonds the agent to the TACO rule and enforces JSON-only output.
+> **TACO Binding**: When deployed as a TACO Phase 5 subagent, the prompt MUST start with `@~/.claude/skills/Touring/references/TACO-subagent-rule.md` as the first line. This bonds the agent to the TACO rule and enforces JSON-only output.
 
 Every implementation session follows 7 phases in strict sequence. No phase may be skipped or merged.
 
@@ -197,7 +197,7 @@ touring index find "<symbol_name>" -j | jq '.[].file_path'
 
 # Task S-3 diz: "compilation error em arquivo"
 # VERIFICAR: cargo check confirma erro?
-cd /home/gabrielgadea/projects/touring && cargo check --workspace 2>&1 | grep "^error\[" | head -5
+cd ~/projects/touring && cargo check --workspace 2>&1 | grep "^error\[" | head -5
 # Se exit code = 0 OU não há erros no arquivo citado → FALSE_POSITIVE
 
 # Task S-4 diz: "feature desabilitada"
