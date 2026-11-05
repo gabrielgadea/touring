@@ -43,7 +43,7 @@ mod recurrence;
 pub use journal::{Journal, RunLog, journal_path};
 pub use outcome::{ExitStatus, FailureKind, RunOutcome};
 pub use reader::{
-    EntryScan, Familia, JournalEntry, JournalHint, Line, RunRecord, classify_line, count_runs,
+    EntryScan, JournalEntry, JournalHint, Line, LineFamily, RunRecord, classify_line, count_runs,
     scan_entries,
 };
 pub use recurrence::{PriorSearch, PriorSimilar, SimhashVersion};

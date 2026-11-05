@@ -45,9 +45,9 @@ pub enum Line {
 /// ruler that counts RUNS also has to say which of the parseable lines were
 /// runs at all. Two families are not:
 ///
-/// - [`Familia::Recusa`] — the repeat-gate's refusal event: the program was
+/// - [`LineFamily::Refusal`] — the repeat-gate's refusal event: the program was
 ///   never started, so it is not a failed run, it is NO run;
-/// - [`Familia::NaoObjeto`] — valid JSON that is not an object (`123`, `"x"`):
+/// - [`LineFamily::NotObject`] — valid JSON that is not an object (`123`, `"x"`):
 ///   it carries no record at all.
 ///
 /// Everything else is a run record — INCLUDING a record whose every field is
@@ -55,13 +55,13 @@ pub enum Line {
 /// code is unusable (`0.0`, `"0"`): the family says what the line IS, the
 /// outcome says how it went.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Familia {
+pub enum LineFamily {
     /// A run record: the line describes a process that ran.
     Run,
     /// The repeat-gate's refusal event (`repeat_blocked`) — the program never ran.
-    Recusa,
+    Refusal,
     /// Valid JSON that is not an object (`123`, `"x"`) — no record at all.
-    NaoObjeto,
+    NotObject,
 }
 
 /// Classify one line (a `str::lines()` item or a `BufRead::lines()` item).
@@ -132,14 +132,14 @@ impl RunRecord {
     /// the same question asked in two places gets two answers. A ruler that
     /// counts RUNS asks the family first and the outcome second.
     #[must_use]
-    pub fn familia(&self) -> Familia {
+    pub fn family(&self) -> LineFamily {
         if !self.value.is_object() {
-            return Familia::NaoObjeto;
+            return LineFamily::NotObject;
         }
         if self.value.get("repeat_blocked").is_some() {
-            return Familia::Recusa;
+            return LineFamily::Refusal;
         }
-        Familia::Run
+        LineFamily::Run
     }
 }
 
