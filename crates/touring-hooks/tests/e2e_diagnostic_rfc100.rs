@@ -376,10 +376,11 @@ fn b320_emits_when_blast_crosses_feature_boundaries() {
 
 /// Smoke test: touring binary built with all hooks wired.
 ///
-/// Roda num mundo fechado ([`DoctorWorld`]): projeto num tempdir com `symbols.db` e `knowledge.db`
-/// criados pelos construtores do produto, e um daemon privado. O `doctor` lê o estado do projeto
-/// do CWD do cliente; o teste lia `crates/touring-hooks/.claude/touring/*.db`, estado de runtime
-/// fora do índice (D4, 18/10/2026), e reprovava em clone limpo.
+/// Runs in a closed world ([`DoctorWorld`]): a project in a tempdir with `symbols.db` and
+/// `knowledge.db` created by the product's constructors, plus a private daemon. The `doctor`
+/// reads the project state from the client's CWD; the test used to read
+/// `crates/touring-hooks/.claude/touring/*.db`, runtime state outside the index (D4,
+/// 18/10/2026), and failed on a clean clone.
 /// Skipped when the binaries are not built (announced on stderr, never a silent pass).
 #[test]
 fn touring_binary_wired_and_healthy() {
@@ -411,9 +412,9 @@ fn touring_binary_wired_and_healthy() {
     eprintln!("E2EDOCTOR-RAN touring_binary_wired_and_healthy");
 }
 
-/// O `doctor` lê o estado do circuit breaker DESTE mundo: fechado ao nascer (nenhum disjuntor da
-/// máquina vaza para o veredito) e `open` depois que o mundo o abre — a prova de que o caminho
-/// que o `doctor` inspeciona é o que o resolvedor do disjuntor devolve.
+/// The `doctor` reads THIS world's circuit breaker state: closed at birth (no breaker from the
+/// machine leaks into the verdict) and `open` after the world opens it — proof that the path the
+/// `doctor` inspects is the one the breaker's resolver returns.
 #[test]
 fn doctor_reads_the_circuit_breaker_of_its_own_world() {
     let Some(world) = DoctorWorld::start("rfc100-circuit") else {
