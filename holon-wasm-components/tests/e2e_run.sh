@@ -4,8 +4,13 @@
 # Exit 0 = all pass, exit 1 = any failure.
 set -e
 
-RUNNER="/home/gabrielgadea/.claude/rust/holon-wasm-runner/target/release/holon-wasm-runner"
-WASM_DIR="/home/gabrielgadea/.claude/rust/holon-wasm-components/target/wasm32-wasip2/release"
+# Paths derive from this script's location (holon-wasm-components/tests/), never from a
+# developer's home: the old literals pointed at the frozen ~/.claude/rust tree. Override with
+# HOLON_WASM_RUNNER / HOLON_WASM_DIR to test another build.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+RUNNER="${HOLON_WASM_RUNNER:-$REPO/holon-wasm-runner/target/release/holon-wasm-runner}"
+WASM_DIR="${HOLON_WASM_DIR:-$REPO/holon-wasm-components/target/wasm32-wasip2/release}"
 
 echo "═══════════════════════════════════════════════════════"
 echo "  THSF WASM Component E2E Integration Test"
