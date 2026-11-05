@@ -23,9 +23,14 @@ use std::sync::LazyLock;
 use super::lexer::{flag_matches, option_words};
 use super::{DD_ROUTE, DELETE_ROUTE, DELETE_ROUTE_EXAMPLES, PIPE_SHELL_ROUTE};
 
-/// The road back from a destructive git verdict (REGRA #11 v2).
-pub(super) const GIT_ROUTE: &str = "push without force; if history rewriting is intentional, follow \
-     REGRA #11 (MEDIR→SNAPSHOT→CONFIRMAR) and put `GIT_DESTRUCTIVE_OK=1` in the same command";
+/// The road back from a destructive git verdict (REGRA #11 v2). One text for every
+/// destructive form (`push --force`, `reset --hard`, `clean -f`, `checkout --`, `stash`,
+/// `branch -D`…), so it names the non-destructive alternative per family instead of
+/// assuming a push.
+pub(super) const GIT_ROUTE: &str = "use the non-destructive form (push without force; commit WIP on a \
+     `safety/` branch instead of stash/reset/clean/checkout --); if discarding or rewriting is \
+     intentional, follow REGRA #11 (MEDIR→SNAPSHOT→CONFIRMAR) and put `GIT_DESTRUCTIVE_OK=1` in the \
+     same command";
 
 /// Severity of a structural row: does the line stop, or only get flagged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -354,8 +359,11 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
             },
         ),
         // ── LEXICAL, regex (alternation, wildcards, lookahead) ────────────────────
-        // Git is NOT here: `block_git.sh` is the single owner of git policy (S25,
-        // D2-A, 25/09/2026) — two owners made the REGRA #11 v2 token unreachable.
+        // Git has no row here: its destructive forms are judged by `git/` (data-aware,
+        // through nested shells and interpreters), called from `lexical::judge_line`.
+        // That module mirrors `block_git.sh`, which stays the oracle and the only judge
+        // of repository-local hook bypasses; both honour `GIT_DESTRUCTIVE_OK=1` as an
+        // executable assignment, so the REGRA #11 v2 token stays reachable.
         Rule {
             // sudo needs a param check against multiple dangerous sub-commands.
             prompt: &[("sudo", 0.25)],

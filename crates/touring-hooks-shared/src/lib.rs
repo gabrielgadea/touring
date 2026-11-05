@@ -54,8 +54,8 @@ pub mod workflow;
 pub mod ast_grep_signal;
 pub mod bash_ast_validator;
 // 02/11/2026: the ONE owner of "is this Bash command destructive?" — vocabulary,
-// precedence, per-command words and fail-open mode in one module; `pre_bash`,
-// `PreToolValidator` and `permission_request` ask it (`bash_ast_validator` keeps
+// precedence, per-command words and fail-open mode in one module; `pre_bash` and
+// `permission_request` ask it (`bash_ast_validator` keeps
 // the command-shape extractor and re-exports the structural entry point).
 pub mod command_policy;
 // S2 (2026-09-05, plano substrato-de-artefato do `analise`): símbolos documentais com

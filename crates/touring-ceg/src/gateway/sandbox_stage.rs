@@ -50,8 +50,11 @@ pub struct SandboxOutcome {
     pub output_bytes: u64,
     /// `true` when output was clipped at the configured cap.
     pub was_truncated: bool,
-    /// Legacy wire discriminator: timeout (`-1`) versus the fallback's `-2`.
-    /// Kept beside the typed status because the two JSON forms predate it.
+    /// Wire discriminator ONLY: which of the two historical JSON forms a timeout takes —
+    /// `-1/true` (the dry-run killed here) or the executor's salvaged `-2/false`. Both are
+    /// `exit_code == ExitStatus::TimedOut`; decide on [`ExitStatus::is_timed_out`], never on
+    /// this flag (it is `false` for the salvaged form). Kept so the serialization stays
+    /// byte-identical to the journal.
     pub timed_out: bool,
     /// BLAKE3 hex digest of captured stdout (`""` when nothing ran).
     pub content_hash: String,
@@ -156,7 +159,7 @@ impl SandboxOutcome {
     /// `true` when the dry-run ran to completion with a zero exit code.
     #[must_use]
     pub fn succeeded(&self) -> bool {
-        self.exit_code.is_zero() && !self.timed_out
+        self.exit_code.is_zero()
     }
 }
 

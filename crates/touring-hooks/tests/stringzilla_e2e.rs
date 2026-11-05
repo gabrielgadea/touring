@@ -2,7 +2,8 @@
 //!
 //! Proves end-to-end that:
 //!
-//! 1. `PreToolValidator` static-prefix fast path fires before regex (T0.2).
+//! 1. The tool-call reading of `command_policy` (the static-prefix rows, T0.2) blocks and
+//!    allows what the removed `PreToolValidator` facade answered.
 //! 2. `AhoCorasick` skill-group routing in `keyword_skill_match` works (T3.3).
 //! 3. `gotcha_count_for_file` uses `memmem` and not SQL LIKE (T0.3).
 //! 4. Hook registry has exactly 171 entries and is fully in sync (Hook Registry Fix).
@@ -15,12 +16,37 @@
 use tempfile::NamedTempFile;
 use touring_hooks::async_knowledge::AsyncFileKnowledgeDB;
 use touring_hooks::hook_registry::{all_daemon_hook_names, build_dispatch_table, is_daemon_hook};
-use touring_hooks::pre_tool_validator::PreToolValidator;
+use touring_hooks_shared::command_policy::{self, Verdict};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-fn validator() -> PreToolValidator {
-    PreToolValidator::new()
+/// Reads a tool call through `command_policy::judge_tool`, the owner the removed
+/// `PreToolValidator` facade delegated to (04/11/2026, C2 item 4: it had no production
+/// caller and added no capability). A `Warn` lets the tool run, as the facade did.
+struct ToolJudge;
+
+impl ToolJudge {
+    fn validate(&self, tool_name: &str, params: &str) -> Verdict {
+        command_policy::judge_tool(tool_name, params)
+    }
+}
+
+trait VerdictExt {
+    fn is_blocked(&self) -> bool;
+    fn is_allowed(&self) -> bool;
+}
+
+impl VerdictExt for Verdict {
+    fn is_blocked(&self) -> bool {
+        self.is_block()
+    }
+    fn is_allowed(&self) -> bool {
+        !self.is_block()
+    }
+}
+
+fn validator() -> ToolJudge {
+    ToolJudge
 }
 
 /// Seed the gotchas table directly via a blocking connection.
@@ -82,12 +108,11 @@ fn test_static_prefix_validator_rm_blocked() {
     );
     assert!(
         result
-            .reason
-            .as_deref()
+            .reason()
             .unwrap_or("")
             .contains("Recursive force delete"),
         "reason must reference the static prefix reason, got: {:?}",
-        result.reason
+        result.reason()
     );
 
     // rm with -r alone must also be blocked.
@@ -100,12 +125,11 @@ fn test_static_prefix_validator_rm_blocked() {
     let dd = v.validate("dd", "if=/dev/zero of=/dev/sda");
     assert!(dd.is_blocked(), "dd must be blocked regardless of params");
     assert!(
-        dd.reason
-            .as_deref()
+        dd.reason()
             .unwrap_or("")
             .contains("low-level disk operation"),
         "dd reason must mention disk, got: {:?}",
-        dd.reason
+        dd.reason()
     );
 }
 

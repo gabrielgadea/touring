@@ -7,7 +7,9 @@
 //! (`permission_request`) and a shell script (`block_git.sh`). The commit that
 //! took git out of the second one records why: "two owners with divergent
 //! semantics made the REGRA #11 v2 ritual unreachable" (5731f91b). This module
-//! is where the Rust three now ask.
+//! is where the Rust callers now ask; the `PreToolValidator` facade that kept
+//! delegating here was removed on 04/11/2026 (no production caller, no capability
+//! of its own — its `(tool, params)` form is `judge_tool`).
 //!
 //! # The interface
 //!
