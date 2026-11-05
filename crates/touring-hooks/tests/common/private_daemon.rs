@@ -141,21 +141,21 @@ fn real_fastembed_cache() -> Option<std::path::PathBuf> {
     dir.is_dir().then_some(dir)
 }
 
-/// `touring_hooks_core::circuit_breaker::CIRCUIT_STATE_FILE_ENV`, repetido como literal pelo
-/// mesmo motivo do cache acima (arquivo incluído por caminho em crates sem essa dependência).
+/// `touring_hooks_core::circuit_breaker::CIRCUIT_STATE_FILE_ENV`, repeated as a literal for the
+/// same reason as the cache above (file included by path in crates without that dependency).
 const CIRCUIT_STATE_FILE_ENV: &str = "TOURING_CIRCUIT_STATE_FILE";
 
 impl ProjectPin {
-    /// Arquivo de estado do circuit breaker DESTE mundo: um disjuntor deixado aberto na
-    /// máquina (`/tmp/touring-circuit-<uid>.state`) não decide o veredito do teste.
+    /// State file of THIS world's circuit breaker: a breaker left open on the machine
+    /// (`/tmp/touring-circuit-<uid>.state`) does not decide the test's verdict.
     #[must_use]
     pub fn circuit_state_file(&self) -> std::path::PathBuf {
         self.home.join(".touring-circuit.state")
     }
 }
 
-/// Aponta o ambiente de um CLIENTE para o mundo de `pin`: HOME, projeto, cwd e o
-/// estado do circuit breaker.
+/// Points a CLIENT's environment at `pin`'s world: HOME, project, cwd and the circuit
+/// breaker state.
 fn pin_client_env(cmd: &mut Command, pin: &ProjectPin) {
     cmd.env("HOME", &pin.home)
         .env("CLAUDE_PROJECT_DIR", &pin.root)

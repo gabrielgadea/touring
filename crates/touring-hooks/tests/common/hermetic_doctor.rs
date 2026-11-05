@@ -1,46 +1,48 @@
-//! Mundo fechado para os testes E2E que rodam `touring doctor -j`.
+//! Closed world for the E2E tests that run `touring doctor -j`.
 //!
-//! **Por que existe.** O `doctor` lê o estado do projeto do CWD do CLIENTE:
-//! `check_project_db`, `check_wiring_diagnostic` e `check_index_generation` abrem
-//! `<cwd>/.claude/touring/{symbols,knowledge}.db`. Sob `cargo test` o CWD é o diretório do pacote
-//! (`crates/touring-hooks`), cujo `.claude/touring/*.db` é estado de runtime — ignorado pelo git e
-//! fora do índice desde 18/10/2026 (decisão D4). Os testes passavam nas máquinas onde esse
-//! diretório existia por acidente (um índice antigo, copiado ou deixado por outra execução) e
-//! reprovavam num clone limpo: `project_db`, `wiring_diagnostic` e `index_generation` com
-//! `status: missing`. A prova de que o produto está ligado e saudável não pode depender do que a
-//! máquina guardou.
+//! **Why it exists.** The `doctor` reads the project state from the CLIENT's CWD:
+//! `check_project_db`, `check_wiring_diagnostic` and `check_index_generation` open
+//! `<cwd>/.claude/touring/{symbols,knowledge}.db`. Under `cargo test` the CWD is the package
+//! directory (`crates/touring-hooks`), whose `.claude/touring/*.db` is runtime state — ignored by
+//! git and outside the index since 18/10/2026 (decision D4). The tests passed on the machines
+//! where that directory existed by accident (an old index, copied or left behind by another
+//! run) and failed on a clean clone: `project_db`, `wiring_diagnostic` and `index_generation`
+//! with `status: missing`. The proof that the product is wired and healthy cannot depend on what
+//! the machine happened to keep.
 //!
-//! **O que faz.** [`DoctorWorld`] monta um projeto num tempdir, semeia o estado que o `doctor`
-//! lê com os PRÓPRIOS construtores do produto (`SymbolStore::new`, `FileKnowledgeDB::new` — o
-//! mesmo schema que o daemon cria, nunca um SQLite escrito à mão que envelhece) e sobe um daemon
-//! privado fechado nesse mundo ([`PrivateDaemon::start_isolated`]), de modo que o cliente, o
-//! daemon, o `HOME` e o CWD apontam para o tempdir e nada toca o daemon vivo do usuário.
+//! **What it does.** [`DoctorWorld`] builds a project in a tempdir, seeds the state the `doctor`
+//! reads with the product's OWN constructors (`SymbolStore::new`, `FileKnowledgeDB::new` — the
+//! same schema the daemon creates, never a hand-written SQLite that goes stale) and starts a
+//! private daemon closed over that world ([`PrivateDaemon::start_isolated`]), so that the
+//! client, the daemon, `HOME` and the CWD all point at the tempdir and nothing touches the
+//! user's live daemon.
 //!
-//! **Circuit breaker.** O `check_circuit_breaker` lê o arquivo que o resolvedor do próprio
-//! disjuntor devolve (`circuit_state_path`); o mundo o aponta para dentro do tempdir
-//! (`TOURING_CIRCUIT_STATE_FILE`, via [`ProjectPin::circuit_state_file`]), então um disjuntor
-//! deixado aberto na máquina não decide o veredito — e [`DoctorWorld::trip_circuit_breaker`]
-//! prova que o `doctor` lê esse arquivo e não o de `/tmp`.
+//! **Circuit breaker.** `check_circuit_breaker` reads the file the breaker's own resolver
+//! returns (`circuit_state_path`); the world points it inside the tempdir
+//! (`TOURING_CIRCUIT_STATE_FILE`, via [`ProjectPin::circuit_state_file`]), so a breaker left
+//! open on the machine does not decide the verdict — and [`DoctorWorld::trip_circuit_breaker`]
+//! proves that the `doctor` reads that file and not the one in `/tmp`.
 //!
-//! Incluído por caminho (`wave24_hook_integration_e2e`) e por `mod common;` (as demais suítes):
-//! em ambos os casos `super::private_daemon` é o irmão com o daemon privado.
+//! Included by path (`wave24_hook_integration_e2e`) and by `mod common;` (the other suites):
+//! in both cases `super::private_daemon` is the sibling holding the private daemon.
 
 use super::private_daemon::{PrivateDaemon, ProjectPin};
 use std::path::{Path, PathBuf};
 
-/// Quantas linhas de `wiring_map` a semeadura grava — e, portanto, o que o `doctor` deve contar.
+/// How many `wiring_map` rows the seeding writes — and therefore what the `doctor` must count.
 pub const SEEDED_WIRING_ROWS: u64 = 1;
 
-/// Cria `<root>/.claude/touring/{symbols,knowledge}.db` com o schema do produto e UMA linha de
-/// wiring (um símbolo público sem consumidor).
+/// Creates `<root>/.claude/touring/{symbols,knowledge}.db` with the product's schema and ONE
+/// wiring row (a public symbol with no consumer).
 ///
-/// **Por que a linha.** Os dois bancos também nascem dentro do daemon quando uma requisição de
-/// hook instancia o runtime do projeto (`HookRuntime::new`: `FileKnowledgeDB::new` e
-/// `SymbolStore::new`, `hook_runtime.rs`); a sonda `doctor` sozinha não o instancia (medido: sem
-/// a semeadura, `project_db` reporta `missing`), mas um mundo que passasse a exercitar hooks
-/// passaria em `project_db` sem semeadura nenhuma — «o arquivo existe» não prova a semeadura.
-/// A contagem do `doctor` prova: `wiring_diagnostic` reporta `rows=1` só se leu ESTE
-/// `knowledge.db` semeado; um banco recém-criado reporta `rows=0`, e o do repositório, milhares.
+/// **Why the row.** Both databases are also born inside the daemon when a hook request
+/// instantiates the project runtime (`HookRuntime::new`: `FileKnowledgeDB::new` and
+/// `SymbolStore::new`, `hook_runtime.rs`); the `doctor` probe alone does not instantiate it
+/// (measured: without the seeding, `project_db` reports `missing`), but a world that started
+/// exercising hooks would pass `project_db` with no seeding at all — "the file exists" does not
+/// prove the seeding. The `doctor`'s count does: `wiring_diagnostic` reports `rows=1` only if it
+/// read THIS seeded `knowledge.db`; a freshly created database reports `rows=0`, and the
+/// repository's, thousands.
 pub fn seed_project_state(root: &Path) {
     let dir = root.join(".claude").join("touring");
     std::fs::create_dir_all(&dir).expect("create <root>/.claude/touring");
@@ -67,18 +69,18 @@ pub fn seed_project_state(root: &Path) {
     drop(knowledge);
 }
 
-/// O resultado de um `touring doctor -j` dentro do mundo.
+/// The result of a `touring doctor -j` inside the world.
 pub struct DoctorRun {
-    /// Código de saída do cliente (`-1` se terminou por sinal).
+    /// The client's exit code (`-1` if it ended by signal).
     pub code: i32,
-    /// O array JSON de checks, na ordem em que o `doctor` os emite.
+    /// The JSON array of checks, in the order the `doctor` emits them.
     pub checks: Vec<serde_json::Value>,
 }
 
-/// Um projeto semeado + um daemon privado fechado nele. O `Drop` encerra o daemon pelo PID que
-/// este teste criou (REGRA #19) antes de o diretório que ele serve desaparecer.
+/// A seeded project + a private daemon closed over it. `Drop` stops the daemon by the PID this
+/// test created (REGRA #19) before the directory it serves disappears.
 pub struct DoctorWorld {
-    // `daemon` ANTES de `_dir`: os campos caem na ordem de declaração.
+    // `daemon` BEFORE `_dir`: fields drop in declaration order.
     daemon: PrivateDaemon,
     _dir: tempfile::TempDir,
     root: PathBuf,
@@ -86,8 +88,8 @@ pub struct DoctorWorld {
 }
 
 impl DoctorWorld {
-    /// `None` quando os binários `touring`/`touring-daemon` não foram compilados ou o daemon não
-    /// ficou pronto: um SKIP anunciado no stderr pelo chamador, nunca um passe que pareça prova.
+    /// `None` when the `touring`/`touring-daemon` binaries were not built or the daemon did not
+    /// become ready: a SKIP announced on stderr by the caller, never a pass that looks like proof.
     #[must_use]
     pub fn start(tag: &str) -> Option<Self> {
         let dir = tempfile::Builder::new()
@@ -98,7 +100,7 @@ impl DoctorWorld {
         let home = dir.path().join("home");
         std::fs::create_dir_all(&root).expect("create the hermetic project root");
         std::fs::create_dir_all(&home).expect("create the hermetic HOME");
-        // O estado entra ANTES do daemon subir: ele o abre no boot.
+        // The state goes in BEFORE the daemon starts: it opens it at boot.
         seed_project_state(&root);
         let pin = ProjectPin {
             root: root.clone(),
@@ -114,14 +116,14 @@ impl DoctorWorld {
         })
     }
 
-    /// Raiz do projeto deste mundo (CWD dos clientes).
+    /// Root of this world's project (the clients' CWD).
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
     }
 
-    /// Abre o disjuntor GLOBAL deste mundo (catastrófico, aberto até um instante muito futuro),
-    /// escrevendo o arquivo de estado que o `doctor` deve ler.
+    /// Opens this world's GLOBAL breaker (catastrophic, open until a very distant instant),
+    /// writing the state file the `doctor` must read.
     pub fn trip_circuit_breaker(&self) {
         let state = serde_json::json!({
             "global": {"open_until_ts": 9_999_999_999_u64, "catastrophic_count": 3}
@@ -130,17 +132,18 @@ impl DoctorWorld {
             .expect("write this world's circuit state file");
     }
 
-    /// Roda `touring doctor -j` pinado a este mundo. Falha ALTO se o cliente não emitir um array
-    /// JSON: dentro de um mundo inteiramente nosso isso é defeito, não «lacuna de infraestrutura».
+    /// Runs `touring doctor -j` pinned to this world. Fails LOUD if the client does not emit a
+    /// JSON array: inside a world that is entirely ours that is a defect, not an "infrastructure
+    /// gap".
     #[must_use]
     pub fn doctor(&self) -> DoctorRun {
         let mut cmd = self
             .daemon
             .client_command("touring")
             .expect("`touring` binary vanished after the daemon started");
-        // O daemon deste mundo embute em CPU (`start_isolated`); o cliente declara a mesma
-        // política, senão o `gpu_embeddings` lê «CPU sem falha de CUDA» como `degraded` numa
-        // máquina com GPU — uma verdade sobre a configuração do teste, não sobre o produto.
+        // This world's daemon embeds on CPU (`start_isolated`); the client declares the same
+        // policy, otherwise `gpu_embeddings` reads "CPU with no CUDA failure" as `degraded` on a
+        // machine with a GPU — a truth about the test's configuration, not about the product.
         let out = cmd
             .env("TOURING_EMBED_DEVICE", "cpu")
             .args(["doctor", "-j"])
@@ -161,13 +164,13 @@ impl DoctorWorld {
         DoctorRun { code, checks }
     }
 
-    /// Prova que o `doctor` leu o estado DESTE mundo e não o de outro diretório. Duas provas, e a
-    /// segunda é a que carrega a semeadura:
+    /// Proves the `doctor` read THIS world's state and not another directory's. Two proofs, and
+    /// the second is the one that carries the seeding:
     ///
-    /// 1. `project_db` é `ok` e o caminho que ele relata mora sob a raiz do tempdir;
-    /// 2. `wiring_diagnostic` conta exatamente [`SEEDED_WIRING_ROWS`] linha(s). O daemon cria os
-    ///    bancos sozinho, então a existência do arquivo (1) não distingue um mundo semeado de um
-    ///    vazio; a contagem distingue (vazio: `rows=0`; banco do repositório: milhares).
+    /// 1. `project_db` is `ok` and the path it reports lives under the tempdir root;
+    /// 2. `wiring_diagnostic` counts exactly [`SEEDED_WIRING_ROWS`] row(s). The daemon creates the
+    ///    databases on its own, so the file's existence (1) does not tell a seeded world from an
+    ///    empty one; the count does (empty: `rows=0`; the repository's database: thousands).
     pub fn assert_state_was_read_from_this_world(&self, checks: &[serde_json::Value]) {
         let check = |name: &str| {
             checks
