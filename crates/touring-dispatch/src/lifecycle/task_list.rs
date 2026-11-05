@@ -69,11 +69,7 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // R12-S4: Query decompose status directly — inject real DAG counts alongside hint.
     // TaskList (Claude Code) → cli_decompose_status → SQLite → live task count in context.
     let status_json = crate::cli_handlers::cli_decompose_status(rt, &serde_json::json!({}));
-    let dag_context = if status_json.contains("\"open_tasks\"") {
-        format!(" [live: {}]", truncate_str(&status_json, 120))
-    } else {
-        String::new()
-    };
+    let dag_context = live_dag_context(&status_json);
 
     // R17-S1: Query ready subtasks and inject inline — Claude Code sees actionable work immediately.
     // TaskList (Claude Code) → cli_decompose_ready → SQLite → ready subtask list in context.
@@ -349,24 +345,51 @@ fn pending_tasks_mcts_hint(input: &Value) -> String {
     )
 }
 
+/// R12-S4: the live DAG counts, in one dense clause — only when there is an open plan.
+///
+/// It used to dump the raw status JSON (`[live: {"latest_plan_subtasks":0,…}]`), which never
+/// fired while the hook's status wrapper lacked `open_tasks`, and would have printed four
+/// zeros on every TaskList of an idle project once it did. Silent on an empty store or an
+/// unreadable answer.
+fn live_dag_context(status_json: &str) -> String {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(status_json) else {
+        return String::new();
+    };
+    let open = v.get("open_tasks").and_then(|n| n.as_u64()).unwrap_or(0);
+    if open == 0 {
+        return String::new();
+    }
+    match v.get("latest_plan_subtasks").and_then(|n| n.as_u64()) {
+        Some(sub) => format!(" [live: {open} open plan(s); latest has {sub} subtask(s)]"),
+        None => format!(" [live: {open} open plan(s)]"),
+    }
+}
+
 /// R34-S2: Compare CC task count vs Touring DAG task count and surface a sync advisory (CC=4).
 ///
 /// When CC has significantly more tasks than the Touring DAG, many CC tasks are untracked.
 /// This function parses:
 /// - `input["tool_result"]["tasks"]` → CC task count
-/// - `dag_status_json["open_tasks"]` → Touring tasks not yet terminal (`cli_decompose_status`)
+/// - `dag_status_json["latest_plan_subtasks"]` → subtasks of the plan being worked on
+///   (`cli_decompose_status`; the open task updated most recently)
 ///
-/// If `cc_count > dag_count + 2`, surfaces a batch-create advisory to sync the gap.
-/// Returns empty string when counts are balanced or data is unavailable.
+/// The unit is a subtask of ONE plan, not a count of plans: `open_tasks` counts every
+/// unfinished plan in the store (hundreds), so a gap against it never opened and the hint
+/// was dead. If `cc_count > dag_count + 2`, surfaces a batch-create advisory to sync the gap.
+/// Returns empty string when counts are balanced or the signal is absent (an absent or
+/// `null` count is unknown, never zero — reading it as zero would fire on every TaskList).
 fn dag_cc_task_ratio_hint(input: &Value, dag_status_json: &str) -> String {
     let cc_count = extract_task_list(input).map(|arr| arr.len()).unwrap_or(0);
     if cc_count == 0 {
         return String::new();
     }
-    let dag_count = serde_json::from_str::<serde_json::Value>(dag_status_json)
+    let Some(dag_count) = serde_json::from_str::<serde_json::Value>(dag_status_json)
         .ok()
-        .and_then(|v| v.get("open_tasks").and_then(|c| c.as_u64()))
-        .unwrap_or(0) as usize;
+        .and_then(|v| v.get("latest_plan_subtasks").and_then(|c| c.as_u64()))
+    else {
+        return String::new();
+    };
+    let dag_count = usize::try_from(dag_count).unwrap_or(usize::MAX);
     let untracked = cc_count.saturating_sub(dag_count);
     if untracked <= 2 {
         return String::new();
@@ -1662,18 +1685,64 @@ mod tests {
 
     #[test]
     fn dag_cc_task_ratio_hint_silent_when_balanced() {
-        // 3 CC tasks, 2 DAG tasks → difference ≤ 2 → silent
+        // 3 CC tasks, 2 subtasks in the plan being worked on → difference ≤ 2 → silent
         let input = serde_json::json!({
             "tool_result": {
                 "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}]
             }
         });
-        let dag_status = r#"{"open_tasks": 2}"#;
+        let dag_status = r#"{"open_tasks": 300, "latest_plan_subtasks": 2}"#;
         let result = super::dag_cc_task_ratio_hint(&input, dag_status);
         assert!(
             result.is_empty(),
             "balanced counts must return empty: {result}"
         );
+    }
+
+    /// The hint can fire: 5 CC tasks against a 1-subtask plan leave 4 untracked. Before,
+    /// the reader compared against `open_tasks` (every unfinished plan in the store, in the
+    /// hundreds), so this case was silent and the hint was dead. `open_tasks` stays large
+    /// here to prove the reader no longer looks at it.
+    #[test]
+    fn dag_cc_task_ratio_hint_fires_against_the_plan_being_worked_on() {
+        let input = serde_json::json!({
+            "tool_result": {
+                "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}, {"id": "T-4"}, {"id": "T-5"}]
+            }
+        });
+        let dag_status = r#"{"open_tasks": 300, "latest_plan_subtasks": 1}"#;
+        let result = super::dag_cc_task_ratio_hint(&input, dag_status);
+        assert!(
+            result.contains("dag-gap: 4 CC task(s) untracked"),
+            "5 CC tasks vs a 1-subtask plan must surface the gap: {result}"
+        );
+    }
+
+    #[test]
+    fn live_dag_context_is_silent_on_an_idle_store_and_dense_otherwise() {
+        let idle = r#"{"total_tasks":0,"total_subtasks":0,"open_tasks":0,"latest_plan_subtasks":0}"#;
+        assert_eq!(super::live_dag_context(idle), "");
+        assert_eq!(super::live_dag_context("not json"), "");
+        let busy = r#"{"total_tasks":9,"open_tasks":3,"latest_plan_subtasks":4}"#;
+        assert_eq!(
+            super::live_dag_context(busy),
+            " [live: 3 open plan(s); latest has 4 subtask(s)]"
+        );
+    }
+
+    /// An absent or `null` count is unknown, not zero: reading it as zero made the hint
+    /// (and its -0.05 reward) fire on every TaskList.
+    #[test]
+    fn dag_cc_task_ratio_hint_silent_when_the_signal_is_absent() {
+        let input = serde_json::json!({
+            "tool_result": {
+                "tasks": [{"id": "T-1"}, {"id": "T-2"}, {"id": "T-3"}, {"id": "T-4"}, {"id": "T-5"}]
+            }
+        });
+        for dag_status in [r#"{"open_tasks": 0}"#, r#"{"latest_plan_subtasks": null}"#, "not json"] {
+            let result = super::dag_cc_task_ratio_hint(&input, dag_status);
+            assert!(result.is_empty(), "{dag_status} must stay silent: {result}");
+        }
     }
 
     #[test]

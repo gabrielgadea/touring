@@ -332,7 +332,9 @@ fn run_scouter_task_mode(rt: &mut HookRuntime, subject: &str, tool_name: &str) -
             parts.push(format!("memory: {}", keys.join(", ")));
         }
     }
-    let ready_raw = cli_decompose_ready(rt, &serde_json::json!({}));
+    // The DAG being worked on, not every open plan in the store: unscoped, this line
+    // reported the ready count of hundreds of stale plans on every pre-task scout.
+    let ready_raw = cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     if let Ok(ready) = serde_json::from_str::<serde_json::Value>(&ready_raw) {
         let count = ready
             .get("ready_count")
