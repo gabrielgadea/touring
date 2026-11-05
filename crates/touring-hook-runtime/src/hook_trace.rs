@@ -100,8 +100,11 @@ pub fn command_class(command: &str) -> Option<String> {
 }
 
 /// The first `[tag]` a reason or context leads with, when it is short and names no path. A tag
-/// that opens with a canonical gate id (`G7 re-inspeção`, `E3 …`, `M3 …`) is reduced to the id —
-/// the same vocabulary `tool_trio::deny_gate_of` uses — so replays group by gate, not by prose.
+/// that opens with a canonical gate id (`G7 re-inspeção`, `E3 …`, `M3 …`) is reduced to the id,
+/// so replays group by gate, not by prose. Broader than `tool_trio::deny_gate_of` on purpose:
+/// that one counts only the `G<n>` gates of a denial and folds every other family into
+/// `other`; the trace keeps each family (`E3`, `S3`, `M3`) because a replay asks which gate
+/// spoke, whatever its family or verdict.
 fn gate_tag(text: &str) -> Option<String> {
     let start = text.find('[')?;
     let rest = &text[start + 1..];
