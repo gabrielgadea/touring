@@ -1,23 +1,25 @@
 {
-  "day0": "2026-11-01",
-  "tz": "America/Sao_Paulo",
-  "seed": 20261105,
-  "blocks": [
-    [
-      "C-",
-      "CE",
-      "-E",
-      "--"
-    ],
-    [
-      "-E",
-      "C-",
-      "--",
-      "CE"
-    ]
+ "day0": null,
+ "tz": "America/Sao_Paulo",
+ "seed": 20261105,
+ "blocks": [
+  [
+   "C-",
+   "CE",
+   "-E",
+   "--"
   ],
-  "daemon_socket": "/tmp/touring-daemon-1000.sock",
-  "transcript_dirs": [
-    "-home-gabrielgadea-projects-touring"
+  [
+   "-E",
+   "C-",
+   "--",
+   "CE"
   ]
+ ],
+ "daemon_socket": "/tmp/touring-daemon-1000.sock",
+ "transcript_dirs": [
+  "-home-gabrielgadea-projects-touring"
+ ],
+ "day0_original": "2026-11-01",
+ "encerrado": "05/11/2026 ~19h25 BRT, dia 4/7 (bloco 1, célula -E): abortado por decisão do Gabriel (AskUserQuestion: «Encerrar o AB34 agora») para liberar hooks/settings/daemon/release. Procedimento R4 do pré-registro: nenhuma conclusão sai deste experimento. Análise no momento do aborto: dias válidos 0/8 (dias 0-3 excluídos por deriva/poucos_turnos), C e E inconclusivos — AB34-resultado-abortado-dia4.{json,txt}."
 }
