@@ -420,7 +420,7 @@ tracing-test = "0.2"
 # zero-latency embedding generation. Gated behind `semantic-embeddings`
 # feature in consumer crates to avoid pulling ML deps when unused.
 candle-core = { version = "0.9", default-features = false }
-candle-nn = { version = "0.9", default-features = false }
+candle-nn = { version = "0.11", default-features = false }
 candle-transformers = { version = "0.9", default-features = false }
 
 # HuggingFace tokenizers — pure Rust WordPiece/BPE/SentencePiece. Required
