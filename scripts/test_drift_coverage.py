@@ -84,6 +84,24 @@ ledger removida (precedente: 9ª e 10ª) — reaparece se o relatório for commi
 exige a linha de volta (SEM DISPOSIÇÃO). Também: o total virou derivado de EXPECTED_BY_CAT.
 Dependência de estado: o scan lê o sistema de arquivos, não o git — docs não rastreados no
 checkout rodado entram na contagem; a medida reprodutível é a do checkout limpo.
+12ª reconciliação (05/11/2026, release 30.4.103 = fusão de 10 branches; ledger 136→137 linhas):
+397→398 = C1 +1 (C3/C4/C5/C6 inalterados). Medida num checkout LIMPO do HEAD (git archive, sem .git
+nem arquivos não rastreados), o método da 11ª. (1) C1 +1 — "30.4.102" virou release ANTERIOR quando
+a 30.4.103 passou a corrente: 31 citações em 9 arquivos RASTREADOS (bundle da VGP — RETOMAR-AQUI do
+V3, J15, held-out 20261101, fix-builtins, retrodependencias, RETOMAR-L2-BUDGET — e as pendências
+consolidadas), todas registro datado; nenhuma descreve a versão corrente, logo zero correção na
+fonte: (c), lote "2026-11-05-release-30.4.103". (2) O checkout principal leu 405 (397+8), mas 7 dos
+8 sinais NÃO existem em nenhum arquivo rastreado — vêm de arquivos não rastreados de sessões irmãs
+de 05/11: C5 +5 (touring-architect, touring-auditor, touring-scriber, touring-arch e o crate
+absorvido touring-resource-monitor) só no diretório backup-live-pre-sanitize-20261105/ do bundle
+correcoes-aprofundamento, cópia de agents/skills do ambiente do usuário ANTES da anonimização (tem
+caminho de usuário em 22 arquivos, logo NUNCA deve ser commitado: pinar seus sinais aqui deixaria
+todo checkout limpo vermelho para sempre); C6 +2 (o kill switch do gate teammate-idle, citado só em
+RETOMADA.md do mesmo bundle, e o opt-out de index do handler de worktree da R98, só em
+r98/RELATORIO.md). Pela regra da 11ª não ganham linha no ledger nem entram nestes literais; se um
+desses arquivos for commitado, o verificador acusa SEM DISPOSIÇÃO e ele se trata então. Efeito
+medido: neste checkout principal, enquanto esses arquivos existirem, o teste lê C5=160, C6=32
+(total 405) e reprova — é a dependência de estado documentada acima, não regressão.
 ARMADILHA (medida na própria 10ª): este arquivo é .py FORA de docs/, logo entra no ground truth
 do C6 — escrever aqui o nome literal de uma var citada pelas docs a transformava em "existente" e
 o sinal sumia do scan. Por isso este docstring não nomeia nenhuma delas; os nomes estão no ledger.
@@ -133,9 +151,10 @@ NUMERIC_CATEGORIES = ["C1", "C3", "C4", "C5", "C6"]
 FILES_ONLY_CATEGORIES = ["C2", "C7"]
 ALL_CATEGORIES = NUMERIC_CATEGORIES + FILES_ONLY_CATEGORIES
 
-# Contagens reconciliadas 04/11/2026, 11ª reconciliação (ver docstring do módulo).
+# Contagens reconciliadas 05/11/2026, 12ª reconciliação (ver docstring do módulo).
+# Medidas num checkout limpo do HEAD; arquivos não rastreados de outras sessões somam por cima.
 # Fonte única: o total é derivado, para que uma reconciliação mexa num literal só.
-EXPECTED_BY_CAT = {"C1": 90, "C3": 11, "C4": 111, "C5": 155, "C6": 30}
+EXPECTED_BY_CAT = {"C1": 91, "C3": 11, "C4": 111, "C5": 155, "C6": 30}
 EXPECTED_TOTAL = sum(EXPECTED_BY_CAT.values())
 
 _scan_check_cache: tuple[int, str, str] | None = None

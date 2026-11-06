@@ -72,6 +72,34 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def tracked_paths() -> set[str] | None:
+    """The repository's tracked files (`git ls-files`), relative to ROOT; None outside a repo.
+
+    The scan measures the ACERVO, not whatever sits on disk: untracked scratch (a session's
+    bundle, a backup, another session's report) made the same commit read 398 in a clean
+    checkout and 405 in the live one (12th reconciliation, 05/11/2026). Same rule as the
+    path alphabet of the VGP: the source is `git ls-files`.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "-z"],
+            capture_output=True,
+            check=True,
+            timeout=60,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return {p for p in out.decode("utf-8", errors="surrogateescape").split("\0") if p}
+
+
+_TRACKED = tracked_paths()
+
+
+def _in_acervo(rel: str) -> bool:
+    """True when `rel` is tracked (or when there is no repository to ask)."""
+    return _TRACKED is None or rel in _TRACKED
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Coleta de arquivos .md no escopo (sem bash, usa pathlib)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -87,7 +115,7 @@ def collect_scope_files():
     # Recursive scan com pathlib.rglob
     for md_path in ROOT.rglob("*.md"):
         rel = md_path.relative_to(ROOT).as_posix()
-        if "/target/" in rel or "/node_modules/" in rel:
+        if "/target/" in rel or "/node_modules/" in rel or not _in_acervo(rel):
             continue
         # Tudo em docs/ e crates/ conta
         if rel.startswith("docs/") or rel.startswith("crates/"):
@@ -147,7 +175,7 @@ def gt_actual_envvars() -> list[str]:
         if not p.is_file() or p.suffix not in exts:
             continue
         rel = p.relative_to(ROOT).as_posix()
-        if rel.startswith("docs/") or any(s in f"/{rel}" for s in skip):
+        if rel.startswith("docs/") or any(s in f"/{rel}" for s in skip) or not _in_acervo(rel):
             continue
         try:
             found.update(re.findall(r"\bTOURING_[A-Z][A-Z0-9_]+\b",
