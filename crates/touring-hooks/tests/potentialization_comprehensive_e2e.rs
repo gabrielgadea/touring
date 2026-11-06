@@ -258,14 +258,23 @@ fn performance_signal_pipeline_execution_time() {
 
     let ctx = SignalContext::new("src/lib.rs", "fn main() {}").with_cila(3);
 
-    let start = std::time::Instant::now();
-    let result = pipeline.execute(&ctx);
-    let elapsed = start.elapsed();
-
-    assert!(result.is_some(), "pipeline should produce result");
+    // The median of 21 runs, not one sample: a single wall-clock reading in a debug build measures
+    // the scheduler as much as the pipeline (one preemption on a loaded machine failed the release
+    // gate on 05/11/2026; the same test passed 3/3 in isolation).
+    let mut samples: Vec<std::time::Duration> = (0..21)
+        .map(|_| {
+            let start = std::time::Instant::now();
+            let result = pipeline.execute(&ctx);
+            let elapsed = start.elapsed();
+            assert!(result.is_some(), "pipeline should produce result");
+            elapsed
+        })
+        .collect();
+    samples.sort();
+    let median = samples[samples.len() / 2];
     assert!(
-        elapsed.as_millis() < 100,
-        "pipeline should complete in <100ms"
+        median.as_millis() < 100,
+        "pipeline median should be <100ms, got {median:?} (samples {samples:?})"
     );
 }
 

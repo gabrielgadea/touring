@@ -57,6 +57,11 @@ fn test_d2_pre_tool_use_cli_p99_under_2s() {
         "tool_input": {"file_path": "/tmp/test.rs"}
     });
 
+    // Warm-up, outside the histogram: the first call pays the private daemon's cold start (boot,
+    // model load, first index read), not the hook's overhead. With 5 samples the "P99" is the max,
+    // so that one call decided the verdict: 8 912 ms under a loaded machine on 05/11/2026, while the whole test took 1.2 s in isolation.
+    let _ = invoke_cli_hook(&binary, "pre-tool-use", &payload);
+
     // 5 iterations — CLI subprocess is expensive (~50ms each minimum).
     for _ in 0..5 {
         let t0 = Instant::now();
