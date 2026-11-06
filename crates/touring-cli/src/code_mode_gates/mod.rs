@@ -53,12 +53,12 @@ use std::path::Path;
 
 use self::{mode::*, remedy::*, shell::*, spec::*, state::*};
 
+#[cfg(test)]
+pub use self::arm::turn_ledger_insert_for_test;
 pub(crate) use self::arm::{
     ARM_MIN_SAMPLE, bump_durable_evidence, read_durable_evidence, record_route_offer,
 };
 pub use self::arm::{RouteOffer, claim_route_reward, take_route_offer};
-#[cfg(test)]
-pub use self::arm::turn_ledger_insert_for_test;
 pub(crate) use self::mode::{CodeModeEnv, CodeModePresentation};
 pub(crate) use self::remedy::portfolio_index;
 pub(crate) use self::shell::{

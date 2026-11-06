@@ -73,13 +73,14 @@ use rusqlite;
 // threshold behind it). This module asks it and FORMATS: the hook JSON of a `Decision`, and the
 // public surface the RL feedback path (`post_tool_rl`) and the KPIs have always reached here.
 use crate::code_mode_gates::{
-    self, CACHE_MAX_CAPACITY, CODE_MODE_WINDOW_SECS, CONFORMAL_TAU_MAX_PROJECTS,
-    Decision, GateConfig, GateState, SUGGESTION_TTL_SECS, ToolEvent, Verdict,
-    effective_tokens, inline_edit_target, is_inline_blind_edit, portfolio_index, scan_class_of,
-    session_key,
+    self, CACHE_MAX_CAPACITY, CODE_MODE_WINDOW_SECS, CONFORMAL_TAU_MAX_PROJECTS, Decision,
+    GateConfig, GateState, SUGGESTION_TTL_SECS, ToolEvent, Verdict, effective_tokens,
+    inline_edit_target, is_inline_blind_edit, portfolio_index, scan_class_of, session_key,
+};
+pub(crate) use crate::code_mode_gates::{
+    ARM_MIN_SAMPLE, bump_durable_evidence, read_durable_evidence,
 };
 pub use crate::code_mode_gates::{RouteOffer, claim_route_reward, take_route_offer};
-pub(crate) use crate::code_mode_gates::{ARM_MIN_SAMPLE, bump_durable_evidence, read_durable_evidence};
 
 // ── Cache ────────────────────────────────────────────────────────────────────
 //
@@ -1864,11 +1865,18 @@ fn federated_db_paths(
     let claude_dir = crate::cli_handlers::touring_claude_dir();
     let mem_primary = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     let know_primary = touring_foundation::TouringConfig::knowledge_db_canonical(&rt.project_root);
-    let mem: std::sync::Arc<[std::path::PathBuf]> =
-        crate::cli_handlers::discover_canonical_dbs(&mem_primary, claude_dir.as_deref(), "memory.db").into();
-    let know: std::sync::Arc<[std::path::PathBuf]> =
-        crate::cli_handlers::discover_canonical_dbs(&know_primary, claude_dir.as_deref(), "knowledge.db")
-            .into();
+    let mem: std::sync::Arc<[std::path::PathBuf]> = crate::cli_handlers::discover_canonical_dbs(
+        &mem_primary,
+        claude_dir.as_deref(),
+        "memory.db",
+    )
+    .into();
+    let know: std::sync::Arc<[std::path::PathBuf]> = crate::cli_handlers::discover_canonical_dbs(
+        &know_primary,
+        claude_dir.as_deref(),
+        "knowledge.db",
+    )
+    .into();
     *guard = Some((
         std::time::Instant::now(),
         std::sync::Arc::clone(&mem),
@@ -2776,7 +2784,6 @@ fn record_adoption(tool_name: &str, tool_input: &Value) {
 // direção errada — e nenhum nudge corrige um custo. Este gate faz o segundo
 // bypass custar, e faz a rota sancionada ser o que recarrega o direito.
 
-
 /// Is the pillar-induction layer armed? `TOURING_PILLAR_INDUCTION_ARMED` unset
 /// (or `0`) ⇒ OFF. Mirrors [`f7_actuator_armed`]: arming is a human decision so
 /// the shipped default never changes live behaviour.
@@ -3304,7 +3311,10 @@ fn verdict_json(verdict: &Verdict) -> String {
             ..
         } => {
             out.insert("permissionDecision".into(), Value::from("allow"));
-            out.insert("permissionDecisionReason".into(), Value::from(reason.as_str()));
+            out.insert(
+                "permissionDecisionReason".into(),
+                Value::from(reason.as_str()),
+            );
             if let Some(context) = context {
                 out.insert("additionalContext".into(), Value::from(context.as_str()));
             }
@@ -3312,7 +3322,10 @@ fn verdict_json(verdict: &Verdict) -> String {
         }
         Verdict::Deny { reason, .. } => {
             out.insert("permissionDecision".into(), Value::from("deny"));
-            out.insert("permissionDecisionReason".into(), Value::from(reason.as_str()));
+            out.insert(
+                "permissionDecisionReason".into(),
+                Value::from(reason.as_str()),
+            );
         }
     }
     serde_json::json!({ "hookSpecificOutput": Value::Object(out) }).to_string()

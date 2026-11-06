@@ -107,7 +107,11 @@ pub(super) fn s<'a>(v: &'a Value, key: &str) -> &'a str {
 fn strings(v: &Value, key: &str) -> Vec<String> {
     v.get(key)
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_owned))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -116,7 +120,11 @@ fn expand(v: &Value, vars: &BTreeMap<String, String>) -> Value {
     match v {
         Value::String(t) => Value::String(expand_str(t, vars)),
         Value::Array(a) => Value::Array(a.iter().map(|x| expand(x, vars)).collect()),
-        Value::Object(o) => Value::Object(o.iter().map(|(k, x)| (k.clone(), expand(x, vars))).collect()),
+        Value::Object(o) => Value::Object(
+            o.iter()
+                .map(|(k, x)| (k.clone(), expand(x, vars)))
+                .collect(),
+        ),
         other => other.clone(),
     }
 }
@@ -133,7 +141,8 @@ fn expand_str(t: &str, vars: &BTreeMap<String, String>) -> String {
 fn timestamp_re() -> &'static Regex {
     static CELL: OnceLock<Regex> = OnceLock::new();
     CELL.get_or_init(|| {
-        Regex::new(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})").expect("timestamp regex")
+        Regex::new(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})")
+            .expect("timestamp regex")
     })
 }
 
@@ -144,8 +153,11 @@ fn timestamp_re() -> &'static Regex {
 fn mask_truncated_snippets(text: &str) -> String {
     static LIVE: OnceLock<Regex> = OnceLock::new();
     static PARTIAL: OnceLock<Regex> = OnceLock::new();
-    let live = LIVE.get_or_init(|| Regex::new(r"\[live: (\{[^\n]*?)\]( \| |$)").expect("live snippet regex"));
-    let partial = PARTIAL.get_or_init(|| Regex::new(r"\d{4}-\d{2}-\d{2}T[\d:.+Z-]*$").expect("partial timestamp regex"));
+    let live = LIVE
+        .get_or_init(|| Regex::new(r"\[live: (\{[^\n]*?)\]( \| |$)").expect("live snippet regex"));
+    let partial = PARTIAL.get_or_init(|| {
+        Regex::new(r"\d{4}-\d{2}-\d{2}T[\d:.+Z-]*$").expect("partial timestamp regex")
+    });
     live.replace_all(text, |m: &regex::Captures| {
         let snippet = &m[1];
         if snippet.ends_with('}') {
@@ -186,7 +198,12 @@ fn normalize(out: &str, root: &Path, vars: &BTreeMap<String, String>) -> String 
 /// `depends_on`, `status`) scoped under it.
 fn op_create(rt: &mut HookRuntime, op: &Value, vars: &mut BTreeMap<String, String>) {
     let id = create_intent_task(rt, s(op, "description"), "task_missing");
-    for sub in op.get("subtasks").and_then(Value::as_array).into_iter().flatten() {
+    for sub in op
+        .get("subtasks")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
         add_subtask(rt, &id, sub);
     }
     vars.insert(s(op, "as").to_owned(), id);
@@ -195,7 +212,13 @@ fn op_create(rt: &mut HookRuntime, op: &Value, vars: &mut BTreeMap<String, Strin
 fn add_subtask(rt: &mut HookRuntime, task: &str, sub: &Value) {
     let deps: Vec<String> = strings(sub, "depends_on")
         .into_iter()
-        .map(|d| if d.contains("::") { d } else { format!("{task}::{d}") })
+        .map(|d| {
+            if d.contains("::") {
+                d
+            } else {
+                format!("{task}::{d}")
+            }
+        })
         .collect();
     let _ = crate::cli_handlers::cli_decompose_add(
         rt,
@@ -274,7 +297,11 @@ fn dispatch(handler: &str, rt: &mut HookRuntime, input: &Value) -> String {
 fn run_scenario(sc: &Value) -> String {
     let (tmp, mut rt) = make_runtime();
     let mut vars = BTreeMap::new();
-    let setup = sc.get("setup").and_then(Value::as_array).cloned().unwrap_or_default();
+    let setup = sc
+        .get("setup")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     // Hermetic (04/11/2026): the WHOLE scenario — setup included — sees a `~/.claude` inside its
     // temp root. Setup stores memories; outside this scope they landed in the machine's real
     // memory store (the test wrote into the user's memory) and the recall below never saw them.
@@ -359,7 +386,10 @@ fn replay_reproduces_every_recorded_output_byte_for_byte() {
 fn justified_differences_name_real_scenarios_and_carry_a_reason() {
     let ids: BTreeSet<&str> = scenarios().iter().map(|sc| s(sc, "id")).collect();
     for (id, reason) in JUSTIFIED_DIFFERENCES {
-        assert!(ids.contains(id), "JUSTIFIED_DIFFERENCES names unknown scenario {id}");
+        assert!(
+            ids.contains(id),
+            "JUSTIFIED_DIFFERENCES names unknown scenario {id}"
+        );
         assert!(reason.len() > 20, "scenario {id} needs a written reason");
     }
 }
@@ -378,7 +408,9 @@ fn every_check_holds_on_the_handler_output() {
         }
         for needle in strings(ck, "lacks") {
             if out.contains(&needle) {
-                failures.push(format!("{id}: output must not contain {needle:?}\n  output: {out}"));
+                failures.push(format!(
+                    "{id}: output must not contain {needle:?}\n  output: {out}"
+                ));
             }
         }
     }
@@ -402,18 +434,27 @@ fn the_fixtures_are_well_formed() {
     for ck in checks() {
         let id = s(ck, "id");
         assert!(check_ids.insert(id), "check id {id} is duplicated");
-        assert!(ids.contains(s(ck, "scenario")), "check {id} points at an unknown scenario");
+        assert!(
+            ids.contains(s(ck, "scenario")),
+            "check {id} points at an unknown scenario"
+        );
         assert!(
             !strings(ck, "has").is_empty() || !strings(ck, "lacks").is_empty(),
             "check {id} asserts nothing"
         );
-        assert!(!s(ck, "old").is_empty(), "check {id} must name the old test it came from");
+        assert!(
+            !s(ck, "old").is_empty(),
+            "check {id} must name the old test it came from"
+        );
         used.insert(s(ck, "scenario"));
     }
     for sc in scenarios() {
         let id = s(sc, "id");
         assert!(used.contains(id), "scenario {id} is not used by any check");
-        assert!(known.contains(s(sc, "handler")), "scenario {id} names an unknown handler");
+        assert!(
+            known.contains(s(sc, "handler")),
+            "scenario {id} names an unknown handler"
+        );
         // An empty `out` is a real contract (a handler given no path returns nothing); the replay pins it.
     }
 }
@@ -432,7 +473,10 @@ fn the_fixtures_hold_only_synthetic_home_paths() {
         }
         // The account that recorded the corpus must not leak outside a path either.
         if let Some(user) = std::env::var("USER").ok().filter(|u| u.len() > 3) {
-            assert!(!text.contains(&user), "fixture {name} holds the recording user name");
+            assert!(
+                !text.contains(&user),
+                "fixture {name} holds the recording user name"
+            );
         }
     }
 }

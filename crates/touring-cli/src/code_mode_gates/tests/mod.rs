@@ -14,8 +14,8 @@
 //! [`evaluate`]: super::evaluate
 
 mod arm_unit;
-mod modes;
 mod contract;
+mod modes;
 mod replay;
 mod rows;
 mod scenarios;

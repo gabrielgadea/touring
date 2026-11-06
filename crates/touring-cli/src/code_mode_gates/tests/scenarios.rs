@@ -359,7 +359,12 @@ fn check(scn: &str, i: usize, want: &W, out: &Option<String>) {
         assert!(!o.text.contains(l.as_str()), "{} — must lack `{l}`", ctx());
     }
     for (pointer, v) in &want.upd {
-        assert_eq!(o.updated.pointer(pointer), Some(v), "{} — updatedInput {pointer}", ctx());
+        assert_eq!(
+            o.updated.pointer(pointer),
+            Some(v),
+            "{} — updatedInput {pointer}",
+            ctx()
+        );
     }
     if let Some(lines) = &want.code {
         let got = code_lines(o.updated["command"].as_str().unwrap_or_default());
@@ -496,7 +501,11 @@ fn execute(scn: &Scn, drive: Drive, checked: bool) -> Entry {
                 std::fs::write(&p, subst(body, root, out)).expect("touch write");
                 pin_mtime(&p, *tick);
             }
-            Ev::Json { path, pointer, want } => {
+            Ev::Json {
+                path,
+                pointer,
+                want,
+            } => {
                 let p = root.join(subst(path, root, out));
                 let v: Value = std::fs::read_to_string(&p)
                     .ok()

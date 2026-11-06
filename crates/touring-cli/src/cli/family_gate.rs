@@ -473,7 +473,10 @@ fn row_json(r: &GridRow) -> Value {
     })
 }
 
-fn calibration_json(cal: &BTreeMap<String, FamilyFollow>, app: &BTreeMap<String, FamilyFollow>) -> Value {
+fn calibration_json(
+    cal: &BTreeMap<String, FamilyFollow>,
+    app: &BTreeMap<String, FamilyFollow>,
+) -> Value {
     let c = calibrate(cal, app);
     let matches = c
         .chosen

@@ -25,9 +25,7 @@ pub(super) fn write_run_key(project_root: &Path, session: &str, tag: &str) -> u6
     h.finish()
 }
 
-
 pub(super) type ExecBurstEntry = (u32, Vec<String>);
-
 
 /// Sessão na chave pela mesma razão de [`write_run_key`]: o ledger é do
 /// daemon, e sem ela a janela vazava entre sessões CC do mesmo projeto.
@@ -40,7 +38,6 @@ pub(super) fn inspect_burst_key(project_root: &Path, session: &str, class: &str)
     hasher.finish()
 }
 
-
 /// Sessão na chave pela mesma razão de [`write_run_key`].
 pub(super) fn exec_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -50,7 +47,6 @@ pub(super) fn exec_burst_key(project_root: &Path, session: &str, class: &str) ->
     class.hash(&mut hasher);
     hasher.finish()
 }
-
 
 /// Contas do orçamento de bypass de um escopo, dentro da janela.
 ///
@@ -65,7 +61,6 @@ pub(crate) struct BypassBudget {
     pub(crate) since_route: u32,
 }
 
-
 /// Chave do ledger: o escopo, como nos demais gates deste módulo.
 pub(super) fn bypass_key(project_root: &Path, actor: &str) -> u64 {
     use std::hash::{Hash, Hasher};
@@ -76,14 +71,18 @@ pub(super) fn bypass_key(project_root: &Path, actor: &str) -> u64 {
     hasher.finish()
 }
 
-
 /// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
 /// mutação do projeto na primeira vista). TTL espelha o anti-spam (300s).
 /// G6 ledger key: the session AND the input. A blind retry is the same session repeating
 /// what it already holds in context; another session running the same command has never
 /// seen the result. Keyed by input alone, fresh sessions were denied as "retries" of each
 /// other (26/09/2026 — the contract suite, one session per call, within 300 s).
-pub(super) fn g6_key(project_root: &Path, session: &str, tool_name: &str, tool_input: &Value) -> u64 {
+pub(super) fn g6_key(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     project_root.hash(&mut hasher);
     session.hash(&mut hasher);
@@ -91,7 +90,6 @@ pub(super) fn g6_key(project_root: &Path, session: &str, tool_name: &str, tool_i
     tool_input.to_string().hash(&mut hasher);
     hasher.finish()
 }
-
 
 /// W2 — ledger da rajada por (projeto, classe): contagem + os comandos REAIS
 /// acumulados (cap 8) — eles viram o corpo do programa no remédio do deny.
@@ -105,7 +103,6 @@ pub(super) fn g6_key(project_root: &Path, session: &str, tool_name: &str, tool_i
 /// `g6_mutacao_no_meio_reseta_a_repeticao` pegou a regressão.
 pub(super) type BurstEntry = (u32, Vec<String>, u64);
 
-
 pub(super) fn burst_key(project_root: &Path, actor: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g1-burst\u{2}".hash(&mut hasher);
@@ -114,7 +111,6 @@ pub(super) fn burst_key(project_root: &Path, actor: &str, class: &str) -> u64 {
     class.hash(&mut hasher);
     hasher.finish()
 }
-
 
 pub(super) fn g3_read_key(project_root: &Path, session: &str, file: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -125,7 +121,6 @@ pub(super) fn g3_read_key(project_root: &Path, session: &str, file: &str) -> u64
     hasher.finish()
 }
 
-
 pub(super) fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g7-target\u{2}".hash(&mut hasher);
@@ -135,7 +130,6 @@ pub(super) fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     hasher.finish()
 }
 
-
 /// 30.4.97 (G7G3G9) — (mtime, tamanho) de um arquivo: o que o harness do Claude Code compara no
 /// «File has been modified since read, either by the user or by a linter. Read it again before
 /// attempting to write it.»
@@ -144,8 +138,6 @@ pub(super) struct FileStamp {
     pub(super) mtime_ns: u128,
     pub(super) len: u64,
 }
-
-
 
 /// Every ledger the gates remember a session by. ONE instance serves the daemon for its whole
 /// life (`GateState::global`); a test builds its own (`GateState::new`) and so shares nothing

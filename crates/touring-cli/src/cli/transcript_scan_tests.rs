@@ -22,7 +22,11 @@ fn attribute_lines_matches_the_longest_announced_name() {
         "- not-announced: ignored",
     ];
     let got = attribute_lines(lines.iter().copied(), &names);
-    assert_eq!(got.len(), 3, "the unannounced line is not billed to anyone: {got:?}");
+    assert_eq!(
+        got.len(),
+        3,
+        "the unannounced line is not billed to anyone: {got:?}"
+    );
     assert_eq!(got["brand-voice:discover-brand"], lines[0].len() as u64 + 1);
     assert_eq!(got["briah"], lines[1].len() as u64 + 1);
     assert_eq!(got["plain"], lines[2].len() as u64 + 1);
@@ -59,15 +63,18 @@ fn parse_announcement_reads_the_four_surfaces() {
             .expect("json");
     let a = parse_announcement(&agent["attachment"]).expect("agent listing");
     assert_eq!(a.kind, AnnKind::Agent);
-    assert_eq!(a.items["explorer"], "- explorer: reads code".len() as u64 + 1);
+    assert_eq!(
+        a.items["explorer"],
+        "- explorer: reads code".len() as u64 + 1
+    );
 
     let tools: Value = serde_json::from_str(&deferred_tools(&["CronCreate"])).expect("json");
     let a = parse_announcement(&tools["attachment"]).expect("deferred tools");
     assert_eq!(a.kind, AnnKind::Tool);
     assert_eq!(a.items["CronCreate"], "CronCreate".len() as u64 + 1);
 
-    let mcp: Value = serde_json::from_str(&mcp_instructions(&["touring"], &["## touring\nbody"]))
-        .expect("json");
+    let mcp: Value =
+        serde_json::from_str(&mcp_instructions(&["touring"], &["## touring\nbody"])).expect("json");
     let a = parse_announcement(&mcp["attachment"]).expect("mcp instructions");
     assert_eq!(a.kind, AnnKind::Mcp);
     assert_eq!(a.items["touring"], "## touring\nbody".len() as u64);
@@ -86,7 +93,10 @@ fn typed_commands_extracts_names_without_the_slash() {
     let text = "<command-message>x</command-message>\n<command-name>/loop-engineering</command-name>\n<command-args>go</command-args>";
     assert_eq!(typed_commands(text), vec!["loop-engineering".to_string()]);
     let two = "<command-name>a</command-name> and <command-name>/b:c</command-name>";
-    assert_eq!(typed_commands(two), vec!["a".to_string(), "b:c".to_string()]);
+    assert_eq!(
+        typed_commands(two),
+        vec!["a".to_string(), "b:c".to_string()]
+    );
     assert!(typed_commands("no tags, just /slash text").is_empty());
     assert!(typed_commands("<command-name>unterminated").is_empty());
 }
@@ -99,16 +109,26 @@ fn scan_dir_reads_newest_first_and_reports_the_cap() {
     for (i, id) in ["old", "mid", "new"].iter().enumerate() {
         let p = dir.path().join(format!("{id}.jsonl"));
         std::fs::write(&p, format!("{0}\n{0}\nnot json\n", user_text("hi"))).expect("write");
-        let t = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000 + i as u64);
+        let t =
+            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000 + i as u64);
         let f = std::fs::File::options().write(true).open(&p).expect("open");
         f.set_modified(t).expect("mtime");
     }
-    let caps = ScanCaps { max_transcripts: 2, max_bytes: u64::MAX };
+    let caps = ScanCaps {
+        max_transcripts: 2,
+        max_bytes: u64::MAX,
+    };
     let scan = scan_dir::<u64>(dir.path(), &caps, &mut |n, _| *n += 1).expect("scan");
     let ids: Vec<&str> = scan.sessions.iter().map(|s| s.id.as_str()).collect();
     assert_eq!(ids, ["new", "mid"]);
-    assert_eq!(scan.sessions[0].state, 2, "two parseable records, one event each");
-    assert_eq!(scan.sessions[0].read.malformed_lines, 1, "the bad line is counted, not hidden");
+    assert_eq!(
+        scan.sessions[0].state, 2,
+        "two parseable records, one event each"
+    );
+    assert_eq!(
+        scan.sessions[0].read.malformed_lines, 1,
+        "the bad line is counted, not hidden"
+    );
     assert_eq!(scan.skipped_by_cap, 1);
     assert!(!scan.capped, "the byte cap was not hit");
 }
@@ -117,20 +137,34 @@ fn scan_dir_reads_newest_first_and_reports_the_cap() {
 fn scan_dir_stops_at_the_byte_cap_and_says_so() {
     let dir = tempfile::tempdir().expect("tempdir");
     for id in ["a", "b"] {
-        std::fs::write(dir.path().join(format!("{id}.jsonl")), format!("{}\n", user_text("hi")))
-            .expect("write");
+        std::fs::write(
+            dir.path().join(format!("{id}.jsonl")),
+            format!("{}\n", user_text("hi")),
+        )
+        .expect("write");
     }
-    let caps = ScanCaps { max_transcripts: 10, max_bytes: 1 };
+    let caps = ScanCaps {
+        max_transcripts: 10,
+        max_bytes: 1,
+    };
     let scan = scan_dir::<u64>(dir.path(), &caps, &mut |n, _| *n += 1).expect("scan");
-    assert_eq!(scan.sessions.len(), 1, "the first file is read, the second is not");
+    assert_eq!(
+        scan.sessions.len(),
+        1,
+        "the first file is read, the second is not"
+    );
     assert!(scan.capped);
 }
 
 #[test]
 fn scan_dir_reports_a_missing_directory_instead_of_zeros() {
-    let err = scan_dir::<u64>(Path::new("/nonexistent/touring-xyz"), &KPI_CAPS, &mut |_, _| {})
-        .err()
-        .expect("absent directory is an error");
+    let err = scan_dir::<u64>(
+        Path::new("/nonexistent/touring-xyz"),
+        &KPI_CAPS,
+        &mut |_, _| {},
+    )
+    .err()
+    .expect("absent directory is an error");
     assert!(err.contains("no transcript directory"), "{err}");
 }
 
@@ -143,7 +177,10 @@ fn read(lines: &[String]) -> (Vec<String>, ReadStats) {
         out.push(match ev {
             Event::User(u) => format!("user prompt={} {:?}", u.is_prompt, u.texts),
             Event::ToolResult(r) => {
-                format!("result id={:?} err={} {:?}", r.tool_use_id, r.is_error, r.text)
+                format!(
+                    "result id={:?} err={} {:?}",
+                    r.tool_use_id, r.is_error, r.text
+                )
             }
             Event::Assistant(a) => {
                 let blocks: Vec<String> = a
@@ -178,7 +215,10 @@ fn count(events: &[String], prefix: &str) -> usize {
 /// counted "turns" were `isMeta`. The text still reaches the consumer — it filled the window.
 #[test]
 fn an_ismeta_user_record_is_not_a_prompt() {
-    let (events, _) = read(&[user_text("faca a auditoria"), meta(&user_text("skill body"))]);
+    let (events, _) = read(&[
+        user_text("faca a auditoria"),
+        meta(&user_text("skill body")),
+    ]);
     assert_eq!(
         events,
         [
@@ -194,9 +234,15 @@ fn an_ismeta_user_record_is_not_a_prompt() {
 fn text_with_a_harness_marker_is_not_a_prompt() {
     for marker in NON_HUMAN_TURN_MARKERS {
         let (events, _) = read(&[user_text(&format!("prefix {marker} suffix"))]);
-        assert_eq!(count(&events, "user prompt=false"), 1, "{marker}: {events:?}");
+        assert_eq!(
+            count(&events, "user prompt=false"),
+            1,
+            "{marker}: {events:?}"
+        );
     }
-    let (events, _) = read(&[user_text("faca a auditoria\n<system-reminder>x</system-reminder>")]);
+    let (events, _) = read(&[user_text(
+        "faca a auditoria\n<system-reminder>x</system-reminder>",
+    )]);
     assert_eq!(count(&events, "user prompt=true"), 1, "{events:?}");
 }
 
@@ -227,7 +273,10 @@ fn a_text_only_block_array_is_a_prompt_like_a_string() {
     ]);
     assert_eq!(
         events,
-        [r#"user prompt=true ["one", "two"]"#, r#"user prompt=true ["three"]"#],
+        [
+            r#"user prompt=true ["one", "two"]"#,
+            r#"user prompt=true ["three"]"#
+        ],
         "a record with no text yields no user event"
     );
 }
@@ -291,14 +340,19 @@ fn a_tool_use_counts_once_per_id() {
         .flat_map(|e| e.split('"'))
         .filter(|p| p.starts_with("use:"))
         .collect();
-    assert_eq!(uses, ["use:a:Bash", "use:b:Bash", "use:-:Bash", "use:-:Bash"]);
+    assert_eq!(
+        uses,
+        ["use:a:Bash", "use:b:Bash", "use:-:Bash", "use:-:Bash"]
+    );
 }
 
 /// A result is text: a string as is, the `text` blocks joined with nothing, else the JSON.
 #[test]
 fn a_tool_result_is_flattened_to_one_text() {
     let result = |content: Value| {
-        user_blocks(json!([{"type": "tool_result", "tool_use_id": "t", "is_error": true, "content": content}]))
+        user_blocks(
+            json!([{"type": "tool_result", "tool_use_id": "t", "is_error": true, "content": content}]),
+        )
     };
     let (events, _) = read(&[
         result(json!("plain")),
@@ -348,7 +402,10 @@ fn attachments_compactions_and_cost_state_are_events() {
         cost_state(1.0, json!({})),
         json!({"type": "queue-operation"}).to_string(),
     ]);
-    assert_eq!(events, [r#"attachment "hook_success""#, "compact", "cost-state"]);
+    assert_eq!(
+        events,
+        [r#"attachment "hook_success""#, "compact", "cost-state"]
+    );
 }
 
 /// A session is dated by its first record that carries a date; a line that is not JSON is
@@ -378,7 +435,10 @@ fn a_tool_result_carries_the_session_and_the_instant_of_its_record() {
         serde_json::from_str(&call_result("t1", true, json!("boom"))).expect("json");
     stamped_rec["sessionId"] = json!("sess-1");
     stamped_rec["timestamp"] = json!("2026-11-04T10:00:00.000Z");
-    let lines = [stamped_rec.to_string(), call_result("t2", false, json!("ok"))];
+    let lines = [
+        stamped_rec.to_string(),
+        call_result("t2", false, json!("ok")),
+    ];
     let mut seen = Vec::new();
     read_lines(lines.iter().map(String::as_str), &mut |ev| {
         if let Event::ToolResult(r) = ev {
@@ -431,10 +491,19 @@ fn a_line_reader_pushed_line_by_line_equals_read_lines() {
     }
     let pushed_stats = reader.finish();
 
-    assert_eq!(pushed_stats, whole_stats, "stats are the walk's, however it is fed");
+    assert_eq!(
+        pushed_stats, whole_stats,
+        "stats are the walk's, however it is fed"
+    );
     assert_eq!(pushed_stats.malformed_lines, 1);
     assert_eq!(pushed_stats.sidechain_dropped, 1);
     assert_eq!(pushed_events.len(), whole_events.len(), "{pushed_events:?}");
-    let calls: usize = pushed_events.iter().filter(|e| e.as_str() == "assistant calls=1").count();
-    assert_eq!(calls, 1, "the repeated tool_use id is handed out once: {pushed_events:?}");
+    let calls: usize = pushed_events
+        .iter()
+        .filter(|e| e.as_str() == "assistant calls=1")
+        .count();
+    assert_eq!(
+        calls, 1,
+        "the repeated tool_use id is handed out once: {pushed_events:?}"
+    );
 }

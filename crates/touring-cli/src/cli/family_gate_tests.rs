@@ -22,7 +22,9 @@ fn bash(i: usize, cmd: &str) -> String {
 
 fn session(lines: &[String]) -> SessionFamilies {
     let mut t = FamilyTracker::default();
-    let read = read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
+    let read = read_lines(lines.iter().map(String::as_str), &mut |event| {
+        t.observe(event)
+    });
     t.finish(read.started_on)
 }
 
@@ -46,14 +48,22 @@ fn run_of(block: &str, n: usize, followed: usize, date: &str) -> Vec<String> {
     for i in 0..n {
         let line = hook(block);
         lines.push(if i == 0 { stamped(&line, date) } else { line });
-        let cmd = if i < followed { "touring index find x" } else { "ls" };
+        let cmd = if i < followed {
+            "touring index find x"
+        } else {
+            "ls"
+        };
         lines.push(bash(i, cmd));
     }
     lines
 }
 
 fn rule(n_min: u64, tau: f64, tau_off: f64) -> Rule {
-    Rule { n_min, tau, tau_off }
+    Rule {
+        n_min,
+        tau,
+        tau_off,
+    }
 }
 
 /// Each MUST is credited to the family of the block that EMITTED it — the question the global
@@ -69,10 +79,20 @@ fn each_must_is_attributed_to_the_family_of_the_block_that_emitted_it() {
         bash(3, "touring run --lang bash"),
     ]);
     let f = &s.families;
-    assert_eq!((f["touring-suggest"].emitted, f["touring-suggest"].followed), (1, 1));
-    assert_eq!((f["evidence-guard"].emitted, f["evidence-guard"].followed), (1, 0));
+    assert_eq!(
+        (f["touring-suggest"].emitted, f["touring-suggest"].followed),
+        (1, 1)
+    );
+    assert_eq!(
+        (f["evidence-guard"].emitted, f["evidence-guard"].followed),
+        (1, 0)
+    );
     let deny = &f["code-mode-deny"];
-    assert_eq!((deny.emitted, deny.denied, deny.followed), (1, 1, 0), "a deny never arms");
+    assert_eq!(
+        (deny.emitted, deny.denied, deny.followed),
+        (1, 1, 0),
+        "a deny never arms"
+    );
     assert_eq!(deny.sample(), 0);
 }
 
@@ -127,7 +147,11 @@ fn a_session_is_dated_by_its_first_timestamp() {
         stamped(&hook(SUGGEST), "2026-11-03T08:00:00.000Z"),
     ]);
     assert_eq!(s.date.as_deref(), Some("2026-10-15"));
-    assert_eq!(session(&[hook(SUGGEST)]).date, None, "no timestamp is not a date");
+    assert_eq!(
+        session(&[hook(SUGGEST)]).date,
+        None,
+        "no timestamp is not a date"
+    );
 }
 
 /// The declared rule, on explicit thresholds: n below the minimum, a family with nothing to
@@ -139,7 +163,11 @@ fn recommend_applies_the_declared_rule_and_never_scores_an_absent_signal() {
     assert_eq!(level(&stats(100, 0, 50)), Some("full"));
     assert_eq!(level(&stats(100, 0, 40)), Some("full"), "exactly tau stays");
     assert_eq!(level(&stats(100, 0, 39)), Some("brief"));
-    assert_eq!(level(&stats(100, 0, 20)), Some("brief"), "exactly tau_off stays brief");
+    assert_eq!(
+        level(&stats(100, 0, 20)),
+        Some("brief"),
+        "exactly tau_off stays brief"
+    );
     assert_eq!(level(&stats(100, 0, 19)), Some("off"));
     assert_eq!(level(&stats(100, 0, 0)), Some("off"));
     // denied MUSTs leave the denominator, as in the global ratio
@@ -147,16 +175,41 @@ fn recommend_applies_the_declared_rule_and_never_scores_an_absent_signal() {
 
     let thin = recommend(&stats(19, 0, 0), &r);
     assert_eq!(thin.level, None);
-    assert!(thin.reason.as_deref().is_some_and(|m| m.contains("n=19")), "{thin:?}");
-    assert_eq!(thin.follow_ratio, None, "no ratio is published below the minimum n");
+    assert!(
+        thin.reason.as_deref().is_some_and(|m| m.contains("n=19")),
+        "{thin:?}"
+    );
+    assert_eq!(
+        thin.follow_ratio, None,
+        "no ratio is published below the minimum n"
+    );
 
-    let nothing = recommend(&FamilyFollow { blocks: 40, bytes: 4000, ..FamilyFollow::default() }, &r);
+    let nothing = recommend(
+        &FamilyFollow {
+            blocks: 40,
+            bytes: 4000,
+            ..FamilyFollow::default()
+        },
+        &r,
+    );
     assert_eq!(nothing.level, None);
-    assert!(nothing.reason.as_deref().is_some_and(|m| m.contains("no MUST")), "{nothing:?}");
+    assert!(
+        nothing
+            .reason
+            .as_deref()
+            .is_some_and(|m| m.contains("no MUST")),
+        "{nothing:?}"
+    );
 
     let denied = recommend(&stats(50, 50, 0), &r);
     assert_eq!(denied.level, None);
-    assert!(denied.reason.as_deref().is_some_and(|m| m.contains("denied")), "{denied:?}");
+    assert!(
+        denied
+            .reason
+            .as_deref()
+            .is_some_and(|m| m.contains("denied")),
+        "{denied:?}"
+    );
 }
 
 /// The thresholds are declared constants; whatever their calibrated values, they must be
@@ -188,7 +241,10 @@ fn sessions_split_into_calibration_and_application_windows_by_date() {
     assert_eq!(p["undated_sessions"], 1);
     assert_eq!(p["windows"]["calibration"]["before"], APPLICATION_START);
     assert_eq!(p["windows"]["application"]["from"], APPLICATION_START);
-    assert_eq!(p["windows"]["calibration"]["families"]["touring-suggest"]["must_emitted"], 60);
+    assert_eq!(
+        p["windows"]["calibration"]["families"]["touring-suggest"]["must_emitted"],
+        60
+    );
 }
 
 /// The payload per family carries n, the measured ratio with its interval, the tokens and the
@@ -212,9 +268,16 @@ fn the_payload_shows_the_recommendation_per_family_in_both_windows() {
         assert_eq!(s["recommended_level"], "full");
         let ci = s["follow_ratio_ci95"].as_array().expect("interval");
         assert!(num(&ci[0]) < 0.75 && 0.75 < num(&ci[1]), "{ci:?}");
-        assert_eq!(fams["evidence-guard"]["recommended_level"], "off", "0 of 200 followed");
+        assert_eq!(
+            fams["evidence-guard"]["recommended_level"], "off",
+            "0 of 200 followed"
+        );
     }
-    assert!(p["rule"]["levels"] == json!(["full", "brief", "off"]), "{}", p["rule"]);
+    assert!(
+        p["rule"]["levels"] == json!(["full", "brief", "off"]),
+        "{}",
+        p["rule"]
+    );
     assert_eq!(p["rule"]["n_min"], RULE.n_min);
     assert_eq!(p["mode"], "shadow");
 }
@@ -224,7 +287,10 @@ fn the_payload_shows_the_recommendation_per_family_in_both_windows() {
 #[test]
 fn a_family_that_cannot_be_measured_says_why() {
     let p = family_gate_report(&[session(&[
-        stamped(&hook("[PORTFOLIO · x]\n  a fact with no directive"), "2026-11-02T00:00:00Z"),
+        stamped(
+            &hook("[PORTFOLIO · x]\n  a fact with no directive"),
+            "2026-11-02T00:00:00Z",
+        ),
         stamped(&hook(DENY), "2026-11-02T00:00:01Z"),
         bash(1, "ls"),
     ])]);
@@ -232,9 +298,21 @@ fn a_family_that_cannot_be_measured_says_why() {
     let portfolio = &fams["plugin-hook"];
     assert_eq!(portfolio["status"], "not_measured");
     assert!(portfolio["recommended_level"].is_null());
-    assert!(portfolio["reason"].as_str().is_some_and(|r| r.contains("no MUST")), "{portfolio}");
-    assert!(fams["code-mode-deny"]["reason"].as_str().is_some_and(|r| r.contains("denied")));
-    assert!(portfolio["follow_ratio"].is_null(), "no signal is not a 0 ratio");
+    assert!(
+        portfolio["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("no MUST")),
+        "{portfolio}"
+    );
+    assert!(
+        fams["code-mode-deny"]["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("denied"))
+    );
+    assert!(
+        portfolio["follow_ratio"].is_null(),
+        "no signal is not a 0 ratio"
+    );
 }
 
 /// Temporal validation: a flag is kept only if it persists OUT of sample. B is below tau in the
@@ -244,8 +322,20 @@ fn a_family_that_cannot_be_measured_says_why() {
 #[test]
 fn calibrate_keeps_only_the_flags_that_persist_out_of_sample() {
     let cal = [
-        ("a".to_string(), FamilyFollow { bytes: 1_000, ..stats(200, 0, 20) }),
-        ("b".to_string(), FamilyFollow { bytes: 5_000, ..stats(200, 0, 90) }),
+        (
+            "a".to_string(),
+            FamilyFollow {
+                bytes: 1_000,
+                ..stats(200, 0, 20)
+            },
+        ),
+        (
+            "b".to_string(),
+            FamilyFollow {
+                bytes: 5_000,
+                ..stats(200, 0, 90)
+            },
+        ),
     ]
     .into();
     let app = [
@@ -260,7 +350,10 @@ fn calibrate_keeps_only_the_flags_that_persist_out_of_sample() {
     assert!((chosen.tau - 0.15).abs() < 1e-9, "{chosen:?}");
     assert_eq!(chosen.flagged, 1);
     assert_eq!(chosen.covered_bytes, 1_000);
-    assert_eq!((chosen.confirmed, chosen.reversed, chosen.unobserved), (1, 0, 0));
+    assert_eq!(
+        (chosen.confirmed, chosen.reversed, chosen.unobserved),
+        (1, 0, 0)
+    );
     assert!(
         c.rows
             .iter()
@@ -287,7 +380,11 @@ fn calibrate_declines_to_choose_without_out_of_sample_evidence() {
     let silent = std::collections::BTreeMap::new();
     let c = calibrate(&cal, &silent);
     assert!(c.chosen.is_none());
-    assert!(c.rows.iter().any(|r| r.unobserved > 0 && r.precision.is_none()));
+    assert!(
+        c.rows
+            .iter()
+            .any(|r| r.unobserved > 0 && r.precision.is_none())
+    );
 }
 
 /// Counts, family names and numbers — never a byte of the transcript.
@@ -309,7 +406,10 @@ fn the_shell_reads_both_windows_from_the_transcripts() {
     let home = tempfile::tempdir().expect("tempdir");
     let dir = crate::cli::context_budget::transcript_dir_for(home.path(), root);
     std::fs::create_dir_all(&dir).expect("mkdir");
-    for (id, date) in [("s-oct", "2026-10-20T10:00:00Z"), ("s-nov", "2026-11-02T10:00:00Z")] {
+    for (id, date) in [
+        ("s-oct", "2026-10-20T10:00:00Z"),
+        ("s-nov", "2026-11-02T10:00:00Z"),
+    ] {
         let body = run_of(SUGGEST, 4, 2, date).join("\n");
         std::fs::write(dir.join(format!("{id}.jsonl")), body).expect("write");
     }
@@ -318,7 +418,10 @@ fn the_shell_reads_both_windows_from_the_transcripts() {
     assert_eq!(p["sessions_scanned"], 2);
     assert_eq!(p["windows"]["calibration"]["sessions"], 1);
     assert_eq!(p["windows"]["application"]["sessions"], 1);
-    assert_eq!(p["windows"]["application"]["families"]["touring-suggest"]["must_emitted"], 4);
+    assert_eq!(
+        p["windows"]["application"]["families"]["touring-suggest"]["must_emitted"],
+        4
+    );
 }
 
 #[test]
@@ -326,5 +429,9 @@ fn an_absent_transcript_directory_is_displayed_not_zero() {
     let home = tempfile::tempdir().expect("tempdir");
     let p = family_gate_in(home.path(), std::path::Path::new("/home/x/none"), &KPI_CAPS);
     assert_eq!(p["available"], false);
-    assert!(p["reason"].as_str().is_some_and(|r| r.contains("no transcript directory")));
+    assert!(
+        p["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("no transcript directory"))
+    );
 }

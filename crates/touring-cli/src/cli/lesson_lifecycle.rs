@@ -38,7 +38,9 @@
 
 use crate::cli::context_budget::transcript_dir_for;
 use crate::cli::context_cost::{merge, round_to, scan_meta};
-use crate::cli::transcript_scan::{AssistantTurn, Event, SHADOW_CAPS, ScanCaps, ToolResult, scan_dir};
+use crate::cli::transcript_scan::{
+    AssistantTurn, Event, SHADOW_CAPS, ScanCaps, ToolResult, scan_dir,
+};
 use regex::Regex;
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
@@ -275,7 +277,11 @@ fn ratio(num: u64, den: u64) -> Value {
 
 /// `mcp__*` tools are one class; every other tool is its own.
 fn tool_class(tool: &str) -> &str {
-    if tool.starts_with("mcp__") { "mcp" } else { tool }
+    if tool.starts_with("mcp__") {
+        "mcp"
+    } else {
+        tool
+    }
 }
 
 type KeyIndex<'a> = BTreeMap<(String, String), BTreeSet<&'a str>>;
@@ -291,7 +297,10 @@ fn bucket(sessions: usize) -> &'static str {
 }
 
 fn distribution_json(keys: &KeyIndex<'_>) -> Value {
-    let mut dist: BTreeMap<&str, u64> = ["1", "2", "3", "4", "5+"].into_iter().map(|b| (b, 0)).collect();
+    let mut dist: BTreeMap<&str, u64> = ["1", "2", "3", "4", "5+"]
+        .into_iter()
+        .map(|b| (b, 0))
+        .collect();
     for sessions in keys.values() {
         *dist.entry(bucket(sessions.len())).or_default() += 1;
     }
@@ -374,7 +383,10 @@ pub fn lesson_report(
         }
     }
     let total = keys.len() as u64;
-    let active = keys.values().filter(|s| s.len() as u64 >= K_PROMOTE).count() as u64;
+    let active = keys
+        .values()
+        .filter(|s| s.len() as u64 >= K_PROMOTE)
+        .count() as u64;
     let single = keys.values().filter(|s| s.len() == 1).count() as u64;
     json!({
         "sessions": sessions.len(),

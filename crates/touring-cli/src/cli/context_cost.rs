@@ -223,7 +223,9 @@ impl CostState {
         let usage = rec.get("modelUsage").and_then(Value::as_object);
         for (key, m) in usage.into_iter().flatten() {
             let n = |k: &str| m.get(k).and_then(Value::as_u64).unwrap_or(0);
-            let e = by_model.entry(strip_context_suffix(key).to_string()).or_default();
+            let e = by_model
+                .entry(strip_context_suffix(key).to_string())
+                .or_default();
             e.input_total +=
                 n("inputTokens") + n("cacheReadInputTokens") + n("cacheCreationInputTokens");
             e.output += n("outputTokens");
@@ -270,7 +272,8 @@ impl CostSummary {
             e.tokens.add(&m.tokens);
             e.usd += m.usd;
         }
-        self.unpriced_models.extend(s.unpriced_models.iter().cloned());
+        self.unpriced_models
+            .extend(s.unpriced_models.iter().cloned());
         self.priced_calls += s.priced_calls;
         self.unpriced_calls += s.unpriced_calls;
         self.usd_priced += s.usd_priced;
@@ -485,7 +488,8 @@ fn by_sub_json(subs: &[(&str, &CatAcc)]) -> Value {
     )
 }
 
-const ESTIMATE: &str = "estimated: window bytes × tokens_per_byte, summed over the calls that re-sent them";
+const ESTIMATE: &str =
+    "estimated: window bytes × tokens_per_byte, summed over the calls that re-sent them";
 
 fn attribution_json(s: &CostSummary) -> Value {
     let attributed: f64 = s.cats.values().map(|c| c.tokens).sum();
@@ -746,7 +750,10 @@ pub fn context_cost_and_surface_in(
         o.remove("cost_state");
     }
     merge(&mut cost, meta.clone());
-    merge(&mut cost, json!({"constants": constants_json(), "by_session": rows}));
+    merge(
+        &mut cost,
+        json!({"constants": constants_json(), "by_session": rows}),
+    );
     let mut surface = surface_report(&surfaces.iter().collect::<Vec<_>>());
     merge(&mut surface, meta);
     (cost, surface)

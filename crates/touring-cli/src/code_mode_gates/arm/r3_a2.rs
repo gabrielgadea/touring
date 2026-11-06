@@ -189,7 +189,12 @@ fn emit(event: &Value) {
 }
 
 /// Hook for `record_route_offer`: a route was just offered to `actor`.
-pub(in crate::code_mode_gates) fn on_offer(project_root: &Path, actor: &str, mode: &str, offered_secs: u64) {
+pub(in crate::code_mode_gates) fn on_offer(
+    project_root: &Path,
+    actor: &str,
+    mode: &str,
+    offered_secs: u64,
+) {
     if !r3_shadow_enabled(project_root) {
         return;
     }
@@ -200,7 +205,12 @@ pub(in crate::code_mode_gates) fn on_offer(project_root: &Path, actor: &str, mod
 }
 
 /// Hook for `claim_route_reward`: a PostToolUse finished with production's `verdict`.
-pub(in crate::code_mode_gates) fn on_outcome(project_root: &Path, payload: &Value, cmd: &str, verdict: Option<f64>) {
+pub(in crate::code_mode_gates) fn on_outcome(
+    project_root: &Path,
+    payload: &Value,
+    cmd: &str,
+    verdict: Option<f64>,
+) {
     if !r3_shadow_enabled(project_root) {
         return;
     }

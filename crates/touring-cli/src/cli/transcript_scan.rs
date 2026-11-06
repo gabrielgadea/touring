@@ -632,7 +632,10 @@ impl Reader {
     fn block_of<'a>(&mut self, b: &'a Value) -> Option<Block<'a>> {
         match b.get("type").and_then(Value::as_str)? {
             "text" => b.get("text").and_then(Value::as_str).map(Block::Text),
-            "thinking" => b.get("thinking").and_then(Value::as_str).map(Block::Thinking),
+            "thinking" => b
+                .get("thinking")
+                .and_then(Value::as_str)
+                .map(Block::Thinking),
             "tool_use" => {
                 let name = b.get("name")?.as_str()?;
                 let id = b.get("id").and_then(Value::as_str);

@@ -176,7 +176,8 @@ impl Composition<'_> {
         );
         if w.read {
             assert!(
-                !r.as_deref().is_some_and(|x| x.contains("[G3 edit-sem-read]")),
+                !r.as_deref()
+                    .is_some_and(|x| x.contains("[G3 edit-sem-read]")),
                 "G3 must not speak of a file the session already read: {r:?}"
             );
         }
@@ -312,10 +313,7 @@ fn explore_composition() -> (usize, u64) {
 // ── The proofs ───────────────────────────────────────────────────────────────────────────
 
 fn run_all() -> Vec<Entry> {
-    scenarios()
-        .iter()
-        .map(run_isolated)
-        .collect()
+    scenarios().iter().map(run_isolated).collect()
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -338,8 +336,11 @@ fn record_the_gate_replay_corpus() {
         composition_calls: calls,
         composition_digest: format!("{digest:016x}"),
     };
-    std::fs::write(&path, serde_json::to_string_pretty(&corpus).expect("json") + "\n")
-        .expect("write corpus");
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&corpus).expect("json") + "\n",
+    )
+    .expect("write corpus");
 }
 
 #[test]
@@ -351,9 +352,7 @@ fn the_scenario_table_holds_its_contract() {
     // Every row runs; the failures are reported together, not one per run.
     let mut failed = Vec::new();
     for s in &rows {
-        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_isolated(s)
-        }));
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_isolated(s)));
         if let Err(e) = r {
             let msg = e
                 .downcast_ref::<String>()
@@ -363,7 +362,12 @@ fn the_scenario_table_holds_its_contract() {
             failed.push(msg);
         }
     }
-    assert!(failed.is_empty(), "{} row(s) failed:\n{}", failed.len(), failed.join("\n---\n"));
+    assert!(
+        failed.is_empty(),
+        "{} row(s) failed:\n{}",
+        failed.len(),
+        failed.join("\n---\n")
+    );
 }
 
 #[test]
@@ -397,7 +401,12 @@ fn the_recorded_corpus_is_reproduced_exactly() {
             diffs.push(format!("corpus scenario `{}` is no longer driven", w.scn));
         }
     }
-    assert!(diffs.is_empty(), "{} difference(s):\n{}", diffs.len(), diffs.join("\n"));
+    assert!(
+        diffs.is_empty(),
+        "{} difference(s):\n{}",
+        diffs.len(),
+        diffs.join("\n")
+    );
 }
 
 /// ~30 000 gate calls, each a fresh session, on a store of its own (the process-global ledgers
@@ -409,7 +418,10 @@ fn the_composition_of_g7_g3_g9_always_leaves_an_edit_route() {
     let text = std::fs::read_to_string(CORPUS).expect("tests/fixtures/gate_replay_corpus.json");
     let want: Corpus = serde_json::from_str(&text).expect("corpus json");
     let (calls, digest) = explore_composition();
-    assert_eq!(calls, want.composition_calls, "composition: number of gate calls");
+    assert_eq!(
+        calls, want.composition_calls,
+        "composition: number of gate calls"
+    );
     assert_eq!(
         format!("{digest:016x}"),
         want.composition_digest,
@@ -445,9 +457,10 @@ fn opens_a_call(text: &str) -> bool {
 }
 
 fn names_next_command(reason: &str) -> bool {
-    let ready_line = reason
-        .lines()
-        .any(|l| l.strip_prefix("  ").is_some_and(|r| opens_a_call(r.trim_start())));
+    let ready_line = reason.lines().any(|l| {
+        l.strip_prefix("  ")
+            .is_some_and(|r| opens_a_call(r.trim_start()))
+    });
     let in_backticks = reason.split('`').skip(1).step_by(2).any(opens_a_call);
     let bypass_then_command = reason.match_indices("TOURING_GATE_OK=1").any(|(i, _)| {
         reason[i + "TOURING_GATE_OK=1".len()..]
@@ -496,8 +509,14 @@ fn every_gate_reason_names_the_next_command() {
         .iter()
         .filter(|(g, r)| !r.starts_with(&format!("[{g} ")))
         .collect();
-    assert!(lost_prefix.is_empty(), "the `[G<n> name]` prefix is parsed by consumers: {lost_prefix:#?}");
-    let no_command: Vec<_> = reasons.iter().filter(|(_, r)| !names_next_command(r)).collect();
+    assert!(
+        lost_prefix.is_empty(),
+        "the `[G<n> name]` prefix is parsed by consumers: {lost_prefix:#?}"
+    );
+    let no_command: Vec<_> = reasons
+        .iter()
+        .filter(|(_, r)| !names_next_command(r))
+        .collect();
     assert!(
         no_command.is_empty(),
         "a denial that does not name the next command teaches nothing ({} of {}): {no_command:#?}",
@@ -522,11 +541,21 @@ fn gate_decision_latency() {
     let workloads: [(&str, Box<dyn Fn(usize) -> (&'static str, Value)>); 3] = [
         (
             "bash-no-gate",
-            Box::new(|i| ("Bash", json!({ "command": format!("cargo check -p crate{i}") }))),
+            Box::new(|i| {
+                (
+                    "Bash",
+                    json!({ "command": format!("cargo check -p crate{i}") }),
+                )
+            }),
         ),
         (
             "bash-inspection",
-            Box::new(|i| ("Bash", json!({ "command": format!("rg -n 'pat{i}' src/f{i}.rs") }))),
+            Box::new(|i| {
+                (
+                    "Bash",
+                    json!({ "command": format!("rg -n 'pat{i}' src/f{i}.rs") }),
+                )
+            }),
         ),
         (
             "read-distinct",
@@ -539,7 +568,15 @@ fn gate_decision_latency() {
             .map(|i| {
                 let (tool, input) = make(i);
                 let t = std::time::Instant::now();
-                let _ = drive(&state, root.path(), &session, tool, &input, &cfg, port.path());
+                let _ = drive(
+                    &state,
+                    root.path(),
+                    &session,
+                    tool,
+                    &input,
+                    &cfg,
+                    port.path(),
+                );
                 t.elapsed().as_nanos()
             })
             .collect();
@@ -548,6 +585,9 @@ fn gate_decision_latency() {
             "LATENCY {name}: median {} ns, p99 {} ns (1000 calls)",
             us[500], us[990]
         );
-        assert!(us[500] < 5_000_000, "{name}: median over 5 ms is not a hot path");
+        assert!(
+            us[500] < 5_000_000,
+            "{name}: median over 5 ms is not a hot path"
+        );
     }
 }

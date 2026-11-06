@@ -248,7 +248,9 @@ fn the_precedence_of_the_presentation_holds_row_by_row() {
 
 #[test]
 fn the_project_section_is_read_as_the_project_level_and_only_that() {
-    let root = project_with(Some("[daemon]\nper_project = true\n\n[code_mode]\nmode = \"code\"\n"));
+    let root = project_with(Some(
+        "[daemon]\nper_project = true\n\n[code_mode]\nmode = \"code\"\n",
+    ));
     assert_eq!(project_presentation(root.path()), Some(Code));
     let other = project_with(Some("[toolchain]\nmode = \"code\"\nchannel = \"dev\"\n"));
     assert_eq!(
@@ -263,7 +265,18 @@ fn the_project_section_is_read_as_the_project_level_and_only_that() {
 #[test]
 fn the_kill_switch_is_exactly_the_value_one() {
     assert!(code_gates_disabled_from(Some("1")));
-    for off in [None, Some(""), Some("0"), Some("true"), Some("yes"), Some("01"), Some(" 1")] {
-        assert!(!code_gates_disabled_from(off), "{off:?} must not disable the gates");
+    for off in [
+        None,
+        Some(""),
+        Some("0"),
+        Some("true"),
+        Some("yes"),
+        Some("01"),
+        Some(" 1"),
+    ] {
+        assert!(
+            !code_gates_disabled_from(off),
+            "{off:?} must not disable the gates"
+        );
     }
 }

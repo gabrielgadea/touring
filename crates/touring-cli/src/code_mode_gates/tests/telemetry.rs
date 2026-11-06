@@ -51,7 +51,11 @@ fn a_bypass_counts_against_g1_only_when_the_burst_was_one_call_from_denying() {
     bash(&state, root.path(), "tel-ctl", "rg -n 'a' src/a.rs", &cfg);
     let before = g1_bypassed();
     bash(&state, root.path(), "tel-ctl", bypass, &cfg);
-    assert_eq!(g1_bypassed(), before, "a bypass of a first call is not a G1 bypass");
+    assert_eq!(
+        g1_bypassed(),
+        before,
+        "a bypass of a first call is not a G1 bypass"
+    );
 
     // live: two prior inspections — the next one would be rewritten
     bash(&state, root.path(), "tel-live", "rg -n 'a' src/a.rs", &cfg);

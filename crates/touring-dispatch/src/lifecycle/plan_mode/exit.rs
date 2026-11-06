@@ -34,7 +34,8 @@ pub(crate) fn handle_exit_plan_mode(rt: &mut HookRuntime, input: &Value) -> Stri
 
     // R12-S5: Query decompose ready subtasks directly — surface actionable work immediately.
     // ExitPlanMode (Claude Code) → cli_decompose_ready → SQLite → live ready subtasks in context.
-    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
+    let ready_json =
+        crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let ready_hint =
         if ready_json.contains("\"ready_count\":0") || !ready_json.contains("\"ready_count\"") {
             String::new()
@@ -576,7 +577,8 @@ mod tests {
 
     #[test]
     fn parallel_hint_emitted_on_two_ready() {
-        let json = r#"{"ready_count":2,"ready_subtasks":[{"subtask_id":"S-1"},{"subtask_id":"S-2"}]}"#;
+        let json =
+            r#"{"ready_count":2,"ready_subtasks":[{"subtask_id":"S-1"},{"subtask_id":"S-2"}]}"#;
         let hint = maybe_parallel_subagent_hint(json);
         assert!(
             hint.contains("[TOURING PARALLEL]"),

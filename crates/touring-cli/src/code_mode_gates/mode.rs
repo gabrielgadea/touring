@@ -19,7 +19,6 @@ pub(super) fn is_sanctioned_route(cmd: &str) -> bool {
         .any(|w| (w[0] == "touring" || w[0].ends_with("/touring")) && w[1] == "run")
 }
 
-
 /// Kill switch global (humano; env do DAEMON — exige `touring daemon-ctl
 /// restart` para valer, como `TOURING_PILLAR_INDUCTION_ARMED`).
 /// A decisão pura do kill switch HUMANO — injetável: a matriz de
@@ -29,11 +28,9 @@ pub(super) fn code_gates_disabled_from(v: Option<&str>) -> bool {
     v == Some("1")
 }
 
-
 pub(super) fn code_gates_disabled() -> bool {
     code_gates_disabled_from(std::env::var("TOURING_CODE_GATES_DISABLED").ok().as_deref())
 }
-
 
 /// A forma em que as ferramentas chegam ao modelo NESTE escopo.
 ///
@@ -69,7 +66,6 @@ pub(crate) use touring_foundation::code_mode::CodeModePresentation;
 // design depends on evidence about how models split usage under `both`"*). A
 // evidência que faltava a eles é esta tabela: rodamos em `both` instrumentado,
 // e depois medimos de novo para corrigir a nossa própria primeira leitura.
-
 
 /// Resolve a apresentação: **prefixo do comando → env do hook → alias → projeto → default**.
 ///
@@ -107,7 +103,6 @@ pub(crate) struct CodeModeEnv {
     pub arm_armed: bool,
 }
 
-
 impl CodeModeEnv {
     pub(crate) fn from_env() -> Self {
         Self {
@@ -130,7 +125,6 @@ impl CodeModeEnv {
         None
     }
 }
-
 
 pub(super) fn resolve_presentation(
     project_root: &Path,
@@ -169,7 +163,6 @@ pub(super) fn resolve_presentation(
     )
 }
 
-
 /// Lê `[code_mode] mode` de `<root>/.touring/touring.toml`.
 ///
 /// Delega ao parser canônico do `touring-foundation` — o mesmo que o handshake
@@ -178,11 +171,9 @@ pub(super) fn resolve_presentation(
 /// diretamente.
 pub(crate) use touring_foundation::code_mode::project_presentation;
 
-
 /// S24 — the bypass token counts only where the SHELL reads it (a command prefix), never
 /// inside a heredoc body or a quoted string: a test file whose text mentions the token was
 /// charged as a bypass and denied by G11 on 25/09.
 pub(super) fn has_bypass_token(cmd: &str) -> bool {
     touring_ceg::gateway::gate::mask_shell_data(cmd).contains(GATE_BYPASS_TOKEN)
 }
-

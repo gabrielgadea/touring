@@ -432,8 +432,16 @@ fn doctor_reads_the_circuit_breaker_of_its_own_world() {
             .map(str::to_string)
             .unwrap_or_else(|| panic!("`doctor -j` has no circuit_breaker check: {:?}", run.checks))
     };
-    assert_eq!(status(&world.doctor()), "ok", "a fresh world has a closed breaker");
+    assert_eq!(
+        status(&world.doctor()),
+        "ok",
+        "a fresh world has a closed breaker"
+    );
     world.trip_circuit_breaker();
-    assert_eq!(status(&world.doctor()), "open", "the doctor must read this world's state file");
+    assert_eq!(
+        status(&world.doctor()),
+        "open",
+        "the doctor must read this world's state file"
+    );
     eprintln!("E2EDOCTOR-RAN doctor_reads_the_circuit_breaker_of_its_own_world");
 }

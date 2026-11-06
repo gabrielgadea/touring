@@ -1064,7 +1064,11 @@ pub(crate) fn context_budget_in(home: &Path, project_root: &Path) -> Value {
     };
     let mut sessions: Vec<(String, ContextBudgetAggregate)> = Vec::new();
     for s in scan.sessions {
-        let SessionBudget { agg: mut session, fold, .. } = s.state;
+        let SessionBudget {
+            agg: mut session,
+            fold,
+            ..
+        } = s.state;
         fold.finish(&mut session);
         session.transcripts = 1;
         session.bytes_scanned = s.bytes;

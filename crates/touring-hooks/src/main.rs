@@ -269,7 +269,9 @@ fn main() {
 fn trace_event(input: &Value) {
     touring_hook_runtime::hook_trace::set_event(
         input.get("tool_name").and_then(|v| v.as_str()),
-        input.pointer("/tool_input/command").and_then(|v| v.as_str()),
+        input
+            .pointer("/tool_input/command")
+            .and_then(|v| v.as_str()),
     );
 }
 

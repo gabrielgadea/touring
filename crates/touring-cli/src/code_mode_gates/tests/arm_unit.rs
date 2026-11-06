@@ -79,9 +79,8 @@ fn desfecho_desconhecido_nao_vira_veredito() {
 #[test]
 fn relaxar_o_gate_e_ainda_assim_rodar_conta_como_rota_tomada() {
     use crate::code_mode_gates::arm::classify_route_outcome;
-    let v =
-        classify_route_outcome("TOURING_CODE_MODE=native touring run --lang bash --code 'ls'")
-            .expect("rodar o programa é um desfecho legível");
+    let v = classify_route_outcome("TOURING_CODE_MODE=native touring run --lang bash --code 'ls'")
+        .expect("rodar o programa é um desfecho legível");
     assert!(
         v > 0.0,
         "rodar o programa domina o token de relaxamento — senão o braço \
@@ -110,9 +109,8 @@ fn desfecho_ilegivel_nao_consome_a_oferta() {
     // Um `Read` não carrega comando: nada a classificar.
     assert!(claim_route_reward(raiz, &payload, "").is_none());
     // …e a oferta TEM de continuar lá para o veredito real.
-    let (offer, value) =
-        claim_route_reward(raiz, &payload, "touring run --lang bash --code 'ls'")
-            .expect("a oferta sobreviveu ao desfecho ilegível");
+    let (offer, value) = claim_route_reward(raiz, &payload, "touring run --lang bash --code 'ls'")
+        .expect("a oferta sobreviveu ao desfecho ilegível");
     assert_eq!(offer.mode, "code");
     assert_eq!(
         value, 0.5,
@@ -383,8 +381,7 @@ fn evidencia_corrompida_deixa_a_politica_calada() {
     use crate::code_mode_gates::arm::{arm_choice_from_counts, read_arm_file};
     let proj = tmpdir("arm-corrompido");
     std::fs::create_dir_all(proj.join(".claude/touring")).expect("mkdir");
-    std::fs::write(proj.join(".claude/touring/code_mode_arm.json"), "{nao json")
-        .expect("write");
+    std::fs::write(proj.join(".claude/touring/code_mode_arm.json"), "{nao json").expect("write");
     assert_eq!(read_arm_file(&proj), [(0, 0, 0); 3]);
     assert_eq!(arm_choice_from_counts([(0, 0); 3]), None);
     let _ = std::fs::remove_dir_all(&proj);

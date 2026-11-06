@@ -1224,7 +1224,11 @@ mod exit_code_block_tests {
         for event in ["SubagentStop", "Stop", "PostToolUse", "TaskCreated"] {
             assert_eq!(exit_code_block_reason(&json, Some(event)), None, "{event}");
         }
-        assert_eq!(exit_code_block_reason(&json, None), None, "no invoking event");
+        assert_eq!(
+            exit_code_block_reason(&json, None),
+            None,
+            "no invoking event"
+        );
     }
 
     #[test]
@@ -1236,7 +1240,11 @@ mod exit_code_block_tests {
             HookResponse::context("hint").to_json(),
             HookResponse::halt("stop").to_json(),
         ] {
-            assert_eq!(exit_code_block_reason(&out, Some("TeammateIdle")), None, "{out}");
+            assert_eq!(
+                exit_code_block_reason(&out, Some("TeammateIdle")),
+                None,
+                "{out}"
+            );
         }
     }
 

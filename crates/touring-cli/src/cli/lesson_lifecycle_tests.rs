@@ -18,7 +18,9 @@ const WIDE: &str = "€";
 
 fn lessons(lines: &[String]) -> Vec<RawPair> {
     let mut t = LessonTracker::default();
-    read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
+    read_lines(lines.iter().map(String::as_str), &mut |event| {
+        t.observe(event)
+    });
     t.finish().pairs
 }
 
@@ -37,7 +39,12 @@ fn session_of(id: &str, tool: &str, errs: &[&str]) -> (String, SessionLessons) {
     for (i, e) in errs.iter().enumerate() {
         lines.extend(fail_then_ok(tool, &i.to_string(), e));
     }
-    (id.to_string(), SessionLessons { pairs: lessons(&lines) })
+    (
+        id.to_string(),
+        SessionLessons {
+            pairs: lessons(&lines),
+        },
+    )
 }
 
 fn no_db() -> Result<StoredLessons, String> {
@@ -54,12 +61,26 @@ fn normalize_key_replaces_paths_hex_numbers_and_collapses_whitespace() {
         normalize_key("error: cannot open /home/u/projects/x.rs at line 42"),
         "error: cannot open <path> at line <n>"
     );
-    assert_eq!(normalize_key("commit deadbeefcafe0123 failed"), "commit <hex> failed");
-    assert_eq!(normalize_key("addr 0xdeadbeef and 12345"), "addr <hex> and <n>");
-    assert_eq!(normalize_key("/tmp/run-12345/out.log"), "<path>", "digits inside a path go with it");
+    assert_eq!(
+        normalize_key("commit deadbeefcafe0123 failed"),
+        "commit <hex> failed"
+    );
+    assert_eq!(
+        normalize_key("addr 0xdeadbeef and 12345"),
+        "addr <hex> and <n>"
+    );
+    assert_eq!(
+        normalize_key("/tmp/run-12345/out.log"),
+        "<path>",
+        "digits inside a path go with it"
+    );
     assert_eq!(normalize_key("a  \n\t b"), "a b");
     assert_eq!(normalize_key("  x  "), "x");
-    assert_eq!(normalize_key("1234567890"), "<hex>", "ten digits are hex before they are a number");
+    assert_eq!(
+        normalize_key("1234567890"),
+        "<hex>",
+        "ten digits are hex before they are a number"
+    );
 }
 
 /// The key is cut AFTER normalising, from the text already cut at 500 chars — so two errors
@@ -75,7 +96,10 @@ fn lesson_key_is_cut_after_the_normalisation_and_after_the_500_char_cut() {
         lesson_key(&format!("{head}tail-two")),
         "differences past the 200th normalised char are not part of the key"
     );
-    assert_ne!(lesson_key("cannot find crate foo"), lesson_key("cannot find crate bar"));
+    assert_ne!(
+        lesson_key("cannot find crate foo"),
+        lesson_key("cannot find crate bar")
+    );
     assert!(lesson_key(&WIDE.repeat(600)).chars().count() <= KEY_PREFIX_CHARS);
 }
 
@@ -86,7 +110,10 @@ fn lesson_key_is_cut_after_the_normalisation_and_after_the_500_char_cut() {
 fn a_failure_resolved_by_the_same_tool_is_one_pair() {
     let p = lessons(&fail_then_ok("Bash", "1", "error: command not found"));
     assert_eq!(p.len(), 1);
-    assert_eq!((p[0].tool.as_str(), p[0].error_text.as_str()), ("Bash", "error: command not found"));
+    assert_eq!(
+        (p[0].tool.as_str(), p[0].error_text.as_str()),
+        ("Bash", "error: command not found")
+    );
 }
 
 /// `test_sm_no_resolution_yields_empty`.
@@ -119,7 +146,11 @@ fn a_chain_longer_than_the_window_is_dropped_and_a_short_one_emits_its_first_err
         let mut lines = Vec::new();
         for i in 0..failures {
             lines.push(assistant_call(&format!("f{i}"), "Bash", json!({})));
-            lines.push(call_result(&format!("f{i}"), true, json!(format!("error {i}"))));
+            lines.push(call_result(
+                &format!("f{i}"),
+                true,
+                json!(format!("error {i}")),
+            ));
         }
         lines.push(assistant_call("ok", "Bash", json!({})));
         lines.push(call_result("ok", false, json!("ok")));
@@ -128,7 +159,10 @@ fn a_chain_longer_than_the_window_is_dropped_and_a_short_one_emits_its_first_err
     assert!(chain(RESOLUTION_SCAN_WINDOW + 1).is_empty());
     let within = chain(RESOLUTION_SCAN_WINDOW);
     assert_eq!(within.len(), 1);
-    assert_eq!(within[0].error_text, "error 0", "the broadest context: the first failure");
+    assert_eq!(
+        within[0].error_text, "error 0",
+        "the broadest context: the first failure"
+    );
 }
 
 /// `test_sm_error_text_truncated` and `test_sm_utf8_truncation_boundary`: 500 CHARS, never a
@@ -199,7 +233,11 @@ fn the_first_result_of_an_id_wins() {
 #[test]
 fn distinct_sessions_are_counted_per_normalised_key() {
     let sessions = [
-        session_of("s1", "Bash", &["error 11 in /a/x.rs", "only here", "error 11 in /a/x.rs"]),
+        session_of(
+            "s1",
+            "Bash",
+            &["error 11 in /a/x.rs", "only here", "error 11 in /a/x.rs"],
+        ),
         session_of("s2", "Bash", &["error 22 in /b/y.rs"]),
         session_of("s3", "Bash", &["error 33 in /c/z.rs", "shared by two"]),
         session_of("s4", "Bash", &["shared by two"]),
@@ -208,7 +246,10 @@ fn distinct_sessions_are_counted_per_normalised_key() {
     let r = lesson_report(&sessions, &no_db());
     assert_eq!(r["distinct_keys"], 4, "{r}");
     assert_eq!(r["pairs_total"], 8);
-    assert_eq!(r["keys_by_distinct_sessions"], json!({"1": 2, "2": 1, "3": 1, "4": 0, "5+": 0}));
+    assert_eq!(
+        r["keys_by_distinct_sessions"],
+        json!({"1": 2, "2": 1, "3": 1, "4": 0, "5+": 0})
+    );
     assert_eq!(r["lifecycle"]["k_promote"], 3);
     assert_eq!(r["lifecycle"]["active"], 1);
     assert_eq!(r["lifecycle"]["candidate"], 3);
@@ -256,7 +297,10 @@ fn make_db(dir: &std::path::Path, rows: &[(String, serde_json::Value)]) -> std::
 fn lesson_row(tool: &str, error: &str) -> (String, serde_json::Value) {
     let class = tool.to_lowercase();
     (
-        format!("outcome:{class}:transcript-{}:failure", raw_hash8(tool, error)),
+        format!(
+            "outcome:{class}:transcript-{}:failure",
+            raw_hash8(tool, error)
+        ),
         json!({"tool": tool, "error": error, "resolution_input": "x", "session_id": "s", "timestamp": "t"}),
     )
 }
@@ -273,12 +317,18 @@ fn the_stored_lessons_overlap_the_corpus_by_hash_and_by_normalised_key() {
             lesson_row("Bash", "error 11 in /a/x.rs"),
             lesson_row("Bash", "error 22 in /b/y.rs"), // another hash, the same fact
             lesson_row("Bash", "something else entirely"),
-            ("outcome:bash:not-mined:failure".to_string(), json!({"tool": "Bash", "error": "ignored"})),
+            (
+                "outcome:bash:not-mined:failure".to_string(),
+                json!({"tool": "Bash", "error": "ignored"}),
+            ),
             ("unrelated:key".to_string(), json!({})),
         ],
     );
     let stored = read_stored_lessons(&path).expect("readable");
-    assert_eq!(stored.lessons, 3, "only the transcript-mined rows are lessons");
+    assert_eq!(
+        stored.lessons, 3,
+        "only the transcript-mined rows are lessons"
+    );
 
     let sessions = [
         session_of("s1", "Bash", &["error 11 in /a/x.rs"]),
@@ -289,13 +339,25 @@ fn the_stored_lessons_overlap_the_corpus_by_hash_and_by_normalised_key() {
     let db = &r["memory_db"];
     assert_eq!(db["available"], true);
     assert_eq!(db["lessons"], 3);
-    assert_eq!(db["normalized_keys"], 2, "two stored lessons are one fact: {db}");
+    assert_eq!(
+        db["normalized_keys"], 2,
+        "two stored lessons are one fact: {db}"
+    );
     assert_eq!(db["raw_overlap"]["corpus_raw_keys"], 3);
-    assert_eq!(db["raw_overlap"]["in_db"], 1, "only the first corpus text was stored verbatim");
-    assert_eq!(db["key_overlap"]["corpus_keys"], 1, "the three corpus errors are one fact: {r}");
+    assert_eq!(
+        db["raw_overlap"]["in_db"], 1,
+        "only the first corpus text was stored verbatim"
+    );
+    assert_eq!(
+        db["key_overlap"]["corpus_keys"], 1,
+        "the three corpus errors are one fact: {r}"
+    );
     assert_eq!(db["key_overlap"]["in_db"], 1);
     assert_eq!(db["key_overlap"]["active_total"], 1);
-    assert_eq!(db["key_overlap"]["active_in_db"], 1, "the 3-session fact is already stored");
+    assert_eq!(
+        db["key_overlap"]["active_in_db"], 1,
+        "the 3-session fact is already stored"
+    );
 }
 
 /// Reading the stock must never touch the file: same bytes, no sibling files.
@@ -328,19 +390,27 @@ fn a_missing_or_foreign_database_is_reported_not_counted_as_zero() {
         .expect("create")
         .execute("CREATE TABLE other (x TEXT)", [])
         .expect("table");
-    let err = read_stored_lessons(&path).err().expect("no memory_entries table");
+    let err = read_stored_lessons(&path)
+        .err()
+        .expect("no memory_entries table");
     assert!(err.contains("memory_entries"), "{err}");
     let r = lesson_report(&[], &Err(err));
     assert_eq!(r["memory_db"]["available"], false);
     assert!(r["memory_db"]["reason"].is_string());
-    assert!(r["memory_db"]["lessons"].is_null(), "no count is not a 0 count");
+    assert!(
+        r["memory_db"]["lessons"].is_null(),
+        "no count is not a 0 count"
+    );
 }
 
 /// Counts and numbers only: the error text of a lesson never reaches the payload.
 #[test]
 fn the_payload_never_contains_transcript_text() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let path = make_db(dir.path(), &[lesson_row("Bash", &format!("{CANARY} stored"))]);
+    let path = make_db(
+        dir.path(),
+        &[lesson_row("Bash", &format!("{CANARY} stored"))],
+    );
     let sessions = [session_of("s1", "Bash", &[&format!("{CANARY} corpus")])];
     let r = lesson_report(&sessions, &read_stored_lessons(&path));
     assert!(!r.to_string().contains(CANARY), "{r}");
@@ -371,5 +441,9 @@ fn an_absent_transcript_directory_is_displayed_not_zero() {
     let home = tempfile::tempdir().expect("tempdir");
     let r = lesson_lifecycle_in(home.path(), std::path::Path::new("/home/x/none"), &KPI_CAPS);
     assert_eq!(r["available"], false);
-    assert!(r["reason"].as_str().is_some_and(|m| m.contains("no transcript directory")));
+    assert!(
+        r["reason"]
+            .as_str()
+            .is_some_and(|m| m.contains("no transcript directory"))
+    );
 }

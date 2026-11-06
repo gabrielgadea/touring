@@ -2349,7 +2349,6 @@ mod inducao_nao_reincide_sobre_si {
     }
 }
 
-
 // ── S8 (2026-10-08): defeitos medidos AO VIVO pela analise-6b ────────────────
 
 /// Defeito (a), visto ao vivo em 08/10: `Bash "TOURING_CODE_MODE=native python3

@@ -25,14 +25,12 @@ pub struct RouteOffer {
     pub offered_secs: u64,
 }
 
-
 pub(super) fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
 }
-
 
 /// O que um programa de code mode COMPROU em round-trips.
 ///
@@ -55,12 +53,10 @@ pub(crate) enum ProgramShape {
     Fused(usize),
 }
 
-
 /// Verbos de inspeção reconhecidos no corpo, em qualquer linguagem.
 pub(super) const INSPECTION_VERBS: [&str; 12] = [
     "grep", "rg", "cat", "head", "tail", "sed", "awk", "ls", "wc", "find", "stat", "jq",
 ];
-
 
 /// Extrai o corpo de `touring run … --code '<corpo>'`.
 ///
@@ -85,7 +81,6 @@ pub(crate) fn extract_run_body(cmd: &str) -> Option<&str> {
     let fim = corpo.find(aspa)?;
     Some(&corpo[..fim])
 }
-
 
 /// Classifica o corpo pelo que ele funde. Puro — mais fácil de testar do que
 /// de contornar.
@@ -123,7 +118,6 @@ pub(crate) fn program_shape(body: &str) -> ProgramShape {
         ProgramShape::Fused(fundido)
     }
 }
-
 
 /// O que o modelo fez com a rota que recebeu — puro, para ser mais fácil de
 /// testar do que de contornar.
@@ -165,13 +159,11 @@ pub fn classify_route_outcome(cmd: &str) -> Option<f64> {
     None
 }
 
-
 /// Nome estável do braço. É a chave dos contadores e da memória — mudá-lo
 /// renomeia o braço e zera a evidência acumulada sem avisar ninguém.
 pub(crate) fn presentation_label(p: CodeModePresentation) -> &'static str {
     p.label()
 }
-
 
 /// Registra que a apresentação acabou de entregar uma rota escrita.
 ///
@@ -196,7 +188,6 @@ pub(crate) fn record_route_offer(project_root: &Path, session: &str, mode: CodeM
     // estava pendente nesta sessão e abre a nova. Nada aqui altera o que foi gravado acima.
     r3_a2::on_offer(project_root, session, label, offered_secs);
 }
-
 
 /// Onde vive a evidência DURÁVEL do braço, por projeto.
 ///
@@ -228,11 +219,9 @@ pub(super) fn route_offers() -> &'static moka::sync::Cache<String, RouteOffer> {
     })
 }
 
-
 pub(super) fn arm_store_path(project_root: &Path) -> std::path::PathBuf {
     project_root.join(".claude/touring/code_mode_arm.json")
 }
-
 
 /// Evidência DURÁVEL das famílias de medição sem arquivo próprio — S3 (rajada
 /// de inspeção) e pillar-induction. R2 (29/08, ordem de Gabriel): os KPIs
@@ -245,7 +234,6 @@ pub(super) fn durable_evidence_path(project_root: &Path) -> std::path::PathBuf {
     project_root.join(".claude/touring/durable_gate_evidence.json")
 }
 
-
 /// O arquivo inteiro como JSON; ausente/corrompido ⇒ objeto vazio (evidência
 /// que não se pode ler é evidência que não existe).
 pub(crate) fn read_durable_evidence(project_root: &Path) -> serde_json::Value {
@@ -255,7 +243,6 @@ pub(crate) fn read_durable_evidence(project_root: &Path) -> serde_json::Value {
         .filter(serde_json::Value::is_object)
         .unwrap_or_else(|| serde_json::json!({}))
 }
-
 
 /// `+1` em `<family>.<field>`, read-modify-write no arquivo durável. Chamado
 /// ao lado do contador volátil correspondente — o vivo alimenta o
@@ -285,7 +272,6 @@ pub(crate) fn bump_durable_evidence(project_root: &Path, family: &str, field: &s
     }
 }
 
-
 /// TTL curto: `code_mode_presentation` roda em todo PreToolUse, e ler o arquivo
 /// a cada chamada trocaria um problema de durabilidade por um de latência.
 pub(super) fn arm_cache() -> &'static moka::sync::Cache<String, ArmCounts> {
@@ -298,14 +284,11 @@ pub(super) fn arm_cache() -> &'static moka::sync::Cache<String, ArmCounts> {
     })
 }
 
-
 pub(super) const ARM_NAMES: [&str; 3] = ["native", "both", "code"];
-
 
 pub(super) fn arm_index(mode: &str) -> Option<usize> {
     ARM_NAMES.iter().position(|n| *n == mode)
 }
-
 
 /// Lê o arquivo. Ausente, ilegível ou corrompido ⇒ zeros: evidência que não se
 /// pode ler é evidência que não existe, e zeros deixam a política calada (que é
@@ -318,7 +301,6 @@ pub(super) fn arm_index(mode: &str) -> Option<usize> {
 /// Fundi-los num só faria um braço obedecido e caro parecer excelente — o
 /// defeito que Gabriel apontou na `adoption_ratio`.
 pub(crate) type ArmCounts = [(u64, u64, u64); 3];
-
 
 pub(super) fn read_arm_file(project_root: &Path) -> ArmCounts {
     let mut out = [(0u64, 0u64, 0u64); 3];
@@ -337,7 +319,6 @@ pub(super) fn read_arm_file(project_root: &Path) -> ArmCounts {
     }
     out
 }
-
 
 pub(super) fn write_arm_file(project_root: &Path, counts: &ArmCounts) {
     let path = arm_store_path(project_root);
@@ -369,7 +350,6 @@ pub(super) fn write_arm_file(project_root: &Path, counts: &ArmCounts) {
     }
 }
 
-
 /// Evidência durável do projeto, com cache curto.
 pub(crate) fn arm_counts_full(project_root: &Path) -> ArmCounts {
     let key = project_root.display().to_string();
@@ -380,7 +360,6 @@ pub(crate) fn arm_counts_full(project_root: &Path) -> ArmCounts {
     arm_cache().insert(key, counts);
     counts
 }
-
 
 /// O par `(oferecidas, tomadas)` que a POLÍTICA lê. A economia é reportada
 /// (KPI) mas ainda não escolhe braço: mudar o critério de escolha é decisão de
@@ -393,7 +372,6 @@ pub(crate) fn arm_counts_durable(project_root: &Path) -> [(u64, u64); 3] {
         (full[2].0, full[2].1),
     ]
 }
-
 
 /// Incrementa um eixo do braço e persiste.
 ///
@@ -418,7 +396,6 @@ pub(crate) enum ArmAxis {
     /// A rota tomada fundiu round-trips (a economia).
     Economical,
 }
-
 
 pub(crate) fn bump_arm(project_root: &Path, mode: &str, eixo: ArmAxis) {
     let Some(i) = arm_index(mode) else { return };
@@ -452,7 +429,6 @@ pub(crate) fn bump_arm(project_root: &Path, mode: &str, eixo: ArmAxis) {
     arm_cache().insert(project_root.display().to_string(), counts);
 }
 
-
 /// P2 (decisão (b), 26/08/2026) — a política só age quando ARMADA.
 ///
 /// Default-OFF, como o `f7_actuator_armed`: sem a env, nenhum sinal é lido e o
@@ -463,7 +439,6 @@ pub(crate) fn bump_arm(project_root: &Path, mode: &str, eixo: ArmAxis) {
 pub(super) fn code_mode_arm_armed() -> bool {
     std::env::var("TOURING_CODE_MODE_ARM_ARMED").is_ok_and(|v| v != "0")
 }
-
 
 /// A precedência final, PURA: declaração humana > política armada > default.
 ///
@@ -488,14 +463,12 @@ pub(crate) fn resolve_with_policy(
     CodeModePresentation::Both
 }
 
-
 /// Piso de amostra por braço — COMPARTILHADO com o KPI que reporta a evidência.
 ///
 /// Uma cópia do número em cada lado divergiria no primeiro ajuste, e aí o
 /// painel diria "pronto para promover" enquanto a política ainda se cala (ou o
 /// contrário). O juiz e o medidor têm de ler o mesmo predicado.
 pub(crate) const ARM_MIN_SAMPLE: u64 = 20;
-
 
 /// Escolhe o braço pela evidência medida — ou `None` quando ela é fina.
 ///
@@ -539,8 +512,6 @@ pub(crate) fn arm_choice_from_counts(counts: [(u64, u64); 3]) -> Option<CodeMode
     }
     Some(melhor.1)
 }
-
-
 
 // ── The feedback adapters: from the post-tool payload to the arm ─────────────────────────
 
@@ -610,4 +581,3 @@ fn claim_route_reward_decision(
     }
     Some((offer, value))
 }
-

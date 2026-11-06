@@ -241,7 +241,11 @@ pub(crate) fn dispatch(subcommand: &str, runtime: &mut HookRuntime, input: &Valu
 
 /// Run a stateless body: no runtime, it answers and exits.
 pub(crate) fn run_stateless(stateless: &Stateless, input: &Value) -> ! {
-    tracing::debug!(hook = stateless.name, why = stateless.why, "stateless standalone body");
+    tracing::debug!(
+        hook = stateless.name,
+        why = stateless.why,
+        "stateless standalone body"
+    );
     (stateless.run)(input)
 }
 
@@ -408,8 +412,6 @@ fn run_qa_syntax(input: &Value) -> ! {
     println!("{}", serde_json::to_string(&output).unwrap_or_default());
     process::exit(0);
 }
-
-
 
 /// Intent classification utility.
 fn run_classify(runtime: &HookRuntime, input: &Value) -> Standalone {

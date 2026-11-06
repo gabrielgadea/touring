@@ -9,17 +9,14 @@ pub(crate) const SUGGESTION_TTL_SECS: u64 = 300;
 
 pub(crate) const CACHE_MAX_CAPACITY: u64 = 4096;
 
-
 /// Teto de projetos com τ conformal memoizado simultaneamente. Um daemon atende
 /// poucos projetos por janela; o limite existe para que o cache não cresça
 /// indefinidamente num processo que vive muito mais que qualquer sessão.
 pub(crate) const CONFORMAL_TAU_MAX_PROJECTS: u64 = 64;
 
-
 /// Window length for the repeated-scan counter. Shorter than the suggestion TTL
 /// so the "repeated scanning" signal reflects the *current* burst of activity.
 pub(crate) const CODE_MODE_WINDOW_SECS: u64 = 180;
-
 
 /// S4 — janela da rajada de execução: 600s. O passo de uma suíte de testes
 /// (minutos por chamada) é mais lento que o de uma rajada de inspeção (180s
@@ -30,7 +27,6 @@ pub(super) const EXEC_BURST_WINDOW_SECS: u64 = 600;
 /// reais iam a 30-75); **aperto 29/08 (ordem de Gabriel): 10→5** — 5 já pagou
 /// 4 round-trips, e o uso pontual legítimo (2-3 pytest de debug) segue fora.
 pub(super) const EXEC_BURST_DENY_AT: u32 = 5;
-
 
 /// S5 (29/08) — janela do par write→run: a mesma da rajada de execução.
 pub(super) const WRITE_RUN_WINDOW_SECS: u64 = 600;
@@ -43,7 +39,6 @@ pub(super) const WRITE_RUN_WINDOW_SECS: u64 = 600;
 /// baixo não taxa o caso comum: pytest/gates/tools nunca casam — o path que
 /// eles executam não foi escrito via `cat >`/`tee` na janela.
 pub(super) const WRITE_RUN_DENY_AT: u32 = 2;
-
 
 /// S3 — janela da rajada de INSPEÇÃO, derivada de medição e não de intuição.
 ///
@@ -63,7 +58,6 @@ pub(super) const WRITE_RUN_DENY_AT: u32 = 2;
 /// fricção no caso comum que o S3 existe para remover.
 pub(super) const INSPECT_BURST_WINDOW_SECS: u64 = 300;
 
-
 /// S3 — a 2ª avisa (D, 09/10/2026: antes negava); a 1ª executa intacta.
 ///
 /// A medição é inequívoca no limiar: com janela de 300s, 77,5% do volume das
@@ -75,30 +69,24 @@ pub(super) const INSPECT_BURST_WINDOW_SECS: u64 = 300;
 /// common case"*.
 pub(super) const INSPECT_BURST_ADVISE_AT: u32 = 2;
 
-
 /// Janela do orçamento, alinhada à do G10 (o gate de execução em rajada).
 pub(super) const G11_WINDOW_SECS: u64 = 600;
-
 
 /// Bypasses ESTRITAMENTE seguidos tolerados. `1` significa: o primeiro passa, o
 /// segundo colado no primeiro não.
 pub(super) const G11_MAX_STRICT_RUN: u32 = 1;
 
-
 /// Bypasses tolerados desde o último uso da rota sancionada, ainda que
 /// intercalados por comandos neutros. `2` significa: o terceiro não passa.
 pub(super) const G11_MAX_SINCE_ROUTE: u32 = 2;
-
 
 /// Token de bypass POR-COMANDO: viaja no próprio comando (o padrão
 /// `GIT_DESTRUCTIVE_OK` — cada uso é uma decisão, nunca um estado exportado).
 pub(super) const GATE_BYPASS_TOKEN: &str = "TOURING_GATE_OK=1";
 
-
 /// Longest single-line command a reason inlines as a ready-to-paste bypass line; beyond it the
 /// reason points at the command it already shows instead of repeating it.
 pub(super) const READY_LINE_MAX_CHARS: usize = 600;
-
 
 /// W2 S-2.1 — a inspeção repetida da MESMA classe na janela nega (o advisory
 /// legado fala uma antes). 90% de precisão-proxy medida na 4ª (51/55 sessões);
@@ -113,7 +101,6 @@ pub(super) const G1_DEMOTE_FLOOR: f64 = 0.70;
 /// …desde que haja volume real: um punhado de eventos iniciais nunca demove.
 pub(super) const G1_DEMOTE_MIN_EVENTS: u64 = 100;
 
-
 /// Files above this are not scanned for the Read-window hint (the deny path stays cheap).
 pub(super) const G3_WINDOW_MAX_BYTES: u64 = 2 * 1024 * 1024;
 
@@ -123,18 +110,14 @@ pub(super) const G3_WINDOW_CONTEXT_LINES: usize = 5;
 /// Files shorter than this are read whole: a window would save nothing.
 pub(super) const G3_WINDOW_MIN_FILE_LINES: usize = 80;
 
-
 /// M3 — quantos arquivos distintos disparam o advisory de delegação.
 pub(super) const M3_DELEGATION_AT: u32 = 10;
-
 
 /// Orçamento total, em chars, do corpo do programa que o remédio entrega.
 pub(super) const G1_BODY_BUDGET: usize = 3000;
 
-
 /// Limiar da calibração por similaridade (Gabriel, 26/08/2026).
 pub(crate) const G1_SIMILARITY_AT: f64 = 0.5;
-
 
 // ── Ledger sizing and the windows that were literals inside the old accessors ────────────
 

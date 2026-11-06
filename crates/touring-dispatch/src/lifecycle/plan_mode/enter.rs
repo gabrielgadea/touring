@@ -236,7 +236,8 @@ pub(crate) fn handle_enter_plan_mode(rt: &mut HookRuntime, input: &Value) -> Str
 /// Wired into `handle_enter_plan_mode` so EnterPlanMode tells Claude Code "there's already
 /// work queued in the DAG" before it auto-creates a new plan session that would duplicate effort.
 fn active_dag_ready_hint(rt: &mut HookRuntime) -> Option<String> {
-    let result = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
+    let result =
+        crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let v = serde_json::from_str::<serde_json::Value>(&result).ok()?;
     let count = v.get("ready_count").and_then(|c| c.as_u64()).unwrap_or(0);
     if count == 0 {
@@ -341,10 +342,7 @@ fn maybe_diary_write_on_plan(intent: &str) -> Option<String> {
 /// Calls `cli_memory_recall` and returns a formatted hint when entries are found.
 /// Returns `None` when recall is empty or JSON is malformed. Extracted from
 /// `handle_enter_plan_mode` so its CC stays ≤ 15 after R24-S2 added kind_hint branch.
-fn memory_recall_hint_for_intent(
-    rt: &mut HookRuntime,
-    truncated: &str,
-) -> Option<String> {
+fn memory_recall_hint_for_intent(rt: &mut HookRuntime, truncated: &str) -> Option<String> {
     let recall_payload = serde_json::json!({"query": truncated, "limit": 3});
     let recall_result = crate::cli_handlers::cli_memory_recall(rt, &recall_payload);
     let v = serde_json::from_str::<serde_json::Value>(&recall_result).ok()?;
@@ -405,7 +403,8 @@ fn mcts_shadow_rollout_hint(rt: &mut HookRuntime, _input: &Value) -> Option<Stri
     }
 
     // Collect pending ready subtasks as the task list for the rollout.
-    let ready_json = crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
+    let ready_json =
+        crate::cli_handlers::cli_decompose_ready(rt, &serde_json::json!({"scope": "latest"}));
     let tasks: Vec<serde_json::Value> = serde_json::from_str::<serde_json::Value>(&ready_json)
         .ok()
         .and_then(|v| v.get("ready_subtasks").and_then(|s| s.as_array()).cloned())

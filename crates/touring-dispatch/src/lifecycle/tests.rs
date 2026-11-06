@@ -20,7 +20,11 @@ use touring_hooks_core::generator_hints;
 /// escavar `task_id` do JSON e cair num literal — estavam copiadas em 30 testes.
 /// `fallback` preserva o comportamento original de cada um quando o runtime sem
 /// daemon não devolve id.
-pub(super) fn create_intent_task(rt: &mut HookRuntime, description: &str, fallback: &str) -> String {
+pub(super) fn create_intent_task(
+    rt: &mut HookRuntime,
+    description: &str,
+    fallback: &str,
+) -> String {
     let payload = serde_json::json!({"task_type": "intent", "description": description});
     let created = super::super::cli_handlers::cli_decompose_create(rt, &payload);
     serde_json::from_str::<serde_json::Value>(&created)
@@ -2747,8 +2751,12 @@ fn openapi_hint_none_for_empty_subject() {
 #[test]
 fn openapi_hint_none_for_non_api_subject() {
     // R49-S1: subject without API keywords → None
-    assert!(generator_hints::maybe_openapi_hint_on_task_create("implement caching layer").is_none());
-    assert!(generator_hints::maybe_openapi_hint_on_task_create("refactor database schema").is_none());
+    assert!(
+        generator_hints::maybe_openapi_hint_on_task_create("implement caching layer").is_none()
+    );
+    assert!(
+        generator_hints::maybe_openapi_hint_on_task_create("refactor database schema").is_none()
+    );
 }
 
 #[test]
@@ -2833,7 +2841,8 @@ fn protobuf_hint_none_for_empty_or_non_proto_subject() {
 #[test]
 fn protobuf_hint_some_for_grpc_keyword() {
     // R50-S1: "grpc" in subject → Some with protobuf_schema CLI command
-    let result = generator_hints::maybe_protobuf_hint_on_task_create("implement grpc service for auth");
+    let result =
+        generator_hints::maybe_protobuf_hint_on_task_create("implement grpc service for auth");
     assert!(result.is_some(), "grpc keyword must trigger protobuf hint");
     let hint = result.unwrap();
     assert!(
@@ -2906,13 +2915,16 @@ fn exit_plan_mode_with_zsh_intent_includes_shell_completion_hint() {
 fn fuzz_hint_none_for_empty_or_non_fuzz_subject() {
     // R51-S1: empty or non-fuzz subject → None
     assert!(generator_hints::maybe_fuzz_target_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_fuzz_target_hint_on_task_create("refactor auth module").is_none());
+    assert!(
+        generator_hints::maybe_fuzz_target_hint_on_task_create("refactor auth module").is_none()
+    );
 }
 
 #[test]
 fn fuzz_hint_some_for_fuzzing_keyword() {
     // R51-S1: "fuzzing" in subject → Some with fuzz_target CLI command
-    let result = generator_hints::maybe_fuzz_target_hint_on_task_create("add fuzzing for parser input");
+    let result =
+        generator_hints::maybe_fuzz_target_hint_on_task_create("add fuzzing for parser input");
     assert!(result.is_some(), "fuzzing keyword must trigger fuzz hint");
     let hint = result.unwrap();
     assert!(
@@ -2991,7 +3003,9 @@ fn benchmark_hint_none_for_empty_subject() {
 #[test]
 fn benchmark_hint_some_for_perf_keyword() {
     // R52-S1: "benchmark" in subject → Some with benchmark CLI command
-    let result = generator_hints::maybe_benchmark_hint_on_task_create("benchmark latency of request handler");
+    let result = generator_hints::maybe_benchmark_hint_on_task_create(
+        "benchmark latency of request handler",
+    );
     assert!(result.is_some(), "perf keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -3003,7 +3017,8 @@ fn benchmark_hint_some_for_perf_keyword() {
         "must contain CLI: {hint}"
     );
     // "optimize" keyword also matches
-    let opt = generator_hints::maybe_benchmark_hint_on_task_create("optimize throughput for hot path");
+    let opt =
+        generator_hints::maybe_benchmark_hint_on_task_create("optimize throughput for hot path");
     assert!(opt.is_some(), "optimize keyword must produce hint");
 }
 
@@ -3075,7 +3090,8 @@ fn adr_hint_none_for_empty_or_unrelated_subject() {
 #[test]
 fn adr_hint_some_for_architecture_keyword() {
     // R53-S1: "architecture" in subject → Some with adr CLI command
-    let result = generator_hints::maybe_adr_hint_on_task_create("define architecture for event bus");
+    let result =
+        generator_hints::maybe_adr_hint_on_task_create("define architecture for event bus");
     assert!(result.is_some(), "architecture keyword must produce hint");
     let hint = result.unwrap();
     assert!(hint.contains("adr:"), "hint must have adr: prefix: {hint}");
@@ -3084,7 +3100,8 @@ fn adr_hint_some_for_architecture_keyword() {
         "must contain CLI: {hint}"
     );
     // "tradeoff" keyword also matches
-    let td = generator_hints::maybe_adr_hint_on_task_create("evaluate tradeoff between sync and async");
+    let td =
+        generator_hints::maybe_adr_hint_on_task_create("evaluate tradeoff between sync and async");
     assert!(td.is_some(), "tradeoff keyword must produce hint");
 }
 
@@ -3150,13 +3167,16 @@ fn skill_doc_hint_integration_exit_plan() {
 fn mcp_tool_hint_none_for_empty_or_unrelated_subject() {
     // R54-S1: empty or non-MCP subject → None
     assert!(generator_hints::maybe_mcp_tool_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_mcp_tool_hint_on_task_create("fix login form validation").is_none());
+    assert!(
+        generator_hints::maybe_mcp_tool_hint_on_task_create("fix login form validation").is_none()
+    );
 }
 
 #[test]
 fn mcp_tool_hint_some_for_mcp_keyword() {
     // R54-S1: "mcp" in subject → Some with mcp_tool CLI command
-    let result = generator_hints::maybe_mcp_tool_hint_on_task_create("build mcp server for file operations");
+    let result =
+        generator_hints::maybe_mcp_tool_hint_on_task_create("build mcp server for file operations");
     assert!(result.is_some(), "mcp keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -3233,14 +3253,18 @@ fn task_scaffold_hint_integration_enter_plan() {
 fn cli_handler_hint_none_for_empty_or_unrelated_subject() {
     // R55-S1: empty or non-CLI subject → None
     assert!(generator_hints::maybe_cli_handler_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_cli_handler_hint_on_task_create("fix login form validation").is_none());
+    assert!(
+        generator_hints::maybe_cli_handler_hint_on_task_create("fix login form validation")
+            .is_none()
+    );
 }
 
 #[test]
 fn cli_handler_hint_some_for_clap_keyword() {
     // R55-S1: "clap" in subject → Some with cli_handler CLI command
-    let result =
-        generator_hints::maybe_cli_handler_hint_on_task_create("add clap subcommand for index rebuild");
+    let result = generator_hints::maybe_cli_handler_hint_on_task_create(
+        "add clap subcommand for index rebuild",
+    );
     assert!(result.is_some(), "clap keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -3252,8 +3276,9 @@ fn cli_handler_hint_some_for_clap_keyword() {
         "must contain CLI: {hint}"
     );
     // "command handler" also matches
-    let ch =
-        generator_hints::maybe_cli_handler_hint_on_task_create("implement command handler for session start");
+    let ch = generator_hints::maybe_cli_handler_hint_on_task_create(
+        "implement command handler for session start",
+    );
     assert!(ch.is_some(), "command handler keyword must produce hint");
 }
 
@@ -3319,13 +3344,16 @@ fn hook_handler_hint_integration_exit_plan() {
 fn derive_macro_hint_none_for_empty_or_unrelated_subject() {
     // R56-S1: empty or non-macro subject → None
     assert!(generator_hints::maybe_derive_macro_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_derive_macro_hint_on_task_create("add new REST endpoint").is_none());
+    assert!(
+        generator_hints::maybe_derive_macro_hint_on_task_create("add new REST endpoint").is_none()
+    );
 }
 
 #[test]
 fn derive_macro_hint_some_for_proc_macro_keyword() {
     // R56-S1: "derive macro" in subject → Some with derive_macro CLI command
-    let result = generator_hints::maybe_derive_macro_hint_on_task_create("implement derive macro for serde");
+    let result =
+        generator_hints::maybe_derive_macro_hint_on_task_create("implement derive macro for serde");
     assert!(result.is_some(), "derive macro keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3337,7 +3365,8 @@ fn derive_macro_hint_some_for_proc_macro_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test proc-macro variant
-    let result2 = generator_hints::maybe_derive_macro_hint_on_task_create("write proc-macro for validation");
+    let result2 =
+        generator_hints::maybe_derive_macro_hint_on_task_create("write proc-macro for validation");
     assert!(result2.is_some(), "proc-macro keyword must match");
 }
 
@@ -3401,13 +3430,17 @@ fn man_page_hint_integration_exit_plan() {
 fn schema_hint_none_for_empty_or_unrelated_subject() {
     // R57-S1: empty or non-schema subject → None
     assert!(generator_hints::maybe_schema_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_schema_hint_on_task_create("add new REST endpoint handler").is_none());
+    assert!(
+        generator_hints::maybe_schema_hint_on_task_create("add new REST endpoint handler")
+            .is_none()
+    );
 }
 
 #[test]
 fn schema_hint_some_for_json_schema_keyword() {
     // R57-S1: "json schema" in subject → Some with schema CLI command
-    let result = generator_hints::maybe_schema_hint_on_task_create("define json schema for user event");
+    let result =
+        generator_hints::maybe_schema_hint_on_task_create("define json schema for user event");
     assert!(result.is_some(), "json schema keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3419,7 +3452,8 @@ fn schema_hint_some_for_json_schema_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test avro variant
-    let result2 = generator_hints::maybe_schema_hint_on_task_create("create avro schema for kafka topic");
+    let result2 =
+        generator_hints::maybe_schema_hint_on_task_create("create avro schema for kafka topic");
     assert!(result2.is_some(), "avro schema keyword must match");
 }
 
@@ -3484,8 +3518,10 @@ fn consumer_generator_hint_none_for_empty_or_unrelated_subject() {
     // R58-S1: empty or non-wiring subject → None
     assert!(generator_hints::maybe_consumer_generator_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_consumer_generator_hint_on_task_create("add REST endpoint for users")
-            .is_none()
+        generator_hints::maybe_consumer_generator_hint_on_task_create(
+            "add REST endpoint for users"
+        )
+        .is_none()
     );
 }
 
@@ -3535,13 +3571,17 @@ fn consumer_generator_hint_integration_task_create() {
 fn rust_module_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R58-S2: empty or non-module subject → None
     assert!(generator_hints::maybe_rust_module_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_rust_module_hint_on_task_create("fix database query timeout").is_none());
+    assert!(
+        generator_hints::maybe_rust_module_hint_on_task_create("fix database query timeout")
+            .is_none()
+    );
 }
 
 #[test]
 fn rust_module_task_create_hint_some_for_new_module_keyword() {
     // R58-S2: "new module" in subject → Some with rust_module CLI command
-    let result = generator_hints::maybe_rust_module_hint_on_task_create("create new module for cache layer");
+    let result =
+        generator_hints::maybe_rust_module_hint_on_task_create("create new module for cache layer");
     assert!(result.is_some(), "new module keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3600,14 +3640,18 @@ fn plan_md_hint_integration_exit_plan() {
 fn terraform_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R59-S1: empty or non-IaC subject → None
     assert!(generator_hints::maybe_terraform_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_terraform_hint_on_task_create("fix Rust compilation errors").is_none());
+    assert!(
+        generator_hints::maybe_terraform_hint_on_task_create("fix Rust compilation errors")
+            .is_none()
+    );
 }
 
 #[test]
 fn terraform_task_create_hint_some_for_terraform_keyword() {
     // R59-S1: "terraform" in subject → Some with terraform_module CLI command
-    let result =
-        generator_hints::maybe_terraform_hint_on_task_create("create terraform module for VPC networking");
+    let result = generator_hints::maybe_terraform_hint_on_task_create(
+        "create terraform module for VPC networking",
+    );
     assert!(result.is_some(), "terraform keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3619,8 +3663,9 @@ fn terraform_task_create_hint_some_for_terraform_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test opentofu variant
-    let result2 =
-        generator_hints::maybe_terraform_hint_on_task_create("provision infrastructure with opentofu");
+    let result2 = generator_hints::maybe_terraform_hint_on_task_create(
+        "provision infrastructure with opentofu",
+    );
     assert!(result2.is_some(), "opentofu keyword must match");
 }
 
@@ -3648,15 +3693,17 @@ fn ci_workflow_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R59-S2: empty or non-CI subject → None
     assert!(generator_hints::maybe_ci_workflow_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_ci_workflow_hint_on_task_create("refactor error handling module").is_none()
+        generator_hints::maybe_ci_workflow_hint_on_task_create("refactor error handling module")
+            .is_none()
     );
 }
 
 #[test]
 fn ci_workflow_task_create_hint_some_for_github_actions_keyword() {
     // R59-S2: "github actions" in subject → Some with ci_workflow CLI command
-    let result =
-        generator_hints::maybe_ci_workflow_hint_on_task_create("add github actions workflow for release");
+    let result = generator_hints::maybe_ci_workflow_hint_on_task_create(
+        "add github actions workflow for release",
+    );
     assert!(result.is_some(), "github actions keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3668,8 +3715,9 @@ fn ci_workflow_task_create_hint_some_for_github_actions_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test ci/cd variant
-    let result2 =
-        generator_hints::maybe_ci_workflow_hint_on_task_create("set up ci/cd pipeline for deployment");
+    let result2 = generator_hints::maybe_ci_workflow_hint_on_task_create(
+        "set up ci/cd pipeline for deployment",
+    );
     assert!(result2.is_some(), "ci/cd keyword must match");
 }
 
@@ -3695,14 +3743,18 @@ fn ci_workflow_task_create_hint_integration() {
 fn k8s_manifest_task_create_hint_none_for_empty_or_unrelated_subject() {
     // R59-S3: empty or non-k8s subject → None
     assert!(generator_hints::maybe_k8s_manifest_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_k8s_manifest_hint_on_task_create("add JSON schema validation").is_none());
+    assert!(
+        generator_hints::maybe_k8s_manifest_hint_on_task_create("add JSON schema validation")
+            .is_none()
+    );
 }
 
 #[test]
 fn k8s_manifest_task_create_hint_some_for_kubernetes_keyword() {
     // R59-S3: "kubernetes" in subject → Some with k8s_manifest CLI command
-    let result =
-        generator_hints::maybe_k8s_manifest_hint_on_task_create("deploy service to kubernetes cluster");
+    let result = generator_hints::maybe_k8s_manifest_hint_on_task_create(
+        "deploy service to kubernetes cluster",
+    );
     assert!(result.is_some(), "kubernetes keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3714,8 +3766,9 @@ fn k8s_manifest_task_create_hint_some_for_kubernetes_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test helm chart variant
-    let result2 =
-        generator_hints::maybe_k8s_manifest_hint_on_task_create("create helm chart for microservice");
+    let result2 = generator_hints::maybe_k8s_manifest_hint_on_task_create(
+        "create helm chart for microservice",
+    );
     assert!(result2.is_some(), "helm chart keyword must match");
 }
 
@@ -3743,8 +3796,10 @@ fn incremental_patch_task_create_hint_none_for_empty_or_unrelated() {
     // R60-S1: empty or non-patch subject → None
     assert!(generator_hints::maybe_incremental_patch_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_incremental_patch_hint_on_task_create("implement new feature endpoint")
-            .is_none()
+        generator_hints::maybe_incremental_patch_hint_on_task_create(
+            "implement new feature endpoint"
+        )
+        .is_none()
     );
 }
 
@@ -3765,8 +3820,9 @@ fn incremental_patch_task_create_hint_some_for_patch_keyword() {
         "hint must contain CLI: {hint}"
     );
     // Also test delta patch variant
-    let result2 =
-        generator_hints::maybe_incremental_patch_hint_on_task_create("create delta patch for schema upgrade");
+    let result2 = generator_hints::maybe_incremental_patch_hint_on_task_create(
+        "create delta patch for schema upgrade",
+    );
     assert!(result2.is_some(), "delta patch keyword must match");
 }
 
@@ -3890,20 +3946,25 @@ fn task_scaffold_hint_none_for_non_dag_subject() {
     // R62-S1: subjects with no DAG/task planning keywords → None
     assert!(generator_hints::maybe_task_scaffold_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_task_scaffold_hint_on_task_create("implement REST endpoint for users")
-            .is_none()
+        generator_hints::maybe_task_scaffold_hint_on_task_create(
+            "implement REST endpoint for users"
+        )
+        .is_none()
     );
     assert!(
-        generator_hints::maybe_task_scaffold_hint_on_task_create("fix clippy warnings in hooks crate")
-            .is_none()
+        generator_hints::maybe_task_scaffold_hint_on_task_create(
+            "fix clippy warnings in hooks crate"
+        )
+        .is_none()
     );
 }
 
 #[test]
 fn task_scaffold_hint_some_for_dag_keywords() {
     // R62-S1: DAG/task planning keywords → Some with task_scaffold CLI
-    let result =
-        generator_hints::maybe_task_scaffold_hint_on_task_create("create dag task for payment feature");
+    let result = generator_hints::maybe_task_scaffold_hint_on_task_create(
+        "create dag task for payment feature",
+    );
     assert!(result.is_some(), "dag task keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3915,8 +3976,9 @@ fn task_scaffold_hint_some_for_dag_keywords() {
         "hint must contain CLI: {hint}"
     );
     // Also test taco phase variant
-    let result2 =
-        generator_hints::maybe_task_scaffold_hint_on_task_create("plan subtasks for refactor phase");
+    let result2 = generator_hints::maybe_task_scaffold_hint_on_task_create(
+        "plan subtasks for refactor phase",
+    );
     assert!(
         result2.is_some(),
         "plan subtasks keyword must match: {result2:?}"
@@ -3946,16 +4008,21 @@ fn diary_entry_hint_none_for_non_retrospective_subject() {
     // R62-S2: non-retrospective subjects → None
     assert!(generator_hints::maybe_diary_entry_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_diary_entry_hint_on_task_create("add OpenAPI spec for payment API").is_none()
+        generator_hints::maybe_diary_entry_hint_on_task_create("add OpenAPI spec for payment API")
+            .is_none()
     );
-    assert!(generator_hints::maybe_diary_entry_hint_on_task_create("benchmark VGP engine latency").is_none());
+    assert!(
+        generator_hints::maybe_diary_entry_hint_on_task_create("benchmark VGP engine latency")
+            .is_none()
+    );
 }
 
 #[test]
 fn diary_entry_hint_some_for_retrospective_keywords() {
     // R62-S2: retrospective/diary keywords → Some with diary_entry CLI
-    let result =
-        generator_hints::maybe_diary_entry_hint_on_task_create("write retrospective for R60 implementation");
+    let result = generator_hints::maybe_diary_entry_hint_on_task_create(
+        "write retrospective for R60 implementation",
+    );
     assert!(result.is_some(), "retrospective keyword must match");
     let hint = result.unwrap();
     assert!(
@@ -3967,7 +4034,8 @@ fn diary_entry_hint_some_for_retrospective_keywords() {
         "hint must contain CLI: {hint}"
     );
     // Also test postmortem variant
-    let result2 = generator_hints::maybe_diary_entry_hint_on_task_create("postmortem after deploy incident");
+    let result2 =
+        generator_hints::maybe_diary_entry_hint_on_task_create("postmortem after deploy incident");
     assert!(
         result2.is_some(),
         "postmortem keyword must match: {result2:?}"
@@ -3997,11 +4065,14 @@ fn skill_document_hint_none_for_non_skill_subject() {
     // R62-S3: non-skill subjects → None
     assert!(generator_hints::maybe_skill_document_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_skill_document_hint_on_task_create("implement Kubernetes manifest for auth")
-            .is_none()
+        generator_hints::maybe_skill_document_hint_on_task_create(
+            "implement Kubernetes manifest for auth"
+        )
+        .is_none()
     );
     assert!(
-        generator_hints::maybe_skill_document_hint_on_task_create("add benchmark for SIMD path").is_none()
+        generator_hints::maybe_skill_document_hint_on_task_create("add benchmark for SIMD path")
+            .is_none()
     );
 }
 
@@ -4022,8 +4093,9 @@ fn skill_document_hint_some_for_skill_keywords() {
         "hint must contain CLI: {hint}"
     );
     // Also test skill.md variant
-    let result2 =
-        generator_hints::maybe_skill_document_hint_on_task_create("write skill.md for team-orchestrator");
+    let result2 = generator_hints::maybe_skill_document_hint_on_task_create(
+        "write skill.md for team-orchestrator",
+    );
     assert!(
         result2.is_some(),
         "skill.md keyword must match: {result2:?}"
@@ -4793,13 +4865,18 @@ fn error_catalog_hint_integration_task_list() {
 fn asyncapi_hint_none_for_non_asyncapi_subject() {
     // R67-S1: non-event-driven subject → None
     assert!(generator_hints::maybe_asyncapi_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_asyncapi_hint_on_task_create("implement rest api endpoint").is_none());
+    assert!(
+        generator_hints::maybe_asyncapi_hint_on_task_create("implement rest api endpoint")
+            .is_none()
+    );
 }
 
 #[test]
 fn asyncapi_hint_some_for_asyncapi_keywords() {
     // R67-S1: asyncapi keyword → Some with CLI hint
-    let result = generator_hints::maybe_asyncapi_hint_on_task_create("design asyncapi spec for order events");
+    let result = generator_hints::maybe_asyncapi_hint_on_task_create(
+        "design asyncapi spec for order events",
+    );
     assert!(result.is_some(), "asyncapi keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -4834,13 +4911,16 @@ fn asyncapi_hint_integration_task_create() {
 fn man_page_hint_none_for_non_doc_subject() {
     // R67-S2: non-man-page subject → None
     assert!(generator_hints::maybe_man_page_hint_on_task_create("").is_none());
-    assert!(generator_hints::maybe_man_page_hint_on_task_create("implement caching layer").is_none());
+    assert!(
+        generator_hints::maybe_man_page_hint_on_task_create("implement caching layer").is_none()
+    );
 }
 
 #[test]
 fn man_page_hint_some_for_man_page_keywords() {
     // R67-S2: "man page" keyword → Some with CLI hint
-    let result = generator_hints::maybe_man_page_hint_on_task_create("write man page for touring binary");
+    let result =
+        generator_hints::maybe_man_page_hint_on_task_create("write man page for touring binary");
     assert!(result.is_some(), "man page keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -4876,15 +4956,17 @@ fn error_catalog_task_create_hint_none_for_generic_subject() {
     // R67-S3: generic subject → None
     assert!(generator_hints::maybe_error_catalog_hint_on_task_create("").is_none());
     assert!(
-        generator_hints::maybe_error_catalog_hint_on_task_create("add feature flag for dark mode").is_none()
+        generator_hints::maybe_error_catalog_hint_on_task_create("add feature flag for dark mode")
+            .is_none()
     );
 }
 
 #[test]
 fn error_catalog_task_create_hint_some_for_error_keywords() {
     // R67-S3: "error catalog" keyword → Some with CLI hint
-    let result =
-        generator_hints::maybe_error_catalog_hint_on_task_create("build error catalog for api module");
+    let result = generator_hints::maybe_error_catalog_hint_on_task_create(
+        "build error catalog for api module",
+    );
     assert!(result.is_some(), "error catalog keyword must produce hint");
     let hint = result.unwrap();
     assert!(
@@ -4896,8 +4978,9 @@ fn error_catalog_task_create_hint_some_for_error_keywords() {
         "hint must contain CLI: {hint}"
     );
     // thiserror keyword also matches
-    let te =
-        generator_hints::maybe_error_catalog_hint_on_task_create("define thiserror enum for parse failures");
+    let te = generator_hints::maybe_error_catalog_hint_on_task_create(
+        "define thiserror enum for parse failures",
+    );
     assert!(te.is_some(), "thiserror keyword must produce hint");
 }
 
@@ -6628,8 +6711,9 @@ fn changelog_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn changelog_task_create_hint_some_for_release_subject() {
     // R73-S1: "changelog" in subject → Some with ChangelogEntry CLI hint
-    let result =
-        generator_hints::maybe_changelog_hint_on_task_create("write changelog for v2.1.0 release notes");
+    let result = generator_hints::maybe_changelog_hint_on_task_create(
+        "write changelog for v2.1.0 release notes",
+    );
     assert!(result.is_some(), "changelog subject must return Some");
     let hint = result.unwrap();
     assert!(
@@ -6671,7 +6755,8 @@ fn dockerfile_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn dockerfile_task_create_hint_some_for_docker_subject() {
     // R73-S2: "dockerfile" in subject → Some with Dockerfile CLI hint
-    let result = generator_hints::maybe_dockerfile_hint_on_task_create("create dockerfile for api service");
+    let result =
+        generator_hints::maybe_dockerfile_hint_on_task_create("create dockerfile for api service");
     assert!(result.is_some(), "dockerfile subject must return Some");
     let hint = result.unwrap();
     assert!(
@@ -6703,7 +6788,8 @@ fn dockerfile_task_create_hint_integration_task_create() {
 #[test]
 fn migration_task_create_hint_none_for_unrelated_subject() {
     // R73-S3: subject with no DB migration markers → None
-    let result = generator_hints::maybe_migration_hint_on_task_create("add unit tests for wiring module");
+    let result =
+        generator_hints::maybe_migration_hint_on_task_create("add unit tests for wiring module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -6747,7 +6833,8 @@ fn migration_task_create_hint_integration_task_create() {
 #[test]
 fn python_script_task_create_hint_none_for_unrelated_subject() {
     // R74-S1: subject with no python markers → None
-    let result = generator_hints::maybe_python_script_hint_on_task_create("implement REST endpoint in Rust");
+    let result =
+        generator_hints::maybe_python_script_hint_on_task_create("implement REST endpoint in Rust");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -6757,8 +6844,9 @@ fn python_script_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn python_script_task_create_hint_some_for_python_subject() {
     // R74-S1: "python script" in subject → Some with PythonScript CLI hint
-    let result =
-        generator_hints::maybe_python_script_hint_on_task_create("write python script for data ingestion");
+    let result = generator_hints::maybe_python_script_hint_on_task_create(
+        "write python script for data ingestion",
+    );
     assert!(result.is_some(), "python subject must return Some");
     let hint = result.unwrap();
     assert!(hint.contains("python:"), "hint must contain label: {hint}");
@@ -6787,7 +6875,8 @@ fn python_script_task_create_hint_integration_task_create() {
 #[test]
 fn test_hint_task_create_hint_none_for_unrelated_subject() {
     // R74-S2: subject with no testing markers → None
-    let result = generator_hints::maybe_test_hint_on_task_create("implement new feature for wiring module");
+    let result =
+        generator_hints::maybe_test_hint_on_task_create("implement new feature for wiring module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -6797,7 +6886,8 @@ fn test_hint_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn test_hint_task_create_hint_some_for_test_subject() {
     // R74-S2: "unit test" in subject → Some with Test CLI hint
-    let result = generator_hints::maybe_test_hint_on_task_create("add unit test for lifecycle handler");
+    let result =
+        generator_hints::maybe_test_hint_on_task_create("add unit test for lifecycle handler");
     assert!(result.is_some(), "test subject must return Some");
     let hint = result.unwrap();
     assert!(hint.contains("test:"), "hint must contain label: {hint}");
@@ -6826,7 +6916,8 @@ fn test_hint_task_create_hint_integration_task_create() {
 #[test]
 fn shell_completion_task_create_hint_none_for_unrelated_subject() {
     // R74-S3: subject with no completion markers → None
-    let result = generator_hints::maybe_shell_completion_hint_on_task_create("add benchmark for VGP engine");
+    let result =
+        generator_hints::maybe_shell_completion_hint_on_task_create("add benchmark for VGP engine");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -6836,8 +6927,9 @@ fn shell_completion_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn shell_completion_task_create_hint_some_for_completion_subject() {
     // R74-S3: "bash completion" in subject → Some with ShellCompletion CLI hint
-    let result =
-        generator_hints::maybe_shell_completion_hint_on_task_create("add bash completion for touring CLI");
+    let result = generator_hints::maybe_shell_completion_hint_on_task_create(
+        "add bash completion for touring CLI",
+    );
     assert!(
         result.is_some(),
         "shell completion subject must return Some"
@@ -6916,7 +7008,8 @@ fn hook_handler_task_create_hint_integration_task_create() {
 #[test]
 fn plan_md_task_create_hint_none_for_unrelated_subject() {
     // R75-S2: subject with no planning markers → None
-    let result = generator_hints::maybe_plan_md_hint_on_task_create("add bash completion for touring CLI");
+    let result =
+        generator_hints::maybe_plan_md_hint_on_task_create("add bash completion for touring CLI");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -6926,8 +7019,9 @@ fn plan_md_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn plan_md_task_create_hint_some_for_plan_subject() {
     // R75-S2: "implementation plan" in subject → Some with PlanMd CLI hint
-    let result =
-        generator_hints::maybe_plan_md_hint_on_task_create("write implementation plan for new auth module");
+    let result = generator_hints::maybe_plan_md_hint_on_task_create(
+        "write implementation plan for new auth module",
+    );
     assert!(result.is_some(), "plan subject must return Some");
     let hint = result.unwrap();
     assert!(hint.contains("plan-md:"), "hint must contain label: {hint}");
@@ -6956,7 +7050,8 @@ fn plan_md_task_create_hint_integration_task_create() {
 #[test]
 fn ffi_binding_task_create_hint_none_for_unrelated_subject() {
     // R75-S3: subject with no FFI markers → None
-    let result = generator_hints::maybe_ffi_binding_hint_on_task_create("add unit test for wiring module");
+    let result =
+        generator_hints::maybe_ffi_binding_hint_on_task_create("add unit test for wiring module");
     assert!(
         result.is_none(),
         "unrelated subject must return None: {result:?}"
@@ -6966,8 +7061,9 @@ fn ffi_binding_task_create_hint_none_for_unrelated_subject() {
 #[test]
 fn ffi_binding_task_create_hint_some_for_ffi_subject() {
     // R75-S3: "ffi binding" in subject → Some with FfiBinding CLI hint
-    let result =
-        generator_hints::maybe_ffi_binding_hint_on_task_create("create ffi binding for libssl c interop");
+    let result = generator_hints::maybe_ffi_binding_hint_on_task_create(
+        "create ffi binding for libssl c interop",
+    );
     assert!(result.is_some(), "ffi subject must return Some");
     let hint = result.unwrap();
     assert!(

@@ -117,8 +117,15 @@ fn is_exit_code_block(payload: &Value, ran: &Ran) -> bool {
     {
         return false;
     }
-    assert!(ran.stdout.trim().is_empty(), "{event}: exit 2 with stdout: {}", ran.stdout);
-    assert!(!ran.stderr.trim().is_empty(), "{event}: exit 2 without a reason");
+    assert!(
+        ran.stdout.trim().is_empty(),
+        "{event}: exit 2 with stdout: {}",
+        ran.stdout
+    );
+    assert!(
+        !ran.stderr.trim().is_empty(),
+        "{event}: exit 2 without a reason"
+    );
     assert!(
         !ran.stderr.contains("hookSpecificOutput"),
         "{event}: the reason must reach the agent alone, not after funnel diagnostics: {}",

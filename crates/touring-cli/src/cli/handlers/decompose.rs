@@ -898,11 +898,11 @@ fn short_subtask_id(id: &str) -> String {
 // filhos também.
 #[path = "decompose/lifecycle.rs"]
 mod lifecycle;
-#[path = "decompose/wayfinder.rs"]
-mod wayfinder;
 #[cfg(test)]
 #[path = "decompose/ready_scope_tests.rs"]
 mod ready_scope_tests;
+#[path = "decompose/wayfinder.rs"]
+mod wayfinder;
 
 // Re-exportados na raiz: o `mod tests` abaixo (e todo chamador externo)
 // seguem vendo os handlers pelo mesmo caminho de antes da divisão.

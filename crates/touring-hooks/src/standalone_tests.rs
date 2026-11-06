@@ -139,10 +139,7 @@ fn a_hook_added_to_the_table_is_served_standalone_without_an_edit_here() {
     // The explicit sets win over the table, which is what the previous tests keep honest.
     // (OVERRIDES is empty since the 04/11/2026 convergence; the rule still holds for any entry.)
     for entry in OVERRIDES {
-        assert!(matches!(
-            route_with(entry.name, true),
-            Route::Override(_)
-        ));
+        assert!(matches!(route_with(entry.name, true), Route::Override(_)));
     }
     let standalone_only = STANDALONE_ONLY[0].name;
     assert!(matches!(
@@ -186,7 +183,11 @@ fn table_answers_are_classified_by_what_may_leave() {
     use touring_hook_runtime::hook_response::HookResponse;
 
     for silent in ["", "   ", "{}", " {} \n"] {
-        assert_eq!(classify_table_answer(silent), TableAnswer::Silent, "{silent:?}");
+        assert_eq!(
+            classify_table_answer(silent),
+            TableAnswer::Silent,
+            "{silent:?}"
+        );
     }
     // What `run_returning(..).to_json()` produces conforms — these are the answers of the 16
     // names served from the table.

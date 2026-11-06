@@ -43,7 +43,10 @@ fn the_kill_switch_silences_every_row_of_the_table() {
             speaking.push(format!("{} step {i}: {head}", s.name));
         }
     }
-    assert!(replayed > 100, "the table shrank: only {replayed} rows replayed");
+    assert!(
+        replayed > 100,
+        "the table shrank: only {replayed} rows replayed"
+    );
     assert!(
         speaking.is_empty(),
         "the kill switch is on and a gate still spoke: {speaking:#?}"

@@ -10,7 +10,9 @@ const CANARY: &str = "CANARIO-NAO-VAZAR";
 
 fn tracker(lines: &[String]) -> SurfaceTracker {
     let mut t = SurfaceTracker::default();
-    read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
+    read_lines(lines.iter().map(String::as_str), &mut |event| {
+        t.observe(event)
+    });
     t
 }
 
@@ -27,7 +29,10 @@ fn typed(name: &str) -> String {
 fn announce_all() -> Vec<String> {
     vec![
         skill_listing(&["a", "b", "plug:c"], "- a: x\n- b: y\n- plug:c: z"),
-        agent_listing(&["explorer", "planner"], &["- explorer: reads", "- planner: plans"]),
+        agent_listing(
+            &["explorer", "planner"],
+            &["- explorer: reads", "- planner: plans"],
+        ),
         deferred_tools(&["T1", "T2"]),
     ]
 }
@@ -38,15 +43,30 @@ fn announce_all() -> Vec<String> {
 fn announced_and_used_are_counted_per_skill_agent_and_tool() {
     let mut lines = announce_all();
     lines.extend([
-        assistant("m1", "claude-opus-5-5", [1, 0, 0, 1], tool_use("Skill", json!({"skill": "a"}))),
+        assistant(
+            "m1",
+            "claude-opus-5-5",
+            [1, 0, 0, 1],
+            tool_use("Skill", json!({"skill": "a"})),
+        ),
         assistant(
             "m2",
             "claude-opus-5-5",
             [1, 0, 0, 1],
             tool_use("Agent", json!({"subagent_type": "explorer"})),
         ),
-        assistant("m3", "claude-opus-5-5", [1, 0, 0, 1], tool_use("T1", json!({}))),
-        assistant("m4", "claude-opus-5-5", [1, 0, 0, 1], tool_use("Bash", json!({}))),
+        assistant(
+            "m3",
+            "claude-opus-5-5",
+            [1, 0, 0, 1],
+            tool_use("T1", json!({})),
+        ),
+        assistant(
+            "m4",
+            "claude-opus-5-5",
+            [1, 0, 0, 1],
+            tool_use("Bash", json!({})),
+        ),
         typed("plug:c"),
         typed("effort"),
     ]);
@@ -55,18 +75,38 @@ fn announced_and_used_are_counted_per_skill_agent_and_tool() {
     assert_eq!(s["announced"], 3);
     assert_eq!(s["used"], 2, "a by the model, plug:c by the person");
     assert_eq!(s["unused"], 1);
-    assert_eq!(s["used_not_announced"], 1, "`effort` is a built-in command, never listed");
+    assert_eq!(
+        s["used_not_announced"], 1,
+        "`effort` is a built-in command, never listed"
+    );
     assert_eq!(s["uses"]["tool"], 1);
     assert_eq!(s["uses"]["typed"], 2);
     assert_eq!(s["top_unused"][0]["name"], "b");
 
     let a = &r["agents"];
-    assert_eq!((a["announced"].as_u64(), a["used"].as_u64(), a["unused"].as_u64()), (Some(2), Some(1), Some(1)));
+    assert_eq!(
+        (
+            a["announced"].as_u64(),
+            a["used"].as_u64(),
+            a["unused"].as_u64()
+        ),
+        (Some(2), Some(1), Some(1))
+    );
     assert_eq!(a["top_unused"][0]["name"], "planner");
 
     let t = &r["tools"];
-    assert_eq!((t["announced"].as_u64(), t["used"].as_u64(), t["unused"].as_u64()), (Some(2), Some(1), Some(1)));
-    assert_eq!(t["used_not_announced"], 3, "Skill, Agent and Bash are always loaded");
+    assert_eq!(
+        (
+            t["announced"].as_u64(),
+            t["used"].as_u64(),
+            t["unused"].as_u64()
+        ),
+        (Some(2), Some(1), Some(1))
+    );
+    assert_eq!(
+        t["used_not_announced"], 3,
+        "Skill, Agent and Bash are always loaded"
+    );
 }
 
 /// An `Agent` call with no `subagent_type` runs the general-purpose agent.
@@ -74,7 +114,12 @@ fn announced_and_used_are_counted_per_skill_agent_and_tool() {
 fn agent_without_subagent_type_counts_as_general_purpose() {
     let r = report(&[
         agent_listing(&["general-purpose"], &["- general-purpose: any task"]),
-        assistant("m1", "claude-opus-5-5", [1, 0, 0, 1], tool_use("Agent", json!({}))),
+        assistant(
+            "m1",
+            "claude-opus-5-5",
+            [1, 0, 0, 1],
+            tool_use("Agent", json!({})),
+        ),
     ]);
     assert_eq!(r["agents"]["used"], 1);
     assert_eq!(r["agents"]["unused"], 0);
@@ -95,7 +140,10 @@ fn unused_items_are_ranked_by_announcement_bytes() {
     assert_eq!(names, ["big", "mid", "small"]);
     let first = &r["skills"]["top_unused"][0];
     assert_eq!(first["announce_bytes"], big.len() as u64 + 1);
-    assert_eq!(first["announce_tokens_est"], (big.len() as u64 + 1) as f64 * 0.25);
+    assert_eq!(
+        first["announce_tokens_est"],
+        (big.len() as u64 + 1) as f64 * 0.25
+    );
     assert_eq!(r["skills"]["unused_share"], 1.0);
 }
 
@@ -124,7 +172,12 @@ fn an_item_used_in_one_session_is_used_for_the_project() {
     let s1 = tracker(&[ann.clone()]);
     let s2 = tracker(&[
         ann,
-        assistant("m1", "claude-opus-5-5", [1, 0, 0, 1], tool_use("Skill", json!({"skill": "b"}))),
+        assistant(
+            "m1",
+            "claude-opus-5-5",
+            [1, 0, 0, 1],
+            tool_use("Skill", json!({"skill": "b"})),
+        ),
     ]);
     let r = surface_report(&[&s1, &s2]);
     assert_eq!(r["skills"]["used"], 1);
@@ -151,7 +204,10 @@ fn invoked_skills_attachment_marks_used_without_counting_a_use() {
 /// are reported as bytes only.
 #[test]
 fn mcp_instructions_are_reported_as_bytes() {
-    let r = report(&[mcp_instructions(&["touring", "other"], &["## touring\nabc", "## other\nde"])]);
+    let r = report(&[mcp_instructions(
+        &["touring", "other"],
+        &["## touring\nabc", "## other\nde"],
+    )]);
     let bytes = ("## touring\nabc".len() + "## other\nde".len()) as u64;
     assert_eq!(r["mcp_instructions"]["servers"], 2);
     assert_eq!(r["mcp_instructions"]["bytes"], bytes);
@@ -164,7 +220,12 @@ fn report_never_contains_transcript_text() {
     let r = report(&[
         skill_listing(&["a"], &format!("- a: {CANARY}")),
         user_text(&format!("{CANARY} prompt")),
-        assistant("m1", "claude-opus-5-5", [1, 0, 0, 1], tool_use("Bash", json!({"command": CANARY}))),
+        assistant(
+            "m1",
+            "claude-opus-5-5",
+            [1, 0, 0, 1],
+            tool_use("Bash", json!({"command": CANARY})),
+        ),
     ]);
     assert!(!r.to_string().contains(CANARY), "{r}");
 }
@@ -180,7 +241,10 @@ fn sidechain_records_are_skipped() {
     .expect("json");
     side["isSidechain"] = json!(true);
     let r = report(&[skill_listing(&["a"], "- a: x"), side.to_string()]);
-    assert_eq!(r["skills"]["used"], 0, "a subagent's use is not the main session's");
+    assert_eq!(
+        r["skills"]["used"], 0,
+        "a subagent's use is not the main session's"
+    );
 }
 
 /// A session with no announcement is shown as zero announced, never as a missing report.

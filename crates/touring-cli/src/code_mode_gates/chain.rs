@@ -51,12 +51,15 @@ pub(super) fn write_run_pair_gate_with(
     // exatamente como a do exec-burst; a pergunta é do executor (D8), como lá.
     let rota = g10_script_route(project_root, lang, &path);
     if !rota.runs() {
-        return Some(Verdict::deny(Gate::G10, format!(
-            "[G10 write→run] {n}º script escrito-e-executado na janela de \
+        return Some(Verdict::deny(
+            Gate::G10,
+            format!(
+                "[G10 write→run] {n}º script escrito-e-executado na janela de \
              {WRITE_RUN_WINDOW_SECS}s (`{path}`).{} {}",
-            rota.explanation(project_root),
-            bypass_next_step(cmd)
-        )));
+                rota.explanation(project_root),
+                bypass_next_step(cmd)
+            ),
+        ));
     }
     let comando = format!(
         "{}touring run {}--lang {lang} --file {path} --timeout-ms 60000",
@@ -64,8 +67,10 @@ pub(super) fn write_run_pair_gate_with(
         rota.run_flags()
     );
     let porque = rota.explanation(project_root);
-    Some(Verdict::deny(Gate::G10, format!(
-        "[G10 write→run] {n}º script escrito-e-executado na janela de \
+    Some(Verdict::deny(
+        Gate::G10,
+        format!(
+            "[G10 write→run] {n}º script escrito-e-executado na janela de \
          {WRITE_RUN_WINDOW_SECS}s (`{path}`) — o loop execute-observe manual \
          paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO \
          arquivo {onde} sem reescrever nada:{porque}\n  \
@@ -73,14 +78,14 @@ pub(super) fn write_run_pair_gate_with(
          O sandbox devolve só o que o script imprime (digest no contexto, \
          íntegra no spill), e um `touring run` zera a janela. Bypass \
          por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
-        onde = if matches!(rota, g10_route::Route::Sandboxed) {
-            "no sandbox"
-        } else {
-            "na rota que o executor aceita"
-        }
-    )))
+            onde = if matches!(rota, g10_route::Route::Sandboxed) {
+                "no sandbox"
+            } else {
+                "na rota que o executor aceita"
+            }
+        ),
+    ))
 }
-
 
 /// A decisão do G11 sobre um bypass que ACABOU de ser cobrado.
 ///
@@ -97,7 +102,6 @@ pub(crate) fn bypass_verdict(budget: BypassBudget) -> Option<&'static str> {
     None
 }
 
-
 /// Cobra um bypass e devolve as contas já atualizadas.
 pub(super) fn charge_bypass(st: &GateState, project_root: &Path, actor: &str) -> BypassBudget {
     let key = bypass_key(project_root, actor);
@@ -110,12 +114,11 @@ pub(super) fn charge_bypass(st: &GateState, project_root: &Path, actor: &str) ->
     next
 }
 
-
 /// A rota sancionada foi usada: o crédito volta inteiro.
 pub(super) fn credit_sanctioned_route(st: &GateState, project_root: &Path, actor: &str) {
-    st.bypass_ledger.invalidate(&bypass_key(project_root, actor));
+    st.bypass_ledger
+        .invalidate(&bypass_key(project_root, actor));
 }
-
 
 /// Um comando que não é bypass quebra a sequência ESTRITA, e só ela.
 ///
@@ -137,13 +140,17 @@ pub(super) fn break_strict_run(st: &GateState, project_root: &Path, actor: &str)
     }
 }
 
-
 /// Carimba esta leitura e, se o arquivo MUDOU desde a leitura que o ledger lembra, zera a
 /// contagem do G7: reler um arquivo alterado por fora da ferramenta Edit (python, linter, outra
 /// sessão) não é re-inspeção — é o refresh que o harness exige antes do próximo Edit. Só uma
 /// mudança MEDIDA conta (carimbo anterior e atual existem e diferem); arquivo inalterado ou não
 /// mensurável segue contando, e a 3ª leitura dele continua negada.
-pub(super) fn g7_refresh_if_changed(st: &GateState, project_root: &Path, key: u64, fp: &str) -> Option<FileStamp> {
+pub(super) fn g7_refresh_if_changed(
+    st: &GateState,
+    project_root: &Path,
+    key: u64,
+    fp: &str,
+) -> Option<FileStamp> {
     let stamp = file_stamp(project_root, fp);
     if matches!((stamp, st.g7_stamps.get(&key)), (Some(agora), Some(antes)) if agora != antes) {
         st.g7_seen.invalidate(&key);
@@ -154,14 +161,12 @@ pub(super) fn g7_refresh_if_changed(st: &GateState, project_root: &Path, key: u6
     stamp
 }
 
-
 /// W2 S-2.3 — decide deny vs advisory a partir da precisão VIVA. Pura, para o
 /// teste não depender dos contadores globais de processo.
 pub(super) fn g1_should_deny(precision: Option<(f64, u64)>) -> bool {
     !matches!(precision,
         Some((p, volume)) if volume >= G1_DEMOTE_MIN_EVENTS && p < G1_DEMOTE_FLOOR)
 }
-
 
 /// O corpo, com os overrides injetados (ver `GateConfig`).
 pub(super) fn burst_gate_with(
@@ -194,7 +199,8 @@ pub(super) fn burst_gate_with(
         return None;
     }
     let key = burst_key(project_root, session, class);
-    let epoca_atual = st.mutation_epoch
+    let epoca_atual = st
+        .mutation_epoch
         .get(&project_root.display().to_string())
         .unwrap_or(0);
     let (count, mut cmds, epoca_anterior) =
@@ -208,7 +214,8 @@ pub(super) fn burst_gate_with(
     if cmds.len() < 8 && cmd.chars().count() <= G1_BODY_BUDGET {
         cmds.push(cmd.to_string());
     }
-    st.burst_ledger.insert(key, (count, cmds.clone(), epoca_atual));
+    st.burst_ledger
+        .insert(key, (count, cmds.clone(), epoca_atual));
     // Calibração por SIMILARIDADE: o G1 esperava `G1_DENY_AT` chamadas da mesma
     // classe. Uma variação pequena da chamada anterior já é a mesma inspeção
     // repetida — não é preciso esperar a quarta para saber que a rajada é uma
@@ -301,13 +308,15 @@ pub(super) fn burst_gate_with(
     // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
     // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
     st.pending_g1.insert(session.to_string(), class.to_string());
-    Some(Verdict::deny(Gate::G1, format!(
-        "[G1 rajada-de-inspeção] {motivo}. Rode-o como programa — os já executados da \
+    Some(Verdict::deny(
+        Gate::G1,
+        format!(
+            "[G1 rajada-de-inspeção] {motivo}. Rode-o como programa — os já executados da \
          rajada vêm como comentário e NUNCA são repetidos:\n  {programa}{hint}\nBypass \
          por-comando: prefixe {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
-    )))
+        ),
+    ))
 }
-
 
 /// A cadeia de gates com o veredito MAIS SEVERO (30.4.97, ordem G5/G9): nenhum advisory
 /// curto-circuita a cadeia. Os gates que só avisam depositam o texto em `avisos` e a avaliação
@@ -339,7 +348,8 @@ pub(super) fn run_chain(
         // G5 (telemetria): a rajada de edits cresce; o fim dela é a primeira
         // ação Bash (onde o advisory único pode falar).
         let streak = st.g5_edit_streak.get(session).unwrap_or(0);
-        st.g5_edit_streak.insert(session.to_string(), streak.saturating_add(1));
+        st.g5_edit_streak
+            .insert(session.to_string(), streak.saturating_add(1));
         // W3 S-3.1 — G3: Edit sem Read recente do arquivo, POR SESSÃO.
         // Write fica FORA do gate: criação não tem o que ler e overwrite já
         // exige Read no harness — o G3 negou um Write de criação vivo em
@@ -347,8 +357,10 @@ pub(super) fn run_chain(
         // então o Write REGISTRA o arquivo como lido (Edit seguinte passa).
         if let Some(fp) = tool_input.get("file_path").and_then(Value::as_str) {
             if tool_name == "Write" {
-                st.g3_read_files.insert(g3_read_key(project_root, session, fp), ());
-            } else if st.g3_read_files
+                st.g3_read_files
+                    .insert(g3_read_key(project_root, session, fp), ());
+            } else if st
+                .g3_read_files
                 .get(&g3_read_key(project_root, session, fp))
                 .is_some()
             {
@@ -361,20 +373,16 @@ pub(super) fn run_chain(
                 // um aviso basta.
                 if n >= 2 {
                     record_gate_event(GateId::G3, GateEvent::Denied);
-                    return Some(Verdict::deny(Gate::G3, g3_deny_reason(
-                        project_root,
-                        fp,
-                        n,
-                        tool_input,
-                    )));
+                    return Some(Verdict::deny(
+                        Gate::G3,
+                        g3_deny_reason(project_root, fp, n, tool_input),
+                    ));
                 }
                 record_gate_event(GateId::G3, GateEvent::Emitted);
-                return Some(Verdict::advise(Gate::G3, g3_advisory_text(
-                    project_root,
-                    fp,
-                    n,
-                    tool_input,
-                )));
+                return Some(Verdict::advise(
+                    Gate::G3,
+                    g3_advisory_text(project_root, fp, n, tool_input),
+                ));
             }
         }
         // W6 S-6.3 — contrafactual em comentário adicionado (advisory, NUNCA
@@ -391,7 +399,8 @@ pub(super) fn run_chain(
             if ovr.code_gates_disabled {
                 return None;
             }
-            return Some(Verdict::advise(Gate::E3,
+            return Some(Verdict::advise(
+                Gate::E3,
                 "[E3 contrafactual-sem-endereço] comentário adicionado afirma o que \
                  ACONTECERIA sem citar um run_id — a classe do arm_marker de 24/08 \
                  (afirmação falsa nunca exercitada). Exercite (probe FACT= / touring \
@@ -410,7 +419,8 @@ pub(super) fn run_chain(
         st.g3_read_files.insert(g3k, ());
         st.g3_streak.insert(session.to_string(), 0);
         if arquivo_novo {
-            let distintos = st.m3_distinct_reads
+            let distintos = st
+                .m3_distinct_reads
                 .get(session)
                 .unwrap_or(0)
                 .saturating_add(1);
@@ -418,8 +428,10 @@ pub(super) fn run_chain(
             // Exatamente no limiar (== e não >=): 1 advisory por janela.
             if distintos == M3_DELEGATION_AT && !ovr.code_gates_disabled {
                 crate::shared::gate_metrics::record_m3_delegation_advised();
-                return Some(Verdict::advise(Gate::M3, format!(
-                    "[M3 delegação] {M3_DELEGATION_AT}º arquivo DISTINTO lido nesta janela — \
+                return Some(Verdict::advise(
+                    Gate::M3,
+                    format!(
+                        "[M3 delegação] {M3_DELEGATION_AT}º arquivo DISTINTO lido nesta janela — \
                      exploração desta largura paga o isolamento de contexto: delegue a 1-3 \
                      subagentes read-only (Explore/general-purpose), cada um com objetivo + \
                      formato de saída + fronteiras, e receba só as conclusões (50 arquivos \
@@ -427,7 +439,8 @@ pub(super) fn run_chain(
                      serial no contexto principal — decisões paralelas conflitam. Cadeia \
                      dependente (passo 2 precisa do output integral do passo 1) também fica \
                      no contexto único. Advisory único por sessão/1h."
-                )));
+                    ),
+                ));
             }
         }
         // G4 (telemetria, nunca deny): leitura sem localizar antes.
@@ -448,20 +461,26 @@ pub(super) fn run_chain(
                 record_gate_event(GateId::G7, GateEvent::Denied);
                 let rota = r1_route_for(fp, ovr.r1_skeleton().as_deref());
                 let edicao = g7_edit_route_note(fp, stamp.is_some());
-                return Some(Verdict::deny(Gate::G7, format!(
-                    "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
+                return Some(Verdict::deny(
+                    Gate::G7,
+                    format!(
+                        "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
                      mais direto de programa-faltando (campeões medidos: adw.py 39×, \
                      cli_suggester.rs 32×). Varra de uma vez (R1): {rota}.{edicao} \
                      Um `touring run` citando {fp} reseta o gate."
-                )));
+                    ),
+                ));
             }
             if n == 2 {
                 record_gate_event(GateId::G7, GateEvent::Emitted);
                 let rota = r1_route_for(fp, ovr.r1_skeleton().as_deref());
-                return Some(Verdict::advise(Gate::G7, format!(
-                    "[G7 re-inspeção] 2ª leitura de {fp} na janela — programa-faltando? \
+                return Some(Verdict::advise(
+                    Gate::G7,
+                    format!(
+                        "[G7 re-inspeção] 2ª leitura de {fp} na janela — programa-faltando? \
                      R1 instanciado: {rota} (a 3ª leitura nega)."
-                )));
+                    ),
+                ));
             }
         }
         return None;
@@ -503,11 +522,14 @@ pub(super) fn run_chain(
         if g5_unvalidated && !ovr.code_gates_disabled {
             // Advisory: NÃO curto-circuita a cadeia (30.4.97) — um deny aplicável adiante
             // (G9 `sed -i` cego, G2, G6…) vence e leva este texto junto.
-            avisos.push(Advisory::new(Gate::G5, format!(
-                "[G5 telemetria] rajada de {g5} edits terminou sem build/teste — P9 \
+            avisos.push(Advisory::new(
+                Gate::G5,
+                format!(
+                    "[G5 telemetria] rajada de {g5} edits terminou sem build/teste — P9 \
                  medido em 17%. Valide agora (cargo check/test no crate tocado); a \
                  regressão silenciosa nasce aqui."
-            )));
+                ),
+            ));
         }
     }
     // followed (S-1.4): houve deny de G2 nesta sessão e o comando agora traz
@@ -532,14 +554,17 @@ pub(super) fn run_chain(
             && let Some(rule) = bypass_verdict(budget)
         {
             record_gate_event(GateId::G1, GateEvent::Emitted);
-            return Some(Verdict::deny(Gate::G11, format!(
-                "[G11 orçamento de bypass] {rule}: {} seguido(s), {} desde a última rota, janela {}s. \
+            return Some(Verdict::deny(
+                Gate::G11,
+                format!(
+                    "[G11 orçamento de bypass] {rule}: {} seguido(s), {} desde a última rota, janela {}s. \
                  O token é por-comando, não uma rota. Use a rota sancionada — funda a \
                  família numa varredura única: `touring run --lang bash --file <script>` \
                  — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é \
                  humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).",
-                budget.strict_run, budget.since_route, G11_WINDOW_SECS
-            )));
+                    budget.strict_run, budget.since_route, G11_WINDOW_SECS
+                ),
+            ));
         }
         if exit_code_through_pipe(cmd) {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
@@ -581,7 +606,8 @@ pub(super) fn run_chain(
                 gate: Gate::G2,
                 reason: "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe \
                              leria o status do último estágio; `set -o pipefail; ` \
-                             prefixado (spike S-8.6: updatedInput honrado).".to_string(),
+                             prefixado (spike S-8.6: updatedInput honrado)."
+                    .to_string(),
                 context: None,
                 updated_input: rewritten_input(tool_input, format!("set -o pipefail; {cmd}")),
             });
@@ -593,13 +619,16 @@ pub(super) fn run_chain(
         } else {
             "set -o pipefail; <o mesmo comando, verbatim>".to_string()
         };
-        return Some(Verdict::deny(Gate::G2, format!(
-            "[G2 exit-code-through-pipe] `$?` depois de um pipe lê o status do ÚLTIMO \
+        return Some(Verdict::deny(
+            Gate::G2,
+            format!(
+                "[G2 exit-code-through-pipe] `$?` depois de um pipe lê o status do ÚLTIMO \
              estágio (tail/jq), não do programa medido — 68 casos na simulação de 55 \
              sessões; 3 cometidos pela própria sessão que desenhou este gate. \
              Reexecute exatamente:\n  {remedy}\nOu remova o pipe e leia o exit \
              direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
-        )));
+            ),
+        ));
     }
     // G9 (N3a, 2026-08-26) — escrita cega inline negada com a rota derivada:
     // o advisory Pattern 5 falava e o comando executava igual (advisory ≠
@@ -619,8 +648,10 @@ pub(super) fn run_chain(
         } else {
             "<o mesmo comando, verbatim>".to_string()
         };
-        return Some(Verdict::deny(Gate::G9, format!(
-            "[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às \
+        return Some(Verdict::deny(
+            Gate::G9,
+            format!(
+                "[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às \
              cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot \
              atômico, gotcha). Rotas:\n  \
              1 arquivo:   Edit tool em `{target}` (old_string → new_string, gates completos)\n  \
@@ -628,7 +659,8 @@ pub(super) fn run_chain(
              estrutural (N arquivos): touring ast grep {target} '<pattern>' --rewrite '<replacement>' \
              (ast-grep — metavars $VAR, NÃO regex de sed)\n  \
              Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
-        )));
+            ),
+        ));
     }
     // G8 — laço de INSPEÇÃO reescrito para o sandbox (2026-08-25).
     //
@@ -658,7 +690,8 @@ pub(super) fn run_chain(
                 gate: Gate::G8,
                 reason: "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; \
                              uma varredura no sandbox devolve só o agregado (Anthropic \
-                             CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.".to_string(),
+                             CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1."
+                    .to_string(),
                 context: None,
                 updated_input: rewritten_input(tool_input, rewritten),
             });
@@ -670,7 +703,8 @@ pub(super) fn run_chain(
     // sancionada e a execução avulsa não acumulava) — o G-turno só falou no
     // Stop, com o custo já pago. Aqui o colapso acontece DURANTE o turno.
     if let Some(path) = script_write_target(cmd) {
-        st.written_scripts_ledger.insert(write_run_key(project_root, session, &path), ());
+        st.written_scripts_ledger
+            .insert(write_run_key(project_root, session, &path), ());
     }
     if let Some(deny) = write_run_pair_gate_with(st, project_root, session, cmd, ovr) {
         return Some(deny);
@@ -708,13 +742,10 @@ pub(super) fn run_chain(
             // executor (D8) — o deny que nomeia um comando que o X6 recusa ensina a falhar.
             let rota = g10_inline_route(project_root, class, cmd);
             if !rota.runs() {
-                return Some(Verdict::deny(Gate::G10, g10_unrunnable_deny(
-                    n,
-                    class,
-                    &rota,
-                    project_root,
-                    cmd,
-                )));
+                return Some(Verdict::deny(
+                    Gate::G10,
+                    g10_unrunnable_deny(n, class, &rota, project_root, cmd),
+                ));
             }
             // python-inline tem remédio 1:1 (o corpo do PRÓPRIO comando); as
             // demais classes fundem a rajada acumulada via R9.
@@ -742,23 +773,27 @@ pub(super) fn run_chain(
             // N6 — e a escada entrega o bloco parecido, quando existe.
             let hint = snippet_hint_for_program(&programa, project_root);
             let lead = g10_lead(&rota, project_root);
-            return Some(Verdict::deny(Gate::G10, format!(
-                "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
+            return Some(Verdict::deny(
+                Gate::G10,
+                format!(
+                    "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
                  na janela de {}s){lead}\n  \
                  {programa}\nSó o comando negado roda; os já executados da rajada vêm como \
                  comentário e NUNCA são repetidos (denies subprocess-only são advisory em \
                  `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra \
                  no spill. Os próximos comandos do lote entram no MESMO programa.{prior}{hint} \
                  Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
-                EXEC_BURST_WINDOW_SECS
-            )));
+                    EXEC_BURST_WINDOW_SECS
+                ),
+            ));
         }
     } else if cmd.contains("touring run") || cmd.contains("touring exec") {
         if st.pending_g10.remove(session).is_some() {
             record_gate_event(GateId::G10, GateEvent::Followed);
         }
         for class in ["python", "pytest", "python-inline"] {
-            st.exec_burst_ledger.invalidate(&exec_burst_key(project_root, session, class));
+            st.exec_burst_ledger
+                .invalidate(&exec_burst_key(project_root, session, class));
         }
         // S5 — a rota seguida zera o par write→run junto (mesma razão do S3
         // abaixo: sem isto o próximo script legítimo herdaria uma contagem de
@@ -773,11 +808,13 @@ pub(super) fn run_chain(
         // programa, e o próximo `grep` legítimo levaria um deny herdado de uma
         // rajada que não existe mais.
         for class in CODE_MODE_COLLAPSED_CLASSES {
-            st.inspect_burst_ledger.invalidate(&inspect_burst_key(project_root, session, class));
+            st.inspect_burst_ledger
+                .invalidate(&inspect_burst_key(project_root, session, class));
             // G1 — o contrato da sessão ("um `touring run` na janela zera a contagem")
             // valia só para o S3: medido 09/10, uma rajada de 18:49 ainda era refundida
             // às 18:55 depois de um `touring run`.
-            st.burst_ledger.invalidate(&burst_key(project_root, session, class));
+            st.burst_ledger
+                .invalidate(&burst_key(project_root, session, class));
         }
         st.inspect_burst_ledger.invalidate(&inspect_burst_key(
             project_root,
@@ -870,12 +907,15 @@ pub(super) fn run_chain(
             // Advisory: segue a cadeia até o G6 (30.4.97) — a repetição byte-idêntica que o G6
             // nega vence o aviso. O G1 NÃO volta a decidir esta chamada (`s3_avisou`): na
             // 2ª inspeção a rajada só AVISA, por ordem do Gabriel (09/10/2026, D).
-            avisos.push(Advisory::new(Gate::S3, format!(
-                "[CODE MODE · rajada] aviso — {n}ª inspeção `{class}` em {}s, executada \
+            avisos.push(Advisory::new(
+                Gate::S3,
+                format!(
+                    "[CODE MODE · rajada] aviso — {n}ª inspeção `{class}` em {}s, executada \
                  nativa. Se a próxima também for inspeção, rode o lote de uma vez:\n  \
                  touring run --lang {lang} --code '{programa}'\n{nota_omissao}{hint}",
-                INSPECT_BURST_WINDOW_SECS
-            )));
+                    INSPECT_BURST_WINDOW_SECS
+                ),
+            ));
             s3_avisou = true;
         }
     }
@@ -950,4 +990,3 @@ pub(super) fn run_chain(
 // F7. Per the roadmap thesis (affordance, not persuasion), if uptake stays low
 // while armed, that telemetry is the evidence that pushes toward affordance
 // (productization) — the experiment, not just the nudge. Gabriel arms it post-A/B.
-

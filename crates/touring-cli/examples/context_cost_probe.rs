@@ -70,9 +70,7 @@ fn candidates(dir: &Path) -> Vec<PathBuf> {
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|x| x == "jsonl"))
         .filter(|p| std::fs::metadata(p).is_ok_and(|m| m.len() >= MIN_SESSION_BYTES))
-        .filter(|p| {
-            std::fs::read_to_string(p).is_ok_and(|s| s.contains("\"model\":\"claude-"))
-        })
+        .filter(|p| std::fs::read_to_string(p).is_ok_and(|s| s.contains("\"model\":\"claude-")))
         .collect()
 }
 

@@ -445,8 +445,13 @@ mod tests {
             "Read",
             r#"please read /home/u/.claude/rust/Cargo.toml"#,
         );
-        assert!(decl.reads.iter().any(|p| matches!(p, AccessPath::Path(s) if s == "/home/u/.claude/rust/Cargo.toml")),
-            "absolute path must be captured; got {:?}", decl.reads);
+        assert!(
+            decl.reads.iter().any(
+                |p| matches!(p, AccessPath::Path(s) if s == "/home/u/.claude/rust/Cargo.toml")
+            ),
+            "absolute path must be captured; got {:?}",
+            decl.reads
+        );
     }
 
     #[test]

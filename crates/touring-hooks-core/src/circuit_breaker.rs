@@ -81,7 +81,6 @@ fn state_path_in(override_path: Option<&std::ffi::OsStr>, uid: u32) -> PathBuf {
     }
 }
 
-
 // ── Operation Class ────────────────────────────────────────────────────────────
 
 /// Operation class — determines threshold and cooldown based on cost.
@@ -821,7 +820,10 @@ mod tests {
         let default = PathBuf::from("/tmp/touring-circuit-7.state");
         assert_eq!(super::state_path_in(None, 7), default);
         assert_eq!(super::state_path_in(Some(OsStr::new("")), 7), default);
-        assert_eq!(super::state_path_in(Some(OsStr::new("rel/c.state")), 7), default);
+        assert_eq!(
+            super::state_path_in(Some(OsStr::new("rel/c.state")), 7),
+            default
+        );
         assert_eq!(
             super::state_path_in(Some(OsStr::new("/w/c.state")), 7),
             PathBuf::from("/w/c.state")

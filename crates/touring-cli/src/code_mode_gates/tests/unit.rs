@@ -406,8 +406,8 @@ fn s6_prior_art_instanciado_quando_o_portfolio_tem_programa_proximo() {
     // testes paralelos (a race medida em 08/10 — ver GateOverrides).
     use crate::code_mode_gates::portfolio_remedy_for_burst_on;
     let dir = monta_portfolio_scratch();
-    let index = touring_foundation::portfolio::store::load_from(&dir)
-        .expect("índice do scratch carrega");
+    let index =
+        touring_foundation::portfolio::store::load_from(&dir).expect("índice do scratch carrega");
     let cmds = (1..=3)
         .map(|i| format!("pytest tests/test_{i}.py -x"))
         .collect::<Vec<_>>();

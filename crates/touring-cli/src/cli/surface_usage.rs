@@ -219,7 +219,11 @@ fn top_unused(items: &BTreeMap<String, ItemAgg>) -> Vec<Value> {
         .iter()
         .filter(|(_, i)| i.sessions_announced > 0 && !i.is_used())
         .collect();
-    unused.sort_by(|a, b| b.1.announce_bytes.cmp(&a.1.announce_bytes).then(a.0.cmp(b.0)));
+    unused.sort_by(|a, b| {
+        b.1.announce_bytes
+            .cmp(&a.1.announce_bytes)
+            .then(a.0.cmp(b.0))
+    });
     unused
         .into_iter()
         .take(TOP_UNUSED)
@@ -248,7 +252,10 @@ fn top_used(items: &BTreeMap<String, ItemAgg>) -> Vec<Value> {
 
 /// The report of one surface across `sessions` sessions.
 fn kind_report(items: &BTreeMap<String, ItemAgg>, sessions: usize) -> Value {
-    let announced: Vec<&ItemAgg> = items.values().filter(|i| i.sessions_announced > 0).collect();
+    let announced: Vec<&ItemAgg> = items
+        .values()
+        .filter(|i| i.sessions_announced > 0)
+        .collect();
     let (used, unused): (Vec<&ItemAgg>, Vec<&ItemAgg>) =
         announced.iter().copied().partition(|i| i.is_used());
     let not_announced = items

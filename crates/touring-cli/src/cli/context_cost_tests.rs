@@ -11,7 +11,9 @@ const CANARY: &str = "CANARIO-NAO-VAZAR";
 
 fn summary(lines: &[String]) -> CostSummary {
     let mut t = CostTracker::default();
-    let read = read_lines(lines.iter().map(String::as_str), &mut |event| t.observe(event));
+    let read = read_lines(lines.iter().map(String::as_str), &mut |event| {
+        t.observe(event)
+    });
     t.finish(read.sidechain_dropped)
 }
 
@@ -41,7 +43,10 @@ fn tokens_are_deduped_by_message_id_and_split_by_kind() {
     assert_eq!(p["tokens"]["cache_creation"], 100);
     assert_eq!(p["tokens"]["cache_read"], 3000);
     assert_eq!(p["tokens"]["output"], 70);
-    assert_eq!(p["tokens"]["input_total"], 3115, "input + cache write + cache read");
+    assert_eq!(
+        p["tokens"]["input_total"], 3115,
+        "input + cache write + cache read"
+    );
 }
 
 /// The window is cumulative: a block that entered at call 1 is re-sent at call 2. Each
@@ -66,7 +71,10 @@ fn window_bytes_are_attributed_to_hooks_announcements_tool_results_and_the_rest(
         num(&a["announcement"]["by_kind"]["skill_listing"]["tokens"]),
         two(listing.len())
     ));
-    assert!(close(num(&a["injected_hooks"]["tokens"]), two(hook_text.len())));
+    assert!(close(
+        num(&a["injected_hooks"]["tokens"]),
+        two(hook_text.len())
+    ));
     assert!(close(
         num(&a["injected_hooks"]["by_family"]["touring-suggest"]["tokens"]),
         two(hook_text.len())
@@ -74,7 +82,10 @@ fn window_bytes_are_attributed_to_hooks_announcements_tool_results_and_the_rest(
     assert!(close(num(&a["rest"]["parts"]["user_text"]), two(5)));
     // the tool result (40 B) and the first answer (4 B) enter only before call 2
     assert!(close(num(&a["tool_results"]["tokens"]), 40.0 * 0.25));
-    assert!(close(num(&a["rest"]["parts"]["assistant_output"]), 4.0 * 0.25));
+    assert!(close(
+        num(&a["rest"]["parts"]["assistant_output"]),
+        4.0 * 0.25
+    ));
     assert_eq!(p["reconciliation"]["measured_input_tokens"], 3000);
 }
 
@@ -90,7 +101,10 @@ fn compaction_resets_the_window() {
         assistant("m3", OPUS, [100, 0, 0, 1], text("")),
     ]);
     // 2 calls × 8 B × 0.25  +  1 call × 4 B × 0.25
-    assert!(close(num(&p["attribution"]["rest"]["parts"]["user_text"]), 5.0));
+    assert!(close(
+        num(&p["attribution"]["rest"]["parts"]["user_text"]),
+        5.0
+    ));
     assert_eq!(p["compactions"], 1);
 }
 
@@ -117,7 +131,10 @@ fn unseen_prefix_is_the_residual_and_overshoot_is_the_reconciliation_error() {
     assert_eq!(over["reconciliation"]["unseen_tokens"], 0.0);
     assert!(close(num(&over["reconciliation_error"]), 40.0 / 60.0));
     assert_eq!(over["reconciliation"]["within_tolerance"], false);
-    assert!(close(num(&over["reconciliation"]["attributed_tokens"]), 100.0));
+    assert!(close(
+        num(&over["reconciliation"]["attributed_tokens"]),
+        100.0
+    ));
 }
 
 /// Dollars come from a price table keyed by model id. The cache write is billed at the 5 min
@@ -164,7 +181,10 @@ fn fast_mode_is_unpriced_not_guessed() {
     rec["message"]["usage"]["speed"] = json!("fast");
     let p = payload(&[rec.to_string()]);
     assert!(p["cost"]["usd"].is_null());
-    assert_eq!(p["cost"]["unpriced_models"], json!([format!("{OPUS}@fast")]));
+    assert_eq!(
+        p["cost"]["unpriced_models"],
+        json!([format!("{OPUS}@fast")])
+    );
 }
 
 /// Subagent records and the synthetic zero-usage record are not main-window calls.
@@ -208,11 +228,17 @@ fn cost_state_is_read_and_compared_by_model() {
     assert_eq!(cs["total_cost_usd"], 10.0);
     // the all-model ratio is the coverage that survives a model-label mismatch between the two
     assert_eq!(cs["input_total_tokens"], 2_000_005);
-    assert!(close(num(&cs["input_total_ratio"]), 1_000_000.0 / 2_000_005.0), "{cs}");
+    assert!(
+        close(num(&cs["input_total_ratio"]), 1_000_000.0 / 2_000_005.0),
+        "{cs}"
+    );
     let opus = &cs["by_model"][OPUS];
     assert!(close(num(&opus["input_total_ratio"]), 0.5), "{opus}");
     assert!(close(num(&opus["usd_ratio"]), 0.5), "{opus}");
-    assert!(cs["by_model"]["haiku"]["input_total_ratio"].is_null(), "not in this transcript");
+    assert!(
+        cs["by_model"]["haiku"]["input_total_ratio"].is_null(),
+        "not in this transcript"
+    );
 }
 
 #[test]
@@ -230,7 +256,12 @@ fn payload_never_contains_transcript_text() {
         user_text(&format!("{CANARY} user")),
         assistant("m1", OPUS, [100, 0, 0, 1], text(CANARY)),
         user_result(&format!("{CANARY} result")),
-        assistant("m2", OPUS, [200, 0, 0, 1], tool_use("Bash", json!({"command": CANARY}))),
+        assistant(
+            "m2",
+            OPUS,
+            [200, 0, 0, 1],
+            tool_use("Bash", json!({"command": CANARY})),
+        ),
     ]);
     assert!(!p.to_string().contains(CANARY), "{p}");
 }
@@ -268,7 +299,11 @@ fn absent_transcript_directory_is_displayed_not_zero() {
         context_cost_and_surface_in(home.path(), Path::new("/home/x/none"), &KPI_CAPS);
     assert_eq!(cost["available"], false);
     assert_eq!(surface["available"], false);
-    assert!(cost["reason"].as_str().is_some_and(|r| r.contains("no transcript directory")));
+    assert!(
+        cost["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("no transcript directory"))
+    );
 }
 
 /// A price entry never exists half-filled: the table is the single place a model becomes
@@ -278,7 +313,13 @@ fn every_price_row_is_complete_and_keyed_by_a_unique_model() {
     let mut seen = BTreeSet::new();
     for p in PRICES {
         assert!(seen.insert(p.model), "duplicate {}", p.model);
-        for rate in [p.input, p.output, p.cache_read, p.cache_write_5m, p.cache_write_1h] {
+        for rate in [
+            p.input,
+            p.output,
+            p.cache_read,
+            p.cache_write_5m,
+            p.cache_write_1h,
+        ] {
             assert!(rate > 0.0, "{} has a non-positive rate", p.model);
         }
     }

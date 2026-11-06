@@ -403,11 +403,7 @@ fn maybe_mcts_hint_on_task_blocked(task_id: &str, status: &str) -> Option<String
 /// - `in_progress` → RL +0.2 (work started signal) + memory lesson for audit
 /// - `blocked` → RL -0.1 (impediment signal) + memory warning + ready-subtask fallback hint
 /// - Other statuses → no-op (returns empty string)
-fn update_status_side_effects(
-    rt: &mut HookRuntime,
-    task_id: &str,
-    status: &str,
-) -> String {
+fn update_status_side_effects(rt: &mut HookRuntime, task_id: &str, status: &str) -> String {
     match status {
         "in_progress" => {
             let _ = crate::cli_handlers::cli_learning_reward(

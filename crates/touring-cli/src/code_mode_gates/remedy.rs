@@ -25,7 +25,6 @@ pub(super) type CachedPortfolio = (
 pub(super) static PORTFOLIO: std::sync::OnceLock<std::sync::Mutex<Option<CachedPortfolio>>> =
     std::sync::OnceLock::new();
 
-
 /// Last-modified time of the portfolio index file, when it exists.
 pub(super) fn portfolio_mtime() -> Option<std::time::SystemTime> {
     std::fs::metadata(touring_foundation::portfolio::store::index_path())
@@ -34,10 +33,9 @@ pub(super) fn portfolio_mtime() -> Option<std::time::SystemTime> {
         .ok()
 }
 
-
 /// The portfolio index, reloaded whenever the file on disk has changed.
-pub(crate) fn portfolio_index() -> Option<std::sync::Arc<touring_foundation::portfolio::store::PortfolioIndex>>
-{
+pub(crate) fn portfolio_index()
+-> Option<std::sync::Arc<touring_foundation::portfolio::store::PortfolioIndex>> {
     let cell = PORTFOLIO.get_or_init(|| std::sync::Mutex::new(None));
     let mtime = portfolio_mtime();
     let mut guard = cell.lock().ok()?;
@@ -53,7 +51,6 @@ pub(crate) fn portfolio_index() -> Option<std::sync::Arc<touring_foundation::por
     *guard = Some((std::sync::Arc::clone(&loaded), mtime));
     Some(loaded)
 }
-
 
 /// Remédio 1:1 do inline: o MESMO corpo em `touring run --lang python --code`.
 /// Sem fusão — a razão histórica de excluir o heredoc da rajada era o R9
@@ -80,7 +77,6 @@ pub(super) fn python_inline_remedy_via(cmd: &str, rota: &g10_route::Route) -> St
     }
 }
 
-
 /// A rota que executa o corpo do python-inline negado pelo G10: a pergunta é do EXECUTOR
 /// (`g10_route`), não do gate. Fora de `python-inline` o remédio é o R9 em bash — sem corpo
 /// python a inspecionar, a rota é a de sempre.
@@ -96,7 +92,6 @@ pub(super) fn g10_inline_route(project_root: &Path, class: &str, cmd: &str) -> g
     }
 }
 
-
 /// A abertura do remédio do G10: a de sempre na rota Sandboxed; nas demais, a frase que explica
 /// por que a rota difere — ANTES do comando, para que quem copia o comando já tenha lido o porquê.
 pub(super) fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
@@ -107,7 +102,6 @@ pub(super) fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
         format!(" — a rajada desenrolada JÁ é o programa.{explicacao} Rode-o de uma vez:")
     }
 }
-
 
 /// O deny do G10 quando NENHUMA rota de `touring run` executa o corpo: diz isso, cita o destino ou
 /// a recusa do executor, e nomeia a saída que funciona (o bypass por-comando, nativo) como a
@@ -127,7 +121,6 @@ pub(super) fn g10_unrunnable_deny(
         bypass_next_step(cmd)
     )
 }
-
 
 /// A rajada de python-inline fundida: os CORPOS na ordem, um programa. O
 /// contrato de orçamento é o do R9 — inteiro ou fora, jamais truncado; o
@@ -154,7 +147,6 @@ pub(super) fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
     (out, omitidos)
 }
 
-
 /// A rota do script `path` (já em disco): lê o CONTEÚDO — é ele que o X6 julga. Ilegível, vazio ou
 /// grande demais para o gate inspecionar → a rota de sempre (sem evidência não há o que mudar).
 pub(super) fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g10_route::Route {
@@ -175,7 +167,6 @@ pub(super) fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g
         _ => g10_route::Route::Sandboxed,
     }
 }
-
 
 /// S4 — o programa R9 (exec-agregado): as N chamadas REAIS, verbatim e na
 /// mesma ordem, cada uma seguida do veredito `[ok]`/`[FALHOU N]` (a execução
@@ -203,7 +194,6 @@ pub(super) fn comentarios_ja_executados(executed: &[String]) -> String {
     }
     corpo
 }
-
 
 pub(super) fn r9_exec_program(executed: &[String], pending: &str) -> String {
     // S212 (25/09/2026): the commands of the burst that ALREADY ran travel as context
@@ -233,7 +223,6 @@ pub(super) fn r9_exec_program(executed: &[String], pending: &str) -> String {
         corpo.replace('\'', "'\\''")
     )
 }
-
 
 /// S6 (26/08) — intent de prior-art derivado da rajada real: a classe do
 /// executor + os alvos recorrentes (BM25 precisa dos termos do TRABALHO,
@@ -274,7 +263,6 @@ pub(super) fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
     termos.join(" ")
 }
 
-
 /// S6 — o prior art mais próximo da rajada, instanciado: quando o portfólio
 /// tem um programa que JÁ funcionou para este intent, a rota vem escrita E
 /// vem de um artefato real (a diferença para o esqueleto R9, que é genérico
@@ -285,7 +273,6 @@ pub(super) fn portfolio_remedy_for_burst(class: &str, cmds: &[String]) -> Option
     let index = portfolio_index()?;
     portfolio_remedy_for_burst_on(class, cmds, &index)
 }
-
 
 /// O corpo, com o índice por parâmetro — testes carregam do scratch via
 /// `store::load_from`, sem `set_var` (ver `GateOverrides`).
@@ -311,7 +298,6 @@ pub(super) fn portfolio_remedy_for_burst_on(
     ))
 }
 
-
 /// The bypass line for `cmd`: the per-command token in front of the SAME command, ready to
 /// paste. `None` when the command cannot travel on one line (heredoc, multi-line) or is too
 /// long to paste without error.
@@ -320,7 +306,6 @@ pub(super) fn ready_bypass_line(cmd: &str) -> Option<String> {
     (!c.is_empty() && !c.contains('\n') && c.chars().count() <= READY_LINE_MAX_CHARS)
         .then(|| format!("{GATE_BYPASS_TOKEN} {c}"))
 }
-
 
 /// The closing sentence of a reason whose next step is the bypass itself (a G10 deny with no
 /// runnable route): the ready line when the command fits on one line, the rule otherwise.
@@ -335,7 +320,6 @@ pub(super) fn bypass_next_step(cmd: &str) -> String {
         ),
     }
 }
-
 
 /// G6 — the three legitimate next steps after a byte-identical repeat, shared by the advisory
 /// and the deny. Measured before the 27/10/2026 deploy: all 24 denials came from one session
@@ -361,7 +345,6 @@ pub(super) fn g6_next_steps(cmd: &str) -> String {
     )
 }
 
-
 /// The G6 advisory (first repeat): the call still runs, the next identical one is denied.
 pub(super) fn g6_advisory_text(cmd: &str) -> String {
     format!(
@@ -371,7 +354,6 @@ pub(super) fn g6_advisory_text(cmd: &str) -> String {
         g6_next_steps(cmd)
     )
 }
-
 
 /// The G6 deny (second repeat onwards). The command is echoed only when the bypass line cannot
 /// carry it whole (multi-line or over `READY_LINE_MAX_CHARS`).
@@ -391,10 +373,7 @@ pub(super) fn g6_deny_reason(cmd: &str) -> String {
     )
 }
 
-
-
 // ── W3 (plano code-mode-total) — gates de MODO: G3 e G7 + telemetria G4/G5 ───
-
 
 /// The Read window (1-based `offset`, `limit`) that covers the first occurrence of an Edit's
 /// `old_string` with a little context — the lines the model must see to write the Edit right.
@@ -402,7 +381,11 @@ pub(super) fn g6_deny_reason(cmd: &str) -> String {
 /// reason then names the plain `Read`). Measured before the 27/10/2026 deploy: 589 of 607 Edits
 /// after a PARTIAL Read succeeded, against 67 of 70 after a full one, so a window is a valid
 /// Read for the harness.
-pub(super) fn g3_read_window(project_root: &Path, fp: &str, old_string: &str) -> Option<(usize, usize)> {
+pub(super) fn g3_read_window(
+    project_root: &Path,
+    fp: &str,
+    old_string: &str,
+) -> Option<(usize, usize)> {
     if old_string.is_empty() {
         return None;
     }
@@ -429,7 +412,6 @@ pub(super) fn g3_read_window(project_root: &Path, fp: &str, old_string: &str) ->
     (offset > 1 || limit < total).then_some((offset, limit))
 }
 
-
 /// The exact `Read` call a G3 reason hands over for an Edit of `fp`: the window over the Edit's
 /// own `old_string` when it can be derived, the plain file otherwise.
 pub(super) fn g3_read_call(project_root: &Path, fp: &str, tool_input: &Value) -> String {
@@ -443,9 +425,13 @@ pub(super) fn g3_read_call(project_root: &Path, fp: &str, tool_input: &Value) ->
     }
 }
 
-
 /// The G3 advisory (first unread Edit): the Edit still runs, the second one in a row is denied.
-pub(super) fn g3_advisory_text(project_root: &Path, fp: &str, n: u32, tool_input: &Value) -> String {
+pub(super) fn g3_advisory_text(
+    project_root: &Path,
+    fp: &str,
+    n: u32,
+    tool_input: &Value,
+) -> String {
     let leitura = g3_read_call(project_root, fp, tool_input);
     format!(
         "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/1 — o 2º seguido nega). \
@@ -453,7 +439,6 @@ pub(super) fn g3_advisory_text(project_root: &Path, fp: &str, n: u32, tool_input
          (cat/sed/grep via Bash não); o Read zera o contador."
     )
 }
-
 
 /// The G3 deny. Measured before the 27/10/2026 deploy: in 37 of 40 denials the session had
 /// already looked at the file through Bash only, and 9 of the 40 were answered with another
@@ -469,7 +454,6 @@ pub(super) fn g3_deny_reason(project_root: &Path, fp: &str, n: u32, tool_input: 
     )
 }
 
-
 /// V0e3 (09/10/2026) — o esqueleto R1 pelo CAMINHO REAL quando existe (medido
 /// pela 6b: o deny citava `<r1_varredura_agregado.py>`, um placeholder, e o
 /// advisory `r1_varredura_agregado.py`, um relativo inexistente — a recusa
@@ -483,7 +467,6 @@ pub(super) fn r1_skeleton_path() -> Option<std::path::PathBuf> {
     p.is_file().then_some(p)
 }
 
-
 /// A rota R1 para o alvo `fp`: o esqueleto real instanciado quando existe, a
 /// query de memória quando não.
 pub(super) fn r1_route_for(fp: &str, skeleton: Option<&Path>) -> String {
@@ -496,7 +479,6 @@ pub(super) fn r1_route_for(fp: &str, skeleton: Option<&Path>) -> String {
         None => format!("esqueletos de varredura em {query}"),
     }
 }
-
 
 /// A rota de edição que o deny do G7 nomeia (D8: a frase só sai quando é verdadeira). O deny só
 /// dispara com o arquivo inalterado desde a leitura registrada (`g7_refresh_if_changed` zera a
@@ -512,7 +494,6 @@ pub(super) fn g7_edit_route_note(fp: &str, measured: bool) -> String {
          G3 e o harness a aceitam; se ele mudar, a releitura é liberada."
     )
 }
-
 
 /// Funde a rajada acumulada num corpo de programa executável.
 ///
@@ -544,7 +525,6 @@ pub(super) fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
     (corpo.replace('\'', "'\\''"), omitidos)
 }
 
-
 /// O orçamento de parede da chamada que a reescrita do G1 substitui (09/10/2026).
 /// A reescrita herdava os 30 s padrão do `touring run`; a chamada original tinha o
 /// do Bash — o `timeout` dela, ou 120 s — e morria aos 30 s (`exit_code -2`, medido
@@ -564,7 +544,6 @@ pub(super) fn rewrite_wall_ms(tool_input: &Value) -> u64 {
     externo.saturating_sub(FOLGA_MS).clamp(1_000, RUN_MAX_MS)
 }
 
-
 /// O `updatedInput` de uma reescrita: a chamada original com SÓ o `command`
 /// trocado (09/10/2026). O `updatedInput` SUBSTITUI o input — medido ao vivo: duas
 /// chamadas com `run_in_background: true` e `timeout: 600000` reescritas pelo G2
@@ -576,7 +555,6 @@ pub(super) fn rewritten_input(tool_input: &Value, command: String) -> Value {
     Value::Object(novo)
 }
 
-
 /// Declara o orçamento de parede num programa `touring run --lang bash …` já
 /// montado (o do G8 sai de [`loop_rewrite_candidate`], que não conhece a chamada).
 pub(super) fn with_wall_budget(programa: String, wall_ms: u64) -> String {
@@ -585,7 +563,6 @@ pub(super) fn with_wall_budget(programa: String, wall_ms: u64) -> String {
         None => programa,
     }
 }
-
 
 /// O advisory do G1 quando a precisão viva o autodemove (S-2.3): só `additionalContext`,
 /// e o comando segue NATIVO e intacto. O texto antigo («a rajada acumulada já é o
@@ -601,7 +578,6 @@ pub(super) fn g1_advisory_text(count: u32, class: &str, programa: &str) -> Strin
          `touring run`:\n  {programa}"
     )
 }
-
 
 /// A reescrita do G1 (V0e1). O `permissionDecisionReason` de um `allow` vai só para o
 /// log de debug (code.claude.com/docs/en/hooks, "For "allow" and "defer", written to
@@ -633,9 +609,6 @@ pub(super) fn g1_rewrite(
     }
 }
 
-
-
-
 /// N6 (2026-09-23) — o programa fundido do deny encontra a escada: quando um
 /// bloco parecido JÁ existe, a razão o entrega (afordância por construção, D8),
 /// e a rajada negada vira descoberta em vez de só reescrita. A régua media o
@@ -658,7 +631,6 @@ pub(super) fn snippet_hint_line(conn: &rusqlite::Connection, program: &str) -> O
     ))
 }
 
-
 /// O wrapper de I/O: abre o memory.db do projeto somente-leitura e devolve ""
 /// em qualquer falha — um deny jamais falha POR CAUSA da dica.
 pub(super) fn snippet_hint_for_program(program: &str, root: &Path) -> String {
@@ -674,4 +646,3 @@ pub(super) fn snippet_hint_for_program(program: &str, root: &Path) -> String {
     .and_then(|conn| snippet_hint_line(&conn, program))
     .unwrap_or_default()
 }
-

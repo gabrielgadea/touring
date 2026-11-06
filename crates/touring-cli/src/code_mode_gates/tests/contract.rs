@@ -37,22 +37,78 @@ fn the_declared_windows_are_the_ones_the_ledgers_enforce() {
     }
     pin!(g6_seen, CACHE_MAX_CAPACITY, secs(SUGGESTION_TTL_SECS));
     pin!(mutation_epoch, CONFORMAL_TAU_MAX_PROJECTS, None);
-    pin!(pending_g9, SESSION_LEDGER_CAPACITY, secs(PENDING_DENY_TTL_SECS));
-    pin!(pending_g2, SESSION_LEDGER_CAPACITY, secs(PENDING_DENY_TTL_SECS));
-    pin!(burst_ledger, CACHE_MAX_CAPACITY, secs(CODE_MODE_WINDOW_SECS));
-    pin!(pending_g1, SESSION_LEDGER_CAPACITY, secs(PENDING_DENY_TTL_SECS));
-    pin!(g3_streak, SESSION_LEDGER_CAPACITY, secs(SESSION_STATE_TTL_SECS));
-    pin!(g3_read_files, CACHE_MAX_CAPACITY, secs(SESSION_STATE_TTL_SECS));
+    pin!(
+        pending_g9,
+        SESSION_LEDGER_CAPACITY,
+        secs(PENDING_DENY_TTL_SECS)
+    );
+    pin!(
+        pending_g2,
+        SESSION_LEDGER_CAPACITY,
+        secs(PENDING_DENY_TTL_SECS)
+    );
+    pin!(
+        burst_ledger,
+        CACHE_MAX_CAPACITY,
+        secs(CODE_MODE_WINDOW_SECS)
+    );
+    pin!(
+        pending_g1,
+        SESSION_LEDGER_CAPACITY,
+        secs(PENDING_DENY_TTL_SECS)
+    );
+    pin!(
+        g3_streak,
+        SESSION_LEDGER_CAPACITY,
+        secs(SESSION_STATE_TTL_SECS)
+    );
+    pin!(
+        g3_read_files,
+        CACHE_MAX_CAPACITY,
+        secs(SESSION_STATE_TTL_SECS)
+    );
     pin!(g7_seen, CACHE_MAX_CAPACITY, secs(SESSION_STATE_TTL_SECS));
     pin!(g7_stamps, CACHE_MAX_CAPACITY, secs(SESSION_STATE_TTL_SECS));
-    pin!(m3_distinct_reads, SESSION_LEDGER_CAPACITY, secs(SESSION_STATE_TTL_SECS));
-    pin!(g4_last_locate, SESSION_LEDGER_CAPACITY, secs(G4_LOCATE_TTL_SECS));
-    pin!(g5_edit_streak, SESSION_LEDGER_CAPACITY, secs(SESSION_STATE_TTL_SECS));
-    pin!(written_scripts_ledger, CACHE_MAX_CAPACITY, secs(WRITE_RUN_WINDOW_SECS));
-    pin!(write_run_pair_ledger, CACHE_MAX_CAPACITY, secs(WRITE_RUN_WINDOW_SECS));
-    pin!(exec_burst_ledger, CACHE_MAX_CAPACITY, secs(EXEC_BURST_WINDOW_SECS));
-    pin!(inspect_burst_ledger, CACHE_MAX_CAPACITY, secs(INSPECT_BURST_WINDOW_SECS));
-    pin!(pending_g10, SESSION_LEDGER_CAPACITY, secs(PENDING_DENY_TTL_SECS));
+    pin!(
+        m3_distinct_reads,
+        SESSION_LEDGER_CAPACITY,
+        secs(SESSION_STATE_TTL_SECS)
+    );
+    pin!(
+        g4_last_locate,
+        SESSION_LEDGER_CAPACITY,
+        secs(G4_LOCATE_TTL_SECS)
+    );
+    pin!(
+        g5_edit_streak,
+        SESSION_LEDGER_CAPACITY,
+        secs(SESSION_STATE_TTL_SECS)
+    );
+    pin!(
+        written_scripts_ledger,
+        CACHE_MAX_CAPACITY,
+        secs(WRITE_RUN_WINDOW_SECS)
+    );
+    pin!(
+        write_run_pair_ledger,
+        CACHE_MAX_CAPACITY,
+        secs(WRITE_RUN_WINDOW_SECS)
+    );
+    pin!(
+        exec_burst_ledger,
+        CACHE_MAX_CAPACITY,
+        secs(EXEC_BURST_WINDOW_SECS)
+    );
+    pin!(
+        inspect_burst_ledger,
+        CACHE_MAX_CAPACITY,
+        secs(INSPECT_BURST_WINDOW_SECS)
+    );
+    pin!(
+        pending_g10,
+        SESSION_LEDGER_CAPACITY,
+        secs(PENDING_DENY_TTL_SECS)
+    );
     pin!(bypass_ledger, BYPASS_LEDGER_CAPACITY, secs(G11_WINDOW_SECS));
 }
 
@@ -67,17 +123,35 @@ fn the_documented_windows_and_thresholds_are_these() {
     assert_eq!(WRITE_RUN_WINDOW_SECS, 600, "write→run window");
     assert_eq!(WRITE_RUN_DENY_AT, 2, "write→run: the 2nd");
     assert_eq!(G11_WINDOW_SECS, 600, "G11 window");
-    assert_eq!(G11_MAX_STRICT_RUN, 1, "G11: a second adjacent bypass is the deny");
-    assert_eq!(G11_MAX_SINCE_ROUTE, 2, "G11: a third bypass without the route is the deny");
+    assert_eq!(
+        G11_MAX_STRICT_RUN, 1,
+        "G11: a second adjacent bypass is the deny"
+    );
+    assert_eq!(
+        G11_MAX_SINCE_ROUTE, 2,
+        "G11: a third bypass without the route is the deny"
+    );
     assert_eq!(M3_DELEGATION_AT, 10, "M3: the 10th distinct file");
     assert_eq!(SUGGESTION_TTL_SECS, 300, "G6 window");
     assert_eq!(CODE_MODE_WINDOW_SECS, 180, "G1 burst window");
-    assert_eq!(PENDING_DENY_TTL_SECS, 60, "a deny waits 60 s for its follow-through");
-    assert_eq!(SESSION_STATE_TTL_SECS, 3600, "G3 / G5 / G7 / M3 session memory");
+    assert_eq!(
+        PENDING_DENY_TTL_SECS, 60,
+        "a deny waits 60 s for its follow-through"
+    );
+    assert_eq!(
+        SESSION_STATE_TTL_SECS, 3600,
+        "G3 / G5 / G7 / M3 session memory"
+    );
     assert_eq!(G4_LOCATE_TTL_SECS, 120, "G4 locate window");
-    assert_eq!(G1_SIMILARITY_AT, 0.5, "G1: similarity that fires on the 2nd");
+    assert_eq!(
+        G1_SIMILARITY_AT, 0.5,
+        "G1: similarity that fires on the 2nd"
+    );
     assert_eq!(G1_DEMOTE_FLOOR, 0.70, "G1 demotion precision floor");
-    assert_eq!(G1_DEMOTE_MIN_EVENTS, 100, "G1 demotion needs this many events");
+    assert_eq!(
+        G1_DEMOTE_MIN_EVENTS, 100,
+        "G1 demotion needs this many events"
+    );
 }
 
 struct OldTest<'a> {
@@ -192,7 +266,10 @@ fn every_covered_name_in_the_table_is_an_old_test() {
             }
         }
     }
-    assert!(stray.is_empty(), "rows covering unknown old tests: {stray:#?}");
+    assert!(
+        stray.is_empty(),
+        "rows covering unknown old tests: {stray:#?}"
+    );
 }
 
 /// The repository is public: the committed fixtures hold tool names, timings, verdicts and

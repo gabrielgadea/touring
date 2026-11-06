@@ -1359,11 +1359,7 @@ fn artifact_file_gen_hint(output_text: &str) -> String {
 /// the output text. When "✓ success" is present, injects `cli_learning_reward(+0.5)` to close
 /// the RL asymmetry where `failure_signal_hint` injects -0.1 but success had no injection.
 /// Returns a diary write hint so Claude Code can record the lesson in AAAK format.
-fn maybe_test_pass_rl_reward(
-    rt: &mut HookRuntime,
-    outcome_hint: &str,
-    task_id: &str,
-) -> String {
+fn maybe_test_pass_rl_reward(rt: &mut HookRuntime, outcome_hint: &str, task_id: &str) -> String {
     if !outcome_hint.contains("✓ success") {
         return String::new();
     }

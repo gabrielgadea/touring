@@ -167,15 +167,27 @@ fn rpc_endpoints_are_the_cli_namespace_minus_its_hooks() {
             is_daemon_hook(name),
             "'{name}' is listed as a hook in the cli- namespace but is no table key"
         );
-        assert!(!is_rpc_endpoint(name), "'{name}' is a hook, not an endpoint");
+        assert!(
+            !is_rpc_endpoint(name),
+            "'{name}' is a hook, not an endpoint"
+        );
     }
-    for name in names.iter().filter(|n| !n.starts_with(RPC_NAMESPACE_PREFIX)) {
+    for name in names
+        .iter()
+        .filter(|n| !n.starts_with(RPC_NAMESPACE_PREFIX))
+    {
         assert!(
             !is_rpc_endpoint(name),
             "'{name}' is outside the cli- namespace and cannot be an RPC endpoint"
         );
     }
-    for name in ["pre-bash", "session-start", "user_prompt_submit", "no-such-hook", ""] {
+    for name in [
+        "pre-bash",
+        "session-start",
+        "user_prompt_submit",
+        "no-such-hook",
+        "",
+    ] {
         assert!(!is_rpc_endpoint(name), "'{name}' is no RPC endpoint");
     }
 }

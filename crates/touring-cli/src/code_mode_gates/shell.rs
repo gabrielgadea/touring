@@ -21,7 +21,6 @@ pub(super) fn is_env_assignment(t: &str) -> bool {
             .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
-
 /// Wrapper de execução reconhecido pelo resolvedor: flags que tomam valor +
 /// quantos posicionais o PRÓPRIO wrapper consome (a duração do `timeout`, a
 /// máscara do `taskset`, a prioridade do `chrt`).
@@ -29,7 +28,6 @@ pub(super) struct WrapperSpec {
     value_flags: &'static [&'static str],
     positionals: usize,
 }
-
 
 /// S1 (26/08/2026) — os classificadores liam o 1º token: `time grep`,
 /// `nice -n 5 find`, `sudo cat`, `env F=1 rg` escapavam de TODOS os gates e
@@ -83,7 +81,6 @@ pub(super) fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
     })
 }
 
-
 /// Consome o wrapper em `toks[i]` (verbo + flags + posicionais dele) e devolve
 /// o índice seguinte; `i` inalterado quando `toks[i]` não é wrapper. Flag
 /// idêntica à da tabela consome o valor no token seguinte (`-n 5`); a forma
@@ -114,7 +111,6 @@ pub(super) fn skip_wrapper(toks: &[&str], i: usize) -> usize {
     j
 }
 
-
 /// Tokens a partir do VERBO REAL: prefixos `VAR=valor` e wrappers de execução
 /// (`env`/`time`/`nice`/`sudo`/`command`/`builtin`/`timeout`/`stdbuf`/
 /// `ionice`/`taskset`/`chrt`, encadeados em qualquer ordem) removidos. Vazio
@@ -137,7 +133,6 @@ pub(super) fn resolved_tokens<'a, 'b>(toks: &'b [&'a str]) -> &'b [&'a str] {
     &toks[i..]
 }
 
-
 /// Segmentos de comando separados por operadores de sequência (`&&`, `||`,
 /// `;`, nova linha). Ingênuo quanto a aspas (`grep 'a;b'` corta dentro da
 /// aspa) — seguro para CLASSIFICAÇÃO: o verbo do segmento não muda com o
@@ -150,7 +145,6 @@ pub(super) fn command_segments(cmd: &str) -> Vec<&str> {
         .filter(|s| !s.is_empty())
         .collect()
 }
-
 
 /// Tokens efetivos: segmenta por operadores de sequência, pula segmentos
 /// `cd <dir>` (prefixo de navegação — `cd /x && grep foo` é `grep`), e
@@ -175,7 +169,6 @@ pub(crate) fn effective_tokens(cmd: &str) -> Vec<&str> {
     Vec::new()
 }
 
-
 /// The file an inline `sed -i`/`awk -i inplace`/`perl -pi` edit targets — the last
 /// path-like token (skips flags and the substitution script). Lets the Edit tool /
 /// ast-meta nudge carry the real path instead of `<file>`. `None` when not derivable.
@@ -195,7 +188,6 @@ pub(crate) fn is_inline_blind_edit(cmd: &str) -> bool {
     })
     .is_match(cmd)
 }
-
 
 /// S4 (26/08) — classe do executor homogêneo (R4): `python3`/
 /// `.venv/bin/python3`/`pytest` & cia — a rajada desenrolada que nenhum gate
@@ -257,7 +249,6 @@ pub(super) fn mutation_scan_view(cmd: &str) -> String {
     s
 }
 
-
 pub(super) fn exec_class_of(cmd: &str) -> Option<&'static str> {
     const MUTATING: &[&str] = &[
         ">",
@@ -303,17 +294,14 @@ pub(super) fn exec_class_of(cmd: &str) -> Option<&'static str> {
     None
 }
 
-
 pub(super) fn is_script_path(p: &str) -> bool {
     let p = p.trim_matches(|c| c == '\'' || c == '"');
     p.ends_with(".py") || p.ends_with(".sh")
 }
 
-
 pub(super) fn clean_script_path(p: &str) -> String {
     p.trim_matches(|c| c == '\'' || c == '"').to_string()
 }
-
 
 /// O path de script (.py/.sh) que este comando ESCREVE via `cat >`/`tee`.
 /// Varre a VIEW (corpos de heredoc removidos): um `cat > y.py` dentro do
@@ -354,7 +342,6 @@ pub(super) fn script_write_target(cmd: &str) -> Option<String> {
     None
 }
 
-
 /// Os paths de script que este comando EXECUTA diretamente (python/bash/sh),
 /// em QUALQUER segmento — o padrão real do `analise` (24 dos 60) escrevia E
 /// executava no MESMO tool_use multi-linha (`cat > x.py <<EOF…EOF` +
@@ -390,7 +377,6 @@ pub(super) fn script_run_targets(cmd: &str) -> Vec<String> {
     out
 }
 
-
 /// O corpo do programa inline (`python3 -c '<code>'` ou `python3 - <<'M'`),
 /// para o remédio 1:1 da classe `python-inline`.
 pub(super) fn python_inline_body(cmd: &str) -> Option<String> {
@@ -420,14 +406,12 @@ pub(super) fn python_inline_body(cmd: &str) -> Option<String> {
     Some(inner[..end].to_string())
 }
 
-
 /// A classe do python-inline READ-ONLY dentro da rajada de inspeção (aperto
 /// 29/08, ordem de Gabriel: *"read-only cai na rajada de inspeção"*). Distinta
 /// no ledger — a chave é por classe — e fora de `CODE_MODE_COLLAPSED_CLASSES`,
 /// que documenta as classes que `scan_class_of` emite; esta vem do CORPO do
 /// programa, não do nome do comando.
 pub(super) const PY_INLINE_INSPECT_CLASS: &str = "python-inline";
-
 
 /// Indícios de que um corpo python NÃO é leitura pura — deny-list
 /// conservadora: escrita em FS, modos mutantes de `open`, subprocesso, rede,
@@ -486,7 +470,6 @@ pub(super) const PY_INLINE_WRITER_MARKS: &[&str] = &[
     "shelve",
 ];
 
-
 /// `Some(PY_INLINE_INSPECT_CLASS)` quando o comando é um python-inline cujo
 /// corpo é leitura pura — e portanto INSPEÇÃO, sujeita à rajada 2ª/300s. Um
 /// corpo inextraível ou com qualquer marca de escrita fica de fora (G10 é o
@@ -504,7 +487,6 @@ pub(super) fn python_inline_readonly_class(cmd: &str) -> Option<&'static str> {
     }
     Some(PY_INLINE_INSPECT_CLASS)
 }
-
 
 /// `open(...)` com 2º argumento LITERAL contendo `w`/`a`/`x`/`+` — o modo
 /// mutante. Um `open(f)`/`open(f, encoding=…)` é leitura e passa; a marca por
@@ -531,7 +513,6 @@ pub(super) fn py_open_mutating_mode(body: &str) -> bool {
     false
 }
 
-
 /// As classes de inspeção que o ledger da rajada acompanha — TODAS as que
 /// [`scan_class_of`] reconhece.
 ///
@@ -542,8 +523,8 @@ pub(super) fn py_open_mutating_mode(body: &str) -> bool {
 /// passavam sempre, e eram o maior volume fan-out não capturado. O predicado de
 /// rajada dispensa a lista: ele discrimina pelo que a classe FAZ nesta janela,
 /// não pelo nome dela.
-pub(super) const CODE_MODE_COLLAPSED_CLASSES: &[&str] = &["grep", "cat", "find", "ls", "wc", "sed-n"];
-
+pub(super) const CODE_MODE_COLLAPSED_CLASSES: &[&str] =
+    &["grep", "cat", "find", "ls", "wc", "sed-n"];
 
 pub(crate) fn inline_edit_target(command: &str) -> Option<String> {
     command
@@ -554,7 +535,6 @@ pub(crate) fn inline_edit_target(command: &str) -> Option<String> {
         .find(|t| t.contains('/') || (t.contains('.') && !t.contains('*')))
         .map(std::string::ToString::to_string)
 }
-
 
 /// W1 S-1.2 — comandos de estado vivo: chamadas idênticas legitimamente
 /// retornam resultados diferentes (saúde, daemon, working tree, contadores).
@@ -569,7 +549,6 @@ pub(super) const G6_LIVE_STATE_ALLOWLIST: &[&str] = &[
     "git diff",
 ];
 
-
 pub(super) fn g6_allowlisted(cmd: &str) -> bool {
     let trimmed = cmd.trim_start();
     G6_LIVE_STATE_ALLOWLIST
@@ -577,14 +556,12 @@ pub(super) fn g6_allowlisted(cmd: &str) -> bool {
         .any(|p| trimmed.starts_with(p))
 }
 
-
 /// S213 — whether `cmd` APPENDS to a file (`>>` or `tee -a`/`--append`), read after the CEG
 /// shell mask so a `>>` inside quotes or a heredoc body is data, not a redirect.
 pub(super) fn appends_to_a_file(cmd: &str) -> bool {
     let masked = touring_ceg::gateway::gate::mask_shell_data(cmd);
     masked.contains(">>") || masked.contains("tee -a") || masked.contains("tee --append")
 }
-
 
 /// W2 S-2.1 — classe da inspeção atômica (a taxonomia da simulação). `None`
 /// para comandos que não são inspeção — a rajada só conta o que inspeciona.
@@ -622,10 +599,8 @@ pub(crate) fn scan_class_of(cmd: &str) -> Option<&'static str> {
     class
 }
 
-
 /// Steps that neither inspect nor do work — they never break an inspection sequence.
 pub(super) const NEUTRAL_SEQUENCE_STEPS: &[&str] = &["cd", "echo", "printf", "pwd", "true"];
-
 
 /// The inspection class of ONE step (its wrapper-resolved tokens), or `None` when the
 /// step does something other than inspect.
@@ -671,7 +646,6 @@ pub(super) fn step_class(rest: &[&str]) -> Option<&'static str> {
     }
 }
 
-
 /// O carimbo de `fp` agora; `None` quando o arquivo não existe ou não se deixa medir (o G7 então
 /// segue contando como sempre contou — sem medição não há o que afirmar).
 pub(super) fn file_stamp(project_root: &Path, fp: &str) -> Option<FileStamp> {
@@ -694,7 +668,6 @@ pub(super) fn file_stamp(project_root: &Path, fp: &str) -> Option<FileStamp> {
     })
 }
 
-
 /// V0e3 (09/10/2026) — os fragmentos de path de um comando: quebra em todo
 /// char que não é de path e fica com os fragmentos que contêm `/`. O reset do
 /// G7 nunca funcionava no caso real porque o `trim_matches` das pontas cobria
@@ -706,7 +679,6 @@ pub(super) fn path_fragments(cmd: &str) -> impl Iterator<Item = &str> {
         .filter(|frag| frag.len() > 1 && frag.contains('/'))
 }
 
-
 /// W6 S-6.3 — linha ADICIONADA de comentário com modal contrafactual e nenhum
 /// run_id na vizinhança: a afirmação nunca exercitada (o pior erro de 24/08).
 pub(super) fn counterfactual_comment(added: &str) -> bool {
@@ -717,7 +689,6 @@ pub(super) fn counterfactual_comment(added: &str) -> bool {
         comentario && MODAIS.iter().any(|m| t.contains(m)) && !t.contains("run-")
     })
 }
-
 
 /// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
 /// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
@@ -746,7 +717,6 @@ pub(crate) fn command_similarity(a: &str, b: &str) -> f64 {
     let uniao = ta.union(&tb).count() as f64;
     inter / uniao
 }
-
 
 /// G8 — o laço de inspeção pura vira UMA varredura no sandbox.
 ///
@@ -824,7 +794,6 @@ pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
     Some(format!("touring run --lang bash --code '{escaped}'"))
 }
 
-
 /// V0e5 (09/10/2026) — entries of ANOTHER process's `/proc/<pid>/` that the sandbox
 /// cannot read while a native shell can: guarded by the kernel's ptrace access mode
 /// (proc(5)), not by landlock — `/proc` itself is a read root. Measured on 30.4.94
@@ -847,7 +816,6 @@ pub(super) const PTRACE_GUARDED_PROC_ENTRIES: &[&str] = &[
 /// Directories whose LISTING reads in the sandbox but whose entries (`fd/3`) do not.
 pub(super) const PTRACE_GUARDED_PROC_DIR_ENTRIES: &[&str] = &["fd", "fdinfo"];
 
-
 /// The `/proc/<pid>/<entry>` token, when `<pid>` is another process (a literal, `$p`,
 /// `${pid}` or a glob — anything but `self`/`thread-self`) and `<entry>` is guarded.
 pub(super) fn ptrace_guarded_proc_entry(tok: &str) -> Option<std::path::PathBuf> {
@@ -862,7 +830,6 @@ pub(super) fn ptrace_guarded_proc_entry(tok: &str) -> Option<std::path::PathBuf>
         || (below && PTRACE_GUARDED_PROC_DIR_ENTRIES.contains(&entry));
     guarded.then(|| std::path::PathBuf::from(tok))
 }
-
 
 /// S24 (plan 2026-09-25) — the first path `cmd` names that a sandboxed program cannot
 /// reach, judged by the CEG's own landlock table
@@ -904,4 +871,3 @@ pub(super) fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<s
     }
     None
 }
-

@@ -69,7 +69,13 @@ fn lines() -> Vec<Line> {
         .map(|l| {
             let c: Vec<&'static str> = l.split('\t').collect();
             assert_eq!(c.len(), 6, "malformed mapping line: {l}");
-            Line { test: c[0], file: c[1], disposition: c[3], home: c[4], note: c[5] }
+            Line {
+                test: c[0],
+                file: c[1],
+                disposition: c[3],
+                home: c[4],
+                note: c[5],
+            }
         })
         .collect()
 }
@@ -85,10 +91,16 @@ fn problems(l: &Line, check_ids: &BTreeSet<&str>) -> Vec<String> {
         }
         "leaf" => {
             if !declares_test(l.home, l.test) {
-                out.push(format!("{}: leaf unit test missing from {}", l.test, l.home));
+                out.push(format!(
+                    "{}: leaf unit test missing from {}",
+                    l.test, l.home
+                ));
             }
             if l.note.len() < 20 {
-                out.push(format!("{}: a leaf unit test must say why no handle_* path reaches it", l.test));
+                out.push(format!(
+                    "{}: a leaf unit test must say why no handle_* path reaches it",
+                    l.test
+                ));
             }
         }
         "checks" => {
@@ -102,7 +114,10 @@ fn problems(l: &Line, check_ids: &BTreeSet<&str>) -> Vec<String> {
         "removed" => {
             let covered = l.home.strip_prefix("covered_by:").unwrap_or("");
             if !check_ids.contains(covered) {
-                out.push(format!("{}: covered_by check {covered:?} no longer exists", l.test));
+                out.push(format!(
+                    "{}: covered_by check {covered:?} no longer exists",
+                    l.test
+                ));
             }
             if l.note.len() < 20 {
                 out.push(format!("{}: a removed test must carry its reason", l.test));
@@ -126,18 +141,43 @@ fn the_mapping_still_lists_every_old_test() {
 #[test]
 fn every_old_test_still_has_a_home_that_exists() {
     let check_ids: BTreeSet<&str> = checks().iter().map(|c| s(c, "id")).collect();
-    let lost: Vec<String> = lines().iter().flat_map(|l| problems(l, &check_ids)).collect();
-    assert!(lost.is_empty(), "old tests that lost their home:\n{}", lost.join("\n"));
+    let lost: Vec<String> = lines()
+        .iter()
+        .flat_map(|l| problems(l, &check_ids))
+        .collect();
+    assert!(
+        lost.is_empty(),
+        "old tests that lost their home:\n{}",
+        lost.join("\n")
+    );
 }
 
 #[test]
 fn the_contract_notices_a_lost_home() {
     // Mutation-style self-check: a mapping line whose home is gone must be reported.
     let ids: BTreeSet<&str> = ["present_check"].into_iter().collect();
-    let gone = Line { test: "t", file: "lifecycle/tests.rs", disposition: "checks", home: "absent_check", note: "" };
+    let gone = Line {
+        test: "t",
+        file: "lifecycle/tests.rs",
+        disposition: "checks",
+        home: "absent_check",
+        note: "",
+    };
     assert_eq!(problems(&gone, &ids).len(), 1);
-    let kept = Line { test: "no_such_test_anywhere", file: "lifecycle/tests.rs", disposition: "kept", home: "lifecycle/tests.rs", note: "" };
+    let kept = Line {
+        test: "no_such_test_anywhere",
+        file: "lifecycle/tests.rs",
+        disposition: "kept",
+        home: "lifecycle/tests.rs",
+        note: "",
+    };
     assert_eq!(problems(&kept, &ids).len(), 1);
-    let ok = Line { test: "t", file: "lifecycle/tests.rs", disposition: "checks", home: "present_check", note: "" };
+    let ok = Line {
+        test: "t",
+        file: "lifecycle/tests.rs",
+        disposition: "checks",
+        home: "present_check",
+        note: "",
+    };
     assert!(problems(&ok, &ids).is_empty());
 }

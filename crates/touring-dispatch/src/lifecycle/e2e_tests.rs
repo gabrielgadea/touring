@@ -378,4 +378,3 @@ fn all_submodule_handlers_reachable_via_crate_lifecycle_namespace() {
 // ═══════════════════════════════════════════════════════════════════════════
 // §4 — maybe_parallel_subagent_hint (plan_mode/exit.rs)
 // ═══════════════════════════════════════════════════════════════════════════
-
