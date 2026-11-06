@@ -61,10 +61,15 @@
 //! window and are dropped, a `tool_use` is handed out once per id. [`ReaderPath`] derives the
 //! SAME [`ErrorResolutionPair`]s from the reader's events — both extractors end in
 //! [`mine_chains`], so only the records that feed it can differ. Because the miner WRITES
-//! memory, the switch is `TOURING_MINER_READER` = `shadow` (default) | `on` | `off` ([`ReaderMode`]):
-//! under `shadow` the legacy parser still writes while the reader path is only compared with it
-//! (`reader_pairs`, `legacy_pairs`, `only_legacy`, `only_reader`, `reader_sidechain_dropped` in
-//! [`MinerSweepStats`]); `on` hands the writer role to the reader path.
+//! memory, the switch is `TOURING_MINER_READER` = `on` (default) | `shadow` | `off` ([`ReaderMode`]):
+//! `on` hands the writer role to the reader path; under `shadow` the legacy parser still writes
+//! while the reader path is only compared with it (`reader_pairs`, `legacy_pairs`, `only_legacy`,
+//! `only_reader`, `reader_sidechain_dropped` in [`MinerSweepStats`]).
+//!
+//! The default was `shadow` until the post-deploy measurement over the real corpus
+//! (05/11/2026, `corpus_shadow_measurement`, 30.4.103): 1 320 transcripts, 1 554 047 lines,
+//! 6 092 pairs on each side, `only_legacy = 0`, `only_reader = 0`, no file with a difference.
+//! That was the condition set for the switch; `shadow` stays available to re-measure.
 //!
 //! # Fail-open contract
 //! All public functions in this module are fail-open: they never panic on
@@ -584,33 +589,35 @@ pub(crate) const SHADOW_SAMPLE_KEYS: usize = 5;
 /// Which extractor writes lessons.
 ///
 /// The miner is a PRODUCTION WRITER of memory, so the reader path (the transcript reader's
-/// record policy: main thread only, one `tool_use` per id) is not allowed to write until it has
-/// been measured against the legacy parser on the same lines.
+/// record policy: main thread only, one `tool_use` per id) was not allowed to write until it had
+/// been measured against the legacy parser on the same lines. It was (see the module doc), and
+/// writes by default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ReaderMode {
     /// Legacy parser only — the behaviour before C1. The reader path does not run.
     Off,
     /// Legacy parser writes, as before; the reader path is computed on the same lines, never
-    /// writes, and the disagreement is counted. The default.
-    #[default]
+    /// writes, and the disagreement is counted. Kept to re-measure.
     Shadow,
-    /// The reader path writes; the legacy parser does not run.
+    /// The reader path writes; the legacy parser does not run. The default.
+    #[default]
     On,
 }
 
 impl ReaderMode {
-    /// Parse the value of [`MINER_READER_ENV`]. Absent, empty or unrecognised all give
-    /// [`ReaderMode::Shadow`]; an unrecognised value also yields the warning to log. Never
-    /// panics, never turns an unknown value into `on` — a typo must not hand the writer role
-    /// to an unmeasured path.
+    /// Parse the value of [`MINER_READER_ENV`]. Absent or empty gives [`ReaderMode::On`], the
+    /// measured default. An unrecognised value gives [`ReaderMode::Shadow`] with a warning to
+    /// log: a typo is someone trying to change the mode, and the mode that both keeps the
+    /// writer the operator knew and measures the other one is the safe reading. Never panics.
     #[must_use]
     pub fn parse(raw: Option<&str>) -> (Self, Option<String>) {
         let Some(raw) = raw else {
-            return (Self::Shadow, None);
+            return (Self::On, None);
         };
         match raw.trim().to_ascii_lowercase().as_str() {
-            "" | "shadow" => (Self::Shadow, None),
+            "" => (Self::On, None),
+            "shadow" => (Self::Shadow, None),
             "off" => (Self::Off, None),
             "on" => (Self::On, None),
             other => (
@@ -620,6 +627,14 @@ impl ReaderMode {
                 )),
             ),
         }
+    }
+
+    /// The mode of a sweep recorded before the reader path existed: the legacy parser alone.
+    /// Serde default of [`MinerSweepStats::reader_mode`] — the TYPE default moved to `on`, but a
+    /// historical payload must keep saying who actually wrote it.
+    #[must_use]
+    pub const fn before_c1() -> Self {
+        Self::Off
     }
 
     /// The name the variable takes for this mode.
@@ -971,8 +986,9 @@ pub struct MinerSweepStats {
     /// Pairs skipped because the memory key already existed.
     pub pairs_deduped: usize,
     /// Which extractor wrote in this sweep: the legacy parser under `off` and `shadow`, the
-    /// reader path under `on`.
-    #[serde(default)]
+    /// reader path under `on`. A payload written before C1 has no such field and was written
+    /// by the legacy parser alone, so it reads as `off`, not as the current default.
+    #[serde(default = "ReaderMode::before_c1")]
     pub reader_mode: ReaderMode,
     /// Pairs the legacy extractor produced (0 under `on`, where it does not run).
     #[serde(default)]
@@ -1151,7 +1167,7 @@ fn persist_pairs(store: &MemoryStore, pairs: &[ErrorResolutionPair]) -> (usize, 
 impl TranscriptMiner {
     /// Construct a new miner, loading persisted offset state from
     /// `state_path` (or starting fresh if the file is absent/invalid). The extractor that
-    /// writes is chosen by [`reader_mode`] (`TOURING_MINER_READER`, default `shadow`).
+    /// writes is chosen by [`reader_mode`] (`TOURING_MINER_READER`, default `on`).
     pub fn new(state_path: PathBuf) -> Self {
         let mode = reader_mode();
         tracing::info!(
@@ -2448,17 +2464,17 @@ mod tests {
         assert_eq!(legacy, reader);
     }
 
-    // C1-d: the mode parser. Default shadow; an unknown value is shadow WITH a warning and never
-    // `on` (a typo must not hand the writer role to an unmeasured path); nothing panics.
+    // C1-d: the mode parser. Default `on` since the 05/11 corpus measurement (0 differences);
+    // an unknown value is shadow WITH a warning; nothing panics.
     #[test]
-    fn reader_mode_defaults_to_shadow_and_never_panics_on_junk() {
-        assert_eq!(ReaderMode::default(), ReaderMode::Shadow);
-        assert_eq!(ReaderMode::parse(None), (ReaderMode::Shadow, None));
+    fn reader_mode_defaults_to_on_and_never_panics_on_junk() {
+        assert_eq!(ReaderMode::default(), ReaderMode::On);
+        assert_eq!(ReaderMode::parse(None), (ReaderMode::On, None));
         for (raw, want) in [
             ("shadow", ReaderMode::Shadow),
             ("SHADOW", ReaderMode::Shadow),
-            ("", ReaderMode::Shadow),
-            ("  ", ReaderMode::Shadow),
+            ("", ReaderMode::On),
+            ("  ", ReaderMode::On),
             ("on", ReaderMode::On),
             (" On ", ReaderMode::On),
             ("off", ReaderMode::Off),
@@ -2495,13 +2511,15 @@ mod tests {
     }
 
     // C1: `MinerSweepStats` is serialized; a payload written before the shadow fields existed
-    // still deserializes, with zeros and the default mode.
+    // still deserializes, with zeros and `off` — the legacy parser wrote it, whatever the
+    // current default is.
     #[test]
     fn sweep_stats_without_the_shadow_fields_still_deserialize() {
         let old = r#"{"files_scanned":3,"lines_read":10,"pairs_mined":2,"pairs_persisted":1,"pairs_deduped":1}"#;
         let stats: MinerSweepStats = serde_json::from_str(old).expect("old payload");
         assert_eq!((stats.files_scanned, stats.pairs_persisted), (3, 1));
-        assert_eq!(stats.reader_mode, ReaderMode::Shadow);
+        assert_eq!(stats.reader_mode, ReaderMode::Off);
+        assert_ne!(ReaderMode::default(), ReaderMode::before_c1());
         assert_eq!(
             (
                 stats.legacy_pairs,
