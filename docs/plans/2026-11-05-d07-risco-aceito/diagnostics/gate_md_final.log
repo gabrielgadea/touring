@@ -1,0 +1,13 @@
+[PASS] /home/gabrielgadea/projects/touring-d07-risco/docs/plans/2026-11-05-d07-risco-aceito/RETOMADA.md (md) — score=100.0/100
+   PASS registro (tom_relatorio --check) — duros=? rc=0
+   PASS estrutura (leads de parte, siglas, esqueletos) — rc=0; partes_sem_lead=[]; siglas_sem_expansao=[]; esqueletos_vazios=0
+   PASS paths citados existem — 0 quebrados
+[PASS] /home/gabrielgadea/projects/touring-d07-risco/docs/plans/2026-11-05-d07-risco-aceito/strategy-2026-11-05-d07-risco-aceito.md (md) — score=100.0/100
+   PASS registro (tom_relatorio --check) — duros=? rc=0
+   PASS estrutura (leads de parte, siglas, esqueletos) — rc=0; partes_sem_lead=[]; siglas_sem_expansao=[]; esqueletos_vazios=0
+   PASS paths citados existem — 0 quebrados
+[PASS] /home/gabrielgadea/projects/touring-d07-risco/docs/plans/2026-11-05-d07-risco-aceito/docs/audits/cross-audit-2026-11-05.md (md) — score=100.0/100
+   PASS registro (tom_relatorio --check) — duros=? rc=0
+   PASS estrutura (leads de parte, siglas, esqueletos) — rc=0; partes_sem_lead=[]; siglas_sem_expansao=[]; esqueletos_vazios=0
+   PASS paths citados existem — 0 quebrados
+gate_artefato: APROVADO (examinados=3) — 3 artefato(s) medido(s), nenhuma falha

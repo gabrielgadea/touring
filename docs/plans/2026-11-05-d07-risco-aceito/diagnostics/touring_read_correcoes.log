@@ -1,0 +1,42 @@
+
+======================================================================================================================
+READ-COMPREHEND  /home/gabrielgadea/projects/touring-d07-risco/crates/touring-quality/src/verifications/python_deps.rs
+======================================================================================================================
+  decision                 GO  (GREEN)
+  blast_radius             0
+  quality_score            0.965  (higher is better)
+  fan_in / fan_out         0.0 / 0.0
+  language                 rust
+
+----------------------------------------
+top symbols (first 12)
+----------------------------------------
+  kind      name                vis  line
+  --------  ------------------  ---  ----
+  const     PIP_AUDIT_PIN            28
+  const     LIVE_ENV                 31
+  const     CACHE_TTL_SECS           33
+  const     EXPORT_TIMEOUT           34
+  const     AUDIT_TIMEOUT            35
+  const     LOCK_CHECK_TIMEOUT       36
+  const     STALE_LOCK               38
+  const     MISSING_LOCK             40
+  struct    AuditConfig              44
+  impl      AuditConfig              53
+  method    from_env                 56
+  function  python_root              82
+
+----------------------------------------
+rust semantic (syn)
+----------------------------------------
+  semantic_complexity      0.05999999865889549
+
+----------------------------------------
+TDG grade
+----------------------------------------
+  {"edit_count":0,"file_path":"/home/gabrielgadea/projects/touring-d07-risco/crates/touring-quality/src/verifications/python_deps.rs","language":"rust","tdg":{"action":"Edit cauteloso, planejar mitigação","antipatterns":1.0,"churn":1.0,"complexity":0.35,"composite":0.759,"coverage":0.464,"duplication":1.0,"entropy":0.982,"grade":"C+"}}
+
+----------------------------------------
+blast radius (truncated 12L)
+----------------------------------------
+  {"blast_radius":0,"consumers":[],"file_path":"/home/gabrielgadea/projects/touring-d07-risco/crates/touring-quality/src/verifications/python_deps.rs"}

@@ -1,0 +1,56 @@
+{
+  "dead_patterns": [
+    "new_stub",
+    "adapt_legacy"
+  ],
+  "internal_only": {
+    "_elided_array_len": 28780
+  },
+  "internal_only_count": 28780,
+  "orphan_count": 7927,
+  "orphans": {
+    "_elided_array_len": 7927
+  },
+  "resolution": {
+    "heuristic_edges": 104927,
+    "name_only_candidates": 49013,
+    "origin_breakdown": [
+      {
+        "origin": "ast_declared",
+        "rows": 59729
+      },
+      {
+        "origin": "ast_resolved",
+        "rows": 24810
+      },
+      {
+        "origin": "ast_inferred",
+        "rows": 104927
+      }
+    ],
+    "top_unresolved_modules_debt_only": {
+      "_elided_array_len": 10
+    },
+    "unresolved_by_class": [
+      {
+        "call_sites": 34684,
+        "class": "unmeasured"
+      },
+      {
+        "call_sites": 9060,
+        "class": "external"
+      },
+      {
+        "call_sites": 4583,
+        "class": "workspace_unresolved"
+      },
+      {
+        "call_sites": 686,
+        "class": "scope_keyword"
+      }
+    ],
+    "unresolved_samples": {
+      "_elided_array_len": 5
+    }
+  }
+}

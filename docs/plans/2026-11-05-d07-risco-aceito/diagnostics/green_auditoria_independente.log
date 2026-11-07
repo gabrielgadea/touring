@@ -1,0 +1,27 @@
+Running as unit: run-p2408590-i10756031.scope; invocation ID: 110a342980604a4ca3e9fee8026fa27d
+   Compiling touring-quality v30.4.102 (/home/gabrielgadea/projects/touring-d07-risco/crates/touring-quality)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.45s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring-d07-risco/target/debug/deps/touring_quality-970b8322c0e7cbbd)
+
+running 19 tests
+test verifications::python_deps::tests::a_comment_inside_the_array_is_not_syntax ... ok
+test verifications::python_deps::tests::a_clean_report_passes_and_names_its_denominator ... ok
+test verifications::python_deps::tests::accepted_alias_also_matches ... ok
+test verifications::python_deps::tests::a_workspace_or_path_source_is_a_bound_and_an_index_is_not ... ok
+test verifications::python_deps::tests::accepted_risk_within_deadline_is_ignored_and_listed ... ok
+test verifications::python_deps::tests::a_recorded_osv_response_blocks_with_distinct_findings ... ok
+test verifications::python_deps::tests::expiration_uses_the_sao_paulo_calendar_day ... ok
+test verifications::python_deps::tests::expiration_is_inclusive_on_the_last_day ... ok
+test verifications::python_deps::tests::expired_risk_blocks_with_id_and_date ... ok
+test verifications::python_deps::tests::accepted_entry_without_a_reason_is_inert ... ok
+test verifications::python_deps::tests::no_report_is_unverified_never_a_pass ... ok
+test verifications::python_deps::tests::no_accepted_file_preserves_the_previous_verdict ... ok
+test verifications::python_deps::tests::a_fresh_cached_audit_answers_without_the_network ... ok
+test verifications::python_deps::tests::parser_accepts_only_dated_accepted_tables ... ok
+test verifications::python_deps::tests::simple_table_cannot_extend_the_previous_accepted_risk ... ok
+test verifications::python_deps::tests::python_root_claims_python_manifests_and_leaves_rust_roots ... ok
+test verifications::python_deps::tests::wrong_accepted_id_does_not_hide_the_finding ... ok
+test verifications::python_deps::tests::unbounded_requirements_are_the_ones_without_a_bound ... ok
+test verifications::python_deps::tests::the_osv_evidence_names_the_opt_in_this_backend_honours ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 499 filtered out; finished in 0.00s
