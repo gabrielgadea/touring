@@ -25,4 +25,3 @@ test verifications::python_deps::tests::unbounded_requirements_are_the_ones_with
 test verifications::python_deps::tests::the_osv_evidence_names_the_opt_in_this_backend_honours ... ok
 
 test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 499 filtered out; finished in 0.00s
-

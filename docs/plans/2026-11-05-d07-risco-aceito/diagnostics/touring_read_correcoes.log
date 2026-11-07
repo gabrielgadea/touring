@@ -13,18 +13,18 @@ top symbols (first 12)
 ----------------------------------------
   kind      name                vis  line
   --------  ------------------  ---  ----
-  const     PIP_AUDIT_PIN            28  
-  const     LIVE_ENV                 31  
-  const     CACHE_TTL_SECS           33  
-  const     EXPORT_TIMEOUT           34  
-  const     AUDIT_TIMEOUT            35  
-  const     LOCK_CHECK_TIMEOUT       36  
-  const     STALE_LOCK               38  
-  const     MISSING_LOCK             40  
-  struct    AuditConfig              44  
-  impl      AuditConfig              53  
-  method    from_env                 56  
-  function  python_root              82  
+  const     PIP_AUDIT_PIN            28
+  const     LIVE_ENV                 31
+  const     CACHE_TTL_SECS           33
+  const     EXPORT_TIMEOUT           34
+  const     AUDIT_TIMEOUT            35
+  const     LOCK_CHECK_TIMEOUT       36
+  const     STALE_LOCK               38
+  const     MISSING_LOCK             40
+  struct    AuditConfig              44
+  impl      AuditConfig              53
+  method    from_env                 56
+  function  python_root              82
 
 ----------------------------------------
 rust semantic (syn)
