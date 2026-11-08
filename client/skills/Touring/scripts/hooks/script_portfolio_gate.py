@@ -147,18 +147,14 @@ def tantivy_candidates(query: str) -> list[dict]:
     return out[:3]
 
 
-def emit(payload: dict) -> None:
-    """Resposta PreToolUse canônica; sombra nunca sai != 0."""
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "additionalContext": payload["context"],
-                }
-            }
-        )
-    )
+def saida_pretooluse(contexto: str) -> dict:
+    """The canonical PreToolUse output object: context only, never a ``permissionDecision`` (shadow)."""
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": contexto,
+        }
+    }
 
 
 def log_event(event: dict) -> None:
@@ -197,11 +193,14 @@ def stats() -> int:
     evit = sum(1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado")
     por_estado: dict[str, int] = {}
     por_rota: dict[str, int] = {}
+    por_transporte: dict[str, int] = {}
     for r in rows:
         chave = r.get("estado", "legado")
         por_estado[chave] = por_estado.get(chave, 0) + 1
         rota = _classe_da_rota(r.get("rota_tantivy"))
         por_rota[rota] = por_rota.get(rota, 0) + 1
+        transporte = str(r.get("transporte", "legado"))  # absent = written before the HTTP transport (D09)
+        por_transporte[transporte] = por_transporte.get(transporte, 0) + 1
     print(
         json.dumps(
             {
@@ -211,6 +210,7 @@ def stats() -> int:
                 "pct_evitaveis": round(100 * evit / n, 1) if n else 0.0,
                 "por_estado": por_estado,
                 "por_rota_tantivy": por_rota,
+                "por_transporte": por_transporte,
                 "sinteticos": len(todos) - n,
             },
             ensure_ascii=False,
@@ -420,13 +420,17 @@ def _aviso_de_rota(rota: str) -> str | None:
     )
 
 
-def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None) -> str | None:
-    """Consult, record the event, and return the context lines (candidates, active plan, route warning)."""
+def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None, transporte: str | None = None) -> str | None:
+    """Consult, record the event, and return the context lines (candidates, active plan, route warning).
+
+    ``transporte`` (``command`` or ``http``, D09 05/11/2026) is recorded on the event so the two ways of reaching
+    this decision stay distinguishable in ``--stats``; ``None`` (a direct caller) leaves the event as it was."""
     path, content, ephemeral, generic, origem = alvo
     v, erro = _consultar_seguro(path, content, cwd)
     rota = _rota_tantivy()
     extra = _destino(path, cwd) if ephemeral else {}
-    log_event({**_evento(path, ephemeral, generic, v, erro, origem), "rota_tantivy": rota, **extra})
+    marca = {} if transporte is None else {"transporte": transporte}
+    log_event({**_evento(path, ephemeral, generic, v, erro, origem), "rota_tantivy": rota, **extra, **marca})
     linhas = [_contexto(v, Path(path).name, ephemeral)] if v is not None and v.candidatos else []
     if "destino_sugerido" in extra:
         linhas.append(
@@ -436,6 +440,27 @@ def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None) -> str | N
     if (aviso := _aviso_de_rota(rota)) is not None:
         linhas.append(aviso)
     return "\n".join(linhas) or None
+
+
+def desligado() -> bool:
+    """The human kill switch (``TOURING_PORTFOLIO_GATE_DISABLED``), read from THIS process's environment."""
+    return bool(os.environ.get("TOURING_PORTFOLIO_GATE_DISABLED"))
+
+
+def responder(payload: object, transporte: str | None = None) -> dict | None:
+    """The whole decision for ONE event: the PreToolUse output object, or ``None`` for silence.
+
+    The single entry both transports share (D09, 05/11/2026): ``main`` (a fresh process per call, stdin/stdout/exit 0)
+    and ``portfolio_gate_server.py`` (a resident process, JSON over HTTP). The hook has no deny path — it never exits
+    non-zero and never emits a ``permissionDecision`` — so ``None`` is the exit-0-with-empty-stdout answer.
+    """
+    if desligado():
+        return None
+    alvos = _gatilhos(payload) if isinstance(payload, dict) else []
+    if not alvos or not injection_allowed():
+        return None
+    contextos = [c for a in alvos if (c := _avaliar(a, payload.get("cwd"), transporte))]
+    return saida_pretooluse("\n".join(contextos)) if contextos else None
 
 
 def main() -> int:
@@ -449,7 +474,7 @@ def main() -> int:
     contexto — nunca reescreve a entrada nem nega: o ``touring-hook`` já reescreve comandos Bash, e dois
     reescritores no mesmo PreToolUse se sobrescrevem (o último vence).
     """
-    if os.environ.get("TOURING_PORTFOLIO_GATE_DISABLED"):
+    if desligado():
         return 0
     if "--stats" in sys.argv:
         return stats()
@@ -457,12 +482,9 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, EOFError):
         return 0  # fail-open: payload ilegível nunca bloqueia
-    alvos = _gatilhos(payload) if isinstance(payload, dict) else []
-    if not alvos or not injection_allowed():
-        return 0
-    contextos = [c for a in alvos if (c := _avaliar(a, payload.get("cwd")))]
-    if contextos:
-        emit({"context": "\n".join(contextos)})
+    saida = responder(payload, "command")
+    if saida is not None:
+        print(json.dumps(saida))
     return 0
 
 
