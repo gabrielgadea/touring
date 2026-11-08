@@ -1,0 +1,743 @@
+.....................................ssssssssssssssssssssssssss......... [  4%]
+...........FFFFFF.FFFFFFFF.............................................. [  9%]
+................E.E..................................................... [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 34%]
+........................................................................ [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 68%]
+........................................................................ [ 73%]
+........................................................................ [ 78%]
+........................................................................ [ 83%]
+........................................................................ [ 88%]
+........................................................................ [ 93%]
+........................................................................ [ 98%]
+......................                                                   [100%]
+==================================== ERRORS ====================================
+____________ ERROR at teardown of test_scan_check_total_reconciled _____________
+
+    @pytest.fixture
+    def errors():
+        """Modo pytest: cada teste recebe uma lista; o teardown falha com os FAILs."""
+        errs: list = []
+        yield errs
+>       assert not errs, "\n".join(str(e) for e in errs)
+E       AssertionError: FAIL scan --check stale total: expected 397, got 405
+E       assert not ['FAIL scan --check stale total: expected 397, got 405']
+
+scripts/test_drift_coverage.py:198: AssertionError
+_____________ ERROR at teardown of test_scan_categories_breakdown ______________
+
+    @pytest.fixture
+    def errors():
+        """Modo pytest: cada teste recebe uma lista; o teardown falha com os FAILs."""
+        errs: list = []
+        yield errs
+>       assert not errs, "\n".join(str(e) for e in errs)
+E       AssertionError: FAIL sum(C1+C3+C4+C5+C6): expected 397, got 405
+E         FAIL C1 versions: expected 90, got 91
+E         FAIL C5 code-fences: expected 155, got 160
+E         FAIL C6 envvars: expected 30, got 32
+E       assert not ['FAIL sum(C1+C3+C4+C5+C6): expected 397, got 405', 'FAIL C1 versions: expected 90, got 91', 'FAIL C5 code-fences: expected 155, got 160', 'FAIL C6 envvars: expected 30, got 32']
+
+scripts/test_drift_coverage.py:198: AssertionError
+=================================== FAILURES ===================================
+____________________________ test_h1_quality_delta _____________________________
+
+    def test_h1_quality_delta():
+        """H1: touring.quality delta — Rust `quality::measure_quality_snapshot` exists."""
+        ok, payload, ms = run_subcmd(
+            [str(TOURING_BIN), "pub-api", "--file", "crates/touring-server/src/cli/pub_api.rs"]
+        )
+>       assert ok, f"H1 failed: {payload}"
+E       AssertionError: H1 failed: {'error': 'binary not built: ~/projects/touring/target/debug/touring'}
+E       assert False
+
+scripts/test_complementacao_hooks.py:87: AssertionError
+_______________________________ test_h2_symbols ________________________________
+
+    def test_h2_symbols():
+        """H2: touring.symbols — `touring ast overview` returns symbol_count."""
+        # ast overview is a separate subcmd; verify it works on a Rust file.
+>       r = subprocess.run(
+            [str(TOURING_BIN), "ast", "overview", "crates/touring-server/src/cli/pub_api.rs"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'ast', 'overview', 'crates/touring-server/src/cli/pub_api.rs']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+______________________________ test_h3_dependents ______________________________
+
+    def test_h3_dependents():
+        """H3: touring.dependents — wiring impact available."""
+>       r = subprocess.run(
+            [str(TOURING_BIN), "wiring", "impact", "crates/touring-server/src/cli/pub_api.rs",
+             "--depth", "2"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:106: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'wiring', 'impact', 'crates/touring-server/src/cli/pub_api.rs', '--depth', '2']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+_____________________________ test_h4_pub_api_diff _____________________________
+
+    def test_h4_pub_api_diff():
+        """H4: touring.pub_api_diff — F1.5 subcmd exists."""
+        ok, payload, ms = run_subcmd(
+            [str(TOURING_BIN), "pub-api", "--file", "crates/touring-server/src/cli/pub_api.rs"]
+        )
+>       assert ok, f"H4 pub-api failed: {payload}"
+E       AssertionError: H4 pub-api failed: {'error': 'binary not built: ~/projects/touring/target/debug/touring'}
+E       assert False
+
+scripts/test_complementacao_hooks.py:121: AssertionError
+_______________________________ test_h5_gotchas ________________________________
+
+    def test_h5_gotchas():
+        """H5: touring.gotchas — `touring gotcha match` works."""
+>       r = subprocess.run(
+            [str(TOURING_BIN), "gotcha", "match", "crates/touring-server/src/cli/pub_api.rs"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:129: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'gotcha', 'match', 'crates/touring-server/src/cli/pub_api.rs']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+_________________________ test_h6_scan_vulnerabilities _________________________
+
+    def test_h6_scan_vulnerabilities():
+        """H6: touring.scan_vulnerabilities — F1.5 subcmd + F3 SignalLayer."""
+        # Subcmd gate (F1.5).
+        ok, payload, ms = run_subcmd(
+            [str(TOURING_BIN), "scan", "crates/touring-server/src/cli/pub_api.rs"]
+        )
+>       assert ok, f"H6 scan subcmd failed: {payload}"
+E       AssertionError: H6 scan subcmd failed: {'error': 'binary not built: ~/projects/touring/target/debug/touring'}
+E       assert False
+
+scripts/test_complementacao_hooks.py:149: AssertionError
+____________________________ test_h8_wiring_orphans ____________________________
+
+    def test_h8_wiring_orphans():
+        """H8: touring.wiring_orphans — REGRA #0 signal."""
+>       r = subprocess.run(
+            [str(TOURING_BIN), "wiring", "orphans"],
+            capture_output=True, text=True, timeout=10,
+        )
+
+scripts/test_complementacao_hooks.py:167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'wiring', 'orphans']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+____________________________ test_h9_wiring_impact _____________________________
+
+    def test_h9_wiring_impact():
+        """H9: touring.wiring_impact — transitive impact BFS."""
+>       r = subprocess.run(
+            [str(TOURING_BIN), "wiring", "impact", "crates/touring-server/src/cli/pub_api.rs",
+             "--depth", "4"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:176: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'wiring', 'impact', 'crates/touring-server/src/cli/pub_api.rs', '--depth', '4']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+____________________________ test_h10_gotcha_match _____________________________
+
+    def test_h10_gotcha_match():
+        """H10: touring.gotcha_match — alias of H5."""
+        # Same CLI call as H5 — must succeed.
+>       r = subprocess.run(
+            [str(TOURING_BIN), "gotcha", "match", "crates/touring-server/src/cli/pub_api.rs"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:187: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'gotcha', 'match', 'crates/touring-server/src/cli/pub_api.rs']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+___________________________ test_h11_find_references ___________________________
+
+    def test_h11_find_references():
+        """H11: touring.find_references — JÁ EXISTIA in CLI (VGP corrigiu status)."""
+        # find-references needs file:line:col position format.
+>       r = subprocess.run(
+            [str(TOURING_BIN), "find-references",
+             "crates/touring-server/src/cli/pub_api.rs:1:1"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:197: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'find-references', 'crates/touring-server/src/cli/pub_api.rs:1:1']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+______________________________ test_h12_entity_id ______________________________
+
+    def test_h12_entity_id():
+        """H12: touring.entity_id — REGRA #17 derivation."""
+        ok, payload, ms = run_subcmd(
+            [str(TOURING_BIN), "identity", "--canonical-name", "touring.test"]
+        )
+>       assert ok, f"H12 identity failed: {payload}"
+E       AssertionError: H12 identity failed: {'error': 'binary not built: ~/projects/touring/target/debug/touring'}
+E       assert False
+
+scripts/test_complementacao_hooks.py:213: AssertionError
+____________________________ test_h13_audit_unsafe _____________________________
+
+    def test_h13_audit_unsafe():
+        """H13: touring.audit_unsafe — Rust semantic signal."""
+>       r = subprocess.run(
+            [str(TOURING_BIN), "ast", "rust-semantic", "crates/touring-server/src/cli/pub_api.rs"],
+            capture_output=True, text=True, timeout=5,
+        )
+
+scripts/test_complementacao_hooks.py:222: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'ast', 'rust-semantic', 'crates/touring-server/src/cli/pub_api.rs']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+___________________________ test_h14_temporal_drift ____________________________
+
+    def test_h14_temporal_drift():
+        """H14: touring.temporal_drift — F3 SignalLayer novo."""
+        # SignalLayer gate — cargo test validates the Rust impl.
+>       assert run_cargo_test("shared::drift::tests::signal_layer_emits_high_drift"), \
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            "H14 drift SignalLayer cargo test failed"
+
+scripts/test_complementacao_hooks.py:232: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+scripts/test_complementacao_hooks.py:67: in run_cargo_test
+    r = subprocess.run(
+/usr/lib/python3.14/subprocess.py:557: in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1221: in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:2154: in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: -9 args: ['cargo', 'test', '-p', 'touring-hook-runtime',...>
+endtime = 124405.486319504, orig_timeout = 60, stdout_seq = []
+stderr_seq = [b'   Compiling proc-macro2 v1.0.106\n   Compiling serde_core v1.0.228\n   Compiling serde v1.0.228\n', b'   Compiling...v0.4.33\n', b'   Compiling num-traits v0.2.19\n', b'   Compiling quote v1.0.46\n', b'   Compiling syn v2.0.118\n', ...]
+skip_check_and_raise = False
+
+    def _check_timeout(self, endtime, orig_timeout, stdout_seq, stderr_seq,
+                       skip_check_and_raise=False):
+        """Convenience for checking if a timeout has expired."""
+        if endtime is None:
+            return
+        if skip_check_and_raise or _time() > endtime:
+>           raise TimeoutExpired(
+                    self.args, orig_timeout,
+                    output=b''.join(stdout_seq) if stdout_seq else None,
+                    stderr=b''.join(stderr_seq) if stderr_seq else None)
+E           subprocess.TimeoutExpired: Command '['cargo', 'test', '-p', 'touring-hook-runtime', '--lib', '--', 'shared::drift::tests::signal_layer_emits_high_drift']' timed out after 60 seconds
+
+/usr/lib/python3.14/subprocess.py:1268: TimeoutExpired
+__________________________ test_h15_evolution_status ___________________________
+
+    def test_h15_evolution_status():
+        """H15: touring.evolution_status — subcmd `touring evolution drift` (no status)."""
+        # touring evolution has subcommands drift / insights / tools; status is
+        # surfaced via drift JSON. validate drift exits 0 + contains evolution
+        # signal fields.
+>       r = subprocess.run(
+            [str(TOURING_BIN), "evolution", "drift"],
+            capture_output=True, text=True, timeout=10,
+        )
+
+scripts/test_complementacao_hooks.py:244: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.14/subprocess.py:555: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.14/subprocess.py:1039: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+/usr/lib/python3.14/subprocess.py:1875: in _execute_child
+    self._posix_spawn(args, executable, env, restore_signals, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Popen: returncode: None args: ['~/projects/touring/target/...>
+args = ['~/projects/touring/target/debug/touring', 'evolution', 'drift']
+executable = '~/projects/touring/target/debug/touring'
+env = None, restore_signals = True, close_fds = True, p2cread = -1
+p2cwrite = -1, c2pread = 11, c2pwrite = 12, errread = 13, errwrite = 14
+
+    def _posix_spawn(self, args, executable, env, restore_signals, close_fds,
+                     p2cread, p2cwrite,
+                     c2pread, c2pwrite,
+                     errread, errwrite):
+        """Execute program using os.posix_spawn()."""
+        kwargs = {}
+        if restore_signals:
+            # See _Py_RestoreSignals() in Python/pylifecycle.c
+            sigset = []
+            for signame in ('SIGPIPE', 'SIGXFZ', 'SIGXFSZ'):
+                signum = getattr(signal, signame, None)
+                if signum is not None:
+                    sigset.append(signum)
+            kwargs['setsigdef'] = sigset
+    
+        file_actions = []
+        for fd in (p2cwrite, c2pread, errread):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_CLOSE, fd))
+        for fd, fd2 in (
+            (p2cread, 0),
+            (c2pwrite, 1),
+            (errwrite, 2),
+        ):
+            if fd != -1:
+                file_actions.append((os.POSIX_SPAWN_DUP2, fd, fd2))
+    
+        if close_fds:
+            file_actions.append((os.POSIX_SPAWN_CLOSEFROM, 3))
+    
+        if file_actions:
+            kwargs['file_actions'] = file_actions
+    
+>       self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '~/projects/touring/target/debug/touring'
+
+/usr/lib/python3.14/subprocess.py:1819: FileNotFoundError
+=========================== short test summary info ============================
+FAILED scripts/test_complementacao_hooks.py::test_h1_quality_delta - Assertio...
+FAILED scripts/test_complementacao_hooks.py::test_h2_symbols - FileNotFoundEr...
+FAILED scripts/test_complementacao_hooks.py::test_h3_dependents - FileNotFoun...
+FAILED scripts/test_complementacao_hooks.py::test_h4_pub_api_diff - Assertion...
+FAILED scripts/test_complementacao_hooks.py::test_h5_gotchas - FileNotFoundEr...
+FAILED scripts/test_complementacao_hooks.py::test_h6_scan_vulnerabilities - A...
+FAILED scripts/test_complementacao_hooks.py::test_h8_wiring_orphans - FileNot...
+FAILED scripts/test_complementacao_hooks.py::test_h9_wiring_impact - FileNotF...
+FAILED scripts/test_complementacao_hooks.py::test_h10_gotcha_match - FileNotF...
+FAILED scripts/test_complementacao_hooks.py::test_h11_find_references - FileN...
+FAILED scripts/test_complementacao_hooks.py::test_h12_entity_id - AssertionEr...
+FAILED scripts/test_complementacao_hooks.py::test_h13_audit_unsafe - FileNotF...
+FAILED scripts/test_complementacao_hooks.py::test_h14_temporal_drift - subpro...
+FAILED scripts/test_complementacao_hooks.py::test_h15_evolution_status - File...
+ERROR scripts/test_drift_coverage.py::test_scan_check_total_reconciled - Asse...
+ERROR scripts/test_drift_coverage.py::test_scan_categories_breakdown - Assert...
+14 failed, 1420 passed, 26 skipped, 2 errors in 164.17s (0:02:44)

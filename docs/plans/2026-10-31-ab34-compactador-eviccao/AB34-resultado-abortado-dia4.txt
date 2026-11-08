@@ -1,0 +1,11 @@
+AB34 | as_of 2026-11-05T22:21:18.929111+00:00 | semente 20261105 | dias válidos 0/8
+dia 0 bloco 0 C- turnos=80 bytes/turno=48007 EXCLUÍDO deriva
+dia 1 bloco 0 CE turnos=16 bytes/turno=1049 EXCLUÍDO deriva,poucos_turnos
+dia 2 bloco 0 -E turnos=10 bytes/turno=2972 EXCLUÍDO deriva,poucos_turnos
+dia 3 bloco 0 -- turnos=14 bytes/turno=154307 EXCLUÍDO poucos_turnos
+dia 4 bloco 1 -E turnos=0 bytes/turno=— EXCLUÍDO em_curso,poucos_turnos
+dia 5 bloco 1 C- turnos=0 bytes/turno=— EXCLUÍDO sem_registro,em_curso,poucos_turnos
+dia 6 bloco 1 -- turnos=0 bytes/turno=— EXCLUÍDO sem_registro,em_curso,poucos_turnos
+dia 7 bloco 1 CE turnos=0 bytes/turno=— EXCLUÍDO sem_registro,em_curso,poucos_turnos
+fator C: efeito — IC95 [—; —] -> inconclusivo (graus de liberdade insuficientes no primário)
+fator E: efeito — IC95 [—; —] -> inconclusivo (graus de liberdade insuficientes no primário)

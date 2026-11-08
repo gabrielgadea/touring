@@ -1,0 +1,312 @@
+{
+ "as_of": "2026-11-05T22:21:18.047370+00:00",
+ "calendario": {
+  "day0": "2026-11-01",
+  "semente": 20261105,
+  "blocos": [
+   [
+    "C-",
+    "CE",
+    "-E",
+    "--"
+   ],
+   [
+    "-E",
+    "C-",
+    "--",
+    "CE"
+   ]
+  ]
+ },
+ "log": {
+  "registros": 83,
+  "linhas_invalidas": 0
+ },
+ "sessoes": {
+  "lidas": 69,
+  "descartadas": {
+   "cruza_a_virada": 1,
+   "fora_da_sequencia": 1
+  }
+ },
+ "dias": [
+  {
+   "day": 0,
+   "block": 0,
+   "cell": "C-",
+   "c": 1,
+   "e": 0,
+   "sessoes": 47,
+   "turnos": 80,
+   "chamadas": 1335,
+   "bytes_por_turno": 48007.2875,
+   "erro_pp": 3.3707865168539324,
+   "retry_pp": 1.7228464419475655,
+   "raw_c_pp": 0.0749063670411985,
+   "raw_e_pp": 0.0,
+   "wasted_pp": null,
+   "compactacoes": 2,
+   "pos_tokens_medio": 28754.5,
+   "versoes_cc": [
+    "2.1.316"
+   ],
+   "arquivos_compactados": 54,
+   "arquivos_evicted": 0,
+   "excluido": [
+    "deriva"
+   ]
+  },
+  {
+   "day": 1,
+   "block": 0,
+   "cell": "CE",
+   "c": 1,
+   "e": 1,
+   "sessoes": 16,
+   "turnos": 16,
+   "chamadas": 20,
+   "bytes_por_turno": 1049.25,
+   "erro_pp": 0.0,
+   "retry_pp": 0.0,
+   "raw_c_pp": 0.0,
+   "raw_e_pp": 0.0,
+   "wasted_pp": null,
+   "compactacoes": 0,
+   "pos_tokens_medio": null,
+   "versoes_cc": [
+    "2.1.316"
+   ],
+   "arquivos_compactados": 21,
+   "arquivos_evicted": 18,
+   "excluido": [
+    "deriva",
+    "poucos_turnos"
+   ]
+  },
+  {
+   "day": 2,
+   "block": 0,
+   "cell": "-E",
+   "c": 0,
+   "e": 1,
+   "sessoes": 1,
+   "turnos": 10,
+   "chamadas": 10,
+   "bytes_por_turno": 2971.5,
+   "erro_pp": 10.0,
+   "retry_pp": 0.0,
+   "raw_c_pp": 0.0,
+   "raw_e_pp": 0.0,
+   "wasted_pp": null,
+   "compactacoes": 0,
+   "pos_tokens_medio": null,
+   "versoes_cc": [
+    "2.1.316"
+   ],
+   "arquivos_compactados": 0,
+   "arquivos_evicted": 2,
+   "excluido": [
+    "deriva",
+    "poucos_turnos"
+   ]
+  },
+  {
+   "day": 3,
+   "block": 0,
+   "cell": "--",
+   "c": 0,
+   "e": 0,
+   "sessoes": 3,
+   "turnos": 14,
+   "chamadas": 736,
+   "bytes_por_turno": 154306.85714285713,
+   "erro_pp": 2.989130434782609,
+   "retry_pp": 1.0869565217391304,
+   "raw_c_pp": 0.0,
+   "raw_e_pp": 0.0,
+   "wasted_pp": null,
+   "compactacoes": 2,
+   "pos_tokens_medio": 39351.0,
+   "versoes_cc": [
+    "2.1.318"
+   ],
+   "arquivos_compactados": 0,
+   "arquivos_evicted": 0,
+   "excluido": [
+    "poucos_turnos"
+   ]
+  },
+  {
+   "day": 4,
+   "block": 1,
+   "cell": "-E",
+   "c": 0,
+   "e": 1,
+   "sessoes": 0,
+   "turnos": 0,
+   "chamadas": 0,
+   "bytes_por_turno": null,
+   "erro_pp": null,
+   "retry_pp": null,
+   "raw_c_pp": null,
+   "raw_e_pp": null,
+   "wasted_pp": null,
+   "compactacoes": 0,
+   "pos_tokens_medio": null,
+   "versoes_cc": [],
+   "arquivos_compactados": 0,
+   "arquivos_evicted": 96,
+   "excluido": [
+    "em_curso",
+    "poucos_turnos"
+   ]
+  },
+  {
+   "day": 5,
+   "block": 1,
+   "cell": "C-",
+   "c": 1,
+   "e": 0,
+   "sessoes": 0,
+   "turnos": 0,
+   "chamadas": 0,
+   "bytes_por_turno": null,
+   "erro_pp": null,
+   "retry_pp": null,
+   "raw_c_pp": null,
+   "raw_e_pp": null,
+   "wasted_pp": null,
+   "compactacoes": 0,
+   "pos_tokens_medio": null,
+   "versoes_cc": [],
+   "arquivos_compactados": 0,
+   "arquivos_evicted": 0,
+   "excluido": [
+    "sem_registro",
+    "em_curso",
+    "poucos_turnos"
+   ]
+  },
+  {
+   "day": 6,
+   "block": 1,
+   "cell": "--",
+   "c": 0,
+   "e": 0,
+   "sessoes": 0,
+   "turnos": 0,
+   "chamadas": 0,
+   "bytes_por_turno": null,
+   "erro_pp": null,
+   "retry_pp": null,
+   "raw_c_pp": null,
+   "raw_e_pp": null,
+   "wasted_pp": null,
+   "compactacoes": 0,
+   "pos_tokens_medio": null,
+   "versoes_cc": [],
+   "arquivos_compactados": 0,
+   "arquivos_evicted": 0,
+   "excluido": [
+    "sem_registro",
+    "em_curso",
+    "poucos_turnos"
+   ]
+  },
+  {
+   "day": 7,
+   "block": 1,
+   "cell": "CE",
+   "c": 1,
+   "e": 1,
+   "sessoes": 0,
+   "turnos": 0,
+   "chamadas": 0,
+   "bytes_por_turno": null,
+   "erro_pp": null,
+   "retry_pp": null,
+   "raw_c_pp": null,
+   "raw_e_pp": null,
+   "wasted_pp": null,
+   "compactacoes": 0,
+   "pos_tokens_medio": null,
+   "versoes_cc": [],
+   "arquivos_compactados": 0,
+   "arquivos_evicted": 0,
+   "excluido": [
+    "sem_registro",
+    "em_curso",
+    "poucos_turnos"
+   ]
+  }
+ ],
+ "dias_validos": 0,
+ "dias_excluidos": {
+  "0": [
+   "deriva"
+  ],
+  "1": [
+   "deriva",
+   "poucos_turnos"
+  ],
+  "2": [
+   "deriva",
+   "poucos_turnos"
+  ],
+  "3": [
+   "poucos_turnos"
+  ],
+  "4": [
+   "em_curso",
+   "poucos_turnos"
+  ],
+  "5": [
+   "sem_registro",
+   "em_curso",
+   "poucos_turnos"
+  ],
+  "6": [
+   "sem_registro",
+   "em_curso",
+   "poucos_turnos"
+  ],
+  "7": [
+   "sem_registro",
+   "em_curso",
+   "poucos_turnos"
+  ]
+ },
+ "fatores": {
+  "C": {
+   "primario": null,
+   "danos": {
+    "erro_pp": null,
+    "retry_pp": null,
+    "wasted_pp": null,
+    "raw_c_pp": null
+   },
+   "decisao": {
+    "veredito": "inconclusivo",
+    "motivo": "graus de liberdade insuficientes no primário"
+   }
+  },
+  "E": {
+   "primario": null,
+   "danos": {
+    "erro_pp": null,
+    "retry_pp": null,
+    "wasted_pp": null,
+    "raw_e_pp": null
+   },
+   "decisao": {
+    "veredito": "inconclusivo",
+    "motivo": "graus de liberdade insuficientes no primário"
+   }
+  },
+  "n": null,
+  "df": null,
+  "interacao_exploratoria": null,
+  "secundario_pos_tokens": null
+ },
+ "ressalvas": []
+}
