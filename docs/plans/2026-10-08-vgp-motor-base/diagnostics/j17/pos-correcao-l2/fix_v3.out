@@ -1,0 +1,7 @@
+recall de símbolo · arquivo 11/13 · inline 23/27 | forma (fora) {'arquivo': [1, 11], 'inline': [0, 13]} | falsos deny 0 em {'arquivo': 600, 'inline': 371} | avisos em negativos 55 | p95 1037.5 ms | chamadas 1035 | não classificados 0 | defeito de corpus (snap não compila) 0
+timeouts da camada 2: 143/1035 · taxa 13.82% · patamar 20% · sinal presente · camada 2 sem veredito 226
+  falso deny (arquivo): 0/600 · taxa 0.000% · limite_superior_95 0.50% (teto 1%; o n=600 admite até 1 falso(s))
+  falso deny (inline): 0/371 · taxa 0.000% · limite_superior_95 0.80% (teto 1%; o n=371 admite até 0 falso(s))
+  PENDENTE: p95 1037.5 ms > 1000.0 ms
+veredito: NÃO PRONTO
+[instrumentado] 1035 veredictos do motor gravados em /tmp/claude-1000/-home-<user>-projects-touring/cd706689-1c44-4dd9-b3a5-7b839d370879/scratchpad/v3-fix/fix_v3.porid.json
