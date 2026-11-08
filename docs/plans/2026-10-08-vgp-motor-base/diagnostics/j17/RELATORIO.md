@@ -31,8 +31,13 @@ põe `backend/` no `sys.path` (primeiro diretório sem `__init__.py` acima de `t
 
 ## Próximos passos
 
-1. Reproduzir o caso isolado na camada 2 e corrigir a resolução (pacote regular homônimo no diretório do script
-   não pode sombrear um namespace package da raiz de importação), com teste e mutante.
+1. **Feito em `90d491ec` (08/11/2026).** Reproduzido isolado (`touring vgp check`, deny determinístico). A causa
+   exata era a classificação de escopo, não a resolução do pyright: `modulo_do_projeto` só procurava o módulo na
+   raiz e no diretório do arquivo, e só como `.py`/`__init__.py`, então `services` (namespace `backend/services`)
+   virava **externo**, e "unknown import symbol" de módulo externo é deny. Agora os ancestrais do arquivo até a
+   raiz contam e PEP 420 é reconhecido; módulo do projeto → a camada 2 abstém (warn) e a camada 1 decide. Controles
+   `json.loadz`/`os.pathx` seguem deny. V3 informativa no mesmo híbrido: falso deny 1/600 → 0/600, recall igual
+   (`pos-correcao-l2/`).
 2. Corrigir o instrumento quente para que a chamada de aquecimento que cai no standalone seja descartada e repetida
    (ou o daemon seja aquecido antes da 1ª entrada) — mudança de instrumento exige novo pré-registro, nunca reaplicar
    neste run.
