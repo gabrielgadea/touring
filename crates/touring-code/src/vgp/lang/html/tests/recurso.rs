@@ -413,13 +413,9 @@ fn recurso_nome_e_o_token_como_escrito_sem_query_e_sem_fragmento() {
     // ausente: o nome é o token inteiro, com o prefixo, sem o sufixo
     let v = s.mede(
         "a/b/index.html",
-        &html("../../shared/foo.vgpAusente0c2dcab442d3.png?v=2#x"),
+        &html("../../shared/foo.vgpAusente.png?v=2#x"),
     );
-    ve(
-        &v,
-        "recurso",
-        &["../../shared/foo.vgpAusente0c2dcab442d3.png"],
-    );
+    ve(&v, "recurso", &["../../shared/foo.vgpAusente.png"]);
     // relativo ao arquivo × raiz-relativo: o nome guarda a barra inicial e o `./`
     let v = s.mede("a/b/index.html", &html("./nada.png"));
     ve(&v, "recurso", &["./nada.png"]);
