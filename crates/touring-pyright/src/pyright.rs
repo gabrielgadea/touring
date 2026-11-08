@@ -488,8 +488,19 @@ fn is_word_char(c: char) -> bool {
 
 /// Does the module live under the project root (absolute, or relative to the checked file)?
 ///
-/// Decided by a file actually existing — `<module>.py` or `<module>/__init__.py` — and being inside
-/// the root once symlinks are resolved. The first base where the module is found decides.
+/// Decided by a module actually existing and being inside the root once symlinks are resolved, in
+/// the order Python itself would settle it:
+/// 1. a regular module (`<module>.py`, `<module>/__init__.py`) at the root or next to the file — the
+///    first base where it is found decides (a relative import has only its climbed base);
+/// 2. for an absolute import, a regular module of the interpreter (stdlib, site-packages, a C
+///    extension in `lib-dynload`) is EXTERNAL: a regular module on `sys.path` beats every PEP 420
+///    namespace portion, and an ancestor directory is only maybe on `sys.path` (review 08/11/2026: a
+///    `tests/unit/logging/` holding `.py` files must not turn `logging` into a project module);
+/// 3. otherwise a regular module in a directory between the file and the root, then a namespace
+///    package in any of those bases. Every such directory can be on `sys.path` at run time (the
+///    script's directory, pytest's rootdir insertion, `cd backend && python -m …`): seen only from the
+///    root and the file's directory, `from services import x` in `backend/tests/unit/services/` took
+///    the namespace `backend/services` for a third-party module and denied (J17, 08/11/2026).
 pub fn modulo_do_projeto(modulo: &str, raiz: &Path, origem: &Path) -> bool {
     let bare = modulo.trim_start_matches('.');
     let nivel = modulo.len() - bare.len();
@@ -497,45 +508,109 @@ pub fn modulo_do_projeto(modulo: &str, raiz: &Path, origem: &Path) -> bool {
     let Ok(raiz_real) = raiz.canonicalize() else {
         return false;
     };
-    bases(nivel, raiz, origem)
+    let perto = bases(nivel, raiz, origem);
+    if let Some(dentro) = perto
         .iter()
-        .find_map(|base| modulo_em(base, &partes, &raiz_real))
+        .find_map(|base| modulo_regular_em(base, &partes, &raiz_real))
+    {
+        return dentro;
+    }
+    if nivel > 0 {
+        return perto
+            .iter()
+            .find_map(|base| namespace_em(base, &partes, &raiz_real))
+            .unwrap_or(false);
+    }
+    if modulo_do_interpretador(&raizes_do_interpretador(raiz), &partes) {
+        return false;
+    }
+    let ancestrais = ancestrais_ate_a_raiz(raiz, origem);
+    ancestrais
+        .iter()
+        .find_map(|base| modulo_regular_em(base, &partes, &raiz_real))
+        .or_else(|| {
+            perto
+                .iter()
+                .chain(&ancestrais)
+                .find_map(|base| namespace_em(base, &partes, &raiz_real))
+        })
         .unwrap_or(false)
 }
 
-/// Directories a module path is resolved against: for an absolute import, the root, the file's
-/// directory and every directory between them; the directory `nivel - 1` levels above the file for a
-/// relative one.
-///
-/// Every directory from the file up to the root can be on `sys.path` at run time: the script's own
-/// directory, the first ancestor without `__init__.py` (pytest's rootdir insertion), the directory a
-/// subproject is run from (`cd backend && python -m …`). Seen only from the root and the file's
-/// directory, `from services import x` in `backend/tests/unit/services/` took `backend/services` for a
-/// third-party module and denied (J17, 08/11/2026). A file outside the root walks nothing above itself.
+/// The directories strictly between the file's directory and the root (the root and the file's own
+/// directory are the [`bases`]). A file outside the root walks nothing.
+fn ancestrais_ate_a_raiz(raiz: &Path, origem: &Path) -> Vec<PathBuf> {
+    let Some(pai) = origem.parent() else {
+        return Vec::new();
+    };
+    if !pai.starts_with(raiz) {
+        return Vec::new();
+    }
+    pai.ancestors()
+        .skip(1)
+        .take_while(|dir| dir.starts_with(raiz) && *dir != raiz)
+        .map(Path::to_path_buf)
+        .collect()
+}
+
+/// Is the module a regular module of the interpreter: source (`.py`, package `__init__.py`) or a C
+/// extension (`<name>.*.so` / `.pyd`, at the root of a search dir or in its `lib-dynload`)? Modules
+/// compiled into the interpreter (`sys`, `builtins`) have no file and are not seen here.
+fn modulo_do_interpretador(raizes: &[PathBuf], partes: &[&str]) -> bool {
+    let Some((ultimo, pacote)) = partes.split_last() else {
+        return false;
+    };
+    raizes.iter().any(|base| {
+        arquivo_modulo(base, partes).is_some()
+            || [base.to_path_buf(), base.join("lib-dynload")]
+                .iter()
+                .any(|dir| {
+                    let dir = pacote.iter().fold(dir.clone(), |d, p| d.join(p));
+                    extensao_c_em(&dir, ultimo)
+                })
+    })
+}
+
+/// A compiled extension module `<nome>.<tag>.so` / `<nome>.pyd` (or plain `<nome>.so`) inside `dir`.
+fn extensao_c_em(dir: &Path, nome: &str) -> bool {
+    let Ok(entradas) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    entradas.flatten().any(|entrada| {
+        let arquivo = entrada.file_name();
+        arquivo
+            .to_string_lossy()
+            .strip_prefix(nome)
+            .is_some_and(|resto| {
+                resto.starts_with('.') && (resto.ends_with(".so") || resto.ends_with(".pyd"))
+            })
+    })
+}
+
+/// Directories a module path is resolved against: the root and the file's directory for an absolute
+/// import; the directory `nivel - 1` levels above the file for a relative one.
 fn bases(nivel: usize, raiz: &Path, origem: &Path) -> Vec<PathBuf> {
     let pai = origem.parent().unwrap_or_else(|| Path::new("."));
     if nivel == 0 {
-        let mut dirs = vec![raiz.to_path_buf(), pai.to_path_buf()];
-        if pai.starts_with(raiz) {
-            dirs.extend(
-                pai.ancestors()
-                    .skip(1)
-                    .take_while(|dir| dir.starts_with(raiz) && *dir != raiz)
-                    .map(Path::to_path_buf),
-            );
-        }
-        return dirs;
+        return vec![raiz.to_path_buf(), pai.to_path_buf()];
     }
     let climbed = (1..nivel).fold(pai.to_path_buf(), |dir, _| dir.join(".."));
     climbed.canonicalize().into_iter().collect()
 }
 
-/// `Some(inside_root)` when the module exists under `base`, `None` when it does not. A PEP 420
-/// namespace package counts: it is importable, and the scope question is only "whose module is it".
-fn modulo_em(base: &Path, partes: &[&str], raiz_real: &Path) -> Option<bool> {
-    let found = arquivo_modulo(base, partes).or_else(|| pacote_de_namespace(base, partes))?;
+/// `Some(inside_root)` when a regular module exists under `base`, `None` when it does not.
+fn modulo_regular_em(base: &Path, partes: &[&str], raiz_real: &Path) -> Option<bool> {
+    dentro_da_raiz(arquivo_modulo(base, partes)?, raiz_real)
+}
+
+/// `Some(inside_root)` when a PEP 420 namespace package exists under `base`, `None` when it does not.
+fn namespace_em(base: &Path, partes: &[&str], raiz_real: &Path) -> Option<bool> {
+    dentro_da_raiz(pacote_de_namespace(base, partes)?, raiz_real)
+}
+
+fn dentro_da_raiz(encontrado: PathBuf, raiz_real: &Path) -> Option<bool> {
     Some(
-        found
+        encontrado
             .canonicalize()
             .is_ok_and(|real| real.starts_with(raiz_real)),
     )
@@ -608,6 +683,14 @@ fn evidencia_de_modulo(raizes: &[PathBuf], partes: &[&str], nome: &str) -> bool 
 /// cannot supply the evidence.
 fn raizes_de_busca(raiz: &Path, origem: &Path) -> Vec<PathBuf> {
     let mut raizes = bases(0, raiz, origem);
+    raizes.extend(raizes_do_interpretador(raiz));
+    raizes
+}
+
+/// The interpreter's own import roots, in CPython's order: base stdlib → venv site-packages →
+/// system site-packages (only when the venv includes them). Empty without a venv.
+fn raizes_do_interpretador(raiz: &Path) -> Vec<PathBuf> {
+    let mut raizes = Vec::new();
     if let Some(venv) = venv_ativo(raiz) {
         let mut locais = Vec::new();
         let mut versoes = Vec::new();
@@ -1492,6 +1575,49 @@ mod tests {
         let raiz = tree.root.join("backend");
         let fora = tree.root.join("fora/sub/a.py");
         assert!(!modulo_do_projeto("services", &raiz, &fora));
+    }
+
+    /// Review of 08/11/2026: the ancestor walk must not let a project directory claim a name the
+    /// interpreter owns. A regular stdlib module (source or C extension) beats a namespace directory
+    /// and a regular package in an ancestor, so `logging`/`math` stay external and keep denying; the
+    /// same tree without the interpreter's module is a project module (the walk still works).
+    #[test]
+    fn interpreter_module_beats_namespace_dirs_and_ancestor_packages() {
+        let tree = TempTree::new("esc_ns_stdlib");
+        venv_com_base(&tree);
+        stdlib(&tree, "logging/__init__.py", "");
+        stdlib(
+            &tree,
+            "lib-dynload/math.cpython-312-x86_64-linux-gnu.so",
+            "",
+        );
+        tree.file("backend/tests/unit/logging/handlers_test.py", ""); // namespace dir with source
+        tree.file("backend/tests/math/__init__.py", ""); // regular package in an ancestor
+        tree.file("backend/tests/unit/math/m.py", "");
+        let origem = tree.file("backend/tests/unit/feature/test_x.py", "");
+
+        assert!(!modulo_do_projeto("logging", &tree.root, &origem));
+        assert!(!modulo_do_projeto("math", &tree.root, &origem));
+        let d = attr("\"getLoggr\" is unknown import symbol");
+        let escopo_logging = escopo(&d, "from logging import getLoggr\n", &tree.root, &origem);
+        assert_eq!(escopo_logging, Escopo::Externo);
+        assert_eq!(severidade(Balde::Arquivo, escopo_logging), Severidade::Deny);
+
+        // control: without the interpreter's module the same directories are the project's
+        let sem = TempTree::new("esc_ns_stdlib_ctl");
+        sem.file("backend/tests/unit/logging/handlers_test.py", "");
+        let origem = sem.file("backend/tests/unit/feature/test_x.py", "");
+        assert!(modulo_do_projeto("logging", &sem.root, &origem));
+    }
+
+    /// A relative import of a PEP 420 subpackage resolves inside the climbed base: project, not external.
+    #[test]
+    fn relative_import_of_a_namespace_subpackage_is_a_project_module() {
+        let tree = TempTree::new("esc_ns_relative");
+        tree.file("app/sub/m.py", "");
+        let origem = tree.file("app/main.py", "");
+        assert!(modulo_do_projeto(".sub", &tree.root, &origem));
+        assert!(!modulo_do_projeto(".nada", &tree.root, &origem));
     }
 
     // ── severidade: policy P4 (P3 + dinamico), every cell ─────────────────
