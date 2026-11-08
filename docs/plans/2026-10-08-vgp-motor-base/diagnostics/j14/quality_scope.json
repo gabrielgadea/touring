@@ -1,0 +1,458 @@
+{
+  "scope_kind": "workspace",
+  "root": "/tmp",
+  "file_count": 3949,
+  "total_loc": 646662,
+  "dimensions": {
+    "F1_1": {
+      "value": 0.77696085,
+      "status": "Warn",
+      "evidence": "LOC-weighted over 3949 files: 0.777 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/src/lib.rs=0.000, p10=0.550)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_2": {
+      "value": 0.6947903,
+      "status": "Warn",
+      "evidence": "LOC-weighted over 3949 files: 0.695 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/novo.py=0.000, p10=0.392)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_3": {
+      "value": 0.1,
+      "status": "Fail",
+      "evidence": "F1.3: duplication ratio=68.2% (278812 dup / 408946 meaningful lines, 64025 clone block(s)) (polyglot: c+javascript+python+rust+shell) — score=0.100 (touring-analysis analyze_duplication, Type-1 block clones); Type-2 (token-normalized): 8734 clone region(s), +7915 line(s) Type-1 cannot see → combined=70.1% (scored on its OWN band: <15% healthy, 15-30% warn, 30-50% pay-down; F1.3 = min(type1_band, combined_band)); ⚠ near-duplicate pass skipped: distinct windows exceed the 50k budget — score by crate for gapped-clone coverage",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_4": {
+      "value": 0.91789335,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3904 files: 0.918 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/validate_rust_v14.py=0.000, p10=0.841) · 45 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_5": {
+      "value": 0.99710137,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3949 files: 0.997 (worst wave_v429_e2e/s1_rust_risk.rs=0.000, p10=1.000)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_6": {
+      "value": 0.84840673,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.848 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/29e6a0960b48.py=0.000, p10=0.850) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_7": {
+      "value": 0.83118945,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.831 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-agents/src/agents/fcm_calculator.rs=0.400, p10=0.800) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_8": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "dependency hygiene: legacy extern-crate=0, deep relative re-imports=0; acyclicity is crate-scoped; score=1.000 [not crate-scoped — local hygiene only]",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_9": {
+      "value": 0.9939832,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.994 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap_inline_neg/67ba4ee4676c.py=0.793, p10=0.990) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_10": {
+      "value": 0.9929474,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.993 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/estado_no_instante/antes/5439674fb9ad.py=0.564, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_11": {
+      "value": 0.99978787,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst s28-gate-1794345-xproc-work/s28_target.py=0.880, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_12": {
+      "value": 0.99989986,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-mkp/src/commands/uninstall.rs=0.880, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_1": {
+      "value": 0.01999998,
+      "status": "Fail",
+      "evidence": "fail-closed: 16 of 3949 files fail — worst-of 3949 files: claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/estado_no_instante/antes/8e32530fe1bd.py = 0.020",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_2": {
+      "value": 0.82222223,
+      "status": "Pass",
+      "evidence": "worst-of 3839 files: claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/c0d48099e9a6.py = 0.822 · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_3": {
+      "value": 0.64,
+      "status": "Warn",
+      "evidence": "worst-of 3839 files: claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/d457fb008e01.py = 0.640 · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_4": {
+      "value": 0.0,
+      "status": "Fail",
+      "evidence": "fail-closed: 301 of 3949 files fail — worst-of 3949 files: claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-rlm/src/rlm/policy/tests.rs = 0.000",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_5": {
+      "value": 0.5,
+      "status": "Warn",
+      "evidence": "F2.5: UNVERIFIED — no Cargo.lock for this manifest, so the dependency tree was never resolved and no advisory was checked. Fix: `cargo generate-lockfile` (commit it for binaries). Not a clean pass.",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_6": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_7": {
+      "value": 0.9997875,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/8e32530fe1bd.py=0.669, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_8": {
+      "value": 0.9999784,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-plugin-sdk/src/response.rs=0.961, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_9": {
+      "value": 0.9999784,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-rlm/src/rlm/sei/context.rs=0.993, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_10": {
+      "value": 0.98881453,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.989 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap_inline_neg/09d9953e28f5.py=0.460, p10=0.837) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_11": {
+      "value": 0.9999225,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-plugin-sdk/src/async_runtime.rs=0.972, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_12": {
+      "value": 0.9999856,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/docs/assets/javascript/mathjax.js=0.832, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_13": {
+      "value": 0.99994147,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-plugin-sdk/src/wasm_host_log_impl.rs=0.968, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_1": {
+      "value": 0.4761404,
+      "status": "Fail",
+      "evidence": "coverage-ratio≈LOC-weighted over 3839 files: 0.476 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/novo.py=0.000, p10=0.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_2": {
+      "value": 0.99973285,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/7f44e34538c8.py=0.730, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_3": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.3: 0 pyramid-shape gap(s) over 672182 lines (rust) — score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_4": {
+      "value": 0.99653316,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.997 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/8aea29a769e2.py=0.790, p10=0.992) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_5": {
+      "value": 0.997142,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.997 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-plugin-sdk/src/wasm_host_combined.rs=0.662, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_6": {
+      "value": 0.99999374,
+      "status": "Pass",
+      "evidence": "F3.6: 1 security-test gap(s) over 672182 lines (rust) — score=1.000 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci); top: file handles authorization (role/permission/forbidden) but has no test_authz*/test_forbidden*/test_403* test — authz untested (1x)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_7": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.7: 0 perf-test gap(s) over 672182 lines (rust) — score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_8": {
+      "value": 0.8932052,
+      "status": "Pass",
+      "evidence": "coverage-ratio≈LOC-weighted over 3839 files: 0.893 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-algorithms/src/lib.rs=0.010, p10=0.769) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_9": {
+      "value": 0.99796116,
+      "status": "Pass",
+      "evidence": "coverage-ratio≈LOC-weighted over 3839 files: 0.998 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-nlp/src/fallback/mod.rs=0.900, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_10": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.10: 0 arch-doc gap(s) over 7386 lines (rust) — score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_11": {
+      "value": 0.996945,
+      "status": "Pass",
+      "evidence": "F3.11: 1 README completeness gap(s) over 1964 lines — score=0.997 (touring-analysis analyze_readme: missing required README section (title/description/install/usage/contributing/tests/license)); top: missing required README section (title/description/install/usage/contributing/tests/license) (1x)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_12": {
+      "value": 0.9960734,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.996 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-cluster/src/bridge/mod.rs=0.700, p10=0.991) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_13": {
+      "value": 0.9986565,
+      "status": "Pass",
+      "evidence": "F3.13: 1 changelog gap(s) over 2233 lines — score=0.999 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link); top: missing Semantic Versioning link in file header (1x)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_1": {
+      "value": 0.99770236,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3949 files: 0.998 (worst pytest-of-<user>/pytest-current/test_sem_runtime_so_declara_o_0/hook=0.000, p10=1.000)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_2": {
+      "value": 0.99982613,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst claude-1000/-home-<user>-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b/snap/34822d5aa801.py=0.887, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_3": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "worst-of 3839 files: check-compile-1794345-1793479513093994174/loose.rs = 1.000 · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_4": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 1.000 (worst check-compile-1794345-1793479513093994174/loose.rs=1.000, p10=1.000) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_5": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.5: not a Cargo project — dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_6": {
+      "value": 0.9978593,
+      "status": "Pass",
+      "evidence": "FF4_6: 1 Build Configuration smell(s) over 1962 lines (rust) -- score=0.998          (touring-analysis analyze_build_config: see header for detector catalog); top: no [profile.release] override (uses Cargo defaults -- large binary, no LTO/strip/panic=abort) (1x)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_7": {
+      "value": 0.57302904,
+      "status": "Warn",
+      "evidence": "FF4_7: 55 CI/CD Pipeline smell(s) over 482 lines (rust) -- score=0.573          (touring-analysis analyze_cicd: see header for detector catalog); top: `actions/checkout` without `persist-credentials: false` in a job that can write (the token stays in .git/config for every later step) (12x); at job `check` line 38",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_8": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.8: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_9": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.9: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_10": {
+      "value": 0.95623726,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 3839 files: 0.956 (worst claude-1000/-home-<user>-projects-analise/8a1c0ad7-c272-43e7-a130-3787120fdb40/scratchpad/sub2/packages/kazuba-rust-core/crates/kazuba-mkp/src/commands/info.rs=0.010, p10=0.700) · 110 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_11": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.11: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /tmp --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_12": {
+      "value": 0.9985763,
+      "status": "Pass",
+      "evidence": "FF4_12: 319 Environment Management smell(s) over 672182 lines (rust) -- score=0.999          (touring-analysis analyze_env: see header for detector catalog); top: hardcoded `http://` or `https://` URL (non-12-factor -- should come from env) (319x)",
+      "suggestions": [
+        "touring-quality score --format json /tmp (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    }
+  },
+  "composite": 0.76732254,
+  "tier": "Unranked",
+  "blockers": [
+    "F1_3",
+    "F2_1",
+    "F2_4",
+    "F3_1"
+  ],
+  "warnings": [
+    "F1_1",
+    "F1_2",
+    "F2_3",
+    "F2_5",
+    "F4_7"
+  ],
+  "schema_version": 1
+}

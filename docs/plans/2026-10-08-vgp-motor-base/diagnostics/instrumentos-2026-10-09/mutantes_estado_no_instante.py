@@ -26,6 +26,9 @@ reprovar. O controle (copia sem mutacao) tem de passar — senao o teste reprova
   m21 o manifesto grava tamanho 0 para o fecho
   m22 o verificador independente devolve sempre vazio (nao enxerga lacuna)
   m23 a distribuicao reporta o p90 errado
+  Dependencias locais pelo Git no instante (J16, 05/11/2026):
+  m24 sem o conjunto do Git em `ts`: um modulo apagado hoje deixa de resolver (cai da lista, nao vira overlay)
+  m25 as raizes `src`/`python`/`packages/*` vem so do disco de hoje (a raiz apagada deixa de ser base)
 
 Os mutantes m4, m5 e m9 foram RE-ANCORADOS no texto do fecho (a intencao e a mesma); a versao do 20261013 esta em
 `holdout-20261013f/instrumentos_do_20261013/`. Mutante que nao termina (m15) reprova por TIMEOUT.
@@ -98,6 +101,18 @@ MUTANTES = (
     ("m21", "manifesto grava tamanho 0", '                "tamanho": len(fecho),\n', '                "tamanho": 0,\n'),
     ("m22", "verificador independente sempre vazio", "    return sorted(faltam)\n", "    return []\n"),
     ("m23", "p90 errado", '"p90": posto(0.9)', '"p90": posto(0.5)'),
+    (
+        "m24",
+        "sem o conjunto do Git em ts (modulo apagado hoje nao resolve)",
+        "    historicos, fontes_git = _modulos_versionados(str(raiz), ts)\n",
+        "    historicos, fontes_git = frozenset(), ()\n",
+    ),
+    (
+        "m25",
+        "as raizes src/python vem so do disco de hoje",
+        "    fontes = tuple(dict.fromkeys((*_fontes_locais(str(raiz)), *fontes_git)))\n",
+        "    fontes = _fontes_locais(str(raiz))\n",
+    ),
 )
 
 

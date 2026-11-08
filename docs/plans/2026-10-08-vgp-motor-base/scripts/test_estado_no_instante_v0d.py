@@ -520,3 +520,21 @@ def test_git_src_controle_sem_dependencia_local_permanece_vazio(raiz_git):
     e = {**inline(raiz_git), "ts": "2026-10-02T00:00:00.000Z"}
     assert eni.fecho_transitivo(e, "import os\n", {}) == []
     assert eni.estado_completo(e, "import os\n", {}) == (True, "ok")
+
+
+def test_git_src_dependencia_apagada_depois_do_instante_conserva_o_overlay(raiz_git):
+    """O wrapper local que existia no instante e SAIU do disco depois: o overlay vem do Git em `ts`, nunca some
+    (o arquivo de hoje nao existe, mas o snapshot o importava)."""
+    import shutil
+
+    antigo = "def valor():\n    return 'antigo'\n"
+    _dep(raiz_git, antigo)
+    _commit(raiz_git, "2026-10-01T00:00:00Z")
+    shutil.rmtree(raiz_git / "packages")
+    (raiz_git / "README").write_text("o pacote saiu")
+    _commit(raiz_git, "2026-10-03T00:00:00Z")
+    assert not (raiz_git / "packages").exists()
+    over, faltas, destino = _overlay_git(raiz_git, "from demo.core import valor\n")
+    assert faltas == []
+    texto = (destino.parent / over["packages/demo/src/demo/core.py"]["file"]).read_text()
+    assert texto == antigo
