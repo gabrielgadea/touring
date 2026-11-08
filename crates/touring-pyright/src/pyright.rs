@@ -503,25 +503,56 @@ pub fn modulo_do_projeto(modulo: &str, raiz: &Path, origem: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Directories a module path is resolved against: the root and the file's directory for an absolute
-/// import; the directory `nivel - 1` levels above the file for a relative one.
+/// Directories a module path is resolved against: for an absolute import, the root, the file's
+/// directory and every directory between them; the directory `nivel - 1` levels above the file for a
+/// relative one.
+///
+/// Every directory from the file up to the root can be on `sys.path` at run time: the script's own
+/// directory, the first ancestor without `__init__.py` (pytest's rootdir insertion), the directory a
+/// subproject is run from (`cd backend && python -m …`). Seen only from the root and the file's
+/// directory, `from services import x` in `backend/tests/unit/services/` took `backend/services` for a
+/// third-party module and denied (J17, 08/11/2026). A file outside the root walks nothing above itself.
 fn bases(nivel: usize, raiz: &Path, origem: &Path) -> Vec<PathBuf> {
     let pai = origem.parent().unwrap_or_else(|| Path::new("."));
     if nivel == 0 {
-        return vec![raiz.to_path_buf(), pai.to_path_buf()];
+        let mut dirs = vec![raiz.to_path_buf(), pai.to_path_buf()];
+        if pai.starts_with(raiz) {
+            dirs.extend(
+                pai.ancestors()
+                    .skip(1)
+                    .take_while(|dir| dir.starts_with(raiz) && *dir != raiz)
+                    .map(Path::to_path_buf),
+            );
+        }
+        return dirs;
     }
     let climbed = (1..nivel).fold(pai.to_path_buf(), |dir, _| dir.join(".."));
     climbed.canonicalize().into_iter().collect()
 }
 
-/// `Some(inside_root)` when the module exists under `base`, `None` when it does not.
+/// `Some(inside_root)` when the module exists under `base`, `None` when it does not. A PEP 420
+/// namespace package counts: it is importable, and the scope question is only "whose module is it".
 fn modulo_em(base: &Path, partes: &[&str], raiz_real: &Path) -> Option<bool> {
-    let found = arquivo_modulo(base, partes)?;
+    let found = arquivo_modulo(base, partes).or_else(|| pacote_de_namespace(base, partes))?;
     Some(
         found
             .canonicalize()
             .is_ok_and(|real| real.starts_with(raiz_real)),
     )
+}
+
+/// A PEP 420 namespace package: a directory with no `__init__.py` that holds Python source directly.
+/// A directory without any `.py` (assets, data) is not a module, so it never claims a name.
+fn pacote_de_namespace(base: &Path, partes: &[&str]) -> Option<PathBuf> {
+    if partes.is_empty() {
+        return None;
+    }
+    let dir = partes.iter().fold(base.to_path_buf(), |dir, p| dir.join(p));
+    let tem_fonte = std::fs::read_dir(&dir)
+        .ok()?
+        .flatten()
+        .any(|entrada| entrada.path().extension().is_some_and(|ext| ext == "py"));
+    tem_fonte.then_some(dir)
 }
 
 /// The real Python source of a module, never its stub: `<module>.py` or `<module>/__init__.py`.
@@ -1411,6 +1442,56 @@ mod tests {
         assert!(!modulo_do_projeto("...ext", &raiz, &origem));
         // positive control: the same climbing machinery does find a module that IS inside the root
         assert!(modulo_do_projeto(".a", &raiz, &origem));
+    }
+
+    /// J17 (08/11/2026), case `b81d9fa3c3e5` of held-out 20261101c: in
+    /// `backend/tests/unit/services/test_x.py`, `from services import ingestion_pipeline` runs (pytest
+    /// puts `backend/` on `sys.path`, and `backend/services/` is a PEP 420 namespace package), but the
+    /// project's pyright config does not list `backend/` and resolves `services` elsewhere. Seen only from
+    /// the root and the file's directory the module was external, and an external unknown import symbol
+    /// is a deny; it is a project module, so layer 2 abstains and layer 1 (which reads the source) decides.
+    #[test]
+    fn namespace_package_in_an_ancestor_of_the_file_is_a_project_module() {
+        let tree = TempTree::new("esc_ns_ancestor");
+        tree.file("backend/services/ingestion_pipeline.py", "x = 1\n");
+        tree.file("backend/tests/__init__.py", "");
+        tree.file("backend/tests/unit/__init__.py", "");
+        let init = tree.file("backend/tests/unit/services/__init__.py", "");
+        let origem = init.with_file_name("test_x.py");
+        let texto = "from services import ingestion_pipeline as ing\n";
+        let d = attr("\"ingestion_pipeline\" is unknown import symbol");
+
+        assert!(modulo_do_projeto("services", &tree.root, &origem));
+        // reached ONLY through the namespace package `backend/services/` (no regular `services` on the way)
+        let so_namespace = tree.file("backend/app/main.py", "");
+        assert!(modulo_do_projeto("services", &tree.root, &so_namespace));
+        assert_eq!(escopo(&d, texto, &tree.root, &origem), Escopo::Projeto);
+        assert_eq!(
+            severidade(Balde::Arquivo, escopo(&d, texto, &tree.root, &origem)),
+            Severidade::Warn
+        );
+    }
+
+    /// The controls of the rule above: a directory with no Python source is not a namespace package, a
+    /// module found nowhere in the project stays external (and keeps denying), and a file outside the
+    /// root never walks up into directories the root does not own.
+    #[test]
+    fn ancestor_walk_controls_non_python_dirs_absent_modules_and_files_outside_the_root() {
+        let tree = TempTree::new("esc_ns_controls");
+        tree.file("backend/assets/logo.svg", "<svg/>");
+        let origem = tree.file("backend/tests/test_x.py", "");
+        assert!(!modulo_do_projeto("assets", &tree.root, &origem));
+        assert!(!modulo_do_projeto("requestz", &tree.root, &origem));
+        let d = attr("\"get\" is unknown import symbol");
+        assert_eq!(
+            escopo(&d, "from requestz import get\n", &tree.root, &origem),
+            Escopo::Externo
+        );
+
+        tree.file("fora/services/m.py", "");
+        let raiz = tree.root.join("backend");
+        let fora = tree.root.join("fora/sub/a.py");
+        assert!(!modulo_do_projeto("services", &raiz, &fora));
     }
 
     // ── severidade: policy P4 (P3 + dinamico), every cell ─────────────────
