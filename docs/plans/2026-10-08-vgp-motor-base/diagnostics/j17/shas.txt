@@ -1,0 +1,9 @@
+2acce2035bbbe89b83867a6fe07a44f2cd2ae51f586454bfd12eb86d1a36de3b  ~/.claude/touring/vgp/binarios/30.4.104/touring
+d8fcbbb50fcf344ebb13af4d22b6eef145376bd50a726fcc5d9e375b5541ac9e  ~/.claude/touring/vgp/binarios/30.4.103/touring
+08590c821e8a7b30f853311341c2ce9f34d9f6bd5b6b536875f63303439ded14  ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py
+e2b0d948d11d263212b53abe7cb8193784e584598c93e4b1e81a131db7298366  ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/rodar_juiz_instrumentado.py
+2d5615fd0f9e4be6bc2fb4ed091ac01f492f24f95e3c551231c96a36a2b60e7a  ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/montar_ctl_generico.py
+9498b247928565c8fe64dd6c66ee437f4410348da894d2cd5ba53a707a3836ac  ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14/medir_daemon_quente.py
+554adfbe564d979ee964c7f453b596367dbad4f8a92a84c9c5eeb0aea2d10552  ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py
+031a6fb8e59dc83d1ddc0bd2cff52310e6ec8364e2ab4e93f2bbd579a34bea11  ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py
+3fc6da3c3971e9ffb0807d5d7f7c40123b5fb9e0b57986e2e056526c33331d28  ~/.claude/hooks/touring-hook

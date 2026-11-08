@@ -1,0 +1,5 @@
+Touring daemon status
+  socket:     /tmp/touring-daemon-1000.sock (alive)
+  daemon PID: 2219027
+  exe:        ~/projects/touring/target/release/touring-daemon
+  siblings:   mcp_bridges=3, hook_handlers=3, cli_clients=3

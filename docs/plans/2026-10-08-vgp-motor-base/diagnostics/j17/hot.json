@@ -1,0 +1,25 @@
+{
+ "session": "j14-hot-3362766-1794172168581644268",
+ "corpus": "/tmp/vgp-j17/j17_hibrido_20261101c",
+ "metodo": "duas chamadas consecutivas por entrada no shim; a 1ª aquece e a 2ª mede; elapsed_ms da sombra VGP (L1+L2), p95 por posto mais próximo; trace comprova a rota",
+ "denominador": {
+  "entradas_esperadas": 1035,
+  "chamadas_hook_esperadas_com_aquecimento": 2070,
+  "medidas_com_sombra": 1035,
+  "medidas_com_camada2": 1035,
+  "ignoradas_antes_da_chamada": 0,
+  "rotas": {
+   "standalone": 1,
+   "daemon": 2069
+  }
+ },
+ "p50_motor_ms": 15.816870999999999,
+ "p95_motor_ms": 202.077427,
+ "p95_wall_shim_ms": 458.418,
+ "timeouts_camada2": 12,
+ "camada2_sem_veredito": 95,
+ "limitacao": "o hook não aceita --overlay/--disk-file: mesmas entradas, paths, roots e conteúdos, mas sem replay dos overlays nem do disco histórico do juiz; o comando inline é reconstruído do snapshot integral",
+ "valido": false,
+ "veredito": "INCONCLUSIVO",
+ "ignorados": []
+}

@@ -1,0 +1,2 @@
+7e10f313f0c79d75d771e7ebefc47f6d510b312ee987ad1147a897793ab56b0c  ~/projects/touring/target/release/touring-daemon
+7e10f313f0c79d75d771e7ebefc47f6d510b312ee987ad1147a897793ab56b0c  ~/.touring/toolchains/30.4.104/bin/touring-daemon

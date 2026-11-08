@@ -1,0 +1,140 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "p95 1024.6 ms > 1000.0 ms",
+  "falso deny (arquivo) piorou: 1 > base 0"
+ ],
+ "inconclusivo": false,
+ "inconclusivo_motivo": "",
+ "timeouts_camada2": 80,
+ "camada2_sem_veredito": 163,
+ "taxa_timeouts_camada2": 0.07729468599033816,
+ "patamar_timeouts_camada2": 0.2,
+ "sinal_camada2": "presente",
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 1,
+   "n": 600,
+   "taxa": 0.0016666666666666668,
+   "limite_superior_95": 0.007881816463574474,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 0,
+   "n": 371,
+   "taxa": 0.0,
+   "limite_superior_95": 0.008042236840099637,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.8461538461538461,
+  "inline": 0.8518518518518519
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   11,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   2,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   1,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "b81d9fa3c3e5",
+   "balde": "arquivo",
+   "path": "~/projects/analise/backend/tests/unit/services/test_ausencia_dita_uma_vez.py",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "ingestion_pipeline",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "\"ingestion_pipeline\" is unknown import symbol",
+     "reais": []
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 371
+ },
+ "avisos_em_negativos": 55,
+ "defeito_de_corpus": [],
+ "p95_ms": 1024.631072,
+ "chamadas": 1035,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "deny"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}

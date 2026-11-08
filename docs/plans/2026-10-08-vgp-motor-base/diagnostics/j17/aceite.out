@@ -1,0 +1,17 @@
+{
+ "veredito": "INCONCLUSIVO",
+ "pendencias": [
+  "V3: falso deny (arquivo) piorou: 1 > base 0"
+ ],
+ "inconclusivo_motivos": [
+  "quente: instrumento inválido ou sinal ausente",
+  "quente: rotas daemon não fecham 2× o denominador"
+ ],
+ "p95_frio_informativo_ms": {
+  "v2": 65.59999599999999,
+  "V3": 1050.990718
+ },
+ "p95_quente_ms": 202.077427,
+ "timeouts_quente": 12,
+ "chamadas": 1035
+}
