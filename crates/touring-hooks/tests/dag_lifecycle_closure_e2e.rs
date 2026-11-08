@@ -109,6 +109,12 @@ fn finalize_stamps_archived_at_and_reports_it() {
         archived_at_of(&rt, &task_id).is_none(),
         "a fresh task is not archived"
     );
+    // The step ends first: finalize refuses a plan with an open subtask
+    // (`finalize_refuses_a_plan_with_an_open_subtask_and_names_it`).
+    cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": format!("{task_id}::only"), "status": "completed"}),
+    );
 
     let finalized = parse_json(&cli_decompose_finalize(
         &mut rt,
@@ -160,6 +166,85 @@ fn a_refused_finalize_archives_nothing() {
         archived_at_of(&rt, &task_id).is_none(),
         "a refused finalize must leave the task open"
     );
+}
+
+/// Finalizing IS archiving, so it is refused while any subtask is still open — and the refusal
+/// names every open subtask. Observed 08/11/2026: `touring decompose finalize` archived a plan
+/// at 6/7 with one `pending` child (`completion_pct: 85.7`), because the only gate was
+/// `review_required`. The ExitPlanMode hook already waited for `"ready":false` and never got it.
+#[test]
+fn finalize_refuses_a_plan_with_an_open_subtask_and_names_it() {
+    let (_tmp, mut rt) = setup_runtime();
+    let created = parse_json(&cli_decompose_create(
+        &mut rt,
+        &json!({"task_type": "plan", "description": "half done", "origin": "touring-cli"}),
+    ));
+    let task_id = created["task_id"].as_str().expect("task_id").to_string();
+    for (step, status) in [
+        ("done", "completed"),
+        ("broke", "failed"),
+        ("open", "pending"),
+        ("busy", "in_progress"),
+    ] {
+        let subtask_id = format!("{task_id}::{step}");
+        cli_decompose_add(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": subtask_id, "description": step}),
+        );
+        cli_decompose_update(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": subtask_id, "status": status}),
+        );
+    }
+
+    let refused = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
+
+    assert!(
+        refused.get("error").is_some(),
+        "an open subtask must block: {refused}"
+    );
+    assert_eq!(
+        refused["ready"], false,
+        "the ExitPlanMode hook gates on `\"ready\":false`"
+    );
+    assert_eq!(refused["archived"], false);
+    let mut blocking: Vec<String> = refused["blocking"]
+        .as_array()
+        .expect("blocking must list the open subtasks")
+        .iter()
+        .map(|b| b["subtask_id"].as_str().expect("subtask_id").to_string())
+        .collect();
+    blocking.sort();
+    assert_eq!(
+        blocking,
+        vec![format!("{task_id}::busy"), format!("{task_id}::open")],
+        "only the non-terminal subtasks block (a failed one already ran)"
+    );
+    assert!(
+        archived_at_of(&rt, &task_id).is_none(),
+        "a refused finalize must leave the task open"
+    );
+
+    // Closing the open ones is the way out: the same call then archives.
+    for step in ["open", "busy"] {
+        cli_decompose_update(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": format!("{task_id}::{step}"), "status": "skipped"}),
+        );
+    }
+    let finalized = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        finalized["archived"], true,
+        "every subtask terminal: {finalized}"
+    );
+    assert_eq!(finalized["ready"], true);
+    assert!(archived_at_of(&rt, &task_id).is_some());
 }
 
 /// `review_required` is the gate `finalize` enforces — and the only way to set
@@ -590,7 +675,8 @@ fn add_leaves_the_status_a_caller_set_on_an_open_plan_alone() {
 fn add_does_not_reopen_a_finalized_plan() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "finalized, then touched");
-    add_step(&mut rt, &task_id, "only");
+    let only = add_step(&mut rt, &task_id, "only");
+    close_step(&mut rt, &task_id, &only); // finalize refuses a plan with an open subtask
     let finalized = parse_json(&cli_decompose_finalize(
         &mut rt,
         &json!({"task_id": task_id}),

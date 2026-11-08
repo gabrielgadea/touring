@@ -165,7 +165,49 @@ fn take_snapshot(db: &FileKnowledgeDB, task_id: &str, metrics: &serde_json::Valu
     );
 }
 
-/// Finalizes a task's DAG, locking it for execution once its structure is validated, returning the result as JSON.
+/// The refusal `finalize` answers while any subtask is still open, or `None` when every one is over.
+///
+/// Finalizing IS archiving, so a plan with an open subtask is refused, naming each one. "Open" is
+/// everything outside [`TERMINAL_SUBTASK_STATUSES`]: a `failed` child already ran and does not block
+/// (the `task-completed` failure path closes stages as failed, then finalizes). Until 08/11/2026 the
+/// only gate was `review_required`, and a plan at 6/7 with one `pending` child was archived; the
+/// ExitPlanMode hook waited for `"ready":false`, which was never emitted.
+fn refuse_open_subtasks(task_id: &str, subtasks: &[serde_json::Value]) -> Option<String> {
+    let open: Vec<serde_json::Value> = subtasks
+        .iter()
+        .filter(|st| {
+            let status = st.get("status").and_then(|v| v.as_str()).unwrap_or("");
+            !TERMINAL_SUBTASK_STATUSES.contains(&status)
+        })
+        .map(|st| serde_json::json!({"subtask_id": st["subtask_id"], "status": st["status"]}))
+        .collect();
+    if open.is_empty() {
+        return None;
+    }
+    Some(
+        serde_json::json!({
+            "error": format!(
+                "{} subtask(s) still open: finalize archives only a plan whose every subtask is terminal",
+                open.len()
+            ),
+            "task_id": task_id,
+            "ready": false,
+            "archived": false,
+            "blocking": open,
+            "remedy": format!(
+                "close each one with `touring decompose update --status <completed|skipped|cancelled> \
+                 {task_id} <subtask_id>`, then finalize again"
+            ),
+        })
+        .to_string(),
+    )
+}
+
+/// Finalizes and archives a task's DAG once every subtask is terminal, returning the result as JSON.
+///
+/// Refusals carry `error`: a `review_required` subtask without a passing `quality_score`, or any
+/// subtask still open (`ready: false`, `archived: false`, `blocking: [{subtask_id, status}]`,
+/// `remedy`). Success carries `ready: true`, `archived`, `archived_at` and `metrics`.
 pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     // S1.5: review_required gate + S1.7: metrics population on finalize
     let task_id = payload
@@ -233,6 +275,10 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
         }
     }
 
+    if let Some(refusal) = refuse_open_subtasks(task_id, &subtasks) {
+        return refusal;
+    }
+
     // S1.7: Compute and persist task metrics
     let total_subtasks = subtasks.len() as i64;
     let completed = subtasks
@@ -297,6 +343,7 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
     serde_json::json!({
         "task_id": task_id,
         "status": "finalized",
+        "ready": true,
         // The `task-completed` hook gates a log line on `archived:true`. The field
         // was never emitted, so that branch reported "not archived" forever — a
         // consumer waiting on a field the producer never wrote.

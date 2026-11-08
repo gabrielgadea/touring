@@ -1886,6 +1886,11 @@ fn test_decompose_finalize_archives_task() {
             "depends_on": []
         }),
     );
+    // finalize archives only a plan whose every subtask is terminal (08/11/2026).
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "single", "status": "completed"}),
+    );
 
     let finalize = parse_json(&cli_decompose_finalize(
         &mut rt,
@@ -1893,10 +1898,12 @@ fn test_decompose_finalize_archives_task() {
             "task_id": task_id
         }),
     ));
-    // Wave 8 collateral fix: cli_decompose_finalize was refactored to return
-    // {task_id, status: "finalized", metrics, breached_deadlines} — old shape
-    // {archived, ready} no longer applies. Test updated to match current contract.
     assert_eq!(finalize["status"].as_str(), Some("finalized"));
+    assert_eq!(
+        finalize["ready"], true,
+        "every subtask terminal: {finalize}"
+    );
+    assert_eq!(finalize["archived"], true);
     assert!(finalize["metrics"].is_object(), "metrics object expected");
 }
 
