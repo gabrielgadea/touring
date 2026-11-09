@@ -1,0 +1,35 @@
+{"check": "nice chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "/usr/bin/env chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "A+=1 chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "timeout .5 chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -S 'rm -rf /tmp/x'", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "xargs chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -iS 'chmod 000 f'", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "echo 'a>'&chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -uS chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "sudo -nu root chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "chmod 000 f", "hook": "pre-bash", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "nice -n 5 cargo test", "hook": "pre-bash", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "timeout .5 ls", "hook": "pre-bash", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "env -u HOME ls", "hook": "pre-bash", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "bash -c true <<< x\ngit reset --hard", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "timeout .5 git reset --hard", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -iS 'git reset --hard'", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -uS git reset --hard", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git clean --force", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git clean --forc", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git clean -x -f", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git checkout main -- crates/x.py", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git checkout -qf main", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git restore -S --wor f", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git restore -- -S", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git clean -n --no-dry-run -f", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "git restore --staged --no-staged f", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "bash -c true <<< x; git reset --hard", "hook": "block_git.sh", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "cat <<< 'git reset --hard'", "hook": "block_git.sh", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "git clean -n", "hook": "block_git.sh", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "git clean -fdx -n", "hook": "block_git.sh", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "git checkout -b nova", "hook": "block_git.sh", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "git restore --staged f", "hook": "block_git.sh", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "git status", "hook": "block_git.sh", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"version": "30.4.108", "all_ok": true, "passed": 34, "total": 34}

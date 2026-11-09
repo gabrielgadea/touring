@@ -1,0 +1,112 @@
+[1m[propagate][0m workspace : ~/projects/touring
+[1m[propagate][0m versão    : 30.4.108
+
+[1m── 1/6 GATES — cargo check + clippy + espelho client/ + referência + rito + testes dos crates tocados ──[0m
+  base: commit de release 7d433cfb (release 30.4.97: INT97 integrado propagado (analise, konvert)
+  2731 arquivo(s) tocados desde o release (commits + árvore de trabalho); 2309 fora de qualquer pacote
+  AVISO: Cargo.lock, Cargo.toml mudou - a raiz não pertence a pacote algum e NÃO é mapeada pelo gate
+    Checking tokio-rustls v0.26.4
+    Checking ureq v3.3.0
+    Checking ort v2.0.0-rc.12
+    Checking touring-python-env v30.4.108 (~/projects/touring/crates/touring-python-env)
+   Compiling touring-bindings v30.4.108 (~/projects/touring/crates/touring-bindings)
+    Checking touring-orchestration v30.4.108 (~/projects/touring/crates/touring-orchestration)
+    Checking touring-hooks-saga v30.4.108 (~/projects/touring/crates/touring-hooks-saga)
+    Checking touring-identity v30.4.108 (~/projects/touring/crates/touring-identity)
+    Checking touring-license v30.4.108 (~/projects/touring/crates/touring-license)
+   Compiling touring-server v30.4.108 (~/projects/touring/crates/touring-server)
+    Checking hyper-rustls v0.27.9
+    Checking touring-pyright v30.4.108 (~/projects/touring/crates/touring-pyright)
+    Checking reqwest v0.12.28
+    Checking hf-hub v0.5.0
+    Checking fastembed v5.17.2
+    Checking touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+    Checking touring-resilience v30.4.108 (~/projects/touring/crates/touring-resilience)
+    Checking opentelemetry-http v0.31.0
+    Checking opentelemetry-otlp v0.31.1
+    Checking touring-storage v30.4.108 (~/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
+    Checking touring-code v30.4.108 (~/projects/touring/crates/touring-code)
+    Checking touring-search-fusion-bench v0.1.0 (~/projects/touring/benches)
+    Checking touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.108 (~/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.108 (~/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.108 (~/projects/touring/crates/touring-lsp)
+    Checking touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (~/projects/touring/crates/touring-server-visual)
+    Checking touring-ceg v30.4.108 (~/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-hooks-rl v30.4.108 (~/projects/touring/crates/touring-hooks-rl)
+    Checking touring-hooks-core v30.4.108 (~/projects/touring/crates/touring-hooks-core)
+    Checking touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.108 (~/projects/touring/crates/touring-web-server)
+    Checking touring-python v0.1.0 (~/projects/touring/crates/touring-python)
+    Checking touring-web v30.4.108 (~/projects/touring/crates/touring-web)
+    Checking touring-hook-runtime v30.4.108 (~/projects/touring/crates/touring-hook-runtime)
+    Checking touring-assists v0.1.0 (~/projects/touring/crates/touring-assists)
+    Checking touring-cli v30.4.108 (~/projects/touring/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.108 (~/projects/touring/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (~/projects/touring/crates/touring-integration-tests)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 58.39s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+    Checking tokio-rustls v0.26.4
+    Checking touring-rkyv v0.1.0 (~/projects/touring/crates/touring-rkyv)
+    Checking touring-python-env v30.4.108 (~/projects/touring/crates/touring-python-env)
+   Compiling inferlets v0.1.0 (~/projects/touring/crates/inferlets)
+   Compiling touring-bindings v30.4.108 (~/projects/touring/crates/touring-bindings)
+    Checking touring-identity v30.4.108 (~/projects/touring/crates/touring-identity)
+    Checking touring-orchestration v30.4.108 (~/projects/touring/crates/touring-orchestration)
+    Checking touring-server-session v30.0.0 (~/projects/touring/crates/touring-server-session)
+    Checking touring-license v30.4.108 (~/projects/touring/crates/touring-license)
+    Checking touring-loom-proofs v0.1.0 (~/projects/touring/crates/touring-loom-proofs)
+   Compiling touring-server v30.4.108 (~/projects/touring/crates/touring-server)
+    Checking hyper-rustls v0.27.9
+    Checking touring-hooks-saga v30.4.108 (~/projects/touring/crates/touring-hooks-saga)
+    Checking touring-pyright v30.4.108 (~/projects/touring/crates/touring-pyright)
+    Checking reqwest v0.12.28
+    Checking touring-foundation v0.1.0 (~/projects/touring/crates/touring-foundation)
+    Checking touring-resilience v30.4.108 (~/projects/touring/crates/touring-resilience)
+    Checking opentelemetry-http v0.31.0
+    Checking opentelemetry-otlp v0.31.1
+    Checking touring-storage v30.4.108 (~/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (~/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (~/projects/touring/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (~/projects/touring/crates/touring-server-reasoning)
+    Checking touring-code v30.4.108 (~/projects/touring/crates/touring-code)
+    Checking touring-search-fusion-bench v0.1.0 (~/projects/touring/benches)
+    Checking touring-analysis v0.3.3 (~/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.108 (~/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.108 (~/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.108 (~/projects/touring/crates/touring-lsp)
+    Checking touring-hooks-shared v0.1.0 (~/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (~/projects/touring/crates/touring-server-visual)
+    Checking touring-ceg v30.4.108 (~/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-prediction v0.1.0 (~/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-hooks-rl v30.4.108 (~/projects/touring/crates/touring-hooks-rl)
+    Checking touring-hooks-core v30.4.108 (~/projects/touring/crates/touring-hooks-core)
+    Checking touring-generator v0.1.0 (~/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.108 (~/projects/touring/crates/touring-web-server)
+    Checking touring-python v0.1.0 (~/projects/touring/crates/touring-python)
+    Checking touring-web v30.4.108 (~/projects/touring/crates/touring-web)
+    Checking touring-hook-runtime v30.4.108 (~/projects/touring/crates/touring-hook-runtime)
+    Checking touring-assists v0.1.0 (~/projects/touring/crates/touring-assists)
+    Checking touring-cli v30.4.108 (~/projects/touring/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.108 (~/projects/touring/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (~/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (~/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (~/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (~/projects/touring/crates/touring-integration-tests)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 47s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+✅ CLEAN  397 arquivos espelhados, nenhum divergente
+espelho no HEAD íntegro (397 arquivos conferidos)
+DRIFT: modules.md out of sync - run docs/gen_reference.py
+[31m[propagate] ERRO[0m referência docs/ fora de sincronia (drift hooks/módulos) — rode: python3 docs/gen_reference.py
+rc=1

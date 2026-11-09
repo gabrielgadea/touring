@@ -1,0 +1,8 @@
+{"check": "j17_b81d9fa3c3e5_not_deny", "ok": true, "detail": {"rc": 0, "verdict": "allow"}}
+{"check": "json_loadz_deny", "ok": true, "detail": {"rc": 0, "verdict": "deny", "layer": 2}}
+{"check": "finalize_unknown_task_is_error", "ok": true, "detail": {"rc": 0, "error": "task not found in this project's decompose store", "archived": false}}
+{"check": "finalize_open_plan_refused", "ok": true, "detail": {"open_subtasks": 1, "error": "1 subtask(s) still open: finalize archives only a plan whose every subtask is terminal", "blocking": 1}}
+{"check": "finalize_after_closing_archives", "ok": true, "detail": {"archived": true, "ready": true, "error": null}}
+{"check": "pre_bash_find_delete_denied", "ok": true, "detail": {"rc": 0, "find_delete_named": true}}
+{"check": "pre_bash_padded_find_delete_denied", "ok": true, "detail": {"rc": 0, "find_delete_named": true}}
+{"all_ok": true, "passed": 7, "total": 7}
