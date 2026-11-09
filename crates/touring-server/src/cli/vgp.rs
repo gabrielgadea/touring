@@ -18,7 +18,6 @@ use std::path::PathBuf;
 use anyhow::Result;
 use touring_code::vgp::sombra::camada2_ligada;
 use touring_code::vgp::{CheckInput, Contexto, check_em, lang_do_caminho};
-use touring_pyright::pyright::{L2Resultado, Severidade, Verdict as VerdictL2};
 
 /// The one subcommand. `args` starts at the token after `vgp` (["check", "--path", ...]).
 pub fn run(args: &[String]) -> Result<()> {
@@ -88,7 +87,7 @@ fn camada2(
         .iter()
         .map(|(origem, texto)| (origem.clone(), texto.clone()))
         .collect();
-    let mut l2 = touring_pyright::pool::checar_lang_com_orcamento(
+    let l2 = touring_pyright::pool::checar_lang_com_orcamento(
         &input.lang,
         &input.project_root,
         &input.path,
@@ -97,21 +96,9 @@ fn camada2(
         &overlays,
         orcamento,
     );
-    no_momento(&mut l2, input, contexto);
-    fundir_camada2(out, &l2);
-}
-
-/// The severities of the moment the verdict is asked at — the layer-1 rule, applied to layer 2: a
-/// fragment WRITTEN under /tmp can still be completed by the next edit; the same file asked at
-/// EXECUTION keeps the /tmp bucket's verdict.
-fn no_momento(l2: &mut L2Resultado, input: &CheckInput, contexto: Contexto) {
-    if contexto == Contexto::Escrita {
-        touring_pyright::achado::rebaixar_tmp_na_escrita(
-            &mut l2.achados,
-            &input.path,
-            &input.project_root,
-        );
-    }
+    // the one composition of the two layers (the shadow hook answers by the same functions)
+    let extra = touring_code::vgp::camadas::camada2_em_vgp(l2, input, contexto, orcamento);
+    touring_code::vgp::camadas::fundir_camada2(out, extra);
 }
 
 /// Why [`parse_args`] gave up on building a [`CheckInput`]. `lang` is what the file WOULD have
@@ -149,45 +136,6 @@ fn ler_texto(arq: &str, rotulo: &str, lang: &str) -> std::result::Result<String,
             Recusa::argumento(format!("{rotulo} ilegível {arq}: {e}"), lang)
         }
     })
-}
-
-/// Merge a layer-2 result into the layer-1 output: findings deduped by (nome, linha) with the
-/// STRONGER severity winning, elapsed summed, `layer` raised. An `unknown` layer-2 annotates
-/// `camada2` and leaves the layer-1 answer standing — fail-open, never an implicit allow.
-fn fundir_camada2(out: &mut touring_code::vgp::CheckOutput, l2: &L2Resultado) {
-    out.layer = 2;
-    out.elapsed_ms += l2.elapsed_ms as f64;
-    if l2.verdict == VerdictL2::Unknown {
-        out.camada2 = Some(format!(
-            "unknown: {}",
-            l2.motivo
-                .clone()
-                .unwrap_or_else(|| "sem motivo declarado".to_string())
-        ));
-        return;
-    }
-    let novos: Vec<touring_code::vgp::Finding> = l2
-        .achados
-        .iter()
-        .map(|a| {
-            touring_code::vgp::Finding::new(
-                &a.classe,
-                &a.nome,
-                a.linha as usize,
-                match a.severidade {
-                    Severidade::Deny => "deny",
-                    Severidade::Warn => "warn",
-                },
-                a.mensagem.clone(),
-                Vec::new(),
-            )
-            // the receiver class the checker named (P0B-d): `fundir_findings` compares it with
-            // layer 1's closed type to corroborate
-            .com_receptor(touring_pyright::pyright::classe_receptora(&a.mensagem))
-        })
-        .collect();
-    touring_code::vgp::sombra::fundir_findings(&mut out.findings, novos);
-    out.verdict = touring_code::vgp::politica::verdict_dos(&out.findings, &out.verdict);
 }
 
 #[derive(Default)]
@@ -333,10 +281,28 @@ fn parse_args(
 mod tests {
     use super::*;
     use touring_code::vgp::{CheckOutput, Finding};
-    use touring_pyright::pyright::{Escopo, L2Achado};
+    use touring_pyright::pyright::{
+        Escopo, L2Achado, L2Resultado, Severidade, Verdict as VerdictL2,
+    };
 
     fn args(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// The CLI's composition of layer 2 for a file written inside the project (no /tmp
+    /// downgrade): `camadas`, as `camada2` runs it.
+    fn fundir_camada2(out: &mut CheckOutput, l2: &L2Resultado) {
+        let input = CheckInput {
+            path: "/home/u/proj/a.py".into(),
+            content: String::new(),
+            project_root: PathBuf::from("/home/u/proj"),
+            disk: None,
+            overlays: HashMap::new(),
+            lang: "python".into(),
+        };
+        let extra =
+            touring_code::vgp::camadas::camada2_em_vgp(l2.clone(), &input, Contexto::Escrita, 1000);
+        touring_code::vgp::camadas::fundir_camada2(out, extra);
     }
 
     fn out_base(verdict: &str, findings: Vec<Finding>) -> CheckOutput {
@@ -618,18 +584,19 @@ mod tests {
             overlays: HashMap::new(),
             lang: "python".into(),
         };
-        let sev = |l2: &L2Resultado| l2.achados.iter().map(|a| a.severidade).collect::<Vec<_>>();
-        let mut escrita = L2Resultado::from_achados(achados.clone(), 1);
-        no_momento(&mut escrita, &entrada("/tmp/frag.py"), Contexto::Escrita);
-        assert_eq!(sev(&escrita), [Severidade::Warn, Severidade::Deny]);
-        let mut execucao = L2Resultado::from_achados(achados.clone(), 1);
-        no_momento(&mut execucao, &entrada("/tmp/frag.py"), Contexto::Execucao);
-        assert_eq!(sev(&execucao), [Severidade::Deny, Severidade::Deny]);
-        let mut inline = L2Resultado::from_achados(achados, 1);
-        no_momento(&mut inline, &entrada("<string>"), Contexto::Escrita);
+        let sev = |path: &str, contexto: Contexto| {
+            let l2 = L2Resultado::from_achados(achados.clone(), 1);
+            touring_code::vgp::camadas::camada2_em_vgp(l2, &entrada(path), contexto, 1000)
+                .findings
+                .into_iter()
+                .map(|f| f.severidade)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(sev("/tmp/frag.py", Contexto::Escrita), ["warn", "deny"]);
+        assert_eq!(sev("/tmp/frag.py", Contexto::Execucao), ["deny", "deny"]);
         assert_eq!(
-            sev(&inline),
-            [Severidade::Deny, Severidade::Deny],
+            sev("<string>", Contexto::Escrita),
+            ["deny", "deny"],
             "o inline roda agora"
         );
     }

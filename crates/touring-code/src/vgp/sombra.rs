@@ -258,8 +258,8 @@ struct SombraLine<'a> {
     motivo: Option<String>,
 }
 
-/// What a layer-2 check adds to the shadow line, in vgp-local types (the handler computes it in
-/// its own crate — touring-code never names L2 types, so the dependency graph stays acyclic).
+/// What a layer-2 check adds, in vgp terms — built by [`super::camadas::camada2_em_vgp`] and merged
+/// by [`super::camadas::fundir_camada2`], the one composition of the two layers.
 #[derive(Debug, Default)]
 pub struct SombraExtra {
     /// Extra layer ran (2) and its findings, already mapped to vgp terms.
@@ -322,12 +322,8 @@ pub fn sombra_check_em(
     let mut camadas = vec![1u8];
     if let Some(extra) = extra {
         camadas.push(2);
-        out.l2_budget_ms = extra.l2_budget_ms;
-        out.elapsed_ms += extra.elapsed_ms;
-        fundir_findings(&mut out.findings, extra.findings);
-        out.camada2 = extra.camada2_motivo.map(|m| format!("unknown: {m}"));
-        // o veredito agrega as duas camadas: deny > warn > allow (unknown da L2 não derruba a L1)
-        out.verdict = super::politica::verdict_dos(&out.findings, &out.verdict);
+        // the one composition: the CLI's `--camadas 1,2` answers by the same function
+        super::camadas::fundir_camada2(&mut out, extra);
     }
     out.layer = *camadas.iter().max().unwrap_or(&1);
     let out = out;
@@ -347,16 +343,7 @@ pub fn sombra_check_em(
         findings: out
             .findings
             .iter()
-            .map(|f| {
-                SombraFinding::de(
-                    f,
-                    if f.severidade == "deny" {
-                        "externo"
-                    } else {
-                        "projeto"
-                    },
-                )
-            })
+            .map(|f| SombraFinding::de(f, escopo_de(f.alvo)))
             .collect(),
         camada2: out.camada2.clone(),
         l2_budget_ms: out.l2_budget_ms,
@@ -368,6 +355,19 @@ pub fn sombra_check_em(
     };
     append_line(&line);
     out
+}
+
+/// What a finding is about, for the line's `escopo`: read from its [`Alvo`] (layer 1's target, or
+/// layer 2's scope mapped by `camadas`). It used to be derived from the severity itself
+/// (`deny` → "externo"), so the field the judge reads explained nothing: a project symbol denied
+/// where it runs read "externo", an external target downgraded read "projeto".
+fn escopo_de(alvo: Alvo) -> &'static str {
+    match alvo {
+        Alvo::Externo => "externo",
+        Alvo::Projeto => "projeto",
+        Alvo::Incerto => "incerto",
+        Alvo::Fechado => "fechado",
+    }
 }
 
 /// Merge extra-layer findings into a findings vec: dedupe by (nome, linha), the STRONGER

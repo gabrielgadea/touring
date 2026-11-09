@@ -13344,6 +13344,7 @@ dependencies = [
  "tokio",
  "toml 0.8.23",
  "touring-foundation",
+ "touring-pyright",
  "touring-python-env",
  "touring-simd",
  "touring-storage",

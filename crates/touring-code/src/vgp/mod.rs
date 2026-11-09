@@ -13,6 +13,7 @@
 //! Delta mode: with `disk` content, a finding is denied only when it is NOT already present in
 //! the disk content — a pre-edit hook denies what the edit INTRODUCES, never what pre-existed.
 
+pub mod camadas;
 pub mod lang;
 pub mod politica;
 pub mod sombra;

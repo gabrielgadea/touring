@@ -14,8 +14,8 @@
 //! with a reason and spawns nothing (fail-open — the shadow line carries `camada2` with the motivo).
 
 use touring_code::vgp::sombra::{SombraExtra, camada2_ligada};
-use touring_code::vgp::{CheckInput, Contexto, Finding};
-use touring_pyright::pyright::{L2Resultado, Severidade, Verdict, classe_receptora};
+use touring_code::vgp::{CheckInput, Contexto};
+use touring_pyright::pyright::L2Resultado;
 
 /// Runs the pooled layer-2 verifier of the input's language over the same input layer 1 judged,
 /// mapped into vgp terms. `None` when layer 2 is off for that language in this project — the
@@ -48,46 +48,15 @@ pub(crate) fn extra_em(input: &CheckInput, contexto: Contexto) -> Option<SombraE
     Some(mapear(l2, input, contexto))
 }
 
-/// A layer-2 result in vgp terms, with the severities of the moment it is asked at: written under
-/// `/tmp`, a finding is a fragment's ([`touring_pyright::achado::rebaixar_tmp_na_escrita`]);
-/// executed, the `/tmp` bucket's verdict stands. Pure — the pool is the caller's.
-fn mapear(mut l2: L2Resultado, input: &CheckInput, contexto: Contexto) -> SombraExtra {
-    if contexto == Contexto::Escrita {
-        touring_pyright::achado::rebaixar_tmp_na_escrita(
-            &mut l2.achados,
-            &input.path,
-            &input.project_root,
-        );
-    }
-    SombraExtra {
-        findings: l2
-            .achados
-            .iter()
-            .map(|a| {
-                Finding::new(
-                    &a.classe,
-                    &a.nome,
-                    a.linha as usize,
-                    match a.severidade {
-                        Severidade::Deny => "deny",
-                        Severidade::Warn => "warn",
-                    },
-                    a.mensagem.clone(),
-                    Vec::new(),
-                )
-                // the receiver class the checker named: layer 1's closed-type finding at the same
-                // (name, line) is corroborated by it in `fundir_findings` (P0B-d)
-                .com_receptor(classe_receptora(&a.mensagem))
-            })
-            .collect(),
-        elapsed_ms: l2.elapsed_ms as f64,
-        camada2_motivo: (l2.verdict == Verdict::Unknown).then(|| {
-            l2.motivo
-                .clone()
-                .unwrap_or_else(|| "sem motivo declarado".to_string())
-        }),
-        l2_budget_ms: Some(touring_pyright::pyright::l2_budget_ms()),
-    }
+/// A layer-2 result in vgp terms at the moment it is asked — the one composition
+/// (`touring_code::vgp::camadas`), with the default budget the pool ran under.
+fn mapear(l2: L2Resultado, input: &CheckInput, contexto: Contexto) -> SombraExtra {
+    touring_code::vgp::camadas::camada2_em_vgp(
+        l2,
+        input,
+        contexto,
+        touring_pyright::pyright::l2_budget_ms(),
+    )
 }
 
 #[cfg(test)]
@@ -95,6 +64,7 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
     use std::path::Path;
+    use touring_pyright::pyright::Severidade;
 
     fn entrada(lang: &str, raiz: &Path) -> CheckInput {
         CheckInput {
@@ -291,9 +261,7 @@ mod tests {
         input.content = fonte.into();
         let mut out = touring_code::vgp::check_em(&input, contexto);
         let l2 = L2Resultado::from_achados(vec![achado_de_membro(nome, linha, classe)], 3);
-        let extra = mapear(l2, &input, contexto);
-        touring_code::vgp::sombra::fundir_findings(&mut out.findings, extra.findings);
-        out.verdict = touring_code::vgp::politica::verdict_dos(&out.findings, &out.verdict);
+        touring_code::vgp::camadas::fundir_camada2(&mut out, mapear(l2, &input, contexto));
         out
     }
 

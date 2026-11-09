@@ -13,6 +13,8 @@ path = "src/lib.rs"
 
 [dependencies]
 touring-python-env = { path = "../touring-python-env" }
+# VGP layer 2 types (std + serde leaf): `vgp::camadas` composes both layers in one place.
+touring-pyright = { path = "../touring-pyright" }
 # ── Internal touring crates (path deps) ──────────────────────────────────────
 touring-foundation = { path = "../touring-foundation" }
 touring-simd = { path = "../touring-simd" }
