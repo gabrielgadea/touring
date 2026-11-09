@@ -1,0 +1,15 @@
+{"check": "bash -c true <<< x\ngit reset --hard", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "nice chmod 000 f", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "/usr/bin/env chmod 000 f", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "A+=1 chmod 000 f", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "timeout .5 git reset --hard", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -S 'rm -rf /tmp/x'", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "xargs chmod 000 f", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "env -iS 'chmod 000 f'", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "echo 'a>'&chmod 000 f", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "chmod 000 f", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "bash -c true <<< x; git reset --hard", "ok": true, "detail": {"want": "deny", "got": "deny"}}
+{"check": "nice -n 5 cargo test", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "timeout .5 ls", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"check": "cat <<< 'git reset --hard'", "ok": true, "detail": {"want": "free", "got": "rc=0"}}
+{"version": "30.4.107", "all_ok": true, "passed": 14, "total": 14}
