@@ -86,7 +86,7 @@ mod tests {
             );
             checked += 1;
         }
-        assert_eq!(checked, 279, "the shell-oracle corpus shrank");
+        assert_eq!(checked, 287, "the shell-oracle corpus shrank");
     }
 
     #[test]
@@ -94,6 +94,9 @@ mod tests {
         for command in [
             "git reset --hard HEAD",
             "git -C /tmp/repo clean -fd",
+            "git clean --force",
+            "git clean -x -f",
+            "git checkout main -- crates/x.py",
             "git push --force-with-lease origin main",
             "git push --force origin main",
             "git push -f origin main",

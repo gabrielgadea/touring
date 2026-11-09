@@ -277,3 +277,11 @@
 {"cmd":"git commit --no-verify -m x && git reset --hard","shell":"block"}
 {"cmd":"git","shell":"allow"}
 {"cmd":"git restore --staged a && git restore b","shell":"block"}
+{"cmd":"git clean --force","shell":"block"}
+{"cmd":"git clean -x -f","shell":"block"}
+{"cmd":"git clean --force -d build/","shell":"block"}
+{"cmd":"git clean -n","shell":"allow"}
+{"cmd":"git checkout main -- crates/x.py","shell":"block"}
+{"cmd":"git checkout HEAD~1 -- .","shell":"block"}
+{"cmd":"git checkout main --","shell":"allow"}
+{"cmd":"git checkout -b nova","shell":"allow"}

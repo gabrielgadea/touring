@@ -171,6 +171,11 @@ check_pattern 'git[[:space:]]+reset[[:space:]].*(--hard|--merge|--keep)' \
 check_pattern 'git[[:space:]]+checkout[[:space:]]+(-f|--|\.)' \
     "REGRA #11 v2: git checkout destrutivo (descarta working tree) requer GIT_DESTRUCTIVE_OK=1"
 
+# `git checkout <ref> -- <path>` overwrites <path> from <ref>: a `--` with a word after it, in any
+# position — the pattern above read only the first option (09/11/2026). Mirror: git/direct.rs.
+check_pattern 'git[[:space:]]+checkout[[:space:]][^;&|)]*[[:space:]]--[[:space:]]+[^[:space:];&|)]' \
+    "REGRA #11 v2: git checkout <ref> -- <caminho> sobrescreve o working tree — requer GIT_DESTRUCTIVE_OK=1"
+
 check_pattern 'git[[:space:]]+switch[[:space:]]+--discard-changes' \
     "REGRA #11 v2: git switch --discard-changes descarta working tree — requer GIT_DESTRUCTIVE_OK=1"
 
@@ -184,8 +189,19 @@ while IFS= read -r occ; do
     fi
 done < <(occurrences restore)
 
-check_pattern 'git[[:space:]]+clean[[:space:]]+-[[:alnum:]]*[fd]' \
-    "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
+# git clean: any option before `--` that forces (-f/--force) or recurses (-d), in any position
+# and in any cluster — the old pattern read only the FIRST option and only the short form, so
+# `git clean --force` and `git clean -x -f` passed (09/11/2026). Mirror: git/direct.rs.
+while IFS= read -r occ; do
+    [[ -z "${occ}" ]] && continue
+    read -ra words <<<"${occ}" # read, not $(…): an unquoted expansion would glob `*`
+    for word in "${words[@]:2}"; do
+        [[ "${word}" == "--" ]] && break
+        if [[ "${word}" == "--force" || "${word}" == --force=* || "${word}" =~ ^-[[:alnum:]]*[fd] ]]; then
+            deny "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
+        fi
+    done
+done < <(occurrences clean)
 
 check_pattern 'git[[:space:]]+push[[:space:]]+.*(-f|--force|--force-with-lease)' \
     "REGRA #11 v2: git push --force requer aprovação explícita de Gabriel + GIT_DESTRUCTIVE_OK=1. NUNCA em main/master."

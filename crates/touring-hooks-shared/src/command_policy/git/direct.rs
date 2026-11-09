@@ -37,12 +37,14 @@ fn is_destructive(subcommand: &str, values: &[String]) -> bool {
     match subcommand {
         "stash" => !matches!(values.first().map(String::as_str), Some("list" | "show")),
         "reset" => has_any(values, &["--hard", "--merge", "--keep"]),
-        "checkout" => values
-            .first()
-            .is_some_and(|value| matches!(value.as_str(), "-f" | "--force" | "--" | ".")),
+        "checkout" => checkout_is_destructive(values),
         "switch" => has_flag(values, "--discard-changes"),
         "restore" => restore_is_destructive(values),
-        "clean" => has_short_flag(values, "-f") || has_short_flag(values, "-d"),
+        // Any option before `--`, in any position: `-f`/`-d` in a cluster or `--force`
+        // (mirror: the `clean` loop of client/hooks/block_git.sh).
+        "clean" => ["-f", "-d", "--force"]
+            .iter()
+            .any(|flag| has_short_flag(values, flag)),
         _ => history_or_remote_is_destructive(subcommand, values),
     }
 }
@@ -71,6 +73,15 @@ fn has_short_flag(values: &[String], flag: &str) -> bool {
         .iter()
         .take_while(|value| value.as_str() != "--")
         .any(|value| flag_matches(flag, value))
+}
+
+/// `-f`/`--force`/`--`/`.` first, or `<ref> -- <path>`: a `--` with a word after it in any
+/// position (mirror: the two `checkout` patterns of client/hooks/block_git.sh).
+fn checkout_is_destructive(values: &[String]) -> bool {
+    values
+        .first()
+        .is_some_and(|value| matches!(value.as_str(), "-f" | "--force" | "--" | "."))
+        || values.windows(2).any(|pair| pair[0] == "--")
 }
 
 fn restore_is_destructive(values: &[String]) -> bool {
