@@ -1,7 +1,8 @@
 //! Shells, launchers and the programs they hand to another execution layer.
 
 use super::super::lexer::{
-    Wrapper, basename, command_of, is_assignment, is_shell, split_string_option, wrapper,
+    Wrapper, basename, command_of, is_assignment, is_shell, split_string_option,
+    takes_separate_value, wrapper,
 };
 use super::direct::scan_git_invocation;
 use super::interpreter::{Language, exec_scan, interpreter_invocation, language};
@@ -87,7 +88,7 @@ fn wrapper_action(
     {
         return Ok(action);
     }
-    if wrapper.value_options.contains(&arg) {
+    if takes_separate_value(wrapper, arg) {
         return Ok(WrapperAction::Next(2));
     }
     if arg.len() > 1 && arg.starts_with('-') {

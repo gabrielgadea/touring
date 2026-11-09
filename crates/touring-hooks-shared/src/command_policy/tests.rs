@@ -1148,6 +1148,11 @@ fn the_effective_program_is_judged_whatever_runs_it() {
         "env -vS 'chmod 000 f'",
         "env -iS'chmod 000 f'",
         "sudo env -i -vS 'chmod 000 f'",
+        // the first value-taking letter of a cluster owns the rest: `-uS` unsets `S`, and
+        // `-iu NAME` / `-iu root` take the next word as the value (commit review of 6eb0c5a0)
+        "env -uS chmod 000 f",
+        "env -iu HOME chmod 000 f",
+        "sudo -nu root chmod 000 f",
         "echo 'a>'&chmod 000 f",
         "echo \"a<\"&chmod 000 f",
         "env --split-string='chmod 000 f'",

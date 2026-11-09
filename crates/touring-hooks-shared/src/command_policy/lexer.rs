@@ -776,9 +776,10 @@ fn split_string_code(words: &[String]) -> Option<String> {
 
 /// `env`'s split-string option in `arg`, in every spelling, with the code it carries
 /// and how many words it spans: `--split-string CODE` and `-S CODE` (2), the glued
-/// `--split-string=CODE` and `-SCODE` (1), and `S` anywhere in a short-option
-/// cluster — `-iS CODE`, `-iSCODE` — which is the same option (read only at the
-/// start of the cluster, `env -iS 'rm -rf x'` was one "program" named `rm -rf x`).
+/// `--split-string=CODE` and `-SCODE` (1), and `S` inside a short-option cluster —
+/// `-iS CODE`, `-iSCODE` — when it is the cluster's first letter that takes a value. In
+/// `-uS` the `S` is the VALUE of `-u` (unset the variable `S`), not the option: reading it as
+/// one let `env -uS git reset --hard` hide the git it runs (commit review of 6eb0c5a0).
 /// The one reader of this option, for the lexer and for the git judge.
 pub(super) fn split_string_option<'a>(
     arg: &'a str,
@@ -790,28 +791,37 @@ pub(super) fn split_string_option<'a>(
     if let Some(code) = arg.strip_prefix("--split-string=") {
         return Some((code, 1));
     }
-    if !is_split_cluster(arg) {
-        return None;
-    }
-    let after = &arg[arg.find('S')? + 1..];
-    if after.is_empty() {
-        next.map(|code| (code.as_str(), 2))
-    } else {
-        Some((after, 1))
+    match valued_letter(wrapper("env")?, arg)? {
+        ('S', "") => next.map(|code| (code.as_str(), 2)),
+        ('S', code) => Some((code, 1)),
+        _ => None,
     }
 }
 
-/// The option `word` of `wrapper` takes the NEXT word as its value: a listed value
-/// option, or an `env` cluster ending in `S` (`-iS CODE`).
-fn takes_separate_value(wrapper: &Wrapper, word: &str) -> bool {
+/// The option `word` of `wrapper` takes the NEXT word as its value: a listed value option
+/// (`-u`, `--user`), or a short-option cluster whose first value-taking letter is its last
+/// (`sudo -iu root`, `env -iS CODE`). When letters follow that letter they ARE its value
+/// (`nice -n5`, `env -uS`), and the word stands alone.
+pub(super) fn takes_separate_value(wrapper: &Wrapper, word: &str) -> bool {
     wrapper.value_options.contains(&word)
-        || (wrapper.name == "env" && is_split_cluster(word) && word.ends_with('S'))
+        || valued_letter(wrapper, word).is_some_and(|(_, rest)| rest.is_empty())
 }
 
-/// A single-dash option cluster holding `S` (`-S`, `-iS`, `-iSCODE`).
-fn is_split_cluster(arg: &str) -> bool {
-    arg.strip_prefix('-')
-        .is_some_and(|cluster| !cluster.starts_with('-') && cluster.contains('S'))
+/// The first letter of a short-option cluster (`-iu`, `-n5`, `-iSCODE`) that takes a value for
+/// `wrapper`, and what follows it in the word — as getopt reads a cluster: flags until a letter
+/// that takes an argument, which owns the rest of the word (or the next word when nothing
+/// follows). `None` for a long option or a cluster of flags only.
+fn valued_letter<'a>(wrapper: &Wrapper, word: &'a str) -> Option<(char, &'a str)> {
+    let cluster = word
+        .strip_prefix('-')
+        .filter(|cluster| !cluster.is_empty() && !cluster.starts_with('-'))?;
+    cluster.char_indices().find_map(|(i, letra)| {
+        let opcao = format!("-{letra}");
+        wrapper
+            .value_options
+            .contains(&opcao.as_str())
+            .then(|| (letra, &cluster[i + letra.len_utf8()..]))
+    })
 }
 
 #[cfg(test)]

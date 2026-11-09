@@ -81,6 +81,10 @@ DENIED = {
     "env -iS": "env -iS 'git reset --hard'",
     "env -iS glued": "env -iS'git reset --hard'",
     "env --split-string=": "env --split-string='git reset --hard'",
+    # the first value-taking letter owns the rest: `-uS` unsets `S`; `-iu NAME` takes NAME
+    "env -uS": "env -uS git reset --hard",
+    "env -iu NAME": "env -iu HOME git reset --hard",
+    "sudo -nu root": "sudo -nu root git reset --hard",
     "timeout": 'timeout 60 bash -c "git reset --hard"',
     "timeout -k": "timeout -k 5 60 sh -c 'git clean -fd'",
     "nice": "nice -n 5 bash -c 'git reset --hard'",

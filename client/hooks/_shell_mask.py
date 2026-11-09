@@ -544,7 +544,7 @@ class _Wrap:
 
 
 _WRAPPERS: dict[str, _Wrap] = {
-    "env": _Wrap(frozenset({"-u", "--unset", "-C", "--chdir", "-a", "--argv0"})),
+    "env": _Wrap(frozenset({"-u", "--unset", "-C", "--chdir", "-a", "--argv0", "-S", "--split-string"})),
     "timeout": _Wrap(frozenset({"-s", "--signal", "-k", "--kill-after"}), 1),
     "nice": _Wrap(frozenset({"-n", "--adjustment"})),
     "nohup": _Wrap(),
@@ -570,12 +570,28 @@ _STRING_RUNNERS = {"su": ("-c", "--command"), "flock": ("-c", "--command"), "scr
 _QUERY_FLAGS = {"command": frozenset({"-v", "-V"})}  # `command -v git` prints a path, runs nothing
 
 
+def _valued_letter(spec: "_Wrap", arg: str) -> tuple[str, str] | None:
+    """The first letter of a short-option cluster (``-iu``, ``-n5``, ``-iSCODE``) that takes a
+    value for the launcher, and what follows it in the word — as getopt reads a cluster: flags
+    until a letter that takes an argument, which owns the rest of the word (or the next word
+    when nothing follows). ``None`` for a long option or a cluster of flags only. Mirror of
+    ``valued_letter`` in the Rust lexer (``command_policy/lexer.rs``)."""
+    if not arg.startswith("-") or arg.startswith("--") or len(arg) < 2:
+        return None
+    cluster = arg[1:]
+    for k, letra in enumerate(cluster):
+        if f"-{letra}" in spec.arg_opts:
+            return letra, cluster[k + 1:]
+    return None
+
+
 def _split_string_code(name: str, args: list["_Word"], i: int) -> str | None:
     """The code `env`'s split-string option at ``args[i]`` hands to a fresh split, in every
     spelling: ``-S CODE``, ``--split-string CODE``, ``--split-string=CODE``, ``-SCODE``, and ``S``
-    inside a short-option cluster (``-iS CODE``, ``-iSCODE``) — read only as ``-S``, ``env -iS
-    'git reset --hard'`` was let through (09/11/2026). ``None`` when ``args[i]`` is not the option.
-    Mirror of ``split_string_option`` in the Rust lexer (``command_policy/lexer.rs``)."""
+    inside a short-option cluster (``-iS CODE``, ``-iSCODE``) when it is the cluster's first
+    letter that takes a value — in ``-uS`` the ``S`` is the VALUE of ``-u``, and reading it as the
+    option hid ``env -uS git reset --hard`` (commit review of 6eb0c5a0). ``None`` when ``args[i]``
+    is not the option. Mirror of ``split_string_option`` in the Rust lexer."""
     if name != "env":
         return None
     arg = args[i].value
@@ -584,9 +600,10 @@ def _split_string_code(name: str, args: list["_Word"], i: int) -> str | None:
         return nxt
     if arg.startswith("--split-string="):
         return arg[len("--split-string="):]
-    if arg.startswith("-") and not arg.startswith("--") and "S" in arg:
-        return arg[arg.index("S") + 1:] or nxt
-    return None
+    found = _valued_letter(_WRAPPERS["env"], arg)
+    if found is None or found[0] != "S":
+        return None
+    return found[1] or nxt
 _SUDO_SHELL = frozenset({"-s", "-i", "--shell", "--login"})  # sudo runs the rest as `$SHELL -c '…'`
 _SHELL_VALUE_OPTS = frozenset({"-o", "+o", "-O", "+O", "--rcfile", "--init-file"})
 _ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\+?=")
@@ -1089,6 +1106,9 @@ def _wrapper_option_width(name: str, spec: _Wrap, word: _Word) -> int | None:
     """Words taken by the launcher's own option at `word` (2 = it consumes a value); None when `word` is not one."""
     a = word.value
     if a in spec.arg_opts:
+        return 2
+    found = _valued_letter(spec, a)
+    if found is not None and not found[1]:  # `-iu NAME`: the last letter takes the next word
         return 2
     if (a.startswith("-") and len(a) > 1) or (name == "env" and _ASSIGN.match(word.raw)):
         return 1
