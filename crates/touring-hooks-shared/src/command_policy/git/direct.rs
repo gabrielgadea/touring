@@ -40,11 +40,7 @@ fn is_destructive(subcommand: &str, values: &[String]) -> bool {
         "checkout" => checkout_is_destructive(values),
         "switch" => has_flag(values, "--discard-changes"),
         "restore" => restore_is_destructive(values),
-        // Any option before `--`, in any position: `-f`/`-d` in a cluster or `--force`
-        // (mirror: the `clean` loop of client/hooks/block_git.sh).
-        "clean" => ["-f", "-d", "--force"]
-            .iter()
-            .any(|flag| has_short_flag(values, flag)),
+        "clean" => !clean_is_dry_run(values),
         _ => history_or_remote_is_destructive(subcommand, values),
     }
 }
@@ -75,18 +71,83 @@ fn has_short_flag(values: &[String], flag: &str) -> bool {
         .any(|value| flag_matches(flag, value))
 }
 
-/// `-f`/`--force`/`--`/`.` first, or `<ref> -- <path>`: a `--` with a word after it in any
-/// position (mirror: the two `checkout` patterns of client/hooks/block_git.sh).
-fn checkout_is_destructive(values: &[String]) -> bool {
+/// The options of a subcommand: its words up to `--` (exclusive), as git reads them.
+fn options(values: &[String]) -> impl Iterator<Item = &str> {
     values
-        .first()
-        .is_some_and(|value| matches!(value.as_str(), "-f" | "--force" | "--" | "."))
-        || values.windows(2).any(|pair| pair[0] == "--")
+        .iter()
+        .map(String::as_str)
+        .take_while(|value| *value != "--")
 }
 
+/// git accepts any unambiguous PREFIX of a long option (`--forc` runs `--force`): `word` names
+/// `full` when its part before `=` is a prefix of `full` at least `min` characters long.
+/// Mirror: `names_long` in client/hooks/block_git.sh.
+fn names_long(word: &str, full: &str, min: usize) -> bool {
+    let name = word.split('=').next().unwrap_or(word);
+    name.starts_with("--") && name.len() >= min && full.starts_with(name)
+}
+
+/// A short-option cluster (`-qf`) holds `letter` before any letter of `valued`, which takes the
+/// rest of the cluster as its value (getopt: `-bf` is `-b f`). Mirror: `cluster_has`.
+fn cluster_has(word: &str, letter: char, valued: &[char]) -> bool {
+    let Some(cluster) = word.strip_prefix('-').filter(|c| !c.starts_with('-')) else {
+        return false;
+    };
+    for ch in cluster.chars() {
+        if ch == letter {
+            return true;
+        }
+        if valued.contains(&ch) {
+            return false;
+        }
+    }
+    false
+}
+
+/// `--` first, `<ref> -- <path>` (a `--` with a word after it), or any option before `--` that
+/// forces: `-f` in a cluster (`-b`/`-B` take the rest as a branch name), `--force` or a prefix of
+/// it, and a bare `.`. Mirror: the `checkout` patterns and loop of client/hooks/block_git.sh.
+fn checkout_is_destructive(values: &[String]) -> bool {
+    values.first().is_some_and(|value| value == "--")
+        || values.windows(2).any(|pair| pair[0] == "--")
+        || options(values).any(|word| {
+            word == "." || names_long(word, "--force", 3) || cluster_has(word, 'f', &['b', 'B'])
+        })
+}
+
+/// A DRY RUN is the only safe `git clean` (fail-closed): a real `-n` (in a cluster, before `-e`,
+/// which takes the rest as its pattern) or `--dry-run`/a prefix of it; the word after a bare
+/// `-e`/`--exclude` is a pattern, never an option. Mirror: the `clean` loop of block_git.sh.
+fn clean_is_dry_run(values: &[String]) -> bool {
+    let mut value_next = false;
+    for word in options(values) {
+        if std::mem::take(&mut value_next) {
+            continue;
+        }
+        if word.starts_with("--") {
+            if names_long(word, "--dry-run", 3) {
+                return true;
+            }
+            value_next = !word.contains('=') && names_long(word, "--exclude", 3);
+        } else if let Some(letters) = word.strip_prefix('-').filter(|l| !l.is_empty()) {
+            if cluster_has(word, 'n', &['e']) {
+                return true;
+            }
+            value_next = letters.find('e') == Some(letters.len() - 1);
+        }
+    }
+    false
+}
+
+/// Only an unstage is safe: `--staged`/`-S` and no `--worktree`/`-W` — long prefixes count
+/// (`--wor`; `--st` is the shortest `--staged`, `--s` is ambiguous with `--source`), clusters
+/// count (`-SW`; `-s` takes the rest as its source), and only before `--`.
+/// Mirror: the `restore` loop of client/hooks/block_git.sh.
 fn restore_is_destructive(values: &[String]) -> bool {
-    let staged = has_flag(values, "--staged") || has_short_flag(values, "-S");
-    let worktree = has_flag(values, "--worktree") || has_short_flag(values, "-W");
+    let staged = options(values)
+        .any(|word| names_long(word, "--staged", 4) || cluster_has(word, 'S', &['s']));
+    let worktree = options(values)
+        .any(|word| names_long(word, "--worktree", 3) || cluster_has(word, 'W', &['s']));
     !staged || worktree
 }
 

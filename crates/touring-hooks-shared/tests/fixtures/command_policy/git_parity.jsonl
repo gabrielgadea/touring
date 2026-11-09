@@ -285,3 +285,26 @@
 {"cmd":"git checkout HEAD~1 -- .","shell":"block"}
 {"cmd":"git checkout main --","shell":"allow"}
 {"cmd":"git checkout -b nova","shell":"allow"}
+{"cmd":"git clean --forc","shell":"block"}
+{"cmd":"git clean --for -d","shell":"block"}
+{"cmd":"git clean -fen","shell":"block"}
+{"cmd":"git clean -e -n -f","shell":"block"}
+{"cmd":"git clean","shell":"block"}
+{"cmd":"git clean -fdx -n","shell":"allow"}
+{"cmd":"git clean --dry-run -fd","shell":"allow"}
+{"cmd":"git clean --dry -d","shell":"allow"}
+{"cmd":"git clean -nd","shell":"allow"}
+{"cmd":"git checkout -q -f","shell":"block"}
+{"cmd":"git checkout -qf main","shell":"block"}
+{"cmd":"git checkout main .","shell":"block"}
+{"cmd":"git checkout --forc main","shell":"block"}
+{"cmd":"git checkout -bf","shell":"allow"}
+{"cmd":"git checkout -q main","shell":"allow"}
+{"cmd":"git restore -S --wor f","shell":"block"}
+{"cmd":"git restore --staged --w f","shell":"block"}
+{"cmd":"git restore -- -S","shell":"block"}
+{"cmd":"git restore -SW f","shell":"block"}
+{"cmd":"git restore --stag f","shell":"allow"}
+{"cmd":"git restore -S f","shell":"allow"}
+{"cmd":"git restore -sW --staged f","shell":"allow"}
+{"cmd":"git restore --staged --source=HEAD f","shell":"allow"}

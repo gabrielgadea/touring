@@ -7,7 +7,9 @@
 //!
 //! 1. EQUIVALENCE — the 29 names that had an arm print byte-identical stdout/stderr and exit 0
 //!    (`fixtures/standalone_parity.json`, captured from the pre-change binary; no username, the
-//!    repository is public), except the explicitly justified policy changes below.
+//!    repository is public). (C2.3 made `pre-bash` deny `git push --force` and listed that entry
+//!    as a justified difference; `28dbe17e`, 09/11/2026, left git to `block_git.sh` alone, so the
+//!    pre-change silence is the answer again and the exception went away.)
 //! 2. REACHABILITY — every table hook that is not a CLI query endpoint answers standalone: exit 0,
 //!    a standalone trace, never `unknown subcommand`, never a panic. Iterates the LIVE table, so a
 //!    hook added tomorrow is exercised with no edit here (a generic payload when the fixture has
@@ -25,10 +27,6 @@ use touring_hook_runtime::hook_response::TOP_LEVEL_FIELDS;
 use touring_hooks::hook_registry::{all_daemon_hook_names, is_rpc_endpoint};
 
 const FIXTURE: &str = include_str!("fixtures/standalone_parity.json");
-
-/// Intentional changes from the pre-change binary. C2.3 makes destructive git
-/// push a denial instead of the warning-free output captured by this fixture.
-const JUSTIFIED_DIFFERENCES: &[&str] = &["pre-bash#git-force"];
 
 struct Ran {
     exit: i32,
@@ -190,7 +188,6 @@ fn standalone_output_is_what_the_hand_written_arms_printed() {
         entries.len()
     );
     let mut with_output = 0;
-    let mut justified_seen = 0;
     for (key, entry) in entries {
         let name = key.split('#').next().expect("name");
         let ran = run_hook(name, &entry["payload"]);
@@ -208,23 +205,10 @@ fn standalone_output_is_what_the_hand_written_arms_printed() {
             entry["exit"].as_i64().expect("exit") as i32,
             "{key}: exit"
         );
-        if JUSTIFIED_DIFFERENCES.contains(&key.as_str()) {
-            justified_seen += 1;
-            assert_ne!(
-                ran.stdout, want_out,
-                "{key}: the justified change did not fire"
-            );
-            assert!(
-                ran.stdout.contains("git push is destructive"),
-                "{key}: unexpected new stdout: {}",
-                ran.stdout
-            );
-        } else {
-            assert_eq!(
-                ran.stdout, want_out,
-                "{key}: stdout differs from the pre-change binary"
-            );
-        }
+        assert_eq!(
+            ran.stdout, want_out,
+            "{key}: stdout differs from the pre-change binary"
+        );
         assert_eq!(
             ran.stderr, want_err,
             "{key}: stderr differs from the pre-change binary"
@@ -234,11 +218,6 @@ fn standalone_output_is_what_the_hand_written_arms_printed() {
             with_output += 1;
         }
     }
-    assert_eq!(
-        justified_seen,
-        JUSTIFIED_DIFFERENCES.len(),
-        "every justified difference must be exercised"
-    );
     assert!(
         with_output >= 8,
         "only {with_output} entries print something — the equivalence would prove little about the funnel"

@@ -155,6 +155,40 @@ occurrences() {
     printf '%s' "${MASKED_CMD}" | grep -oE "git[[:space:]]+$1\\b[^;&|)]*" || true
 }
 
+# git accepts any unambiguous PREFIX of a long option (`--forc` runs `--force`): a word names
+# <full> when its part before `=` is a prefix of <full> at least <min> characters long.
+# Mirror: `names_long` in crates/touring-hooks-shared/src/command_policy/git/direct.rs.
+names_long() {
+    local w="${1%%=*}"
+    ((${#w} >= $3)) && [[ "$2" == "${w}"* ]]
+}
+
+# A short-option cluster (`-qf`) holds <letter> before any letter of <valued>, which takes the
+# rest of the cluster as its value (getopt: `-bf` is `-b f`). Mirror: `cluster_has`.
+cluster_has() {
+    local w="$1" i ch
+    [[ "${w}" == -[!-]* ]] || return 1
+    w="${w:1}"
+    for ((i = 0; i < ${#w}; i++)); do
+        ch="${w:i:1}"
+        [[ "${ch}" == "$2" ]] && return 0
+        [[ "$3" == *"${ch}"* ]] && return 1
+    done
+    return 1
+}
+
+# The words of an occurrence after `git <subcommand>`, up to `--` (exclusive), one per line.
+# `read -a`, not $(…): an unquoted expansion would glob `*`.
+options_of() {
+    local -a words
+    read -ra words <<<"$1"
+    local word
+    for word in "${words[@]:2}"; do
+        [[ "${word}" == "--" ]] && break
+        printf '%s\n' "${word}"
+    done
+}
+
 # git stash: only `list` and `show` are LEITURA (REGRA #11 v2, "livres, sempre"); every other
 # form — bare `git stash` included, which is `push` — mutates.
 while IFS= read -r occ; do
@@ -176,31 +210,68 @@ check_pattern 'git[[:space:]]+checkout[[:space:]]+(-f|--|\.)' \
 check_pattern 'git[[:space:]]+checkout[[:space:]][^;&|)]*[[:space:]]--[[:space:]]+[^[:space:];&|)]' \
     "REGRA #11 v2: git checkout <ref> -- <caminho> sobrescreve o working tree — requer GIT_DESTRUCTIVE_OK=1"
 
+# ...and any option before `--` that forces, in any position: `-f` in a cluster (`-qf`; `-b`/`-B`
+# take the rest as a branch name), `--force` or a prefix of it, and a bare `.` (every path).
+while IFS= read -r occ; do
+    [[ -z "${occ}" ]] && continue
+    while IFS= read -r word; do
+        if [[ "${word}" == "." ]] || { [[ "${word}" == --* ]] && names_long "${word}" --force 3; } \
+            || cluster_has "${word}" f bB; then
+            deny "REGRA #11 v2: git checkout destrutivo (descarta working tree) requer GIT_DESTRUCTIVE_OK=1"
+        fi
+    done < <(options_of "${occ}")
+done < <(occurrences checkout)
+
 check_pattern 'git[[:space:]]+switch[[:space:]]+--discard-changes' \
     "REGRA #11 v2: git switch --discard-changes descarta working tree — requer GIT_DESTRUCTIVE_OK=1"
 
 # git restore: only an unstage (--staged / -S, and no --worktree / -W) is ADITIVA; any other
 # occurrence rewrites the working tree — even when another occurrence in the same line unstages.
+# Options only before `--`, as git reads them (09/11/2026): a long prefix counts (`--wor` is
+# `--worktree`, `--st` is `--staged`; `--s` is ambiguous with `--source`), a cluster counts
+# (`-SW`; `-s` takes the rest as its source), and a path named `-S` after `--` unstages nothing.
+# Mirror: `restore_is_destructive` in git/direct.rs.
 while IFS= read -r occ; do
     [[ -z "${occ}" ]] && continue
-    if ! printf '%s ' "${occ}" | grep -qE '[[:space:]](--staged|-S)[[:space:]]' \
-        || printf '%s ' "${occ}" | grep -qE '[[:space:]](--worktree|-W)[[:space:]]'; then
+    staged=0 worktree=0
+    while IFS= read -r word; do
+        if [[ "${word}" == --* ]]; then
+            names_long "${word}" --staged 4 && staged=1
+            names_long "${word}" --worktree 3 && worktree=1
+        else
+            cluster_has "${word}" S s && staged=1
+            cluster_has "${word}" W s && worktree=1
+        fi
+    done < <(options_of "${occ}")
+    if ((!staged || worktree)); then
         deny "REGRA #11 v2: git restore (working tree) descarta mudanças — use só --staged/-S para unstage, ou GIT_DESTRUCTIVE_OK=1"
     fi
 done < <(occurrences restore)
 
-# git clean: any option before `--` that forces (-f/--force) or recurses (-d), in any position
-# and in any cluster — the old pattern read only the FIRST option and only the short form, so
-# `git clean --force` and `git clean -x -f` passed (09/11/2026). Mirror: git/direct.rs.
+# git clean is destructive unless it is a DRY RUN (fail-closed, 09/11/2026): the old pattern read
+# only the first option and only `-f`/`-d`, so `git clean --force`, `-x -f` and `--forc` passed.
+# A dry run is a real `-n` (in a cluster, before `-e`, which takes the rest as its pattern) or
+# `--dry-run`/a prefix of it — and the word after a bare `-e`/`--exclude` is a pattern, never
+# an option. Mirror: `clean_is_dry_run` in git/direct.rs.
 while IFS= read -r occ; do
     [[ -z "${occ}" ]] && continue
-    read -ra words <<<"${occ}" # read, not $(…): an unquoted expansion would glob `*`
-    for word in "${words[@]:2}"; do
-        [[ "${word}" == "--" ]] && break
-        if [[ "${word}" == "--force" || "${word}" == --force=* || "${word}" =~ ^-[[:alnum:]]*[fd] ]]; then
-            deny "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
+    dry=0 value_next=0
+    while IFS= read -r word; do
+        if ((value_next)); then
+            value_next=0
+            continue
         fi
-    done
+        if [[ "${word}" == --* ]]; then
+            names_long "${word}" --dry-run 3 && dry=1
+            [[ "${word}" != *=* ]] && names_long "${word}" --exclude 3 && value_next=1
+        elif [[ "${word}" == -[!-]* ]]; then
+            cluster_has "${word}" n e && dry=1
+            letters="${word:1}"
+            # the FIRST `e` is the cluster's last letter: its pattern is the next word
+            [[ "${letters}" == *e* && "${letters%%e*}e" == "${letters}" ]] && value_next=1
+        fi
+    done < <(options_of "${occ}")
+    ((dry)) || deny "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
 done < <(occurrences clean)
 
 check_pattern 'git[[:space:]]+push[[:space:]]+.*(-f|--force|--force-with-lease)' \
