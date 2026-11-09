@@ -1,0 +1,15 @@
+hw-slot: aguardando — temp 95C > 88C
+    Finished `release` profile [optimized + debuginfo] target(s) in 1m 22s
+  Executable tests/vgp_contencao_replay.rs (target/release/deps/vgp_contencao_replay-6a0612103e0c3773)
+hw-slot: aguardando — temp 92C > 88C
+    Finished `release` profile [optimized + debuginfo] target(s) in 3m 19s
+  Executable tests/vgp_contencao_replay.rs (target/release/deps/vgp_contencao_replay-bde10089862f3617)
+head=~/projects/touring/target/release/deps/vgp_contencao_replay-6a0612103e0c3773 pre=~/projects/touring/../touring-wt-w3b/target/release/deps/vgp_contencao_replay-bde10089862f3617
+pre overall p95 rodadas [0.1132, 0.1401, 0.1189, 0.1131] mediana 0.116
+head overall p95 rodadas [0.1491, 0.134, 0.1331, 0.1565] mediana 0.1415
+css p95 mediana pre 0.1147 head 0.1131 delta_ms -0.0017
+html p95 mediana pre 0.111 head 0.1099 delta_ms -0.0011
+jsx p95 mediana pre 0.1196 head 0.1453 delta_ms 0.0257
+python p95 mediana pre 0.1245 head 0.1142 delta_ms -0.0103
+rust p95 mediana pre 0.135 head 0.1414 delta_ms 0.0064
+ts p95 mediana pre 0.0979 head 0.1668 delta_ms 0.0689
