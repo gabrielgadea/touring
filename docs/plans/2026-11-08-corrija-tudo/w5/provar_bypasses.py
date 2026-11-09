@@ -5,7 +5,7 @@ Each row is a destructive command that 30.4.105 let through (no `deny`) while th
 command without the prefix was denied; each control must stay free. One JSON line per
 check {check, ok, detail}; exit 0 only when every check is ok. Paths under $HOME print as ~.
 
-Usage: provar_bypasses.py [VERSION]   (default 30.4.106)
+Usage: provar_bypasses.py [VERSION]   (default 30.4.107)
 """
 
 import json
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 HOME = str(Path.home())
-VERSION = sys.argv[1] if len(sys.argv) > 1 else "30.4.106"
+VERSION = sys.argv[1] if len(sys.argv) > 1 else "30.4.107"
 HOOK = str(Path(HOME) / f".touring/toolchains/{VERSION}/bin/touring-hook")
 
 MUST_DENY = [
@@ -27,6 +27,8 @@ MUST_DENY = [
     "xargs chmod 000 f",
     # found by the commit security review of 7cf12bad: `S` inside an option cluster
     "env -iS 'chmod 000 f'",
+    # onda 2: a quoted `>` does not glue the `&` (review of 7714f7f4, never installed)
+    "echo 'a>'&chmod 000 f",
     # the controls of the defect: the same commands without a prefix
     "chmod 000 f",
     "bash -c true <<< x; git reset --hard",
