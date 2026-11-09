@@ -675,7 +675,7 @@ fn option_width(wrapper: &Wrapper, word: &str) -> Option<usize> {
     }
     let width = if word == "--" {
         0
-    } else if wrapper.value_options.contains(&word) {
+    } else if takes_separate_value(wrapper, word) {
         2
     } else if (word.len() > 1 && word.starts_with('-'))
         || (wrapper.name == "env" && is_assignment(word))
@@ -695,13 +695,48 @@ fn split_string_code(words: &[String]) -> Option<String> {
     let args = &words[env_at + 1..];
     args.iter()
         .enumerate()
-        .find_map(|(i, arg)| match arg.as_str() {
-            "-S" | "--split-string" => args.get(i + 1).cloned(),
-            _ => arg
-                .strip_prefix("--split-string=")
-                .or_else(|| arg.strip_prefix("-S").filter(|code| !code.is_empty()))
-                .map(str::to_owned),
-        })
+        .find_map(|(i, arg)| split_string_option(arg, args.get(i + 1)))
+        .map(|(code, _)| code.to_owned())
+}
+
+/// `env`'s split-string option in `arg`, in every spelling, with the code it carries
+/// and how many words it spans: `--split-string CODE` and `-S CODE` (2), the glued
+/// `--split-string=CODE` and `-SCODE` (1), and `S` anywhere in a short-option
+/// cluster — `-iS CODE`, `-iSCODE` — which is the same option (read only at the
+/// start of the cluster, `env -iS 'rm -rf x'` was one "program" named `rm -rf x`).
+/// The one reader of this option, for the lexer and for the git judge.
+pub(super) fn split_string_option<'a>(
+    arg: &'a str,
+    next: Option<&'a String>,
+) -> Option<(&'a str, usize)> {
+    if arg == "--split-string" {
+        return next.map(|code| (code.as_str(), 2));
+    }
+    if let Some(code) = arg.strip_prefix("--split-string=") {
+        return Some((code, 1));
+    }
+    if !is_split_cluster(arg) {
+        return None;
+    }
+    let after = &arg[arg.find('S')? + 1..];
+    if after.is_empty() {
+        next.map(|code| (code.as_str(), 2))
+    } else {
+        Some((after, 1))
+    }
+}
+
+/// The option `word` of `wrapper` takes the NEXT word as its value: a listed value
+/// option, or an `env` cluster ending in `S` (`-iS CODE`).
+fn takes_separate_value(wrapper: &Wrapper, word: &str) -> bool {
+    wrapper.value_options.contains(&word)
+        || (wrapper.name == "env" && is_split_cluster(word) && word.ends_with('S'))
+}
+
+/// A single-dash option cluster holding `S` (`-S`, `-iS`, `-iSCODE`).
+fn is_split_cluster(arg: &str) -> bool {
+    arg.strip_prefix('-')
+        .is_some_and(|cluster| !cluster.starts_with('-') && cluster.contains('S'))
 }
 
 #[cfg(test)]

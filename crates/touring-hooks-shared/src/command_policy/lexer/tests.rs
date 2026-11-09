@@ -182,6 +182,10 @@ fn env_split_string_is_read_as_commands() {
         "env -S 'rm -rf /tmp/x'",
         "env --split-string='rm x'",
         "env -S'rm x'",
+        // `S` inside a short-option cluster is the same option.
+        "env -iS 'rm x'",
+        "env -iS'rm x'",
+        "env -i0vS 'rm x'",
     ] {
         let pipelines = shell_pipelines(line);
         assert!(

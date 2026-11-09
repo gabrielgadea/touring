@@ -1,6 +1,8 @@
 //! Shells, launchers and the programs they hand to another execution layer.
 
-use super::super::lexer::{Wrapper, basename, command_of, is_assignment, is_shell, wrapper};
+use super::super::lexer::{
+    Wrapper, basename, command_of, is_assignment, is_shell, split_string_option, wrapper,
+};
 use super::direct::scan_git_invocation;
 use super::interpreter::{Language, exec_scan, interpreter_invocation, language};
 use super::text::substitutions;
@@ -110,10 +112,10 @@ fn wrapper_special_action(
     if name == "command" && matches!(arg, "-v" | "-V") {
         return Ok(Some(WrapperAction::Done));
     }
-    if name == "env" && matches!(arg, "-S" | "--split-string") {
-        if let Some(code) = args.get(i + 1) {
-            scan_program(code, ctx.depth + 1, *ritual_unlock)?;
-        }
+    if name == "env"
+        && let Some((code, _)) = split_string_option(arg, args.get(i + 1))
+    {
+        scan_program(code, ctx.depth + 1, *ritual_unlock)?;
         return Ok(Some(WrapperAction::Done));
     }
     if name == "env" && is_assignment(arg) {
