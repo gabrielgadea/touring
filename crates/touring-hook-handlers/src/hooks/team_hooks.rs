@@ -112,6 +112,25 @@ pub fn run_teammate_idle_gate(
     // Wire limbo to ACO for learning
     let _ = run_teammate_idle(runtime, input);
 
+    // A teammate the gate cannot move is released instead of blocked again: one that already
+    // reported with SendMessage is not in limbo, and one whose ToolSearch came back without the task
+    // tools cannot follow "call TaskList()". analise-f9 measured 16 such teammates blocked up to 5
+    // times each after delivering (08/11/2026).
+    let transcript = transcript_text(input);
+    let evidence = TeammateEvidence::from_transcript(&transcript);
+    if evidence.releases_idle() {
+        tracing::info!(
+            teammate = teammate_name,
+            reported = evidence.sent_message,
+            task_tools_missing = evidence.searched_tools && !evidence.has_task_tools,
+            "Anti-limbo gate — releasing idle: the transcript shows nothing left to ask for"
+        );
+        return TeamHookGateResult {
+            context: String::new(),
+            exit_code: 0,
+        };
+    }
+
     // HDG-4: Check decompose queue for pending subtasks for this teammate
     // If pending subtasks exist, inject them into the idle-gate context
     let decompose_context = match bridge_idle_gate_queue_state(runtime, teammate_name) {
@@ -161,14 +180,7 @@ pub fn run_teammate_idle_gate(
         }
     };
 
-    // Detect transcript state if available
-    let transcript = input
-        .get("transcript_summary")
-        .or_else(|| input.get("transcript_path"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    let context = build_minimal_context(teammate_name, transcript);
+    let context = build_minimal_context(teammate_name, &transcript);
 
     // HDG-4: Merge decompose queue context with transcript-based context
     // If pending subtasks exist, prepend decompose info so model sees it first
@@ -192,6 +204,107 @@ pub fn run_teammate_idle_gate(
     TeamHookGateResult {
         context: final_context,
         exit_code: 2,
+    }
+}
+
+/// How much of a transcript file the idle gate reads (its tail): the gate runs on every idle event.
+const TRANSCRIPT_TAIL_BYTES: u64 = 512 * 1024;
+
+/// The transcript text the idle gate reasons over: `transcript_summary` when the event carries one,
+/// otherwise the tail of the file at `transcript_path`. Until 08/11/2026 the PATH string itself was
+/// searched for "toolsearch"/"tasklist", so every teammate got the first instruction forever.
+fn transcript_text(input: &serde_json::Value) -> String {
+    if let Some(summary) = input.get("transcript_summary").and_then(|v| v.as_str()) {
+        return summary.to_string();
+    }
+    input
+        .get("transcript_path")
+        .and_then(|v| v.as_str())
+        .and_then(|path| read_tail(std::path::Path::new(path), TRANSCRIPT_TAIL_BYTES))
+        .unwrap_or_default()
+}
+
+/// The last `max` bytes of a file, decoded lossily (a cut through a multi-byte char only costs that
+/// char; the first, possibly partial, JSONL line simply fails to parse). `None` if it cannot be read.
+fn read_tail(path: &std::path::Path, max: u64) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    if len > max {
+        file.seek(SeekFrom::Start(len - max)).ok()?;
+    }
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// What a teammate's JSONL transcript proves about its tools and its output. A plain-text summary
+/// (no JSONL lines) proves nothing, so it never releases the gate.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct TeammateEvidence {
+    /// It called ToolSearch at least once.
+    searched_tools: bool,
+    /// A ToolSearch RESULT named TaskList, or it called a task tool: the task tools exist for it.
+    /// The search QUERY (`select:TaskUpdate,TaskList,…`) is not evidence — it names what was asked for.
+    has_task_tools: bool,
+    /// It called SendMessage (reported to the lead or a peer).
+    sent_message: bool,
+}
+
+impl TeammateEvidence {
+    fn from_transcript(text: &str) -> Self {
+        let mut evidence = Self::default();
+        let mut tool_search_ids: Vec<String> = Vec::new();
+        for line in text.lines() {
+            let Ok(record) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            let Some(blocks) = record
+                .pointer("/message/content")
+                .and_then(serde_json::Value::as_array)
+            else {
+                continue;
+            };
+            for block in blocks {
+                evidence.observe(block, &mut tool_search_ids);
+            }
+        }
+        evidence
+    }
+
+    fn observe(&mut self, block: &serde_json::Value, tool_search_ids: &mut Vec<String>) {
+        let str_field = |key: &str| block.get(key).and_then(serde_json::Value::as_str);
+        match str_field("type") {
+            Some("tool_use") => match str_field("name") {
+                Some("ToolSearch") => {
+                    self.searched_tools = true;
+                    if let Some(id) = str_field("id") {
+                        tool_search_ids.push(id.to_string());
+                    }
+                }
+                Some("TaskList" | "TaskGet" | "TaskUpdate") => self.has_task_tools = true,
+                Some("SendMessage") => self.sent_message = true,
+                _ => {}
+            },
+            Some("tool_result")
+                if str_field("tool_use_id")
+                    .is_some_and(|id| tool_search_ids.iter().any(|known| known == id)) =>
+            {
+                let content = block
+                    .get("content")
+                    .map(ToString::to_string)
+                    .unwrap_or_default();
+                if content.contains("TaskList") {
+                    self.has_task_tools = true;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Nothing left to ask this teammate for: it reported, or it searched and has no task tools.
+    fn releases_idle(&self) -> bool {
+        self.sent_message || (self.searched_tools && !self.has_task_tools)
     }
 }
 
@@ -1235,6 +1348,106 @@ mod tests {
         });
         let result = run_teammate_idle_gate(&mut rt, &input);
         assert_eq!(result.exit_code, 0, "Circuit breaker should allow idle");
+    }
+
+    /// A Claude Code transcript (JSONL) at `transcript_path`, the shape the real TeammateIdle event carries.
+    fn transcript_file(dir: &std::path::Path, lines: &[serde_json::Value]) -> String {
+        let path = dir.join("teammate.jsonl");
+        let body: String = lines.iter().map(|l| format!("{l}\n")).collect();
+        std::fs::write(&path, body).unwrap();
+        path.to_string_lossy().into_owned()
+    }
+
+    fn tool_use(id: &str, name: &str, input: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "tool_use", "id": id, "name": name, "input": input}
+        ]}})
+    }
+
+    fn tool_result(id: &str, content: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": id, "content": content}
+        ]}})
+    }
+
+    fn idle(name: &str, transcript_path: &str) -> serde_json::Value {
+        serde_json::json!({
+            "session_id": "s1", "teammate_name": name, "team_name": "taco-test",
+            "tasks_completed": 0, "transcript_path": transcript_path
+        })
+    }
+
+    /// analise-f9, 08/11/2026: teammates whose ToolSearch for the task tools returns only
+    /// SendMessage/TaskStop were told to call TaskList (which they do not have) and blocked 5 times
+    /// after delivering. A teammate that searched and did not get TaskList is released.
+    #[test]
+    fn test_idle_gate_releases_teammate_whose_toolsearch_returned_no_task_tools() {
+        let (tmp, mut rt) = setup();
+        let path = transcript_file(
+            tmp.path(),
+            &[
+                tool_use(
+                    "t1",
+                    "ToolSearch",
+                    serde_json::json!({"query": "select:TaskUpdate,TaskList,TaskGet,SendMessage"}),
+                ),
+                tool_result(
+                    "t1",
+                    serde_json::json!([
+                        {"type": "tool_reference", "tool_name": "SendMessage"},
+                        {"type": "tool_reference", "tool_name": "TaskStop"}
+                    ]),
+                ),
+            ],
+        );
+        let result = run_teammate_idle_gate(&mut rt, &idle("critico-sem-tarefas", &path));
+        assert_eq!(result.exit_code, 0, "no task tools to call: {result:?}");
+        assert!(result.context.is_empty());
+    }
+
+    /// A teammate that already sent its result with SendMessage is not in limbo.
+    #[test]
+    fn test_idle_gate_releases_teammate_that_already_sent_its_result() {
+        let (tmp, mut rt) = setup();
+        let path = transcript_file(
+            tmp.path(),
+            &[tool_use(
+                "t9",
+                "SendMessage",
+                serde_json::json!({"to": "lead", "message": "feito"}),
+            )],
+        );
+        let result = run_teammate_idle_gate(&mut rt, &idle("entregou", &path));
+        assert_eq!(result.exit_code, 0, "{result:?}");
+    }
+
+    /// Control, and proof the FILE is read (the gate used to search the path string itself): a
+    /// teammate whose ToolSearch DID return TaskList and who has not reported is still blocked, and is
+    /// told to call TaskList — not to call ToolSearch again.
+    #[test]
+    fn test_idle_gate_reads_the_transcript_file_and_still_blocks_a_teammate_with_task_tools() {
+        let (tmp, mut rt) = setup();
+        let path = transcript_file(
+            tmp.path(),
+            &[
+                tool_use(
+                    "t1",
+                    "ToolSearch",
+                    serde_json::json!({"query": "select:TaskUpdate,TaskList,TaskGet,SendMessage"}),
+                ),
+                tool_result(
+                    "t1",
+                    serde_json::json!([
+                        {"type": "tool_reference", "tool_name": "TaskList"},
+                        {"type": "tool_reference", "tool_name": "TaskUpdate"}
+                    ]),
+                ),
+            ],
+        );
+        let result = run_teammate_idle_gate(&mut rt, &idle("com-tarefas", &path));
+        assert_eq!(result.exit_code, 2, "{result:?}");
+        assert!(result.context.contains("TaskList"), "{}", result.context);
+        assert!(!result.context.contains("ToolSearch"), "{}", result.context);
     }
 
     #[test]
