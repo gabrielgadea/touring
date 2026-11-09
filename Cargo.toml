@@ -75,6 +75,7 @@ members = [
     "crates/touring-bindings",
     "crates/touring-lsp",
     "crates/touring-pyright",
+    "crates/touring-python-env",
     "crates/touring-hooks-saga",
     "crates/touring-hooks-rl",
     "crates/touring-ceg",

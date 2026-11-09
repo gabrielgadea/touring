@@ -13344,6 +13344,7 @@ dependencies = [
  "tokio",
  "toml 0.8.23",
  "touring-foundation",
+ "touring-python-env",
  "touring-simd",
  "touring-storage",
  "tracing",
@@ -13978,6 +13979,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "touring-python-env",
 ]
 
 [[package]]
@@ -13987,6 +13989,10 @@ dependencies = [
  "pyo3",
  "touring-bindings",
 ]
+
+[[package]]
+name = "touring-python-env"
+version = "30.4.107"
 
 [[package]]
 name = "touring-quality"

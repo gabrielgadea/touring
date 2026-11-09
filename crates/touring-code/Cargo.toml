@@ -12,6 +12,7 @@ name = "touring_code"
 path = "src/lib.rs"
 
 [dependencies]
+touring-python-env = { path = "../touring-python-env" }
 # ── Internal touring crates (path deps) ──────────────────────────────────────
 touring-foundation = { path = "../touring-foundation" }
 touring-simd = { path = "../touring-simd" }

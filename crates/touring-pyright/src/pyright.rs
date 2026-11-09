@@ -55,8 +55,8 @@ const STARTUP_BUDGET: Duration = Duration::from_secs(15);
 const LANGUAGE_ID: &str = "python";
 /// Language servers looked up, in order of preference.
 const SERVERS: [&str; 2] = ["pyright-langserver", "basedpyright-langserver"];
-/// Venv directory names looked up, in order of preference.
-const VENV_DIRS: [&str; 2] = [".venv", "venv"];
+// Venv directory names looked up, in order of preference: the shared `touring_python_env::VENV_DIRS`.
+use touring_python_env::VENV_DIRS;
 
 /// Resolves the layer-2 budget in milliseconds; zero and invalid values preserve production's 1 s default.
 pub fn l2_budget_ms_com(get: impl Fn(&str) -> Option<String>) -> u64 {
@@ -571,20 +571,10 @@ fn modulo_do_interpretador(raizes: &[PathBuf], partes: &[&str]) -> bool {
     })
 }
 
-/// A compiled extension module `<nome>.<tag>.so` / `<nome>.pyd` (or plain `<nome>.so`) inside `dir`.
+/// A compiled extension module `<nome>.<tag>.so` / `<nome>.pyd` (or plain `<nome>.so`) inside `dir`
+/// — the shared rule of `touring_python_env`, the same one layer 1 applies.
 fn extensao_c_em(dir: &Path, nome: &str) -> bool {
-    let Ok(entradas) = std::fs::read_dir(dir) else {
-        return false;
-    };
-    entradas.flatten().any(|entrada| {
-        let arquivo = entrada.file_name();
-        arquivo
-            .to_string_lossy()
-            .strip_prefix(nome)
-            .is_some_and(|resto| {
-                resto.starts_with('.') && (resto.ends_with(".so") || resto.ends_with(".pyd"))
-            })
-    })
+    touring_python_env::tem_extensao_c(&touring_python_env::DiscoReal, dir, nome)
 }
 
 /// Directories a module path is resolved against: the root and the file's directory for an absolute
@@ -688,37 +678,14 @@ fn raizes_de_busca(raiz: &Path, origem: &Path) -> Vec<PathBuf> {
 }
 
 /// The interpreter's own import roots, in CPython's order: base stdlib → venv site-packages →
-/// system site-packages (only when the venv includes them). Empty without a venv.
+/// system site-packages (only when the venv includes them). Empty without a venv. The roots
+/// themselves are `touring_python_env`'s knowledge, shared with layer 1.
 fn raizes_do_interpretador(raiz: &Path) -> Vec<PathBuf> {
-    let mut raizes = Vec::new();
-    if let Some(venv) = venv_ativo(raiz) {
-        let mut locais = Vec::new();
-        let mut versoes = Vec::new();
-        for lib in [venv.join("lib"), venv.join("lib64")] {
-            acrescenta_raizes_python(&mut locais, &lib, &mut versoes);
-        }
-        if let Some((prefixo, pacotes_sistema)) = configuracao_python(&venv) {
-            let mut globais = Vec::new();
-            versoes.sort();
-            versoes.dedup();
-            for versao in versoes {
-                for lib in [prefixo.join("lib"), prefixo.join("lib64")] {
-                    let dir = lib.join(&versao);
-                    raizes.push(dir.clone());
-                    if pacotes_sistema {
-                        globais.push(dir.join("site-packages"));
-                        globais.push(dir.join("dist-packages"));
-                    }
-                }
-            }
-            // CPython: base stdlib → venv site-packages → system site-packages.
-            raizes.extend(locais);
-            raizes.extend(globais);
-        } else {
-            raizes.extend(locais);
-        }
-    }
-    raizes
+    venv_ativo(raiz)
+        .map(|venv| {
+            touring_python_env::raizes_do_interpretador(&touring_python_env::DiscoReal, &venv)
+        })
+        .unwrap_or_default()
 }
 
 /// The venv selected by [`locate_server`], or the first conventional one in test/client sessions.
@@ -728,56 +695,7 @@ fn venv_ativo(raiz: &Path) -> Option<PathBuf> {
     {
         return Some(venv.to_path_buf());
     }
-    VENV_DIRS
-        .iter()
-        .map(|nome| raiz.join(nome))
-        .find(|candidato| candidato.is_dir())
-}
-
-fn configuracao_python(venv: &Path) -> Option<(PathBuf, bool)> {
-    let cfg = std::fs::read_to_string(venv.join("pyvenv.cfg")).ok()?;
-    let mut home = None;
-    let mut pacotes_sistema = false;
-    for linha in cfg.lines() {
-        let Some((chave, valor)) = linha.split_once('=') else {
-            continue;
-        };
-        match chave.trim() {
-            "home" => home = Some(PathBuf::from(valor.trim())),
-            "include-system-site-packages" => {
-                pacotes_sistema = valor.trim().eq_ignore_ascii_case("true");
-            }
-            _ => {}
-        }
-    }
-    let prefixo = home?.parent()?.to_path_buf();
-    Some((prefixo, pacotes_sistema))
-}
-
-fn acrescenta_raizes_python(raizes: &mut Vec<PathBuf>, lib: &Path, versoes: &mut Vec<String>) {
-    let Ok(entries) = std::fs::read_dir(lib) else {
-        return;
-    };
-    let mut dirs: Vec<PathBuf> = entries
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.is_dir()
-                && path
-                    .file_name()
-                    .and_then(|nome| nome.to_str())
-                    .is_some_and(|nome| nome.starts_with("python"))
-        })
-        .collect();
-    dirs.sort();
-    for dir in dirs {
-        if let Some(versao) = dir.file_name().and_then(|nome| nome.to_str()) {
-            versoes.push(versao.to_string());
-        }
-        raizes.push(dir.clone());
-        raizes.push(dir.join("site-packages"));
-        raizes.push(dir.join("dist-packages"));
-    }
+    touring_python_env::venv_convencional(&touring_python_env::DiscoReal, raiz)
 }
 
 /// Direct top-level evidence, or dynamic module publication together with the name as a real

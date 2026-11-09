@@ -14,7 +14,9 @@ path = "src/lib.rs"
 # Deliberately lean: the hook crates depend on this one, and `touring-lsp` (which optionally pulls
 # `touring-hooks`) re-exports it — so nothing here may depend on touring-lsp, touring-hooks,
 # touring-dispatch or touring-hook-handlers, or the package graph becomes cyclic again.
+# `touring-python-env` is the one touring crate allowed: a std-only leaf (no dependencies).
 [dependencies]
+touring-python-env = { path = "../touring-python-env" }
 thiserror.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

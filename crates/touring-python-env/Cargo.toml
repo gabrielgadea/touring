@@ -1,0 +1,20 @@
+[package]
+name = "touring-python-env"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "The Python environment both VGP layers resolve modules against: interpreter roots (venv lib/lib64, pythonX.Y, site/dist-packages, pyvenv.cfg home and system packages) and compiled extensions, read through a `Disco` the caller supplies (std only)"
+
+[lib]
+name = "touring_python_env"
+path = "src/lib.rs"
+
+# A leaf on purpose: `touring-pyright` (VGP layer 2) depends on no crate that could close a
+# package cycle, and `touring-code` (layer 1) reads the disk only through its contained reader.
+# Both can depend on this one because it depends on nothing but std.
+[dependencies]
+
+[lints]
+workspace = true

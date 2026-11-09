@@ -4,7 +4,8 @@
 //! without closing the package cycle `touring-lsp →(optional, feature lsp-bridge) touring-hooks →
 //! touring-dispatch → touring-hook-handlers → touring-lsp`; cargo counts an optional edge even when
 //! its feature is off), and generalised by VL0 §6 to every language the engine speaks: the crate still
-//! depends on no `touring-*` crate, and `touring-lsp` re-exports `client`, `pool` and `pyright`, so
+//! depends on no `touring-*` crate that could close that cycle — only on `touring-python-env`, a
+//! std-only leaf holding the Python environment both VGP layers share — and `touring-lsp` re-exports `client`, `pool` and `pyright`, so
 //! `touring_lsp::pool::checar` keeps compiling.
 //!
 //! ## Architecture

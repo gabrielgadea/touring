@@ -3,7 +3,11 @@
 //! from an index that could be stale. Resolution order for `a.b.c`:
 //!   1. `<root>/a/b/c.py` | `<root>/a/b/c/__init__.py`   (project)
 //!   2. `<dir of importer>/a/b/c.py` | `…/__init__.py`   (sibling of a /tmp script)
-//!   3. `<root>/.venv/lib/python3*/site-packages/…`      (installed env)
+//!   3. `<root>/.venv/lib/python*/site-packages/…`       (installed env)
+//!
+//! Layer 1 looks at the conventional `.venv/lib` only. `venv/`, `lib64`, `pyvenv.cfg` (`home`,
+//! system packages) are known to `touring_python_env` (layer 2 uses them); adopting them here
+//! changes verdicts and waits for a pre-registered measurement (J18).
 //!
 //! Each candidate checks the overlay map FIRST (module content at the entry's instant), then the
 //! filesystem. An unresolvable module yields `None` — the caller answers `unknown`, never `deny`.
@@ -300,9 +304,8 @@ impl<'a> Resolver<'a> {
             return hit.clone();
         }
         // V-4 (31/10/2026): only what is inside the allowed roots is read — the
-        // project root AND the `site-packages` the resolver itself declares (the venv
-        // it resolved through `pyvenv.cfg`). A path that only the CONTENT names is
-        // not a root.
+        // project root AND the `site-packages` the resolver itself declares (under the
+        // conventional `.venv/lib`). A path that only the CONTENT names is not a root.
         let c = caminho::ler_contido(raizes, path).ok();
         self.fs_cache
             .borrow_mut()
@@ -313,7 +316,7 @@ impl<'a> Resolver<'a> {
     }
 
     /// The roots a module may be read from: the project root, the `site-packages`
-    /// the resolver declares (the venv it resolved through `pyvenv.cfg`) and the
+    /// the resolver declares (under the conventional `.venv/lib`) and the
     /// directory of the importer (a fragment in `/tmp` resolves its imports next
     /// to itself).
     fn raizes_permitidas(&self, importer: &str) -> Vec<PathBuf> {
@@ -366,19 +369,36 @@ impl<'a> Resolver<'a> {
     }
 }
 
-/// A file `<last>.<tag>.so` / `<last>.so` / `<last>.pyd` in `dir`. The dot after the name is
-/// required: `etree_extra.so` is not `etree`.
+/// A file `<last>.<tag>.so` / `<last>.so` / `<last>.pyd` in `dir` — the shared rule of
+/// `touring_python_env` (layer 2 applies the same one), listed through the contained reader.
 fn dir_has_extension(raizes: &[PathBuf], dir: &Path, last: &str) -> bool {
-    caminho::listar_contido(raizes, dir).is_ok_and(|entradas| {
-        entradas.iter().any(|e| {
-            e.nome
-                .to_string_lossy()
-                .strip_prefix(last)
-                .is_some_and(|rest| {
-                    rest.starts_with('.') && (rest.ends_with(".so") || rest.ends_with(".pyd"))
-                })
-        })
-    })
+    touring_python_env::tem_extensao_c(&DiscoContido { raizes }, dir, last)
+}
+
+/// The contained reader as a [`touring_python_env::Disco`]: nothing outside `raizes` is listed or
+/// read, so the shared environment keeps layer 1's containment.
+struct DiscoContido<'a> {
+    raizes: &'a [PathBuf],
+}
+
+impl touring_python_env::Disco for DiscoContido<'_> {
+    fn nomes(&self, dir: &Path) -> Option<Vec<String>> {
+        let entradas = caminho::listar_contido(self.raizes, dir).ok()?;
+        Some(
+            entradas
+                .iter()
+                .map(|entrada| entrada.nome.to_string_lossy().into_owned())
+                .collect(),
+        )
+    }
+
+    fn e_diretorio(&self, alvo: &Path) -> bool {
+        caminho::e_diretorio(self.raizes, alvo)
+    }
+
+    fn ler(&self, arquivo: &Path) -> Option<String> {
+        caminho::ler_contido(self.raizes, arquivo).ok()
+    }
 }
 
 /// `from . import x` / `from ..pkg import y`: the absolute-ish dotted form relative to the
