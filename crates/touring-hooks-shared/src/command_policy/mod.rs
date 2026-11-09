@@ -51,10 +51,10 @@
 //!
 //! # Fail-open
 //!
-//! Any ambiguity is `Allow`: empty input, a line that is only quotes or
-//! comments, and a structural budget ([`structural::BUDGET`], 5 ms) that lapses
-//! before the rows are exhausted. The policy never blocks on its own
-//! infrastructure failing. (The patterns are compiled once, and compiling them
+//! Any ambiguity is `Allow`: empty input, or a line that is only quotes or
+//! comments. The policy never blocks on its own infrastructure failing. There
+//! is no time budget: a 5 ms wall-clock cut once let `find -delete` through
+//! under CPU load or behind filler arguments, so every row is always tried. (The patterns are compiled once, and compiling them
 //! is proven by every test that touches the table.)
 //!
 //! # What it does NOT own

@@ -1075,3 +1075,20 @@ fn assert_surface_differences(differences: Vec<(String, String, String, String)>
         );
     }
 }
+
+/// The verdict is a function of the command alone, never of the clock. A
+/// wall-clock budget made the structural reading skip the remaining rows when the
+/// thread lost the CPU for 5 ms: `find . -name '*.go' -delete` came back `Allow`
+/// in the release gate of 30.4.105 (118 CEG tests in parallel on a loaded
+/// machine), and filler arguments buy the same 5 ms on purpose. Eight signature
+/// rows over the token stream are linear in the input; there is nothing to cut.
+#[test]
+fn a_padded_destructive_command_is_still_blocked() {
+    let filler = "a ".repeat(1_000_000);
+    let command = format!("find . {filler}-name '*.go' -delete");
+    let verdict = judge_structural(&command);
+    assert!(
+        matches!(verdict, Verdict::Block { .. }),
+        "1M filler tokens must not buy an Allow, got {verdict:?}"
+    );
+}

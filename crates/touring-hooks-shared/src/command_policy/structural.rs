@@ -17,17 +17,17 @@
 //! callers that need parse-tree access (decision of
 //! `lesson:wave-5-mossy-crunching-owl-S9-S13-S14-closure:2026-05-23`).
 
-use std::time::{Duration, Instant};
-
 use super::vocabulary::{Matcher, RULES, Rule, Severity};
 use super::{Verdict, with_route};
 
-/// Hard budget of this reading (kept far below pre-bash's <10 ms target). When it
-/// runs out the remaining rows are skipped — the fail-open mode of the policy.
-pub(super) const BUDGET: Duration = Duration::from_millis(5);
-
 /// Judge `command` structurally. `Block` on the first blocking signature, else
 /// `Warn` on the first warning one, else `Allow`.
+///
+/// Every row is tried, always: the verdict depends on the command alone. A
+/// wall-clock budget once cut the rows short whenever the thread lost the CPU
+/// (or filler arguments bought the time), turning a destructive command into
+/// `Allow`. The rows are a fixed handful of token signatures, so the cost is
+/// linear in the input and needs no cut.
 pub(super) fn judge(command: &str) -> Verdict {
     let trimmed = command.trim();
     if trimmed.is_empty() {
@@ -41,7 +41,6 @@ pub(super) fn judge(command: &str) -> Verdict {
     // Non-empty after the trim above, so there is at least one token.
     let tokens: Vec<&str> = cleaned.split_whitespace().collect();
 
-    let started = Instant::now();
     let mut warn: Option<&'static Rule> = None;
 
     for rule in RULES.iter() {
@@ -54,9 +53,6 @@ pub(super) fn judge(command: &str) -> Verdict {
         else {
             continue;
         };
-        if started.elapsed() >= BUDGET {
-            break;
-        }
         if !fires(&tokens, signature, *tail_token, bypass_words) {
             continue;
         }
