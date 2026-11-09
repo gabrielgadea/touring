@@ -44,7 +44,7 @@
 use crate::cli::context_budget::{
     attributed_family, hook_injections, must_followed_by, must_request, transcript_dir_for,
 };
-use crate::cli::context_cost::{TOKENS_PER_BYTE, merge, round_to, scan_meta};
+use crate::cli::context_cost::{TOKENS_PER_BYTE, home_or_absent, merge, round_to, scan_meta};
 use crate::cli::transcript_scan::{AssistantTurn, Event, SHADOW_CAPS, ScanCaps, scan_dir};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -524,10 +524,10 @@ pub fn family_gate_report(sessions: &[SessionFamilies]) -> Value {
 /// The `family_gate` section for `project_root`, under the shadow caps.
 #[must_use]
 pub fn family_gate(project_root: &Path) -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
-        return json!({"available": false, "reason": "HOME unset"});
-    };
-    family_gate_in(Path::new(&home), project_root, &SHADOW_CAPS)
+    match home_or_absent() {
+        Ok(home) => family_gate_in(&home, project_root, &SHADOW_CAPS),
+        Err(absent) => absent,
+    }
 }
 
 /// [`family_gate`] against an explicit `home` and `caps` — the testable body.
@@ -538,14 +538,7 @@ pub fn family_gate_in(home: &Path, project_root: &Path, caps: &ScanCaps) -> Valu
         Ok(scan) => scan,
         Err(reason) => return json!({"available": false, "reason": reason}),
     };
-    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
-    let meta = scan_meta(
-        scan.sessions.len(),
-        scan.bytes_scanned,
-        scan.capped,
-        scan.skipped_by_cap,
-        malformed,
-    );
+    let meta = scan_meta(&scan);
     let sessions: Vec<SessionFamilies> = scan
         .sessions
         .into_iter()

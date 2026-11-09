@@ -159,7 +159,7 @@ fn scan_named(name: &str, args: &[String], ctx: ScanCtx<'_>) -> Result<(), Strin
         return scan_touring(args, ctx);
     }
     if name == "watch" {
-        return scan_watch(args, ctx);
+        return scan_operand_program(args, ctx);
     }
     if let Some(language) = language(name) {
         return scan_interpreter(language, args, ctx);
@@ -218,13 +218,15 @@ fn scan_find(args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
 
 fn scan_touring(args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
     match args.first().map(String::as_str) {
-        Some("exec") => scan_touring_exec(&args[1..], ctx),
+        Some("exec") => scan_operand_program(&args[1..], ctx),
         Some("run") => scan_touring_run(&args[1..], ctx),
         _ => Ok(()),
     }
 }
 
-fn scan_touring_exec(args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
+/// `touring exec <cmd…>` and `watch [opts] <cmd…>` run their non-flag operands as one shell program:
+/// scan it one level deeper. The two had byte-identical bodies (review 08/11/2026).
+fn scan_operand_program(args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
     let program: Vec<&str> = args
         .iter()
         .map(String::as_str)
@@ -254,18 +256,6 @@ fn scan_touring_run(args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
                 exec_scan(language, &code, ctx.depth, ctx.ritual_unlock)?;
             }
         }
-    }
-    Ok(())
-}
-
-fn scan_watch(args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
-    let program: Vec<&str> = args
-        .iter()
-        .map(String::as_str)
-        .filter(|arg| !arg.starts_with('-'))
-        .collect();
-    if !program.is_empty() {
-        scan_program(&program.join(" "), ctx.depth + 1, ctx.ritual_unlock)?;
     }
     Ok(())
 }

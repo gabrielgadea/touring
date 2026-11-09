@@ -37,7 +37,7 @@
 //! The payload carries counts and numbers — never an error text.
 
 use crate::cli::context_budget::transcript_dir_for;
-use crate::cli::context_cost::{merge, round_to, scan_meta};
+use crate::cli::context_cost::{home_or_absent, merge, round_to, scan_meta};
 use crate::cli::transcript_scan::{
     AssistantTurn, Event, SHADOW_CAPS, ScanCaps, ToolResult, scan_dir,
 };
@@ -415,10 +415,10 @@ pub fn lesson_report(
 /// The `lesson_lifecycle` section for `project_root`, under the shadow caps.
 #[must_use]
 pub fn lesson_lifecycle(project_root: &Path) -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
-        return json!({"available": false, "reason": "HOME unset"});
-    };
-    lesson_lifecycle_in(Path::new(&home), project_root, &SHADOW_CAPS)
+    match home_or_absent() {
+        Ok(home) => lesson_lifecycle_in(&home, project_root, &SHADOW_CAPS),
+        Err(absent) => absent,
+    }
 }
 
 /// [`lesson_lifecycle`] against an explicit `home` and `caps` — the testable body.
@@ -429,14 +429,7 @@ pub fn lesson_lifecycle_in(home: &Path, project_root: &Path, caps: &ScanCaps) ->
         Ok(scan) => scan,
         Err(reason) => return json!({"available": false, "reason": reason}),
     };
-    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
-    let meta = scan_meta(
-        scan.sessions.len(),
-        scan.bytes_scanned,
-        scan.capped,
-        scan.skipped_by_cap,
-        malformed,
-    );
+    let meta = scan_meta(&scan);
     let sessions: Vec<(String, SessionLessons)> = scan
         .sessions
         .into_iter()

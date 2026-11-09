@@ -40,11 +40,11 @@
 use crate::cli::context_budget::{attributed_family, hook_injections, transcript_dir_for};
 use crate::cli::surface_usage::{SurfaceTracker, surface_report};
 use crate::cli::transcript_scan::{
-    AssistantTurn, Block, Event, KPI_CAPS, ScanCaps, Usage, parse_announcement, scan_dir,
+    AssistantTurn, Block, Event, KPI_CAPS, Scan, ScanCaps, Usage, parse_announcement, scan_dir,
 };
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Bytes per token the estimate assumes — the common rule of thumb, declared rather than hidden.
 /// It is a LOWER bound on tokens for code and non-English text (those tokenise denser), which is
@@ -666,23 +666,27 @@ fn constants_json() -> Value {
     })
 }
 
-/// What the walk covered — shared by every section that walks the transcripts.
-pub(crate) fn scan_meta(
-    sessions: usize,
-    bytes: u64,
-    capped: bool,
-    skipped: usize,
-    malformed: u64,
-) -> Value {
+/// What the walk covered — shared by every section that walks the transcripts. Takes the [`Scan`]
+/// itself: the three sections used to unpack its four fields and sum the malformed lines by hand
+/// before calling this (review 08/11/2026).
+pub(crate) fn scan_meta<T>(scan: &Scan<T>) -> Value {
+    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
     json!({
         "available": true,
         "unit": "project",
-        "sessions_scanned": sessions,
-        "bytes_scanned": bytes,
-        "capped": capped,
-        "skipped_by_cap": skipped,
+        "sessions_scanned": scan.sessions.len(),
+        "bytes_scanned": scan.bytes_scanned,
+        "capped": scan.capped,
+        "skipped_by_cap": scan.skipped_by_cap,
         "malformed_lines": malformed,
     })
+}
+
+/// `$HOME`, or the absence every transcript-walking section reports when it is unset.
+pub(crate) fn home_or_absent() -> Result<PathBuf, Value> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| json!({"available": false, "reason": "HOME unset"}))
 }
 
 /// Add the keys of the object `extra` to the object `into`.
@@ -696,11 +700,10 @@ pub(crate) fn merge(into: &mut Value, extra: Value) {
 /// One walk serves both; absence is displayed in each (`available: false` and why).
 #[must_use]
 pub fn context_cost_and_surface(project_root: &Path) -> (Value, Value) {
-    let Some(home) = std::env::var_os("HOME") else {
-        let absent = json!({"available": false, "reason": "HOME unset"});
-        return (absent.clone(), absent);
-    };
-    context_cost_and_surface_in(Path::new(&home), project_root, &KPI_CAPS)
+    match home_or_absent() {
+        Ok(home) => context_cost_and_surface_in(&home, project_root, &KPI_CAPS),
+        Err(absent) => (absent.clone(), absent),
+    }
 }
 
 /// [`context_cost_and_surface`] against an explicit `home` and `caps` — the testable body.
@@ -722,14 +725,7 @@ pub fn context_cost_and_surface_in(
             return (absent.clone(), absent);
         }
     };
-    let malformed: u64 = scan.sessions.iter().map(|s| s.read.malformed_lines).sum();
-    let meta = scan_meta(
-        scan.sessions.len(),
-        scan.bytes_scanned,
-        scan.capped,
-        scan.skipped_by_cap,
-        malformed,
-    );
+    let meta = scan_meta(&scan);
     let mut project = CostSummary::default();
     let mut rows = Vec::new();
     let mut surfaces = Vec::new();
