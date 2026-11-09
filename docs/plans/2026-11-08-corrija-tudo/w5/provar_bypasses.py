@@ -5,7 +5,7 @@ Each row is a destructive command that 30.4.105 let through (no `deny`) while th
 command without the prefix was denied; each control must stay free. One JSON line per
 check {check, ok, detail}; exit 0 only when every check is ok. Paths under $HOME print as ~.
 
-Usage: provar_bypasses.py [VERSION]   (default 30.4.107)
+Usage: provar_bypasses.py [VERSION]   (default 30.4.108)
 """
 
 import json
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 HOME = str(Path.home())
-VERSION = sys.argv[1] if len(sys.argv) > 1 else "30.4.107"
+VERSION = sys.argv[1] if len(sys.argv) > 1 else "30.4.108"
 HOOK = str(Path(HOME) / f".touring/toolchains/{VERSION}/bin/touring-hook")
 
 MUST_DENY = [

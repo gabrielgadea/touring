@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""W4 proof: the fixes of the corrija-tudo round, asked of the INSTALLED 30.4.105 toolchain.
+"""W4 proof: the fixes of the corrija-tudo round, asked of an INSTALLED toolchain (`W4_VERSION`,
+default 30.4.105 — the release it was written for).
 
 Each check prints one JSON line {check, ok, detail}; exit 0 only when every check is ok.
 Paths under $HOME are printed as ~ (public repository).
@@ -13,7 +14,8 @@ import tempfile
 from pathlib import Path
 
 HOME = str(Path.home())
-BIN = Path(HOME) / ".touring/toolchains/30.4.105/bin"
+VERSION = os.environ.get("W4_VERSION", "30.4.105")
+BIN = Path(HOME) / f".touring/toolchains/{VERSION}/bin"
 TOURING = str(BIN / "touring")
 HOOK = str(BIN / "touring-hook")
 J17 = Path(os.environ.get("J17_CORPUS", "/tmp/vgp-j17/j17_hibrido_20261101c"))
