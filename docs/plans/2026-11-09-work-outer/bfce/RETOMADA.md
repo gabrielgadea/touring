@@ -52,3 +52,14 @@ Release único (bump 30.4.108, `scripts/propagate-release.sh 30.4.108`, log com 
 - `7817e905`: cluster getopt no lexer (env -uS, -iu NAME, sudo -nu) em Rust e no mascarador.
 - Prova W5 contra o 30.4.107 instalado: 30/32, só as 2 linhas do `7817e905` (RED esperado).
 - Próximo: `scripts/propagate-release.sh 30.4.108` → W5 + W4 contra 30.4.108 → fechar DAG → juiz.
+
+## ENCERRAMENTO — 09/11/2026 (sessão parada pelo Gabriel)
+- **Concluído**: release 30.4.108 instalado (rc 0), W5 34/34, W4 7/7 (`519000b6`); DAG
+  `task_1794217886022321956` 6/6; `loop_converged.py --task task_1794217886022321956 --scope
+  crates/touring-code/src/vgp` → exit 0 (CONVERGED). Lição na memória `release-30-4-108-bfce` e
+  em `seis-tabelas-de-wrapper-sete-bypasses.md`.
+- `b77f2664`: `--no-*` em clean/restore é destrutivo (fail-closed). Fixture `git_parity` 316 linhas.
+- **Pendente (decisão do Gabriel)**: `git checkout <caminho>` SEM `--` segue liberado (xfail strict
+  em `~/.claude/hooks/test_block_git.py`, 6 casos). Separar caminho de ref exige consultar o repo.
+- **Opcional**: `nega()` dos handlers (`bfce/DECISOES.md`).
+- **Retomar**: ler este arquivo; nada em execução, nada não commitado desta frente.
