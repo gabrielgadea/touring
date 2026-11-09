@@ -1651,9 +1651,20 @@ os.system(alguma_variavel)"#;
 pub fn mask_shell_data(code: &str) -> String {
     let b = code.as_bytes();
     let mut out = b.to_vec();
+    // Heredoc bodies are the shared lexer's reading (quotes, `<<<`, `<<-`, quoted
+    // delimiters, a body a shell runs, `$(…)` in an unquoted body), never a second one.
+    let mut spans = touring_hooks_shared::command_policy::heredoc_data_spans(code).into_iter();
+    let mut next_span = spans.next();
     let mut i = 0;
-    let mut heredocs: Vec<(String, bool)> = Vec::new();
     while i < b.len() {
+        if let Some(span) = next_span.as_ref().filter(|span| span.start <= i) {
+            for k in span.start.max(i)..span.end {
+                blank(&mut out, k);
+            }
+            i = i.max(span.end);
+            next_span = spans.next();
+            continue;
+        }
         match b[i] {
             b'\\' => {
                 blank(&mut out, i + 1);
@@ -1666,17 +1677,6 @@ pub fn mask_shell_data(code: &str) -> String {
                     blank(&mut out, i);
                     i += 1;
                 }
-            }
-            b'<' if b.get(i + 1) == Some(&b'<') && b.get(i + 2) != Some(&b'<') => {
-                let (next, delim) = heredoc_operator(b, i + 2);
-                if let Some(d) = delim {
-                    heredocs.push(d);
-                }
-                i = next;
-            }
-            b'\n' if !heredocs.is_empty() => {
-                i = mask_heredoc_bodies(b, &mut out, i + 1, &heredocs);
-                heredocs.clear();
             }
             _ => i += 1,
         }
@@ -1745,60 +1745,6 @@ fn mask_double(b: &[u8], out: &mut [u8], open: usize) -> usize {
     i + 1
 }
 
-/// After `<<`: optional `-`, blanks, optional quote/backslash, the WORD. Returns the index
-/// after the operator and `(WORD, strip_tabs)` when a delimiter was read.
-fn heredoc_operator(b: &[u8], mut i: usize) -> (usize, Option<(String, bool)>) {
-    let strip = b.get(i) == Some(&b'-');
-    if strip {
-        i += 1;
-    }
-    while b.get(i).is_some_and(|c| *c == b' ' || *c == b'\t') {
-        i += 1;
-    }
-    if b.get(i).is_some_and(|c| matches!(c, b'\'' | b'"' | b'\\')) {
-        i += 1;
-    }
-    let start = i;
-    while b
-        .get(i)
-        .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b'.'))
-    {
-        i += 1;
-    }
-    let word = String::from_utf8_lossy(&b[start..i]).into_owned();
-    if b.get(i).is_some_and(|c| matches!(c, b'\'' | b'"')) {
-        i += 1;
-    }
-    (i, (!word.is_empty()).then_some((word, strip)))
-}
-
-/// Blank each pending heredoc body (in order) starting at `i`; the terminator line stays.
-fn mask_heredoc_bodies(b: &[u8], out: &mut [u8], mut i: usize, docs: &[(String, bool)]) -> usize {
-    for (word, strip) in docs {
-        while i < b.len() {
-            let end = b[i..]
-                .iter()
-                .position(|c| *c == b'\n')
-                .map_or(b.len(), |p| i + p);
-            let line = String::from_utf8_lossy(&b[i..end]);
-            let line = if *strip {
-                line.trim_start_matches('\t')
-            } else {
-                &line
-            };
-            if line == word.as_str() {
-                i = end + 1;
-                break;
-            }
-            for k in i..end {
-                blank(out, k);
-            }
-            i = end + 1;
-        }
-    }
-    i
-}
-
 /// S24 (plan 2026-09-25) — X6 reads `>` as a redirect only when the SHELL would.
 ///
 /// Measured live on 25/09: `echo "$f -> x"` and a `grep -- "-->"` pattern were denied as
@@ -1838,6 +1784,29 @@ mod s24_shell_data_tests {
         assert!(writes("echo \"quoted\" >> log.txt"));
         assert!(!writes("ls 2>/dev/null"));
         assert!(!writes(r#"ls > "/dev/null""#));
+    }
+
+    /// Onda 2 (09/11/2026): the heredoc reading is the shared lexer's. The local byte
+    /// scanner took `<<<` (a here-string) and `$((1<<2))` for heredocs and blanked every
+    /// line after them, blanked the body a SHELL reads as its script, blanked an
+    /// unquoted body whose `$(…)` runs, and could not read a delimiter like `'E-F!'` —
+    /// each time a real write went unseen by X6.
+    #[test]
+    fn a_write_after_or_inside_a_body_the_shell_runs_is_still_a_write() {
+        for code in [
+            "cat <<< x\necho a > f",
+            "x=$((1<<2))\necho a > f",
+            "bash <<'EOF'\necho a > f\nEOF",
+            "cat <<EOF\n$(echo a > f)\nEOF",
+            "cat <<'E-F!'\nx\nE-F!\necho a > f",
+            "cat <<\"A B\"\nx\nA B\necho a > f",
+        ] {
+            assert!(writes(code), "{code:?} hides a write");
+        }
+        // Controls: data bodies stay data.
+        assert!(!writes("cat <<'E-F!'\nprint(1 > 0)\nE-F!"));
+        assert!(!writes("cat <<'EOF'\na > b\nEOF"));
+        assert!(!writes("cat <<-EOF\n\ta > b\n\tEOF\necho done"));
     }
 
     #[test]

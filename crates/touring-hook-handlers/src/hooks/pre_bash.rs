@@ -881,30 +881,18 @@ fn extrai_inline_python(command: &str) -> Option<(&'static str, String, String)>
 
 /// `python3 - <<'PY' … PY` / `python3 - <<PY … PY`: o corpo do heredoc, como o traceback o nomeia.
 fn heredoc_python(command: &str) -> Option<String> {
-    let pos = command.find("<<")?;
-    // o heredoc é de PYTHON só se o comando que o abre é um interpretador: `cat > s.sh <<'EOF'` com
-    // `python3 x.py` no corpo é um script de SHELL — a V5 o lia como programa Python e negava `python3`,
-    // `tmp` e `x` como nomes sem definição (achado pelo teste de execução do FRAG, 10/10/2026)
-    let inicio = command[..pos].rfind('\n').map_or(0, |i| i + 1);
-    if !command[inicio..pos]
-        .split_whitespace()
-        .any(crate::vgp_execucao::palavra_eh_python)
-    {
-        return None;
-    }
-    let rest = &command[pos + 2..];
-    let rest = rest.trim_start_matches(['-', ' ']);
-    let (tag, quoted) = match rest.chars().next() {
-        Some(q @ ('\'' | '"')) => (&rest[1..rest[1..].find(q).map(|i| i + 1)?], true),
-        _ => {
-            let end = rest.find([' ', '\n'])?;
-            (&rest[..end], false)
-        }
-    };
-    let _ = quoted;
-    let corpo = &rest[rest.find('\n')? + 1..];
-    let fim = corpo.find(&format!("\n{tag}"))?;
-    Some(format!("{}\n", &corpo[..fim]))
+    // o heredoc é de PYTHON só se o comando que o ABRE é um interpretador: `cat > s.sh <<'EOF'` com
+    // `python3 x.py` no corpo é um script de SHELL (achado pelo teste de execução do FRAG, 10/10/2026).
+    // Corpo e dono vêm do lexer compartilhado: o 2º heredoc da linha, `<<-`, aspas e `<<<` lidos
+    // uma vez só, e não pela 1ª ocorrência de `<<` no texto.
+    crate::shared::command_policy::heredocs(command)
+        .into_iter()
+        .find(|(owner, _)| {
+            owner
+                .iter()
+                .any(|w| crate::vgp_execucao::palavra_eh_python(w))
+        })
+        .map(|(_, body)| body)
 }
 
 /// O valor de uma flag num comando shell, com aspas simples/duplas — mínimo e fail-open (a V5 é
@@ -1027,6 +1015,25 @@ mod vgp_inline_tests {
     fn extrai_heredoc() {
         let (_, prog, path) = extrai_inline_python("python3 - <<'PY'\nprint(2)\nPY\n").unwrap();
         assert_eq!((prog.as_str(), path.as_str()), ("print(2)\n", "<stdin>"));
+    }
+
+    /// Onda 2: corpo e dono vêm do lexer compartilhado. O 2º heredoc da linha é achado (antes
+    /// só o 1º `<<` do texto contava), e `python3` numa palavra de OUTRO comando não faz do
+    /// corpo do `cat` um programa Python.
+    #[test]
+    fn heredoc_python_e_o_corpo_do_interpretador_que_o_abre() {
+        assert_eq!(
+            heredoc_python("cat <<'A' >f\nx\nA\npython3 - <<'PY'\nprint(1)\nPY").as_deref(),
+            Some("print(1)\n")
+        );
+        assert_eq!(
+            heredoc_python("echo python3 && cat <<'E' >s\nimport zz\nE"),
+            None
+        );
+        assert_eq!(
+            heredoc_python("python3 - <<-PY\n\tprint(3)\n\tPY").as_deref(),
+            Some("\tprint(3)\n")
+        );
     }
 
     #[test]

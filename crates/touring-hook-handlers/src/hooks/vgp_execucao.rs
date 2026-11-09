@@ -186,7 +186,7 @@ pub(crate) fn resposta_do_vgp(
 pub(crate) fn scripts_executados(command: &str, cwd: &Path) -> Vec<ScriptExecutado> {
     let mut cwd = cwd.to_path_buf();
     let mut achados: Vec<ScriptExecutado> = Vec::new();
-    for pipeline in shell_pipelines(&sem_corpos_de_heredoc(command)) {
+    for pipeline in shell_pipelines(command) {
         for words in &pipeline {
             let Some((verbo, args)) = command_of(words) else {
                 continue;
@@ -431,37 +431,6 @@ fn ler_script(caminho: &Path) -> Option<String> {
     std::fs::read_to_string(caminho).ok()
 }
 
-/// `command` without the BODIES of its heredocs (from the line after `<<TAG` to the line `TAG`):
-/// a body is data fed to a program, not a command of the line. An unterminated heredoc swallows the
-/// rest, as the shell does.
-fn sem_corpos_de_heredoc(command: &str) -> String {
-    let mut mantidas: Vec<&str> = Vec::new();
-    let mut ate: Option<String> = None;
-    for linha in command.lines() {
-        if let Some(tag) = &ate {
-            if linha.trim() == tag.as_str() {
-                ate = None;
-            }
-            continue;
-        }
-        mantidas.push(linha);
-        if let Some(pos) = linha.find("<<")
-            && !linha[pos..].starts_with("<<<")
-        {
-            let tag = linha[pos + 2..]
-                .trim_start_matches('-')
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .trim_matches(['\'', '"']);
-            if !tag.is_empty() {
-                ate = Some(tag.to_string());
-            }
-        }
-    }
-    mantidas.join("\n")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,15 +627,24 @@ mod tests {
         assert!(scripts_executados("python3 a.py", Path::new("/")).is_empty());
     }
 
+    /// O corpo de heredoc é lido pelo lexer compartilhado (`shell_pipelines`), não por um
+    /// varredor de linhas: `<<EOF` entre aspas não abre corpo, um corpo que o shell roda
+    /// (`bash <<EOF`) é comando, e um corpo de dado não esconde o que vem depois dele.
     #[test]
-    fn heredoc_sem_corpo_e_herestring_e_marcador_entre_aspas() {
-        let s = sem_corpos_de_heredoc("cat <<'EOF' > f\nA\nB\nEOF\nls");
-        assert_eq!(s, "cat <<'EOF' > f\nls");
-        // `<<<` é herestring: não abre corpo
-        assert_eq!(sem_corpos_de_heredoc("cat <<< x\nls"), "cat <<< x\nls");
-        // sem terminador, o corpo engole o resto (como no shell)
-        assert_eq!(sem_corpos_de_heredoc("cat <<EOF\nA\nB"), "cat <<EOF");
-        assert_eq!(sem_corpos_de_heredoc("ls\npwd"), "ls\npwd");
+    fn heredoc_lido_pelo_lexer_compartilhado() {
+        let d = scratch();
+        let dir = d.path();
+        for linha in [
+            "echo \"<<EOF\"\npython3 a.py",
+            "bash <<EOF\npython3 a.py\nEOF",
+            "cat <<EOF; echo\nx\nEOF\npython3 a.py",
+            "cat <<'EOF' > f\nA\nEOF\npython3 a.py",
+            "cat <<< x\npython3 a.py",
+        ] {
+            assert_eq!(scripts_executados(linha, dir).len(), 1, "{linha:?}");
+        }
+        // corpo de dado: o `python3 a.py` dentro dele não roda
+        assert!(scripts_executados("cat <<'EOF' > f\npython3 a.py\nEOF", dir).is_empty());
     }
 
     #[test]

@@ -76,7 +76,7 @@ mod tests;
 
 use vocabulary::RULES;
 
-pub use lexer::{command_of, is_assignment, shell_pipelines};
+pub use lexer::{command_of, heredoc_data_spans, heredocs, is_assignment, shell_pipelines};
 
 /// Outcome of a judgment.
 #[derive(Debug, Clone, PartialEq, Eq)]

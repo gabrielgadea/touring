@@ -197,3 +197,56 @@ fn env_split_string_is_read_as_commands() {
         );
     }
 }
+
+/// Each body comes with the words of the command that opens it — the second heredoc of
+/// a line too — and a here-string or an arithmetic `<<` opens none.
+#[test]
+fn heredocs_carry_their_owner() {
+    let found = heredocs("cat <<'A' >f\nx\nA\npython3 - <<'PY'\nprint(1)\nPY");
+    assert_eq!(
+        found,
+        vec![
+            (vec!["cat".to_string(), ">f".to_string()], "x\n".to_string()),
+            (
+                vec!["python3".to_string(), "-".to_string()],
+                "print(1)\n".to_string()
+            ),
+        ]
+    );
+    assert!(heredocs("cat <<< x\nls").is_empty());
+    assert!(heredocs("x=$((1<<2))\nls").is_empty());
+    assert!(heredocs("echo \"<<EOF\"\nls").is_empty());
+}
+
+/// The byte ranges of data bodies index the original text; a body a shell runs, or an
+/// unquoted one whose `$(…)` runs, is not data.
+#[test]
+fn heredoc_data_spans_index_the_text() {
+    let text = "cat <<'E-F!'\nbody > x\nE-F!\necho a > f";
+    let spans = heredoc_data_spans(text);
+    assert_eq!(spans.len(), 1);
+    assert_eq!(&text[spans[0].clone()], "body > x\n");
+    let text = "echo é <<-EOF\n\tdé > x\n\tEOF";
+    assert_eq!(&text[heredoc_data_spans(text)[0].clone()], "\tdé > x\n");
+    assert!(heredoc_data_spans("bash <<'EOF'\necho a > f\nEOF").is_empty());
+    assert!(heredoc_data_spans("cat <<EOF\n$(echo a > f)\nEOF").is_empty());
+    assert!(heredoc_data_spans("cat <<< x\necho a > f").is_empty());
+}
+
+/// A file-descriptor redirection is one word: `2>&1` opens no new command, and `&>f`
+/// writes `f`.
+#[test]
+fn fd_redirections_are_words_not_separators() {
+    assert_eq!(
+        shell_pipelines("cat f 2>&1 | grep x"),
+        vec![vec![vec!["cat", "f", "2>&1"], vec!["grep", "x"]]]
+    );
+    assert_eq!(shell_pipelines("ls >&2"), vec![vec![vec!["ls", ">&2"]]]);
+    assert_eq!(written_paths(&shell_pipelines("make &>log")[0][0]), ["log"]);
+    assert_eq!(
+        written_paths(&shell_pipelines("make &>> log")[0][0]),
+        ["log"]
+    );
+    // a lone `&` still sends the command to the background
+    assert_eq!(shell_pipelines("a & b").len(), 2);
+}

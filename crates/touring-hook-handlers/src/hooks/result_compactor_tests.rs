@@ -489,17 +489,20 @@ fn test_payload_commands_are_left_alone() {
     }
 }
 
+/// The stage judged is the last command of the last pipeline as the shared lexer reads
+/// the line: quotes and escapes group, `2>&1` / `&>` are redirections, a heredoc body is
+/// data and the command AFTER it is the one that prints.
 #[test]
 fn test_last_stage_respects_quotes_redirections_and_heredocs() {
-    assert_eq!(last_stage("a | b | c"), " c");
-    assert_eq!(last_stage("a && b; c"), " c");
-    assert_eq!(last_stage("grep 'x|y' f"), "grep 'x|y' f");
-    assert_eq!(last_stage("grep \"x|y\" f"), "grep \"x|y\" f");
-    assert_eq!(last_stage("echo a\\|b"), "echo a\\|b");
-    assert_eq!(last_stage("cargo test 2>&1"), "cargo test 2>&1");
-    assert_eq!(last_stage("cargo test &> out.log"), "cargo test &> out.log");
-    assert_eq!(last_stage("cat <<EOF\nx | y\nEOF"), "cat ");
-    assert_eq!(last_stage("a & b"), " b");
+    assert!(is_payload_command("cargo build | grep x"));
+    assert!(!is_payload_command("grep x f | cargo build"));
+    assert!(!is_payload_command("cat f && cargo build; make"));
+    assert!(is_payload_command("cargo build 'a|b'; grep \"x|y\" f"));
+    assert!(is_payload_command("cat f 2>&1"));
+    assert!(is_payload_command("cat f &> /dev/null"));
+    assert!(!is_payload_command("cat x <<EOF\n1\nEOF\ncargo test"));
+    assert!(is_payload_command("cargo test <<EOF\nx | y\nEOF\ncat f"));
+    assert!(is_payload_command("make & cat f"));
 }
 
 #[test]

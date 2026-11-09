@@ -81,14 +81,50 @@ pub(super) fn read_with_script_input(
     let mut lexer = ShellLexer {
         heredocs: true,
         script_input: Some(script_input),
+        collect_bodies: true,
         ..ShellLexer::default()
     };
     lexer.read(command);
     let bodies = std::mem::take(&mut lexer.bodies);
+    let bodies = bodies.into_iter().map(|(_, body)| body).collect();
     (lexer.finish(), bodies)
 }
 
+/// Every heredoc body of `command`, in order, with the words of the command that
+/// opens it (`python3 - <<'PY'` owns its body as `["python3", "-"]`; the operator and
+/// the delimiter are not words). Read as [`shell_pipelines`] reads it: `<<<`, `1<<2`
+/// and a quoted `<<` open nothing, and a second heredoc of the line has its own body.
+pub fn heredocs(command: &str) -> Vec<(Vec<String>, String)> {
+    let mut lexer = ShellLexer {
+        heredocs: true,
+        collect_bodies: true,
+        ..ShellLexer::default()
+    };
+    lexer.read(command);
+    lexer.end_pipeline();
+    lexer.bodies
+}
+
 type Chars<'a> = std::iter::Peekable<std::str::Chars<'a>>;
+
+/// The byte ranges of `command` that are heredoc bodies the shell takes as DATA — the
+/// same verdict [`shell_pipelines`] judges by: a closed body whose delimiter is quoted
+/// or that holds no `$(…)`/backtick, in a text where no command runs text as code
+/// (`bash <<EOF` makes its body a script) nor runs a file another writes. `<<<` (a
+/// here-string), `1<<2` and quoted `<<` open no body. For a byte scanner that must
+/// skip what the shell will not read as commands (the CEG's write detection).
+pub fn heredoc_data_spans(command: &str) -> Vec<std::ops::Range<usize>> {
+    let mut lexer = ShellLexer {
+        heredocs: true,
+        ..ShellLexer::default()
+    };
+    lexer.read(command);
+    lexer.end_pipeline();
+    if lexer.runs_text || lexer.runs_written_file() {
+        return Vec::new();
+    }
+    lexer.data_spans
+}
 
 /// The state of [`shell_pipelines`]: the word, the command and the pipeline being
 /// built, each closed into the next level up.
@@ -119,8 +155,14 @@ struct ShellLexer {
     /// Commands whose heredoc is input to a program they already have: such a
     /// body is never read as commands (see [`read_with_script_input`]).
     script_input: Option<fn(&[String]) -> bool>,
-    /// Every heredoc body read, in order.
-    bodies: Vec<String>,
+    /// Every heredoc body read, in order, with the words of the command it belongs to
+    /// (kept only when `collect_bodies`).
+    bodies: Vec<(Vec<String>, String)>,
+    collect_bodies: bool,
+    /// Byte length of the text being read, to place a body in it.
+    total: usize,
+    /// Byte ranges (in the text read) of the bodies held as data so far.
+    data_spans: Vec<std::ops::Range<usize>>,
 }
 
 /// A `<<[-]WORD` read on the current line, its body not read yet.
@@ -139,6 +181,7 @@ struct PendingHeredoc {
 
 impl ShellLexer {
     fn read(&mut self, command: &str) {
+        self.total = command.len();
         let mut chars = command.chars().peekable();
         while let Some(c) = chars.next() {
             self.feed(c, &mut chars);
@@ -161,6 +204,13 @@ impl ShellLexer {
                 self.read_heredoc_bodies(chars);
             }
             '<' | '\n' if self.heredoc_event(c, chars) => {}
+            // A file-descriptor redirection is one word, not a separator: `2>&1`,
+            // `>&2`, `<&0`, and `&>f` / `&>>f` (stdout and stderr to a file).
+            '&' if self.in_word && self.word.ends_with(['>', '<']) => self.word.push('&'),
+            '&' if !self.in_word && chars.peek() == Some(&'>') => {
+                self.in_word = true;
+                self.word.push('&');
+            }
             '|' if chars.peek() != Some(&'|') => self.end_command(),
             ';' | '&' | '|' | '\n' => {
                 self.end_pipeline();
@@ -299,9 +349,11 @@ impl ShellLexer {
     ///   [`Self::finish`], since `cat > run.sh <<EOF` is followed by `bash run.sh`.
     fn read_heredoc_bodies(&mut self, chars: &mut Chars<'_>) {
         for heredoc in std::mem::take(&mut self.pending) {
+            let start = self.total - chars.clone().map(char::len_utf8).sum::<usize>();
             let (body, closed) = heredoc_body(chars, &heredoc);
-            if self.script_input.is_some() {
-                self.bodies.push(body.clone());
+            if self.collect_bodies {
+                let owner = heredoc.owner.clone().unwrap_or_default();
+                self.bodies.push((owner, body.clone()));
             }
             let is_script_input = self
                 .script_input
@@ -310,6 +362,7 @@ impl ShellLexer {
             if !closed || (!heredoc.quoted && (body.contains("$(") || body.contains('`'))) {
                 self.pipelines.extend(lex(&body, false));
             } else if !is_script_input {
+                self.data_spans.push(start..start + body.len());
                 self.data_bodies.push(body);
             }
         }
@@ -395,6 +448,7 @@ fn plain_path(path: &str) -> String {
 fn written_paths(words: &[String]) -> Vec<String> {
     let mut paths = Vec::new();
     for (i, word) in words.iter().enumerate() {
+        let word = word.strip_prefix('&').unwrap_or(word);
         match word.strip_prefix(">>").or_else(|| word.strip_prefix('>')) {
             Some("") => paths.extend(words.get(i + 1).map(|path| plain_path(path))),
             Some(path) => paths.push(plain_path(path)),

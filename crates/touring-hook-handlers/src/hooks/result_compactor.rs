@@ -292,10 +292,13 @@ const GIT_PAYLOAD: &[&str] = &[
 
 /// `true` when the LAST stage of `command` prints something the model selected or shaped.
 fn is_payload_command(command: &str) -> bool {
-    let stage = last_stage(command);
-    let all: Vec<String> = stage.split_whitespace().map(str::to_owned).collect();
-    // The shared lexer's effective program: past assignments and every wrapper.
-    let Some((first, rest)) = crate::shared::command_policy::command_of(&all) else {
+    // The last command of the last pipeline, as the shared lexer reads the line (quotes,
+    // heredoc bodies, `2>&1`), and its effective program past assignments and wrappers.
+    let pipelines = crate::shared::command_policy::shell_pipelines(command);
+    let Some(stage) = pipelines.last().and_then(|pipeline| pipeline.last()) else {
+        return false;
+    };
+    let Some((first, rest)) = crate::shared::command_policy::command_of(stage) else {
         return false;
     };
     let words = rest.iter().map(String::as_str);
@@ -323,49 +326,6 @@ fn git_subcommand<'a>(words: impl Iterator<Item = &'a str>) -> Option<&'a str> {
         }
     }
     None
-}
-
-/// The last simple command of a shell line, honouring quotes. Boundaries are the unquoted
-/// `| || && & ; newline`; a redirection such as `2>&1` / `&>` is not one; an unquoted heredoc
-/// (`<<`) ends the scan, because what follows is data, not commands.
-fn last_stage(command: &str) -> &str {
-    let bytes = command.as_bytes();
-    let mut stage_start = 0;
-    let mut quote: Option<u8> = None;
-    let mut i = 0;
-    while i < bytes.len() {
-        let (next_quote, escapes_next) = quote_step(bytes[i], quote);
-        let plain = quote.is_none() && next_quote.is_none() && !escapes_next;
-        if plain && bytes[i..].starts_with(b"<<") {
-            return command.get(stage_start..i).unwrap_or("");
-        }
-        if plain && is_stage_boundary(bytes, i) {
-            stage_start = i + 1;
-        }
-        quote = next_quote;
-        i += if escapes_next { 2 } else { 1 };
-    }
-    command.get(stage_start..).unwrap_or("")
-}
-
-/// One byte of quote tracking: the quote state after `c`, and whether `c` is a backslash that
-/// escapes the next byte (outside quotes or inside double quotes).
-fn quote_step(c: u8, quote: Option<u8>) -> (Option<u8>, bool) {
-    match (quote, c) {
-        (None | Some(b'"'), b'\\') => (quote, true),
-        (Some(q), _) if c == q => (None, false),
-        (None, b'\'' | b'"') => (Some(c), false),
-        _ => (quote, false),
-    }
-}
-
-/// An unquoted `|`, `;`, newline or `&` that separates commands (not the `&` of `2>&1`/`&>`).
-fn is_stage_boundary(bytes: &[u8], i: usize) -> bool {
-    match bytes[i] {
-        b'|' | b';' | b'\n' => true,
-        b'&' => !((i > 0 && bytes[i - 1] == b'>') || bytes.get(i + 1) == Some(&b'>')),
-        _ => false,
-    }
 }
 
 // ── the cut ─────────────────────────────────────────────────────────────
