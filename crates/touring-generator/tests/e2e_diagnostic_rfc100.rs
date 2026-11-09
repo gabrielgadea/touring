@@ -22,7 +22,10 @@ use private_daemon::{locate_binary, private_daemon_env};
 // The closed world the doctor tests run in: a seeded project in a tempdir and a private daemon
 // pinned to it (same helper as touring-hooks; it resolves `super::private_daemon` above).
 #[path = "../../touring-hooks/tests/common/hermetic_doctor.rs"]
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "shared test helper: trip_circuit_breaker is used only by touring-hooks' e2e_diagnostic_rfc100"
+)]
 mod hermetic_doctor;
 use hermetic_doctor::DoctorWorld;
 

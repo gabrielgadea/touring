@@ -26,7 +26,10 @@ use private_daemon::locate_binary;
 
 // The closed world of the `doctor` test: seeded project state + a private daemon.
 #[path = "common/hermetic_doctor.rs"]
-#[allow(dead_code)]
+#[expect(
+    dead_code,
+    reason = "shared test helper: trip_circuit_breaker is used only by e2e_diagnostic_rfc100"
+)]
 mod hermetic_doctor;
 use hermetic_doctor::DoctorWorld;
 

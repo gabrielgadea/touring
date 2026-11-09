@@ -116,12 +116,6 @@ impl DoctorWorld {
         })
     }
 
-    /// Root of this world's project (the clients' CWD).
-    #[must_use]
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
-
     /// Opens this world's GLOBAL breaker (catastrophic, open until a very distant instant),
     /// writing the state file the `doctor` must read.
     pub fn trip_circuit_breaker(&self) {
