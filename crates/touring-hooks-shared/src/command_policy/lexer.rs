@@ -126,6 +126,20 @@ pub fn heredoc_data_spans(command: &str) -> Vec<std::ops::Range<usize>> {
     lexer.data_spans
 }
 
+/// `command` without its heredoc DATA bodies ([`heredoc_data_spans`]): the operator
+/// and terminator lines stay, a body the shell runs stays. For predicates that read
+/// raw text and must not match what a body merely says (`echo $?` in a test fixture).
+pub fn without_heredoc_data(command: &str) -> String {
+    let mut out = String::with_capacity(command.len());
+    let mut at = 0;
+    for span in heredoc_data_spans(command) {
+        out.push_str(&command[at..span.start]);
+        at = span.end;
+    }
+    out.push_str(&command[at..]);
+    out
+}
+
 /// The state of [`shell_pipelines`]: the word, the command and the pipeline being
 /// built, each closed into the next level up.
 #[derive(Default)]
@@ -152,6 +166,8 @@ struct ShellLexer {
     split_codes: Vec<String>,
     /// Read `<<WORD` as a heredoc (see [`lex`]).
     heredocs: bool,
+    /// The last character fed was an unquoted `>` or `<` (see [`Self::feed`]).
+    after_redirect: bool,
     /// Commands whose heredoc is input to a program they already have: such a
     /// body is never read as commands (see [`read_with_script_input`]).
     script_input: Option<fn(&[String]) -> bool>,
@@ -189,6 +205,10 @@ impl ShellLexer {
     }
 
     fn feed(&mut self, c: char, chars: &mut Chars<'_>) {
+        // Only the character right after an UNQUOTED `>`/`<` can glue a `&` into a
+        // redirection (`2>&1`): a word ending in a quoted `'a>'` is followed by a
+        // separator, as the shell reads it.
+        let after_redirect = std::mem::take(&mut self.after_redirect);
         match c {
             '\'' => {
                 self.in_word = true;
@@ -206,7 +226,7 @@ impl ShellLexer {
             '<' | '\n' if self.heredoc_event(c, chars) => {}
             // A file-descriptor redirection is one word, not a separator: `2>&1`,
             // `>&2`, `<&0`, and `&>f` / `&>>f` (stdout and stderr to a file).
-            '&' if self.in_word && self.word.ends_with(['>', '<']) => self.word.push('&'),
+            '&' if after_redirect => self.word.push('&'),
             '&' if !self.in_word && chars.peek() == Some(&'>') => {
                 self.in_word = true;
                 self.word.push('&');
@@ -222,6 +242,7 @@ impl ShellLexer {
             _ => {
                 self.in_word = true;
                 self.word.push(c);
+                self.after_redirect = matches!(c, '>' | '<');
             }
         }
     }

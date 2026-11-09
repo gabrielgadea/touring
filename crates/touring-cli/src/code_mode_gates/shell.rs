@@ -98,32 +98,9 @@ pub(crate) fn is_inline_blind_edit(cmd: &str) -> bool {
 /// class — G10 went mute for the whole turn ("the verifier uses less than the
 /// extractor", yet another incarnation).
 pub(super) fn mutation_scan_view(cmd: &str) -> String {
-    // 1) cut heredoc bodies: from the line after `<<MARKER` to the MARKER line.
-    let mut kept: Vec<&str> = Vec::new();
-    let mut skip_until: Option<String> = None;
-    for line in cmd.lines() {
-        if let Some(marker) = &skip_until {
-            if line.trim() == marker.as_str() {
-                skip_until = None;
-            }
-            continue;
-        }
-        kept.push(line);
-        if let Some(pos) = line.find("<<")
-            && !line[pos..].starts_with("<<<")
-        {
-            let raw = line[pos + 2..].trim_start_matches('-').trim();
-            let marker = raw
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .trim_matches(|c| c == '\'' || c == '"');
-            if !marker.is_empty() {
-                skip_until = Some(marker.to_string());
-            }
-        }
-    }
-    let mut s = kept.join("\n");
+    // 1) cut heredoc DATA bodies, as the shared lexer reads them (quotes, `<<<`, `<<-`;
+    // a body a shell runs stays, it is commands).
+    let mut s = touring_hooks_shared::command_policy::without_heredoc_data(cmd);
     // 2) neutralize redirects that write nothing (order: the FD-prefixed ones
     // before the generic one, otherwise the partial replace leaves the digit behind).
     for inofensivo in [
@@ -272,22 +249,13 @@ pub(super) fn script_run_targets(cmd: &str) -> Vec<String> {
 /// The body of the inline program (`python3 -c '<code>'` or `python3 - <<'M'`),
 /// for the 1:1 remedy of the `python-inline` class.
 pub(super) fn python_inline_body(cmd: &str) -> Option<String> {
-    // heredoc: body between the line after `<<MARKER` and the MARKER line
-    if let Some(pos) = cmd.find("<<")
-        && !cmd[pos..].starts_with("<<<")
+    // heredoc: the first body, read by the shared lexer (a quoted `<<`, as in
+    // `python3 -c 'print(1 << 3)'`, opens none and falls through to `-c`)
+    if let Some((_, body)) = touring_hooks_shared::command_policy::heredocs(cmd)
+        .into_iter()
+        .next()
     {
-        let first_line_end = pos + cmd[pos..].find('\n')?;
-        let marker = cmd[pos + 2..first_line_end]
-            .trim_start_matches('-')
-            .split_whitespace()
-            .next()?
-            .trim_matches(|c| c == '\'' || c == '"')
-            .to_string();
-        let body: Vec<&str> = cmd[first_line_end + 1..]
-            .lines()
-            .take_while(|l| l.trim() != marker)
-            .collect();
-        return Some(body.join("\n"));
+        return Some(body.strip_suffix('\n').unwrap_or(&body).to_string());
     }
     // -c: the literal after the flag (heuristic: the outer quote pair)
     let idx = cmd.find(" -c ")?;
@@ -630,7 +598,8 @@ pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
         return None;
     }
     // Heredoc: the body is DATA (same reason as G2), and the quoting does not survive.
-    if trimmed.contains("<<") {
+    // A here-string or an arithmetic `<<` is no heredoc (the shared lexer decides).
+    if !touring_hooks_shared::command_policy::heredocs(trimmed).is_empty() {
         return None;
     }
     // Unbalanced single quotes would break the `--code '...'`.

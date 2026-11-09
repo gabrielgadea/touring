@@ -588,7 +588,9 @@ pub(super) fn run_chain(
     }
     // G2 — a heredoc is DATA (the body does not execute as a pipeline of THIS shell);
     // skipping avoids denying the write of a test that merely CONTAINS the pattern.
-    if !cmd.contains("<<") && exit_code_through_pipe(cmd) {
+    if exit_code_through_pipe(&touring_hooks_shared::command_policy::without_heredoc_data(
+        cmd,
+    )) {
         if ovr.code_gates_disabled {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
             return None;
@@ -635,7 +637,9 @@ pub(super) fn run_chain(
     // gate — the measured adoption of one does not transfer to the other). A heredoc is
     // data (the body does not execute in this shell). BEFORE G8: a loop with
     // `sed -i` is denied here, not rewritten into the sandbox.
-    if !cmd.contains("<<") && is_inline_blind_edit(cmd) {
+    if is_inline_blind_edit(&touring_hooks_shared::command_policy::without_heredoc_data(
+        cmd,
+    )) {
         if ovr.code_gates_disabled {
             record_gate_event(GateId::G9, GateEvent::Bypassed);
             return None;

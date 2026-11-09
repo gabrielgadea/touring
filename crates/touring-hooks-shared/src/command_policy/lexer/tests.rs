@@ -247,6 +247,11 @@ fn fd_redirections_are_words_not_separators() {
         written_paths(&shell_pipelines("make &>> log")[0][0]),
         ["log"]
     );
+    // Only an UNQUOTED `>`/`<` makes the `&` part of a redirection: a word that merely
+    // ends in a quoted `>` (commit security review of 7714f7f4) is followed by a separator.
+    for line in ["echo 'a>'&rm x", "echo \"a<\"&rm x", "echo a\\>&rm x"] {
+        assert_eq!(shell_pipelines(line).len(), 2, "{line}");
+    }
     // a lone `&` still sends the command to the background
     assert_eq!(shell_pipelines("a & b").len(), 2);
 }

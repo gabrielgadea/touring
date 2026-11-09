@@ -168,6 +168,25 @@ fn s5_corpo_de_heredoc_nao_alimenta_o_filtro_de_mutacao() {
     assert!(mutation_scan_view("cat <<< 'x' && rm f").contains("rm "));
 }
 
+/// Onda 2 (09/11/2026): the heredoc reading is the shared lexer's. A quoted `<<EOF` is
+/// no heredoc, a body a shell runs is commands, and `python3 -c 'print(1 << 3)'` holds no
+/// heredoc — the `<<` inside the quotes used to end the search with `None`.
+#[test]
+fn heredoc_do_code_mode_e_o_do_lexer_compartilhado() {
+    use crate::code_mode_gates::{mutation_scan_view, python_inline_body};
+    assert!(mutation_scan_view("echo \"<<EOF\"\nrm f").contains("rm f"));
+    assert!(mutation_scan_view("bash <<'EOF'\nrm f\nEOF").contains("rm f"));
+    assert!(!mutation_scan_view("cat <<'EOF' >x\nrm f\nEOF").contains("rm f"));
+    assert_eq!(
+        python_inline_body("python3 -c 'print(1 << 3)'").as_deref(),
+        Some("print(1 << 3)")
+    );
+    assert_eq!(
+        python_inline_body("python3 - <<'PY'\nprint(2)\nPY").as_deref(),
+        Some("print(2)")
+    );
+}
+
 #[test]
 fn s5_par_write_run_detecta_escrita_e_execucao_do_mesmo_script() {
     use crate::code_mode_gates::{script_run_targets, script_write_target};

@@ -1129,6 +1129,8 @@ fn the_effective_program_is_judged_whatever_runs_it() {
         "env -vS 'chmod 000 f'",
         "env -iS'chmod 000 f'",
         "sudo env -i -vS 'chmod 000 f'",
+        "echo 'a>'&chmod 000 f",
+        "echo \"a<\"&chmod 000 f",
         "env --split-string='chmod 000 f'",
         "sudo -- chmod 000 f",
         "nice dd if=/dev/zero of=/dev/sda",
