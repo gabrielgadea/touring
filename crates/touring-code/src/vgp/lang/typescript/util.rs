@@ -3,8 +3,6 @@
 
 use tree_sitter::Node;
 
-use crate::vgp::lang::distancia::levenshtein;
-
 /// The source text of `no`.
 pub(super) fn texto<'s>(src: &'s str, no: Node) -> &'s str {
     src.get(no.start_byte()..no.end_byte()).unwrap_or("")
@@ -71,26 +69,9 @@ pub(super) fn palavra_presente(texto: &str, palavra: &str) -> bool {
     false
 }
 
-/// The real name closest to `nome` (edit distance 1..=2), if any — the refusal teaches the way.
-pub(super) fn mais_proximo<'a>(
-    nome: &str,
-    reais: impl IntoIterator<Item = &'a String>,
-) -> Option<String> {
-    reais
-        .into_iter()
-        .map(|r| (levenshtein(nome, r), r))
-        .filter(|(d, _)| *d > 0 && *d <= 2)
-        .min_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)))
-        .map(|(_, r)| r.clone())
-}
-
-/// A bounded, sorted copy of `nomes` for `Finding::reais`.
+/// A bounded, sorted copy of `nomes` for `Finding::reais` (total order, then the cut of 40).
 pub(super) fn reais_de<'a>(nomes: impl IntoIterator<Item = &'a String>) -> Vec<String> {
-    let mut v: Vec<String> = nomes.into_iter().cloned().collect();
-    v.sort();
-    v.dedup();
-    v.truncate(40);
-    v
+    super::super::coletor::reais_ordenados(nomes, 40)
 }
 
 /// The last path segment of a module specifier, query/hash stripped: `./a/b?raw` → `b`.
@@ -155,18 +136,23 @@ mod tests {
 
     #[test]
     fn distancia_e_sugestao() {
-        assert_eq!(levenshtein("getTime", "getTim"), 1);
-        assert_eq!(levenshtein("a", "a"), 0);
+        // the distance itself is tested in `distancia`; this pins the TS use of the collector
         let reais = vec!["getTime".to_string(), "setTime".to_string()];
-        assert_eq!(mais_proximo("getTim", &reais).as_deref(), Some("getTime"));
-        assert_eq!(mais_proximo("zzzzzz", &reais), None);
         assert_eq!(
-            mais_proximo("getTime", &reais).as_deref(),
+            crate::vgp::lang::coletor::mais_proximo("getTim", &reais).as_deref(),
+            Some("getTime")
+        );
+        assert_eq!(
+            crate::vgp::lang::coletor::mais_proximo("zzzzzz", &reais),
+            None
+        );
+        assert_eq!(
+            crate::vgp::lang::coletor::mais_proximo("getTime", &reais).as_deref(),
             Some("setTime"),
             "o mesmo nome não é sugestão de si"
         );
         assert_eq!(
-            mais_proximo("getTime", &["getTime".to_string()]),
+            crate::vgp::lang::coletor::mais_proximo("getTime", &["getTime".to_string()]),
             None,
             "distância 0 não é sugestão"
         );

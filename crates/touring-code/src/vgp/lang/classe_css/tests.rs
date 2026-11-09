@@ -1096,3 +1096,18 @@ fn a_abstencao_e_por_documento_um_typo_fora_da_subarvore_editavel_tambem_se_cala
     assert!(v.achados.is_empty(), "{:?}", achados(&v));
     assert!(v.nao_medido.is_some());
 }
+
+/// The length pre-filter counts chars, as the distance does: in bytes, `日` (3 bytes) was two
+/// bytes too far from the one-edit typo `日本` (6 bytes) for a limit of 1, and was never offered.
+#[test]
+fn the_neighbour_filter_counts_chars_not_bytes() {
+    let classes = ["日".to_string(), "btn".to_string()];
+    assert_eq!(
+        mais_proximas("日本", classes.iter()),
+        vec!["日".to_string()]
+    );
+    assert_eq!(
+        mais_proximas("btm", classes.iter()),
+        vec!["btn".to_string()]
+    );
+}

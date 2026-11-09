@@ -94,11 +94,13 @@ pub(crate) fn ler_folha(css: &str) -> Option<FolhaLida> {
 }
 
 /// The defined classes closest to `nome` — a typo is a few edits from the class meant.
-fn mais_proximas(nome: &str, folhas: &Folhas) -> Vec<String> {
+fn mais_proximas<'a>(nome: &str, classes: impl Iterator<Item = &'a String>) -> Vec<String> {
     let limite = (nome.chars().count() / 4).clamp(1, 3);
-    let mut candidatas: Vec<(usize, &String)> = folhas
-        .classes()
-        .filter(|d| d.len().abs_diff(nome.len()) <= limite * 2 && d.as_str() != nome)
+    let mut candidatas: Vec<(usize, &String)> = classes
+        // length in chars, as the distance counts them (bytes rejected `日` for `日本`)
+        .filter(|d| {
+            d.chars().count().abs_diff(nome.chars().count()) <= limite * 2 && d.as_str() != nome
+        })
         .filter_map(|d| {
             let dist = levenshtein(nome, d);
             (dist <= limite).then_some((dist, d))
@@ -111,7 +113,7 @@ fn mais_proximas(nome: &str, folhas: &Folhas) -> Vec<String> {
 }
 
 fn achado_de(uso: &Uso, folhas: &Folhas) -> Finding {
-    let proximas = mais_proximas(&uso.classe, folhas);
+    let proximas = mais_proximas(&uso.classe, folhas.classes());
     let dica = match proximas.as_slice() {
         [] => String::new(),
         lista => format!(

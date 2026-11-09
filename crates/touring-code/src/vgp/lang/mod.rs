@@ -30,6 +30,7 @@ use super::{CheckInput, Finding};
 pub mod caminho;
 pub mod cdn;
 pub mod classe_css;
+pub mod coletor;
 pub mod css;
 pub mod distancia;
 pub mod html;

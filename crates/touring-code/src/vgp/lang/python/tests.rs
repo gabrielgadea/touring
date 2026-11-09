@@ -1251,7 +1251,7 @@ fn det_sugestao_desempata_por_distancia_e_depois_pelo_nome_em_toda_permutacao() 
         .collect();
     let mut respostas = std::collections::BTreeSet::new();
     permuta(&mut v, 0, &mut |p| {
-        respostas.insert(super::sugestao_proxima("casa", p));
+        respostas.insert(crate::vgp::lang::coletor::mais_proximo("casa", p.iter()));
     });
     assert_eq!(
         respostas.into_iter().collect::<Vec<_>>(),

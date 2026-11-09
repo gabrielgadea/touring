@@ -26,7 +26,7 @@ use super::jsdoc;
 use super::modulos::{Carregador, Prova, resumir};
 use super::projeto::{Projeto, Resolvido};
 use super::tipos::{Contexto, Forma, Origem, Resolvedor, Resultado};
-use super::util::{conteudo_string, linha, mais_proximo, reais_de, texto, ultimo_segmento};
+use super::util::{conteudo_string, linha, reais_de, texto, ultimo_segmento};
 use crate::vgp::lang::{Verificacao, caminho, parse};
 use crate::vgp::politica::{Alvo, roda_agora};
 use crate::vgp::{CheckInput, Finding, is_inline};
@@ -428,10 +428,7 @@ impl<'a, 't> Verificador<'a, 't> {
         {
             return;
         }
-        let sugestao = match mais_proximo(&c.nome, &c.reais) {
-            Some(s) => format!("{}. Você quis dizer `{s}`?", c.motivo),
-            None => c.motivo,
-        };
+        let sugestao = super::super::coletor::com_sugestao(&c.motivo, &c.nome, &c.reais);
         self.achados.push(Finding::candidato(
             c.classe, &c.nome, c.linha, c.alvo, sugestao, c.reais,
         ));

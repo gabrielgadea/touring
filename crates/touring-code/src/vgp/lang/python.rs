@@ -29,7 +29,7 @@ use self::scope::ScopeTree;
 use self::stdlib_model::{
     builtin_type_members, call_result_type, stdlib_module_members, tipo_fechado,
 };
-use super::{Adaptador, Verificacao, distancia};
+use super::{Adaptador, Verificacao};
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding};
 
@@ -1007,15 +1007,8 @@ fn out_find(
     reais: Vec<String>,
     alvo: Alvo,
 ) {
-    if out.iter().any(|f| f.classe == classe && f.nome == nome) {
-        return; // um achado por (classe, nome) basta — o juiz conta presença, não ocorrências
-    }
-    let sugestao = sugestao_proxima(nome, &reais)
-        .map(|s| format!("{motivo}. Você quis dizer `{s}`?"))
-        .unwrap_or_else(|| motivo.to_string());
-    out.push(Finding::candidato(
-        classe, nome, linha, alvo, sugestao, reais,
-    ));
+    // one finding per (classe, nome), the closest real name in the suggestion
+    super::coletor::empurrar(out, classe, nome, linha, alvo, motivo, reais);
 }
 
 /// `obj.nome` where `obj` is a proven builtin `tipo` and `nome` is not in its member table.
@@ -1042,17 +1035,6 @@ fn out_find_de_builtin(out: &mut Vec<Finding>, tipo: &str, nome: &str, linha: us
     if let Some(achado) = out.get_mut(antes) {
         achado.receptor = Some(tipo.to_string());
     }
-}
-
-/// O nome real mais próximo (distância de edição ≤ 2), se houver — a recusa ensina o caminho.
-/// Desempate TOTAL: menor distância, depois o menor nome — a resposta não depende da ordem de `reais`.
-fn sugestao_proxima(nome: &str, reais: &[String]) -> Option<String> {
-    reais
-        .iter()
-        .map(|r| (distancia::levenshtein(nome, r), r))
-        .filter(|(d, _)| *d > 0 && *d <= 2)
-        .min_by(|(da, ra), (db, rb)| da.cmp(db).then_with(|| ra.cmp(rb)))
-        .map(|(_, r)| r.clone())
 }
 
 fn text<'a>(source: &'a str, node: Node) -> &'a str {

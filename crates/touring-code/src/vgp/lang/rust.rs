@@ -48,7 +48,8 @@ use std::rc::Rc;
 
 use tree_sitter::Node;
 
-use super::{Adaptador, Verificacao, caminho, distancia, parse};
+use super::coletor::{self, empurrar};
+use super::{Adaptador, Verificacao, caminho, parse};
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding};
 
@@ -2267,8 +2268,7 @@ impl<'a> Ctx<'a> {
             );
             return;
         }
-        let mut reais: Vec<String> = e.variantes.iter().take(8).cloned().collect();
-        reais.sort();
+        let reais = coletor::reais_ordenados(&e.variantes, 8);
         empurrar(
             &mut self.out,
             "atributo",
@@ -2477,16 +2477,15 @@ impl<'a> Ctx<'a> {
         if pular {
             return;
         }
-        let (pertence, mut reais): (bool, Vec<String>) = match (campos, campos_variante) {
+        let (pertence, reais): (bool, Vec<String>) = match (campos, campos_variante) {
             (Some(s), _) => (
                 s.campos.contains(campo),
-                s.campos.iter().take(8).cloned().collect(),
+                coletor::reais_ordenados(&s.campos, 8),
             ),
-            (None, Some(v)) => (v.contains(campo), v.iter().take(8).cloned().collect()),
+            (None, Some(v)) => (v.contains(campo), coletor::reais_ordenados(v, 8)),
             (None, None) => return, // tipo não provado — abstenção
         };
         if !pertence {
-            reais.sort();
             empurrar(
                 &mut self.out,
                 "kwarg",
@@ -2734,38 +2733,6 @@ fn empurra_seg(trail: &[String], seg: &str) -> Vec<String> {
     let mut v = trail.to_vec();
     v.push(seg.to_string());
     v
-}
-
-/// One finding per (classe, nome) — the judge counts presence, not occurrences. The severity is
-/// not chosen here: [`Finding::candidato`] carries the [`Alvo`] and `vgp::check` decides.
-fn empurrar(
-    out: &mut Vec<Finding>,
-    classe: &str,
-    nome: &str,
-    linha: usize,
-    alvo: Alvo,
-    motivo: &str,
-    reais: Vec<String>,
-) {
-    if out.iter().any(|f| f.classe == classe && f.nome == nome) {
-        return;
-    }
-    let sugestao = sugestao_proxima(nome, &reais)
-        .map(|s| format!("{motivo}. Você quis dizer `{s}`?"))
-        .unwrap_or_else(|| motivo.to_string());
-    out.push(Finding::candidato(
-        classe, nome, linha, alvo, sugestao, reais,
-    ));
-}
-
-/// The closest real name (edit distance ≤ 2) — the refusal teaches the way.
-fn sugestao_proxima(nome: &str, reais: &[String]) -> Option<String> {
-    reais
-        .iter()
-        .map(|r| (distancia::levenshtein(nome, r), r))
-        .filter(|(d, _)| *d > 0 && *d <= 2)
-        .min_by_key(|(d, _)| *d)
-        .map(|(_, r)| r.clone())
 }
 
 #[cfg(test)]
