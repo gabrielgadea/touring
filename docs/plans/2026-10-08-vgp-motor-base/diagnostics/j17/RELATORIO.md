@@ -29,6 +29,18 @@ põe `backend/` no `sys.path` (primeiro diretório sem `__init__.py` acima de `t
 `backend/services`; a camada 2 resolve `services` pelo diretório do próprio script e encontra o pacote regular
 `tests/unit/services`, que não tem `ingestion_pipeline`.
 
+## Timeouts da camada 2: 80 (controle) × 170 (candidato) — ambiente, não binário
+
+Pergunta da revisão de 08/11/2026: o «não regressão da 30.4.104» só cobria o falso deny. Medido:
+`git diff 340d3114 6d343c0b -- crates/touring-pyright crates/touring-code/src/vgp` é **vazio** (nenhuma linha
+da camada 2 mudou entre os builds 30.4.103 e 30.4.104); os timeouts se distribuem pelos quatro quartis da ordem
+de chamada (104: 34/36/56/44; 103: 17/13/25/25), sem efeito de aquecimento; 69 dos 80 do controle também
+estouraram no candidato; um terceiro run, noutro horário (anexo `pos-correcao-l2/`), deu 143. Os três ficam
+abaixo do patamar de 20%. Leitura: a variação é da máquina (o orçamento de 1.000 ms da camada 2 contra um
+pyright que disputa CPU a 93–95 °C com outras sessões), não do código — mesma família de
+`p95-de-rodada-mede-a-maquina`. Consequência para o J18: rodar candidato e controle intercalados por id, não
+em blocos sequenciais, para que a carga da máquina não seja atribuída a um dos dois.
+
 ## Próximos passos
 
 1. **Feito em `90d491ec` (08/11/2026).** Reproduzido isolado (`touring vgp check`, deny determinístico). A causa
