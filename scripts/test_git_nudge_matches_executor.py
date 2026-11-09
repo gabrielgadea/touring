@@ -57,7 +57,7 @@ COMANDO_BENIGNO = "git push origin main"
 
 
 def _payload_bash(command: str) -> dict:
-    """O payload do PreToolUse Bash — o MESMO formato que os testes do proprio executor usam
+    """The PreToolUse Bash payload — the SAME format that the executor's own tests use
     (`client/hooks/tests/test_s25_block_git_delete.py`)."""
     return {
         "hook_event_name": "PreToolUse",
@@ -68,7 +68,7 @@ def _payload_bash(command: str) -> dict:
 
 
 def _decisao(script: Path, command: str, env_extra: dict) -> str | None:
-    """A DECISAO do executor para um comando: 'deny'/'block' (nega) ou None (nao nega)."""
+    """The executor's DECISION for a command: 'deny'/'block' (denies) or None (does not deny)."""
     env = dict(os.environ)
     env.update(env_extra)
     r = subprocess.run(
@@ -87,18 +87,18 @@ def _decisao(script: Path, command: str, env_extra: dict) -> str | None:
 
 
 def guard_bloqueia_com_o_flag_desligado(script: Path) -> bool:
-    """O INVARIANTE, provado COMPORTAMENTALMENTE: com `GIT_GUARD_ENABLED=0` no ambiente, o
-    guard AINDA bloqueia o comando destrutivo.
+    """The INVARIANT, proven BEHAVIORALLY: with `GIT_GUARD_ENABLED=0` in the environment, the
+    guard STILL blocks the destructive command.
 
-    MEDIDO em 01/11 (review de seguranca, TERCEIRA rodada): um predicado de FONTE — busca de
-    token, anchored, ou "nenhuma mencao" — nunca prova o invariante, porque o NOME da variavel
-    pode ser construido dinamicamente (`N=GIT"_GUARD_ENABLED"; export $N=0`) e escapar de
-    qualquer busca. A prova do invariante e comportamental: o guard tem de NEGAR com o flag
-    desligado. E assim o token sai de cena: a sonda nao le o fonte do executor, ela pergunta ao
-    executor.
+    MEASURED on 01/11 (security review, THIRD round): a SOURCE predicate — token search,
+    anchored, or "no mention" — never proves the invariant, because the variable's NAME
+    can be built dynamically (`N=GIT"_GUARD_ENABLED"; export $N=0`) and escape
+    any search. The proof of the invariant is behavioral: the guard must DENY with the flag
+    off. And so the token leaves the stage: the probe does not read the executor's source,
+    it asks the executor.
 
-    O comando destrutivo e o mesmo dos testes do proprio executor (S25): `git push origin
-    --delete feature/x`, que e negado sem o token ritual.
+    The destructive command is the same as in the executor's own tests (S25): `git push origin
+    --delete feature/x`, which is denied without the ritual token.
     """
     return _decisao(script, COMANDO_DESTRUTIVO, {"GIT_GUARD_ENABLED": "0"}) in ("deny", "block")
 
@@ -228,19 +228,19 @@ def test_git_nudge_matches_its_executor():
 
 
 def test_o_flag_desligado_nao_desliga_o_guard():
-    """O proprio meta-teste, testado COMPORTAMENTALMENTE — MEDIDO em 01/11 (review de seguranca,
-    terceira rodada).
+    """The meta-test itself, tested BEHAVIORALLY — MEASURED on 01/11 (security review,
+    third round).
 
-    O predicado por linha (qualquer um) nao distingue uma atribuicao na RAIZ de uma aninhada em
-    funcao/subshell/`case`, e uma busca de token nao ve um nome construido dinamicamente
-    (`N=GIT"_GUARD_ENABLED"`). A prova do invariante e comportamental: com o flag em 0 o guard
-    tem de NEGAR.
+    The per-line predicate (any one) does not distinguish an assignment at the ROOT from one nested in a
+    function/subshell/`case`, and a token search does not see a dynamically constructed name
+    (`N=GIT"_GUARD_ENABLED"`). The proof of the invariant is behavioral: with the flag at 0 the guard
+    must DENY.
 
-    Os tres casos sao o invariante e DOIS controles: se a sonda negasse tudo, ela passaria
-    sozinha — o comando benigno e o que prova que ela ainda distingue.
+    The three cases are the invariant and TWO controls: if the probe denied everything, it would pass
+    on its own — the benign command is what proves that it still discriminates.
     """
     if not EXECUTOR.exists():
-        return  # ausente = "nao verificado", e o main() reporta o unverified; nunca verde
+        return  # absent = "not verified", and main() reports the unverified; never green
     d_flag0 = _decisao(EXECUTOR, COMANDO_DESTRUTIVO, {"GIT_GUARD_ENABLED": "0"})
     assert d_flag0 in ("deny", "block"), (
         f"com GIT_GUARD_ENABLED=0 o executor decidiu {d_flag0!r} em vez de negar — "

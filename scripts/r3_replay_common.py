@@ -13,11 +13,11 @@ from pathlib import Path
 
 
 def chave_cache(versao: int, arm: str, chave: str, spec: str) -> str:
-    """A chave de uma predição: braço + item + VERSÃO da pergunta.
+    """The key of a prediction: arm + item + question VERSION.
 
-    Inclui o `spec` (a pergunta) para que mudar a pergunta invalide o cache em vez
-    de devolver a predição da pergunta antiga — o re-run sem mudança de entrada
-    tem de dar 0 chamadas, e o re-run com a pergunta mudada tem de dar N.
+    Includes the `spec` (the question) so that changing the question invalidates the cache instead
+    of returning the prediction of the old question — the re-run with unchanged input
+    must make 0 calls, and the re-run with a changed question must make N.
     """
     return f"{versao}|{arm}|{chave}|{hashlib.sha256(spec.encode()).hexdigest()[:10]}"
 
@@ -32,7 +32,7 @@ def carregar_cache(caminho: Path) -> dict:
         try:
             r = json.loads(l)
         except ValueError:
-            continue  # cache truncado: descarta a linha, não o arquivo
+            continue  # truncated cache: drop the line, not the file
         out[r["cache_key"]] = r["pred"]
     return out
 
@@ -44,10 +44,10 @@ def registrar_cache(caminho: Path, cache_key: str, pred: dict) -> None:
 
 
 def corpo_da_resposta(corpo, qid: str) -> dict | None:
-    """O corpo da resposta como dict, ou None se não for um.
+    """The response body as a dict, or None if it is not one.
 
-    `DecisionResult` (laya) é um objeto com `.values`/`.answers`; o Jev HTTP é um dict.
-    Os dois formatos, a mesma extração.
+    `DecisionResult` (laya) is an object with `.values`/`.answers`; the Jev HTTP is a dict.
+    The two formats, the same extraction.
     """
     for atr in ("answers", "values"):
         sub = getattr(corpo, atr, None)
@@ -58,8 +58,8 @@ def corpo_da_resposta(corpo, qid: str) -> dict | None:
 
 
 def valor_da_resposta(ans) -> float:
-    """O número de UMA resposta: o escalar, ou a primeira chave numérica entre
-    `noul`/`max_prob`/`score`; 0.0 se não houver."""
+    """The number of ONE answer: the scalar, or the first numeric key among
+    `noul`/`max_prob`/`score`; 0.0 if there is none."""
     if isinstance(ans, (int, float)) and not isinstance(ans, bool):
         return float(ans)
     if not isinstance(ans, dict):

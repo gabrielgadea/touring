@@ -177,9 +177,9 @@ impl Gate for BestPracticesGate {
         let home = std::env::var_os("HOME").map(PathBuf::from);
         let declared = declaration_site(&root, home.as_deref());
 
-        // `(runs_total, ok)` — a fração é a régua M1 (PROCESS-level: `exited_zero`);
-        // linha ilegível é pulada (o journal é append-only de processos que
-        // morrem no meio). A leitura é do módulo `run_outcome`.
+        // `(runs_total, ok)` — the fraction is the M1 ruler (PROCESS-level: `exited_zero`);
+        // an unreadable line is skipped (the journal is append-only from processes that
+        // die midway). The reading belongs to the `run_outcome` module.
         let journal = home
             .as_ref()
             .and_then(|h| Journal::under_home(h).read_to_string().ok());

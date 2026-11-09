@@ -391,7 +391,7 @@ def _assinatura_da_saida(d: Path) -> dict:
 
 
 def _rodar_so_regra(monkeypatch) -> None:
-    """Roda `ra.main()` só com a regra (sem modelo nem corpus): o que se observa é a escrita."""
+    """Runs `ra.main()` with the rule only (no model nor corpus): what is observed is the write."""
     monkeypatch.setattr(ra, "carregar_blocos", list)
     monkeypatch.setattr(ra, "indexar_texto", dict)
     monkeypatch.setattr(sys, "argv", ["r3_replay_a1.py", "--so-regra"])
@@ -402,7 +402,7 @@ def _rodar_so_regra(monkeypatch) -> None:
 
 
 def _evento_a2() -> dict:
-    """O evento `a2_offer_closed` mínimo que os testes de `cache_only` dão ao braço A2."""
+    """The minimal `a2_offer_closed` event that the `cache_only` tests give to arm A2."""
     return {
         "session_hash": "abc",
         "kind": "a2_offer_closed",
@@ -415,7 +415,7 @@ def _evento_a2() -> dict:
 
 
 def _carregar_de(corpus: Path) -> list:
-    """`ra.carregar_blocos()` lendo `corpus`; `ra.CORPUS` volta ao valor antigo ao sair."""
+    """`ra.carregar_blocos()` reading `corpus`; `ra.CORPUS` goes back to the old value on exit."""
     antigo = ra.CORPUS
     try:
         ra.CORPUS = corpus

@@ -52,17 +52,17 @@ pub(crate) fn portfolio_index()
     Some(loaded)
 }
 
-/// Remédio 1:1 do inline: o MESMO corpo em `touring run --lang python --code`.
-/// Sem fusão — a razão histórica de excluir o heredoc da rajada era o R9
-/// esmagar multi-linha; com remédio próprio ela caiu (aperto 29/08).
+/// 1:1 remedy of the inline: the SAME body in `touring run --lang python --code`.
+/// No fusion — the historical reason for excluding the heredoc from the burst was R9
+/// crushing multi-line; with its own remedy it fell (tightening 29/08).
 #[cfg(test)]
 pub(super) fn python_inline_remedy(cmd: &str) -> String {
     python_inline_remedy_via(cmd, &g10_route::Route::Sandboxed)
 }
 
-/// O remédio 1:1 do inline sobre a ROTA que executa o corpo (G10ROTA, 30.4.97): a Sandboxed é o
-/// `touring run` simples; a Trusted leva a elevação POR COMANDO (`TOURING_TRUSTED_OK=1` no próprio
-/// comando) e a flag `--allow-forbidden`. Para a Sandboxed a saída é byte-idêntica à de sempre.
+/// The 1:1 remedy of the inline over the ROUTE that executes the body (G10ROTA, 30.4.97): Sandboxed is
+/// plain `touring run`; Trusted carries the PER-COMMAND elevation (`TOURING_TRUSTED_OK=1` in the
+/// command itself) and the `--allow-forbidden` flag. For Sandboxed the output is byte-identical to what it always was.
 pub(super) fn python_inline_remedy_via(cmd: &str, rota: &g10_route::Route) -> String {
     let cabeca = format!(
         "{}touring run {}--lang python --code",
@@ -77,9 +77,9 @@ pub(super) fn python_inline_remedy_via(cmd: &str, rota: &g10_route::Route) -> St
     }
 }
 
-/// A rota que executa o corpo do python-inline negado pelo G10: a pergunta é do EXECUTOR
-/// (`g10_route`), não do gate. Fora de `python-inline` o remédio é o R9 em bash — sem corpo
-/// python a inspecionar, a rota é a de sempre.
+/// The route that executes the body of the python-inline denied by G10: the question belongs to the EXECUTOR
+/// (`g10_route`), not to the gate. Outside `python-inline` the remedy is R9 in bash — with no python
+/// body to inspect, the route is the usual one.
 pub(super) fn g10_inline_route(project_root: &Path, class: &str, cmd: &str) -> g10_route::Route {
     if class != "python-inline" {
         return g10_route::Route::Sandboxed;
@@ -92,8 +92,8 @@ pub(super) fn g10_inline_route(project_root: &Path, class: &str, cmd: &str) -> g
     }
 }
 
-/// A abertura do remédio do G10: a de sempre na rota Sandboxed; nas demais, a frase que explica
-/// por que a rota difere — ANTES do comando, para que quem copia o comando já tenha lido o porquê.
+/// The opening of the G10 remedy: the usual one on the Sandboxed route; on the others, the phrase that explains
+/// why the route differs — BEFORE the command, so that whoever copies the command has already read the why.
 pub(super) fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
     let explicacao = rota.explanation(project_root);
     if explicacao.is_empty() {
@@ -103,10 +103,10 @@ pub(super) fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
     }
 }
 
-/// O deny do G10 quando NENHUMA rota de `touring run` executa o corpo: diz isso, cita o destino ou
-/// a recusa do executor, e nomeia a saída que funciona (o bypass por-comando, nativo) como a
-/// linha pronta do PRÓPRIO comando negado. Não há comando de `touring run` para colar — nomear um
-/// que falha foi o defeito.
+/// The G10 deny when NO `touring run` route executes the body: it says so, cites the destination or
+/// the executor's refusal, and names the way out that works (the per-command bypass, native) as the
+/// ready line of the denied command ITSELF. There is no `touring run` command to paste — naming one
+/// that fails was the defect.
 pub(super) fn g10_unrunnable_deny(
     n: u32,
     class: &str,
@@ -122,9 +122,9 @@ pub(super) fn g10_unrunnable_deny(
     )
 }
 
-/// A rajada de python-inline fundida: os CORPOS na ordem, um programa. O
-/// contrato de orçamento é o do R9 — inteiro ou fora, jamais truncado; o
-/// segundo elemento conta os omitidos.
+/// The fused python-inline burst: the BODIES in order, one program. The
+/// budget contract is R9's — whole or out, never truncated; the
+/// second element counts the omitted ones.
 pub(super) fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
     const BUDGET: usize = 4000;
     let mut out = String::new();
@@ -147,8 +147,8 @@ pub(super) fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
     (out, omitidos)
 }
 
-/// A rota do script `path` (já em disco): lê o CONTEÚDO — é ele que o X6 julga. Ilegível, vazio ou
-/// grande demais para o gate inspecionar → a rota de sempre (sem evidência não há o que mudar).
+/// The route of the script `path` (already on disk): reads the CONTENT — it is what X6 judges. Unreadable, empty or
+/// too large for the gate to inspect → the usual route (without evidence there is nothing to change).
 pub(super) fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g10_route::Route {
     const TETO: u64 = 256 * 1024;
     let p = Path::new(path);
@@ -168,22 +168,22 @@ pub(super) fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g
     }
 }
 
-/// S4 — o programa R9 (exec-agregado): as N chamadas REAIS, verbatim e na
-/// mesma ordem, cada uma seguida do veredito `[ok]`/`[FALHOU N]` (a execução
-/// continua nas falhas), RESUMO final — a íntegra fica no spill quando estoura.
+/// S4 — the R9 program (aggregated exec): the N REAL calls, verbatim and in the
+/// same order, each followed by the `[ok]`/`[FAILED N]` verdict (execution
+/// continues on failures), final SUMMARY — the full output stays in the spill when it overflows.
 ///
-/// Em BASH, não python (30/08/2026): o template anterior era `--lang python`
-/// com `import subprocess` — a capability que o X6 negava sob Sandboxed, e o
-/// deny do G10 emitia uma rota que o gate seguinte barrava (medido pela peer
-/// `analise-a2`). No mesmo dia Gabriel estendeu o waiver subprocess-only a
-/// toda linguagem, então o template python voltaria a executar — mas bash
-/// segue sendo a forma certa AQUI: os comandos viajam verbatim, 1:1, sem a
-/// camada de reescrita em subprocess que o modelo teria de conferir. Rede e
-/// padrões destrutivos seguem hard-deny em toda lang. `--timeout-ms` viaja
-/// explícito (E4): N ferramentas reais não cabem no default de 30s.
-/// Os comandos de uma rajada que JÁ rodaram, como linhas de comentário (1ª linha, até
-/// 120 chars). Fonte única do S212 para o G10 e o G1: repeti-los repetia o efeito
-/// (uma escrita de memória, um commit) — eles são contexto, nunca passo.
+/// In BASH, not python (30/08/2026): the previous template was `--lang python`
+/// with `import subprocess` — the capability that X6 denied under Sandboxed, and the
+/// G10 deny emitted a route that the next gate barred (measured by the peer
+/// `analise-a2`). On the same day Gabriel extended the subprocess-only waiver to
+/// every language, so the python template would run again — but bash
+/// remains the right form HERE: the commands travel verbatim, 1:1, without the
+/// subprocess rewrite layer that the model would have to check. Network and
+/// destructive patterns remain hard-deny in every lang. `--timeout-ms` travels
+/// explicitly (E4): N real tools do not fit in the default 30s.
+/// The commands of a burst that ALREADY ran, as comment lines (1st line, up to
+/// 120 chars). Single source of S212 for G10 and G1: repeating them repeated the effect
+/// (a memory write, a commit) — they are context, never a step.
 pub(super) fn comentarios_ja_executados(executed: &[String]) -> String {
     let mut corpo = String::new();
     for cmd in executed {
@@ -206,7 +206,7 @@ pub(super) fn r9_exec_program(executed: &[String], pending: &str) -> String {
     for cmd in &cmds {
         let cabe = corpo.chars().count() + cmd.chars().count() + 64 <= G1_BODY_BUDGET;
         if !cabe {
-            continue; // inteiro ou fora, jamais truncado (mesma regra do R9 antigo)
+            continue; // whole or out, never truncated (same rule as the old R9)
         }
         ordem += 1;
         corpo.push_str(&format!("echo \"== {ordem}/{} ==\"\n", cmds.len()));
@@ -224,15 +224,15 @@ pub(super) fn r9_exec_program(executed: &[String], pending: &str) -> String {
     )
 }
 
-/// S6 (26/08) — intent de prior-art derivado da rajada real: a classe do
-/// executor + os alvos recorrentes (BM25 precisa dos termos do TRABALHO,
-/// não da forma da rajada). Máx 6 termos — intent longo dilui o ranking.
+/// S6 (26/08) — prior-art intent derived from the real burst: the class of the
+/// executor + the recurring targets (BM25 needs the terms of the WORK,
+/// not the shape of the burst). Max 6 terms — a long intent dilutes the ranking.
 pub(super) fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
-    /// Componente de trabalho (dir ou pedaço de stem): ≥2 chars, não-dígito,
-    /// dedup. Tokens de caminho INTEIROS não entram — `tests/test_1.py`
-    /// diluiria o intent em termos que nenhum propósito contém (medido vivo:
-    /// 6 termos → required_matches 3 → 2 matches → o portfolio calado com o
-    /// artefato certo na prateleira).
+    /// Work component (dir or stem piece): ≥2 chars, non-digit,
+    /// dedup. WHOLE path tokens do not enter — `tests/test_1.py`
+    /// would dilute the intent in terms that no purpose contains (measured live:
+    /// 6 terms → required_matches 3 → 2 matches → the portfolio mute with the
+    /// right artifact on the shelf).
     fn push_componente(t: &str, termos: &mut Vec<String>) {
         let t = t.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
         if t.len() >= 2 && !t.chars().all(|c| c.is_ascii_digit()) && !termos.iter().any(|x| x == t)
@@ -263,19 +263,19 @@ pub(super) fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
     termos.join(" ")
 }
 
-/// S6 — o prior art mais próximo da rajada, instanciado: quando o portfólio
-/// tem um programa que JÁ funcionou para este intent, a rota vem escrita E
-/// vem de um artefato real (a diferença para o esqueleto R9, que é genérico
-/// por construção). Fail-open em todas as direções: sem índice, sem entrada,
-/// sem entry_point, ou entry_point com placeholder não-derivável → `None` e
-/// o deny sai só com o R9 (o comportamento anterior, honesto).
+/// S6 — the closest prior art of the burst, instantiated: when the portfolio
+/// has a program that ALREADY worked for this intent, the route comes written AND
+/// comes from a real artifact (the difference from the R9 skeleton, which is generic
+/// by construction). Fail-open in every direction: no index, no entry,
+/// no entry_point, or entry_point with a non-derivable placeholder → `None` and
+/// the deny comes out with R9 only (the previous behavior, honest).
 pub(super) fn portfolio_remedy_for_burst(class: &str, cmds: &[String]) -> Option<String> {
     let index = portfolio_index()?;
     portfolio_remedy_for_burst_on(class, cmds, &index)
 }
 
-/// O corpo, com o índice por parâmetro — testes carregam do scratch via
-/// `store::load_from`, sem `set_var` (ver `GateOverrides`).
+/// The body, with the index as a parameter — tests load from the scratch via
+/// `store::load_from`, without `set_var` (see `GateOverrides`).
 pub(super) fn portfolio_remedy_for_burst_on(
     class: &str,
     cmds: &[String],
@@ -289,7 +289,7 @@ pub(super) fn portfolio_remedy_for_burst_on(
     let top = answer.prior_art.first()?;
     let entry_point = top.entry.entry_point.as_deref()?;
     if entry_point.contains('<') {
-        return None; // placeholder não-derivável: apresentar seria fabricar
+        return None; // non-derivable placeholder: presenting it would be fabricating
     }
     Some(format!(
         "\n  prior art (programa que já funcionou para este trabalho): {entry_point} \
@@ -373,7 +373,7 @@ pub(super) fn g6_deny_reason(cmd: &str) -> String {
     )
 }
 
-// ── W3 (plano code-mode-total) — gates de MODO: G3 e G7 + telemetria G4/G5 ───
+// ── W3 (code-mode-total plan) — MODE gates: G3 and G7 + G4/G5 telemetry ───
 
 /// The Read window (1-based `offset`, `limit`) that covers the first occurrence of an Edit's
 /// `old_string` with a little context — the lines the model must see to write the Edit right.
@@ -454,12 +454,12 @@ pub(super) fn g3_deny_reason(project_root: &Path, fp: &str, n: u32, tool_input: 
     )
 }
 
-/// V0e3 (09/10/2026) — o esqueleto R1 pelo CAMINHO REAL quando existe (medido
-/// pela 6b: o deny citava `<r1_varredura_agregado.py>`, um placeholder, e o
-/// advisory `r1_varredura_agregado.py`, um relativo inexistente — a recusa
-/// apontava para um arquivo que não existia, D8). Espelha o `_r1_route()` do
-/// loop_stop_guard.py (a parte Python, feita na mesma noite): sem o arquivo,
-/// só a consulta à memória — nunca um placeholder.
+/// V0e3 (09/10/2026) — the R1 skeleton by the REAL PATH when it exists (measured
+/// by 6b: the deny cited `<r1_varredura_agregado.py>`, a placeholder, and the
+/// advisory `r1_varredura_agregado.py`, a nonexistent relative — the refusal
+/// pointed to a file that did not exist, D8). Mirrors `_r1_route()` of
+/// loop_stop_guard.py (the Python part, done the same night): without the file,
+/// only the memory query — never a placeholder.
 pub(super) fn r1_skeleton_path() -> Option<std::path::PathBuf> {
     let p = std::env::var_os("HOME").map(std::path::PathBuf::from)?.join(
         "projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/repertorio/r1_varredura_agregado.py",
@@ -467,8 +467,8 @@ pub(super) fn r1_skeleton_path() -> Option<std::path::PathBuf> {
     p.is_file().then_some(p)
 }
 
-/// A rota R1 para o alvo `fp`: o esqueleto real instanciado quando existe, a
-/// query de memória quando não.
+/// The R1 route for the target `fp`: the real skeleton instantiated when it exists, the
+/// memory query when not.
 pub(super) fn r1_route_for(fp: &str, skeleton: Option<&Path>) -> String {
     let query = "`touring memory query \"#kind:snippet #process:code-mode\"`";
     match skeleton {
@@ -480,11 +480,11 @@ pub(super) fn r1_route_for(fp: &str, skeleton: Option<&Path>) -> String {
     }
 }
 
-/// A rota de edição que o deny do G7 nomeia (D8: a frase só sai quando é verdadeira). O deny só
-/// dispara com o arquivo inalterado desde a leitura registrada (`g7_refresh_if_changed` zera a
-/// contagem quando ele muda), e o ledger do G3 foi alimentado por esta mesma leitura: o `Edit`
-/// direto passa no G3 e o harness o aceita. Sem carimbo (arquivo não mensurável) a afirmação
-/// «não mudou» não tem lastro — a frase não sai.
+/// The edit route that the G7 deny names (D8: the phrase only comes out when it is true). The deny only
+/// fires with the file unchanged since the recorded read (`g7_refresh_if_changed` zeroes the
+/// count when it changes), and the G3 ledger was fed by this same read: the direct
+/// `Edit` passes G3 and the harness accepts it. Without a stamp (file not measurable) the claim
+/// «it did not change» has no backing — the phrase does not come out.
 pub(super) fn g7_edit_route_note(fp: &str, measured: bool) -> String {
     if !measured {
         return String::new();
@@ -495,19 +495,19 @@ pub(super) fn g7_edit_route_note(fp: &str, measured: bool) -> String {
     )
 }
 
-/// Funde a rajada acumulada num corpo de programa executável.
+/// Fuses the accumulated burst into an executable program body.
 ///
-/// Devolve `(corpo, omitidos)`. A regra é **comando inteiro ou nenhum**: um
-/// comando que não cabe no orçamento é DESCARTADO, jamais truncado.
+/// Returns `(body, omitted)`. The rule is **whole command or none**: a
+/// command that does not fit in the budget is DROPPED, never truncated.
 ///
-/// Origem (2026-08-25, observado ao vivo nesta função): cada comando entrava
-/// com `cmd.chars().take(240)`, então uma rajada de greps longos produzia um
-/// programa cortado no meio de um caminho (`crates/tou'`) — sintaticamente
-/// plausível, com aspas equilibradas, e que **não roda**. Um comando truncado
-/// é pior que um ausente: o ausente aparece na contagem que o remédio declara;
-/// o truncado se disfarça de programa completo. A emenda do Gabriel (25/08) é
-/// exatamente esta — a injeção tem de entregar o snippet que SUBSTITUI as N
-/// chamadas, e um snippet que falha não substitui nada.
+/// Origin (2026-08-25, observed live in this function): each command entered
+/// with `cmd.chars().take(240)`, so a burst of long greps produced a
+/// program cut in the middle of a path (`crates/tou'`) — syntactically
+/// plausible, with balanced quotes, and that **does not run**. A truncated command
+/// is worse than an absent one: the absent one shows up in the count that the remedy declares;
+/// the truncated one disguises itself as a complete program. Gabriel's amendment (25/08) is
+/// exactly this — the injection has to deliver the snippet that REPLACES the N
+/// calls, and a snippet that fails replaces nothing.
 pub(super) fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
     let mut corpo = String::new();
     let mut omitidos = 0usize;
@@ -525,11 +525,11 @@ pub(super) fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
     (corpo.replace('\'', "'\\''"), omitidos)
 }
 
-/// O orçamento de parede da chamada que a reescrita do G1 substitui (09/10/2026).
-/// A reescrita herdava os 30 s padrão do `touring run`; a chamada original tinha o
-/// do Bash — o `timeout` dela, ou 120 s — e morria aos 30 s (`exit_code -2`, medido
-/// num laço de espera de 600 s). Em background o Bash não tem teto: vale o máximo
-/// do `touring run`. A folga deixa o envelope voltar antes do teto externo.
+/// The wall-clock budget of the call that the G1 rewrite replaces (09/10/2026).
+/// The rewrite inherited the default 30 s of `touring run`; the original call had
+/// Bash's — its `timeout`, or 120 s — and died at 30 s (`exit_code -2`, measured
+/// in a 600 s wait loop). In background Bash has no ceiling: the maximum of
+/// `touring run` applies. The slack lets the envelope return before the outer ceiling.
 pub(super) fn rewrite_wall_ms(tool_input: &Value) -> u64 {
     const BASH_DEFAULT_MS: u64 = 120_000;
     const RUN_MAX_MS: u64 = 600_000;
@@ -544,19 +544,19 @@ pub(super) fn rewrite_wall_ms(tool_input: &Value) -> u64 {
     externo.saturating_sub(FOLGA_MS).clamp(1_000, RUN_MAX_MS)
 }
 
-/// O `updatedInput` de uma reescrita: a chamada original com SÓ o `command`
-/// trocado (09/10/2026). O `updatedInput` SUBSTITUI o input — medido ao vivo: duas
-/// chamadas com `run_in_background: true` e `timeout: 600000` reescritas pelo G2
-/// voltaram "did not complete within its 120s timeout and was moved to the
-/// background". Usado pelas três reescritas (G1, G2, G8).
+/// The `updatedInput` of a rewrite: the original call with ONLY the `command`
+/// swapped (09/10/2026). The `updatedInput` REPLACES the input — measured live: two
+/// calls with `run_in_background: true` and `timeout: 600000` rewritten by G2
+/// came back "did not complete within its 120s timeout and was moved to the
+/// background". Used by the three rewrites (G1, G2, G8).
 pub(super) fn rewritten_input(tool_input: &Value, command: String) -> Value {
     let mut novo = tool_input.as_object().cloned().unwrap_or_default();
     novo.insert("command".to_string(), Value::String(command));
     Value::Object(novo)
 }
 
-/// Declara o orçamento de parede num programa `touring run --lang bash …` já
-/// montado (o do G8 sai de [`loop_rewrite_candidate`], que não conhece a chamada).
+/// Declares the wall-clock budget in an already-assembled `touring run --lang bash …` program
+/// (the one from G8 comes out of [`loop_rewrite_candidate`], which does not know the call).
 pub(super) fn with_wall_budget(programa: String, wall_ms: u64) -> String {
     match programa.strip_prefix("touring run --lang bash ") {
         Some(resto) => format!("touring run --lang bash --timeout-ms {wall_ms} {resto}"),
@@ -564,11 +564,11 @@ pub(super) fn with_wall_budget(programa: String, wall_ms: u64) -> String {
     }
 }
 
-/// O advisory do G1 quando a precisão viva o autodemove (S-2.3): só `additionalContext`,
-/// e o comando segue NATIVO e intacto. O texto antigo («a rajada acumulada já é o
-/// programa») soava como ordem de rodar o programa — repetindo o comando que acabara de
-/// rodar. Agora o programa é declarado o FORMATO da próxima rajada, nunca um passo
-/// pendente desta.
+/// The G1 advisory when live precision demotes it automatically (S-2.3): only `additionalContext`,
+/// and the command stays NATIVE and intact. The old text («the accumulated burst is already the
+/// program») sounded like an order to run the program — repeating the command that had just
+/// run. Now the program is declared the FORMAT of the next burst, never a pending
+/// step of this one.
 pub(super) fn g1_advisory_text(count: u32, class: &str, programa: &str) -> String {
     format!(
         "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de \
@@ -579,12 +579,12 @@ pub(super) fn g1_advisory_text(count: u32, class: &str, programa: &str) -> Strin
     )
 }
 
-/// A reescrita do G1 (V0e1). O `permissionDecisionReason` de um `allow` vai só para o
-/// log de debug (code.claude.com/docs/en/hooks, "For "allow" and "defer", written to
-/// the debug log only") — nem o modelo nem o usuário o veem. O modelo, que recebe a
-/// saída do sandbox no lugar da do seu comando, precisa do `additionalContext` (que só
-/// o `defer` ignora; teto de 10.000 chars) — sem ele a saída parecia "de outra
-/// chamada" (medido 09/10).
+/// The G1 rewrite (V0e1). The `permissionDecisionReason` of an `allow` goes only to the
+/// debug log (code.claude.com/docs/en/hooks, "For "allow" and "defer", written to
+/// the debug log only") — neither the model nor the user sees it. The model, which receives the
+/// sandbox output in place of that of its command, needs the `additionalContext` (which only
+/// `defer` ignores; ceiling of 10,000 chars) — without it the output looked "like it came from another
+/// call" (measured 09/10).
 pub(super) fn g1_rewrite(
     motivo: &str,
     hint: &str,
@@ -609,12 +609,12 @@ pub(super) fn g1_rewrite(
     }
 }
 
-/// N6 (2026-09-23) — o programa fundido do deny encontra a escada: quando um
-/// bloco parecido JÁ existe, a razão o entrega (afordância por construção, D8),
-/// e a rajada negada vira descoberta em vez de só reescrita. A régua media o
-/// contrário: `ladder_enrolled` 390 × `ladder_reused` 10 — descoberta falha
-/// no momento exato da ação. Read-only; `None` em qualquer erro (testável com
-/// um banco em memória).
+/// N6 (2026-09-23) — the fused program of the deny meets the ladder: when a similar
+/// block ALREADY exists, the reason hands it over (affordance by construction, D8),
+/// and the denied burst becomes discovery instead of only rewriting. The ruler measured the
+/// opposite: `ladder_enrolled` 390 × `ladder_reused` 10 — discovery fails
+/// at the exact moment of the action. Read-only; `None` on any error (testable with
+/// an in-memory database).
 pub(super) fn snippet_hint_line(conn: &rusqlite::Connection, program: &str) -> Option<String> {
     let m = touring_intelligence::rl::memory::snippet_stats::similar_snippets(conn, program, 1)
         .ok()?
@@ -631,8 +631,8 @@ pub(super) fn snippet_hint_line(conn: &rusqlite::Connection, program: &str) -> O
     ))
 }
 
-/// O wrapper de I/O: abre o memory.db do projeto somente-leitura e devolve ""
-/// em qualquer falha — um deny jamais falha POR CAUSA da dica.
+/// The I/O wrapper: opens the project's memory.db read-only and returns ""
+/// on any failure — a deny NEVER fails BECAUSE of the hint.
 pub(super) fn snippet_hint_for_program(program: &str, root: &Path) -> String {
     let db = touring_foundation::TouringConfig::memory_db_canonical(root);
     if !db.exists() {

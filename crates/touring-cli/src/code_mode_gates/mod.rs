@@ -164,40 +164,40 @@ pub(crate) struct ToolEvent<'a> {
     pub tool_input: &'a Value,
 }
 
-/// Overrides dos pontos que leem env global, como objeto nomeado (diretriz A2)
-/// — produção usa `from_env()`; testes constroem o literal e NUNCA tocam o env
-/// do processo (a race medida em 08/10 pela analise-6b: `set_var` num teste vaza
-/// para os outros testes em threads paralelas do mesmo binário — 41/150 rodadas
-/// no `dedupe_`; é por isso que o Rust 2024 marcou `set_var` como unsafe).
+/// Overrides of the points that read the global env, as a named object (guideline A2)
+/// — production uses `from_env()`; tests build the literal and NEVER touch the process
+/// env (the race measured on 08/10 by analise-6b: `set_var` in one test leaks
+/// into the other tests on parallel threads of the same binary — 41/150 runs
+/// in `dedupe_`; that is why Rust 2024 marked `set_var` as unsafe).
 #[derive(Default, Clone)]
 pub(crate) struct GateConfig {
-    /// TOURING_G2_REWRITE_DISABLED=1 → o G2 nega em vez de reescrever.
+    /// TOURING_G2_REWRITE_DISABLED=1 → G2 denies instead of rewriting.
     pub g2_rewrite_disabled: bool,
-    /// TOURING_G1_REWRITE_DISABLED=1 → o G1 (rajada de inspeção) volta ao deny
-    /// clássico em vez de reescrever para o `touring run` (V0e1: o default é
-    /// EXECUTAR a rota via updatedInput).
+    /// TOURING_G1_REWRITE_DISABLED=1 → G1 (inspection burst) goes back to the classic
+    /// deny instead of rewriting to `touring run` (V0e1: the default is to
+    /// EXECUTE the route via updatedInput).
     pub g1_rewrite_disabled: bool,
-    /// TOURING_PORTFOLIO_DIR → o portfólio lido de outro dir (testes/scratch).
+    /// TOURING_PORTFOLIO_DIR → the portfolio read from another dir (tests/scratch).
     pub portfolio_dir: Option<std::path::PathBuf>,
-    /// Os níveis «env» + «alias» da resolução do code mode (TOURING_CODE_MODE /
-    /// TOURING_CODE_ONLY) — lidos uma vez aqui, nunca no meio do gate.
+    /// The «env» + «alias» levels of the code mode resolution (TOURING_CODE_MODE /
+    /// TOURING_CODE_ONLY) — read once here, never in the middle of the gate.
     pub code_mode_env: CodeModeEnv,
-    /// TOURING_CODE_GATES_DISABLED=1 → o kill switch humano desliga TODOS os
-    /// gates (29 testes liam isso do ambiente — matriz da 6b, 08/10).
+    /// TOURING_CODE_GATES_DISABLED=1 → the human kill switch turns off ALL
+    /// gates (29 tests read this from the environment — 6b matrix, 08/10).
     pub code_gates_disabled: bool,
-    /// Precisão viva do G1 INJETADA (`(precisão, volume)`): `None` lê o contador global
-    /// (`g1_live_precision()`, o comportamento de produção; `from_env` nunca o preenche);
-    /// `Some(x)` fixa o dado — o ramo advisory do G1 só dispara com precisão abaixo do
-    /// piso, e o contador global não é controlável por um teste.
+    /// Live G1 precision INJECTED (`(precision, volume)`): `None` reads the global counter
+    /// (`g1_live_precision()`, the production behavior; `from_env` never fills it);
+    /// `Some(x)` fixes the datum — the advisory branch of G1 only fires with precision below
+    /// the floor, and the global counter cannot be controlled by a test.
     pub g1_precision: Option<Option<(f64, u64)>>,
-    /// O esqueleto R1 INJETADO: `None` = produção (procura o arquivo sob `$HOME`);
-    /// `Some(x)` fixa o dado. Sem isto o texto do G7 dependia de um arquivo da máquina
-    /// do desenvolvedor, e um teste que afirmava o texto reprovava em qualquer outra.
+    /// The INJECTED R1 skeleton: `None` = production (looks for the file under `$HOME`);
+    /// `Some(x)` fixes the datum. Without this the G7 text depended on a file on the developer's
+    /// machine, and a test that asserted the text failed on any other.
     pub r1_skeleton: Option<Option<std::path::PathBuf>>,
 }
 
 impl GateConfig {
-    /// O esqueleto R1 em vigor: o injetado, ou o da máquina (produção).
+    /// The R1 skeleton in force: the injected one, or the machine's (production).
     fn r1_skeleton(&self) -> Option<std::path::PathBuf> {
         match &self.r1_skeleton {
             Some(fixed) => fixed.clone(),

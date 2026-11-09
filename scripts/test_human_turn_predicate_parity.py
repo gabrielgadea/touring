@@ -10,9 +10,9 @@ O QUE ESTE TESTE IMPEDE
     predicado aplicado têm de derivar da MESMA fonte.
 
     O predicado aqui decide duas coisas caras:
-      * `transcript_scan.rs` — o leitor de transcript, que decide UMA vez o que é um
-        prompt humano (e, portanto, o DENOMINADOR de `injected_bytes_per_turn` de
-        `context_budget.rs`, a métrica-manchete do plano);
+      * `transcript_scan.rs` — the transcript reader, which decides ONCE what a
+        human prompt is (and, therefore, the DENOMINATOR of `injected_bytes_per_turn` of
+        `context_budget.rs`, the plan's headline metric);
       * `loop_turn_record.py` — ONDE COMEÇA o registro do turno (classe B).
 
     Medido em 04/09/2026 sobre 5 transcripts: 35 de 172 records contados como
@@ -40,10 +40,10 @@ REPO = Path(__file__).resolve().parent.parent
 RUST = REPO / "crates/touring-cli/src/cli/transcript_scan.rs"
 PY_MIRROR = REPO / "client/skills/loop-engineering/scripts/hooks/loop_turn_record.py"
 
-# Visibilidade OPCIONAL (`const`, `pub` ou `pub(crate)`): o guard exigia `pub` quando
-# a constante virou privada, e deixou de guardar, EM SILÊNCIO: a lista mudou e
-# ninguém foi avisado. O predicado é o mesmo; o que mudou foi a visibilidade (e,
-# em 01/11/2026, o arquivo: a constante mora no leitor, `pub(crate)`).
+# OPTIONAL visibility (`const`, `pub` or `pub(crate)`): the guard required `pub`, and when
+# the constant became private it stopped guarding, SILENTLY: the list changed and
+# nobody was told. The predicate is the same; what changed was the visibility (and,
+# on 01/11/2026, the file: the constant now lives in the reader, `pub(crate)`).
 _RUST_ARRAY = re.compile(
     r"(?:pub(?:\([a-z]+\))?\s+)?const NON_HUMAN_TURN_MARKERS:\s*\[&str;\s*\d+\]\s*=\s*\[(?P<body>.*?)\];",
     re.S,

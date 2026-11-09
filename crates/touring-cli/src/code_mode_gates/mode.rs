@@ -9,7 +9,7 @@ use std::path::Path;
 use super::arm::{arm_counts_durable, code_mode_arm_armed, resolve_with_policy};
 use super::spec::GATE_BYPASS_TOKEN;
 
-/// `true` quando o comando É a rota sancionada (um programa único no sandbox).
+/// `true` when the command IS the sanctioned route (a single program in the sandbox).
 pub(super) fn is_sanctioned_route(cmd: &str) -> bool {
     // S24: a path-qualified binary (`.touring/bin/touring run`, the per-project one) is the
     // same route — it was never credited, so a project's own binary looked like a bypass.
@@ -19,11 +19,11 @@ pub(super) fn is_sanctioned_route(cmd: &str) -> bool {
         .any(|w| (w[0] == "touring" || w[0].ends_with("/touring")) && w[1] == "run")
 }
 
-/// Kill switch global (humano; env do DAEMON — exige `touring daemon-ctl
-/// restart` para valer, como `TOURING_PILLAR_INDUCTION_ARMED`).
-/// A decisão pura do kill switch HUMANO — injetável: a matriz de
-/// hermeticidade da analise-6b (08/10) mediu 29 testes vermelhos com
-/// `TOURING_CODE_GATES_DISABLED=1` no ambiente — liam o switch do processo.
+/// Global kill switch (human; the DAEMON's env — requires `touring daemon-ctl
+/// restart` to take effect, like `TOURING_PILLAR_INDUCTION_ARMED`).
+/// The pure decision of the HUMAN kill switch — injectable: the hermeticity matrix of
+/// analise-6b (08/10) measured 29 red tests with
+/// `TOURING_CODE_GATES_DISABLED=1` in the environment — they read the process's switch.
 pub(super) fn code_gates_disabled_from(v: Option<&str>) -> bool {
     v == Some("1")
 }
@@ -32,74 +32,74 @@ pub(super) fn code_gates_disabled() -> bool {
     code_gates_disabled_from(std::env::var("TOURING_CODE_GATES_DISABLED").ok().as_deref())
 }
 
-/// A forma em que as ferramentas chegam ao modelo NESTE escopo.
+/// The form in which the tools reach the model IN THIS scope.
 ///
-/// A definição canônica mora em [`touring_foundation::code_mode`] porque DOIS
-/// executores a impõem — este hook (`PreToolUse`) e o handshake MCP
-/// (`touring-server::server::apply_curation`, S1 TRANSPORT). Duplicar o tipo e
-/// o parser recriaria a falha que este workspace já pagou duas vezes: sítios da
-/// mesma regra que divergem (2026-08-23) e uma declaração que promete o que o
-/// executor não aplica (achado D8, 2026-08-25).
+/// The canonical definition lives in [`touring_foundation::code_mode`] because TWO
+/// executors enforce it — this hook (`PreToolUse`) and the MCP handshake
+/// (`touring-server::server::apply_curation`, S1 TRANSPORT). Duplicating the type and
+/// the parser would recreate the failure this workspace has already paid for twice: sites of the
+/// same rule that diverge (2026-08-23) and a declaration that promises what the
+/// executor does not apply (finding D8, 2026-08-25).
 pub(crate) use touring_foundation::code_mode::CodeModePresentation;
 
-// **Calibração REVISTA pelo S3 (27/08/2026) — a lista fixa saiu, o predicado
-// de rajada entrou.** A tabela abaixo é a de 25/08 (1.312 chamadas), mantida
-// porque foi ela que motivou a revisão, com o dado de 27/08 ao lado
-// (115 transcripts, janela 300s, `scripts/s3_burst_distribution.py`):
+// **Calibration REVISED by S3 (27/08/2026) — the fixed list is out, the burst
+// predicate is in.** The table below is the one from 25/08 (1,312 calls), kept
+// because it is what motivated the revision, with the 27/08 data beside it
+// (115 transcripts, 300s window, `scripts/s3_burst_distribution.py`):
 //
-// | classe | colapsava? | chamadas | % isoladas | % volume em rajada ≥2 |
+// | class | collapsed? | calls | % isolated | % volume in burst ≥2 |
 // |---|---|---|---|---|
-// | `grep`  | sim  | 770 | 12,6% | 87,4% |
-// | `sed-n` | NÃO  | 408 | 18,6% | 81,4% |
-// | `ls`    | NÃO  | 338 | 28,7% | 71,3% |
-// | `cat`   | sim  | 316 | 26,6% | 73,4% |
-// | `wc`    | NÃO  |  34 | 67,6% | 32,4% |
-// | `find`  | sim  |  32 | 56,2% | 43,8% (zero rajadas ≥3) |
+// | `grep`  | yes  | 770 | 12.6% | 87.4% |
+// | `sed-n` | NO   | 408 | 18.6% | 81.4% |
+// | `ls`    | NO   | 338 | 28.7% | 71.3% |
+// | `cat`   | yes  | 316 | 26.6% | 73.4% |
+// | `wc`    | NO   |  34 | 67.6% | 32.4% |
+// | `find`  | yes  |  32 | 56.2% | 43.8% (zero bursts ≥3) |
 //
-// A lista fixa errava nos dois sentidos ao mesmo tempo: negava `find`, que é
-// majoritariamente isolada e não produziu UMA rajada ≥3 em 115 transcripts, e
-// deixava passar `sed-n` e `ls`, que juntas somam 746 chamadas com ~76% do
-// volume em rajada. Nome de classe não prediz fan-out; o que prediz é o que a
-// classe está fazendo NESTA janela — e isso um contador responde, uma lista não.
+// The fixed list was wrong in both directions at once: it denied `find`, which is
+// mostly isolated and did not produce ONE burst ≥3 in 115 transcripts, and
+// let `sed-n` and `ls` pass, which together add up to 746 calls with ~76% of the
+// volume in bursts. A class name does not predict fan-out; what predicts it is what the
+// class is doing IN THIS window — and a counter answers that, a list does not.
 //
-// Os níveis por classe são exatamente o desenho que o DeepSeek ADIOU (*"its
-// design depends on evidence about how models split usage under `both`"*). A
-// evidência que faltava a eles é esta tabela: rodamos em `both` instrumentado,
-// e depois medimos de novo para corrigir a nossa própria primeira leitura.
+// The per-class levels are exactly the design that DeepSeek DEFERRED (*"its
+// design depends on evidence about how models split usage under `both`"*). The
+// evidence they lacked is this table: we ran under instrumented `both`,
+// and then measured again to correct our own first reading.
 
-/// Resolve a apresentação: **prefixo do comando → env do hook → alias → projeto → default**.
+/// Resolves the presentation: **command prefix → hook env → alias → project → default**.
 ///
-/// Duas verdades medidas (25/08) moram nesta ordem:
+/// Two measured truths (25/08) live in this order:
 ///
-/// 1. **Exportar no shell da tool Bash NÃO chega ao hook.** O processo do hook
-///    e o shell que executa o comando são IRMÃOS spawnados pelo Claude Code —
-///    `export TOURING_CODE_MODE=…` num é invisível ao outro. A env que esta
-///    função lê com `std::env::var` é a do processo do hook (a do daemon que
-///    o spawnou), não a "da sessão" do operador.
-/// 2. **A via que atravessa é a linha de comando.** É assim que
-///    `TOURING_GATE_OK=1 <cmd>` já funciona: o hook lê o prefixo `VAR=valor`
-///    do próprio comando. Por isso o nível mais externo é o prefixo — útil
-///    sobretudo para RELAXAR por-comando (`TOURING_CODE_MODE=native grep …`),
-///    simétrico ao token de bypass.
+/// 1. **Exporting in the Bash tool's shell does NOT reach the hook.** The hook process
+///    and the shell that executes the command are SIBLINGS spawned by Claude Code —
+///    `export TOURING_CODE_MODE=…` in one is invisible to the other. The env that this
+///    function reads with `std::env::var` is that of the hook process (that of the daemon that
+///    spawned it), not the operator's "session" one.
+/// 2. **The route that gets through is the command line.** That is how
+///    `TOURING_GATE_OK=1 <cmd>` already works: the hook reads the `VAR=value` prefix
+///    from the command itself. That is why the outermost level is the prefix — useful
+///    above all to RELAX per command (`TOURING_CODE_MODE=native grep …`),
+///    symmetric to the bypass token.
 ///
-/// `TOURING_CODE_ONLY=1` continua valendo como alias de `Code` (compatibilidade
-/// com o piloto S-8.1), agora com o escopo e a calibração que lhe faltavam — ele
-/// negava TODA classe, `ls` inclusive.
+/// `TOURING_CODE_ONLY=1` still counts as an alias of `Code` (compatibility
+/// with the S-8.1 pilot), now with the scope and calibration it lacked — it
+/// denied EVERY class, `ls` included.
 ///
-/// Os níveis «env do hook» e «alias» chegam INJETADOS (`CodeModeEnv`), nunca
-/// lidos do processo no meio da resolução: a matriz de hermeticidade da
-/// analise-6b (08/10) mediu 15 testes vermelhos sob `TOURING_CODE_MODE=native`
-/// no ambiente — liam `Native` do ambiente em vez do caso sob teste (o env
-/// vence o `touring.toml` do projeto scratch, por precedência documentada).
+/// The «hook env» and «alias» levels arrive INJECTED (`CodeModeEnv`), never
+/// read from the process in the middle of the resolution: the hermeticity matrix of
+/// analise-6b (08/10) measured 15 red tests under `TOURING_CODE_MODE=native`
+/// in the environment — they read `Native` from the environment instead of the case under test (the env
+/// wins over the scratch project's `touring.toml`, by documented precedence).
 #[derive(Default, Clone)]
 pub(crate) struct CodeModeEnv {
-    /// Valor de `TOURING_CODE_MODE` (crú — o parse é parte do comportamento).
+    /// Value of `TOURING_CODE_MODE` (raw — parsing is part of the behavior).
     pub mode: Option<String>,
-    /// Valor de `TOURING_CODE_ONLY` (o alias legado de `Code`).
+    /// Value of `TOURING_CODE_ONLY` (the legacy alias of `Code`).
     pub code_only_alias: Option<String>,
-    /// `TOURING_CODE_MODE_ARM_ARMED` (a política do braço A/B só age ARMADA). Lido uma vez
-    /// aqui, nunca no meio da resolução: o predicado puro `resolve_with_policy` já recebia
-    /// o dado, mas quem o entregava lia o env do processo.
+    /// `TOURING_CODE_MODE_ARM_ARMED` (the A/B arm policy only acts ARMED). Read once
+    /// here, never in the middle of the resolution: the pure predicate `resolve_with_policy` already received
+    /// the datum, but whoever delivered it read the process env.
     pub arm_armed: bool,
 }
 
@@ -112,10 +112,10 @@ impl CodeModeEnv {
         }
     }
 
-    /// A decisão pura dos níveis env+alias — testável sem tocar o processo.
+    /// The pure decision of the env+alias levels — testable without touching the process.
     fn resolve(&self) -> Option<CodeModePresentation> {
-        // parse() é o parser canônico (trim + unquote): um valor entre aspas
-        // também resolve.
+        // parse() is the canonical parser (trim + unquote): a value in quotes
+        // also resolves.
         if let Some(m) = self.mode.as_deref().and_then(CodeModePresentation::parse) {
             return Some(m);
         }
@@ -145,17 +145,17 @@ pub(super) fn resolve_presentation(
         if nome == "TOURING_CODE_MODE" {
             match CodeModePresentation::parse(valor) {
                 Some(m) => return m,
-                None => break, // valor inválido não cala os níveis seguintes
+                None => break, // invalid value does not silence the following levels
             }
         }
     }
     if let Some(m) = env.resolve() {
         return m;
     }
-    // A declaração humana vence SEMPRE: prefixo, env, alias e `touring.toml` já
-    // decidiram acima. A política só preenche o espaço que o humano deixou em
-    // aberto — sobrescrever uma declaração explícita não seria aprender, seria
-    // desobedecer.
+    // The human declaration ALWAYS wins: prefix, env, alias and `touring.toml` have already
+    // decided above. The policy only fills the space the human left
+    // open — overriding an explicit declaration would not be learning, it would be
+    // disobeying.
     resolve_with_policy(
         project_presentation(project_root),
         env.arm_armed,
@@ -163,12 +163,12 @@ pub(super) fn resolve_presentation(
     )
 }
 
-/// Lê `[code_mode] mode` de `<root>/.touring/touring.toml`.
+/// Reads `[code_mode] mode` from `<root>/.touring/touring.toml`.
 ///
-/// Delega ao parser canônico do `touring-foundation` — o mesmo que o handshake
-/// MCP consulta, para que a apresentação declarada e a imposta nunca possam
-/// divergir. Reexportado no escopo do módulo porque os testes o consultam
-/// diretamente.
+/// Delegates to the canonical parser of `touring-foundation` — the same one the MCP
+/// handshake consults, so that the declared and the enforced presentation can never
+/// diverge. Re-exported in the module scope because the tests consult it
+/// directly.
 pub(crate) use touring_foundation::code_mode::project_presentation;
 
 /// S24 — the bypass token counts only where the SHELL reads it (a command prefix), never

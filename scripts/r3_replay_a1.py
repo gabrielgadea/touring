@@ -181,7 +181,7 @@ VERSAO_CACHE = 1  # mude a gramática/pergunta e o cache invalida por construç�
 
 
 def _chave_cache(arm: str, chave: str, spec: str) -> str:
-    """A chave de uma predição (ver `r3_replay_common.chave_cache`), com a VERSAO_CACHE deste replay."""
+    """The key of a prediction (see `r3_replay_common.chave_cache`), with this replay's VERSAO_CACHE."""
     return common.chave_cache(VERSAO_CACHE, arm, chave, spec)
 
 

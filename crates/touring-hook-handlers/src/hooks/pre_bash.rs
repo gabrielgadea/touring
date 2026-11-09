@@ -1182,9 +1182,9 @@ mod vgp_ordem_tests {
         }
     }
 
-    /// `pre_bash` pergunta ao dono ÚNICO (`command_policy::judge`): uma recusa só estrutural,
-    /// uma só léxica (com e sem rota) e um aviso estrutural são respondidos exatamente como a
-    /// política diz — o texto do deny é o da política, sem acréscimo.
+    /// `pre_bash` asks the SINGLE owner (`command_policy::judge`): a structural-only refusal,
+    /// a lexical-only one (with and without a route) and a structural warning are answered exactly as
+    /// the policy says — the deny text is the policy's, with nothing added.
     #[test]
     fn pre_bash_responde_o_que_a_command_policy_julga() {
         use crate::shared::command_policy::{Verdict, judge};

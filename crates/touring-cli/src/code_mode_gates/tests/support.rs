@@ -22,8 +22,8 @@ pub(super) fn escopo_code(root: &Path) {
     escreve_config(root, "[code_mode]\nmode = \"code\"\n");
 }
 
-/// Um arquivo de 200 linhas no escopo `code`, com a linha 120 única — grande o bastante para o
-/// G3 devolver uma janela de leitura.
+/// A 200-line file in the `code` scope, with line 120 unique — large enough for
+/// G3 to hand back a read window.
 pub(super) fn projeto_com_arquivo_grande() -> (tempfile::TempDir, PathBuf) {
     let tmp = tempfile::tempdir().expect("tempdir");
     escopo_code(tmp.path());
@@ -33,12 +33,12 @@ pub(super) fn projeto_com_arquivo_grande() -> (tempfile::TempDir, PathBuf) {
     (tmp, fp)
 }
 
-/// Monta um índice scratch com UM artefato cujo propósito casa a rajada.
-/// O dir é ÚNICO por chamada: o pid é o mesmo para todos os testes do
-/// processo, e sem o seq dois testes paralelos gravam o MESMO
-/// `index.json.tmp{pid}` — um rename move o tmp do outro e o `save_to`
-/// falha com ENOENT (race medida 08/10: 3 falhas em ~8 rodadas; o
-/// `#[serial]` antigo mascarava ESTA race de arquivo, não só a do env).
+/// Builds a scratch index with ONE artifact whose purpose matches the burst.
+/// The dir is UNIQUE per call: the pid is the same for all the tests of the
+/// process, and without the seq two parallel tests write the SAME
+/// `index.json.tmp{pid}` — one rename moves the other's tmp and `save_to`
+/// fails with ENOENT (race measured 08/10: 3 failures in ~8 rounds; the
+/// old `#[serial]` masked THIS file race, not only the env one).
 pub(super) fn monta_portfolio_scratch() -> PathBuf {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use touring_foundation::portfolio::store::{PortfolioIndex, save_to};

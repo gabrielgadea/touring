@@ -971,9 +971,9 @@ mod s2_injection_policy_tests {
         assert!(lines.iter().all(|l| l["site"] == "emit-runtime"));
     }
 
-    /// A resposta já serializada (o texto que um handler da tabela de despacho devolve)
-    /// sai pelo MESMO funil do `emit`: `stdout_text` é `to_json` + `stdout_text_of_json`,
-    /// em todo nível — uma rota que serve o texto pronto não pode diferir da que serializa.
+    /// The already-serialized answer (the text that a dispatch-table handler returns)
+    /// leaves through the SAME funnel as `emit`: `stdout_text` is `to_json` + `stdout_text_of_json`,
+    /// at every level — a route that serves the finished text cannot differ from the one that serializes it.
     #[test]
     fn test_serialized_answer_leaves_through_the_same_funnel_as_emit() {
         let dir = tempfile::tempdir().expect("tempdir");

@@ -150,8 +150,8 @@ def _eventos_do_transcript(path: Path) -> tuple[list[tuple[str, str, str]], int,
     eventos: list[tuple[str, str, str]] = []
     bad = 0
     citadas = 0
-    # `_iter_events` conta as linhas malformadas e fecha com um registro-sentinela que carrega o
-    # total (sem `type` nem `message`, logo inerte aqui): o último `bad` visto é o total.
+    # `_iter_events` counts the malformed lines and closes with a sentinel record that carries the
+    # total (no `type` nor `message`, hence inert here): the last `bad` seen is the total.
     for ts, d, bad in _iter_events(path):
         if d.get("type") == "user":
             eventos.append((ts, "user", ""))

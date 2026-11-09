@@ -562,23 +562,23 @@ fn concurrent_appends_never_splice_a_record() {
     assert_eq!(seen.len(), 8 * 40, "every record landed exactly once");
 }
 
-/// T-1 (31/10/2026) — o journal NÃO pode ser corrompido por concorrência.
+/// T-1 (31/10/2026) — the journal CANNOT be corrupted by concurrency.
 ///
-/// O defeito: o registro era escrito em DUAS chamadas (o corpo e o `\n`),
-/// e dois processos emendavam entre elas — 400 linhas inválidas em
-/// 47.102 no journal real, 99 delas com 2+ `run_id` (ids 1 ms apartados).
+/// The defect: the record was written in TWO calls (the body and the `\n`),
+/// and two processes spliced between them — 400 invalid lines in
+/// 47,102 in the real journal, 99 of them with 2+ `run_id` (ids 1 ms apart).
 ///
-/// O teste re-executa o próprio binário de teste em N PROCESSOS (o modo
-/// filho é o MESMO teste, com a variável de ambiente que o faz só
-/// escrever — é o que impede a recursão). Cada processo anexa M
-/// registros; o journal final tem de ter ZERO linhas inválidas e N×M
-/// registros.
+/// The test re-executes the test binary itself in N PROCESSES (the child mode
+/// is the SAME test, with the environment variable that makes it only
+/// write — which is what prevents the recursion). Each process appends M
+/// records; the final journal must have ZERO invalid lines and N×M
+/// records.
 #[test]
 fn journal_append_is_atomic_across_processes() {
     const FILHOS: usize = 12;
     const POR_FILHO: usize = 250;
 
-    // Modo filho: só escreve e sai.
+    // Child mode: only writes and exits.
     if let Ok(dir) = std::env::var("TOURING_JOURNAL_RACE_DIR") {
         let journal = Journal::at(PathBuf::from(dir).join("run_journal.jsonl"));
         for i in 0..POR_FILHO {

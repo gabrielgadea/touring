@@ -11,9 +11,9 @@ use super::*;
 
 /// True iff `command` starts an atomic content/file search that `ctx_execute`
 /// could fold into one pass.
-/// `VAR=valor` de prefixo (inclusive o bypass `TOURING_GATE_OK=1`): a classe é
-/// do comando executado, não do ambiente que o precede. Predicado idêntico ao
-/// que `scan_class_of` sempre usou — extraído para os 5 sítios dividirem.
+/// `VAR=value` prefix (including the bypass `TOURING_GATE_OK=1`): the class belongs
+/// to the executed command, not to the environment that precedes it. Predicate identical to
+/// what `scan_class_of` always used — extracted so the 5 sites share it.
 pub(super) fn is_env_assignment(t: &str) -> bool {
     t.contains('=')
         && t.chars()
@@ -21,17 +21,17 @@ pub(super) fn is_env_assignment(t: &str) -> bool {
             .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
-/// Wrapper de execução reconhecido pelo resolvedor: flags que tomam valor +
-/// quantos posicionais o PRÓPRIO wrapper consome (a duração do `timeout`, a
-/// máscara do `taskset`, a prioridade do `chrt`).
+/// Execution wrapper recognized by the resolver: flags that take a value +
+/// how many positionals the wrapper ITSELF consumes (the `timeout` duration, the
+/// `taskset` mask, the `chrt` priority).
 pub(super) struct WrapperSpec {
     value_flags: &'static [&'static str],
     positionals: usize,
 }
 
-/// S1 (26/08/2026) — os classificadores liam o 1º token: `time grep`,
-/// `nice -n 5 find`, `sudo cat`, `env F=1 rg` escapavam de TODOS os gates e
-/// nudges ao mesmo tempo (a cobertura nascia zero onde a classe nasce).
+/// S1 (26/08/2026) — the classifiers read the 1st token: `time grep`,
+/// `nice -n 5 find`, `sudo cat`, `env F=1 rg` escaped ALL the gates and
+/// nudges at once (coverage was born at zero where the class is born).
 pub(super) fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
     Some(match verb {
         "env" => WrapperSpec {
@@ -81,10 +81,10 @@ pub(super) fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
     })
 }
 
-/// Consome o wrapper em `toks[i]` (verbo + flags + posicionais dele) e devolve
-/// o índice seguinte; `i` inalterado quando `toks[i]` não é wrapper. Flag
-/// idêntica à da tabela consome o valor no token seguinte (`-n 5`); a forma
-/// colada (`-n5`) e a longa com `=` (`--signal=KILL`) consomem um só token.
+/// Consumes the wrapper at `toks[i]` (verb + flags + its positionals) and returns
+/// the next index; `i` unchanged when `toks[i]` is not a wrapper. A flag
+/// identical to the one in the table consumes the value in the next token (`-n 5`); the
+/// glued form (`-n5`) and the long one with `=` (`--signal=KILL`) consume a single token.
 pub(super) fn skip_wrapper(toks: &[&str], i: usize) -> usize {
     let Some(spec) = toks.get(i).and_then(|v| wrapper_spec(v)) else {
         return i;
@@ -94,7 +94,7 @@ pub(super) fn skip_wrapper(toks: &[&str], i: usize) -> usize {
     while j < toks.len() {
         let t = toks[j];
         if is_env_assignment(t) {
-            j += 1; // `sudo FOO=1 cmd` / as atribuições do próprio `env`
+            j += 1; // `sudo FOO=1 cmd` / the assignments of `env` itself
             continue;
         }
         if t.starts_with('-') && t != "-" {
@@ -106,17 +106,17 @@ pub(super) fn skip_wrapper(toks: &[&str], i: usize) -> usize {
             j += 1;
             continue;
         }
-        break; // o verbo real
+        break; // the real verb
     }
     j
 }
 
-/// Tokens a partir do VERBO REAL: prefixos `VAR=valor` e wrappers de execução
+/// Tokens starting from the REAL VERB: `VAR=value` prefixes and execution wrappers
 /// (`env`/`time`/`nice`/`sudo`/`command`/`builtin`/`timeout`/`stdbuf`/
-/// `ionice`/`taskset`/`chrt`, encadeados em qualquer ordem) removidos. Vazio
-/// quando o comando é só invólucro (`env` puro imprime o ambiente). Um único
-/// resolvedor para todos os classificadores — consertar um sítio só mascarou
-/// o defeito uma vez (memória `definer-module-cinco-sitios`); não duas.
+/// `ionice`/`taskset`/`chrt`, chained in any order) removed. Empty
+/// when the command is only a shell (a bare `env` prints the environment). A single
+/// resolver for all the classifiers — fixing only one site masked
+/// the defect once (memory `definer-module-cinco-sitios`); not twice.
 pub(super) fn resolved_tokens<'a, 'b>(toks: &'b [&'a str]) -> &'b [&'a str] {
     let mut i = 0;
     while i < toks.len() {
@@ -133,10 +133,10 @@ pub(super) fn resolved_tokens<'a, 'b>(toks: &'b [&'a str]) -> &'b [&'a str] {
     &toks[i..]
 }
 
-/// Segmentos de comando separados por operadores de sequência (`&&`, `||`,
-/// `;`, nova linha). Ingênuo quanto a aspas (`grep 'a;b'` corta dentro da
-/// aspa) — seguro para CLASSIFICAÇÃO: o verbo do segmento não muda com o
-/// corte, que é o único uso (S1, 26/08).
+/// Command segments separated by sequence operators (`&&`, `||`,
+/// `;`, newline). Naive about quotes (`grep 'a;b'` cuts inside the
+/// quote) — safe for CLASSIFICATION: the segment's verb does not change with the
+/// cut, which is the only use (S1, 26/08).
 pub(super) fn command_segments(cmd: &str) -> Vec<&str> {
     cmd.split(['\n', ';'])
         .flat_map(|part| part.split("&&"))
@@ -146,22 +146,22 @@ pub(super) fn command_segments(cmd: &str) -> Vec<&str> {
         .collect()
 }
 
-/// Tokens efetivos: segmenta por operadores de sequência, pula segmentos
-/// `cd <dir>` (prefixo de navegação — `cd /x && grep foo` é `grep`), e
-/// resolve wrappers no primeiro segmento que não é só navegação. Tudo `cd`
-/// (ou nada) devolve vazio. É o resolved_tokens + a lacuna que a estratégia
-/// S1 nomeou (`cd <dir> (&&|;\n)`) e a primeira entrega deixou passar.
+/// Effective tokens: segments by sequence operators, skips `cd <dir>`
+/// segments (navigation prefix — `cd /x && grep foo` is `grep`), and
+/// resolves wrappers in the first segment that is not only navigation. All `cd`
+/// (or nothing) returns empty. It is resolved_tokens + the gap that the S1
+/// strategy named (`cd <dir> (&&|;\n)`) and the first delivery let through.
 pub(crate) fn effective_tokens(cmd: &str) -> Vec<&str> {
     for seg in command_segments(cmd) {
         let toks: Vec<&str> = seg.split_whitespace().collect();
         let rest = resolved_tokens(&toks);
         match rest.first() {
-            Some(&"cd") => continue, // prefixo de navegação — o próximo decide
-            // Segmento que resolve para NADA (`P=x` sozinho, `env` puro): o
-            // próximo segmento decide. Sem este braço, `P=x\npython3 f.py`
-            // devolvia vazio e TODA classificação morria no assignment —
-            // provado ao vivo (29/08): 12 execuções python atrás de
-            // `VAR=...\n` e zero denies do G10 no turno de 60 do `analise`.
+            Some(&"cd") => continue, // navigation prefix — the next one decides
+            // A segment that resolves to NOTHING (a lone `P=x`, a bare `env`): the
+            // next segment decides. Without this arm, `P=x\npython3 f.py`
+            // returned empty and ALL classification died at the assignment —
+            // proven live (29/08): 12 python executions behind
+            // `VAR=...\n` and zero G10 denies in the 60-turn run of `analise`.
             None => continue,
             _ => return rest.to_vec(),
         }
@@ -172,12 +172,12 @@ pub(crate) fn effective_tokens(cmd: &str) -> Vec<&str> {
 /// The file an inline `sed -i`/`awk -i inplace`/`perl -pi` edit targets — the last
 /// path-like token (skips flags and the substitution script). Lets the Edit tool /
 /// ast-meta nudge carry the real path instead of `<file>`. `None` when not derivable.
-/// N3a (26/08/2026) — escrita cega inline: `sed -i`/`sed --in-place`/
-/// `awk -i inplace`/`perl -pi` EM POSIÇÃO DE COMANDO (início, `|`, `;`,
-/// `&&`/`&`, `$(`, nova linha). A âncora em posição de comando separa a
-/// invocação do texto — `echo "rode sed -i aqui"` é prosa, não escrita.
-/// Lacuna conhecida (documentada, fora do escopo N3a): `find -exec sed -i`
-/// e `xargs sed -i` não estão em posição de comando.
+/// N3a (26/08/2026) — blind inline write: `sed -i`/`sed --in-place`/
+/// `awk -i inplace`/`perl -pi` IN COMMAND POSITION (start, `|`, `;`,
+/// `&&`/`&`, `$(`, newline). The anchor in command position separates the
+/// invocation from the text — `echo "run sed -i here"` is prose, not a write.
+/// Known gap (documented, outside the N3a scope): `find -exec sed -i`
+/// and `xargs sed -i` are not in command position.
 pub(crate) fn is_inline_blind_edit(cmd: &str) -> bool {
     static RE: OnceLock<regex::Regex> = OnceLock::new();
     RE.get_or_init(|| {
@@ -189,24 +189,24 @@ pub(crate) fn is_inline_blind_edit(cmd: &str) -> bool {
     .is_match(cmd)
 }
 
-/// S4 (26/08) — classe do executor homogêneo (R4): `python3`/
-/// `.venv/bin/python3`/`pytest` & cia — a rajada desenrolada que nenhum gate
-/// nomeava (75 chamadas seriadas na sessão dc87e4e0, 5,8% adoção).
-/// `python3 -c` fica de fora (o advisory CEG é o dono do inline). Mutação
-/// marcada fica de fora por construção (P2.3): redirect de shell,
-/// instaladores, git, rm — o marcador é a calibração, não prova de pureza
-/// (a limitação é documentada, como no G8).
-/// A visão do comando que o filtro de mutação inspeciona: corpos de heredoc
-/// removidos (são DADO alimentando stdin, não comando) e redirects inofensivos
-/// de FD/descarte neutralizados (`2>&1`, `2>/dev/null`, `>/dev/null`, …) — eles
-/// não gravam arquivo nenhum. O `>` que sobrar é redirect real (escrita), e o
-/// comando continua fora da rajada exec, como os testes exigem. Furo provado
-/// ao vivo (29/08): as execuções python do turno de 60 do `analise` carregavam
-/// `2>&1`/`2>/dev/null` e o `contains(">")` sobre o blob inteiro anulava a
-/// classe — o G10 ficou mudo o turno todo ("verificador usa menos que o
-/// extrator", mais uma encarnação).
+/// S4 (26/08) — class of the homogeneous executor (R4): `python3`/
+/// `.venv/bin/python3`/`pytest` & co — the unrolled burst that no gate
+/// named (75 serial calls in session dc87e4e0, 5.8% adoption).
+/// `python3 -c` is left out (the CEG advisory owns the inline). Marked
+/// mutation is left out by construction (P2.3): shell redirect,
+/// installers, git, rm — the marker is the calibration, not proof of purity
+/// (the limitation is documented, as in G8).
+/// The view of the command that the mutation filter inspects: heredoc bodies
+/// removed (they are DATA feeding stdin, not a command) and harmless FD/discard
+/// redirects neutralized (`2>&1`, `2>/dev/null`, `>/dev/null`, …) — they
+/// write no file at all. Any `>` that remains is a real redirect (a write), and the
+/// command stays out of the exec burst, as the tests require. Hole proven
+/// live (29/08): the python executions of the 60-turn run of `analise` carried
+/// `2>&1`/`2>/dev/null` and the `contains(">")` over the whole blob nullified the
+/// class — G10 went mute for the whole turn ("the verifier uses less than the
+/// extractor", yet another incarnation).
 pub(super) fn mutation_scan_view(cmd: &str) -> String {
-    // 1) corta corpos de heredoc: da linha após `<<MARKER` até a linha MARKER.
+    // 1) cut heredoc bodies: from the line after `<<MARKER` to the MARKER line.
     let mut kept: Vec<&str> = Vec::new();
     let mut skip_until: Option<String> = None;
     for line in cmd.lines() {
@@ -232,8 +232,8 @@ pub(super) fn mutation_scan_view(cmd: &str) -> String {
         }
     }
     let mut s = kept.join("\n");
-    // 2) neutraliza redirects que não gravam nada (ordem: os prefixados por FD
-    // antes do genérico, senão o replace parcial deixa o dígito para trás).
+    // 2) neutralize redirects that write nothing (order: the FD-prefixed ones
+    // before the generic one, otherwise the partial replace leaves the digit behind).
     for inofensivo in [
         "2>&1",
         "1>&2",
@@ -278,11 +278,11 @@ pub(super) fn exec_class_of(cmd: &str) -> Option<&'static str> {
     let verb = rest.first()?;
     let base = verb.rsplit('/').next()?;
     if base == "python" || base == "python3" || base.starts_with("python3.") {
-        // Inline (`-c` / `- <<EOF`) entrou na rajada em 29/08 (aperto de
-        // Gabriel) como classe PRÓPRIA: a exclusão histórica existia porque o
-        // R9 esmagaria heredoc multi-linha no remédio — o python-inline tem
-        // remédio 1:1 (o corpo verbatim em `touring run --lang python`), então
-        // a razão caiu. Os 5 heredocs do turno de 60 do analise estavam fora.
+        // Inline (`-c` / `- <<EOF`) entered the burst on 29/08 (tightening by
+        // Gabriel) as its OWN class: the historical exclusion existed because
+        // R9 would crush a multi-line heredoc in the remedy — python-inline has a
+        // 1:1 remedy (the verbatim body in `touring run --lang python`), so
+        // the reason fell. The 5 heredocs of the 60-turn run of analise were left out.
         if matches!(rest.get(1), Some(&"-c") | Some(&"-")) {
             return Some("python-inline");
         }
@@ -303,9 +303,9 @@ pub(super) fn clean_script_path(p: &str) -> String {
     p.trim_matches(|c| c == '\'' || c == '"').to_string()
 }
 
-/// O path de script (.py/.sh) que este comando ESCREVE via `cat >`/`tee`.
-/// Varre a VIEW (corpos de heredoc removidos): um `cat > y.py` dentro do
-/// corpo é dado, não escrita.
+/// The script path (.py/.sh) that this command WRITES via `cat >`/`tee`.
+/// Scans the VIEW (heredoc bodies removed): a `cat > y.py` inside the
+/// body is data, not a write.
 pub(super) fn script_write_target(cmd: &str) -> Option<String> {
     let view = mutation_scan_view(cmd);
     for seg in command_segments(&view) {
@@ -342,12 +342,12 @@ pub(super) fn script_write_target(cmd: &str) -> Option<String> {
     None
 }
 
-/// Os paths de script que este comando EXECUTA diretamente (python/bash/sh),
-/// em QUALQUER segmento — o padrão real do `analise` (24 dos 60) escrevia E
-/// executava no MESMO tool_use multi-linha (`cat > x.py <<EOF…EOF` +
-/// `python3 x.py`), e um detector que só olha o primeiro verbo efetivo vê o
-/// `cat` e nunca o run. Varre a VIEW (heredoc fora); segmento com redirect
-/// real de saída é pulado — o remédio `--file` não reproduziria a escrita.
+/// The script paths that this command EXECUTES directly (python/bash/sh),
+/// in ANY segment — the real pattern of `analise` (24 of 60) wrote AND
+/// executed in the SAME multi-line tool_use (`cat > x.py <<EOF…EOF` +
+/// `python3 x.py`), and a detector that only looks at the first effective verb sees the
+/// `cat` and never the run. Scans the VIEW (heredoc out); a segment with a real
+/// output redirect is skipped — the `--file` remedy would not reproduce the write.
 pub(super) fn script_run_targets(cmd: &str) -> Vec<String> {
     let view = mutation_scan_view(cmd);
     let mut out: Vec<String> = Vec::new();
@@ -377,10 +377,10 @@ pub(super) fn script_run_targets(cmd: &str) -> Vec<String> {
     out
 }
 
-/// O corpo do programa inline (`python3 -c '<code>'` ou `python3 - <<'M'`),
-/// para o remédio 1:1 da classe `python-inline`.
+/// The body of the inline program (`python3 -c '<code>'` or `python3 - <<'M'`),
+/// for the 1:1 remedy of the `python-inline` class.
 pub(super) fn python_inline_body(cmd: &str) -> Option<String> {
-    // heredoc: corpo entre a linha pós-`<<MARKER` e a linha MARKER
+    // heredoc: body between the line after `<<MARKER` and the MARKER line
     if let Some(pos) = cmd.find("<<")
         && !cmd[pos..].starts_with("<<<")
     {
@@ -397,7 +397,7 @@ pub(super) fn python_inline_body(cmd: &str) -> Option<String> {
             .collect();
         return Some(body.join("\n"));
     }
-    // -c: o literal após a flag (heurística: o par de aspas externo)
+    // -c: the literal after the flag (heuristic: the outer quote pair)
     let idx = cmd.find(" -c ")?;
     let rest = cmd[idx + 4..].trim();
     let quote = rest.chars().next().filter(|c| *c == '\'' || *c == '"')?;
@@ -406,19 +406,19 @@ pub(super) fn python_inline_body(cmd: &str) -> Option<String> {
     Some(inner[..end].to_string())
 }
 
-/// A classe do python-inline READ-ONLY dentro da rajada de inspeção (aperto
-/// 29/08, ordem de Gabriel: *"read-only cai na rajada de inspeção"*). Distinta
-/// no ledger — a chave é por classe — e fora de `CODE_MODE_COLLAPSED_CLASSES`,
-/// que documenta as classes que `scan_class_of` emite; esta vem do CORPO do
-/// programa, não do nome do comando.
+/// The class of READ-ONLY python-inline inside the inspection burst (tightening
+/// 29/08, Gabriel's order: *"read-only falls into the inspection burst"*). Distinct
+/// in the ledger — the key is per class — and outside `CODE_MODE_COLLAPSED_CLASSES`,
+/// which documents the classes that `scan_class_of` emits; this one comes from the BODY of the
+/// program, not from the command name.
 pub(super) const PY_INLINE_INSPECT_CLASS: &str = "python-inline";
 
-/// Indícios de que um corpo python NÃO é leitura pura — deny-list
-/// conservadora: escrita em FS, modos mutantes de `open`, subprocesso, rede,
-/// import/exec dinâmico e DB (abrir SQLite muda estado de lock mesmo lendo).
-/// Falso "escritor" (a marca aparece numa string inocente) só devolve o
-/// comando ao G10, mais frouxo — a direção segura; o inverso rotearia um
-/// escritor para o deny de inspeção.
+/// Signs that a python body is NOT pure reading — conservative deny-list:
+/// FS writes, mutating `open` modes, subprocess, network,
+/// dynamic import/exec and DB (opening SQLite changes lock state even when reading).
+/// A false "writer" (the mark appears in an innocent string) only hands the
+/// command back to G10, which is looser — the safe direction; the reverse would route a
+/// writer to the inspection deny.
 pub(super) const PY_INLINE_WRITER_MARKS: &[&str] = &[
     ".write(",
     ".writelines(",
@@ -470,10 +470,10 @@ pub(super) const PY_INLINE_WRITER_MARKS: &[&str] = &[
     "shelve",
 ];
 
-/// `Some(PY_INLINE_INSPECT_CLASS)` quando o comando é um python-inline cujo
-/// corpo é leitura pura — e portanto INSPEÇÃO, sujeita à rajada 2ª/300s. Um
-/// corpo inextraível ou com qualquer marca de escrita fica de fora (G10 é o
-/// backstop, 5ª/600s).
+/// `Some(PY_INLINE_INSPECT_CLASS)` when the command is a python-inline whose
+/// body is pure reading — and therefore INSPECTION, subject to the 2nd/300s burst. A
+/// body that cannot be extracted or that has any write mark is left out (G10 is the
+/// backstop, 5th/600s).
 pub(super) fn python_inline_readonly_class(cmd: &str) -> Option<&'static str> {
     if exec_class_of(cmd) != Some("python-inline") {
         return None;
@@ -488,11 +488,11 @@ pub(super) fn python_inline_readonly_class(cmd: &str) -> Option<&'static str> {
     Some(PY_INLINE_INSPECT_CLASS)
 }
 
-/// `open(...)` com 2º argumento LITERAL contendo `w`/`a`/`x`/`+` — o modo
-/// mutante. Um `open(f)`/`open(f, encoding=…)` é leitura e passa; a marca por
-/// aspas soltas (`'w'`) foi tentada e mordeu o próprio teste (`re.findall(
-/// "x", …)` classificava escritor). Falso positivo residual (uma vírgula de
-/// outra chamada seguida de literal com w/a/x) só devolve o comando ao G10.
+/// `open(...)` with a LITERAL 2nd argument containing `w`/`a`/`x`/`+` — the
+/// mutating mode. An `open(f)`/`open(f, encoding=…)` is a read and passes; the mark by
+/// loose quotes (`'w'`) was tried and bit the test itself (`re.findall(
+/// "x", …)` classified as a writer). Residual false positive (a comma from
+/// another call followed by a literal with w/a/x) only hands the command back to G10.
 pub(super) fn py_open_mutating_mode(body: &str) -> bool {
     let mut rest = body;
     while let Some(i) = rest.find("open(") {
@@ -513,16 +513,16 @@ pub(super) fn py_open_mutating_mode(body: &str) -> bool {
     false
 }
 
-/// As classes de inspeção que o ledger da rajada acompanha — TODAS as que
-/// [`scan_class_of`] reconhece.
+/// The inspection classes that the burst ledger tracks — ALL those
+/// that [`scan_class_of`] recognizes.
 ///
-/// A lista fixa que existia aqui (`grep`/`cat`/`find`) errava nos DOIS sentidos,
-/// e a mesma medição mostra as duas pontas: `find` é 56,2% isolada e não tem
-/// UMA rajada ≥3 em 115 transcripts — negá-la por classe era fricção pura; já
-/// `sed-n` (408 chamadas, 81,4% do volume em rajada) e `ls` (338, 71,3%)
-/// passavam sempre, e eram o maior volume fan-out não capturado. O predicado de
-/// rajada dispensa a lista: ele discrimina pelo que a classe FAZ nesta janela,
-/// não pelo nome dela.
+/// The fixed list that used to be here (`grep`/`cat`/`find`) was wrong in BOTH directions,
+/// and the same measurement shows both ends: `find` is 56.2% isolated and has not
+/// ONE burst ≥3 in 115 transcripts — denying it by class was pure friction; whereas
+/// `sed-n` (408 calls, 81.4% of volume in bursts) and `ls` (338, 71.3%)
+/// always passed, and were the largest uncaptured fan-out volume. The burst
+/// predicate dispenses with the list: it discriminates by what the class DOES in this window,
+/// not by its name.
 pub(super) const CODE_MODE_COLLAPSED_CLASSES: &[&str] =
     &["grep", "cat", "find", "ls", "wc", "sed-n"];
 
@@ -536,9 +536,9 @@ pub(crate) fn inline_edit_target(command: &str) -> Option<String> {
         .map(std::string::ToString::to_string)
 }
 
-/// W1 S-1.2 — comandos de estado vivo: chamadas idênticas legitimamente
-/// retornam resultados diferentes (saúde, daemon, working tree, contadores).
-/// Allowlist EXPLÍCITA, não heurística; ampliar só com dado (S-7.2).
+/// W1 S-1.2 — live-state commands: identical calls legitimately
+/// return different results (health, daemon, working tree, counters).
+/// EXPLICIT allowlist, not a heuristic; widen only with data (S-7.2).
 pub(super) const G6_LIVE_STATE_ALLOWLIST: &[&str] = &[
     "touring doctor",
     "touring status",
@@ -563,13 +563,13 @@ pub(super) fn appends_to_a_file(cmd: &str) -> bool {
     masked.contains(">>") || masked.contains("tee -a") || masked.contains("tee --append")
 }
 
-/// W2 S-2.1 — classe da inspeção atômica (a taxonomia da simulação). `None`
-/// para comandos que não são inspeção — a rajada só conta o que inspeciona.
+/// W2 S-2.1 — class of the atomic inspection (the taxonomy of the simulation). `None`
+/// for commands that are not inspection — the burst only counts what inspects.
 pub(crate) fn scan_class_of(cmd: &str) -> Option<&'static str> {
-    // Verbo REAL pós-segmentos/prefixos-cd/wrappers (S1, 26/08): `time grep`
-    // é `grep`, `cd /x && cat f` é `cat` — antes o 1º token decidia, e
-    // `time`/`nice`/`sudo`/`env`/`cd` anulavam a classe para os 4 gates que
-    // consomem este classificador de uma vez só.
+    // REAL verb after segments/cd-prefixes/wrappers (S1, 26/08): `time grep`
+    // is `grep`, `cd /x && cat f` is `cat` — before, the 1st token decided, and
+    // `time`/`nice`/`sudo`/`env`/`cd` nullified the class for the 4 gates that
+    // consume this classifier all at once.
     // S213: an APPENDING command is never inspection — the burst remedy replays the
     // commands it fuses, and an append replayed duplicates what it wrote (observed live:
     // `cat t.rs >> src/x.rs && cargo test`). An overwrite redirect stays inspection (P2.3):
@@ -608,20 +608,20 @@ pub(super) fn step_class(rest: &[&str]) -> Option<&'static str> {
     let first = *rest.first()?;
     match first {
         "grep" | "rg" => Some("grep"),
-        // P2.3 (calibração 25/08, 1.312 chamadas reais): `cat > f`/`cat >> f`
-        // (heredoc de escrita) é T4 — escrita — não inspeção. O prefixo sozinho
-        // negava 27 escritas (20,6% do que a matriz pegaria) sob o modo `code`,
-        // que nega na 1ª chamada. Se o primeiro operando não-flag já é um
-        // redirect, não há arquivo de leitura: não é classe `cat`.
+        // P2.3 (calibration 25/08, 1,312 real calls): `cat > f`/`cat >> f`
+        // (write heredoc) is T4 — a write — not inspection. The prefix alone
+        // denied 27 writes (20.6% of what the matrix would catch) under the `code` mode,
+        // which denies on the 1st call. If the first non-flag operand is already a
+        // redirect, there is no file to read: it is not the `cat` class.
         "cat" | "head" | "tail" | "less" => {
-            // O primeiro operando REAL decide: flags (`-n`) — e o argumento
-            // das que tomam valor (`-n 5`, `-c +3`) — são transparentes. Se o
-            // que sobra já começa com `>`, não há arquivo de leitura.
+            // The first REAL operand decides: flags (`-n`) — and the argument
+            // of those that take a value (`-n 5`, `-c +3`) — are transparent. If what
+            // is left already starts with `>`, there is no file to read.
             let mut it = rest[1..].iter().copied().peekable();
             let mut primeiro_operando: Option<&str> = None;
             while let Some(t) = it.next() {
                 if t == "-n" || t == "-c" {
-                    it.next(); // o argumento da flag, não um operando
+                    it.next(); // the flag's argument, not an operand
                     continue;
                 }
                 if t.starts_with('-') {
@@ -638,16 +638,16 @@ pub(super) fn step_class(rest: &[&str]) -> Option<&'static str> {
         "find" | "fd" => Some("find"),
         "ls" => Some("ls"),
         "wc" => Some("wc"),
-        // `-n` do sed, não do invólucro: `nice -n 5 sed 5p f` NÃO é sed-n
-        // (com o verbo resolvido, o `contains` no comando inteiro herdaria o
-        // `-n` do `nice` — o bug latente que a resolução expõe).
+        // the sed's `-n`, not the wrapper's: `nice -n 5 sed 5p f` is NOT sed-n
+        // (with the verb resolved, the `contains` on the whole command would inherit the
+        // `nice`'s `-n` — the latent bug that the resolution exposes).
         "sed" if rest[1..].contains(&"-n") => Some("sed-n"),
         _ => None,
     }
 }
 
-/// O carimbo de `fp` agora; `None` quando o arquivo não existe ou não se deixa medir (o G7 então
-/// segue contando como sempre contou — sem medição não há o que afirmar).
+/// The stamp of `fp` now; `None` when the file does not exist or cannot be measured (G7 then
+/// keeps counting as it always counted — without a measurement there is nothing to assert).
 pub(super) fn file_stamp(project_root: &Path, fp: &str) -> Option<FileStamp> {
     let path = Path::new(fp);
     let meta = if path.is_absolute() {
@@ -668,19 +668,19 @@ pub(super) fn file_stamp(project_root: &Path, fp: &str) -> Option<FileStamp> {
     })
 }
 
-/// V0e3 (09/10/2026) — os fragmentos de path de um comando: quebra em todo
-/// char que não é de path e fica com os fragmentos que contêm `/`. O reset do
-/// G7 nunca funcionava no caso real porque o `trim_matches` das pontas cobria
-/// só `'\"[]{},` — um path citado DENTRO de código (`Path("/…")`, o run
-/// 1791491632099 da 6b) não casava a chave gravada e a leitura seguinte era
-/// negada com a promessa falsa na mensagem (D8).
+/// V0e3 (09/10/2026) — the path fragments of a command: split on every
+/// char that is not a path char and keep the fragments that contain `/`. The G7
+/// reset never worked in the real case because the edge `trim_matches` covered
+/// only `'\"[]{},` — a path quoted INSIDE code (`Path("/…")`, run
+/// 1791491632099 of 6b) did not match the recorded key and the next read was
+/// denied with a false promise in the message (D8).
 pub(super) fn path_fragments(cmd: &str) -> impl Iterator<Item = &str> {
     cmd.split(|c: char| !(c.is_alphanumeric() || matches!(c, '.' | '/' | '_' | '-' | '~')))
         .filter(|frag| frag.len() > 1 && frag.contains('/'))
 }
 
-/// W6 S-6.3 — linha ADICIONADA de comentário com modal contrafactual e nenhum
-/// run_id na vizinhança: a afirmação nunca exercitada (o pior erro de 24/08).
+/// W6 S-6.3 — ADDED comment line with a counterfactual modal and no
+/// run_id in the vicinity: the never-exercised claim (the worst error of 24/08).
 pub(super) fn counterfactual_comment(added: &str) -> bool {
     const MODAIS: &[&str] = &["seria ", "quebraria", "impediria", "faria com que"];
     added.lines().any(|l| {
@@ -690,21 +690,21 @@ pub(super) fn counterfactual_comment(added: &str) -> bool {
     })
 }
 
-/// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
-/// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
-/// Fração de tokens que dois comandos compartilham (Jaccard sobre o multiconjunto
-/// de tokens), em `[0.0, 1.0]`.
+/// W2 S-2.1 — the burst gate. `Some(response)` short-circuits; `None` lets
+/// the flow (including the legacy advisory of the 3rd search) proceed.
+/// Fraction of tokens that two commands share (Jaccard over the multiset
+/// of tokens), in `[0.0, 1.0]`.
 ///
-/// Calibração proposta por Gabriel (26/08/2026): *"se o comando repetir pelo
-/// menos 50% do comando anterior"*. Preenche um buraco real entre os gates —
-/// o G6 pega só o byte-idêntico, o G7 só a re-inspeção do MESMO arquivo, e o G1
-/// só ao acumular N da mesma classe. `grep X a.rs` seguido de `grep X b.rs` é a
-/// assinatura canônica do fan-out serial e não era pego por nenhum deles.
+/// Calibration proposed by Gabriel (26/08/2026): *"if the command repeats at least
+/// 50% of the previous command"*. Fills a real hole between the gates —
+/// G6 catches only the byte-identical, G7 only the re-inspection of the SAME file, and G1
+/// only when it accumulates N of the same class. `grep X a.rs` followed by `grep X b.rs` is the
+/// canonical signature of serial fan-out and was not caught by any of them.
 ///
-/// Jaccard sobre tokens, e não prefixo comum: `sed -n 1,20p f` vs
-/// `sed -n 40,60p f` compartilham quase tudo mas divergem cedo no texto, e um
-/// prefixo os julgaria distintos. A ordem também não deve importar — o que
-/// interessa é quanto do trabalho se repete.
+/// Jaccard over tokens, and not a common prefix: `sed -n 1,20p f` vs
+/// `sed -n 40,60p f` share almost everything but diverge early in the text, and a
+/// prefix would judge them distinct. Order should not matter either — what
+/// matters is how much of the work repeats.
 pub(crate) fn command_similarity(a: &str, b: &str) -> f64 {
     let toks = |c: &str| -> std::collections::BTreeSet<String> {
         c.split_whitespace().map(str::to_string).collect()
@@ -718,34 +718,34 @@ pub(crate) fn command_similarity(a: &str, b: &str) -> f64 {
     inter / uniao
 }
 
-/// G8 — o laço de inspeção pura vira UMA varredura no sandbox.
+/// G8 — the pure-inspection loop becomes ONE sweep in the sandbox.
 ///
-/// Devolve o comando reescrito, ou `None` quando o laço não é candidato. Puro
-/// (sem I/O) para ser exercitável em unit test — o predicado que decide precisa
-/// ser mais fácil de testar do que de contornar.
+/// Returns the rewritten command, or `None` when the loop is not a candidate. Pure
+/// (no I/O) so it can be exercised in a unit test — the predicate that decides has to
+/// be easier to test than to work around.
 ///
-/// Entra: `for`/`while` cujo corpo só inspeciona (grep/cat/head/tail/ls/find/
-/// echo/wc/awk/sed/jq/stat/basename). Fica de fora, por construção, tudo que
-/// tem efeito (kill, git, cargo, rm, mv, install, deploy), redireciona para
-/// arquivo, usa heredoc (o corpo é dado, não programa) ou já é code mode.
+/// In: `for`/`while` whose body only inspects (grep/cat/head/tail/ls/find/
+/// echo/wc/awk/sed/jq/stat/basename). Out, by construction: everything that
+/// has an effect (kill, git, cargo, rm, mv, install, deploy), redirects to a
+/// file, uses a heredoc (the body is data, not a program) or is already code mode.
 pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
     if std::env::var("TOURING_G8_REWRITE_DISABLED").map(|v| v == "1") == Ok(true) {
         return None;
     }
     let trimmed = cmd.trim();
-    // Já é code mode / master CLI — nada a converter.
+    // Already code mode / master CLI — nothing to convert.
     if trimmed.contains("touring run") || trimmed.contains("touring exec") {
         return None;
     }
-    // Heredoc: o corpo é DADO (mesma razão do G2), e o quoting não sobrevive.
+    // Heredoc: the body is DATA (same reason as G2), and the quoting does not survive.
     if trimmed.contains("<<") {
         return None;
     }
-    // Aspas simples desbalanceadas quebrariam o `--code '...'`.
+    // Unbalanced single quotes would break the `--code '...'`.
     if !trimmed.matches('\'').count().is_multiple_of(2) {
         return None;
     }
-    // Precisa de um laço de verdade — `for x in` / `while `.
+    // Needs a real loop — `for x in` / `while `.
     let has_loop = trimmed.split(['\n', ';', '|', '&']).any(|part| {
         let p = part.trim_start();
         p.starts_with("for ") && p.contains(" in ") || p.starts_with("while ")
@@ -753,7 +753,7 @@ pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
     if !has_loop {
         return None;
     }
-    // Qualquer verbo com efeito colateral tira o comando do escopo.
+    // Any verb with a side effect takes the command out of scope.
     const EFFECTFUL: &[&str] = &[
         "kill",
         "pkill",
@@ -786,7 +786,7 @@ pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
     if EFFECTFUL.iter().any(|verb| trimmed.contains(verb)) {
         return None;
     }
-    // Limite de tamanho: acima disso o comando reescrito polui mais do que ajuda.
+    // Size limit: above it the rewritten command pollutes more than it helps.
     if trimmed.len() > 1200 {
         return None;
     }

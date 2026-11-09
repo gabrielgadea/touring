@@ -10,12 +10,12 @@ use std::time::Duration;
 
 use super::spec::*;
 
-/// A sessão entra na chave (30/08/2026): os ledgers vivem no daemon, um
-/// processo só para N sessões CC — chaveado por (projeto, tag), um deny nesta
-/// sessão carregava comandos de OUTRA (medido pela peer `analise-a2`: paths de
-/// scratchpad alheios no remédio) e inflava a contagem de quem não fez a
-/// rajada. O custo: a rajada distribuída entre 2 sessões deixa de somar — o
-/// desenho certo, cada sessão responde pelo próprio loop.
+/// The session enters the key (30/08/2026): the ledgers live in the daemon, a
+/// single process for N CC sessions — keyed by (project, tag), a deny in this
+/// session carried commands from ANOTHER one (measured by the peer `analise-a2`: other sessions'
+/// scratchpad paths in the remedy) and inflated the count of those who did not make the
+/// burst. The cost: a burst distributed across 2 sessions no longer adds up — the
+/// right design, each session answers for its own loop.
 pub(super) fn write_run_key(project_root: &Path, session: &str, tag: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -27,8 +27,8 @@ pub(super) fn write_run_key(project_root: &Path, session: &str, tag: &str) -> u6
 
 pub(super) type ExecBurstEntry = (u32, Vec<String>);
 
-/// Sessão na chave pela mesma razão de [`write_run_key`]: o ledger é do
-/// daemon, e sem ela a janela vazava entre sessões CC do mesmo projeto.
+/// Session in the key for the same reason as [`write_run_key`]: the ledger belongs to the
+/// daemon, and without it the window leaked between CC sessions of the same project.
 pub(super) fn inspect_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}s3-inspect\u{2}".hash(&mut hasher);
@@ -38,7 +38,7 @@ pub(super) fn inspect_burst_key(project_root: &Path, session: &str, class: &str)
     hasher.finish()
 }
 
-/// Sessão na chave pela mesma razão de [`write_run_key`].
+/// Session in the key for the same reason as [`write_run_key`].
 pub(super) fn exec_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g10-exec\u{2}".hash(&mut hasher);
@@ -48,20 +48,20 @@ pub(super) fn exec_burst_key(project_root: &Path, session: &str, class: &str) ->
     hasher.finish()
 }
 
-/// Contas do orçamento de bypass de um escopo, dentro da janela.
+/// Accounts of the bypass budget of a scope, within the window.
 ///
-/// São DUAS contas porque as duas regras são distintas, e uma só as confundia:
-/// medido na estreia, um bypass separado por um comando neutro era negado como
-/// "dois seguidos", que não era verdade.
+/// There are TWO accounts because the two rules are distinct, and a single one conflated them:
+/// measured at the debut, a bypass separated by a neutral command was denied as
+/// "two in a row", which was not true.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct BypassBudget {
-    /// Bypasses colados um no outro; qualquer outro comando zera.
+    /// Bypasses stuck to one another; any other command zeroes it.
     pub(crate) strict_run: u32,
-    /// Bypasses desde o último `touring run`; só a rota sancionada zera.
+    /// Bypasses since the last `touring run`; only the sanctioned route zeroes it.
     pub(crate) since_route: u32,
 }
 
-/// Chave do ledger: o escopo, como nos demais gates deste módulo.
+/// Ledger key: the scope, as in the other gates of this module.
 pub(super) fn bypass_key(project_root: &Path, actor: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -71,8 +71,8 @@ pub(super) fn bypass_key(project_root: &Path, actor: &str) -> u64 {
     hasher.finish()
 }
 
-/// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
-/// mutação do projeto na primeira vista). TTL espelha o anti-spam (300s).
+/// W1 S-1.2 — exact-repeat ledger: input-hash → (repeats, project mutation
+/// epoch at first sight). TTL mirrors the anti-spam (300s).
 /// G6 ledger key: the session AND the input. A blind retry is the same session repeating
 /// what it already holds in context; another session running the same command has never
 /// seen the result. Keyed by input alone, fresh sessions were denied as "retries" of each
@@ -91,16 +91,16 @@ pub(super) fn g6_key(
     hasher.finish()
 }
 
-/// W2 — ledger da rajada por (projeto, classe): contagem + os comandos REAIS
-/// acumulados (cap 8) — eles viram o corpo do programa no remédio do deny.
-/// TTL = a janela do contador legado (o mesmo sinal, agora com memória).
-/// Entrada da rajada: `(contagem, comandos, época de mutação da última inserção)`.
+/// W2 — burst ledger per (project, class): count + the REAL commands
+/// accumulated (cap 8) — they become the program body in the deny remedy.
+/// TTL = the window of the legacy counter (the same signal, now with memory).
+/// Burst entry: `(count, commands, mutation epoch of the last insertion)`.
 ///
-/// A época entrou junto com a calibração por similaridade: sem ela, uma
-/// releitura DEPOIS de um Edit era negada como repetição — e reler o que
-/// acabou de mudar é legítimo, não redundância. É a mesma proteção que o G6 já
-/// tinha (`mutation_epoch`), agora estendida ao gatilho novo. O teste
-/// `g6_mutacao_no_meio_reseta_a_repeticao` pegou a regressão.
+/// The epoch came in together with the similarity calibration: without it, a
+/// re-read AFTER an Edit was denied as a repetition — and re-reading what
+/// just changed is legitimate, not redundancy. It is the same protection G6 already
+/// had (`mutation_epoch`), now extended to the new trigger. The test
+/// `g6_mutacao_no_meio_reseta_a_repeticao` caught the regression.
 pub(super) type BurstEntry = (u32, Vec<String>, u64);
 
 pub(super) fn burst_key(project_root: &Path, actor: &str, class: &str) -> u64 {
@@ -130,7 +130,7 @@ pub(super) fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     hasher.finish()
 }
 
-/// 30.4.97 (G7G3G9) — (mtime, tamanho) de um arquivo: o que o harness do Claude Code compara no
+/// 30.4.97 (G7G3G9) — (mtime, size) of a file: what the Claude Code harness compares in
 /// «File has been modified since read, either by the user or by a linter. Read it again before
 /// attempting to write it.»
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -120,12 +120,12 @@ def _medir(raiz: Path, desde: dt.datetime = DESDE) -> dict:
 
 
 def _opus(msg_id: str, *chamadas: dict, **resto) -> dict:
-    """Turno do assistente principal (opus) que carrega as `chamadas` tool_use dadas."""
+    """Main assistant turn (opus) that carries the given `chamadas` tool_use."""
     return _assistente("claude-opus-5-5", msg_id=msg_id, chamadas=chamadas, **resto)
 
 
 def _emitir(raiz: Path, alvo: Path, *extra: str) -> int:
-    """`mra.main` com `--emit`: o argv comum dos testes do contrato `external` do KPI."""
+    """`mra.main` with `--emit`: the common argv of the tests of the KPI's `external` contract."""
     argv = ["--root", str(raiz), "--since", "2026-10-08", "--emit", str(alvo)]
     return mra.main([*argv, *extra])
 

@@ -106,7 +106,7 @@ def test_section_declares_mode_and_origin():
     body = hook.section(STUB, "code", "TOURING_CODE_MODE (sessão)")
     assert "apresentação `code`" in body
     assert "TOURING_CODE_MODE (sessão)" in body
-    # o efeito do modo code é dito com todas as letras: a rajada AVISA (D, 09/10/2026), nunca nega
+    # the effect of the code mode is stated in full words: the burst WARNS (D, 09/10/2026), never denies
     assert "aviso" in body.lower() and "nunca é negada" in body
 
 
@@ -189,8 +189,8 @@ def _rust_collapsed_classes() -> list[str]:
 
 
 def _rust_trigger() -> tuple[str, int]:
-    """(verbo, N): o S3 avisa na N-ésima (`INSPECT_BURST_ADVISE_AT`, D 09/10/2026) ou, se um dia
-    voltar a negar, `INSPECT_BURST_DENY_AT`. Exatamente um dos dois existe."""
+    """(verb, N): S3 warns on the N-th (`INSPECT_BURST_ADVISE_AT`, D 09/10/2026) or, if it ever
+    goes back to denying, `INSPECT_BURST_DENY_AT`. Exactly one of the two exists."""
     src = SPEC.read_text(encoding="utf-8")
     advise = re.search(r'INSPECT_BURST_ADVISE_AT:\s*u32\s*=\s*(\d+)', src)
     deny = re.search(r'INSPECT_BURST_DENY_AT:\s*u32\s*=\s*(\d+)', src)
@@ -233,8 +233,8 @@ def test_d8_declared_trigger_matches_executor_predicate():
     assert ordinal in efeito, (
         f"executor {verbo} na {ordinal} chamada, mas a seção não declara esse gatilho: {efeito}"
     )
-    # O VERBO também é contrato: prometer deny onde o executor só avisa faz o modelo pagar por
-    # uma negação que não existe (e o inverso o faz ignorar uma que existe).
+    # The VERB is also a contract: promising a deny where the executor only warns makes the model pay for
+    # a denial that does not exist (and the inverse makes it ignore one that does exist).
     if verbo == "avisa":
         # Only the explicit negation may mention it; any other "negad…" is a promise of a deny.
         sem_negacao_explicita = efeito.lower().replace("nunca é negada", "")

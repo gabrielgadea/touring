@@ -129,7 +129,7 @@ def extract_injected(stdout):
         return stripped
     try:
         payload = json.loads(stripped)
-    except (ValueError, RecursionError):  # JSONDecodeError é ValueError; aninhamento absurdo estoura a pilha
+    except (ValueError, RecursionError):  # JSONDecodeError is a ValueError; absurd nesting blows the stack
         return stripped
     if not isinstance(payload, dict):
         return stripped
@@ -241,9 +241,9 @@ def _calls_index(records):
 
 
 def hook_attachments(records):
-    """(posição, attachment) de cada registro `attachment` cujo tipo começa com `hook`.
+    """(position, attachment) of each `attachment` record whose type starts with `hook`.
 
-    Compartilhado com `measure_injection_effect`: os dois leem o mesmo transcript do mesmo jeito.
+    Shared with `measure_injection_effect`: both read the same transcript the same way.
     """
     for i, rec in enumerate(records):
         if rec.get("type") != "attachment":
@@ -257,7 +257,7 @@ def hook_attachments(records):
 
 
 def _iter_injections(records):
-    """(chave, texto, posição) de cada injeção de contexto do transcript."""
+    """(key, text, position) of each context injection in the transcript."""
     for i, attachment in hook_attachments(records):
         text = extract_injected(attachment.get("stdout") or "")
         if not text:
@@ -365,9 +365,9 @@ def _print_rates(title, table):
 
 
 def parse_cli(argv, default_dirs):
-    """(window, max_sessions, dirs) de `[dirs...] [--window N] [--max-sessions N]`.
+    """(window, max_sessions, dirs) from `[dirs...] [--window N] [--max-sessions N]`.
 
-    Compartilhado com `measure_injection_effect`; só o diretório default muda entre os dois.
+    Shared with `measure_injection_effect`; only the default directory differs between the two.
     """
     window = 3
     max_sessions = 400

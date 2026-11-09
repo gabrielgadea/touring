@@ -3,9 +3,9 @@
 
 use super::support::tmpdir;
 
-/// R2 (29/08): a evidência durável acumula em DISCO — 2 bumps somam, uma
-/// família nova coexiste, arquivo corrompido recomeça de zeros sem panic
-/// (evidência ilegível é evidência inexistente, jamais um valor inventado).
+/// R2 (29/08): the durable evidence accumulates on DISK — 2 bumps add up, a
+/// new family coexists, a corrupted file restarts from zeros without a panic
+/// (unreadable evidence is nonexistent evidence, never an invented value).
 #[test]
 #[serial_test::serial(gate_metrics)]
 fn evidencia_duravel_acumula_em_disco_e_tolera_corrupcao() {
@@ -25,7 +25,7 @@ fn evidencia_duravel_acumula_em_disco_e_tolera_corrupcao() {
         v.pointer("/pillar/emitted").and_then(|x| x.as_u64()),
         Some(1)
     );
-    // corrupção: leitura volta objeto vazio; o próximo bump recomeça de 1
+    // corruption: the read returns an empty object; the next bump restarts from 1
     let path = tmp
         .path()
         .join(".claude/touring/durable_gate_evidence.json");
@@ -40,15 +40,15 @@ fn evidencia_duravel_acumula_em_disco_e_tolera_corrupcao() {
     assert_eq!(v2.pointer("/s3/denied").and_then(|x| x.as_u64()), Some(1));
 }
 
-/// O predicado puro: closed ou sem 1ª → FirstPass; turno aberto com 1ª →
-/// Fold acumulando o comando. Separar decisão de estado é o que deixa o
-/// gate mais fácil de testar do que de contornar.
+/// The pure predicate: closed or without a 1st → FirstPass; open turn with a 1st →
+/// Fold accumulating the command. Separating decision from state is what makes the
+/// gate easier to test than to work around.
 #[test]
 fn rota_tomada_e_rota_recusada_tem_vereditos_opostos() {
     use crate::code_mode_gates::arm::classify_route_outcome;
-    // Rodar o programa É a rota. O VALOR carrega a economia (P5b): uma casca
-    // sobre uma operação vale 0.5; o que importa aqui é que é positivo,
-    // enquanto recusar vale 0.0.
+    // Running the program IS the route. The VALUE carries the economy (P5b): a shell
+    // around one operation is worth 0.5; what matters here is that it is positive,
+    // whereas refusing is worth 0.0.
     assert_eq!(
         classify_route_outcome("touring run --lang bash --code 'ls'"),
         Some(0.5)
@@ -58,7 +58,7 @@ fn rota_tomada_e_rota_recusada_tem_vereditos_opostos() {
         Some(1.0),
         "o programa que funde vale a rota inteira"
     );
-    // Relaxar o gate é recusá-la.
+    // Relaxing the gate is refusing it.
     assert_eq!(
         classify_route_outcome("TOURING_CODE_MODE=native grep -rn foo ."),
         Some(0.0)
@@ -66,8 +66,8 @@ fn rota_tomada_e_rota_recusada_tem_vereditos_opostos() {
     assert_eq!(classify_route_outcome("TOURING_GATE_OK=1 cat x"), Some(0.0));
 }
 
-/// A falha que isto pega: ler "fez outra coisa" como fracasso. Ausência de
-/// sinal é desconhecido — creditar 0.0 aqui puniria o braço por silêncio.
+/// The failure this catches: reading "did something else" as a failure. Absence of
+/// signal is unknown — crediting 0.0 here would punish the arm for silence.
 #[test]
 fn desfecho_desconhecido_nao_vira_veredito() {
     use crate::code_mode_gates::arm::classify_route_outcome;
@@ -75,7 +75,7 @@ fn desfecho_desconhecido_nao_vira_veredito() {
     assert_eq!(classify_route_outcome(""), None);
 }
 
-/// Ordem: ter relaxado o gate no caminho não desfaz ter rodado o programa.
+/// Order: having relaxed the gate on the way does not undo having run the program.
 #[test]
 fn relaxar_o_gate_e_ainda_assim_rodar_conta_como_rota_tomada() {
     use crate::code_mode_gates::arm::classify_route_outcome;
@@ -89,9 +89,9 @@ fn relaxar_o_gate_e_ainda_assim_rodar_conta_como_rota_tomada() {
     );
 }
 
-/// A falha que isto pega — e que existiu por alguns minutos hoje: um
-/// PostToolUse de ferramenta SEM comando (um `Read`) consumia a oferta sem
-/// veredito, e a rota tomada logo depois já não achava nada para creditar.
+/// The failure this catches — and which existed for a few minutes today: a
+/// PostToolUse of a tool WITHOUT a command (a `Read`) consumed the offer without a
+/// verdict, and the route taken right afterwards found nothing to credit.
 #[test]
 fn desfecho_ilegivel_nao_consome_a_oferta() {
     use crate::code_mode_gates::{RouteOffer, claim_route_reward, turn_ledger_insert_for_test};
@@ -106,9 +106,9 @@ fn desfecho_ilegivel_nao_consome_a_oferta() {
         },
     );
 
-    // Um `Read` não carrega comando: nada a classificar.
+    // A `Read` carries no command: nothing to classify.
     assert!(claim_route_reward(raiz, &payload, "").is_none());
-    // …e a oferta TEM de continuar lá para o veredito real.
+    // …and the offer MUST still be there for the real verdict.
     let (offer, value) = claim_route_reward(raiz, &payload, "touring run --lang bash --code 'ls'")
         .expect("a oferta sobreviveu ao desfecho ilegível");
     assert_eq!(offer.mode, "code");
@@ -116,12 +116,12 @@ fn desfecho_ilegivel_nao_consome_a_oferta() {
         value, 0.5,
         "programa de um alvo: rota tomada, economia nula"
     );
-    // E agora sim ela some.
+    // And now it goes away.
     assert!(claim_route_reward(raiz, &payload, "touring run --code 'x'").is_none());
 }
 
-/// Uma oferta reivindicada some: dois leitores nunca creditam a mesma
-/// decisão duas vezes (a disciplina dos ledgers de decisão e de casos).
+/// A claimed offer goes away: two readers never credit the same
+/// decision twice (the discipline of the decision and case ledgers).
 #[test]
 fn a_oferta_de_rota_e_reivindicada_uma_unica_vez() {
     use crate::code_mode_gates::{RouteOffer, take_route_offer, turn_ledger_insert_for_test};
@@ -143,40 +143,40 @@ fn a_oferta_de_rota_e_reivindicada_uma_unica_vez() {
     );
 }
 
-/// A invariante que protege Gabriel: a política preenche o espaço que o
-/// humano deixou aberto — nunca sobrescreve o que ele declarou. Uma
-/// política que vencesse o `touring.toml` não estaria aprendendo, estaria
-/// desobedecendo.
+/// The invariant that protects Gabriel: the policy fills the space the
+/// human left open — it never overrides what he declared. A
+/// policy that beat `touring.toml` would not be learning, it would be
+/// disobeying.
 ///
-/// Testado no PREDICADO PURO: a versão anterior mutava
-/// `TOURING_CODE_MODE_ARM_ARMED` no processo, e a var passou a ser lida
-/// também pelo caminho da fusão — a mutação vazava para testes paralelos e
-/// derrubava um vizinho (`--test-threads=1` passava; a assinatura de estado
-/// global).
+/// Tested on the PURE PREDICATE: the previous version mutated
+/// `TOURING_CODE_MODE_ARM_ARMED` in the process, and the var came to be read
+/// also by the fusion path — the mutation leaked into parallel tests and
+/// brought down a neighbor (`--test-threads=1` passed; the signature of global
+/// state).
 #[test]
 fn declaracao_humana_vence_a_politica_mesmo_armada() {
     use crate::code_mode_gates::CodeModePresentation;
     use crate::code_mode_gates::arm::resolve_with_policy;
-    // evidência que, sozinha, faria a política escolher `code`
+    // evidence that, by itself, would make the policy choose `code`
     let counts = [(20, 4), (20, 10), (20, 20)];
     assert_eq!(
         resolve_with_policy(Some(CodeModePresentation::Native), true, counts),
         CodeModePresentation::Native,
         "o `touring.toml` declarou `native`; a política não pode passar por cima"
     );
-    // sem declaração, armada e com evidência: a política escolhe
+    // no declaration, armed and with evidence: the policy chooses
     assert_eq!(
         resolve_with_policy(None, true, counts),
         CodeModePresentation::Code
     );
-    // sem declaração e DESARMADA: default, nenhum sinal lido
+    // no declaration and DISARMED: default, no signal read
     assert_eq!(
         resolve_with_policy(None, false, counts),
         CodeModePresentation::Both
     );
 }
 
-/// Evidência fina não promove nada — o ponto inteiro de "promoção medida".
+/// Thin evidence promotes nothing — the whole point of "measured promotion".
 #[test]
 fn programa_de_um_alvo_e_uma_operacao_nao_fundiu_nada() {
     use crate::code_mode_gates::arm::{ProgramShape, program_shape};
@@ -190,12 +190,12 @@ fn programa_de_um_alvo_e_uma_operacao_nao_fundiu_nada() {
 #[test]
 fn programa_que_toca_varios_alvos_ou_operacoes_e_fusao() {
     use crate::code_mode_gates::arm::{ProgramShape, program_shape};
-    // três alvos, uma operação
+    // three targets, one operation
     assert!(matches!(
         program_shape("cat /a/x.rs /a/y.rs /a/z.rs"),
         ProgramShape::Fused(n) if n >= 3
     ));
-    // um alvo, três operações
+    // one target, three operations
     assert!(matches!(
         program_shape("grep a /f/g.rs; wc -l /f/g.rs; sed -n 1p /f/g.rs"),
         ProgramShape::Fused(n) if n >= 3
@@ -205,8 +205,8 @@ fn programa_que_toca_varios_alvos_ou_operacoes_e_fusao() {
 #[test]
 fn a_aspa_que_fecha_e_a_primeira_nao_a_ultima() {
     use crate::code_mode_gates::arm::{ProgramShape, extract_run_body, program_shape};
-    // O caso REAL que quebrou a medição ao vivo em 26/08: o comando externo
-    // trazia mais aspas depois do corpo, e `rfind` engolia o pipe inteiro.
+    // The REAL case that broke the live measurement on 26/08: the outer command
+    // carried more quotes after the body, and `rfind` swallowed the whole pipe.
     let cmd = "touring run --lang bash --code 'cat /a/b/Cargo.toml' 2>/dev/null \
                | python3 -c \"print('x')\"";
     assert_eq!(extract_run_body(cmd), Some("cat /a/b/Cargo.toml"));
@@ -217,8 +217,8 @@ fn a_aspa_que_fecha_e_a_primeira_nao_a_ultima() {
     );
 }
 
-/// `2>/dev/null` é plumbing do shell, não um alvo de inspeção. Contá-lo
-/// fazia um programa de um arquivo parecer que tocava dois.
+/// `2>/dev/null` is shell plumbing, not an inspection target. Counting it
+/// made a one-file program look like it touched two.
 #[test]
 fn dispositivos_nao_contam_como_alvo() {
     use crate::code_mode_gates::arm::{ProgramShape, program_shape};
@@ -243,13 +243,13 @@ fn o_corpo_do_programa_e_extraido_de_ambas_as_aspas() {
         extract_run_body("touring run --lang python --code \"print(1)\""),
         Some("print(1)")
     );
-    // sem --code não há o que classificar — jamais adivinhar
+    // without --code there is nothing to classify — never guess
     assert_eq!(extract_run_body("touring run --file x.py"), None);
 }
 
-/// O ponto do P5b: obedecer não é economizar. Uma casca sobre uma chamada
-/// só vale metade — e NÃO zero, porque sob `code` a atômica é negada e a
-/// casca é obrigatória: o custo é da apresentação, não do modelo.
+/// The point of P5b: obeying is not saving. A shell around a single call
+/// is worth only half — and NOT zero, because under `code` the atomic one is denied and the
+/// shell is mandatory: the cost belongs to the presentation, not to the model.
 #[test]
 fn casca_sobre_chamada_unica_vale_metade_da_rota_que_funde() {
     use crate::code_mode_gates::arm::classify_route_outcome;
@@ -278,9 +278,9 @@ fn a_evidencia_do_braco_sobrevive_ao_processo() {
     bump_arm(&proj, "code", ArmAxis::Followed);
     bump_arm(&proj, "code", ArmAxis::Economical);
 
-    // Leitura DIRETA do arquivo — sem cache, que é o que um processo novo
-    // (daemon reiniciado) faria. Contadores em memória zeraram de 2 para 0
-    // em dois minutos hoje; a decisão não pode depender deles.
+    // DIRECT read of the file — no cache, which is what a new process
+    // (restarted daemon) would do. In-memory counters went from 2 to 0
+    // in two minutes today; the decision cannot depend on them.
     let do_disco = read_arm_file(&proj);
     assert_eq!(
         do_disco[2],
@@ -292,19 +292,19 @@ fn a_evidencia_do_braco_sobrevive_ao_processo() {
     let _ = std::fs::remove_dir_all(&proj);
 }
 
-/// O durável (arquivo por projeto) e o volátil (contador de processo)
-/// contam a MESMA decisão.
+/// The durable (per-project file) and the volatile (process counter)
+/// count the SAME decision.
 ///
-/// **Serial por necessidade, não por hábito.** O `tmpdir` isola o durável,
-/// mas `code_mode_arm_counts()` é um contador ÚNICO do processo: o teste
-/// compara um delta global com um valor local, e qualquer outro teste que
-/// chame `bump_arm` entre as duas leituras quebra a igualdade. Medido em
-/// 27/08: serial 458/458, paralelo falhando 1 em 3.
+/// **Serial by necessity, not by habit.** The `tmpdir` isolates the durable,
+/// but `code_mode_arm_counts()` is a SINGLE process counter: the test
+/// compares a global delta with a local value, and any other test that
+/// calls `bump_arm` between the two reads breaks the equality. Measured on
+/// 27/08: serial 458/458, parallel failing 1 in 3.
 ///
-/// É a exceção ao isolamento estrutural que o resto deste módulo usa (chave
-/// com `project_root`, ver os testes de rajada do S3): ali existe uma chave
-/// que separa; aqui o recurso é global por design, e fingir que não é seria
-/// esconder a corrida em vez de declará-la.
+/// It is the exception to the structural isolation that the rest of this module uses (key
+/// with `project_root`, see the S3 burst tests): there a key exists
+/// that separates; here the resource is global by design, and pretending it is not would be
+/// hiding the race instead of declaring it.
 #[test]
 #[serial_test::serial(gate_metrics)]
 fn bump_arm_mantem_duravel_e_volatil_em_sincronia() {
@@ -313,7 +313,7 @@ fn bump_arm_mantem_duravel_e_volatil_em_sincronia() {
     let proj = tmpdir("arm-sincronia");
     std::fs::create_dir_all(&proj).expect("mkdir");
 
-    // índice 2 = `code` na ordem (native, both, code).
+    // index 2 = `code` in the order (native, both, code).
     let antes = code_mode_arm_counts()[2];
     bump_arm(&proj, "code", ArmAxis::Offered);
     bump_arm(&proj, "code", ArmAxis::Offered);
@@ -323,17 +323,17 @@ fn bump_arm_mantem_duravel_e_volatil_em_sincronia() {
 
     assert_eq!(disco.0, 2, "durável: 2 ofertas");
     assert_eq!(disco.1, 1, "durável: 1 tomada");
-    // `>=`, não `==`, e a razão importa: o durável é POR PROJETO (isolado
-    // pelo tmpdir acima) enquanto o volátil é um contador ÚNICO do
-    // processo, incrementado por qualquer caminho que ofereça uma rota —
-    // inclusive os testes de rajada do S3, que produzem denies. Exigir
-    // igualdade era exigir EXCLUSIVIDADE sobre um recurso compartilhado, e
-    // o teste passava por sorte de escalonamento (falhava 1 em 3).
+    // `>=`, not `==`, and the reason matters: the durable is PER PROJECT (isolated
+    // by the tmpdir above) while the volatile is a SINGLE process
+    // counter, incremented by any path that offers a route —
+    // including the S3 burst tests, which produce denies. Requiring
+    // equality was requiring EXCLUSIVITY over a shared resource, and
+    // the test passed by scheduling luck (it failed 1 in 3).
     //
-    // O que a asserção protege continua de pé: se o volátil deixasse de
-    // acompanhar o durável, o delta seria MENOR que o disco e isto reprova.
-    // O caso oposto — o volátil andar mais que o durável — é esperado aqui
-    // e é justamente o que a igualdade não sabia distinguir de um bug.
+    // What the assertion protects still stands: if the volatile stopped
+    // following the durable, the delta would be SMALLER than the disk and this fails.
+    // The opposite case — the volatile moving more than the durable — is expected here
+    // and is exactly what the equality could not distinguish from a bug.
     assert!(
         depois.0 - antes.0 >= disco.0,
         "o volátil não acompanhou o durável nas ofertas: {} < {}",
@@ -347,8 +347,8 @@ fn bump_arm_mantem_duravel_e_volatil_em_sincronia() {
         disco.1
     );
 
-    // Economia é durável-only por design: não existe átomo correspondente,
-    // então o volátil NÃO pode mexer quando só a economia é registrada.
+    // Economy is durable-only by design: there is no corresponding atom,
+    // so the volatile must NOT move when only the economy is recorded.
     let pre_eco = code_mode_arm_counts()[2];
     bump_arm(&proj, "code", ArmAxis::Economical);
     assert_eq!(
@@ -361,8 +361,8 @@ fn bump_arm_mantem_duravel_e_volatil_em_sincronia() {
     let _ = std::fs::remove_dir_all(&proj);
 }
 
-/// Um nome de braço desconhecido não pode cair num balde: contar errado é
-/// pior que não contar, porque a política acreditaria na contagem.
+/// An unknown arm name cannot fall into a bucket: counting wrong is
+/// worse than not counting, because the policy would believe the count.
 #[test]
 #[serial_test::serial(gate_metrics)]
 fn braco_desconhecido_nao_e_contado() {
@@ -374,8 +374,8 @@ fn braco_desconhecido_nao_e_contado() {
     let _ = std::fs::remove_dir_all(&proj);
 }
 
-/// Arquivo ilegível ⇒ zeros ⇒ política calada. Evidência que não se pode
-/// ler é evidência que não existe; inventar uma escolha seria pior.
+/// Unreadable file ⇒ zeros ⇒ quiet policy. Evidence that cannot be
+/// read is evidence that does not exist; inventing a choice would be worse.
 #[test]
 fn evidencia_corrompida_deixa_a_politica_calada() {
     use crate::code_mode_gates::arm::{arm_choice_from_counts, read_arm_file};
@@ -394,8 +394,8 @@ fn abaixo_do_piso_de_amostra_a_politica_se_cala() {
     assert_eq!(arm_choice_from_counts([(0, 0), (0, 0), (0, 0)]), None);
 }
 
-/// Um único braço com amostra não é uma escolha: é o único observado.
-/// Chamar isso de aprendizado seria confirmar a configuração vigente.
+/// A single arm with a sample is not a choice: it is the only one observed.
+/// Calling that learning would be confirming the current configuration.
 #[test]
 fn um_braco_sozinho_nao_conta_como_comparacao() {
     use crate::code_mode_gates::arm::arm_choice_from_counts;
@@ -405,9 +405,9 @@ fn um_braco_sozinho_nao_conta_como_comparacao() {
 #[test]
 fn diferenca_dentro_do_ruido_nao_e_evidencia() {
     use crate::code_mode_gates::arm::arm_choice_from_counts;
-    // 90% vs 88%: diferença real, mas menor que a margem — silêncio.
+    // 90% vs 88%: real difference, but smaller than the margin — silence.
     assert_eq!(arm_choice_from_counts([(0, 0), (100, 90), (100, 88)]), None);
-    // Empate exato jamais pode desempatar pela ordem do vetor.
+    // An exact tie can never be broken by the vector order.
     assert_eq!(arm_choice_from_counts([(20, 10), (20, 10), (20, 10)]), None);
 }
 
@@ -420,32 +420,32 @@ fn com_dois_bracos_medidos_vence_a_maior_taxa() {
         arm_choice_from_counts([(20, 10), (20, 18), (0, 0)]),
         Some(CodeModePresentation::Both)
     );
-    // code 100% supera both 80% — folga clara, não fronteira de margem.
-    // (Uma asserção exatamente NO limiar dependeria da representação IEEE754
-    // da subtração e falharia por motivo nenhum a ver com a política.)
+    // code 100% beats both 80% — a clear gap, not a margin boundary.
+    // (An assertion exactly AT the threshold would depend on the IEEE754 representation
+    // of the subtraction and would fail for a reason that has nothing to do with the policy.)
     assert_eq!(
         arm_choice_from_counts([(0, 0), (20, 16), (20, 20)]),
         Some(CodeModePresentation::Code)
     );
 }
 
-// ── P3 — harness de replay do research loop ──────────────────────────────────
+// ── P3 — replay harness of the research loop ──────────────────────────────────
 //
-// NÃO é uma asserção: é um EXPERIMENTO determinístico sobre corpus CONGELADO
-// (`eval/autoresearch/corpus.json`, extraído de transcripts reais). Usa os
-// predicados REAIS (`scan_class_of`, `command_similarity`) e não uma cópia —
-// um verificador que reimplementasse a regra mediria a cópia, não o gate.
+// It is NOT an assertion: it is a deterministic EXPERIMENT over a FROZEN corpus
+// (`eval/autoresearch/corpus.json`, extracted from real transcripts). It uses the
+// REAL predicates (`scan_class_of`, `command_similarity`) and not a copy —
+// a verifier that reimplemented the rule would measure the copy, not the gate.
 //
-// Roda sob demanda:
+// Runs on demand:
 //   cargo test -p touring-cli --lib autoresearch_replay -- --ignored --nocapture
 mod autoresearch_replay {
     use crate::code_mode_gates::{command_similarity, scan_class_of};
 
-    /// Uma varredura por limiar sobre o corpus congelado.
+    /// A sweep per threshold over the frozen corpus.
     ///
-    /// Simula com estado LOCAL (um mapa por sessão), nunca os caches globais do
-    /// processo: um experimento que escrevesse no ledger vivo contaminaria o
-    /// sistema que ele mede.
+    /// Simulates with LOCAL state (one map per session), never the process's
+    /// global caches: an experiment that wrote to the live ledger would contaminate the
+    /// system it measures.
     fn varre(sessoes: &[Vec<String>], limiar: f64) -> (usize, usize, f64) {
         let (mut inspecoes, mut colapsadas, mut soma_sim) = (0usize, 0usize, 0.0f64);
         for cmds in sessoes {
@@ -521,10 +521,10 @@ mod autoresearch_replay {
                 "{limiar:>7.1} {insp:>12} {col:>12} {media:>10.3}   ({pct:.1}% das inspeções)"
             );
         }
-        // O escalar que uma campanha leria. DECLARADO como proxy: maximizá-lo
-        // sozinho empurra o limiar para 0 (colapsar tudo), então o keep/discard
-        // sobre ele PRECISA de gate humano — que é exatamente a partição pela
-        // fronteira do verificador que o plano exige.
+        // The scalar that a campaign would read. DECLARED as a proxy: maximizing it
+        // alone pushes the threshold to 0 (collapse everything), so the keep/discard
+        // over it NEEDS a human gate — which is exactly the partition by the
+        // verifier's frontier that the plan requires.
         let (_, col, _) = varre(&sessoes, crate::code_mode_gates::G1_SIMILARITY_AT);
         println!("METRIC={col}");
     }
@@ -532,11 +532,11 @@ mod autoresearch_replay {
 
 // ── r3 shadow A2 (S-8, plan 2026-10-02-jev-harness-r3) ───────────────────────────
 //
-// O shadow só OBSERVA o ciclo de vida da oferta de rota. Estes testes provam as três
-// obrigações: flag OFF não faz nada, a decisão de produção é a mesma com a flag ligada
-// (inclusive quando a emissão FALHA), e cada oferta fecha com UMA linha. Cada teste roda
-// na própria thread com um sink por-thread (`test_sink`) — nunca o journal real, nunca um
-// global compartilhado com o vizinho paralelo.
+// The shadow only OBSERVES the lifecycle of the route offer. These tests prove the three
+// obligations: flag OFF does nothing, the production decision is the same with the flag on
+// (even when the emission FAILS), and each offer closes with ONE line. Each test runs
+// on its own thread with a per-thread sink (`test_sink`) — never the real journal, never a
+// global shared with the parallel neighbor.
 mod r3_shadow_a2 {
     use crate::code_mode_gates::arm::r3_a2::{Registry, pending_for, test_sink};
     use crate::code_mode_gates::{claim_route_reward, record_route_offer, session_key};

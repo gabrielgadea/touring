@@ -49,62 +49,62 @@ TOURING_VGP_L2_{OFF,WARMUP_S,RA_BUILD,MAX_RA} da camada 2 genérica, citadas no 
 RELATORIO-VL0-camada2-generica.md, cujo código vive só na worktree touring-wt-l2 (pool.rs,
 rust_analyzer.rs) e ainda não está nesta árvore — (c), stale por construção até a integração;
 lote "2026-10-10-release-30.4.96" → 397→401.
-10ª reconciliação (01/11, release 30.4.102; ledger 132→135 linhas): 401→396 = C1 +4, C4 +4,
-C5 -14, C6 +1 (C3 sem mudança). Desde a 9ª, o scan viu 30 sinais NOVOS e perdeu 15 sinais
-declarados (c) no ledger, que terceiros resolveram (30.4.70; C4 `por`, `hook-memory-*`, `vgp` — agora
-no help do binário —; 6 crates absorvidos dos backups; as 4 TOURING_VGP_L2_*, hoje em
-crates/touring-pyright). Dos 30 novos, 11 foram CORRIGIDOS (zero no ledger, pois nunca
-entraram no delta): 9 falsos positivos de predicado — C1 inteiro com milhar pt-BR
-(30.644.663, 30.973.693), C4 rótulo de log `[touring result-compactor]`, C5 diretório de bundle
-datado/arquivo/worktree/mod (touring-janela-eficacia, touring-signing, touring-wt-e2eherm,
-touring-wt-onda1, touring-compact-evict), C6 var lida só em .ts (a do mod compact-evict) — e 2 drifts
-REAIS em docs vivos: `touring tag signing` no RELEASE-CHECKLIST (rótulo lido como subcomando) e o
-prefixo do code mode truncado a 16 caracteres no ESTRATEGIA-FERRAMENTAS (faltava o "E" final).
-Os mesmos predicados eliminaram 9 sinais antigos: 6 do baseline de 31/08 (touring-base,
+10th reconciliation (01/11, release 30.4.102; ledger 132→135 lines): 401→396 = C1 +4, C4 +4,
+C5 -14, C6 +1 (C3 unchanged). Since the 9th, the scan saw 30 NEW signals and lost 15 signals
+declared (c) in the ledger, which third parties resolved (30.4.70; C4 `por`, `hook-memory-*`, `vgp` — now
+in the binary's help —; 6 crates absorbed from the backups; the 4 TOURING_VGP_L2_*, now in
+crates/touring-pyright). Of the 30 new ones, 11 were FIXED (zero in the ledger, since they never
+entered the delta): 9 predicate false positives — C1 integer with pt-BR thousands separator
+(30.644.663, 30.973.693), C4 log label `[touring result-compactor]`, C5 dated bundle
+directory/file/worktree/mod (touring-janela-eficacia, touring-signing, touring-wt-e2eherm,
+touring-wt-onda1, touring-compact-evict), C6 var read only in .ts (that of the compact-evict mod) — and 2 REAL
+drifts in live docs: `touring tag signing` in the RELEASE-CHECKLIST (label read as a subcommand) and the
+code mode prefix truncated to 16 characters in the ESTRATEGIA-FERRAMENTAS (the final "E" was missing).
+The same predicates eliminated 9 old signals: 6 from the 31/08 baseline (touring-base,
 touring-error, touring-excellence-pipeline-master-plan, touring-symbol-index-vow,
-touring-todo-fixme-audit, touring-unification — todos nome de arquivo/caminho) e 3 (c) do
-ledger (touring-modules e touring-proxima-geracao, reclassificadas (b); touring-wt-semeado,
-linha removida). Sobraram 19 irredutíveis, disposição (c), lote "2026-11-01-release-30.4.102":
-C1 30.4.96/98/99/100/101 (releases anteriores, registros datados), C4 cli-suggest, cost-report,
-journal, ops, pr, readiness, web, worktree (comandos propostos/inexistentes ou rótulos em
-análises datadas), C5 touring-melhor (valor de enum), C6 as 2 vars propostas no plano ECC (perfil
-de hooks e lista de desativação), as 2 do handler de worktree da R98 (código na branch R98, fora
-da árvore; citadas só por r98/RELATORIO.md, não rastreado) e a do tsc (lida por script de plano).
-Predicados novos com teste pos/neg em test_scanner_predicates.py → 401→396.
-11ª reconciliação (04/11/2026, checkout LIMPO do commit base — git worktree): 396→397 = C5 +2,
-C6 -1 (C1/C3/C4 inalterados). CAUSA RAIZ do "399 vs 396" que este teste acusava: o scanner tinha
-ROOT fixo no checkout principal e nunca leu o worktree — media os arquivos NÃO rastreados de outra
-sessão (3 sinais que não existem em nenhum arquivo rastreado: 1 versão e 2 vars). ROOT agora deriva
-do próprio arquivo (scripts/ → raiz); com a árvore certa a diferença real era outra: (1) C5 +2 —
-os crates touring-contracts (fundido no touring-ceg) e touring-capnp-server (pass-through apagado),
-removidos em 02/11, seguem citados em code fences de registros datados (sessões de abril, exploração
-de 21/06): (c), lote "2026-11-04-crates-removidos"; (2) C6 -1 — a var do handler de worktree da R98
-só era citada pelo relatório r98/RELATORIO.md, NÃO rastreado: some num checkout limpo, linha do
-ledger removida (precedente: 9ª e 10ª) — reaparece se o relatório for commitado, e aí o verificador
-exige a linha de volta (SEM DISPOSIÇÃO). Também: o total virou derivado de EXPECTED_BY_CAT.
-Dependência de estado: o scan lê o sistema de arquivos, não o git — docs não rastreados no
-checkout rodado entram na contagem; a medida reprodutível é a do checkout limpo.
-12ª reconciliação (05/11/2026, release 30.4.103 = fusão de 10 branches; ledger 136→137 linhas):
-397→398 = C1 +1 (C3/C4/C5/C6 inalterados). Medida num checkout LIMPO do HEAD (git archive, sem .git
-nem arquivos não rastreados), o método da 11ª. (1) C1 +1 — "30.4.102" virou release ANTERIOR quando
-a 30.4.103 passou a corrente: 31 citações em 9 arquivos RASTREADOS (bundle da VGP — RETOMAR-AQUI do
-V3, J15, held-out 20261101, fix-builtins, retrodependencias, RETOMAR-L2-BUDGET — e as pendências
-consolidadas), todas registro datado; nenhuma descreve a versão corrente, logo zero correção na
-fonte: (c), lote "2026-11-05-release-30.4.103". (2) O checkout principal leu 405 (397+8), mas 7 dos
-8 sinais NÃO existem em nenhum arquivo rastreado — vêm de arquivos não rastreados de sessões irmãs
-de 05/11: C5 +5 (touring-architect, touring-auditor, touring-scriber, touring-arch e o crate
-absorvido touring-resource-monitor) só no diretório backup-live-pre-sanitize-20261105/ do bundle
-correcoes-aprofundamento, cópia de agents/skills do ambiente do usuário ANTES da anonimização (tem
-caminho de usuário em 22 arquivos, logo NUNCA deve ser commitado: pinar seus sinais aqui deixaria
-todo checkout limpo vermelho para sempre); C6 +2 (o kill switch do gate teammate-idle, citado só em
-RETOMADA.md do mesmo bundle, e o opt-out de index do handler de worktree da R98, só em
-r98/RELATORIO.md). Pela regra da 11ª não ganham linha no ledger nem entram nestes literais; se um
-desses arquivos for commitado, o verificador acusa SEM DISPOSIÇÃO e ele se trata então. Efeito
-medido: neste checkout principal, enquanto esses arquivos existirem, o teste lê C5=160, C6=32
-(total 405) e reprova — é a dependência de estado documentada acima, não regressão.
-ARMADILHA (medida na própria 10ª): este arquivo é .py FORA de docs/, logo entra no ground truth
-do C6 — escrever aqui o nome literal de uma var citada pelas docs a transformava em "existente" e
-o sinal sumia do scan. Por isso este docstring não nomeia nenhuma delas; os nomes estão no ledger.
+touring-todo-fixme-audit, touring-unification — all file/path names) and 3 (c) from the
+ledger (touring-modules and touring-proxima-geracao, reclassified (b); touring-wt-semeado,
+line removed). 19 irreducible ones remained, disposition (c), batch "2026-11-01-release-30.4.102":
+C1 30.4.96/98/99/100/101 (earlier releases, dated records), C4 cli-suggest, cost-report,
+journal, ops, pr, readiness, web, worktree (proposed/nonexistent commands or labels in
+dated analyses), C5 touring-melhor (enum value), C6 the 2 vars proposed in the ECC plan (hooks
+profile and disable list), the 2 of the R98 worktree handler (code on the R98 branch, outside
+the tree; cited only by r98/RELATORIO.md, untracked) and the tsc one (read by a plan script).
+New predicates with a pos/neg test in test_scanner_predicates.py → 401→396.
+11th reconciliation (04/11/2026, CLEAN checkout of the base commit — git worktree): 396→397 = C5 +2,
+C6 -1 (C1/C3/C4 unchanged). ROOT CAUSE of the "399 vs 396" that this test reported: the scanner had a
+fixed ROOT in the main checkout and never read the worktree — it measured the UNTRACKED files of another
+session (3 signals that exist in no tracked file: 1 version and 2 vars). ROOT is now derived
+from the file itself (scripts/ → root); with the right tree the real difference was another: (1) C5 +2 —
+the crates touring-contracts (merged into touring-ceg) and touring-capnp-server (pass-through deleted),
+removed on 02/11, are still cited in code fences of dated records (April sessions, exploration
+of 21/06): (c), batch "2026-11-04-crates-removidos"; (2) C6 -1 — the var of the R98 worktree handler
+was only cited by the report r98/RELATORIO.md, UNTRACKED: it vanishes in a clean checkout, ledger
+line removed (precedent: 9th and 10th) — it reappears if the report is committed, and then the verifier
+demands the line back (NO DISPOSITION). Also: the total became derived from EXPECTED_BY_CAT.
+State dependency: the scan reads the filesystem, not git — untracked docs in the
+checkout it runs in enter the count; the reproducible measure is that of the clean checkout.
+12th reconciliation (05/11/2026, release 30.4.103 = merge of 10 branches; ledger 136→137 lines):
+397→398 = C1 +1 (C3/C4/C5/C6 unchanged). Measured in a CLEAN checkout of HEAD (git archive, no .git
+nor untracked files), the 11th's method. (1) C1 +1 — "30.4.102" became the PREVIOUS release when
+30.4.103 became the current one: 31 citations in 9 TRACKED files (VGP bundle — RETOMAR-AQUI of
+V3, J15, held-out 20261101, fix-builtins, retrodependencias, RETOMAR-L2-BUDGET — and the consolidated
+pending items), all dated records; none describes the current version, hence zero fix at the
+source: (c), batch "2026-11-05-release-30.4.103". (2) The main checkout read 405 (397+8), but 7 of the
+8 signals do NOT exist in any tracked file — they come from untracked files of sibling sessions
+of 05/11: C5 +5 (touring-architect, touring-auditor, touring-scriber, touring-arch and the
+absorbed crate touring-resource-monitor) only in the directory backup-live-pre-sanitize-20261105/ of the
+correcoes-aprofundamento bundle, a copy of the user environment's agents/skills BEFORE anonymization (it has a
+user path in 22 files, hence must NEVER be committed: pinning its signals here would leave
+every clean checkout red forever); C6 +2 (the kill switch of the teammate-idle gate, cited only in
+RETOMADA.md of the same bundle, and the index opt-out of the R98 worktree handler, only in
+r98/RELATORIO.md). By the 11th's rule they get no ledger line nor enter these literals; if one of
+those files is committed, the verifier reports NO DISPOSITION and it is then handled. Measured
+effect: in this main checkout, as long as those files exist, the test reads C5=160, C6=32
+(total 405) and fails — it is the state dependency documented above, not a regression.
+TRAP (measured in the 10th itself): this file is .py OUTSIDE docs/, so it enters the ground truth
+of C6 — writing here the literal name of a var cited by the docs turned it into "existing" and
+the signal vanished from the scan. That is why this docstring names none of them; the names are in the ledger.
 É o C1 "por construção" (pergunta 1 da Kimi a Gabriel, drift-reconciliacao/RELATORIO.md):
 todo release mexe neste literal.
 Ledger completo:
@@ -151,9 +151,9 @@ NUMERIC_CATEGORIES = ["C1", "C3", "C4", "C5", "C6"]
 FILES_ONLY_CATEGORIES = ["C2", "C7"]
 ALL_CATEGORIES = NUMERIC_CATEGORIES + FILES_ONLY_CATEGORIES
 
-# Contagens reconciliadas 05/11/2026, 12ª reconciliação (ver docstring do módulo).
-# Medidas num checkout limpo do HEAD; arquivos não rastreados de outras sessões somam por cima.
-# Fonte única: o total é derivado, para que uma reconciliação mexa num literal só.
+# Counts reconciled 05/11/2026, 12th reconciliation (see the module docstring).
+# Measured in a clean checkout of HEAD; untracked files from other sessions add on top.
+# Single source: the total is derived, so a reconciliation touches only one literal.
 EXPECTED_BY_CAT = {"C1": 91, "C3": 11, "C4": 111, "C5": 155, "C6": 30}
 EXPECTED_TOTAL = sum(EXPECTED_BY_CAT.values())
 
@@ -261,7 +261,7 @@ def test_scan_check_total_reconciled(errors: list) -> None:
 
 
 def test_scan_categories_breakdown(errors: list) -> None:
-    """Decomposição C1+C3+C4+C5+C6 == EXPECTED_BY_CAT (literais da última reconciliação)."""
+    """Decomposition C1+C3+C4+C5+C6 == EXPECTED_BY_CAT (literals of the last reconciliation)."""
     code, data = run_scan_full()
     if code != 0:
         errors.append(f"FAIL scan_categories_breakdown: scan default exit {code}")
@@ -317,7 +317,7 @@ def test_guard_covers_only_c3(errors: list) -> None:
 def test_files_only_categories_not_in_check(errors: list) -> None:
     """C2 (paths) e C7 (hooks) NÃO contam em --check (são files-only)."""
     _, _, stderr = run_scan_check()
-    # O stderr do check: "CHECK: <N> stale signals (C1=…, C3=…, C4=…, C5=…, C6=…)"
+    # The check's stderr: "CHECK: <N> stale signals (C1=…, C3=…, C4=…, C5=…, C6=…)"
     # Não menciona C2 nem C7.
     has_c2 = "C2=" in stderr
     has_c7 = "C7=" in stderr

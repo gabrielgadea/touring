@@ -101,9 +101,9 @@ fn g10_exec_class_reconhece_o_executor_e_exclui_o_resto() {
     assert_eq!(exec_class_of(".venv/bin/pytest tests/ -q"), Some("pytest"));
     assert_eq!(exec_class_of("time python3 runner.py"), Some("python"));
     assert_eq!(exec_class_of("cd /x && pytest tests/"), Some("pytest"));
-    // inline entrou na rajada como classe PRÓPRIA (aperto 29/08): o
-    // remédio é 1:1 (o corpo verbatim), não a fusão R9 que justificava a
-    // exclusão histórica
+    // inline entered the burst as its OWN class (tightening 29/08): the
+    // remedy is 1:1 (the verbatim body), not the R9 fusion that justified the
+    // historical exclusion
     assert_eq!(
         exec_class_of("python3 -c 'print(1)'"),
         Some("python-inline")
@@ -113,11 +113,11 @@ fn g10_exec_class_reconhece_o_executor_e_exclui_o_resto() {
         Some("python-inline")
     );
     assert_eq!(exec_class_of("python3 - arg1"), Some("python-inline"));
-    // mutação marcada fica de fora por construção (P2.3)
+    // marked mutation is left out by construction (P2.3)
     assert_eq!(exec_class_of("python3 setup.py install"), None);
     assert_eq!(exec_class_of("python3 runner.py > out.txt"), None);
     assert_eq!(exec_class_of("python3 -m pip install x"), None);
-    // não-executor
+    // non-executor
     assert_eq!(exec_class_of("cargo test"), None);
     assert_eq!(exec_class_of("grep foo f"), None);
 }
@@ -125,7 +125,7 @@ fn g10_exec_class_reconhece_o_executor_e_exclui_o_resto() {
 #[test]
 fn s5_redirect_de_fd_nao_anula_a_classe_exec() {
     use crate::code_mode_gates::exec_class_of;
-    // O furo B: `contains(">")` sobre o blob inteiro cegava o G10.
+    // Hole B: `contains(">")` over the whole blob blinded G10.
     assert_eq!(
         exec_class_of("cd /tmp && python3 medir.py 2>&1 | head -5"),
         Some("python")
@@ -135,7 +135,7 @@ fn s5_redirect_de_fd_nao_anula_a_classe_exec() {
         Some("python")
     );
     assert_eq!(exec_class_of("pytest tests/ -q 2>&1"), Some("pytest"));
-    // Redirect REAL de saída segue fora — escrita não é rajada exec.
+    // A REAL output redirect stays out — a write is not an exec burst.
     assert_eq!(exec_class_of("python3 runner.py > out.txt"), None);
     assert_eq!(exec_class_of("python3 runner.py >> log.txt"), None);
 }
@@ -143,8 +143,8 @@ fn s5_redirect_de_fd_nao_anula_a_classe_exec() {
 #[test]
 fn s5_assignment_prefixo_e_transparente_para_a_classe() {
     use crate::code_mode_gates::{effective_tokens, exec_class_of};
-    // O furo C: segmento assignment-only devolvia tokens vazios e TODA
-    // classificação morria ali.
+    // Hole C: an assignment-only segment returned empty tokens and ALL
+    // classification died there.
     assert_eq!(
         exec_class_of("P=docs/x\npython3 medir.py --map $P"),
         Some("python")
@@ -153,25 +153,25 @@ fn s5_assignment_prefixo_e_transparente_para_a_classe() {
         effective_tokens("P=docs/x\nR=docs/y\ngrep -n foo arq.rs").first(),
         Some(&"grep")
     );
-    // Assignment sozinho continua sem classe (não há verbo).
+    // A lone assignment still has no class (there is no verb).
     assert_eq!(exec_class_of("P=docs/x"), None);
 }
 
 #[test]
 fn s5_corpo_de_heredoc_nao_alimenta_o_filtro_de_mutacao() {
     use crate::code_mode_gates::{exec_class_of, mutation_scan_view};
-    // O corpo é DADO no stdin — um `git ` ou `>` lá dentro não é comando.
+    // The body is DATA on stdin — a `git ` or `>` inside it is not a command.
     let cmd = "python3 medir.py <<'EOF'\nx = \"git checkout\"\ny = 1 > 0\nEOF";
     assert!(!mutation_scan_view(cmd).contains("git "));
     assert_eq!(exec_class_of(cmd), Some("python"));
-    // Herestring não é heredoc — a view não pode engolir o resto.
+    // A herestring is not a heredoc — the view must not swallow the rest.
     assert!(mutation_scan_view("cat <<< 'x' && rm f").contains("rm "));
 }
 
 #[test]
 fn s5_par_write_run_detecta_escrita_e_execucao_do_mesmo_script() {
     use crate::code_mode_gates::{script_run_targets, script_write_target};
-    // A escrita registra o alvo (heredoc típico do loop execute-observe).
+    // The write registers the target (typical heredoc of the execute-observe loop).
     assert_eq!(
         script_write_target("cat > /tmp/s/medir.py <<'PYEOF'\nprint(1)\nPYEOF"),
         Some("/tmp/s/medir.py".to_string())
@@ -181,7 +181,7 @@ fn s5_par_write_run_detecta_escrita_e_execucao_do_mesmo_script() {
         Some("scratch/x.sh".to_string())
     );
     assert_eq!(script_write_target("cat > notas.md <<'EOF'\noi\nEOF"), None);
-    // A execução resolve o path mesmo atrás de cd/assignment.
+    // The execution resolves the path even behind cd/assignment.
     assert_eq!(
         script_run_targets("cd /proj\n.venv/bin/python3 /tmp/s/medir.py"),
         vec!["/tmp/s/medir.py".to_string()]
@@ -190,26 +190,26 @@ fn s5_par_write_run_detecta_escrita_e_execucao_do_mesmo_script() {
         script_run_targets("bash scratch/x.sh"),
         vec!["scratch/x.sh".to_string()]
     );
-    // O padrão CANÔNICO do analise (24 dos 60): escreve E executa no MESMO
-    // tool_use multi-linha — o run da linha pós-heredoc TEM que aparecer.
+    // The CANONICAL pattern of analise (24 of 60): writes AND executes in the SAME
+    // multi-line tool_use — the run on the line after the heredoc MUST show up.
     assert_eq!(
         script_run_targets(
             "cat > /tmp/s/perfil.py <<'PYEOF'\nimport json\nPYEOF\n\npython3 /tmp/s/perfil.py"
         ),
         vec!["/tmp/s/perfil.py".to_string()]
     );
-    // pytest/módulos nunca casam — o limiar baixo não taxa o caso comum.
+    // pytest/modules never match — the low threshold does not tax the common case.
     assert!(script_run_targets("python3 -m pytest tests/test_a.py").is_empty());
     assert!(script_run_targets("pytest tests/test_a.py").is_empty());
-    // Redirect real no SEGMENTO do run: o remédio --file não reproduziria
-    // a escrita — aquele segmento não conta.
+    // A real redirect in the run's SEGMENT: the --file remedy would not reproduce
+    // the write — that segment does not count.
     assert!(script_run_targets("python3 /tmp/s/medir.py > out.json").is_empty());
 }
 
 #[test]
 fn s5_python_inline_tem_remedio_um_para_um() {
     use crate::code_mode_gates::{python_inline_body, python_inline_remedy};
-    // heredoc: o corpo verbatim, sem fusão R9
+    // heredoc: the verbatim body, without R9 fusion
     let cmd = "python3 - <<'PYEOF'\nimport json\nprint(1)\nPYEOF";
     assert_eq!(
         python_inline_body(cmd).as_deref(),
@@ -218,19 +218,19 @@ fn s5_python_inline_tem_remedio_um_para_um() {
     let r = python_inline_remedy(cmd);
     assert!(r.starts_with("touring run --lang python --code '"), "{r}");
     assert!(r.contains("import json"), "{r}");
-    // -c: o literal entre as aspas externas
+    // -c: the literal between the outer quotes
     assert_eq!(
         python_inline_body("python3 -c 'print(42)'").as_deref(),
         Some("print(42)")
     );
-    // inextraível → placeholder honesto, nunca comando quebrado
+    // unextractable → honest placeholder, never a broken command
     assert!(python_inline_remedy("python3 -").contains("verbatim"));
 }
 
-/// S213 (25/09/2026) — quem ANEXA a arquivo nunca é inspeção. O remédio da rajada funde
-/// os comandos da janela e os reexecuta; `cat x >> triad_hook.rs && cargo test` foi
-/// classificado como `cat` e o deny propôs rodá-lo de novo (anexaria o teste duas vezes).
-/// Sobrescrever (`>`) segue inspeção — decisão P2.3: reexecutar é idempotente.
+/// S213 (25/09/2026) — whoever APPENDS to a file is never inspection. The burst remedy fuses
+/// the window's commands and re-executes them; `cat x >> triad_hook.rs && cargo test` was
+/// classified as `cat` and the deny proposed running it again (it would append the test twice).
+/// Overwriting (`>`) stays inspection — P2.3 decision: re-executing is idempotent.
 #[test]
 fn a_command_that_writes_a_file_is_never_inspection() {
     use crate::code_mode_gates::scan_class_of;
@@ -256,10 +256,10 @@ fn a_command_that_writes_a_file_is_never_inspection() {
     assert_eq!(scan_class_of("grep -rn foo src 2> /dev/null"), Some("grep"));
 }
 
-/// S213b (26/09/2026) — uma SEQUÊNCIA só é inspeção se todo passo inspeciona. A classe
-/// vinha do 1º verbo real: `cd t && grep -m1 x Cargo.toml; timeout 1200 cargo clippy …`
-/// virou `grep` e o remédio da rajada propôs reexecutar 20 min de clippy (observado ao
-/// vivo); com um `touring memory store` no lugar, reexecutaria uma escrita.
+/// S213b (26/09/2026) — a SEQUENCE is only inspection if every step inspects. The class
+/// came from the 1st real verb: `cd t && grep -m1 x Cargo.toml; timeout 1200 cargo clippy …`
+/// became `grep` and the burst remedy proposed re-executing 20 min of clippy (observed
+/// live); with a `touring memory store` in its place, it would re-execute a write.
 #[test]
 fn a_sequence_with_a_step_that_does_work_is_never_inspection() {
     use crate::code_mode_gates::scan_class_of;
@@ -284,11 +284,11 @@ fn a_sequence_with_a_step_that_does_work_is_never_inspection() {
     assert_eq!(scan_class_of("P=1\ncat f | head -5"), Some("cat"));
 }
 
-/// S212 (25/09/2026) — o remédio do G10 NUNCA reexecuta o que já rodou. O ledger traz a
-/// rajada inteira em ordem; só o ÚLTIMO comando foi negado — os anteriores JÁ executaram,
-/// inclusive escritas (gravar memória, commitar). Reexecutá-los repetia efeitos: observado
-/// ao vivo, o deny propôs rodar de novo o script que grava lições. Só o negado vira passo;
-/// os executados viajam como comentário de contexto (a 1ª linha, nunca o corpo).
+/// S212 (25/09/2026) — the G10 remedy NEVER re-executes what already ran. The ledger carries the
+/// whole burst in order; only the LAST command was denied — the earlier ones ALREADY executed,
+/// including writes (saving memory, committing). Re-executing them repeated effects: observed
+/// live, the deny proposed running again the script that saves lessons. Only the denied one becomes a step;
+/// the executed ones travel as a context comment (the 1st line, never the body).
 #[test]
 fn g10_remedy_never_replays_executed_commands() {
     use crate::code_mode_gates::r9_exec_program;
@@ -336,11 +336,11 @@ fn g10_programa_r9_agrega_as_chamadas_reais_em_bash_executavel() {
     ];
     let (pending, executed) = cmds.split_last().expect("non-empty");
     let p = r9_exec_program(executed, pending);
-    // 30/08: o R9 é BASH — o template python com `import subprocess` era
-    // exatamente a capability que o X6 nega sob Sandboxed: o deny do G10
-    // emitia uma rota que o gate seguinte barrava (medido pela peer
-    // analise-a2 — não havia caminho conforme). Bash é a única lang com o
-    // waiver subprocess-only; `--timeout-ms` viaja explícito (E4).
+    // 30/08: R9 is BASH — the python template with `import subprocess` was
+    // exactly the capability that X6 denies under Sandboxed: the G10 deny
+    // emitted a route that the next gate barred (measured by the peer
+    // analise-a2 — there was no conforming path). Bash is the only lang with the
+    // subprocess-only waiver; `--timeout-ms` travels explicitly (E4).
     assert!(
         p.starts_with("touring run --lang bash --timeout-ms 120000 --code '"),
         "{p}"
@@ -351,8 +351,8 @@ fn g10_programa_r9_agrega_as_chamadas_reais_em_bash_executavel() {
         "a rota emitida não pode depender da capability que o X6 nega: {p}"
     );
     for c in &cmds {
-        // o comando viaja VERBATIM, com o escape do embrulho shell por
-        // cima (o bash externo desfaz na entrega)
+        // the command travels VERBATIM, with the shell-wrapper escape on
+        // top (the outer bash undoes it on delivery)
         let literal = c.replace('\'', "'\\''");
         assert!(p.contains(&literal), "faltou {literal} no programa");
     }
@@ -366,12 +366,12 @@ fn s6_intent_carrega_classe_e_alvos_do_trabalho() {
     let cmds = vec![
         "pytest tests/test_a.py -x".to_string(),
         "pytest tests/test_b.py -x".to_string(),
-        "pytest tests/test_a.py -x".to_string(), // duplicado: dedup
+        "pytest tests/test_a.py -x".to_string(), // duplicate: dedup
     ];
     let intent = exec_burst_intent("pytest", &cmds);
     assert!(intent.starts_with("pytest"), "{intent}");
-    // componentes de trabalho (dir + stem), não o caminho inteiro — são
-    // eles que casam o propósito do artefato (required_matches do BM25)
+    // work components (dir + stem), not the whole path — they are
+    // what match the artifact's purpose (BM25's required_matches)
     assert!(intent.contains("tests"), "{intent}");
     assert!(intent.contains("test"), "{intent}");
     assert!(
@@ -387,23 +387,23 @@ fn s6_intent_carrega_classe_e_alvos_do_trabalho() {
         !intent.contains("-x"),
         "flags não são termo de trabalho: {intent}"
     );
-    // classe solitária quando a rajada não tem alvos
+    // lone class when the burst has no targets
     assert_eq!(exec_burst_intent("python", &[]), "python");
 }
 
 #[test]
 fn s6_sem_portfolio_ou_sem_match_o_remedio_e_none_e_o_r9_basta() {
     use crate::code_mode_gates::portfolio_remedy_for_burst;
-    // fail-open: sem índice legível (ou vazio), o deny sai só com o R9
+    // fail-open: with no readable (or empty) index, the deny comes out with R9 only
     let cmds = vec!["pytest tests/xyzzy_inexistente_q123.py".to_string()];
-    let _ = portfolio_remedy_for_burst("pytest", &cmds); // nunca panica
+    let _ = portfolio_remedy_for_burst("pytest", &cmds); // never panics
 }
 
 #[test]
 fn s6_prior_art_instanciado_quando_o_portfolio_tem_programa_proximo() {
-    // O índice vem do scratch por PARÂMETRO (store::load_from), sem
-    // TOURING_PORTFOLIO_DIR: o env é global ao processo e vaza entre
-    // testes paralelos (a race medida em 08/10 — ver GateOverrides).
+    // The index comes from the scratch by PARAMETER (store::load_from), without
+    // TOURING_PORTFOLIO_DIR: the env is global to the process and leaks between
+    // parallel tests (the race measured on 08/10 — see GateOverrides).
     use crate::code_mode_gates::portfolio_remedy_for_burst_on;
     let dir = monta_portfolio_scratch();
     let index =
@@ -423,7 +423,7 @@ fn s6_prior_art_instanciado_quando_o_portfolio_tem_programa_proximo() {
 #[test]
 fn g8_laco_de_inspecao_vira_uma_varredura() {
     use crate::code_mode_gates::loop_rewrite_candidate;
-    // O caso medido no transcript de 25/08: laço de inspeção pura.
+    // The case measured in the 25/08 transcript: pure inspection loop.
     let cmd = r#"for f in a.rs b.rs; do grep -n "fn main" $f; done"#;
     let got = loop_rewrite_candidate(cmd).expect("laço de inspeção é candidato");
     assert!(got.starts_with("touring run --lang bash --code '"));
@@ -436,9 +436,9 @@ fn g8_laco_de_inspecao_vira_uma_varredura() {
 #[test]
 fn g8_nunca_reescreve_laco_com_efeito() {
     use crate::code_mode_gates::loop_rewrite_candidate;
-    // Estes quebrariam sob as capabilities do sandbox — ficam de fora por
-    // construção, não por sorte. O gate que converte o que não devia é
-    // pior que gate nenhum.
+    // These would break under the sandbox capabilities — they stay out by
+    // construction, not by luck. A gate that converts what it should not is
+    // worse than no gate.
     for cmd in [
         "for p in $(pgrep x); do kill -9 $p; done",
         "for c in a b; do cargo test -p $c; done",
@@ -481,27 +481,27 @@ fn g8_escapa_aspas_simples_preservando_o_comando() {
     use crate::code_mode_gates::loop_rewrite_candidate;
     let cmd = r#"for f in a b; do grep -n 'fn main' $f; done"#;
     let got = loop_rewrite_candidate(cmd).expect("candidato");
-    // O corpo entra escapado, de modo que o shell externo reentregue o
-    // comando original ao sandbox — o rewrite não pode alterar semântica.
+    // The body enters escaped, so that the outer shell hands the
+    // original command back to the sandbox — the rewrite cannot alter semantics.
     assert!(
         got.contains(r"'\''fn main'\''"),
         "aspas internas escapadas: {got}"
     );
 }
 
-/// S3 (27/08/2026) — a calibração deixou de ser por NOME de classe e passou
-/// a ser por RAJADA, e a medição é a razão.
+/// S3 (27/08/2026) — the calibration stopped being by class NAME and became
+/// by BURST, and the measurement is the reason.
 ///
-/// A versão anterior deste teste afirmava o oposto: que `ls`/`wc`/`sed-n`
-/// NÃO podiam colapsar porque "são chamada única". Medindo 115 transcripts
-/// (`scripts/s3_burst_distribution.py`, janela 300s) isso se mostrou falso
-/// justamente para as duas de maior volume — `sed-n` tem 408 chamadas com
-/// 81,4% do volume em rajadas ≥2, `ls` tem 338 com 71,3% — enquanto `find`,
-/// que a lista negava, é 56,2% isolada e não produziu UMA rajada ≥3.
+/// The previous version of this test asserted the opposite: that `ls`/`wc`/`sed-n`
+/// could NOT collapse because "they are a single call". Measuring 115 transcripts
+/// (`scripts/s3_burst_distribution.py`, 300s window) this proved false
+/// precisely for the two with the largest volume — `sed-n` has 408 calls with
+/// 81.4% of the volume in bursts ≥2, `ls` has 338 with 71.3% — whereas `find`,
+/// which the list denied, is 56.2% isolated and did not produce ONE burst ≥3.
 ///
-/// O que o teste guarda agora é o invariante que sobrevive à recalibração:
-/// toda classe que o gate acompanha é uma que o classificador emite, e o
-/// que discrimina não é a lista e sim o limiar de rajada.
+/// What the test guards now is the invariant that survives recalibration:
+/// every class the gate tracks is one that the classifier emits, and what
+/// discriminates is not the list but the burst threshold.
 #[test]
 fn a_calibracao_bate_com_a_medicao() {
     for classe in ["grep", "cat", "find", "ls", "wc", "sed-n"] {
@@ -518,9 +518,9 @@ fn a_calibracao_bate_com_a_medicao() {
     );
 }
 
-/// O detector de corpo falha na direção FROUXA: leitura pura classifica;
-/// qualquer marca de escrita/subprocesso/DB/dinamismo devolve `None` (o
-/// comando fica no G10); não-python nunca classifica.
+/// The body detector fails in the LOOSE direction: pure reading classifies;
+/// any mark of write/subprocess/DB/dynamism returns `None` (the
+/// command stays in G10); non-python never classifies.
 #[test]
 fn o_detector_de_corpo_readonly_falha_na_direcao_frouxa() {
     use crate::code_mode_gates::python_inline_readonly_class;
@@ -546,9 +546,9 @@ fn o_detector_de_corpo_readonly_falha_na_direcao_frouxa() {
     );
 }
 
-/// Toda classe da lista tem de ser uma que `scan_class_of` realmente emite.
-/// Sem isto a lista pode nomear algo que jamais chega ao gate — o modo de
-/// falha de `teste-do-componente-nao-e-teste-do-caminho`.
+/// Every class in the list has to be one that `scan_class_of` actually emits.
+/// Without this the list can name something that never reaches the gate — the failure
+/// mode of `teste-do-componente-nao-e-teste-do-caminho`.
 #[test]
 fn toda_classe_colapsada_e_produzivel_pelo_classificador() {
     let amostras = [
@@ -570,32 +570,32 @@ fn toda_classe_colapsada_e_produzivel_pelo_classificador() {
     }
 }
 
-/// P2.3 (calibração, 1.312 chamadas reais): `cat > f`/`cat >> f` é
-/// heredoc de ESCRITA (T4), não inspeção. Sem a exclusão, o modo `code` —
-/// que nega na 1ª chamada — negava 27 escritas (20,6% do que a matriz
-/// pegaria). Provado por mutação: remover o braço do redirect em
-/// `scan_class_of` reprova os três primeiros casos.
+/// P2.3 (calibration, 1,312 real calls): `cat > f`/`cat >> f` is
+/// a WRITE heredoc (T4), not inspection. Without the exclusion, the `code` mode —
+/// which denies on the 1st call — denied 27 writes (20.6% of what the matrix
+/// would catch). Proven by mutation: removing the redirect arm in
+/// `scan_class_of` fails the first three cases.
 #[test]
 fn cat_com_redirect_e_escrita_nao_inspecao() {
-    // escrita: primeiro operando já é o redirect
+    // write: first operand is already the redirect
     assert_eq!(scan_class_of("cat > out.txt <<'EOF'"), None);
     assert_eq!(scan_class_of("cat >> log.txt <<'EOF'"), None);
     assert_eq!(scan_class_of("head > out.txt"), None);
     assert_eq!(scan_class_of("tail -n +3 >> out.txt"), None);
-    // inspeção preservada
+    // inspection preserved
     assert_eq!(scan_class_of("cat README.md"), Some("cat"));
     assert_eq!(scan_class_of("cat -n README.md"), Some("cat"));
-    // inspeção cujo RESULTADO vai a arquivo: o operando de leitura vem
-    // primeiro — o programa fundido reproduziria o redirect
+    // inspection whose RESULT goes to a file: the read operand comes
+    // first — the fused program would reproduce the redirect
     assert_eq!(scan_class_of("cat README.md > out.txt"), Some("cat"));
     assert_eq!(scan_class_of("head -5 README.md"), Some("cat"));
 }
 
-/// S1 (26/08/2026) — wrappers de execução são transparentes à
-/// classificação: `time grep` é `grep`. Antes o 1º token decidia, e
-/// `time`/`nice`/`sudo`/`env` anulavam a classe para gates E nudges ao
-/// mesmo tempo. Cada assert reprova uma mutação do resolvedor (remover
-/// `skip_wrapper` devolve `None` em todos os casos positivos).
+/// S1 (26/08/2026) — execution wrappers are transparent to
+/// classification: `time grep` is `grep`. Before, the 1st token decided, and
+/// `time`/`nice`/`sudo`/`env` nullified the class for gates AND nudges at
+/// the same time. Each assert fails a mutation of the resolver (removing
+/// `skip_wrapper` returns `None` in all the positive cases).
 #[test]
 fn s1_wrappers_resolve_o_verbo_real() {
     assert_eq!(scan_class_of("time grep -rn foo src/"), Some("grep"));
@@ -611,8 +611,8 @@ fn s1_wrappers_resolve_o_verbo_real() {
     assert_eq!(scan_class_of("chrt -f 10 nice -n 5 grep x f"), Some("grep"));
 }
 
-/// As exclusões pré-S1 atravessam o invólucro: escrita continua escrita,
-/// invólucro puro não é classe, e o `-n` do `nice` NÃO vira o `-n` do sed.
+/// The pre-S1 exclusions cross the wrapper: a write is still a write,
+/// a bare wrapper is not a class, and the `nice`'s `-n` does NOT become the sed's `-n`.
 #[test]
 fn s1_wrappers_preservam_as_exclusoes() {
     assert_eq!(scan_class_of("nice cat > out.txt <<'EOF'"), None);
@@ -624,8 +624,8 @@ fn s1_wrappers_preservam_as_exclusoes() {
     assert_eq!(scan_class_of("env FOO=1"), None);
 }
 
-/// Prefixo `VAR=valor`: o comportamento pré-S1, bit a bit — o bypass
-/// `TOURING_GATE_OK=1`/`TOURING_CODE_MODE=<v>` segue transparente.
+/// `VAR=value` prefix: pre-S1 behavior, bit for bit — the bypass
+/// `TOURING_GATE_OK=1`/`TOURING_CODE_MODE=<v>` stays transparent.
 #[test]
 fn s1_prefixo_var_valor_segue_transparente() {
     assert_eq!(scan_class_of("FOO=1 grep x f"), Some("grep"));
@@ -636,23 +636,23 @@ fn s1_prefixo_var_valor_segue_transparente() {
     assert_eq!(scan_class_of("FOO=1"), None);
 }
 
-/// Chamada sem classe fan-out não abre turno nem é negada: mutação/build
-/// nunca é rajada (o desenho §T3-B é sobre inspeção).
+/// A call with no fan-out class neither opens a turn nor is denied: mutation/build
+/// is never a burst (the §T3-B design is about inspection).
 #[test]
 fn similaridade_pega_o_fanout_serial_que_os_outros_gates_nao_veem() {
     use crate::code_mode_gates::{G1_SIMILARITY_AT, command_similarity};
-    // O caso canônico: mesma inspeção, arquivo diferente. O G6 não pega
-    // (não é byte-idêntico) e o G7 não pega (arquivo diferente).
+    // The canonical case: same inspection, different file. G6 does not catch it
+    // (not byte-identical) and G7 does not catch it (different file).
     let s = command_similarity("grep X a.rs", "grep X b.rs");
     assert!(s >= G1_SIMILARITY_AT, "esperado >= 0.5, obtido {s}");
 
-    // Mesma família, faixa diferente — o trabalho repetido é quase todo.
+    // Same family, different range — almost all the work is repeated.
     let s2 = command_similarity("sed -n 1,20p f.rs", "sed -n 40,60p f.rs");
     assert!(s2 >= G1_SIMILARITY_AT, "esperado >= 0.5, obtido {s2}");
 }
 
-/// Sem falso positivo: comandos de propósitos distintos não podem ser
-/// julgados repetição. Um gate que negasse isto seria pior que nenhum.
+/// No false positive: commands of distinct purposes cannot be
+/// judged a repetition. A gate that denied this would be worse than none.
 #[test]
 fn comandos_diferentes_nao_sao_similares() {
     use crate::code_mode_gates::{G1_SIMILARITY_AT, command_similarity};
@@ -679,17 +679,17 @@ fn ausencia_e_valor_invalido_caem_no_default() {
     let _ = std::fs::remove_dir_all(&invalido);
 }
 
-/// A invariante central: todo comando que ENTRA no corpo entra inteiro.
+/// The central invariant: every command that ENTERS the body enters whole.
 ///
-/// Enunciada como asserção positiva sobre TODOS os comandos, não como
-/// ausência de um caso conhecido — a lição de `every_derivable_nudge_...`:
-/// invariante verificada numa instância recorre na próxima não coberta.
+/// Stated as a positive assertion over ALL the commands, not as the
+/// absence of a known case — the lesson of `every_derivable_nudge_...`:
+/// an invariant verified on one instance recurs on the next uncovered one.
 #[test]
 fn nenhum_comando_entra_pela_metade() {
-    // Excede o orçamento SOZINHO (22 chars × 200 ≈ 4400 > 3000), que é a
-    // única forma de forçar a omissão — a primeira versão deste teste usava
-    // ×60 (~1334 chars), cabia, e o `omitidos > 0` reprovou o TESTE, não o
-    // código: a invariante do "nada pela metade" havia segurado.
+    // Exceeds the budget ALONE (22 chars × 200 ≈ 4400 > 3000), which is the
+    // only way to force the omission — the first version of this test used
+    // ×60 (~1334 chars), it fit, and the `omitidos > 0` failed the TEST, not the
+    // code: the "nothing halfway" invariant had held.
     let longo = format!("grep -rn \"x\" {}", "crates/touring-ceg/src/".repeat(200));
     let cmds = vec![
         "grep -n foo a.rs".to_string(),
@@ -734,8 +734,8 @@ fn rajada_normal_entra_inteira_e_nada_e_omitido() {
     assert_eq!(corpo.lines().count(), 3);
 }
 
-/// As aspas simples do comando original têm de sobreviver ao embrulho em
-/// `--code '<corpo>'`, senão o programa entregue quebra na primeira aspa.
+/// The single quotes of the original command have to survive the wrapping in
+/// `--code '<body>'`, otherwise the delivered program breaks on the first quote.
 #[test]
 fn aspas_simples_sao_escapadas_para_o_embrulho() {
     let cmds = vec!["grep -rn 'foo bar' src/".to_string()];
@@ -766,17 +766,17 @@ fn g3_read_window_cobre_o_old_string_com_contexto() {
     let (tmp, fp) = projeto_com_arquivo_grande();
     let (p, f) = (tmp.path(), fp.to_str().expect("utf8"));
     assert_eq!(g3_read_window(p, f, "linha 120"), Some((115, 11)));
-    // multilinha: 2 linhas + 5 de contexto de cada lado
+    // multiline: 2 lines + 5 of context on each side
     assert_eq!(g3_read_window(p, f, "linha 50\nlinha 51"), Some((45, 12)));
-    // perto do começo o offset trava em 1
+    // near the start the offset sticks at 1
     assert_eq!(g3_read_window(p, f, "linha 2\n"), Some((1, 7)));
-    // caminho relativo ao projeto
+    // path relative to the project
     assert_eq!(g3_read_window(p, "grande.rs", "linha 120"), Some((115, 11)));
-    // sem o que janelar
+    // nothing to window
     assert_eq!(g3_read_window(p, f, ""), None);
     assert_eq!(g3_read_window(p, f, "não existe"), None);
     assert_eq!(g3_read_window(p, "nao-existe.rs", "linha 120"), None);
-    // a janela que é o arquivo inteiro não economiza nada
+    // a window that is the whole file saves nothing
     let tudo: String = (1..=200).map(|i| format!("linha {i}\n")).collect();
     assert_eq!(g3_read_window(p, f, &tudo), None);
 }

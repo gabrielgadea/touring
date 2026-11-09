@@ -379,11 +379,11 @@ fn run_prompt_enhance(input: &Value) -> ! {
         process::exit(0);
     }
 
-    // P3/S-3.3 (2026-09-04) — a fronteira do turno. Este é o ÚNICO evento que
-    // significa "o humano falou de novo", então é aqui que o orçamento de
-    // injeção do turno recomeça. Funciona atravessando processos porque o
-    // estado vive em disco (ver `turn_budget::turn_file`): este binário é
-    // efêmero e o suggester vive no daemon.
+    // P3/S-3.3 (2026-09-04) — the turn boundary. This is the ONLY event that
+    // means "the human spoke again", so this is where the turn's injection
+    // budget restarts. It works across processes because the
+    // state lives on disk (see `turn_budget::turn_file`): this binary is
+    // ephemeral and the suggester lives in the daemon.
     if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
         let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         touring_hook_runtime::turn_budget::reset_turn(&root, session);

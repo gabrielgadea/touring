@@ -266,7 +266,7 @@ def _kpi_context_budget() -> dict:
         p = subprocess.run(["touring", "kpi", "-j"], capture_output=True, text=True,
                            timeout=180, check=False)
         return json.loads(p.stdout)["context_budget"]
-    except Exception as e:  # a falha é o dado, não uma exceção
+    except Exception as e:  # the failure is the datum, not an exception
         raise _KpiIndisponivel(e) from e
 
 

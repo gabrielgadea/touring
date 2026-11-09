@@ -75,9 +75,9 @@ from jev_tags_sample import production_kind_values
 
 KIND_VALUES = production_kind_values()
 
-# Os critérios do backfill são os da amostra (`jev_tags_sample.KIND_CRITERIA`, na MESMA ordem de
-# chaves — a ordem entra no prompt) com cinco redações próprias, listadas abaixo. Assim as 17
-# definições idênticas moram num lugar só, como o vocabulário acima.
+# The backfill criteria are those of the sample (`jev_tags_sample.KIND_CRITERIA`, in the SAME key
+# order — the order enters the prompt) with five wordings of their own, listed below. That way the 17
+# identical definitions live in one place only, like the vocabulary above.
 KIND_CRITERIA = {
     **SAMPLE_KIND_CRITERIA,
     "script": "An executable script or automation step. Not a plan to write one.",

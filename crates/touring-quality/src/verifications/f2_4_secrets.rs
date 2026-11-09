@@ -1705,8 +1705,8 @@ fn binds_secret_nested(rhs: &str, rhs_code: &str) -> bool {
         // Os DOIS `=` do `==` são pulados: o scanner acha cada caractere, e
         // pular só o primeiro deixava o segundo virar delimitador.
         //
-        // 02/11/2026: `!=`, `<=` e `>=` são a mesma classe (comparação) —
-        // `is_comparison_eq` é o predicado único, o mesmo do split de topo.
+        // 02/11/2026: `!=`, `<=` and `>=` are the same class (comparison) —
+        // `is_comparison_eq` is the single predicate, the same one used by the top-level split.
         let bytes = rhs_code.as_bytes();
         if bytes[pos] == b'=' && (bytes.get(pos + 1) == Some(&b'>') || is_comparison_eq(bytes, pos))
         {
@@ -1714,8 +1714,8 @@ fn binds_secret_nested(rhs: &str, rhs_code: &str) -> bool {
         }
         let antes = &rhs[..pos];
         let depois = &rhs[pos + 1..];
-        // `allow_destructuring = false`: um prefixo do lado direito nunca é padrão
-        // de desestruturação, e um nome secreto EARLIER nele é outro operando.
+        // `allow_destructuring = false`: a prefix of the right-hand side is never a destructuring
+        // pattern, and a secret name EARLIER in it is another operand.
         let Some(target) = secret_binding(antes, rhs, rhs_code, false) else {
             continue;
         };

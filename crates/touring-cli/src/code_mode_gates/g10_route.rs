@@ -1,16 +1,16 @@
-//! G10ROTA (30.4.97) — qual rota do `touring run` EXECUTA o programa que um gate está para nomear.
+//! G10ROTA (30.4.97) — which route of `touring run` EXECUTES the program a gate is about to name.
 //!
-//! Caso real (analise-78, 09/10/2026 22:39 BRT, transcrição `05166acc-…`, linhas 5786-5798): a 5ª
-//! `python-inline` seriada ESCREVIA `RETOMADA.md` (`Path.write_text`). O G10 nomeou
-//! `touring run --lang python --code …`; o executor nega a escrita no perfil Sandboxed (X6
-//! `file-write`) e a rota nomeada falhava. A que funcionou foi
-//! `TOURING_TRUSTED_OK=1 touring run --allow-forbidden …`, válida só dentro do workspace porque o
-//! Landlock concede escrita apenas a ele.
+//! Real case (analise-78, 09/10/2026 22:39 BRT, transcript `05166acc-…`, lines 5786-5798): the 5th
+//! serial `python-inline` WROTE `RETOMADA.md` (`Path.write_text`). G10 named
+//! `touring run --lang python --code …`; the executor denies the write under the Sandboxed profile (X6
+//! `file-write`) and the named route failed. The one that worked was
+//! `TOURING_TRUSTED_OK=1 touring run --allow-forbidden …`, valid only inside the workspace because
+//! Landlock grants write access only to it.
 //!
-//! D8 — o deny não tem predicado próprio. Quem decide se uma rota executa é o EXECUTOR:
-//! [`touring_ceg::gateway::run_admission`] (a mesma composição que o `touring run` aplica) e
-//! [`touring_ceg::gateway::sandbox_executor::sandbox_can_write`] (as raízes de escrita que o
-//! Landlock concede). Este módulo só traduz o veredito deles em texto.
+//! D8 — the deny has no predicate of its own. The EXECUTOR decides whether a route runs:
+//! [`touring_ceg::gateway::run_admission`] (the same composition `touring run` applies) and
+//! [`touring_ceg::gateway::sandbox_executor::sandbox_can_write`] (the write roots that
+//! Landlock grants). This module only translates their verdict into text.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,29 +20,29 @@ use regex::Regex;
 use touring_ceg::gateway::run_admission::{RunRoute, run_route};
 use touring_ceg::gateway::sandbox_executor::sandbox_can_write;
 
-/// A rota que executa um programa, com o destino da escrita já confrontado com o Landlock.
+/// The route that executes a program, with the write destination already checked against Landlock.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Route {
-    /// `touring run` como está: o perfil Sandboxed admite o programa.
+    /// `touring run` as is: the Sandboxed profile admits the program.
     Sandboxed,
-    /// O Sandboxed recusa, o Trusted admite: `TOURING_TRUSTED_OK=1 touring run --allow-forbidden`.
+    /// Sandboxed refuses, Trusted admits: `TOURING_TRUSTED_OK=1 touring run --allow-forbidden`.
     Trusted {
-        /// A frase do executor que recusou no Sandboxed.
+        /// The phrase from the executor that refused under Sandboxed.
         sandbox_denial: String,
     },
-    /// O programa escreve em `dest`, fora do que o Landlock concede: nenhuma rota escreve ali.
+    /// The program writes to `dest`, outside what Landlock grants: no route writes there.
     NoWritableDest {
-        /// O destino resolvido (absoluto, sem `..`).
+        /// The resolved destination (absolute, no `..`).
         dest: PathBuf,
     },
-    /// O executor recusa o programa nos DOIS perfis (rede, padrão destrutivo…).
+    /// The executor refuses the program under BOTH profiles (network, destructive pattern…).
     Unrunnable {
-        /// A recusa do perfil Trusted.
+        /// The refusal from the Trusted profile.
         reason: String,
     },
 }
 
-/// A rota do programa `code` (`lang`: `python`, `bash`…) a partir do projeto `project_root`.
+/// The route of the `code` program (`lang`: `python`, `bash`…) from the project `project_root`.
 pub(super) fn route_for(project_root: &Path, lang: &str, code: &str) -> Route {
     match run_route(lang, code, project_root) {
         RunRoute::Sandboxed => Route::Sandboxed,
@@ -57,12 +57,12 @@ pub(super) fn route_for(project_root: &Path, lang: &str, code: &str) -> Route {
 }
 
 impl Route {
-    /// Algum `touring run` executa este programa?
+    /// Does any `touring run` execute this program?
     pub(super) fn runs(&self) -> bool {
         matches!(self, Self::Sandboxed | Self::Trusted { .. })
     }
 
-    /// O prefixo de ambiente do comando: a elevação é POR COMANDO, nunca um estado exportado.
+    /// The environment prefix of the command: elevation is PER COMMAND, never an exported state.
     pub(super) fn env_prefix(&self) -> &'static str {
         match self {
             Self::Trusted { .. } => "TOURING_TRUSTED_OK=1 ",
@@ -70,7 +70,7 @@ impl Route {
         }
     }
 
-    /// A flag de `touring run` que seleciona o perfil.
+    /// The `touring run` flag that selects the profile.
     pub(super) fn run_flags(&self) -> &'static str {
         match self {
             Self::Trusted { .. } => "--allow-forbidden ",
@@ -78,7 +78,7 @@ impl Route {
         }
     }
 
-    /// A frase que explica por que a rota difere do `touring run` simples — vazia no Sandboxed.
+    /// The phrase that explains why the route differs from plain `touring run` — empty under Sandboxed.
     pub(super) fn explanation(&self, project_root: &Path) -> String {
         let root = project_root.display();
         match self {
@@ -107,12 +107,12 @@ impl Route {
     }
 }
 
-// ── o destino da escrita ────────────────────────────────────────────────────
+// ── the write destination ────────────────────────────────────────────────────
 
-/// As marcas python que escrevem em UM caminho. Subconjunto de `PY_INLINE_WRITER_MARKS` (o teste
-/// `as_marcas_de_destino_sao_subconjunto_das_de_escritor` impede a deriva): a lista larga inclui
-/// rede/subprocesso/DB, cujos literais NÃO são destinos de escrita; e `shutil.`/`os.rename`
-/// carregam dois caminhos (origem lida, destino escrito), que um léxico não distingue.
+/// The python marks that write to ONE path. A subset of `PY_INLINE_WRITER_MARKS` (the test
+/// `as_marcas_de_destino_sao_subconjunto_das_de_escritor` prevents drift): the wide list includes
+/// network/subprocess/DB marks, whose literals are NOT write destinations; and `shutil.`/`os.rename`
+/// carry two paths (source read, destination written), which a lexicon cannot tell apart.
 pub(super) const PY_PATH_WRITE_MARKS: &[&str] = &[
     ".write(",
     ".writelines(",
@@ -138,8 +138,8 @@ fn literal_re() -> &'static Regex {
 fn binding_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {
-        // A atribuição TERMINA no literal (ou no `)` do `Path(...)`): `t = Path("x").read_text()`
-        // vincula o CONTEÚDO lido, não o caminho — e `write_text(t)` não escreve em "x".
+        // The assignment ENDS at the literal (or at the `)` of `Path(...)`): `t = Path("x").read_text()`
+        // binds the CONTENT read, not the path — and `write_text(t)` does not write to "x".
         Regex::new(
             r#"^\s*([A-Za-z_]\w*)\s*=\s*(?:(?:pathlib\.)?Path\(\s*)?["']([^"'\n]+)["']\s*\)?\s*(?:#.*)?$"#,
         )
@@ -152,16 +152,16 @@ fn ident_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"[A-Za-z_]\w*").expect("ident regex compila"))
 }
 
-/// Um literal que PODE sair do workspace: absoluto, `~/…` ou com `..`. Um nome relativo simples
-/// (`saida.md`) escreve no cwd — dentro do workspace por definição.
+/// A literal that CAN leave the workspace: absolute, `~/…` or with `..`. A plain relative name
+/// (`saida.md`) writes to the cwd — inside the workspace by definition.
 fn may_leave_workspace(lit: &str) -> bool {
     lit.starts_with('/') || lit.starts_with("~/") || lit.contains("../") || lit.ends_with("/..")
 }
 
-/// Os literais de caminho que o corpo python ESCREVE: os literais da linha que traz uma marca de
-/// escrita, mais os literais vinculados (`p = Path("…")`, `p = "…"`) aos nomes que aparecem nela.
-/// Heurística léxica — não resolve `Path.home() / …`, f-strings nem `os.path.join`; um destino que
-/// ela não vê é um destino que o executor ainda recusa com uma mensagem que ensina.
+/// The path literals the python body WRITES: the literals of the line that carries a write mark,
+/// plus the literals bound (`p = Path("…")`, `p = "…"`) to the names that appear in it.
+/// A lexical heuristic — it does not resolve `Path.home() / …`, f-strings or `os.path.join`; a
+/// destination it does not see is one the executor still refuses with a message that teaches.
 pub(super) fn python_write_destinations(body: &str) -> Vec<String> {
     let mut bound: HashMap<String, String> = HashMap::new();
     let mut out: Vec<String> = Vec::new();
@@ -192,8 +192,8 @@ fn resolve_literal(project_root: &Path, lit: &str) -> PathBuf {
         (Some(rest), Some(home)) => PathBuf::from(home).join(rest),
         _ => PathBuf::from(lit),
     };
-    // Sem normalizar `..`: `sandbox_can_write` resolve o caminho (lexical + symlinks) antes de
-    // julgar, e o destino citado no deny sai como o corpo o escreveu.
+    // No `..` normalization: `sandbox_can_write` resolves the path (lexical + symlinks) before
+    // judging, and the destination quoted in the deny comes out as the body wrote it.
     if raw.is_absolute() {
         raw
     } else {
@@ -201,7 +201,7 @@ fn resolve_literal(project_root: &Path, lit: &str) -> PathBuf {
     }
 }
 
-/// O primeiro destino de escrita que o Landlock NÃO concede (só python: é onde o corpo é inspecionável).
+/// The first write destination that Landlock does NOT grant (python only: it is where the body is inspectable).
 fn unwritable_destination(project_root: &Path, lang: &str, code: &str) -> Option<PathBuf> {
     if !matches!(lang.to_ascii_lowercase().as_str(), "python" | "py") {
         return None;
@@ -226,8 +226,8 @@ mod tests {
         }
     }
 
-    /// O caso real: o caminho vem de um vínculo (`p = pathlib.Path("…")`) e o `write_text` está
-    /// em outra linha — e ele é RELATIVO, logo dentro do workspace: nenhum destino a vigiar.
+    /// The real case: the path comes from a binding (`p = pathlib.Path("…")`) and the `write_text` is
+    /// on another line — and it is RELATIVE, hence inside the workspace: no destination to watch.
     #[test]
     fn o_caso_real_nao_tem_destino_fora_do_workspace() {
         let body = "import pathlib\np = pathlib.Path(\"docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md\")\nt = p.read_text(encoding=\"utf-8\")\nvelho = \"> Estado 10/10 ~00:30:\"\np.write_text(t.replace(velho, \"> Estado 09/10 22:38\"), encoding=\"utf-8\")";
@@ -252,7 +252,7 @@ mod tests {
         );
     }
 
-    /// Controle: um caminho absoluto só LIDO não é destino — a rota Trusted segue prometida.
+    /// Control: an absolute path that is only READ is not a destination — the Trusted route stays promised.
     #[test]
     fn caminho_absoluto_apenas_lido_nao_e_destino() {
         let body = "import pathlib\nt = pathlib.Path(\"/etc/hostname\").read_text()\npathlib.Path(\"saida.md\").write_text(t)";

@@ -15,26 +15,26 @@ Origem: loop 2026-08-26-documentacao-touring, opção (c) autorizada por Gabriel
       build fica fora por construção — majoritariamente em audits datados).
       Antes, prosa portuguesa ("o touring deixa de...") contava como citação:
       18 dos 26 sinais novos do delta 31/08→08/10 eram esse falso positivo.
-      10ª reconciliação (01/11/2026): "touring" precedido de "[" é rótulo de log
-      (`[touring result-compactor]`, o rodapé do compactador), não subcomando.
-  C5: Nomes de crates em exemplos de código (code fences) (vs `ls crates/`) —
-      10ª reconciliação (01/11/2026): o nome só conta como crate quando começa
-      num limite de token — não é sufixo de um token com hífen (diretório de
-      bundle datado `2026-10-26-touring-x`), a forma com sublinhado não é
-      componente de caminho (`~/.ssh/touring_signing`), `touring-wt-*` é
-      diretório de worktree git, e os diretórios de `tools/mods/` são
-      componentes do repo (mods do Claude Code), não crates ausentes.
-  C1: 10ª reconciliação (01/11/2026): inteiro com separador de milhar pt-BR
-      (`30.973.693 B`: minor e patch com exatamente 3 dígitos) não é versão.
+      10th reconciliation (01/11/2026): "touring" preceded by "[" is a log label
+      (`[touring result-compactor]`, the compactor's footer), not a subcommand.
+  C5: Crate names in code examples (code fences) (vs `ls crates/`) —
+      10th reconciliation (01/11/2026): the name only counts as a crate when it starts
+      at a token boundary — it is not the suffix of a token with a hyphen (dated
+      bundle directory `2026-10-26-touring-x`), the underscore form is not a
+      path component (`~/.ssh/touring_signing`), `touring-wt-*` is a
+      git worktree directory, and the `tools/mods/` directories are
+      repo components (Claude Code mods), not missing crates.
+  C1: 10th reconciliation (01/11/2026): an integer with a pt-BR thousands separator
+      (`30.973.693 B`: minor and patch with exactly 3 digits) is not a version.
   C6: Variáveis de ambiente citadas — predicado corrigido 08/10/2026: ground
       truth = vars TOURING_* referenciadas no CÓDIGO-FONTE (.rs/.py/.sh/.toml),
       estático e reproduzível. Antes era `os.environ` do processo do scanner —
       o resultado dependia de QUEM roda; uma var viva no código mas não
       exportada na sessão virava falso "stale" (23 dos 30 sinais novos do delta).
-      10ª reconciliação (01/11/2026): `.ts` entra no ground truth (os mods de
-      `tools/mods/` leem env em TypeScript; a var do mod compact-evict só vive lá).
-      CUIDADO: este arquivo é .py fora de docs/, logo entra no ground truth —
-      nunca escreva aqui o nome literal de uma var que as docs citam.
+      10th reconciliation (01/11/2026): `.ts` enters the ground truth (the mods in
+      `tools/mods/` read env in TypeScript; the compact-evict mod's var lives only there).
+      CAUTION: this file is .py outside docs/, so it enters the ground truth —
+      never write here the literal name of a var that the docs cite.
   C7: Hooks citados (vs `ls ~/.claude/hooks/`)
 
 Reconciliação do delta 31/08→08/10 (561→669, 111 sinais novos por conjunto):
@@ -144,10 +144,10 @@ def gt_actual_crates() -> list[str]:
 
 
 def gt_actual_mods() -> list[str]:
-    """Mods do Claude Code versionados no repo (`tools/mods/<nome>/`).
+    """Claude Code mods versioned in the repo (`tools/mods/<name>/`).
 
-    Componente legítimo que o C5 não pode ler como crate ausente: um mod é citado
-    com o nome do diretório em `cp -r tools/mods/<nome> …` e `claude plugin install <nome>@…`.
+    A legitimate component that C5 must not read as a missing crate: a mod is cited
+    by its directory name in `cp -r tools/mods/<name> …` and `claude plugin install <name>@…`.
     """
     mods_dir = ROOT / "tools" / "mods"
     if not mods_dir.is_dir():
@@ -167,7 +167,7 @@ def gt_actual_envvars() -> list[str]:
     strings) não são código do sistema — medido: o próprio bundle da
     reconciliação contaminou o ground truth com 7 vars (26→19 fantasma).
     """
-    # `.ts`: os mods de tools/mods/ leem env em TypeScript (10ª reconciliação, 01/11/2026).
+    # `.ts`: the mods in tools/mods/ read env in TypeScript (10th reconciliation, 01/11/2026).
     exts = {".rs", ".py", ".sh", ".toml", ".ts"}
     skip = ("/target/", "/node_modules/", "/.git/", "/.touring-cache/", "/.venv/")
     found: set[str] = set()
@@ -220,8 +220,8 @@ def scan_c1_versions(content_by_file: dict, gt_version: str) -> dict:
     cited = set()
     files_with = []
     for f, content in content_by_file.items():
-        # Inteiro com separador de milhar pt-BR ("30.973.693 B": 30 milhões) casa o
-        # padrão, mas minor e patch com exatamente 3 dígitos cada não é versão.
+        # An integer with a pt-BR thousands separator ("30.973.693 B": 30 million) matches the
+        # pattern, but minor and patch with exactly 3 digits each is not a version.
         matches = [(a, b) for a, b in C1_PATTERN.findall(content)
                    if not (len(a) == 3 and len(b) == 3)]
         if matches:
@@ -283,14 +283,14 @@ def scan_c3_fused_crates(content_by_file: dict, gt_crates: list[str]) -> dict:
 
 RE_FENCE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
 RE_INLINE_CODE = re.compile(r"`[^`\n]+`")
-# "[" também antecede rótulo de log (`[touring result-compactor]`), que não é subcomando.
+# "[" also precedes a log label (`[touring result-compactor]`), which is not a subcommand.
 RE_C4_CMD = re.compile(r"(?<![/\w\[])touring ([a-z][a-z0-9_-]+)\b")
-# C5: nome de crate começa num limite de token. `(?<!-)` descarta o sufixo de um token com
-# hífen (diretório de bundle datado `2026-10-26-touring-x`); `(?<!/)` na forma com sublinhado
-# descarta componente de caminho (`~/.ssh/touring_signing`) — diretórios de crate usam hífen.
+# C5: a crate name starts at a token boundary. `(?<!-)` discards the suffix of a token with a
+# hyphen (dated bundle directory `2026-10-26-touring-x`); `(?<!/)` on the underscore form
+# discards a path component (`~/.ssh/touring_signing`) — crate directories use hyphens.
 RE_C5_HYPHEN = re.compile(r"(?<!-)\b(touring-[a-z][a-z0-9_-]+)\b")
 RE_C5_UNDERSCORE = re.compile(r"(?<!/)\b(touring_[a-z][a-z0-9_]+)\b")
-# Diretório de worktree git por convenção do projeto (`~/projects/touring-wt-<tag>`).
+# Git worktree directory by project convention (`~/projects/touring-wt-<tag>`).
 C5_WORKTREE_PREFIX = "touring-wt-"
 
 
@@ -348,8 +348,8 @@ def scan_c4_cli(content_by_file: dict, gt_cli: set[str]) -> dict:
 
 
 def _c5_names_in_block(block: str) -> set[str]:
-    """Nomes de crate citados num code fence (forma `touring-x` e `touring_x`, normalizada
-    para hífen), sem os diretórios de worktree git (`touring-wt-*`)."""
+    """Crate names cited in a code fence (form `touring-x` and `touring_x`, normalized
+    to hyphen), excluding git worktree directories (`touring-wt-*`)."""
     names = {m.group(1) for m in RE_C5_HYPHEN.finditer(block)}
     names |= {m.group(1).replace("_", "-") for m in RE_C5_UNDERSCORE.finditer(block)}
     return {n for n in names if not n.startswith(C5_WORKTREE_PREFIX)}
@@ -487,7 +487,7 @@ def main():
     results["categories"]["C4-cli-cited"] = c4
 
     progress("[7/7] C5/C6/C7: Crates em code/envvars/hooks...")
-    # Mods de tools/mods/ são componentes do repo: entram no ground truth do C5 (não no do C3).
+    # Mods in tools/mods/ are repo components: they enter the ground truth of C5 (not that of C3).
     c5 = scan_c5_crates_in_code(content_by_file, gt_crates + gt_mods)
     results["categories"]["C5-crates-in-code-examples"] = c5
     c6 = scan_c6_envvars(content_by_file, gt_envvars)

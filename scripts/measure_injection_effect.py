@@ -136,7 +136,7 @@ def extract_channels(stdout):
         return s, ""
     try:
         payload = json.loads(s)
-    except (ValueError, RecursionError):  # JSONDecodeError é ValueError; aninhamento absurdo estoura a pilha
+    except (ValueError, RecursionError):  # JSONDecodeError is a ValueError; absurd nesting blows the stack
         return s, ""
     if not isinstance(payload, dict):
         return s, ""

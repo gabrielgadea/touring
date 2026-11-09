@@ -156,7 +156,7 @@ fn a_leitura_contida_so_le_o_que_esta_dentro_das_raizes() {
             "ler: {nome}"
         );
     }
-    // sem raizes, nada e lido (fail-closed)
+    // without roots, nothing is read (fail-closed)
     let nenhuma: [&Path; 0] = [];
     assert_eq!(tag(ler_contido(&nenhuma, &r.join("sub/x.rs"))), Tag::Fora);
 }
