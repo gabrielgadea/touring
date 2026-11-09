@@ -117,38 +117,46 @@ fn checkout_is_destructive(values: &[String]) -> bool {
 
 /// A DRY RUN is the only safe `git clean` (fail-closed): a real `-n` (in a cluster, before `-e`,
 /// which takes the rest as its pattern) or `--dry-run`/a prefix of it; the word after a bare
-/// `-e`/`--exclude` is a pattern, never an option. Mirror: the `clean` loop of block_git.sh.
+/// `-e`/`--exclude` is a pattern, never an option. Any `--no-<option>` (`--no-dry-run`, `--no-d`)
+/// undoes an earlier one in git's parser, so a negation is never a dry run (fail-closed).
+/// Mirror: the `clean` loop of block_git.sh.
 fn clean_is_dry_run(values: &[String]) -> bool {
     let mut value_next = false;
+    let mut dry = false;
     for word in options(values) {
         if std::mem::take(&mut value_next) {
             continue;
         }
+        if is_negation(word) {
+            return false;
+        }
         if word.starts_with("--") {
-            if names_long(word, "--dry-run", 3) {
-                return true;
-            }
+            dry |= names_long(word, "--dry-run", 3);
             value_next = !word.contains('=') && names_long(word, "--exclude", 3);
         } else if let Some(letters) = word.strip_prefix('-').filter(|l| !l.is_empty()) {
-            if cluster_has(word, 'n', &['e']) {
-                return true;
-            }
+            dry |= cluster_has(word, 'n', &['e']);
             value_next = letters.find('e') == Some(letters.len() - 1);
         }
     }
-    false
+    dry
+}
+
+/// `--no-<option>`: git's parser negates (any prefix of) the option, undoing an earlier one.
+fn is_negation(word: &str) -> bool {
+    word.starts_with("--no-")
 }
 
 /// Only an unstage is safe: `--staged`/`-S` and no `--worktree`/`-W` — long prefixes count
 /// (`--wor`; `--st` is the shortest `--staged`, `--s` is ambiguous with `--source`), clusters
-/// count (`-SW`; `-s` takes the rest as its source), and only before `--`.
+/// count (`-SW`; `-s` takes the rest as its source), only before `--`, and any `--no-*`
+/// negation is destructive (fail-closed: `--staged --no-staged` restores the working tree).
 /// Mirror: the `restore` loop of client/hooks/block_git.sh.
 fn restore_is_destructive(values: &[String]) -> bool {
     let staged = options(values)
         .any(|word| names_long(word, "--staged", 4) || cluster_has(word, 'S', &['s']));
     let worktree = options(values)
         .any(|word| names_long(word, "--worktree", 3) || cluster_has(word, 'W', &['s']));
-    !staged || worktree
+    !staged || worktree || options(values).any(is_negation)
 }
 
 fn push_is_destructive(values: &[String]) -> bool {

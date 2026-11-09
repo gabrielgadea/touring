@@ -233,9 +233,13 @@ check_pattern 'git[[:space:]]+switch[[:space:]]+--discard-changes' \
 # Mirror: `restore_is_destructive` in git/direct.rs.
 while IFS= read -r occ; do
     [[ -z "${occ}" ]] && continue
-    staged=0 worktree=0
+    staged=0 worktree=0 negated=0
     while IFS= read -r word; do
-        if [[ "${word}" == --* ]]; then
+        # `--no-<option>` (any prefix: `--no-st`) undoes an earlier option in git's parser, so
+        # any negation is destructive (fail-closed) instead of modelling order and prefixes.
+        if [[ "${word}" == --no-* ]]; then
+            negated=1
+        elif [[ "${word}" == --* ]]; then
             names_long "${word}" --staged 4 && staged=1
             names_long "${word}" --worktree 3 && worktree=1
         else
@@ -243,7 +247,7 @@ while IFS= read -r occ; do
             cluster_has "${word}" W s && worktree=1
         fi
     done < <(options_of "${occ}")
-    if ((!staged || worktree)); then
+    if ((!staged || worktree || negated)); then
         deny "REGRA #11 v2: git restore (working tree) descarta mudanças — use só --staged/-S para unstage, ou GIT_DESTRUCTIVE_OK=1"
     fi
 done < <(occurrences restore)
@@ -255,13 +259,15 @@ done < <(occurrences restore)
 # an option. Mirror: `clean_is_dry_run` in git/direct.rs.
 while IFS= read -r occ; do
     [[ -z "${occ}" ]] && continue
-    dry=0 value_next=0
+    dry=0 value_next=0 negated=0
     while IFS= read -r word; do
         if ((value_next)); then
             value_next=0
             continue
         fi
-        if [[ "${word}" == --* ]]; then
+        if [[ "${word}" == --no-* ]]; then
+            negated=1 # `--no-dry-run`/`--no-d` undoes `-n`: fail-closed on any negation
+        elif [[ "${word}" == --* ]]; then
             names_long "${word}" --dry-run 3 && dry=1
             [[ "${word}" != *=* ]] && names_long "${word}" --exclude 3 && value_next=1
         elif [[ "${word}" == -[!-]* ]]; then
@@ -271,7 +277,7 @@ while IFS= read -r occ; do
             [[ "${letters}" == *e* && "${letters%%e*}e" == "${letters}" ]] && value_next=1
         fi
     done < <(options_of "${occ}")
-    ((dry)) || deny "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
+    ((dry && !negated)) || deny "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
 done < <(occurrences clean)
 
 check_pattern 'git[[:space:]]+push[[:space:]]+.*(-f|--force|--force-with-lease)' \

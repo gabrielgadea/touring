@@ -308,3 +308,9 @@
 {"cmd":"git restore -S f","shell":"allow"}
 {"cmd":"git restore -sW --staged f","shell":"allow"}
 {"cmd":"git restore --staged --source=HEAD f","shell":"allow"}
+{"cmd":"git clean -n --no-dry-run -f","shell":"block"}
+{"cmd":"git clean -n --no-d -f","shell":"block"}
+{"cmd":"git clean --dry-run --no-dry-run","shell":"block"}
+{"cmd":"git restore --staged --no-staged f","shell":"block"}
+{"cmd":"git restore -S --no-st f","shell":"block"}
+{"cmd":"git restore --staged --no-worktree f","shell":"block"}

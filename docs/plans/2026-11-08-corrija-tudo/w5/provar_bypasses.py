@@ -53,6 +53,8 @@ GIT_MUST_DENY = [
     "git checkout -qf main",
     "git restore -S --wor f",
     "git restore -- -S",
+    "git clean -n --no-dry-run -f",  # review of 96b7a8f3: a negation undoes -n
+    "git restore --staged --no-staged f",
     "bash -c true <<< x; git reset --hard",  # control: no prefix
 ]
 GIT_MUST_PASS = ["cat <<< 'git reset --hard'", "git clean -n", "git clean -fdx -n",
