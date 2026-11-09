@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Where `block_git.sh` and the Rust command policy disagree, over the replay corpus.
 
-`client/hooks/block_git.sh` (git only, REGRA #11 v2) and
-`touring_hooks_shared::command_policy` (everything but git since S25) are two owners of
-"is this Bash command destructive". They are meant to stay disjoint; this script
-measures where they are not, so the shell guard can be reconciled (planned: the script
-asks the Rust verdict) without anyone re-deriving the table.
+`client/hooks/block_git.sh` (git only, REGRA #11 v2) and the full Rust
+`touring_hooks_shared::command_policy::judge` both read destructive Git forms:
+the shell guard is the only Claude Code hook that denies them, while the Rust
+mirror remains available to the CEG. `judge_pre_bash` deliberately excludes Git,
+so the two hooks stay disjoint. This script measures where the full Rust verdict
+and the shell guard disagree, without anyone re-deriving the table.
 
 It READS the shell guard; it never edits it. Each corpus command is fed to the script
 the way Claude Code feeds it (the PreToolUse JSON on stdin) from a scratch git
@@ -16,9 +17,10 @@ against what the target repository holds.
 Usage:
     scripts/block_git_divergence.py [--baseline PATH] [--guard PATH] [--json]
 
-The baseline is the replay fixture of the Rust policy
+The baseline is the replay fixture of the full Rust policy
 (`crates/touring-hooks-shared/tests/fixtures/command_policy/baseline.jsonl`): one JSON
-object per line with the command and the `pipeline` verdict `pre-bash` acted on.
+object per line with the command and the `pipeline` verdict returned by `judge`,
+not the Git-free `judge_pre_bash` entry used by the hook.
 """
 
 from __future__ import annotations

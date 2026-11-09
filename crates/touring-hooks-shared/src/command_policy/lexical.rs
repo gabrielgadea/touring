@@ -91,14 +91,19 @@ fn dangerous_match(full_command: &str, params: &str) -> Option<&'static Rule> {
     })
 }
 
-/// Judge a whole shell command line: every simple command in it
-/// (`a && b; c | d`), each by its own words, then every multi-command pipeline
-/// as one text.
+/// Judge a whole shell command line with the data-aware Git reading first,
+/// then every simple command (`a && b; c | d`) by its own words and every
+/// multi-command pipeline as one text.
 pub(super) fn judge_line(command: &str) -> Verdict {
     let git = super::git::judge(command);
     if git.is_block() {
         return git;
     }
+    judge_line_without_git(command)
+}
+
+/// The same lexical reading, with Git deliberately left to `block_git.sh`.
+pub(super) fn judge_line_without_git(command: &str) -> Verdict {
     for pipeline in shell_pipelines(command) {
         for words in &pipeline {
             // Judge the wrapper before `command_of` strips it: otherwise

@@ -101,15 +101,16 @@ fn run_chain(
         }
     }
 
-    // SECURITY: ONE owner decides whether the command is destructive —
-    // `command_policy::judge`: the structural reading first (quoted strings and
+    // SECURITY: ONE owner decides whether the non-Git command is destructive —
+    // `command_policy::judge_pre_bash`: the structural reading first (quoted strings and
     // `#` comments stripped, so `echo "rm -rf"` and `# rm -rf` do NOT block; its
     // precise reason wins on overlap), then the lexical one (every simple command
-    // of the line by its own words, 18/09/2026; destructive git is judged there and
-    // is always a `Block`). Only a `Block` stops here: a structural `Warn` (e.g.
-    // `chmod -R 777`) is not surfaced by this hook and the command runs.
+    // of the line by its own words, 18/09/2026). Destructive Git is deliberately
+    // excluded: `block_git.sh` is its single hook owner (REGRA #11 v2). Only a
+    // `Block` stops here: a structural `Warn` (e.g. `chmod -R 777`) is not surfaced
+    // by this hook and the command runs.
     if let crate::shared::command_policy::Verdict::Block { reason } =
-        crate::shared::command_policy::judge(command)
+        crate::shared::command_policy::judge_pre_bash(command)
     {
         tracing::warn!(
             "command_policy blocked: command={} reason={}",
@@ -1156,23 +1157,22 @@ mod vgp_ordem_tests {
         }
     }
 
-    /// `pre_bash` asks the SINGLE owner (`command_policy::judge`): a structural-only refusal,
+    /// `pre_bash` asks its own entry (`command_policy::judge_pre_bash`): a structural-only refusal,
     /// a lexical-only one (with and without a route) and a structural warning are answered exactly as
-    /// the policy says — the deny text is the policy's, with nothing added.
+    /// the policy says — the deny text is the policy's, with nothing added. Git stays with block_git.sh.
     #[test]
     fn pre_bash_responde_o_que_a_command_policy_julga() {
-        use crate::shared::command_policy::{Verdict, judge};
+        use crate::shared::command_policy::{Verdict, judge_pre_bash};
         for (cmd, nega) in [
             ("find build -name stale.log -delete", true),
             ("rm -f stale.done", true),
             ("dd if=/dev/zero of=/dev/sda", true),
-            // C2 (04/11/2026): destructive git is a block, mirroring block_git — it was the
-            // structural WARN case here; the warn case is now a recursive world-writable chmod.
-            ("git reset --hard HEAD", true),
+            ("git reset --hard HEAD", false),
+            ("GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD", false),
             ("chmod -R 777 /var/www", false),
             ("ls docs", false),
         ] {
-            let julgado = judge(cmd);
+            let julgado = judge_pre_bash(cmd);
             assert_eq!(
                 matches!(julgado, Verdict::Block { .. }),
                 nega,

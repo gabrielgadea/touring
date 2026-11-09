@@ -25,7 +25,7 @@ pub use crate::command_policy::{
 /// command.
 ///
 /// This is the structural reading alone ([`crate::command_policy::judge_structural`]);
-/// what `pre-bash` acts on is [`crate::command_policy::judge`].
+/// what `pre-bash` acts on is [`crate::command_policy::judge_pre_bash`].
 pub fn validate_command(command: &str) -> Verdict {
     crate::command_policy::judge_structural(command)
 }

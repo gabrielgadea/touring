@@ -15,7 +15,8 @@
 //!
 //! | Question | Answer |
 //! |---|---|
-//! | what `pre-bash` acts on | [`judge`] |
+//! | the full Rust reading, including Git | [`judge`] |
+//! | what `pre-bash` acts on (Git stays with `block_git.sh`) | [`judge_pre_bash`] |
 //! | the structural reading alone (the CEG static stage) | [`judge_structural`] |
 //! | the lexical reading alone | [`judge_lexical`] |
 //! | one invocation as `(tool, params)` / JSON params | [`judge_tool`], [`judge_params`] |
@@ -60,10 +61,12 @@
 //! # What it does NOT own
 //!
 //! `block_git.sh` stays the single owner of the COMPLETE git policy (S25, D2-A,
-//! 25/09/2026): this module mirrors its destructive forms and honours
-//! `GIT_DESTRUCTIVE_OK=1` as executable code. Repository-local hook-bypass checks
-//! and `GIT_HOOKS_BYPASS_OK=1` stay with the shell guard because they need
-//! filesystem evidence. [`SHELL_GUARD_TOKENS`] records that division explicitly.
+//! 25/09/2026) and the only Claude Code hook that denies it: [`judge_pre_bash`]
+//! excludes Git. The full [`judge`] and [`judge_structural`] mirror its destructive
+//! forms for Rust callers and the CEG, honouring `GIT_DESTRUCTIVE_OK=1` as executable
+//! code. Repository-local hook-bypass checks and `GIT_HOOKS_BYPASS_OK=1` stay with
+//! the shell guard because they need filesystem evidence. [`SHELL_GUARD_TOKENS`]
+//! records that division explicitly.
 
 mod git;
 mod lexer;
@@ -183,20 +186,33 @@ pub const SHELL_GUARD_TOKENS: &[ShellGuardToken] = &[
     },
 ];
 
-/// What `pre-bash` acts on: the structural reading, then the lexical one.
-///
-/// `Block` as soon as either blocks (structural first, so its reason wins on
-/// overlap); otherwise the structural `Warn`, if there was one; otherwise `Allow`.
-pub fn judge(command: &str) -> Verdict {
+/// Shared precedence for the full Rust policy and the `pre-bash` entry.
+fn judge_with(command: &str, lexical_reading: fn(&str) -> Verdict) -> Verdict {
     let structural = structural::judge(command);
     if structural.is_block() {
         return structural;
     }
-    let lexical = lexical::judge_line(command);
+    let lexical = lexical_reading(command);
     if lexical.is_block() {
         return lexical;
     }
     structural
+}
+
+/// The full Rust policy: structural reading, then the lexical one including Git.
+///
+/// `Block` as soon as either blocks (structural first, so its reason wins on
+/// overlap); otherwise the structural `Warn`, if there was one; otherwise `Allow`.
+pub fn judge(command: &str) -> Verdict {
+    judge_with(command, lexical::judge_line)
+}
+
+/// What `pre-bash` acts on: the same precedence, with Git left to `block_git.sh`.
+///
+/// Keeping this separate from [`judge`] preserves the Git mirror used by the CEG
+/// without giving two Claude Code hooks the power to deny the same Git command.
+pub fn judge_pre_bash(command: &str) -> Verdict {
+    judge_with(command, lexical::judge_line_without_git)
 }
 
 /// The structural reading alone: token signatures over the quote- and

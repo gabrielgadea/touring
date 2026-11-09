@@ -590,6 +590,25 @@ fn json_params_is_dangerous_tool_and_severity() {
 // ── precedence ──────────────────────────────────────────────────────────
 
 #[test]
+fn pre_bash_leaves_destructive_git_to_the_shell_guard() {
+    for command in [
+        "git reset --hard HEAD",
+        "GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD",
+    ] {
+        assert_eq!(judge_pre_bash(command), Verdict::Allow, "{command}");
+    }
+    // The full Rust policy and the CEG structural stage keep their Git mirror.
+    assert!(judge("git reset --hard HEAD").is_block());
+    assert!(judge_structural("git reset --hard HEAD").is_block());
+    assert_eq!(
+        judge("GIT_DESTRUCTIVE_OK=1 git reset --hard HEAD"),
+        Verdict::Allow
+    );
+    // Positive control: the new entry still refuses non-Git destruction.
+    assert!(judge_pre_bash("rm -f important.txt").is_block());
+}
+
+#[test]
 fn a_structural_block_wins_over_a_lexical_one_on_overlap() {
     // Both readings refuse `rm -rf x`; the structural reason is the verdict's.
     assert!(judge_lexical("rm -rf x").is_block());
