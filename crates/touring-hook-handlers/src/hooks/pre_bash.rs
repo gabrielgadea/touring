@@ -312,44 +312,11 @@ pub fn extract_command_short(command: &str) -> String {
 }
 
 /// First word of `segment` that is a program, skipping assignments and wrapper prefixes.
+/// The effective program of the shared lexer (`command_policy::command_of`): one table of
+/// wrappers for the gate that judges a command and for the lesson that names it.
 fn first_program(segment: &str) -> Option<String> {
-    let mut words = segment.split_whitespace().peekable();
-    while let Some(w) = words.next() {
-        if is_env_assignment(w) {
-            continue;
-        }
-        let takes_value: &[&str] = match w {
-            "sudo" => &["-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U"],
-            "env" => &["-u", "-C", "-S"],
-            "timeout" => &["-s", "-k", "--signal", "--kill-after"],
-            "nice" => &["-n", "--adjustment"],
-            "stdbuf" => &["-i", "-o", "-e"],
-            "nohup" | "time" | "command" | "exec" => &[],
-            other => return Some(other.to_string()),
-        };
-        while let Some(next) = words.peek().copied() {
-            if takes_value.contains(&next) {
-                words.next();
-                words.next();
-            } else if next.starts_with('-')
-                || is_env_assignment(next)
-                || (w == "timeout" && next.parse::<f64>().is_ok())
-            {
-                words.next();
-            } else {
-                break;
-            }
-        }
-    }
-    None
-}
-
-fn is_env_assignment(word: &str) -> bool {
-    word.split_once('=').is_some_and(|(k, _)| {
-        !k.is_empty()
-            && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-            && !k.starts_with(|c: char| c.is_ascii_digit())
-    })
+    let words: Vec<String> = segment.split_whitespace().map(str::to_owned).collect();
+    crate::shared::command_policy::command_of(&words).map(|(program, _)| program.to_string())
 }
 
 /// Extract file paths mentioned in the command.

@@ -130,3 +130,66 @@ fn heredoc_files_a_command_writes() {
     assert!(written_paths(&words("cat a.sh")).is_empty());
     assert!(written_paths(&words("echo >")).is_empty());
 }
+
+/// The effective program of a simple command: past assignments (`A=1`, `A+=1`),
+/// wrappers called by name or by path, their options (separate or `=`-glued
+/// values), their positional operands (`timeout`'s duration, `chrt`'s priority,
+/// `taskset`'s mask, whatever their spelling) and a `--`.
+#[test]
+fn command_of_reads_the_effective_program() {
+    let cases: &[(&str, Option<&str>)] = &[
+        ("rm -rf d", Some("rm")),
+        ("A=1 B+=2 rm d", Some("rm")),
+        ("A=1", None),
+        ("foo-bar=1 rm d", Some("foo-bar=1")),
+        ("/usr/bin/sudo -u root rm d", Some("rm")),
+        ("sudo --user=root -- rm d", Some("rm")),
+        ("env -i A=1 -u B rm d", Some("rm")),
+        ("timeout .5 rm d", Some("rm")),
+        ("timeout -s KILL 1.5m rm d", Some("rm")),
+        ("timeout --kill-after=2 5 rm d", Some("rm")),
+        ("nice -n 5 ionice -c 3 rm d", Some("rm")),
+        ("nice -5 rm d", Some("rm")),
+        ("taskset -c 0-3 rm d", Some("rm")),
+        ("chrt -f 10 rm d", Some("rm")),
+        ("xargs -n 1 -I {} rm {}", Some("rm")),
+        (
+            "hw-slot --class rust --wait 60 -- cargo test",
+            Some("cargo"),
+        ),
+        ("stdbuf -o0 -eL grep x", Some("grep")),
+        ("doas -u root setsid nohup busybox rm d", Some("rm")),
+        ("builtin exec -a name rm d", Some("rm")),
+        ("command -v rm", Some("command")),
+        ("time -o f -f %e rm d", Some("rm")),
+        ("nice", None),
+    ];
+    for (line, expected) in cases {
+        let words: Vec<String> = line.split_whitespace().map(str::to_owned).collect();
+        assert_eq!(
+            command_of(&words).map(|(program, _)| program),
+            *expected,
+            "{line}"
+        );
+    }
+}
+
+/// `env -S` hands its argument to a fresh split: the code inside is a command
+/// of the line like any other.
+#[test]
+fn env_split_string_is_read_as_commands() {
+    for line in [
+        "env -S 'rm -rf /tmp/x'",
+        "env --split-string='rm x'",
+        "env -S'rm x'",
+    ] {
+        let pipelines = shell_pipelines(line);
+        assert!(
+            pipelines
+                .iter()
+                .flatten()
+                .any(|words| words.first().map(String::as_str) == Some("rm")),
+            "{line}: {pipelines:?}"
+        );
+    }
+}

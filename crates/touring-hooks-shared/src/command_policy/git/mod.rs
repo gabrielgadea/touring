@@ -44,9 +44,9 @@ fn scan_program(command: &str, depth: usize, inherited_ritual_unlock: bool) -> R
             "REGRA #11 v2: nested shells exceed the verification depth ({MAX_DEPTH})"
         ));
     }
-    let heredocs = text::heredoc_bodies(command);
-    let masked = text::mask_script_heredocs(command);
-    for pipeline in super::lexer::shell_pipelines(&masked) {
+    let (pipelines, heredocs) =
+        super::lexer::read_with_script_input(command, nested::is_script_input);
+    for pipeline in pipelines {
         let mut previous: Option<&[String]> = None;
         for words in &pipeline {
             let ctx = ScanCtx {

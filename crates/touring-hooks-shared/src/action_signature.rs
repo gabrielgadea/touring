@@ -334,25 +334,21 @@ fn classify_intent_class(tool_class: &str, tool_name: &str, input: &Value) -> St
 ///
 /// S8 (2026-10-08), defeito (b) medido ao vivo pela analise-6b: o verbo real é o
 /// primeiro COMANDO — prefixos de navegação (`cd /x && …`, `cd /x; …`),
-/// atribuições de ambiente (`VAR=val …`) e o wrapper `env` são pulados. Antes,
+/// atribuições de ambiente (`VAR=val …`) e todo wrapper são pulados. Antes,
 /// TODO comando com `cd` chaveava as lições nas mesmas ~9 falhas genéricas de
 /// `cd`, repetidas a cada chamada. Ingênuo quanto a aspas (corta dentro de
 /// `grep 'a;b'`), como o `command_segments` do cli_suggester — seguro para
-/// CLASSIFICAÇÃO: o verbo do segmento não muda com o corte. (A mesma semântica
-/// vive em `resolved_tokens`/`effective_tokens` no cli_suggester; duplicada aqui
-/// porque este crate é leaf e não o importa.)
+/// CLASSIFICAÇÃO: o verbo do segmento não muda com o corte. O verbo é o programa
+/// efetivo do lexer compartilhado (`command_policy::command_of`), a mesma leitura
+/// dos gates — uma tabela de wrappers só.
 fn first_command_token(cmd: &str) -> Option<String> {
     for seg in cmd
         .split(['\n', ';'])
         .flat_map(|p| p.split("&&"))
         .flat_map(|p| p.split("||"))
     {
-        let toks: Vec<&str> = seg.split_whitespace().collect();
-        let mut i = 0;
-        while i < toks.len() && (is_env_assignment(toks[i]) || toks[i] == "env") {
-            i += 1;
-        }
-        let Some(&verb) = toks.get(i) else {
+        let words: Vec<String> = seg.split_whitespace().map(str::to_owned).collect();
+        let Some((verb, _)) = crate::command_policy::command_of(&words) else {
             continue; // segmento só de atribuições — o próximo decide
         };
         if verb == "cd" {
@@ -365,22 +361,6 @@ fn first_command_token(cmd: &str) -> Option<String> {
         }
     }
     None
-}
-
-/// `VAR=val` — token que é atribuição de ambiente shell (nome de var seguido de
-/// `=`). Mesmo predicado do `is_env_assignment` do cli_suggester, duplicado porque
-/// este crate é leaf.
-fn is_env_assignment(tok: &str) -> bool {
-    let Some(eq) = tok.find('=') else {
-        return false;
-    };
-    let name = &tok[..eq];
-    !name.is_empty()
-        && name
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Extract the file extension (without the dot), lowercased.

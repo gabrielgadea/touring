@@ -290,33 +290,15 @@ const GIT_PAYLOAD: &[&str] = &[
     "rev-parse",
 ];
 
-/// Words that only wrap the real command.
-const WRAPPERS: &[&str] = &[
-    "sudo", "time", "env", "nice", "nohup", "command", "exec", "builtin", "xargs",
-];
-
 /// `true` when the LAST stage of `command` prints something the model selected or shaped.
 fn is_payload_command(command: &str) -> bool {
     let stage = last_stage(command);
-    let mut words = stage.split_whitespace().peekable();
-    while let Some(w) = words.peek().copied() {
-        let is_env_assignment = w.contains('=')
-            && !w.starts_with('-')
-            && w.chars()
-                .next()
-                .is_some_and(|c| c.is_alphabetic() || c == '_');
-        if is_env_assignment || WRAPPERS.contains(&w) {
-            words.next();
-        } else if w == "timeout" {
-            words.next();
-            words.next(); // the duration
-        } else {
-            break;
-        }
-    }
-    let Some(first) = words.next() else {
+    let all: Vec<String> = stage.split_whitespace().map(str::to_owned).collect();
+    // The shared lexer's effective program: past assignments and every wrapper.
+    let Some((first, rest)) = crate::shared::command_policy::command_of(&all) else {
         return false;
     };
+    let words = rest.iter().map(String::as_str);
     let name = first
         .trim_start_matches(['(', '{'])
         .rsplit('/')

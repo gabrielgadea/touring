@@ -1092,3 +1092,61 @@ fn a_padded_destructive_command_is_still_blocked() {
         "1M filler tokens must not buy an Allow, got {verdict:?}"
     );
 }
+
+/// One reading of "which program does this line run" for every rule. Each row
+/// was `Allow` in the installed 30.4.105 while the same command without the
+/// prefix was `Block`: a wrapper one table knew and another did not (`nice`,
+/// `xargs`, `doas`…), a wrapper called by path, an `A+=1` assignment, a
+/// fractional `timeout` duration, `env -S` code, and a here-string read as a
+/// heredoc that swallowed the lines after it.
+#[test]
+fn the_effective_program_is_judged_whatever_runs_it() {
+    for command in [
+        "bash -c true <<< x\ngit reset --hard",
+        "cat <<< x\ngit clean -fd",
+        "nice chmod 000 f",
+        "nice -n 5 chmod 000 f",
+        "xargs chmod 000 f",
+        "ionice -c 3 chmod 000 f",
+        "setsid chmod 000 f",
+        "doas -u root chmod 000 f",
+        "busybox chmod 000 f",
+        "hw-slot --class rust -- chmod 000 f",
+        "stdbuf -o0 chmod 000 f",
+        "taskset -c 0-3 chmod 000 f",
+        "chrt 10 chmod 000 f",
+        "builtin command chmod 000 f",
+        "/usr/bin/env chmod 000 f",
+        "/usr/bin/sudo chmod 000 f",
+        "A+=1 chmod 000 f",
+        "env A+=1 chmod 000 f",
+        "timeout .5 git reset --hard",
+        "timeout .5 chmod 000 f",
+        "timeout 1.5s chmod 000 f",
+        "timeout --signal=KILL 5 chmod 000 f",
+        "env -S 'rm -rf /tmp/x'",
+        "env --split-string='chmod 000 f'",
+        "sudo -- chmod 000 f",
+        "nice dd if=/dev/zero of=/dev/sda",
+    ] {
+        let verdict = judge(command);
+        assert!(
+            matches!(verdict, Verdict::Block { .. }),
+            "{command:?} must be judged as its effective program, got {verdict:?}"
+        );
+    }
+    for command in [
+        "nice -n 5 cargo test",
+        "timeout .5 ls",
+        "command -v chmod",
+        "cat <<< 'git reset --hard'",
+        "env -S 'echo hi'",
+        "xargs echo chmod 000 f",
+    ] {
+        let verdict = judge(command);
+        assert!(
+            matches!(verdict, Verdict::Allow | Verdict::Warn { .. }),
+            "{command:?} runs nothing destructive, got {verdict:?}"
+        );
+    }
+}

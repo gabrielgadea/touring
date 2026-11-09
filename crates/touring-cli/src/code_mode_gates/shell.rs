@@ -11,126 +11,18 @@ use super::*;
 
 /// True iff `command` starts an atomic content/file search that `ctx_execute`
 /// could fold into one pass.
-/// `VAR=value` prefix (including the bypass `TOURING_GATE_OK=1`): the class belongs
-/// to the executed command, not to the environment that precedes it. Predicate identical to
-/// what `scan_class_of` always used — extracted so the 5 sites share it.
-pub(super) fn is_env_assignment(t: &str) -> bool {
-    t.contains('=')
-        && t.chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-}
-
-/// Execution wrapper recognized by the resolver: flags that take a value +
-/// how many positionals the wrapper ITSELF consumes (the `timeout` duration, the
-/// `taskset` mask, the `chrt` priority).
-pub(super) struct WrapperSpec {
-    value_flags: &'static [&'static str],
-    positionals: usize,
-}
-
-/// S1 (26/08/2026) — the classifiers read the 1st token: `time grep`,
-/// `nice -n 5 find`, `sudo cat`, `env F=1 rg` escaped ALL the gates and
-/// nudges at once (coverage was born at zero where the class is born).
-pub(super) fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
-    Some(match verb {
-        "env" => WrapperSpec {
-            value_flags: &["-u", "--unset", "-C", "--chdir", "-S", "--split-string"],
-            positionals: 0,
-        },
-        "time" => WrapperSpec {
-            value_flags: &["-o", "--output", "-f", "--format"],
-            positionals: 0,
-        },
-        "nice" => WrapperSpec {
-            value_flags: &["-n", "--adjustment"],
-            positionals: 0,
-        },
-        "ionice" => WrapperSpec {
-            value_flags: &["-c", "-n", "-p", "-P"],
-            positionals: 0,
-        },
-        "sudo" => WrapperSpec {
-            value_flags: &[
-                "-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D", "-R", "--user",
-                "--group", "--host", "--prompt", "--role", "--type", "--chdir", "--chroot",
-            ],
-            positionals: 0,
-        },
-        "command" | "builtin" => WrapperSpec {
-            value_flags: &[],
-            positionals: 0,
-        },
-        "timeout" => WrapperSpec {
-            value_flags: &["-s", "--signal", "-k", "--kill-after"],
-            positionals: 1,
-        },
-        "stdbuf" => WrapperSpec {
-            value_flags: &["-i", "-o", "-e"],
-            positionals: 0,
-        },
-        "taskset" => WrapperSpec {
-            value_flags: &["-c", "--cpu-list"],
-            positionals: 1,
-        },
-        "chrt" => WrapperSpec {
-            value_flags: &[],
-            positionals: 1,
-        },
-        _ => return None,
-    })
-}
-
-/// Consumes the wrapper at `toks[i]` (verb + flags + its positionals) and returns
-/// the next index; `i` unchanged when `toks[i]` is not a wrapper. A flag
-/// identical to the one in the table consumes the value in the next token (`-n 5`); the
-/// glued form (`-n5`) and the long one with `=` (`--signal=KILL`) consume a single token.
-pub(super) fn skip_wrapper(toks: &[&str], i: usize) -> usize {
-    let Some(spec) = toks.get(i).and_then(|v| wrapper_spec(v)) else {
-        return i;
-    };
-    let mut j = i + 1;
-    let mut positionals = spec.positionals;
-    while j < toks.len() {
-        let t = toks[j];
-        if is_env_assignment(t) {
-            j += 1; // `sudo FOO=1 cmd` / the assignments of `env` itself
-            continue;
-        }
-        if t.starts_with('-') && t != "-" {
-            j += if spec.value_flags.contains(&t) { 2 } else { 1 };
-            continue;
-        }
-        if positionals > 0 {
-            positionals -= 1;
-            j += 1;
-            continue;
-        }
-        break; // the real verb
-    }
-    j
-}
-
-/// Tokens starting from the REAL VERB: `VAR=value` prefixes and execution wrappers
-/// (`env`/`time`/`nice`/`sudo`/`command`/`builtin`/`timeout`/`stdbuf`/
-/// `ionice`/`taskset`/`chrt`, chained in any order) removed. Empty
+/// Tokens starting from the REAL VERB — the effective program of the shared lexer
+/// (`touring_hooks_shared::command_policy::command_of`): `VAR=value` prefixes and every
+/// execution wrapper of its one table, chained in any order, removed. Empty
 /// when the command is only a shell (a bare `env` prints the environment). A single
 /// resolver for all the classifiers — fixing only one site masked
 /// the defect once (memory `definer-module-cinco-sitios`); not twice.
 pub(super) fn resolved_tokens<'a, 'b>(toks: &'b [&'a str]) -> &'b [&'a str] {
-    let mut i = 0;
-    while i < toks.len() {
-        if is_env_assignment(toks[i]) {
-            i += 1;
-            continue;
-        }
-        let j = skip_wrapper(toks, i);
-        if j == i {
-            break;
-        }
-        i = j;
-    }
-    &toks[i..]
+    let words: Vec<String> = toks.iter().map(|tok| (*tok).to_owned()).collect();
+    // The program sits right before its arguments in the shared lexer's reading.
+    let at = touring_hooks_shared::command_policy::command_of(&words)
+        .map_or(toks.len(), |(_, args)| toks.len() - args.len() - 1);
+    &toks[at..]
 }
 
 /// Command segments separated by sequence operators (`&&`, `||`,

@@ -89,7 +89,11 @@ const _: () = assert!(SIZE_EDGES[BIG_FROM_BUCKET - 1] == BIG_RESULT_BYTES);
 const PREFIX_VERBS: [&str; 10] = [
     "cd", "export", "set", "source", ".", "pushd", "popd", "true", "unset", "shopt",
 ];
-/// Wrappers peeled off the front of a segment.
+/// Wrappers peeled off the front of a segment. Deliberately NOT the shared lexer's
+/// effective program (`command_policy::command_of`): this classifier is a port of the
+/// weekly ruler `scripts/measure_tool_trio.py`, and its class labels are a time series
+/// compared against that script (`tool_trio_parity.expected.json`). Reading through more
+/// wrappers here would relabel past weeks: change both sides together or neither.
 const WRAPPERS: [&str; 6] = ["env", "time", "nice", "nohup", "command", "exec"];
 /// Section-header verbs: the verb only when nothing else runs.
 const DECORATIVE_VERBS: [&str; 2] = ["echo", "printf"];

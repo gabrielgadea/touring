@@ -64,11 +64,28 @@ fn lex(command: &str, heredocs: bool) -> Vec<Vec<Vec<String>>> {
         heredocs,
         ..ShellLexer::default()
     };
-    let mut chars = command.chars().peekable();
-    while let Some(c) = chars.next() {
-        lexer.feed(c, &mut chars);
-    }
+    lexer.read(command);
     lexer.finish()
+}
+
+/// A shell line read for a judge that knows which commands take a heredoc as
+/// INPUT to a program they already have (`bash -c CODE <<EOF`, `bash s.sh <<EOF`):
+/// the [`shell_pipelines`] of the line, except that such a body is dropped instead
+/// of possibly read as commands, and every heredoc body of the line, in order (a
+/// shell reading its stdin runs them). Same reader as [`shell_pipelines`] —
+/// quotes, here-strings (`<<<`) and `<<-` are read once, here.
+pub(super) fn read_with_script_input(
+    command: &str,
+    script_input: fn(&[String]) -> bool,
+) -> (Vec<Vec<Vec<String>>>, Vec<String>) {
+    let mut lexer = ShellLexer {
+        heredocs: true,
+        script_input: Some(script_input),
+        ..ShellLexer::default()
+    };
+    lexer.read(command);
+    let bodies = std::mem::take(&mut lexer.bodies);
+    (lexer.finish(), bodies)
 }
 
 type Chars<'a> = std::iter::Peekable<std::str::Chars<'a>>;
@@ -94,8 +111,16 @@ struct ShellLexer {
     /// they run, to see a script written by one and run by another.
     written: Vec<String>,
     executed: Vec<String>,
+    /// The code `env -S CODE` hands to a fresh split ([`split_string_code`]):
+    /// read as commands of the line once the line is over.
+    split_codes: Vec<String>,
     /// Read `<<WORD` as a heredoc (see [`lex`]).
     heredocs: bool,
+    /// Commands whose heredoc is input to a program they already have: such a
+    /// body is never read as commands (see [`read_with_script_input`]).
+    script_input: Option<fn(&[String]) -> bool>,
+    /// Every heredoc body read, in order.
+    bodies: Vec<String>,
 }
 
 /// A `<<[-]WORD` read on the current line, its body not read yet.
@@ -107,9 +132,19 @@ struct PendingHeredoc {
     strip_tabs: bool,
     /// The delimiter was quoted somewhere: the body is not expanded.
     quoted: bool,
+    /// The words of the command the operator belongs to, set when that command
+    /// ends (before the newline that starts the body).
+    owner: Option<Vec<String>>,
 }
 
 impl ShellLexer {
+    fn read(&mut self, command: &str) {
+        let mut chars = command.chars().peekable();
+        while let Some(c) = chars.next() {
+            self.feed(c, &mut chars);
+        }
+    }
+
     fn feed(&mut self, c: char, chars: &mut Chars<'_>) {
         match c {
             '\'' => {
@@ -172,10 +207,14 @@ impl ShellLexer {
     fn end_command(&mut self) {
         self.end_word();
         if !self.words.is_empty() {
+            for heredoc in self.pending.iter_mut().filter(|h| h.owner.is_none()) {
+                heredoc.owner = Some(self.words.clone());
+            }
             self.runs_text |= may_run_text(&self.words);
             self.written.extend(written_paths(&self.words));
             self.executed
                 .extend(command_of(&self.words).map(|(program, _)| plain_path(program)));
+            self.split_codes.extend(split_string_code(&self.words));
             self.commands.push(std::mem::take(&mut self.words));
         }
     }
@@ -189,6 +228,9 @@ impl ShellLexer {
 
     fn finish(mut self) -> Vec<Vec<Vec<String>>> {
         self.end_pipeline();
+        for code in std::mem::take(&mut self.split_codes) {
+            self.pipelines.extend(lex(&code, self.heredocs));
+        }
         if self.runs_text || self.runs_written_file() {
             for body in std::mem::take(&mut self.data_bodies) {
                 self.pipelines.extend(lex(&body, false));
@@ -240,6 +282,7 @@ impl ShellLexer {
                 delimiter,
                 strip_tabs,
                 quoted,
+                owner: None,
             });
         }
     }
@@ -257,9 +300,16 @@ impl ShellLexer {
     fn read_heredoc_bodies(&mut self, chars: &mut Chars<'_>) {
         for heredoc in std::mem::take(&mut self.pending) {
             let (body, closed) = heredoc_body(chars, &heredoc);
+            if self.script_input.is_some() {
+                self.bodies.push(body.clone());
+            }
+            let is_script_input = self
+                .script_input
+                .zip(heredoc.owner.as_deref())
+                .is_some_and(|(script_input, owner)| script_input(owner));
             if !closed || (!heredoc.quoted && (body.contains("$(") || body.contains('`'))) {
                 self.pipelines.extend(lex(&body, false));
-            } else {
+            } else if !is_script_input {
                 self.data_bodies.push(body);
             }
         }
@@ -386,32 +436,203 @@ fn may_run_text(words: &[String]) -> bool {
     })
 }
 
-/// Wrappers that only change HOW a command runs, each with its options that take
-/// a SEPARATE value: in `sudo -u root git push -f`, `root` is the value of `-u`,
-/// not the command (read as the command, the push went unjudged).
-const WRAPPERS: &[(&str, &[&str])] = &[
-    (
-        "sudo",
-        &["-u", "-g", "-C", "-D", "-p", "-r", "-t", "-U", "-T"],
-    ),
-    ("env", &["-u", "-C"]),
-    ("timeout", &["-s", "-k"]),
-    ("time", &["-f", "-o"]),
-    ("exec", &["-a"]),
-    ("nohup", &[]),
-    ("command", &[]),
+/// A program whose job is to run the program named by its arguments, changing
+/// only HOW it runs (see "Wrapper" in `GLOSSARY.md`).
+pub(super) struct Wrapper {
+    /// The program basename.
+    pub(super) name: &'static str,
+    /// Options that take a SEPARATE value: in `sudo -u root git push -f`, `root`
+    /// is the value of `-u`, not the command (read as the command, the push went
+    /// unjudged).
+    pub(super) value_options: &'static [&'static str],
+    /// Operands before the program, whatever their spelling: `timeout`'s
+    /// duration (`5`, `.5`, `1.5m`), `chrt`'s priority, `taskset`'s mask.
+    pub(super) positionals: usize,
+}
+
+/// The ONE table of wrappers. It is the union of what every reader of a shell
+/// line used to know on its own (six tables that disagreed: `nice chmod 000 f`
+/// was refused by one gate and let through by another). Reading through more
+/// wrappers only ever reveals the program, never hides it.
+const WRAPPERS: &[Wrapper] = &[
+    Wrapper {
+        name: "sudo",
+        value_options: &[
+            "-u",
+            "-g",
+            "-C",
+            "-D",
+            "-h",
+            "-p",
+            "-r",
+            "-t",
+            "-T",
+            "-U",
+            "--user",
+            "--group",
+            "--chdir",
+            "--host",
+            "--prompt",
+            "--role",
+            "--type",
+            "--close-from",
+            "--command-timeout",
+            "--other-user",
+        ],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "doas",
+        value_options: &["-u", "-C"],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "env",
+        value_options: &[
+            "-u",
+            "--unset",
+            "-C",
+            "--chdir",
+            "-a",
+            "--argv0",
+            // `env -S CODE` runs CODE through a fresh split: the lexer reads it
+            // as commands of the line (`split_string_code`), so here it is
+            // consumed as the value it is.
+            "-S",
+            "--split-string",
+        ],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "timeout",
+        value_options: &["-s", "--signal", "-k", "--kill-after"],
+        positionals: 1,
+    },
+    Wrapper {
+        name: "nice",
+        value_options: &["-n", "--adjustment"],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "ionice",
+        value_options: &["-c", "-n", "-p", "-P", "-u", "--class", "--classdata"],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "chrt",
+        value_options: &["-T", "-P", "-D"],
+        positionals: 1,
+    },
+    Wrapper {
+        name: "taskset",
+        value_options: &[],
+        positionals: 1,
+    },
+    Wrapper {
+        name: "stdbuf",
+        value_options: &["-i", "-o", "-e"],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "time",
+        value_options: &["-f", "-o", "--format", "--output"],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "exec",
+        value_options: &["-a"],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "nohup",
+        value_options: &[],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "setsid",
+        value_options: &[],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "command",
+        value_options: &[],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "builtin",
+        value_options: &[],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "busybox",
+        value_options: &[],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "hw-slot",
+        value_options: &[
+            "--class",
+            "--wait",
+            "--max-temp",
+            "--min-mem-gb",
+            "--min-vram-gb",
+            "--abort-temp",
+            "--label",
+        ],
+        positionals: 0,
+    },
+    Wrapper {
+        name: "xargs",
+        value_options: &[
+            "-a",
+            "--arg-file",
+            "-d",
+            "--delimiter",
+            "-E",
+            "-I",
+            "-L",
+            "-n",
+            "--max-args",
+            "--max-lines",
+            "-P",
+            "--max-procs",
+            "-s",
+            "--max-chars",
+            "--process-slot-var",
+        ],
+        positionals: 0,
+    },
 ];
 
-/// The command word of a simple command and its arguments, past what only
-/// changes HOW it runs: leading `NAME=value` assignments and the [`WRAPPERS`]
-/// (with their own options, and `timeout`'s duration).
+/// The wrapper `word` names, by basename (`/usr/bin/sudo` is `sudo`).
+pub(super) fn wrapper(word: &str) -> Option<&'static Wrapper> {
+    let name = basename(word);
+    WRAPPERS.iter().find(|wrapper| wrapper.name == name)
+}
+
+/// The last path component of a program word.
+pub(super) fn basename(word: &str) -> &str {
+    word.rsplit('/').next().unwrap_or(word)
+}
+
+/// The EFFECTIVE PROGRAM of a simple command (see `GLOSSARY.md`) and its
+/// arguments: the word past leading assignments (`A=1`, `A+=1`) and past every
+/// [`Wrapper`] with its options, positional operands and `--`. A wrapper that
+/// runs nothing (`command -v rm`) is itself the program. `None` when only
+/// assignments and wrappers are there.
+///
+/// This is the one answer to "which program does this command run" — every
+/// gate that judges or classifies a command asks it, never a table of its own.
 pub fn command_of(words: &[String]) -> Option<(&str, &[String])> {
     let mut i = 0;
     while let Some(word) = words.get(i).map(String::as_str) {
         if is_assignment(word) {
             i += 1;
-        } else if let Some((_, takes_value)) = WRAPPERS.iter().find(|(name, _)| *name == word) {
-            i = past_wrapper_options(words, i + 1, word, takes_value);
+        } else if let Some(wrapper) = wrapper(word) {
+            match past_wrapper_operands(words, i + 1, wrapper) {
+                Some(next) => i = next,
+                None => return Some((word, words.get(i + 1..).unwrap_or_default())),
+            }
         } else {
             return Some((word, words.get(i + 1..).unwrap_or_default()));
         }
@@ -419,32 +640,68 @@ pub fn command_of(words: &[String]) -> Option<(&str, &[String])> {
     None
 }
 
-/// `NAME=value`: a shell variable assignment, not a command.
-fn is_assignment(word: &str) -> bool {
+/// `NAME=value` or `NAME+=value`: a shell variable assignment, not a command.
+/// The shell runs `A+=1 chmod 000 f` as `chmod`, so `+=` is an assignment too.
+pub fn is_assignment(word: &str) -> bool {
     word.split_once('=').is_some_and(|(name, _)| {
+        let name = name.strip_suffix('+').unwrap_or(name);
         name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
             && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     })
 }
 
-/// The index of the first word after `wrapper`'s own options, starting at `i`.
-fn past_wrapper_options(
-    words: &[String],
-    mut i: usize,
-    wrapper: &str,
-    takes_value: &[&str],
-) -> usize {
-    while let Some(next) = words.get(i) {
-        let is_duration = wrapper == "timeout" && next.starts_with(|c: char| c.is_ascii_digit());
-        if takes_value.contains(&next.as_str()) {
-            i += 2;
-        } else if next.starts_with('-') || is_duration {
-            i += 1;
-        } else {
-            break;
+/// The index of the first word after `wrapper`'s own options and operands,
+/// starting at `i`; `None` when the wrapper runs no program (`command -v`).
+fn past_wrapper_operands(words: &[String], mut i: usize, wrapper: &Wrapper) -> Option<usize> {
+    while let Some(word) = words.get(i) {
+        match option_width(wrapper, word)? {
+            0 => break,
+            width => i += width,
         }
     }
-    i
+    if words.get(i).is_some_and(|word| word == "--") {
+        i += 1;
+    }
+    Some(i + wrapper.positionals)
+}
+
+/// How many words the option `word` of `wrapper` spans: 2 for an option with a
+/// separate value, 1 for any other option (or `env`'s `NAME=value`), 0 when
+/// `word` is no option (`--` included: it ends them). `None` when the option
+/// means the wrapper runs nothing (`command -v`).
+fn option_width(wrapper: &Wrapper, word: &str) -> Option<usize> {
+    if wrapper.name == "command" && matches!(word, "-v" | "-V") {
+        return None;
+    }
+    let width = if word == "--" {
+        0
+    } else if wrapper.value_options.contains(&word) {
+        2
+    } else if (word.len() > 1 && word.starts_with('-'))
+        || (wrapper.name == "env" && is_assignment(word))
+    {
+        1
+    } else {
+        0
+    };
+    Some(width)
+}
+
+/// The code `env -S CODE` (`--split-string`, `--split-string=CODE`, `-SCODE`)
+/// hands to a fresh split, when this simple command is one: the shell then
+/// runs CODE as a command line of its own.
+fn split_string_code(words: &[String]) -> Option<String> {
+    let env_at = words.iter().position(|word| basename(word) == "env")?;
+    let args = &words[env_at + 1..];
+    args.iter()
+        .enumerate()
+        .find_map(|(i, arg)| match arg.as_str() {
+            "-S" | "--split-string" => args.get(i + 1).cloned(),
+            _ => arg
+                .strip_prefix("--split-string=")
+                .or_else(|| arg.strip_prefix("-S").filter(|code| !code.is_empty()))
+                .map(str::to_owned),
+        })
 }
 
 #[cfg(test)]

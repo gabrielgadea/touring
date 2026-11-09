@@ -594,8 +594,8 @@ fn cat_com_redirect_e_escrita_nao_inspecao() {
 /// S1 (26/08/2026) — execution wrappers are transparent to
 /// classification: `time grep` is `grep`. Before, the 1st token decided, and
 /// `time`/`nice`/`sudo`/`env` nullified the class for gates AND nudges at
-/// the same time. Each assert fails a mutation of the resolver (removing
-/// `skip_wrapper` returns `None` in all the positive cases).
+/// the same time. Each assert fails a mutation of the resolver (removing the
+/// shared lexer's wrapper skip in `command_of` returns `None` in all the positive cases).
 #[test]
 fn s1_wrappers_resolve_o_verbo_real() {
     assert_eq!(scan_class_of("time grep -rn foo src/"), Some("grep"));

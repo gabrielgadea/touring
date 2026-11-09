@@ -1,6 +1,6 @@
 //! Shells, launchers and the programs they hand to another execution layer.
 
-use super::super::lexer::is_shell;
+use super::super::lexer::{Wrapper, basename, command_of, is_assignment, is_shell, wrapper};
 use super::direct::scan_git_invocation;
 use super::interpreter::{Language, exec_scan, interpreter_invocation, language};
 use super::text::substitutions;
@@ -20,19 +20,26 @@ pub(super) fn scan_command(words: &[String], ctx: ScanCtx<'_>) -> Result<(), Str
     };
     let name = basename(&rest[0]);
     let args = &rest[1..];
-    if is_wrapper(name) {
-        scan_wrapper(name, args, ctx)
+    if let Some(wrapper) = wrapper(name) {
+        scan_wrapper(wrapper, args, ctx)
     } else {
         scan_named(name, args, ctx)
     }
 }
 
-fn scan_wrapper(name: &str, args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
+fn scan_wrapper(wrapper: &Wrapper, args: &[String], ctx: ScanCtx<'_>) -> Result<(), String> {
+    let name = wrapper.name;
     let mut ritual_unlock = ctx.ritual_unlock;
     let mut sudo_shell = false;
+    let mut positionals = wrapper.positionals;
     let mut i = 0;
     while i < args.len() {
-        match wrapper_action(name, args, i, ctx, &mut ritual_unlock, &mut sudo_shell)? {
+        let state = WrapperState {
+            ritual_unlock: &mut ritual_unlock,
+            sudo_shell: &mut sudo_shell,
+            positionals: &mut positionals,
+        };
+        match wrapper_action(wrapper, args, i, ctx, state)? {
             WrapperAction::Next(width) => i += width,
             WrapperAction::Stop => break,
             WrapperAction::Done => return Ok(()),
@@ -47,6 +54,14 @@ fn scan_wrapper(name: &str, args: &[String], ctx: ScanCtx<'_>) -> Result<(), Str
     )
 }
 
+/// What reading a wrapper's arguments has learned so far.
+struct WrapperState<'a> {
+    ritual_unlock: &'a mut bool,
+    sudo_shell: &'a mut bool,
+    /// Positional operands still to skip ([`Wrapper::positionals`]).
+    positionals: &'a mut usize,
+}
+
 enum WrapperAction {
     Next(usize),
     Stop,
@@ -54,28 +69,30 @@ enum WrapperAction {
 }
 
 fn wrapper_action(
-    name: &str,
+    wrapper: &Wrapper,
     args: &[String],
     i: usize,
     ctx: ScanCtx<'_>,
-    ritual_unlock: &mut bool,
-    sudo_shell: &mut bool,
+    state: WrapperState<'_>,
 ) -> Result<WrapperAction, String> {
-    let (value_options, positional) = wrapper_spec(name);
     let arg = args[i].as_str();
     if arg == "--" {
         return Ok(WrapperAction::Next(1));
     }
-    if let Some(action) = wrapper_special_action(name, args, i, ctx, ritual_unlock, sudo_shell)? {
+    let name = wrapper.name;
+    if let Some(action) =
+        wrapper_special_action(name, args, i, ctx, state.ritual_unlock, state.sudo_shell)?
+    {
         return Ok(action);
     }
-    if value_options.contains(&arg) {
+    if wrapper.value_options.contains(&arg) {
         return Ok(WrapperAction::Next(2));
     }
-    if arg.starts_with('-') {
+    if arg.len() > 1 && arg.starts_with('-') {
         return Ok(WrapperAction::Next(1));
     }
-    if positional > 0 && arg.starts_with(|c: char| c.is_ascii_digit()) {
+    if *state.positionals > 0 {
+        *state.positionals -= 1;
         return Ok(WrapperAction::Next(1));
     }
     Ok(WrapperAction::Stop)
@@ -337,6 +354,21 @@ fn run_stdin_code(code: &str, ctx: ScanCtx<'_>, language: Option<Language>) -> R
     }
 }
 
+/// A command whose heredoc is INPUT to a program it already has: a shell with
+/// `-c CODE` or a script file (`bash -c x <<EOF`, `bash s.sh <<EOF`). The body is
+/// that program's stdin, not another program, so the git judge never reads it as
+/// commands (see `lexer::read_with_script_input`).
+pub(super) fn is_script_input(words: &[String]) -> bool {
+    let Some((program, args)) = command_of(words) else {
+        return false;
+    };
+    if !is_shell(basename(program)) {
+        return false;
+    }
+    let (payload, reads_stdin) = shell_invocation(args);
+    payload.is_some() || !reads_stdin
+}
+
 pub(super) fn shell_invocation(args: &[String]) -> (Option<String>, bool) {
     let mut c_seen = false;
     let mut stdin_flag = false;
@@ -404,109 +436,6 @@ fn leading_ritual_unlock(words: &[String], inherited: bool) -> (bool, &[String])
         i += 1;
     }
     (ritual_unlock, &words[i..])
-}
-
-fn is_assignment(word: &str) -> bool {
-    word.split_once('=').is_some_and(|(name, _)| {
-        name.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
-            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-    })
-}
-
-fn basename(word: &str) -> &str {
-    word.rsplit('/').next().unwrap_or(word)
-}
-
-fn is_wrapper(name: &str) -> bool {
-    matches!(
-        name,
-        "env"
-            | "timeout"
-            | "nice"
-            | "nohup"
-            | "command"
-            | "builtin"
-            | "exec"
-            | "sudo"
-            | "doas"
-            | "time"
-            | "setsid"
-            | "ionice"
-            | "stdbuf"
-            | "busybox"
-            | "hw-slot"
-            | "xargs"
-    )
-}
-
-fn wrapper_spec(name: &str) -> (&'static [&'static str], usize) {
-    match name {
-        "env" => (&["-u", "--unset", "-C", "--chdir", "-a", "--argv0"], 0),
-        "timeout" => (&["-s", "--signal", "-k", "--kill-after"], 1),
-        "nice" => (&["-n", "--adjustment"], 0),
-        "exec" => (&["-a"], 0),
-        "sudo" => (
-            &[
-                "-u",
-                "-g",
-                "-C",
-                "-D",
-                "-h",
-                "-p",
-                "-r",
-                "-t",
-                "-T",
-                "-U",
-                "--user",
-                "--group",
-                "--chdir",
-                "--host",
-                "--prompt",
-                "--role",
-                "--type",
-                "--close-from",
-                "--command-timeout",
-            ],
-            0,
-        ),
-        "doas" => (&["-u", "-C"], 0),
-        "time" => (&["-f", "-o", "--format", "--output"], 0),
-        "ionice" => (&["-c", "-n", "-p", "-P", "-u", "--class", "--classdata"], 0),
-        "stdbuf" => (&["-i", "-o", "-e"], 0),
-        "hw-slot" => (
-            &[
-                "--class",
-                "--wait",
-                "--max-temp",
-                "--min-mem-gb",
-                "--min-vram-gb",
-                "--abort-temp",
-                "--label",
-            ],
-            0,
-        ),
-        "xargs" => (
-            &[
-                "-a",
-                "--arg-file",
-                "-d",
-                "--delimiter",
-                "-E",
-                "-I",
-                "-L",
-                "-n",
-                "--max-args",
-                "--max-lines",
-                "-P",
-                "--max-procs",
-                "-s",
-                "--max-chars",
-                "--process-slot-var",
-            ],
-            0,
-        ),
-        _ => (&[], 0),
-    }
 }
 
 fn option_value(args: &[String], flag: &str) -> Option<String> {
