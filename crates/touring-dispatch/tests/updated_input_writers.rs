@@ -38,6 +38,10 @@ const FRAMEWORK: &[&str] = &[
     // (`classify_answer`: an `updatedInput` is a rewrite); its `"updatedInput":` line is an
     // in-module test fixture of that classifier — it never originates one.
     "touring-hook-runtime/src/hook_trace.rs",
+    // The one reading of a hook answer (E, 09/11/2026): `hook_wire` NAMES the field
+    // (`UPDATED_INPUT`) and READS it to classify an answer as a rewrite; its
+    // `"updatedInput":` lines are in-module test fixtures — it never originates one.
+    "touring-foundation/src/hook_wire.rs",
 ];
 
 fn rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
