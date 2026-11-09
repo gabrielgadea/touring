@@ -95,6 +95,8 @@ mod tests {
             "git reset --hard HEAD",
             "git -C /tmp/repo clean -fd",
             "git push --force-with-lease origin main",
+            "git push --force origin main",
+            "git push -f origin main",
             "git restore .",
             "git stash pop",
             "git rebase main",

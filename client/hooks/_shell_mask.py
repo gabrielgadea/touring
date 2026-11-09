@@ -568,7 +568,25 @@ _SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh", "ash", "fish", "mksh", 
 #: name -> the option that carries a shell program (su -c 'cmd', flock f -c 'cmd', script -c 'cmd').
 _STRING_RUNNERS = {"su": ("-c", "--command"), "flock": ("-c", "--command"), "script": ("-c", "--command")}
 _QUERY_FLAGS = {"command": frozenset({"-v", "-V"})}  # `command -v git` prints a path, runs nothing
-_PROGRAM_FLAGS = {"env": frozenset({"-S", "--split-string"})}  # the next word is a program, not a command name
+
+
+def _split_string_code(name: str, args: list["_Word"], i: int) -> str | None:
+    """The code `env`'s split-string option at ``args[i]`` hands to a fresh split, in every
+    spelling: ``-S CODE``, ``--split-string CODE``, ``--split-string=CODE``, ``-SCODE``, and ``S``
+    inside a short-option cluster (``-iS CODE``, ``-iSCODE``) — read only as ``-S``, ``env -iS
+    'git reset --hard'`` was let through (09/11/2026). ``None`` when ``args[i]`` is not the option.
+    Mirror of ``split_string_option`` in the Rust lexer (``command_policy/lexer.rs``)."""
+    if name != "env":
+        return None
+    arg = args[i].value
+    nxt = args[i + 1].value if i + 1 < len(args) else ""
+    if arg == "--split-string":
+        return nxt
+    if arg.startswith("--split-string="):
+        return arg[len("--split-string="):]
+    if arg.startswith("-") and not arg.startswith("--") and "S" in arg:
+        return arg[arg.index("S") + 1:] or nxt
+    return None
 _SUDO_SHELL = frozenset({"-s", "-i", "--shell", "--login"})  # sudo runs the rest as `$SHELL -c '…'`
 _SHELL_VALUE_OPTS = frozenset({"-o", "+o", "-O", "+O", "--rcfile", "--init-file"})
 _ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\+?=")
@@ -919,9 +937,10 @@ class _Analyzer:
                 break
             if a in _QUERY_FLAGS.get(name, ()):
                 return None
-            if a in _PROGRAM_FLAGS.get(name, ()):
-                if i + 1 < len(args):
-                    self.text(args[i + 1].value, depth + 1)
+            code = _split_string_code(name, args, i)
+            if code is not None:
+                if code:
+                    self.text(code, depth + 1)
                 return None
             shell_mode = shell_mode or (name == "sudo" and a in _SUDO_SHELL)
             if name == "env" and _ASSIGN.match(args[i].raw):  # `env X=1 cmd` exports X to cmd

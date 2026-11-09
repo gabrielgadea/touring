@@ -77,6 +77,10 @@ DENIED = {
     "env -i": "env -i bash -c 'git reset --hard'",
     "env -u name": "env -u HOME bash -c 'git reset --hard'",
     "env -S": "env -S 'git reset --hard'",
+    # `S` inside a short-option cluster is the same option (09/11/2026: `-iS` passed)
+    "env -iS": "env -iS 'git reset --hard'",
+    "env -iS glued": "env -iS'git reset --hard'",
+    "env --split-string=": "env --split-string='git reset --hard'",
     "timeout": 'timeout 60 bash -c "git reset --hard"',
     "timeout -k": "timeout -k 5 60 sh -c 'git clean -fd'",
     "nice": "nice -n 5 bash -c 'git reset --hard'",
