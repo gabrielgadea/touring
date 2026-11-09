@@ -506,26 +506,8 @@ fn gate_tag(reason: &str) -> String {
 /// Gate tag (`G1`, `G10`, `G11`, …) when `response` — a PreToolUse hook output — is a
 /// denial; `None` for allows, rewrites (`updatedInput`) and advisories.
 pub fn deny_gate_of(response: &str) -> Option<String> {
-    // Cheap reject before the parse: every denial spells the literal `"deny"` or `"block"`.
-    if !response.contains("\"deny\"") && !response.contains("\"block\"") {
-        return None;
-    }
-    let value: Value = serde_json::from_str(response).ok()?;
-    if let Some(out) = value.get("hookSpecificOutput")
-        && out.get("permissionDecision").and_then(Value::as_str) == Some("deny")
-    {
-        let reason = out
-            .get("permissionDecisionReason")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        return Some(gate_tag(reason));
-    }
-    if value.get("decision").and_then(Value::as_str) == Some("block") {
-        return Some(gate_tag(
-            value.get("reason").and_then(Value::as_str).unwrap_or(""),
-        ));
-    }
-    None
+    let wire = touring_foundation::hook_wire::HookWire::parse(response)?;
+    wire.denial_reason().map(gate_tag)
 }
 
 // ─── Ledger ──────────────────────────────────────────────────────────────────

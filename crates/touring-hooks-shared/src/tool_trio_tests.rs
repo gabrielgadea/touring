@@ -423,6 +423,12 @@ fn deny_gate_of_reads_denials_only() {
     assert_eq!(deny_gate_of(&rewrite.to_string()), None);
     assert_eq!(deny_gate_of("{}"), None);
     assert_eq!(deny_gate_of("not json with \"deny\""), None);
+    // One reading (`hook_wire`): a JSON escape in the value is the same denial — the
+    // substring pre-filter that skipped it is gone.
+    assert_eq!(
+        deny_gate_of(r#"{"hookSpecificOutput":{"permissionDecision":"d\u0065ny","permissionDecisionReason":"[G9 x] y"}}"#).as_deref(),
+        Some("G9")
+    );
 }
 
 #[test]

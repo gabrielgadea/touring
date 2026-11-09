@@ -125,51 +125,13 @@ fn gate_tag(text: &str) -> Option<String> {
     Some(if canonical { head } else { tag }.to_owned())
 }
 
-/// What an answer on stdout decided, and the gate tag it led with (#6). Pure over the text.
+/// What an answer on stdout decided, and the gate tag it led with (#6). Pure over the text:
+/// the one reading of an answer ([`touring_foundation::hook_wire::HookWire`]), so the trace
+/// labels an answer as every other reader does.
 pub fn classify_answer(stdout: &str) -> (&'static str, Option<String>) {
-    let text = stdout.trim();
-    if text.is_empty() || text == "{}" {
-        return ("silent", None);
-    }
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(text) else {
-        return ("silent", None);
-    };
-    let hso = v.get("hookSpecificOutput");
-    let said = str_at(hso, "permissionDecisionReason")
-        .or_else(|| str_at(Some(&v), "reason"))
-        .or_else(|| str_at(hso, "additionalContext"))
-        .unwrap_or_default();
-    (verdict_of(&v), gate_tag(said))
-}
-
-/// `obj[key]` as a string, when present.
-fn str_at<'a>(obj: Option<&'a serde_json::Value>, key: &str) -> Option<&'a str> {
-    obj.and_then(|o| o.get(key)).and_then(|s| s.as_str())
-}
-
-/// The decision an answer carries, in Claude Code's precedence: a permission decision, then a
-/// top-level block, a halt, an input rewrite, plain context — else nothing was decided.
-fn verdict_of(v: &serde_json::Value) -> &'static str {
-    let hso = v.get("hookSpecificOutput");
-    match str_at(hso, "permissionDecision") {
-        Some("deny") => return "deny",
-        Some("allow") => return "allow",
-        Some("ask") => return "ask",
-        Some("defer") => return "defer",
-        _ => {}
-    }
-    if str_at(Some(v), "decision") == Some("block") {
-        return "block";
-    }
-    if v.get("continue").and_then(|c| c.as_bool()) == Some(false) {
-        return "halt";
-    }
-    if hso.and_then(|h| h.get("updatedInput")).is_some() {
-        return "rewrite";
-    }
-    match str_at(hso, "additionalContext") {
-        Some(c) if !c.trim().is_empty() => "context",
-        _ => "silent",
+    match touring_foundation::hook_wire::HookWire::parse(stdout) {
+        Some(wire) => (wire.decision().as_str(), gate_tag(wire.said())),
+        None => ("silent", None),
     }
 }
 
@@ -546,6 +508,13 @@ mod decision_fields_tests {
         assert_eq!(classify_answer(rewrite).0, "rewrite");
         let allow = r#"{"hookSpecificOutput":{"permissionDecision":"allow"}}"#;
         assert_eq!(classify_answer(allow).0, "allow");
+        // The one reading (`hook_wire`): an explicit `allow` that rewrites the input is the
+        // rewrite the typed answer calls it (the code-mode G8 rewrite was traced `allow`), and
+        // a PermissionRequest denial is a denial, not `silent`.
+        let allow_rewrite = r#"{"hookSpecificOutput":{"permissionDecision":"allow","updatedInput":{"command":"touring run"}}}"#;
+        assert_eq!(classify_answer(allow_rewrite).0, "rewrite");
+        let request = r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"[G9 x] y"}}}"#;
+        assert_eq!(classify_answer(request).0, "deny");
     }
 
     #[test]

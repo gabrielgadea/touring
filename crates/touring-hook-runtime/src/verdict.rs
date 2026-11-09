@@ -17,6 +17,7 @@
 use crate::hook_runtime::HookResponse;
 use serde_json::Value;
 use std::path::Path;
+use touring_foundation::hook_wire;
 use touring_foundation::injection_policy::{self, InjectionLevel};
 
 /// The event every PreToolUse verdict answers as.
@@ -76,7 +77,7 @@ pub fn merge_pretool_json_at(
         return Some(bruto);
     };
     let Some(saida) = v
-        .get_mut("hookSpecificOutput")
+        .get_mut(hook_wire::HOOK_SPECIFIC_OUTPUT)
         .and_then(Value::as_object_mut)
     else {
         return if v.as_object().is_some_and(serde_json::Map::is_empty) {
@@ -85,19 +86,31 @@ pub fn merge_pretool_json_at(
             Some(bruto)
         };
     };
-    if saida.get("permissionDecision").and_then(Value::as_str) == Some("deny") {
+    if saida
+        .get(hook_wire::PERMISSION_DECISION)
+        .and_then(Value::as_str)
+        == Some("deny")
+    {
         let razao = saida
-            .get("permissionDecisionReason")
+            .get(hook_wire::PERMISSION_DECISION_REASON)
             .and_then(Value::as_str)
             .unwrap_or_default();
         let razao = deny_reason_with(razao, &avisos);
-        saida.insert("permissionDecisionReason".into(), Value::String(razao));
+        saida.insert(
+            hook_wire::PERMISSION_DECISION_REASON.into(),
+            Value::String(razao),
+        );
     } else {
         let contexto = context_with(
             &avisos,
-            saida.get("additionalContext").and_then(Value::as_str),
+            saida
+                .get(hook_wire::ADDITIONAL_CONTEXT)
+                .and_then(Value::as_str),
         );
-        saida.insert("additionalContext".into(), Value::String(contexto));
+        saida.insert(
+            hook_wire::ADDITIONAL_CONTEXT.into(),
+            Value::String(contexto),
+        );
     }
     Some(v.to_string())
 }

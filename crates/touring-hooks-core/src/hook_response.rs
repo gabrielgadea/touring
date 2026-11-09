@@ -696,13 +696,9 @@ pub fn exit_code_block_reason(output: &str, event: Option<&str>) -> Option<Strin
     if !EXIT_CODE_ONLY_BLOCK_EVENTS.contains(&event) {
         return None;
     }
-    let value: serde_json::Value = serde_json::from_str(output.trim()).ok()?;
-    if value.get("decision").and_then(|d| d.as_str()) != Some("block") {
-        return None;
-    }
-    let reason = value
-        .get("reason")
-        .and_then(|r| r.as_str())
+    let wire = touring_foundation::hook_wire::HookWire::parse(output)?;
+    let reason = wire
+        .top_level_block()?
         .filter(|r| !r.trim().is_empty())
         .unwrap_or("blocked by a touring hook");
     Some(reason.to_owned())

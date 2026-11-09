@@ -170,13 +170,13 @@ pub static FACT_FAMILIES: &[&str] = &[
 /// ela estava certa: tratar `systemMessage` como decisão fazia o nível `off`
 /// NÃO desligar tudo.
 pub static DECISION_FIELDS: &[&str] = &[
-    "permissionDecision",
-    "permissionDecisionReason",
-    "decision",
-    "reason",
-    "continue",
-    "stopReason",
-    "suppressOutput",
+    crate::hook_wire::PERMISSION_DECISION,
+    crate::hook_wire::PERMISSION_DECISION_REASON,
+    crate::hook_wire::DECISION,
+    crate::hook_wire::REASON,
+    crate::hook_wire::CONTINUE,
+    crate::hook_wire::STOP_REASON,
+    crate::hook_wire::SUPPRESS_OUTPUT,
 ];
 
 /// Campos que carregam CONTEXTO — sujeitos à política.

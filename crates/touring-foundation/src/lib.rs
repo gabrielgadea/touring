@@ -66,6 +66,9 @@ pub mod text_sanitize;
 pub mod hash;
 pub mod health;
 pub mod health_events;
+/// What a hook answer decided, read once from the JSON it prints (`HookWire::parse`) — the
+/// one reading for the trace, the tool-channel ledger and the exit-code lowering.
+pub mod hook_wire;
 /// A taxonomia canônica de famílias de injeção (a REGUA): migrada de
 /// `touring-cli::cli::context_budget` na S-4 (26/10/2026) para que a régua e a
 /// política leiam a MESMA tabela — o mesmo movimento do `cila`.
