@@ -220,6 +220,19 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
     ensure_decompose_tables(db);
     let now = chrono::Utc::now().to_rfc3339();
 
+    // A task this store does not hold is not "ready": until 08/11/2026 it fell through every gate,
+    // answered `ready: true` with `archived: false`, wrote a snapshot and an event, and the CLI wrapper
+    // injected an RL reward of 1.0 for archiving nothing. No `ready` field here on purpose: the
+    // ExitPlanMode hook reads `"ready":false` as "incomplete subtasks", which a missing plan is not.
+    if parent_status(db, task_id).is_none() {
+        return serde_json::json!({
+            "error": "task not found in this project's decompose store",
+            "task_id": task_id,
+            "archived": false,
+        })
+        .to_string();
+    }
+
     // S1.6: Run deadline check before finalizing (apply Fail/Skip/Notify/Backburner)
     let breached = check_deadlines(db, task_id);
 
@@ -281,14 +294,23 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
 
     // S1.7: Compute and persist task metrics
     let total_subtasks = subtasks.len() as i64;
-    let completed = subtasks
-        .iter()
-        .filter(|s| s.get("status").and_then(|v| v.as_str()) == Some("completed"))
-        .count() as i64;
-    let failed = subtasks
-        .iter()
-        .filter(|s| s.get("status").and_then(|v| v.as_str()) == Some("failed"))
-        .count() as i64;
+    let contar = |aceitos: &[&str]| {
+        subtasks
+            .iter()
+            .filter(|s| {
+                s.get("status")
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|st| aceitos.contains(&st))
+            })
+            .count() as i64
+    };
+    // `done` is the other spelling of completed (`loop_phase_close`), and skipped/cancelled are
+    // terminal: counting them as "pending" contradicted the gate above, which only lets through a
+    // plan whose every subtask is terminal (review 08/11/2026).
+    let completed = contar(&["completed", "done"]);
+    let failed = contar(&["failed"]);
+    let skipped = contar(&["skipped"]);
+    let cancelled = contar(&["cancelled"]);
     let avg_quality: Option<f64> = {
         let sum: f64 = subtasks
             .iter()
@@ -310,7 +332,9 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
         "total_subtasks": total_subtasks,
         "completed": completed,
         "failed": failed,
-        "pending": total_subtasks - completed - failed,
+        "skipped": skipped,
+        "cancelled": cancelled,
+        "pending": total_subtasks - completed - failed - skipped - cancelled,
         "avg_quality": avg_quality,
         "completion_pct": completion_pct,
         "breached_deadlines": breached

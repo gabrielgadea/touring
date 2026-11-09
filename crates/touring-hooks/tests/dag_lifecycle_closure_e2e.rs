@@ -247,6 +247,85 @@ fn finalize_refuses_a_plan_with_an_open_subtask_and_names_it() {
     assert!(archived_at_of(&rt, &task_id).is_some());
 }
 
+/// A task this store does not hold is an error, not `ready: true` (review 08/11/2026): it used to fall
+/// through every gate, answer `ready: true, archived: false`, write a snapshot, and earn an RL reward of
+/// 1.0 in the CLI wrapper. No `ready` key: the ExitPlanMode hook reads `"ready":false` as "incomplete".
+#[test]
+fn finalize_of_an_unknown_task_is_an_error_and_writes_nothing() {
+    let (_tmp, mut rt) = setup_runtime();
+    let reply = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": "task_that_was_never_created"}),
+    ));
+    assert!(
+        reply.get("error").is_some(),
+        "unknown task must be refused: {reply}"
+    );
+    assert_eq!(reply["archived"], false);
+    assert!(
+        reply.get("ready").is_none(),
+        "no `ready` for a missing plan: {reply}"
+    );
+    let snapshots: i64 = rt
+        .ctx
+        .knowledge
+        .conn_ref()
+        .query_row(
+            "SELECT COUNT(*) FROM decomposition_snapshots WHERE task_id = ?1",
+            ["task_that_was_never_created"],
+            |row| row.get(0),
+        )
+        .expect("snapshot table exists after ensure");
+    assert_eq!(snapshots, 0, "a refused finalize writes no snapshot");
+}
+
+/// The metrics of a finalized plan count every terminal status for what it is: `done` is completed,
+/// skipped and cancelled are their own buckets, and nothing is left "pending" (the gate only lets
+/// through a plan whose every subtask is terminal).
+#[test]
+fn finalize_metrics_count_every_terminal_status_and_leave_nothing_pending() {
+    let (_tmp, mut rt) = setup_runtime();
+    let created = parse_json(&cli_decompose_create(
+        &mut rt,
+        &json!({"task_type": "plan", "description": "all over", "origin": "touring-cli"}),
+    ));
+    let task_id = created["task_id"].as_str().expect("task_id").to_string();
+    for (step, status) in [
+        ("a", "completed"),
+        ("b", "done"),
+        ("c", "failed"),
+        ("d", "skipped"),
+        ("e", "cancelled"),
+    ] {
+        let subtask_id = format!("{task_id}::{step}");
+        cli_decompose_add(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": subtask_id, "description": step}),
+        );
+        cli_decompose_update(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": subtask_id, "status": status}),
+        );
+    }
+    let finalized = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
+    let m = &finalized["metrics"];
+    assert_eq!(finalized["archived"], true, "{finalized}");
+    assert_eq!(
+        (
+            &m["completed"],
+            &m["failed"],
+            &m["skipped"],
+            &m["cancelled"],
+            &m["pending"]
+        ),
+        (&json!(2), &json!(1), &json!(1), &json!(1), &json!(0)),
+        "{m}"
+    );
+}
+
 /// `review_required` is the gate `finalize` enforces — and the only way to set
 /// it was the tasksfile importer. A flag no payload can reach is a gate nobody
 /// can arm: `finalize` refuses what nothing could mark.
