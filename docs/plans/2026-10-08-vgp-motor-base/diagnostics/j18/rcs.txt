@@ -1,0 +1,9 @@
+construtor rc=0 2026-11-10T19:00:26-03:00..2026-11-10T20:34:22-03:00
+validacao_pre_selo rc=1 arquivo=503/600 inline=229 sem_ts=0 depois_do_corte=0 incompletas=0
+sobreposicao rc=0 OK_zero_em_todos_os_cruzamentos=true controle_positivo_enxerga=true
+selo NAO_EXECUTADO: denominador insuficiente (PREREGISTRO-J18 §3)
+congelamento_binario NAO_EXECUTADO: etapa posterior ao selo
+runner_j18 NAO_EXECUTADO: proibido julgar corpus menor
+aceite_json NAO_GERADO: consolidar_j15.avaliar não recebe V2/V3/hot inexistentes
+veredito=INCONCLUSIVO por corpus
+FIM
