@@ -53,10 +53,9 @@ fn commit_059b2026_placeholder_segment_neighbors() {
     ]);
 }
 
-/// FURO 059b2026: the letters-only fallback still accepts placeholder substrings.
+/// Regression: the letters-only fallback requires whole placeholder segments.
 #[test]
-#[ignore = "FURO 4b/059b2026: placeholder substring without a separator is not detected"]
-fn furo_059b2026_placeholder_substring_without_separator() {
+fn regression_059b2026_placeholder_substring_without_separator() {
     assert_detected(&[
         r##"password = "protest""##,
         r##"api_key = "latest""##,
@@ -76,10 +75,9 @@ fn commit_44869807_go_struct_tag_neighbors() {
     ]);
 }
 
-/// FURO 44869807: a short credential disguised as the JSON wire key is exempt.
+/// Regression: a short credential disguised as the JSON wire key is detected.
 #[test]
-#[ignore = "FURO 4b/44869807: short credential in a Go json tag is not detected"]
-fn furo_44869807_short_credential_in_json_tag() {
+fn regression_44869807_short_credential_in_json_tag() {
     assert_detected(&[r##"Password string `json:"Tr0ub4dor&3xK9"`"##]);
 }
 

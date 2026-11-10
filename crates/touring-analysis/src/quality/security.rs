@@ -130,6 +130,12 @@ impl SecurityAnalyzer {
         if lang == "python" {
             vuln_matches.extend(super::python_sinks::detect(source));
         }
+        if lang == "html" {
+            // The shared pattern suppresses every script inside an HTML document
+            // template. Restore ONLY the region that carries runtime interpolation;
+            // static document structure stays exempt (task 4b, F4b-2).
+            vuln_matches.extend(dynamic_html_script_matches(source));
+        }
         vuln_matches
     }
 }
@@ -477,24 +483,93 @@ fn is_constant_script_tag(source: &str, lang: &str, m: &VulnMatch) -> bool {
         return false;
     }
     if lang == "html" {
-        return true;
+        // A template is not a static document: `{{ user }}` reaches the script
+        // context at render time (task 4b, F4b-2).
+        return !has_double_brace_interpolation(html_script_region(source, m.span.0));
     }
     let line_start = source[..m.span.0].rfind('\n').map_or(0, |p| p + 1);
     let line_end = source[m.span.1..]
         .find('\n')
         .map_or(source.len(), |i| m.span.1 + i);
     let line = &source[line_start..line_end];
-    if !(line.contains('{') || line.contains(".format(") || has_concat_with_ident(line)) {
+    let percent_format = has_percent_format_operator(line);
+    if !(line.contains('{')
+        || line.contains(".format(")
+        || has_concat_with_ident(line)
+        || percent_format)
+    {
         return true;
     }
     // 02/11/2026 (analise `pei/pei_skills/gsap.py`): `'<script src="' + GSAP_CDN_URL + '"></script>'`.
     // A name in SCREAMING_SNAKE_CASE is a module constant by convention in Python, JS/TS and Rust;
-    // when EVERY interpolated or concatenated name on the line is one, no input reaches the tag.
+    // when EVERY interpolated or concatenated name is one, no input reaches the tag.
     // A single lowercase name, a call or an attribute keeps the line tainted.
     !line.contains(".format(")
+        && !percent_format
         && spliced_names(line).is_some_and(|names| {
             !names.is_empty() && names.iter().all(|n| is_screaming_constant(n))
         })
+}
+
+/// `{{ user }}` in Jinja, Handlebars, Angular and similar HTML templates.
+fn has_double_brace_interpolation(line: &str) -> bool {
+    line.find("{{")
+        .is_some_and(|open| line[open + 2..].contains("}}"))
+}
+
+/// Candidates suppressed by the shared pattern's whole-document exemption.
+/// Only the script's own region participates: output after `</script>` is not
+/// a script sink, and `<scripture>` is not a script opener.
+fn dynamic_html_script_matches(source: &str) -> Vec<VulnMatch> {
+    source
+        .match_indices("<script")
+        .filter_map(|(start, text)| {
+            let next = source[start + text.len()..].chars().next();
+            if !next.is_some_and(|c| c.is_ascii_whitespace() || matches!(c, '>' | '/')) {
+                return None;
+            }
+            has_double_brace_interpolation(html_script_region(source, start))
+                .then(|| VulnMatch::new("XSS".into(), (start, start + text.len()), 8.1, 79))
+        })
+        .collect()
+}
+
+/// The opening tag and body of one script, excluding everything after its close.
+fn html_script_region(source: &str, start: usize) -> &str {
+    let end = source[start..]
+        .find("</script>")
+        .map_or(source.len(), |offset| start + offset);
+    &source[start..end]
+}
+
+/// A Python `%` formatting operator after a CLOSED string literal.
+fn has_percent_format_operator(line: &str) -> bool {
+    line.match_indices('%').any(|(at, _)| {
+        let before = line[..at].trim_end();
+        let after = line[at + 1..].trim_start();
+        after.starts_with(|c: char| c.is_ascii_alphabetic() || matches!(c, '_' | '(' | '[' | '{'))
+            && ends_with_closed_literal(before)
+    })
+}
+
+/// Quote parity distinguishes a closed literal from the `%` of a `%s`
+/// conversion inside it; arithmetic modulo has no closing quote before it.
+fn ends_with_closed_literal(before: &str) -> bool {
+    let Some(quote) = before.chars().last().filter(|c| matches!(c, '"' | '\'')) else {
+        return false;
+    };
+    let mut inside = false;
+    let mut escaped = false;
+    for c in before.chars() {
+        if escaped {
+            escaped = false;
+        } else if c == '\\' {
+            escaped = true;
+        } else if c == quote {
+            inside = !inside;
+        }
+    }
+    !inside
 }
 
 /// The names spliced into string literals on `line`: the bodies of `{…}` / `${…}`

@@ -135,3 +135,49 @@ Os dois arquivos de teste obtiveram **F2.1=1.000 e F2.4=1.000** com `touring-qua
 ## Decisão
 
 A revisão **não aprova indiscriminadamente** os 7 commits: `461cfa77`, `49fb4552`, `1305ff40` e `910074b6` tiveram todos os vizinhos desta amostra detectados; `0abafc64`, `059b2026` e `44869807` possuem os furos mínimos acima. Nenhum detector foi alterado por esta tarefa.
+
+## Correções
+
+Depois do aceite da revisão, os 6 furos foram corrigidos em `security.rs` e `f2_4_secrets.rs`. As seções anteriores preservam o estado histórico da revisão; esta seção registra o estado posterior à correção.
+
+### RED → GREEN
+
+Os quatro testes de furo perderam o `#[ignore]` e foram renomeados para `regression_*`. Antes da edição de produção, todos reprovaram: `analysis_rc=101`, `quality_rc=101`. O `tdd-enforcer` confirmou `PASS — failing test exists, proceed` nos dois crates. Após as correções, confirmou `PASS — red→green transition verified` (`touring-analysis`: 1061 passed/0 failed; `touring-quality`: 517 passed/0 failed no alvo do gate).
+
+| Correção | Implementação | Controles adicionais | Mutante |
+|---|---|---|---|
+| F4b-1 `%` | `has_percent_format_operator` reconhece o operador após literal fechada por paridade de aspas; `%s` dentro da string e módulo aritmético não disparam | 3 formas detectadas: com espaços, sem espaços e triple quote; `100 % 3` e `100%` estáticos continuam isentos | helper retorna `false`: rc 101; controle rc 0 |
+| F4b-2 `{{…}}` | `dynamic_html_script_matches` resgata no `SecurityAnalyzer` apenas regiões `<script>…</script>` interpoladas, pois o `XssPattern` compartilhado as suprime antes do code judge; `is_constant_script_tag` usa a mesma região | detecção na mesma linha e multilinha; interpolação depois de `</script>` continua isenta | helper de interpolação retorna `false`: rc 101; controle rc 0 |
+| F4b-3 placeholder | `has_placeholder_word` casa segmentos alfanuméricos inteiros; o fallback curto exige prosa de 2 segmentos ou ID lexical de até 3 caracteres; `pass` é placeholder explícito para DSN | `protest`, `latest`, `protestHeaven` detectados; `SC`, `OK`, `pass`, `my-secret-token`, `changeme` e `Bearer test-token` preservados | substring + fallback antigo: rc 101; controle rc 0 |
+| F4b-4 Go tag | `is_go_wire_tag_value` admite somente caracteres de wire name/opções; `is_go_wire_tag_pair` mantém a complexidade do predicado principal controlada | `json:"Tr0ub4dor&3xK9"` detectado; `password,omitempty`, `api_key`, `token` e token de alta entropia preservados | validador retorna `true`: rc 101; controle rc 0 |
+
+Durante a validação, a primeira versão do fallback de placeholder reabriu 3 falsos positivos (`pass`, `SC`, `OK`). Eles foram reproduzidos pela suite completa e corrigidos antes do fechamento; não permanecem no estado final.
+
+### Suites completas no estado corrigido
+
+```bash
+scripts/hw-slot --class rust -- cargo test -p touring-analysis --quiet
+scripts/hw-slot --class rust -- cargo test -p touring-quality --quiet
+```
+
+Contagem fresca:
+
+```text
+touring-analysis:
+1061 + 6 + 48 + 3 + 34 + 8 + 13 + 24 = 1197 passed; 0 failed; 4 ignored
+
+touring-quality:
+517 + 2 + 6 + 25 + 1 = 551 passed; 0 failed; 1 ignored
+(uma suíte vazia, 0 passed, não entra na soma)
+```
+
+As duas suites novas ficaram sem qualquer teste ignorado:
+
+```text
+security_positive_controls_test: 8 passed; 0 failed; 0 ignored
+f2_4_positive_controls_test:     6 passed; 0 failed; 0 ignored
+```
+
+Os quatro mutantes das correções rodaram em `~/claude-artefatos/touring/4b-fixes-20261110/`, com baseline de 8/8 e 6/6, target isolado e controle restaurado após cada reversão. Todos terminaram com `mutant_rc=101` e `control_rc=0`.
+
+`cargo fmt --all -- --check` e `cargo clippy -p touring-analysis -p touring-quality --all-targets -- -D warnings` (executados um crate por vez) terminaram com rc 0.

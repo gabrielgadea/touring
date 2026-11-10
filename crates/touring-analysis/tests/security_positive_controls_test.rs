@@ -18,6 +18,20 @@ fn assert_detected(pattern: &str, lang: &str, cases: &[&str]) {
     assert!(missed.is_empty(), "{pattern} missed {missed:#?}");
 }
 
+fn assert_not_detected(pattern: &str, lang: &str, cases: &[&str]) {
+    let hits: Vec<_> = cases
+        .iter()
+        .filter(|source| {
+            SecurityAnalyzer::new()
+                .analyze(source, lang)
+                .vuln_matches
+                .iter()
+                .any(|m| m.pattern_name == pattern)
+        })
+        .collect();
+    assert!(hits.is_empty(), "{pattern} false positives {hits:#?}");
+}
+
 /// 0abafc64: a constant module specifier is exempt; input-built paths are not.
 #[test]
 fn commit_0abafc64_module_specifier_neighbors() {
@@ -47,25 +61,53 @@ fn commit_0abafc64_script_tag_neighbors() {
     );
 }
 
-/// FURO 0abafc64: runtime data reaches script sinks in two unhandled forms.
+/// Regression: percent formatting reaches the script sink at runtime.
 #[test]
-#[ignore = "FURO 4b/0abafc64: percent-formatted script sink is not detected"]
-fn furo_0abafc64_percent_format_script_sink() {
+fn regression_0abafc64_percent_format_script_sink() {
     assert_detected(
         "XSS",
         "python",
-        &["def page(user):\n    return \"<script>var u = '%s';</script>\" % user\n"],
+        &[
+            "def page(user):\n    return \"<script>var u = '%s';</script>\" % user\n",
+            "def page(user):\n    return \"<script>var u = '%s';</script>\"%user\n",
+            "def page(user):\n    return \"\"\"<script>var u = '%s';</script>\"\"\" % (user,)\n",
+        ],
     );
 }
 
-/// FURO 0abafc64: an HTML template is not a static HTML document.
+/// A percent sign used for arithmetic or prose is not a formatting operator.
 #[test]
-#[ignore = "FURO 4b/0abafc64: interpolated HTML template script is not detected"]
-fn furo_0abafc64_interpolated_html_template_script() {
+fn constant_script_with_percent_remains_exempt() {
+    assert_not_detected(
+        "XSS",
+        "html",
+        &[
+            "<html><script>var remainder = 100 % 3;</script></html>\n",
+            "<html><script>var label = '100%';</script></html>\n",
+        ],
+    );
+}
+
+/// Regression: an HTML template is not a static HTML document.
+#[test]
+fn regression_0abafc64_interpolated_html_template_script() {
     assert_detected(
         "XSS",
         "html",
-        &["<html><script>var u = '{{ user }}';</script></html>\n"],
+        &[
+            "<html><script>var u = '{{ user }}';</script></html>\n",
+            "<html>\n<script>\nvar u = '{{ user }}';\n</script>\n</html>\n",
+        ],
+    );
+}
+
+/// Runtime output AFTER the closing script tag is outside its sink.
+#[test]
+fn constant_html_script_before_template_output_remains_exempt() {
+    assert_not_detected(
+        "XSS",
+        "html",
+        &["<html><script>var a = 1;</script>{{ user }}</html>\n"],
     );
 }
 

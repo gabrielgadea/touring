@@ -536,9 +536,16 @@ fn is_readable_placeholder(v: &str) -> bool {
     if has_placeholder_word(v) {
         return true;
     }
-    // Otherwise fall back to length: short prose-like text is a stand-in; a
-    // 16+ character passphrase of words is a real secret and still blocks.
-    v.len() < 16
+    // Otherwise fall back to short PROSE (at least two segments), or a short
+    // lexical id such as `SC`/`OK`. A longer single arbitrary word can be a
+    // password and requires explicit placeholder vocabulary.
+    v.len() <= 3
+        || v.len() < 16
+            && v.split(|c: char| !c.is_ascii_alphanumeric())
+                .filter(|s| !s.is_empty())
+                .take(2)
+                .count()
+                == 2
 }
 
 /// The vocabulary humans use to say "put your value here" (see
@@ -561,12 +568,17 @@ const PLACEHOLDER_WORDS: &[&str] = &[
     "insert",
     "replace",
     "notasecret",
+    // Conventional DSN stand-in: `postgres://user:pass@localhost/db`.
+    "pass",
 ];
 
-/// `v` carries a word of [`PLACEHOLDER_WORDS`] (case-insensitive substring).
+/// `v` carries a WHOLE alphanumeric segment equal to a placeholder word.
+/// Substrings do not count: `protest`, `latest` and `protestHeaven` are not
+/// placeholders merely because they contain `test` (task 4b, F4b-3).
 fn has_placeholder_word(v: &str) -> bool {
-    let lower = v.to_ascii_lowercase();
-    PLACEHOLDER_WORDS.iter().any(|w| lower.contains(w))
+    v.split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .any(|seg| PLACEHOLDER_WORDS.contains(&seg.to_ascii_lowercase().as_str()))
 }
 
 /// Words that name WHAT a credential is (`api`, `key`, `token`…) without being
@@ -1404,32 +1416,46 @@ fn is_go_struct_tag_field(line: &str) -> bool {
     if !(is_ident(name) && is_type(ty)) || !tag.ends_with('`') || tag.len() < 2 {
         return false;
     }
-    // Every space-separated pair of the tag is `key:"value"` with a WIRE-NAME key. A
-    // value-bearing key (`default`, `envDefault`, `example`…) can carry a literal secret,
-    // so its presence keeps the line under the assignment rules (security review of
-    // 44869807).
-    const WIRE_KEYS: &[&str] = &[
-        "json",
-        "yaml",
-        "xml",
-        "db",
-        "toml",
-        "form",
-        "mapstructure",
-        "bson",
-        "msgpack",
-        "query",
-        "url",
-        "header",
-        "gorm",
-        "validate",
-        "binding",
-        "protobuf",
-    ];
-    tag[1..tag.len() - 1].split_whitespace().all(|pair| {
-        pair.split_once(':').is_some_and(|(k, v)| {
-            WIRE_KEYS.contains(&k) && v.len() >= 2 && v.starts_with('"') && v.ends_with('"')
-        })
+    tag[1..tag.len() - 1]
+        .split_whitespace()
+        .all(is_go_wire_tag_pair)
+}
+
+const GO_WIRE_KEYS: &[&str] = &[
+    "json",
+    "yaml",
+    "xml",
+    "db",
+    "toml",
+    "form",
+    "mapstructure",
+    "bson",
+    "msgpack",
+    "query",
+    "url",
+    "header",
+    "gorm",
+    "validate",
+    "binding",
+    "protobuf",
+];
+
+fn is_go_wire_tag_pair(pair: &str) -> bool {
+    pair.split_once(':').is_some_and(|(k, v)| {
+        GO_WIRE_KEYS.contains(&k)
+            && v.len() >= 2
+            && v.starts_with('"')
+            && v.ends_with('"')
+            && is_go_wire_tag_value(&v[1..v.len() - 1])
+    })
+}
+
+/// Characters used by wire names and their options (`password,omitempty`,
+/// `api_key`, `required_if=...`). Credential punctuation such as `&`, `@`, `$`
+/// and `%` makes the value a literal, not metadata (task 4b, F4b-4).
+fn is_go_wire_tag_value(v: &str) -> bool {
+    v.bytes().all(|b| {
+        b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b'/' | b':' | b',' | b'=')
     })
 }
 
