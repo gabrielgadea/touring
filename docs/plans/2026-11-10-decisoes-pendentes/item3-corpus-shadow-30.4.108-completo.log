@@ -1,0 +1,14 @@
+hw-slot: aguardando — temp 96C > 88C
+   Compiling touring-server v30.4.108 (/home/gabrielgadea/projects/touring/crates/touring-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.60s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (target/debug/deps/touring_server-edc276c0da2ab1ba)
+
+running 1 test
+CORPUS_MEASUREMENT {"dropped_sidechain":0,"files":1213,"files_discovered":1214,"files_skipped_unreadable":0,"files_with_a_difference":0,"legacy_pairs":6319,"lines":1632524,"only_legacy":0,"only_reader":0,"reader_pairs":6319,"sample_only_legacy_keys":[],"sample_only_reader_keys":[]}
+test ingest::transcript_miner::tests::corpus_shadow_measurement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1707 filtered out; finished in 37.96s
+
+rc=0

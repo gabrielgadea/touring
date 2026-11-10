@@ -30,7 +30,103 @@ pub(super) fn scan_git_invocation(
             "REGRA #11 v2: git {subcommand} is destructive and requires the ritual"
         ));
     }
+    if subcommand == "checkout" {
+        let dir = checkout_dir(args);
+        if let Some(path) = bare_checkout_path(&values, |word| resolves_as_ref(&dir, word)) {
+            return Err(format!(
+                "REGRA #11 v2: git checkout {path} discards the uncommitted changes of '{path}' \
+                 (not a branch or commit there, so git reads it as a path)"
+            ));
+        }
+    }
     Ok(())
+}
+
+/// Where a bare checkout's operands are resolved: the last `-C <dir>` before the subcommand,
+/// else the process cwd.
+fn checkout_dir(args: &[String]) -> std::path::PathBuf {
+    let mut dir = std::path::PathBuf::from(".");
+    let mut words = args.iter().map(|arg| normalize(arg));
+    while let Some(word) = words.next() {
+        if word == "-C" {
+            if let Some(next) = words.next() {
+                dir = dir.join(next);
+            }
+        } else if !word.starts_with('-') {
+            break;
+        }
+    }
+    dir
+}
+
+/// A bare `git checkout <word>…` (no `--`): the first word that is a path, if any. Gabriel's
+/// decision (10/11/2026) is to copy git — the first operand that resolves as a ref is a ref (a
+/// branch named like a file is switched to); every other operand, and every operand after the
+/// ref, is a path, and checking a path out discards its uncommitted changes. `-b`/`-B`/`--orphan`
+/// create a branch (their operands are a name and a start point); `--pathspec-from-file` is
+/// itself a list of paths. Mirror: the bare-checkout loop of client/hooks/block_git.sh.
+fn bare_checkout_path(values: &[String], is_ref: impl Fn(&str) -> bool) -> Option<&str> {
+    if values.iter().any(|value| value == "--") {
+        return None; // judged by checkout_is_destructive
+    }
+    let mut operands = Vec::new();
+    for word in values.iter().map(String::as_str) {
+        if word.starts_with("--") {
+            if names_long(word, "--pathspec-from-file", 3) {
+                return Some(word);
+            }
+            if names_long(word, "--orphan", 3) {
+                return None;
+            }
+        } else if word.len() > 1 && word.starts_with('-') {
+            if cluster_has(word, 'b', &[]) || cluster_has(word, 'B', &[]) {
+                return None;
+            }
+        } else {
+            operands.push(word);
+        }
+    }
+    let (first, rest) = operands.split_first()?;
+    if !is_ref(first) {
+        return Some(first);
+    }
+    rest.first().copied()
+}
+
+/// `-` (the previous branch), a word that resolves as a commit, or a remote branch git would
+/// track on checkout. No repository, an empty word or any failure = not a ref (fail-closed).
+fn resolves_as_ref(dir: &std::path::Path, word: &str) -> bool {
+    if word == "-" {
+        return true;
+    }
+    if word.is_empty() || word.contains(['"', '\'']) {
+        return false;
+    }
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args(args)
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()
+    };
+    let commit = format!("{word}^{{commit}}");
+    if git(&[
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        "--end-of-options",
+        &commit,
+    ])
+    .is_some_and(|out| out.status.success())
+    {
+        return true;
+    }
+    let remote = format!("refs/remotes/*/{word}");
+    git(&["for-each-ref", "--count=1", "--format=x", &remote])
+        .is_some_and(|out| out.status.success() && !out.stdout.is_empty())
 }
 
 fn is_destructive(subcommand: &str, values: &[String]) -> bool {
@@ -228,4 +324,86 @@ fn xargs_safe(subcommand: &str, values: &[String]) -> bool {
 
 fn normalize(arg: &str) -> String {
     arg.strip_prefix('$').unwrap_or(arg).to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn words(line: &str) -> Vec<String> {
+        line.split_whitespace().map(str::to_owned).collect()
+    }
+
+    /// A fake repository: `main`, `v1` and `feat` are refs; `feat` is also a file.
+    fn fake_ref(word: &str) -> bool {
+        matches!(word, "-" | "main" | "v1" | "feat" | "HEAD~1")
+    }
+
+    #[test]
+    fn bare_checkout_of_a_path_names_the_path() {
+        for (line, path) in [
+            ("crates/x.py", "crates/x.py"),
+            ("*.py", "*.py"),
+            ("main crates/x.py", "crates/x.py"),
+            ("-q v1 crates/x.py", "crates/x.py"),
+            ("nao-existe", "nao-existe"),
+            ("--pathspec-from-file=l.txt", "--pathspec-from-file=l.txt"),
+        ] {
+            assert_eq!(
+                bare_checkout_path(&words(line), fake_ref),
+                Some(path),
+                "{line}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_ref_alone_or_a_new_branch_is_not_a_path() {
+        for line in [
+            "main",
+            "feat",
+            "-",
+            "HEAD~1",
+            "-q main",
+            "--detach v1",
+            "",
+            "-b nova crates/x.py",
+            "-qB nova",
+            "--orphan novo",
+            "main -- crates/x.py",
+        ] {
+            assert_eq!(bare_checkout_path(&words(line), fake_ref), None, "{line}");
+        }
+    }
+
+    #[test]
+    fn checkout_dir_follows_the_last_dash_c() {
+        assert_eq!(
+            checkout_dir(&words("checkout x")),
+            std::path::PathBuf::from(".")
+        );
+        assert_eq!(
+            checkout_dir(&words("-C a -C b checkout x")),
+            std::path::PathBuf::from("./a/b")
+        );
+    }
+
+    #[test]
+    fn outside_a_repository_nothing_resolves_as_a_ref() {
+        let dir = std::env::temp_dir().join(format!("no-repo-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        let no_repo = !std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(["rev-parse", "--git-dir"])
+            .output()
+            .expect("git runs")
+            .status
+            .success();
+        if no_repo {
+            assert!(!resolves_as_ref(&dir, "main"));
+            assert!(resolves_as_ref(&dir, "-"));
+        }
+        let _ = std::fs::remove_dir(&dir);
+    }
 }

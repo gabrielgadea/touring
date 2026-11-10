@@ -202,7 +202,8 @@ done < <(occurrences stash)
 check_pattern 'git[[:space:]]+reset[[:space:]].*(--hard|--merge|--keep)' \
     "REGRA #11 v2: git reset destrutivo requer ritual (MEDIR→SNAPSHOT→CONFIRMAR) + token GIT_DESTRUCTIVE_OK=1"
 
-check_pattern 'git[[:space:]]+checkout[[:space:]]+(-f|--|\.)' \
+# `--` must stand alone: `--detach`/`--quiet` as the first option used to match the bare `--` (10/11/2026).
+check_pattern 'git[[:space:]]+checkout[[:space:]]+(-f|--([[:space:]]|$)|\.)' \
     "REGRA #11 v2: git checkout destrutivo (descarta working tree) requer GIT_DESTRUCTIVE_OK=1"
 
 # `git checkout <ref> -- <path>` overwrites <path> from <ref>: a `--` with a word after it, in any
@@ -220,6 +221,49 @@ while IFS= read -r occ; do
             deny "REGRA #11 v2: git checkout destrutivo (descarta working tree) requer GIT_DESTRUCTIVE_OK=1"
         fi
     done < <(options_of "${occ}")
+done < <(occurrences checkout)
+
+# A bare `git checkout <word>` (no `--`) is a path whenever <word> is not a ref, and checking out a
+# path discards its uncommitted changes — the 01:04 incident. Gabriel's decision (10/11/2026): copy
+# git. The first operand that resolves as a commit (or as a remote branch git would track) is a ref,
+# so a branch named like a file is switched to; every other operand, and every operand after the
+# ref, is a path. Unresolvable (no repo, a quoted word the masker blanked) = path: fail-closed.
+# Mirror: `bare_checkout_paths` in crates/touring-hooks-shared/src/command_policy/git/direct.rs.
+is_ref() {
+    local dir="$1" word="$2"
+    [[ "${word}" == "-" ]] && return 0
+    [[ -z "${word}" || "${word}" == *'"'* || "${word}" == *"'"* ]] && return 1
+    git -C "${dir}" rev-parse --verify --quiet --end-of-options "${word}^{commit}" >/dev/null 2>&1 && return 0
+    [[ -n "$(git -C "${dir}" for-each-ref --count=1 --format=x "refs/remotes/*/${word}" 2>/dev/null)" ]]
+}
+
+CHECKOUT_DIR=""
+while IFS= read -r occ; do
+    [[ -z "${occ}" ]] && continue
+    has_re "[[:space:]]--([[:space:]]|$)" "${occ}" && continue  # `--` forms are judged above
+    operands=()
+    creates=0
+    while IFS= read -r word; do
+        if [[ "${word}" == --* ]]; then
+            { names_long "${word}" --orphan 3 || names_long "${word}" --pathspec-from-file 3; } && creates=1
+            names_long "${word}" --pathspec-from-file 3 && creates=2
+        elif [[ "${word}" == -?* ]]; then
+            cluster_has "${word}" b "" || cluster_has "${word}" B "" && creates=1
+        else
+            operands+=("${word}")
+        fi
+    done < <(options_of "${occ}")
+    ((creates == 2)) && deny "REGRA #11 v2: git checkout --pathspec-from-file descarta as mudanças dos caminhos listados — requer GIT_DESTRUCTIVE_OK=1"
+    ((creates == 1 || ${#operands[@]} == 0)) && continue
+    [[ -z "${CHECKOUT_DIR}" ]] && CHECKOUT_DIR="$(payload_cwd)" && CHECKOUT_DIR="${CHECKOUT_DIR:-${PWD}}"
+    first=1
+    for word in "${operands[@]}"; do
+        if ((first)) && is_ref "${CHECKOUT_DIR}" "${word}"; then
+            first=0
+            continue
+        fi
+        deny "REGRA #11 v2: git checkout ${word} descarta as mudanças não salvas de '${word}' — não é branch nem commit em ${CHECKOUT_DIR}, então o git o lê como caminho. Trocar de branch: git switch <branch>. Descartar de propósito: GIT_DESTRUCTIVE_OK=1 <o mesmo comando>."
+    done
 done < <(occurrences checkout)
 
 check_pattern 'git[[:space:]]+switch[[:space:]]+--discard-changes' \

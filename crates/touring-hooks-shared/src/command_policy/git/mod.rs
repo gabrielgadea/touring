@@ -86,7 +86,7 @@ mod tests {
             );
             checked += 1;
         }
-        assert_eq!(checked, 316, "the shell-oracle corpus shrank");
+        assert_eq!(checked, 326, "the shell-oracle corpus shrank");
     }
 
     #[test]

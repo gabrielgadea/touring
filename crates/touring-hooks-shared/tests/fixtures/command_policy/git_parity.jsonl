@@ -314,3 +314,13 @@
 {"cmd":"git restore --staged --no-staged f","shell":"block"}
 {"cmd":"git restore -S --no-st f","shell":"block"}
 {"cmd":"git restore --staged --no-worktree f","shell":"block"}
+{"cmd":"git checkout crates/x.py","shell":"block"}
+{"cmd":"git checkout main crates/x.py","shell":"block"}
+{"cmd":"git checkout HEAD~0","shell":"allow"}
+{"cmd":"git checkout --detach main","shell":"allow"}
+{"cmd":"git checkout","shell":"allow"}
+{"cmd":"git checkout -","shell":"allow"}
+{"cmd":"git checkout --quiet main","shell":"allow"}
+{"cmd":"git checkout --pathspec-from-file=list.txt","shell":"block"}
+{"cmd":"git checkout -b nova main","shell":"allow"}
+{"cmd":"git checkout main; git checkout crates/x.py","shell":"block"}
