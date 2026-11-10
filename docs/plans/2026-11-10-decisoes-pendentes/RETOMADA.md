@@ -11,4 +11,6 @@ Decisões: `DECISOES.md`. Pedido extra do Gabriel: «utilize as sessões kimi e 
 | 4b | ACEITO (`f558fb57`); correção dos furos com touring-9e | 51 vizinhos, 45 detectados, 6 furos (0abafc64 ×2, 059b2026 ×3, 44869807 ×1); remedido aqui: 4+4 passed, furos F2.4 reprovam com `--ignored`; Kimi corrige os 6 (REGRA #21) e depois executa o J18 |
 | 5 | ACEITO (`1fe1e0fb`); montador `f07a5d3a`; camada em montagem com touring-c0 | 37 repos, sha 37/37, licenças permissivas, rendimento 5.614 remedido idêntico → n = 7.318 ≥ 3.700; 4,0 GiB; `RELATORIO-5b.md` (camada selada) aguardado. Pendente do Gabriel: `! rm -r ~/.claude/touring/vgp/oss-html/_stage` (20 GB de candidatos descartados) |
 
+Extras (achados da touring-c0, corrigidos aqui): oráculo não-UTF-8 `fcf4db48` (descarta e conta; teste RED→GREEN); tdd-enforcer `-qq` sem linha de resumo → o rc do pytest decide (`~/.claude/skills/tdd-enforcer/scripts/enforce.py` + `test_enforce.py` 9/9; a skill não é versionada).
+
 Próximo: julgar a correção dos furos (Kimi) e o item 5 (MiniMax); J18 na fila da Kimi. Decisão aberta: canvas «Rust deve negar contornos de hook?» (recomendação A, aguardando o Gabriel).
