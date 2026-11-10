@@ -13,4 +13,6 @@ Decisões: `DECISOES.md`. Pedido extra do Gabriel: «utilize as sessões kimi e 
 
 Extras (achados da touring-c0, corrigidos aqui): oráculo não-UTF-8 `fcf4db48` (descarta e conta; teste RED→GREEN); tdd-enforcer `-qq` sem linha de resumo → o rc do pytest decide (`~/.claude/skills/tdd-enforcer/scripts/enforce.py` + `test_enforce.py` 9/9; a skill não é versionada).
 
+Ferramentas da touring-c0 (fora do repo, em `~/.claude/touring/vgp/oss-html/_tools/`): `preflight_fast.py` (lê os blobs como bytes — reusar no pré-registro do julgamento html), `licenca.py`, `conta_html_efetivo.py`, `test_oss_html_tools.py` (41 testes). Versionar: decisão pendente.
+
 Próximo: julgar a correção dos furos (Kimi) e o item 5 (MiniMax); J18 na fila da Kimi. Decisão aberta: canvas «Rust deve negar contornos de hook?» (recomendação A, aguardando o Gabriel).
