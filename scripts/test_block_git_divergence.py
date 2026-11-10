@@ -27,15 +27,27 @@ exit 0
 """
 
 
-def _run(tmp_path: Path, commands: list[tuple[str, str]]) -> dict:
+def _run(tmp_path: Path, commands: list[tuple[str, str]], justified: list[list[str]] | None = None) -> dict:
     guard = tmp_path / "guard.sh"
     guard.write_text(STUB_GUARD)
     baseline = tmp_path / "baseline.jsonl"
     baseline.write_text(
         "".join(json.dumps({"cmd": cmd, "pipeline": {"v": rust}}) + "\n" for cmd, rust in commands)
     )
+    differences = tmp_path / "justified.jsonl"
+    differences.write_text("".join(json.dumps(row) + "\n" for row in justified or []))
     proc = subprocess.run(
-        [sys.executable, str(SCRIPT), "--baseline", str(baseline), "--guard", str(guard), "--json"],
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--baseline",
+            str(baseline),
+            "--justified",
+            str(differences),
+            "--guard",
+            str(guard),
+            "--json",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -90,3 +102,31 @@ def test_a_guard_that_fails_is_an_error_not_an_allow(tmp_path: Path) -> None:
         check=False,
     )
     assert proc.returncode != 0, "a crashing guard must not read as 'allow'"
+
+
+def test_the_rust_verdict_is_todays_not_the_frozen_baseline(tmp_path: Path) -> None:
+    """The baseline froze the policy BEFORE C2; the replay test lets today's Rust differ from it only on the
+    rows of justified_differences.jsonl, whose `after` is today's verdict. Reading the baseline alone reported
+    `git restore --staged a && git restore b` as "Rust allows" while the Rust policy blocked it (10/11/2026)."""
+    cmd = "git restore --staged a && git reset --hard"
+    report = _run(
+        tmp_path,
+        [(cmd, "allow"), ("git reset --hard", "allow")],
+        justified=[
+            [cmd, "pipeline", "allow", "block: REGRA #11 v2: git reset is destructive", "C2"],
+            ["git reset --hard", "structural", "allow", "block: another field", "C2"],  # never decides
+        ],
+    )
+    rows = {row["cmd"]: row for row in report["rows"]}
+    assert rows[cmd]["rust"] == "block"
+    assert rows[cmd]["class"] == "agree"
+    assert rows["git reset --hard"]["rust"] == "allow"  # only a `pipeline` row overrides the baseline
+
+
+def test_the_default_fixtures_read_the_restore_chain_as_blocked() -> None:
+    """End to end on the committed fixtures: the row that motivated the fix."""
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--json"], capture_output=True, text=True, check=True, timeout=600
+    )
+    rows = {row["cmd"]: row for row in json.loads(proc.stdout)["rows"]}
+    assert rows["git restore --staged a && git restore b"]["rust"] == "block"

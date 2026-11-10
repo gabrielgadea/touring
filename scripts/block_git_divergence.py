@@ -15,12 +15,17 @@ hooks-bypass forms (`--no-verify`, `core.hooksPath`, `SKIP=`, `HUSKY=0`) are jud
 against what the target repository holds.
 
 Usage:
-    scripts/block_git_divergence.py [--baseline PATH] [--guard PATH] [--json]
+    scripts/block_git_divergence.py [--baseline PATH] [--justified PATH] [--guard PATH] [--json]
 
-The baseline is the replay fixture of the full Rust policy
-(`crates/touring-hooks-shared/tests/fixtures/command_policy/baseline.jsonl`): one JSON
-object per line with the command and the `pipeline` verdict returned by `judge`,
-not the Git-free `judge_pre_bash` entry used by the hook.
+The Rust verdict is TODAY's, composed exactly as the replay test
+(`command_policy/tests.rs`, `the_corpus_gets_the_verdicts_it_got_before_the_module_existed`)
+pins it: the `pipeline` verdict of the baseline
+(`crates/touring-hooks-shared/tests/fixtures/command_policy/baseline.jsonl`, the policy frozen
+BEFORE C2), replaced by the `after` of a `pipeline` row of `justified_differences.jsonl` when
+there is one. The replay test fails whenever today's `judge` differs from that composition, so the
+composition is today's verdict without building Rust. Reading the baseline alone (until
+10/11/2026) reported `git restore --staged a && git restore b` as "Rust allows" — a verdict the
+policy had not given since C2. `judge`, not the Git-free `judge_pre_bash` used by the hook.
 """
 
 from __future__ import annotations
@@ -37,8 +42,22 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_BASELINE = REPO / "crates/touring-hooks-shared/tests/fixtures/command_policy/baseline.jsonl"
+DEFAULT_JUSTIFIED = DEFAULT_BASELINE.with_name("justified_differences.jsonl")
 DEFAULT_GUARD = REPO / "client/hooks/block_git.sh"
 GIT_WORDS = ("git ", "git\t", "/git ", "git\n")
+
+
+def todays_rust_blocks(baseline_rows: list[dict], justified: Path) -> dict[str, bool]:
+    """Command -> does today's Rust `judge` block it. Rows are `[cmd, field, before, after, why]`;
+    only the `pipeline` field is the verdict this script compares."""
+    blocks = {row["cmd"]: row["pipeline"]["v"] == "block" for row in baseline_rows}
+    for line in justified.read_text().splitlines():
+        if not line.strip():
+            continue
+        cmd, field, _before, after, _why = json.loads(line)
+        if field == "pipeline" and cmd in blocks:
+            blocks[cmd] = after.startswith("block")
+    return blocks
 
 
 def make_repo(root: Path, *, active_hook: bool) -> Path:
@@ -91,19 +110,21 @@ def classify(is_git: bool, rust_block: bool, guard_block: bool) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
+    ap.add_argument("--justified", type=Path, default=DEFAULT_JUSTIFIED)
     ap.add_argument("--guard", type=Path, default=DEFAULT_GUARD)
     ap.add_argument("--json", action="store_true", help="emit the full table as JSON")
     ap.add_argument("--workers", type=int, default=4)
     args = ap.parse_args()
 
     rows = [json.loads(line) for line in args.baseline.read_text().splitlines() if line.strip()]
+    rust_blocks = todays_rust_blocks(rows, args.justified)
     with tempfile.TemporaryDirectory(prefix="block-git-divergence-") as tmp:
         root = Path(tmp)
         hooked, plain = make_repo(root, active_hook=True), make_repo(root, active_hook=False)
 
         def judge(row: dict) -> dict:
             cmd = row["cmd"]
-            rust_block = row["pipeline"]["v"] == "block"
+            rust_block = rust_blocks[cmd]
             g_hooked = guard_denies(args.guard, cmd, hooked)
             g_plain = guard_denies(args.guard, cmd, plain)
             return {
