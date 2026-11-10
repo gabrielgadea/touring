@@ -381,6 +381,7 @@
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-quality-block-all.sh",
           "timeout": 30,
+          "onFailure": "block",
           "statusMessage": "touring-quality: 6 BLOCK dims (F2.1/F2.4/F2.5/F2.6/F4.3/F4.5)..."
         }
       ]
@@ -517,6 +518,7 @@
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-quality-block-all.sh",
           "timeout": 30,
+          "onFailure": "block",
           "statusMessage": "touring-quality: 6 BLOCK dims (F2.1/F2.4/F2.5/F2.6/F4.3/F4.5)..."
         }
       ]
@@ -534,12 +536,14 @@
           "type": "command",
           "command": "$HOME/.claude/hooks/block_git.sh",
           "timeout": 2,
+          "onFailure": "block",
           "statusMessage": "Git guard: checking for prohibited commands..."
         },
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-process-guard.sh Bash",
           "timeout": 5,
+          "onFailure": "block",
           "statusMessage": "touring-process-guard: REGRA #19 anti-pkill check..."
         },
         {
@@ -553,17 +557,6 @@
           "command": "$HOME/.claude/hooks/touring-hook ceg-observe",
           "timeout": 5,
           "statusMessage": "Touring CEG: observing action (X0..X7 telemetry, in-daemon)..."
-        }
-      ]
-    },
-    {
-      "matcher": "Grep|Glob",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node \"$HOME/.claude/hooks/gitnexus/gitnexus-hook.cjs\"",
-          "timeout": 8,
-          "statusMessage": "Enriching with GitNexus graph context..."
         }
       ]
     },
@@ -639,6 +632,7 @@
           "type": "command",
           "command": "python3 $HOME/.claude/hooks/agent_model_gate.py",
           "timeout": 5,
+          "onFailure": "block",
           "statusMessage": "agent-model-gate: o subagente tem modelo decidido?"
         }
       ]
@@ -661,6 +655,7 @@
           "type": "command",
           "command": "$HOME/.claude/hooks/fable_consent_guard.sh",
           "timeout": 2,
+          "onFailure": "block",
           "statusMessage": "fable-consent-guard: o consentimento é do humano"
         }
       ]
@@ -672,6 +667,7 @@
           "type": "command",
           "command": "$HOME/.claude/hooks/fable_consent_guard.sh",
           "timeout": 2,
+          "onFailure": "block",
           "statusMessage": "fable-consent-guard: o consentimento é do humano"
         }
       ]
@@ -704,7 +700,8 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_outer_effect.py",
-          "timeout": 5
+          "timeout": 5,
+          "onFailure": "block"
         }
       ]
     },
@@ -714,7 +711,8 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py",
-          "timeout": 5
+          "timeout": 5,
+          "onFailure": "block"
         }
       ]
     },
@@ -724,7 +722,39 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/hooks/config_protection.py",
+          "timeout": 5,
+          "onFailure": "block"
+        }
+      ]
+    },
+    {
+      "matcher": "Write|Edit|MultiEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/injection_policy_gate.py",
           "timeout": 5
+        }
+      ]
+    },
+    {
+      "matcher": "Write|Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/script_portfolio_gate.py",
+          "timeout": 5
+        }
+      ]
+    },
+    {
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/tmp_write_guard.py",
+          "timeout": 5,
+          "statusMessage": "tmp-write-guard: nada de trabalho em /tmp, cache ou scratch"
         }
       ]
     }
@@ -1104,7 +1134,8 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_stop_guard.py",
-          "timeout": 150
+          "timeout": 150,
+          "onFailure": "block"
         }
       ]
     }
@@ -1160,6 +1191,11 @@
           "command": "$HOME/.claude/hooks/touring-hook instructions-loaded",
           "timeout": 5,
           "statusMessage": "Touring: enriching instructions context..."
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/instructions_loaded_log.py",
+          "timeout": 5
         }
       ]
     }
@@ -1214,8 +1250,8 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/hooks/skill_picker_hook.py",
-          "statusMessage": "Skill suggestion (async, τ=0.55 medido)",
-          "timeout": 5
+          "timeout": 5,
+          "statusMessage": "Skill suggestion (async, τ=0.55 medido)"
         }
       ]
     },
@@ -1235,9 +1271,9 @@
       "hooks": [
         {
           "type": "command",
-          "command": "$HOME/.claude/hooks/touring-hook teammate-idle",
+          "command": "if [ \"${TOURING_TEAMMATE_IDLE_GATE_DISABLED:-}\" = 1 ]; then exec \"$HOME/.claude/hooks/touring-hook\" teammate-idle; else exec \"$HOME/.claude/hooks/touring-hook\" teammate-idle-gate; fi",
           "timeout": 15,
-          "statusMessage": "TACO: noting idle teammate (observation)..."
+          "statusMessage": "TACO: teammate idle gate (anti-limbo; kill switch TOURING_TEAMMATE_IDLE_GATE_DISABLED=1)..."
         }
       ]
     }

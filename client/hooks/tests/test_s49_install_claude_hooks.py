@@ -78,6 +78,22 @@ def test_lint_requires_a_timeout(tmp_path: Path) -> None:
     assert "L4" in _lint(tmp_path, {"Stop": [{"hooks": [_hook("x", timeout=None)]}]})
 
 
+def test_lint_flags_an_identical_hook_registered_twice(tmp_path: Path) -> None:
+    """L6: one finding per extra identical copy, whether the copies share a group or sit in two groups with
+    the same matcher. A different `if` makes a distinct registration (the one-rule-per-`if` pattern, L1)."""
+    same_group = {"PreToolUse": [{"matcher": "Read", "hooks": [_hook("pre-read")] * 3}]}
+    assert _lint(tmp_path, same_group).count("L6") == 2
+    two_groups = {"PreToolUse": [{"matcher": "Read", "hooks": [_hook("pre-read")]},
+                                 {"matcher": "Read", "hooks": [_hook("pre-read")]}]}
+    assert _lint(tmp_path, two_groups) == ["L6"]
+    # the same command on another matcher, event or with another timeout is a distinct registration
+    distinct = {"PreToolUse": [{"matcher": "Read", "hooks": [_hook("pre-read")]},
+                               {"matcher": "Edit", "hooks": [_hook("pre-read"), _hook("pre-read", timeout=9),
+                                                             _hook("pre-read", if_="Edit(*.rs)")]}],
+                "PostToolUse": [{"matcher": "Read", "hooks": [_hook("pre-read")]}]}
+    assert _lint(tmp_path, distinct) == []
+
+
 # ── check / apply against scratch files ────────────────────────────────────────────────
 
 

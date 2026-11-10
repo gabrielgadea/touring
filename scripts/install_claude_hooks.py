@@ -24,6 +24,9 @@ GROUP and never fired, 26/09/2026):
       `Agent(isolation: "worktree")` fails — "hook succeeded but returned no worktree path", 17/10/2026);
       `WorktreeRemove` runs only for worktrees such a hook created, and its exit 0 counts as "removed"
       whether or not the directory is gone (code.claude.com/docs/en/hooks, read 18/10/2026)
+  L6  the same hook (same event, matcher and EVERY field, `if` included) registered more than once. The 17
+      `pre-read` entries on `Read` are NOT copies: each carries its own `if` (`Read(*.rs)`, `Read(*.py)`, …)
+      because `if` holds one rule (L1) — 10/11/2026, counting by command alone had called them duplicates
 """
 
 from __future__ import annotations
@@ -106,9 +109,14 @@ def _if_findings(event: str, group: dict[str, Any], hook: dict[str, Any]) -> lis
 
 
 def lint_hooks(hooks: dict[str, Any]) -> list[dict[str, str]]:
-    """Every finding of L1-L4. Empty list = clean."""
+    """Every finding of L1-L6. Empty list = clean."""
     findings: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
     for event, group, hook in iter_hooks(hooks):
+        identity = (event, str(group.get("matcher", "")), json.dumps(hook, sort_keys=True))
+        if identity in seen:
+            findings.append(_finding("L6", event, group, hook, "identical hook already registered for this matcher"))
+        seen.add(identity)
         findings += _if_findings(event, group, hook)
         command = str(hook.get("command", ""))
         if PROJECT_SCRIPT.search(command):
