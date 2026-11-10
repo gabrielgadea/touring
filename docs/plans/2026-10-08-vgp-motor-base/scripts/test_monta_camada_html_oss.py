@@ -29,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import monta_camada_html_oss as M  # noqa: E402
+import monta_camada_html_oss as M
 
 CORTE = "2099-01-01T00:00:00Z"
 URL_PIN = "https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"  # versao EXATA -> `cdn`
@@ -89,16 +89,16 @@ def main() -> int:
 
         cen.append(
             (
-                "(a) CONTROLE POSITIVO: o commit que introduz a URL sem versao da 1 entrada "
-                "positiva de classe `cdn_pin`",
+                ("(a) CONTROLE POSITIVO: o commit que introduz a URL sem versao da 1 entrada "
+                "positiva de classe `cdn_pin`"),
                 len(positivos) == 1 and positivos[0]["classe"] == "cdn_pin",
                 f"positivos={len(positivos)} classes={[e['classe'] for e in positivos]}",
             )
         )
         cen.append(
             (
-                "(b) CONTROLE NEGATIVO: os outros dois commits (versao exata e mudanca de texto) "
-                "sao negativos",
+                ("(b) CONTROLE NEGATIVO: os outros dois commits (versao exata e mudanca de texto) "
+                "sao negativos"),
                 len(negativos) == 2,
                 f"negativos={len(negativos)}",
             )
@@ -120,11 +120,11 @@ def main() -> int:
             ) and URL_SEM_PIN not in (saida / e["snap_antes"]).read_text(encoding="utf-8")
         cen.append(
             (
-                "(c) MUTANTE DA BASE DO DELTA: toda entrada carrega `snap_antes`, o arquivo "
-                "existe, e no positivo ele e o estado ANTES",
+                ("(c) MUTANTE DA BASE DO DELTA: toda entrada carrega `snap_antes`, o arquivo "
+                "existe, e no positivo ele e o estado ANTES"),
                 not com_antes and arquivo_existe and antes_e_o_antes,
-                f"sem snap_antes={len(com_antes)} arquivo_existe={arquivo_existe} "
-                f"antes_e_o_antes={antes_e_o_antes}",
+                (f"sem snap_antes={len(com_antes)} arquivo_existe={arquivo_existe} "
+                f"antes_e_o_antes={antes_e_o_antes}"),
             )
         )
 
@@ -161,8 +161,8 @@ def main() -> int:
             (
                 "(f) MUTANTE DO TETO: a poda corta no teto DADO e e um ponto fixo",
                 len(podadas) == 3 and n_podadas == 7 and len(podadas2) == 3 and n_podadas2 == 0,
-                f"podadas={len(podadas)} n_podadas={n_podadas} fixo={len(podadas2)} "
-                f"segunda_poda={n_podadas2}",
+                (f"podadas={len(podadas)} n_podadas={n_podadas} fixo={len(podadas2)} "
+                f"segunda_poda={n_podadas2}"),
             )
         )
 
@@ -178,6 +178,29 @@ def test_selftest_do_montador_html():
     assert main() == 0, (
         "o selftest do montador html reprovou: rode `python3 scripts/test_monta_camada_html_oss.py`"
     )
+
+
+def test_html_que_nao_e_utf8_fica_fora_e_e_contado():
+    """D-8 (10/11/2026, achado da touring-c0): um blob html em Big5 (fixture do WPT no
+    html5lib-python) estourava UnicodeDecodeError e abortava a camada inteira. Um snap não
+    reconstruível fica FORA do denominador e é CONTADO — nunca vira texto alterado (`replace`
+    gravaria um arquivo que nunca existiu) nem aborta a montagem. Os commits UTF-8 seguem."""
+    with tempfile.TemporaryDirectory() as tmp:
+        raiz = Path(tmp)
+        d = repo_sintetico(raiz)  # c1 (cdn exato), c2 (positivo), c3 (negativo)
+        big5 = b"<html><body><p>\xa4\xa4\xa4\xe5 big5</p></body></html>\n"  # two Big5 hanzi
+        (d / "a.html").write_bytes(big5)
+        git(d, "add", "-A")
+        subprocess.run(["git", "-C", str(d), "commit", "-q", "-m", "c4 big5"], check=True, timeout=120)
+        saida = raiz / "saida"
+        (saida / "snap").mkdir(parents=True)
+        (saida / "snap_antes").mkdir(parents=True)
+        entradas, counts, _x = M.seleciona(d, CORTE, 100, set(), saida)
+        assert counts["descartada_nao_utf8"] >= 1, counts
+        assert {e["rotulo"] for e in entradas} == {"positivo", "negativo"}, entradas
+        gravados = {p.stem for p in (saida / "snap").iterdir()}
+        gravados |= {p.stem for p in (saida / "snap_antes").iterdir()}
+        assert gravados == {e["id"] for e in entradas}, "snap órfão de um commit descartado"
 
 
 if __name__ == "__main__":

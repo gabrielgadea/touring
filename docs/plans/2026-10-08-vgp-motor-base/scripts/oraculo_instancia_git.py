@@ -55,12 +55,22 @@ TAGS_RECURSO = {"script", "img", "link", "iframe", "source", "video", "audio"}
 TAGS_REF = {"a", "area", "use", "form", "label"}
 ATRS_REF = {"id", "for", "aria-labelledby", "aria-describedby", "aria-controls", "class"}
 VERSAO = re.compile(r"^\d+\.\d+\.\d+")
-UTILITARIO = re.compile(r"tailwind|unocss|uno\.css|windi\.css|bootstrap|bulma|foundation", re.I)
+UTILITARIO = re.compile(r"tailwind|unocss|uno\.css|windi\.css|bootstrap|bulma|foundation", re.IGNORECASE)
+
+
+class NaoUtf8(Exception):
+    """git output that is not UTF-8 (a Big5/Latin-1 html fixture, 10/11/2026). Raised, never
+    patched with `replace`: a decoded-with-holes snap is a file that never existed, and a
+    mangled path makes the next `git show` answer empty in silence. The caller drops the entry
+    and counts it, as the held-outs do with entries that cannot be rebuilt."""
 
 
 def git(d: Path, *a: str) -> str:
-    r = subprocess.run(["git", "-C", str(d), *a], capture_output=True, text=True, timeout=300)
-    return r.stdout or ""
+    r = subprocess.run(["git", "-C", str(d), *a], capture_output=True, timeout=300, check=False)
+    try:
+        return r.stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise NaoUtf8(f"{d.name}: git {' '.join(a)}: {exc.reason} at byte {exc.start}") from exc
 
 
 def filhos_de(d: Path, c: str) -> list:
@@ -96,6 +106,7 @@ def existe(d: Path, rev: str, caminho: str) -> bool:
         ["git", "-C", str(d), "cat-file", "-e", f"{rev}:{caminho}"],
         capture_output=True,
         timeout=120,
+        check=False,
     )
     return r.returncode == 0
 
@@ -121,7 +132,7 @@ def classe_de(valor: str, tag: str, atr: str) -> str:
         return "id" if atr == "id" else "ancora"
     if valor.startswith("#"):
         return "ancora"
-    if valor.startswith("http") or valor.startswith("//"):
+    if valor.startswith(("http", "//")):
         # MEDIDO em 10/10: a versao antiga (`VERSAO.match(v.rsplit("@",1)[-1])`) classificava como
         # `cdn_pin` QUALQUER URL absoluta sem `@` — sem `@`, o rsplit devolve a URL INTEIRA, que
         # nunca casa com o padrao de versao. Os 329 "positivos" eram 128x istanbul.js.org, 68x
@@ -204,7 +215,7 @@ def pares_do_commit(d: Path, c: str, achados: Counter, excl: Counter, exemplos: 
     ]
     if not arquivos:
         return False
-    arv_C = arvore(d, c)
+    arvore(d, c)  # warms the memoized tree (_ARVORE) the existence checks below read
     utilitario = False
     introd = Counter()
     pares_locais = Counter()
@@ -254,7 +265,7 @@ def pares_do_commit(d: Path, c: str, achados: Counter, excl: Counter, exemplos: 
     for D in filhos_de(d, c):
         if pares_locais["recurso"] < 1:
             break
-        arv_D = arvore(d, D)
+        arvore(d, D)  # warms the memoized tree (_ARVORE)
         # o que C tocou de verdade: D tem de mexer no MESMO arquivo
         tocados_D = {
             a

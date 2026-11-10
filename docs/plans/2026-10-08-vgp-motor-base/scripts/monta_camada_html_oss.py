@@ -169,10 +169,14 @@ def seleciona(d: Path, corte: str, limite: int, excluidos: set, saida: Path) -> 
     counts: Counter = Counter()
     n_excluidos = 0
     for c in commits_html_ate_o_corte(d, corte, limite):
-        arquivos = arquivos_html(d, c)
+        try:
+            arquivos = arquivos_html(d, c)
+            novas = introduzidas(d, c, arquivos) if arquivos else {}
+        except ORA.NaoUtf8:
+            counts["descartada_nao_utf8"] += 1  # not rebuildable: out of the denominator, counted
+            continue
         if not arquivos:
             continue
-        novas = introduzidas(d, c, arquivos)
         if not novas:
             # NEGATIVO: o commit toca .html e nao introduz URL de CDN sem versao exata
             arq = min(arquivos)
@@ -180,10 +184,13 @@ def seleciona(d: Path, corte: str, limite: int, excluidos: set, saida: Path) -> 
             if ident in excluidos:
                 n_excluidos += 1
                 continue
-            (saida / "snap" / f"{ident}.html").write_text(git(d, "show", f"{c}:{arq}"), encoding="utf-8")
-            (saida / "snap_antes" / f"{ident}.html").write_text(
-                git(d, "show", f"{c}~1:{arq}"), encoding="utf-8"
-            )
+            try:  # both texts read BEFORE any write: a dropped commit leaves no orphan snap
+                txt, antes_txt = git(d, "show", f"{c}:{arq}"), git(d, "show", f"{c}~1:{arq}")
+            except ORA.NaoUtf8:
+                counts["descartada_nao_utf8"] += 1
+                continue
+            (saida / "snap" / f"{ident}.html").write_text(txt, encoding="utf-8")
+            (saida / "snap_antes" / f"{ident}.html").write_text(antes_txt, encoding="utf-8")
             entradas.append(
                 entrada(
                     ident,
@@ -202,8 +209,11 @@ def seleciona(d: Path, corte: str, limite: int, excluidos: set, saida: Path) -> 
             continue
         # POSITIVO: um item por URL introduzida
         for arq, urls in sorted(novas.items()):
-            txt = git(d, "show", f"{c}:{arq}")
-            antes_txt = git(d, "show", f"{c}~1:{arq}")
+            try:
+                txt, antes_txt = git(d, "show", f"{c}:{arq}"), git(d, "show", f"{c}~1:{arq}")
+            except ORA.NaoUtf8:
+                counts["descartada_nao_utf8"] += 1
+                continue
             for url in urls:
                 ident = id_de(d.name, c, arq, "cdn_pin", url)
                 if ident in excluidos:
@@ -380,6 +390,7 @@ def main() -> int:
             "ids_excluidos_da_origem": len(excluidos),
             "entradas_descartadas_por_id": n_excluidos,
         },
+        "descartadas_nao_utf8": counts.get("descartada_nao_utf8", 0),
         "adjudicador": {
             "oraculo_instancia_git_sha256": hashlib.sha256(
                 (Path(__file__).resolve().parent / "oraculo_instancia_git.py").read_bytes()
