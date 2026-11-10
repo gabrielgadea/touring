@@ -9,6 +9,6 @@ Decisões: `DECISOES.md`. Pedido extra do Gabriel: «utilize as sessões kimi e 
 | 3 | FEITO (medido) | `item3-corpus-shadow-30.4.108-completo.log`: 1.213/1.214 arquivos, 1.632.524 linhas, 6.319 pares, only_legacy 0, only_reader 0, 0 arquivos com diferença |
 | 4a | pré-registro escrito | `../2026-10-08-vgp-motor-base/PREREGISTRO-J18-2026-11-10.md`; execução: `briefs/4a-j18-execucao.md`, para a 1ª irmã livre |
 | 4b | ACEITO (`f558fb57`); correção dos furos com touring-9e | 51 vizinhos, 45 detectados, 6 furos (0abafc64 ×2, 059b2026 ×3, 44869807 ×1); remedido aqui: 4+4 passed, furos F2.4 reprovam com `--ignored`; Kimi corrige os 6 (REGRA #21) e depois executa o J18 |
-| 5 | com touring-c0 (MiniMax) | `briefs/5-minimax-html.md`; aguardando LISTA-HTML-OSS.md + RELATORIO-5.md |
+| 5 | ACEITO (`1fe1e0fb`); montador `f07a5d3a`; camada em montagem com touring-c0 | 37 repos, sha 37/37, licenças permissivas, rendimento 5.614 remedido idêntico → n = 7.318 ≥ 3.700; 4,0 GiB; `RELATORIO-5b.md` (camada selada) aguardado. Pendente do Gabriel: `! rm -r ~/.claude/touring/vgp/oss-html/_stage` (20 GB de candidatos descartados) |
 
 Próximo: julgar a correção dos furos (Kimi) e o item 5 (MiniMax); J18 na fila da Kimi. Decisão aberta: canvas «Rust deve negar contornos de hook?» (recomendação A, aguardando o Gabriel).
