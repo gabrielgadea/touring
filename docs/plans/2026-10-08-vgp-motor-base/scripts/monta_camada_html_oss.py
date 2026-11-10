@@ -44,13 +44,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import oraculo_instancia_git as ORA  # noqa: E402  (o ORACULO, importado)
-from cdn_pin import classe_de_cdn  # noqa: E402  (o MESMO criterio do oraculo)
-from confere_selo import sha_tree as selo_sha_tree  # noqa: E402  (a MESMA funcao do conferidor)
-from rotular_oss import teto_de  # noqa: E402  (o MESMO teto do estrato js/ts)
+import oraculo_instancia_git as ORA  # o ORACULO, importado
+from cdn_pin import classe_de_cdn  # o MESMO criterio do oraculo
+from confere_selo import sha_tree as selo_sha_tree  # a MESMA funcao do conferidor
+from rotular_oss import teto_de  # o MESMO teto do estrato js/ts
 
 BASE = Path.home() / ".claude/touring/vgp"
 OSS = BASE / "oss"
+# D-8 (10/11/2026): the 37 hand-written html clones of LISTA-HTML-OSS.md live in a root of their own;
+# no remote is shared with OSS (checked). Entries starting with `_` (`_stage`, `_tools`) are workspace.
+RAIZES_OSS = (OSS, BASE / "oss-html")
 CORTE_PADRAO = "2026-10-10T00:00:00Z"
 LIMITE_PADRAO = 100
 TETO_CONCENTRACAO = 0.03
@@ -172,7 +175,7 @@ def seleciona(d: Path, corte: str, limite: int, excluidos: set, saida: Path) -> 
         novas = introduzidas(d, c, arquivos)
         if not novas:
             # NEGATIVO: o commit toca .html e nao introduz URL de CDN sem versao exata
-            arq = sorted(arquivos)[0]
+            arq = min(arquivos)
             ident = id_de(d.name, c, arq, "negativo", "")
             if ident in excluidos:
                 n_excluidos += 1
@@ -269,6 +272,17 @@ def situacao_de(n_negativos: int, dentro_do_teto: bool) -> tuple[str, str]:
     )
 
 
+def repos_oss(nomes: list[str] | None) -> list[Path]:
+    """Every git clone under RAIZES_OSS (or only `nomes`), skipping `_`-prefixed workspace dirs."""
+    return sorted(
+        p
+        for raiz in RAIZES_OSS
+        if raiz.is_dir()
+        for p in raiz.iterdir()
+        if p.is_dir() and not p.name.startswith("_") and (p / ".git").exists() and (not nomes or p.name in nomes)
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--saida", type=Path, required=True)
@@ -298,11 +312,7 @@ def main() -> int:
     print(f"disjuncao: {len(excluidos)} ids ja usados nos corpora de origem")
 
     nomes = [r for r in a.repos.split(",") if r] or None
-    repos = sorted(
-        p
-        for p in OSS.iterdir()
-        if p.is_dir() and (p / ".git").exists() and (not nomes or p.name in nomes)
-    )
+    repos = repos_oss(nomes)
 
     entradas: list[dict] = []
     counts: Counter = Counter()
