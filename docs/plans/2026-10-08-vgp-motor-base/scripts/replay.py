@@ -41,11 +41,22 @@ def transcripts_of(session: str) -> list[Path]:
     return sorted(PROJECTS.glob(f"*/{session}.jsonl")) + sorted(PROJECTS.glob(f"*/{session}/**/*.jsonl"))
 
 
+# "<file>:<line>" of every tool_use/tool_result transcript line skipped as malformed JSON. J18
+# (10/11/2026): an interrupted transcript write leaves a line cut mid-string with the next record
+# glued to it; one such line among 1.214 transcripts aborted the whole held-out construction.
+MALFORMED: list[str] = []
+
+
 def _records(files: list[Path]):
     for f in files:
-        for line in f.open(encoding="utf-8", errors="replace"):
+        for n, line in enumerate(f.open(encoding="utf-8", errors="replace"), 1):
             if '"tool_use"' in line or '"tool_result"' in line:
-                yield json.loads(line)
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError as exc:
+                    MALFORMED.append(f"{f}:{n}")
+                    print(f"replay: skipped malformed transcript line {f}:{n} ({exc.msg}, char {exc.pos})",
+                          file=sys.stderr)
 
 
 def _contents(rec: dict) -> list[dict]:
@@ -99,7 +110,7 @@ def session_work(path: str) -> bool:
     return SESSION_DIRS.search(path) is not None
 
 
-HEREDOC = re.compile(r"cat\s+(>>?)\s*\"?([^\s\"<;|&]+)\"?\s*<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n(.*?)\n\3\s*$", re.S | re.M)
+HEREDOC = re.compile(r"cat\s+(>>?)\s*\"?([^\s\"<;|&]+)\"?\s*<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n(.*?)\n\3\s*$", re.DOTALL | re.MULTILINE)
 ASSIGN = re.compile(r"(?:^|[;&\n]\s*)(?:export\s+)?([A-Za-z_]\w*)=([^\s;&|`$()]+)")
 
 
@@ -227,7 +238,9 @@ def run_isolated(work: Path, command: str, cwd: str, files: dict[str, str], cap:
     _write_workdir(work, command, cwd or str(HOME / "projects/analise"), files)
     sockets = sorted(HOME.glob("projects/*/.touring/daemon.sock"))
     try:
-        p = subprocess.run(_bwrap(work, sockets), capture_output=True, text=True, timeout=_declared_timeout(command, cap))
+        p = subprocess.run(
+            _bwrap(work, sockets), capture_output=True, text=True, timeout=_declared_timeout(command, cap), check=False
+        )
         return p.returncode, False, p.stdout + p.stderr
     except subprocess.TimeoutExpired as e:  # its captured streams may be bytes even with text=True
         return None, True, "".join(s.decode(errors="replace") if isinstance(s, bytes) else s

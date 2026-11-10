@@ -78,3 +78,19 @@ posto mais próximo, limite de 1.000 ms e a regra de aceite `consolidar_j15.aval
 Nenhum `cargo build --release`, `update-touring` ou troca de daemon durante o run. Nenhum conteúdo de corpus no
 repositório. Nenhuma alteração de corte, semente, juiz ou critério depois da primeira medição; um defeito de
 instrumento achado no meio do run encerra o J18 como INCONCLUSIVO e abre um J18b com pré-registro próprio.
+
+## Adendo 1 — 10/11/2026, ANTES de qualquer medição
+
+A construção do held-out `20261110` abortou (rc 1) em `scripts/replay.py:48`
+(`JSONDecodeError: Expecting ',' delimiter`): 3 linhas `tool_use`/`tool_result` de transcript estão
+corrompidas — gravação interrompida, a linha cortada no meio de uma string com o registro seguinte colado
+nela (`analise/5ff8eadd…jsonl:22504`, `analise/ad6c086f…jsonl:41191`, `touring/0fbe5042…jsonl:11847`).
+Nenhum corpus foi produzido e nada foi medido, então o §7 (que veda mudança DEPOIS da primeira medição) não
+se aplica, e o J18 segue como J18 — não J18b.
+
+Única mudança: `replay._records` pula a linha malformada, registra `<arquivo>:<linha>` em
+`replay.MALFORMED` e avisa em stderr, em vez de abortar (teste `scripts/test_replay_records.py`). Uma
+entrada que dependa de uma linha perdida simplesmente não vira candidata, como toda entrada não
+reconstruível (§3). Corte, semente, braços, juiz, instrumento de medição e critério **não mudam**.
+O `congelados.json` é regravado com o sha novo do `replay.py`; o anterior fica preservado ao lado
+(`congelados.json.antes-adendo-1`), e o log da construção abortada também.
