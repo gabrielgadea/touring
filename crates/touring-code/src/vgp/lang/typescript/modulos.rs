@@ -394,7 +394,7 @@ const MAX_MODULOS: usize = 80;
 pub(super) const MAX_PROFUNDIDADE: u8 = 8;
 
 impl<'a> Carregador<'a> {
-    pub fn novo(projeto: &'a Projeto<'a>) -> Self {
+    pub(crate) fn novo(projeto: &'a Projeto<'a>) -> Self {
         Self {
             projeto,
             cache: RefCell::new(HashMap::new()),

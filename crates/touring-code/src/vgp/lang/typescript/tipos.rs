@@ -111,7 +111,7 @@ fn prim_para_builtin(p: &str) -> Option<&'static str> {
 }
 
 impl<'a> Resolvedor<'a> {
-    pub fn novo(carregador: &'a Carregador<'a>) -> Self {
+    pub(crate) fn novo(carregador: &'a Carregador<'a>) -> Self {
         Self { carregador }
     }
 

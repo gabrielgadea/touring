@@ -278,12 +278,14 @@ impl Cache {
     }
 
     /// How many URLs are recorded.
-    pub fn len(&self) -> usize {
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
         self.urls.len()
     }
 
     /// Is the cache empty?
-    pub fn is_empty(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_empty(&self) -> bool {
         self.urls.is_empty()
     }
 

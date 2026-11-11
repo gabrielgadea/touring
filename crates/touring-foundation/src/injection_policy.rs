@@ -180,7 +180,10 @@ pub static DECISION_FIELDS: &[&str] = &[
 ];
 
 /// Campos que carregam CONTEXTO — sujeitos à política.
-pub static CONTEXT_FIELDS: &[&str] = &["additionalContext", "systemMessage"];
+pub static CONTEXT_FIELDS: &[&str] = &[
+    crate::hook_wire::ADDITIONAL_CONTEXT,
+    crate::hook_wire::SYSTEM_MESSAGE,
+];
 
 /// Decisão pura, injetável (molde de `code_gates_disabled_from`,
 /// `crates/touring-cli/src/cli_suggester.rs:3940`). É o que permite testar a

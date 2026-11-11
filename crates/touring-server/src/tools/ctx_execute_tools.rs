@@ -183,7 +183,10 @@ impl CtxExecuteOutput {
     /// `success` and the MCP `isError` read from — see [`RunOutcome::is_success`].
     #[must_use]
     pub fn outcome(&self) -> RunOutcome {
-        RunOutcome::new(self.exit, self.failure.as_ref().map(|f| f.kind))
+        RunOutcome {
+            exit: self.exit,
+            failure: self.failure.as_ref().map(|f| f.kind),
+        }
     }
 }
 
@@ -540,7 +543,10 @@ mod journal_v2_tests {
     use touring_foundation::run_outcome::SimhashVersion;
 
     fn outcome_of(exit: i32) -> RunOutcome {
-        RunOutcome::new(ExitStatus::from_wire(exit), None)
+        RunOutcome {
+            exit: ExitStatus::from_wire(exit),
+            failure: None,
+        }
     }
 
     /// B2 (2026-09-02): the journal record carries WHERE the program came from,
@@ -654,7 +660,10 @@ mod journal_v2_tests {
     /// exit (`-2` for a timeout, `-1` for no result) and the failure label.
     #[test]
     fn journal_record_serializes_the_outcome_at_the_wire_edge() {
-        let timed_out = RunOutcome::new(ExitStatus::TimedOut, Some(FailureKind::Timeout));
+        let timed_out = RunOutcome {
+            exit: ExitStatus::TimedOut,
+            failure: Some(FailureKind::Timeout),
+        };
         let rec = journal_log(
             "run-5",
             "bash",
@@ -670,7 +679,10 @@ mod journal_v2_tests {
         .to_json(0, 0);
         assert_eq!(rec["exit_code"], -2);
         assert_eq!(rec["failure_kind"], "timeout");
-        let no_result = RunOutcome::new(ExitStatus::NoExitCode, Some(FailureKind::ProcExit));
+        let no_result = RunOutcome {
+            exit: ExitStatus::NoExitCode,
+            failure: Some(FailureKind::ProcExit),
+        };
         let rec = journal_log(
             "run-6",
             "bash",
@@ -1411,7 +1423,10 @@ pub async fn ctx_execute_impl(
         &run_id,
         &language,
         &stdout,
-        RunOutcome::new(exit, failure.as_ref().map(|f| f.kind)),
+        RunOutcome {
+            exit,
+            failure: failure.as_ref().map(|f| f.kind),
+        },
         duration_ms,
         bytes_elided,
         &journal_meta,

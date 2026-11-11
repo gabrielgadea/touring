@@ -109,7 +109,7 @@ pub(super) struct Mundo<'a> {
 }
 
 impl<'a> Mundo<'a> {
-    pub fn novo(projeto: &'a Projeto<'a>, arquivo: &'a Path, inline: bool) -> Self {
+    pub(crate) fn novo(projeto: &'a Projeto<'a>, arquivo: &'a Path, inline: bool) -> Self {
         let dir = arquivo.parent().unwrap_or(Path::new("."));
         let config = projeto.config_para(dir);
         Self {

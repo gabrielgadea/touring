@@ -15,7 +15,7 @@ use super::vocabulary::GIT_ROUTE;
 use super::{Verdict, with_route};
 
 const MAX_DEPTH: usize = 8;
-const TOKEN: &str = "GIT_DESTRUCTIVE_OK=1";
+const TOKEN: &str = super::SHELL_GUARD_TOKENS[0].assignment;
 
 /// Judge every executable git occurrence of a shell program.
 pub(super) fn judge(command: &str) -> Verdict {

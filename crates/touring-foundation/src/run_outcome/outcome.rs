@@ -3,6 +3,7 @@
 //! ([`FailureKind`]) — plus the one place they are combined ([`RunOutcome`]).
 
 use serde::{Serialize, Serializer};
+use std::fmt;
 
 /// Wire value of [`ExitStatus::TimedOut`] — what the sandbox executor reports
 /// and what the journal stores in `exit_code`.
@@ -58,7 +59,7 @@ impl FailureKind {
 
     /// The canonical label — the string the journal stores in `failure_kind`.
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
+    pub(crate) const fn as_str(self) -> &'static str {
         match self {
             Self::Exception => "exception",
             Self::Timeout => "timeout",
@@ -91,6 +92,13 @@ impl FailureKind {
                 Self::Other
             }
         }
+    }
+}
+
+impl fmt::Display for FailureKind {
+    /// The same kebab-case label used by the journal and `as_str`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
     }
 }
 
@@ -196,7 +204,7 @@ pub struct RunOutcome {
 impl RunOutcome {
     /// Pair an exit status with the failure class (if any).
     #[must_use]
-    pub const fn new(exit: ExitStatus, failure: Option<FailureKind>) -> Self {
+    pub(crate) const fn new(exit: ExitStatus, failure: Option<FailureKind>) -> Self {
         Self { exit, failure }
     }
 
@@ -253,6 +261,7 @@ mod tests {
     fn label_table_round_trips_in_both_directions() {
         for (kind, label) in LABELS {
             assert_eq!(kind.as_str(), label, "as_str({kind:?})");
+            assert_eq!(kind.to_string(), label, "Display({kind:?})");
             assert_eq!(FailureKind::from_label(label), kind, "from_label({label})");
         }
     }

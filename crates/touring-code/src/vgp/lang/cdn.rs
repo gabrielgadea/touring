@@ -521,17 +521,6 @@ fn ocorrencias(input: &CheckInput) -> Result<Achadas, String> {
     Ok(achadas)
 }
 
-/// The CDN URLs of `input`, as written — what a command hands to [`resolvedor::preencher`] to
-/// fill the cache for this document.
-pub fn urls_do_conteudo(input: &CheckInput) -> Vec<String> {
-    if !tem_host_de_cdn(&input.content) {
-        return Vec::new();
-    }
-    ocorrencias(input)
-        .map(|a| a.itens.into_iter().map(|o| o.url).collect())
-        .unwrap_or_default()
-}
-
 // ---------------------------------------------------------------------------- the judgement
 
 /// Numeric key of a version string for newest-first ordering.

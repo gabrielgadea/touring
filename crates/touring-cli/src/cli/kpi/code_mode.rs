@@ -767,7 +767,7 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
             ok += 1;
         }
         if let Some(kind) = outcome.failure {
-            *by_kind.entry(kind.as_str().to_string()).or_default() += 1;
+            *by_kind.entry(kind.to_string()).or_default() += 1;
         }
         if let Some((pts, plang)) = prev_fail.take()
             && plang == lang
