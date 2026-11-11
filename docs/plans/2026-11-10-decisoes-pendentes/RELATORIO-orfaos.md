@@ -37,4 +37,4 @@ Antes da implementação, `label_table_round_trips_in_both_directions` falhou co
 - `cargo clippy -p touring-server --all-targets -- -D warnings`: rc 0. A forma `--all-features` do servidor é estruturalmente inválida por `prod-allocator` competir com `jemalloc` e `dhat-heap` (`src/main.rs:37-42`), incompatibilidade independente deste diff; as features padrão foram preservadas.
 - `cargo fmt --all -- --check`: rc 0.
 - `loop_converged.py --task task_1794353972767264831 --scope /home/gabrielgadea/projects/touring`: **CONVERGED, rc 0**, `orphans_base scoped=709 baseline=2481`.
-- Commit: pendente.
+- Commit: `5f381717` (`refactor(api): wire or remove orphan public symbols`).
