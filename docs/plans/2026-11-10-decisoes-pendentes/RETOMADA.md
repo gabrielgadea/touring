@@ -13,6 +13,10 @@ Decisões: `DECISOES.md`. Pedido extra do Gabriel: «utilize as sessões kimi e 
 
 Extras (achados da touring-c0, corrigidos aqui): oráculo não-UTF-8 `fcf4db48` (descarta e conta; teste RED→GREEN); tdd-enforcer `-qq` sem linha de resumo → o rc do pytest decide (`~/.claude/skills/tdd-enforcer/scripts/enforce.py` + `test_enforce.py` 9/9; a skill não é versionada).
 
+| órfãos | FEITO (`5f381717`, `e9462c67`), aceito | 13 órfãos do juiz: 1 removido, 5 com visibilidade reduzida, 3 já tinham aresta real, 3 ligados (SYSTEM_MESSAGE via constantes em CONTEXT_FIELDS — mesmo valor, paridade Python testada; SHELL_GUARD_TOKENS consumido por git/mod.rs::TOKEN; FailureKind Display). Remedido aqui: `loop_converged.py --task task_1794353972767264831 --scope <repo>` CONVERGED rc 0 (`orfaos-juiz-touring-b4.log`) |
+
 Ferramentas da touring-c0 (fora do repo, em `~/.claude/touring/vgp/oss-html/_tools/`): `preflight_fast.py` (lê os blobs como bytes — reusar no pré-registro do julgamento html), `licenca.py`, `conta_html_efetivo.py`, `test_oss_html_tools.py` (41 testes). Versionar: decisão pendente.
 
-Próximo: julgar a correção dos furos (Kimi) e o item 5 (MiniMax); J18 na fila da Kimi. Decisão aberta: canvas «Rust deve negar contornos de hook?» (recomendação A, aguardando o Gabriel).
+Abertos com o Gabriel: (1) próximo held-out do J18 — recomendação: investigar antes os 2.940 candidatos sem timestamp; (2) julgar o adaptador html sobre a camada nova (pré-registro desta sessão, execução MiniMax); (3) `! rm -r ~/.claude/touring/vgp/oss-html/_stage ~/.claude/touring/vgp/camada_html_oss_20261110.parcial-exclusao`; (4) canvas contornos de hook no Rust (recomendação A); (5) versionar ferramentas da MiniMax e o tdd-enforcer. Irmãs touring-9e e touring-c0 livres.
+
+Histórico do próximo: julgar a correção dos furos (Kimi) e o item 5 (MiniMax); J18 na fila da Kimi. Decisão aberta: canvas «Rust deve negar contornos de hook?» (recomendação A, aguardando o Gabriel).
