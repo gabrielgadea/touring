@@ -32,6 +32,7 @@ fn run_log<'a>(
         orchestrate: false,
         hint: None,
         tmp_bytes: 0,
+        ceg_advisory: None,
     }
 }
 
@@ -636,4 +637,59 @@ fn journal_append_is_atomic_across_processes() {
         "registros: {total} (esperado {})",
         FILHOS * POR_FILHO
     );
+}
+
+// ── RAWRUN: one predicate for every reader of the raw-output switch ──────
+
+/// The rule — `--raw` alone, or the variable set to `1` while the call chose no
+/// presentation of its own — is written ONCE, here; `touring run` and the tracing
+/// persona both ask it, so they cannot disagree about whether a run is raw.
+#[test]
+fn raw_output_requested_is_the_one_rule_of_the_switch() {
+    assert!(
+        raw_output_requested(true, false, None),
+        "the flag stands alone"
+    );
+    assert!(
+        raw_output_requested(true, false, Some("0")),
+        "the flag beats a 0"
+    );
+    assert!(
+        raw_output_requested(false, false, Some("1")),
+        "the variable asks"
+    );
+    assert!(
+        !raw_output_requested(false, true, Some("1")),
+        "an explicit --brief/--stream is a choice of THIS call and wins over the variable"
+    );
+    for not_a_request in [None, Some(""), Some("0"), Some("true"), Some("yes")] {
+        assert!(
+            !raw_output_requested(false, false, not_a_request),
+            "{not_a_request:?} is not a request"
+        );
+    }
+}
+
+/// The advisory the CEG waived is journaled — and ONLY when there is one, so every
+/// record already on disk keeps its bytes.
+#[test]
+fn a_waived_ceg_advisory_is_journaled_and_absent_records_are_unchanged() {
+    let base = run_log("run-1-2", "bash", 0, outcome(0, None));
+    let without = base.to_json(1, 0);
+    assert!(
+        without.get("ceg_advisory").is_none(),
+        "no advisory, no key: {without}"
+    );
+
+    let mut with = base.clone();
+    with.ceg_advisory = Some(("X6 denied the subprocess capability 'sed'", 0.675));
+    let mut v = with.to_json(1, 0);
+    assert_eq!(
+        v["ceg_advisory"]["reason"],
+        "X6 denied the subprocess capability 'sed'"
+    );
+    assert_eq!(v["ceg_advisory"]["composite"], 0.675);
+    // everything else is exactly what the record carried without it
+    v.as_object_mut().expect("object").remove("ceg_advisory");
+    assert_eq!(v, without);
 }

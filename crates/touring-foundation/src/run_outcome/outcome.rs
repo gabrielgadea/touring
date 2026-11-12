@@ -59,7 +59,7 @@ impl FailureKind {
 
     /// The canonical label — the string the journal stores in `failure_kind`.
     #[must_use]
-    pub(crate) const fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Exception => "exception",
             Self::Timeout => "timeout",

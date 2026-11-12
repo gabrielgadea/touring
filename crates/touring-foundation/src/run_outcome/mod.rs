@@ -40,6 +40,33 @@ mod outcome;
 mod reader;
 mod recurrence;
 
+/// RAWRUN (11/11/2026) — the environment variable that makes `touring run` answer like the
+/// shell command a gate replaced: the program's stdout and stderr verbatim, its exit code, no
+/// JSON envelope (the run is still journaled).
+///
+/// ONE name for its three readers — the gate that writes it in front of the `touring run` it
+/// SUBSTITUTES for a Bash call (`touring-cli`, `hook_rewrite::mark_run_rewrite`), the command
+/// that obeys it (`touring-server`, `cli::run`) and the tracing persona that silences the
+/// sandbox banner for it (`telemetry_init`). The flag `--raw` is the same switch spelled as an
+/// argument; an explicit `--brief` or `--stream` wins over the ambient variable.
+pub const RAW_RUN_ENV: &str = "TOURING_RUN_RAW";
+
+/// The rule of the raw-output switch, written ONCE for every reader: `touring run` (which
+/// prints raw or the envelope) and the tracing persona (which silences the sandbox banner)
+/// both ask it, so they cannot disagree about whether a run is raw.
+///
+/// Raw is asked by the flag alone, or by [`RAW_RUN_ENV`]` = 1` — and only `1` — while the
+/// call chose no presentation of its own: an explicit `--brief`/`--stream`
+/// (`explicit_presentation`) is a decision about THIS call and wins over the ambient variable.
+#[must_use]
+pub fn raw_output_requested(
+    raw_flag: bool,
+    explicit_presentation: bool,
+    env_value: Option<&str>,
+) -> bool {
+    raw_flag || (env_value == Some("1") && !explicit_presentation)
+}
+
 pub use journal::{Journal, RunLog, journal_path};
 pub use outcome::{ExitStatus, FailureKind, RunOutcome};
 pub use reader::{

@@ -231,11 +231,8 @@ async fn async_main() -> anyhow::Result<()> {
     let subcommand_owned = resolve_subcommand(&args);
     let subcommand = subcommand_owned.as_str();
 
-    let mode = if subcommand == "serve" {
-        telemetry_init::Mode::Daemon
-    } else {
-        telemetry_init::Mode::Cli
-    };
+    let raw_env = std::env::var(touring_foundation::run_outcome::RAW_RUN_ENV).ok();
+    let mode = telemetry_init::mode_for(subcommand, &args, raw_env.as_deref());
 
     if let Err(e) = telemetry_init::init(mode) {
         // Don't abort — a broken telemetry init must not prevent the MCP

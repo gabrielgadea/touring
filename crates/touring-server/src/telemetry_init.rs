@@ -24,6 +24,7 @@
 //!    single rotated file — only the daemon writes. `otlp` batch exporter
 //!    opens a long-lived gRPC connection — only the daemon opens one.
 
+use touring_foundation::run_outcome::raw_output_requested;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Registry};
@@ -49,6 +50,52 @@ pub enum Mode {
     /// daemon for port or file ownership are suppressed regardless of
     /// feature flags.
     Cli,
+    /// `touring run --raw` (or `TOURING_RUN_RAW=1`) — a short-lived CLI invocation whose stdout/stderr belong to
+    /// the PROGRAM it runs (RAWRUN, 11/11/2026): same as [`Mode::Cli`], minus the
+    /// once-per-process CEG enforcement banner, which would otherwise be the first line
+    /// of every rewritten Bash call the model reads. An explicit `RUST_LOG` still wins.
+    CliRawOutput,
+}
+
+/// The stderr filter every CLI invocation starts from when `RUST_LOG` is unset.
+const CLI_DEFAULT_DIRECTIVES: &str = "info,hyper=warn,tonic=warn";
+
+/// Target of the once-per-process sandbox banner (`touring-ceg`, `limits.rs`).
+const CEG_ENFORCEMENT_TARGET: &str = "ceg::enforcement";
+
+/// The default directives for a CLI persona: the raw-output persona silences the
+/// enforcement banner, nothing else (a WARN or ERROR still reaches stderr).
+fn cli_default_directives(mode: Mode) -> String {
+    match mode {
+        Mode::CliRawOutput => format!("{CLI_DEFAULT_DIRECTIVES},{CEG_ENFORCEMENT_TARGET}=off"),
+        Mode::Cli | Mode::Daemon => CLI_DEFAULT_DIRECTIVES.to_string(),
+    }
+}
+
+/// Whether this invocation answers like the shell command a gate replaced: a `touring run`
+/// that asks for raw output. The RULE is `touring_foundation::run_outcome::
+/// raw_output_requested` — the very function `cli::run` asks — fed with the flags found in
+/// argv. `subcommand` is the one the dispatcher already resolved past any leading global
+/// flag; a flag counts only as a whole argument (inside a `--code` body it is part of one
+/// longer argument).
+fn is_raw_run(subcommand: &str, args: &[String], env_value: Option<&str>) -> bool {
+    let has = |flag: &str| args.iter().any(|a| a == flag);
+    subcommand == "run"
+        && raw_output_requested(has("--raw"), has("--brief") || has("--stream"), env_value)
+}
+
+/// The persona of this process, from the subcommand the dispatcher resolved, the raw argv
+/// and the value of `RAW_RUN_ENV`: `serve` is the daemon, a raw `run` hands the streams to
+/// its program, and everything else is the plain short-lived CLI.
+#[must_use]
+pub fn mode_for(subcommand: &str, args: &[String], raw_env: Option<&str>) -> Mode {
+    if subcommand == "serve" {
+        Mode::Daemon
+    } else if is_raw_run(subcommand, args, raw_env) {
+        Mode::CliRawOutput
+    } else {
+        Mode::Cli
+    }
 }
 
 /// Initialize the global `tracing` subscriber for the `touring` binary.
@@ -69,14 +116,14 @@ pub enum Mode {
 pub fn init(mode: Mode) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     match mode {
         Mode::Daemon => init_daemon(),
-        Mode::Cli => init_cli(),
+        Mode::Cli | Mode::CliRawOutput => init_cli(mode),
     }
 }
 
 /// CLI-mode subscriber: stderr `fmt` + `EnvFilter` only.
-fn init_cli() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn init_cli(mode: Mode) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,hyper=warn,tonic=warn"));
+        .unwrap_or_else(|_| EnvFilter::new(cli_default_directives(mode)));
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stderr)
         .with_target(true);
@@ -343,5 +390,100 @@ mod dhat_tests {
         let v: Vec<u64> = (0..1024).collect();
         assert_eq!(v.len(), 1024);
         assert_eq!(v.iter().sum::<u64>(), (0..1024).sum::<u64>());
+    }
+}
+
+/// RAWRUN (11/11/2026) — `touring run --raw` hands both streams to its program, so the
+/// CEG enforcement banner (once per process, `ceg::enforcement`) must not reach stderr.
+#[cfg(test)]
+mod raw_run_tests {
+    use super::{Mode, cli_default_directives, mode_for};
+    use std::sync::{Arc, Mutex};
+    use tracing_subscriber::EnvFilter;
+    use tracing_subscriber::layer::SubscriberExt;
+
+    fn argv(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn the_persona_follows_the_subcommand_and_the_whole_argument() {
+        let raw = argv(&["touring", "run", "--lang", "bash", "--code", "ls", "--raw"]);
+        assert_eq!(mode_for("run", &raw, None), Mode::CliRawOutput);
+        let plain = argv(&["touring", "run", "--lang", "bash", "--code", "ls"]);
+        assert_eq!(mode_for("run", &plain, None), Mode::Cli);
+        // `--raw` inside a body is one longer argument, never the flag.
+        let inside = argv(&["touring", "run", "--lang", "bash", "--code", "grep --raw x"]);
+        assert_eq!(mode_for("run", &inside, None), Mode::Cli);
+        // Another subcommand with a `--raw` of its own keeps the plain CLI persona.
+        assert_eq!(mode_for("memory", &raw, None), Mode::Cli);
+        assert_eq!(mode_for("serve", &raw, None), Mode::Daemon);
+    }
+
+    /// The gates' marker is the variable: same rule as `cli::run::wants_raw`.
+    #[test]
+    fn the_variable_makes_a_run_raw_unless_the_call_chose_a_presentation() {
+        let plain = argv(&["touring", "run", "--lang", "bash", "--code", "ls"]);
+        assert_eq!(mode_for("run", &plain, Some("1")), Mode::CliRawOutput);
+        assert_eq!(mode_for("run", &plain, Some("0")), Mode::Cli);
+        assert_eq!(mode_for("run", &plain, Some("")), Mode::Cli);
+        let brief = argv(&[
+            "touring", "run", "--lang", "bash", "--code", "ls", "--brief",
+        ]);
+        assert_eq!(mode_for("run", &brief, Some("1")), Mode::Cli);
+        // Another subcommand never reads the variable.
+        assert_eq!(mode_for("status", &plain, Some("1")), Mode::Cli);
+    }
+
+    #[derive(Clone, Default)]
+    struct Capture(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Capture {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if let Ok(mut inner) = self.0.lock() {
+                inner.extend_from_slice(buf);
+            }
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// What a subscriber built from the persona's directives writes for the banner and for
+    /// an unrelated WARN.
+    fn written_under(mode: Mode) -> String {
+        let capture = Capture::default();
+        let sink = capture.clone();
+        let subscriber = tracing_subscriber::Registry::default()
+            .with(EnvFilter::new(cli_default_directives(mode)))
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_writer(move || sink.clone())
+                    .with_ansi(false)
+                    .with_target(true),
+            );
+        tracing::subscriber::with_default(subscriber, || {
+            tracing::info!(target: "ceg::enforcement", "banner-do-sandbox");
+            tracing::warn!(target: "touring::other", "aviso-real");
+        });
+        let bytes = capture.0.lock().map(|b| b.clone()).unwrap_or_default();
+        String::from_utf8_lossy(&bytes).into_owned()
+    }
+
+    #[test]
+    fn the_raw_persona_silences_the_banner_and_only_the_banner() {
+        let raw = written_under(Mode::CliRawOutput);
+        assert!(!raw.contains("banner-do-sandbox"), "{raw}");
+        assert!(
+            raw.contains("aviso-real"),
+            "a real WARN still reaches stderr: {raw}"
+        );
+        let plain = written_under(Mode::Cli);
+        assert!(
+            plain.contains("banner-do-sandbox"),
+            "the plain CLI is unchanged: {plain}"
+        );
+        assert!(plain.contains("aviso-real"), "{plain}");
     }
 }

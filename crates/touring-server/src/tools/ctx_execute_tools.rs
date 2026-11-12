@@ -175,6 +175,12 @@ pub struct CtxExecuteOutput {
     /// signal the static shape hint cannot see).
     #[serde(skip_serializing_if = "is_zero", default)]
     pub prior_same_program: u64,
+    /// RAWRUN (11/11/2026) — the signal that killed the program, when one did. The
+    /// envelope's `exit_code` keeps its `-1` "no exit code" for that case and says nothing
+    /// of which signal, so it stays OUT of the wire shape (`skip`); the raw presentation
+    /// needs the number to answer `128 + n` like a shell.
+    #[serde(skip)]
+    pub signal: Option<i32>,
 }
 
 impl CtxExecuteOutput {
@@ -300,6 +306,10 @@ pub struct RunTunables {
     pub brief: bool,
     /// B2: `--orchestrate` SDK injected, journaled.
     pub orchestrate: bool,
+    /// RAWRUN (11/11/2026): the CEG advisory this run proceeded under, `(reason,
+    /// composite)` — journaled in every presentation (it used to exist only in the
+    /// printed envelope, so a raw run lost it).
+    pub ceg_advisory: Option<(String, f64)>,
 }
 
 /// B2 — origin of the program body a run executed.
@@ -330,6 +340,8 @@ pub struct JournalMeta {
     /// was display-only and therefore never measured (`ladder_enrolled` 390
     /// beside `ladder_reused` 10: the gap is discovery, and it was invisible).
     pub hint: Option<(String, f64)>,
+    /// RAWRUN: the waived CEG advisory, `(reason, composite)` — see [`RunTunables`].
+    pub ceg_advisory: Option<(String, f64)>,
 }
 
 /// P1.3: Hybrid forbidden-call scanner.
@@ -400,6 +412,10 @@ fn journal_log<'a>(
         orchestrate: meta.orchestrate,
         hint: meta.hint.as_ref().map(|(key, sim)| (key.as_str(), *sim)),
         tmp_bytes: meta.tmp_bytes,
+        ceg_advisory: meta
+            .ceg_advisory
+            .as_ref()
+            .map(|(reason, composite)| (reason.as_str(), *composite)),
     }
 }
 
@@ -565,6 +581,7 @@ mod journal_v2_tests {
             orchestrate: false,
             tmp_bytes: 4096,
             hint: Some(("snippet:varre-wiring:2026-09-01".to_string(), 0.87)),
+            ceg_advisory: None,
         };
         let rec = journal_log(
             "run-1",
@@ -1366,6 +1383,8 @@ pub async fn ctx_execute_impl(
     let duration_ms = start.elapsed().as_millis() as u64;
     // B1 — what the run left in its private tmp (0 on a spawn/timeout error).
     let tmp_bytes = result.as_ref().map(|r| r.tmp_bytes).unwrap_or(0);
+    // RAWRUN — which signal killed the program, before `derive_run_outcome` consumes the result.
+    let signal = result.as_ref().ok().and_then(|r| r.signal);
     // V-10 (31/10/2026) — a falha precisa saber o orçamento, a linguagem e a
     // origem do corpo para ENSINAR a rota: o `failure.message` é o campo que
     // o modelo lê (no V0e, 39 das 606 falhas eram mensagens que deviam teach
@@ -1418,6 +1437,7 @@ pub async fn ctx_execute_impl(
         orchestrate: tunables.as_ref().is_some_and(|t| t.orchestrate),
         tmp_bytes,
         hint: snippet_hint,
+        ceg_advisory: tunables.as_ref().and_then(|t| t.ceg_advisory.clone()),
     };
     let prior_same_program = journal_run(&journal_log(
         &run_id,
@@ -1464,6 +1484,7 @@ pub async fn ctx_execute_impl(
         retrieval_hint,
         run_id,
         prior_same_program: u64::from(prior_same_program),
+        signal,
     })
 }
 

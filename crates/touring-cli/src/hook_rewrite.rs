@@ -46,6 +46,7 @@
 //! without pretending it exists.
 
 use serde_json::{Value, json};
+use touring_foundation::run_outcome::RAW_RUN_ENV;
 
 /// How the PreToolUse hook is allowed to intervene.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -158,6 +159,35 @@ pub fn rewrite_response(rw: &Rewrite, context: &str) -> Value {
     json!({ "hookSpecificOutput": out })
 }
 
+/// Mark a command the code-mode gates substitute for a Bash call (RAWRUN, 11/11/2026).
+///
+/// The model typed a shell command and expects its text back. When a gate swaps that
+/// command for `touring run --lang bash … --code '<the same program>'`, the default
+/// presentation of `touring run` (a JSON envelope with the stdout as one escaped string,
+/// plus the sandbox banner) answers a question nobody asked: more tokens, harder to
+/// read, and the envelope's own keys (`forbidden_calls`, `run_id`) get matched by
+/// downstream guards as if the PROGRAM had printed them. The marker is the environment
+/// variable [`RAW_RUN_ENV`] in front of the command (`TOURING_RUN_RAW=1 touring run …`):
+/// `touring run` then answers like the command it replaced.
+///
+/// A per-command env prefix, like `TOURING_TRUSTED_OK=1` and `TOURING_CODE_MODE=native`
+/// before it — and not a trailing flag — because everything that reads a rewritten
+/// command keeps working untouched: the program still ENDS at its closing quote
+/// (`arm::extract_run_body`, the scenario table's `code_lines`) and the substring
+/// `touring run --lang bash --timeout-ms N --code '` is still contiguous.
+///
+/// Only a command that STARTS as `touring run ` is touched. Anything else — a
+/// `set -o pipefail; …` rewrite, a mirror rewrite, a command that already carries a
+/// per-command prefix, a command the model typed itself — comes back unchanged: a
+/// `touring run` the model writes keeps its envelope.
+#[must_use]
+pub fn mark_run_rewrite(command: &str) -> String {
+    if !command.starts_with("touring run ") {
+        return command.to_string();
+    }
+    format!("{RAW_RUN_ENV}=1 {command}")
+}
+
 #[cfg(test)]
 static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -258,6 +288,50 @@ mod tests {
                 .get("additionalContext")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn a_substituted_touring_run_carries_the_raw_marker_in_front() {
+        let cmd = "touring run --lang bash --timeout-ms 115000 --code 'for s in a b; do echo \"$s\"; done'";
+        let marked = mark_run_rewrite(cmd);
+        assert_eq!(marked, format!("TOURING_RUN_RAW=1 {cmd}"));
+        // What every reader of a rewritten command keys on survives the marker: the
+        // contiguous run prefix, and the program ending at its closing quote.
+        assert!(
+            marked.contains("touring run --lang bash --timeout-ms 115000 --code '"),
+            "{marked}"
+        );
+        assert!(marked.ends_with('\''), "{marked}");
+    }
+
+    /// The variable's name is the foundation's — the one the executor reads.
+    #[test]
+    fn the_marker_is_the_shared_variable_the_executor_reads() {
+        assert_eq!(RAW_RUN_ENV, "TOURING_RUN_RAW");
+        assert!(mark_run_rewrite("touring run --lang bash --code 'ls'").starts_with(RAW_RUN_ENV));
+    }
+
+    /// A `--raw` INSIDE the body is part of the program, not a marker.
+    #[test]
+    fn a_raw_word_inside_the_body_changes_nothing() {
+        let cmd = "touring run --lang bash --code 'grep -c --raw'";
+        assert_eq!(mark_run_rewrite(cmd), format!("TOURING_RUN_RAW=1 {cmd}"));
+    }
+
+    #[test]
+    fn only_a_command_that_starts_as_touring_run_is_marked() {
+        for cmd in [
+            "set -o pipefail; ls | head",
+            "NO_COLOR=1 touring ast highlight src/lib.rs",
+            "echo touring run is nice",
+            "touring runner --lang bash",
+            "touring decompose --help",
+            // already carries a per-command prefix: the model wrote it, or a route named it
+            "TOURING_TRUSTED_OK=1 touring run --allow-forbidden --lang python --file x.py",
+            "",
+        ] {
+            assert_eq!(mark_run_rewrite(cmd), cmd, "must not touch: {cmd:?}");
+        }
     }
 
     #[test]

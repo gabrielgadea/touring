@@ -10,6 +10,9 @@
 //! so the model receives a < ~200-token digest that NEVER masks a failure (exit_code +
 //! error lines are preserved verbatim).
 //!
+//! `--raw` (RAWRUN) answers like the shell command a gate replaced: the program's stdout and
+//! stderr verbatim, its exit code, no JSON envelope (the run is still journaled).
+//!
 //! `--orchestrate` (R4) prepends the read-only `touring` Python SDK (`py_sdk()`) so a
 //! single sandboxed script queries the daemon over its socket — orchestration-in-code WITHOUT
 //! MCP. See `docs/2026-06-27-coupling-codemode-cli-and-master-commands.md` §3 (Camada 2 / R4).
@@ -27,7 +30,9 @@ use crate::tools::ctx_execute_tools::{CtxExecuteOutput, ctx_execute_impl};
 /// da string Python), o guard era um atributo mutável do cliente — um programa
 /// no sandbox reescrevia `touring.READONLY_HOOKS` e chamava o que quisesse.
 use touring_foundation::orchestrate_allowlist::READONLY_HOOKS;
-use touring_foundation::run_outcome::{ExitStatus, Journal, SimhashVersion};
+use touring_foundation::run_outcome::{
+    ExitStatus, Journal, RAW_RUN_ENV, SimhashVersion, raw_output_requested,
+};
 // 30.4.97 (G10ROTA, D8): the admission predicate is ONE definition, shared with the code-mode gates.
 use touring_ceg::gateway::run_admission::{
     admission_outcome, blocking_reason, only_subprocess_denials,
@@ -720,6 +725,20 @@ struct RunCli {
     /// escolha explícita de repetir, jornalizada como `repeat_allowed`.
     #[arg(long)]
     allow_repeat: bool,
+
+    /// RAWRUN (11/11/2026) — the program's output AS the program wrote it: stdout
+    /// verbatim on stdout, stderr verbatim on stderr, the program's exit code as
+    /// ours, and no JSON envelope. The run is still journaled (`run_id`, duration,
+    /// exit, failure kind — `run_journal.jsonl`). A fact the caller must not miss
+    /// (forbidden calls, a truncated output, a failure that is not the program's own
+    /// exit code) comes as ONE short line on stderr naming the `run_id`.
+    ///
+    /// The code-mode gates put `TOURING_RUN_RAW=1` in front of the `touring run` they
+    /// SUBSTITUTE for a Bash call (the model never typed that command, so it must read
+    /// what its own command would have printed) — the same switch as this flag; a
+    /// `touring run` the model writes itself keeps the envelope.
+    #[arg(long, conflicts_with_all = ["brief", "stream"])]
+    raw: bool,
 }
 
 /// B2 — the origin of the body `touring run` executes, as the journal names it.
@@ -806,7 +825,7 @@ pub fn run(args: &[String]) -> Result<()> {
     // o bypass por-comando; TOURING_REPEAT_GATE=shadow|off degrada para
     // advisory (rollback operacional).
     if cli.code.is_some() && !cli.allow_repeat {
-        repeat_gate(&user_code);
+        repeat_gate(&user_code, raw_requested(&cli));
     }
     let code = maybe_inject_sdk(user_code.clone(), &cli.lang, cli.orchestrate)?;
     // W3b/S-3.4 — a biblioteca de snippets vira bindings `snippet_*` DEPOIS do
@@ -860,6 +879,10 @@ pub fn run(args: &[String]) -> Result<()> {
     } else {
         None
     };
+    // RAWRUN: the CEG gate runs BEFORE the tunables are built — the advisory it returns
+    // travels with them into the journal record (it used to exist only in the printed
+    // envelope, so a raw run lost it), and a raw run's deny is one notice line.
+    let ceg_advisory = gate_run_for(&cli, &user_code)?;
     // B2 (2026-09-02): tunables are ALWAYS sent — the origin of the body,
     // the harvest slug and the presentation flags travel with every run so
     // the journal can measure reuse (before: `None` unless a cap/flag was set).
@@ -883,13 +906,8 @@ pub fn run(args: &[String]) -> Result<()> {
         harvest: cli.harvest.clone(),
         brief: cli.brief,
         orchestrate: cli.orchestrate,
+        ceg_advisory: journaled_advisory(ceg_advisory.as_ref()),
     });
-    let ceg_advisory = gate_run(
-        &cli.lang,
-        &user_code,
-        cli.allow_forbidden,
-        &cli.allow_net_port,
-    )?;
 
     let args_json = match cli.args.as_deref() {
         Some(s) => Some(serde_json::from_str(s).context("parsing --args as a JSON array")?),
@@ -942,9 +960,9 @@ pub fn run(args: &[String]) -> Result<()> {
     // project, where the next session can find it (the harness scratchpad is
     // a per-session tmpfs: 560 scripts in 14 days, 82% ran once, none findable).
     let persisted_as = persist_scratch_block(cli.file.as_deref(), &user_code, &cli.lang, out.exit);
-    emit_output(
+    present(
+        &cli,
         &out,
-        cli.brief,
         harvest.as_deref(),
         trust.as_deref(),
         &snippet_report,
@@ -955,7 +973,7 @@ pub fn run(args: &[String]) -> Result<()> {
     // Propagate the sandboxed program's exit code as the CLI exit code so callers (and
     // code-mode orchestration) see a faithful success/failure signal, not just rc=0.
     if !out.exit.is_zero() {
-        std::process::exit(out.exit.to_wire());
+        std::process::exit(exit_code_of(&cli, &out));
     }
     Ok(())
 }
@@ -1074,20 +1092,19 @@ fn gate_run(
                 );
                 Ok(Some(advisory))
             }
-            Verdict::Deny => anyhow::bail!(
-                // G-B (30/08, campo analise-a2): a razão citada é a da CLASSE
-                // que manteve o deny de pé, nunca `reasons.first()` cru — um
-                // programa com `sed` + um redirect de escrita imprimia
-                // "denied the subprocess capability 'sed'" quando a classe
-                // determinante era file-write, e o operador bisecou um `sed`
-                // inocente.
-                "the CEG gateway denied this run (composite {:.2}): {}.{} Adjust the code, \
-                 or rerun with --allow-forbidden for the trusted profile if the operation \
-                 is intentionally privileged.",
-                outcome.decision.composite_score,
-                blocking_reason(&outcome.decision),
-                deny_class_hint(&outcome.decision)
-            ),
+            // G-B (30/08, campo analise-a2): a razão citada é a da CLASSE
+            // que manteve o deny de pé, nunca `reasons.first()` cru — um
+            // programa com `sed` + um redirect de escrita imprimia
+            // "denied the subprocess capability 'sed'" quando a classe
+            // determinante era file-write, e o operador bisecou um `sed`
+            // inocente.
+            // RAWRUN: o deny é um erro TIPADO (`CegDenied`, mesma mensagem de sempre no
+            // `Display`) para que uma execução crua o diga em UMA linha.
+            Verdict::Deny => Err(anyhow::Error::new(CegDenied {
+                composite: outcome.decision.composite_score,
+                reason: blocking_reason(&outcome.decision).to_string(),
+                hint: deny_class_hint(&outcome.decision),
+            })),
             _ => Ok(None),
         },
         Err(e) => {
@@ -1263,6 +1280,438 @@ fn emit_output(
         println!("{}", serde_json::to_string_pretty(&payload)?);
     }
     Ok(())
+}
+
+/// Where the result goes: the program's own output under `--raw`, otherwise the envelope
+/// (`emit_output`). One router, so `run()` — already the most complex function of this
+/// file — does not grow a branch per presentation.
+///
+/// RAWRUN: the envelope (`run_id`, duration, exit, failure kind) already went to the
+/// journal inside `ctx_execute_impl`; a raw caller reads only what the program printed.
+fn present(
+    cli: &RunCli,
+    out: &CtxExecuteOutput,
+    harvest: Option<&str>,
+    snippet_trust: Option<&str>,
+    snippet_report: &serde_json::Value,
+    persisted_as: Option<&str>,
+    ceg_advisory: Option<&CegRunAdvisory>,
+) -> Result<()> {
+    if raw_requested(cli) {
+        emit_raw(out);
+        return Ok(());
+    }
+    emit_output(
+        out,
+        cli.brief,
+        harvest,
+        snippet_trust,
+        snippet_report,
+        persisted_as,
+        ceg_advisory,
+    )
+}
+
+/// RAWRUN — whether this run answers like the shell command a gate replaced. The rule is
+/// `touring_foundation::run_outcome::raw_output_requested`, shared with the tracing persona:
+/// `--raw`, or the variable [`RAW_RUN_ENV`]` = 1` (what a gate writes in front of the
+/// `touring run` it substitutes for a Bash call), unless the call chose `--brief`/`--stream`.
+fn wants_raw(cli: &RunCli, env_value: Option<&str>) -> bool {
+    raw_output_requested(cli.raw, cli.brief || cli.stream, env_value)
+}
+
+/// [`wants_raw`] against the process environment.
+fn raw_requested(cli: &RunCli) -> bool {
+    wants_raw(cli, std::env::var(RAW_RUN_ENV).ok().as_deref())
+}
+
+/// RAWRUN — the exit code of a raw run is the exit code of the COMMAND the gate replaced:
+/// the program's own code; `124` for a timeout (the `timeout(1)` convention); `128 + n`
+/// for a death by signal `n` (what a shell reports); `1` for a missing status with no
+/// signal, whose cause the notice line names. The envelope keeps `to_wire()` as ever.
+fn raw_exit_code(out: &CtxExecuteOutput) -> i32 {
+    match out.exit {
+        ExitStatus::Code(code) => code,
+        ExitStatus::TimedOut => 124,
+        ExitStatus::NoExitCode => out.signal.map_or(1, |signal| 128 + signal),
+    }
+}
+
+/// The exit code `touring run` ends with, by presentation.
+fn exit_code_of(cli: &RunCli, out: &CtxExecuteOutput) -> i32 {
+    if raw_requested(cli) {
+        raw_exit_code(out)
+    } else {
+        out.exit.to_wire()
+    }
+}
+
+/// A CEG gateway deny: the run was refused BEFORE it existed, so there is no `run_id`.
+/// `Display` is the message `touring run` always printed (the dispatcher logs it); the
+/// fields let a raw run say it as one short line instead.
+#[derive(Debug)]
+struct CegDenied {
+    composite: f64,
+    reason: String,
+    hint: &'static str,
+}
+
+impl std::fmt::Display for CegDenied {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "the CEG gateway denied this run (composite {:.2}): {}.{} Adjust the code, \
+             or rerun with --allow-forbidden for the trusted profile if the operation \
+             is intentionally privileged.",
+            self.composite, self.reason, self.hint
+        )
+    }
+}
+
+impl std::error::Error for CegDenied {}
+
+/// RAWRUN — a raw run's CEG deny: ONE line that names the fact (`denied: <reason>`), and
+/// the same non-zero exit the dispatcher gave it. The line has no `run_id` — the deny
+/// came before any run existed.
+fn raw_denial_line(denied: &CegDenied) -> String {
+    format!("[touring run] denied: {}.{}", denied.reason, denied.hint)
+}
+
+/// [`gate_run`] with the raw presentation of its one error: a CEG deny under a raw run is
+/// the line above on stderr and exit 1 — not the dispatcher's timestamped `ERROR` log,
+/// and never JSON.
+fn gate_run_for(cli: &RunCli, user_code: &str) -> Result<Option<CegRunAdvisory>> {
+    match gate_run(
+        &cli.lang,
+        user_code,
+        cli.allow_forbidden,
+        &cli.allow_net_port,
+    ) {
+        Err(error) if raw_requested(cli) => match error.downcast_ref::<CegDenied>() {
+            Some(denied) => {
+                eprintln!("{}", raw_denial_line(denied));
+                std::process::exit(1)
+            }
+            None => Err(error),
+        },
+        other => other,
+    }
+}
+
+/// The advisory as the journal record carries it: `(reason, composite)`.
+fn journaled_advisory(advisory: Option<&CegRunAdvisory>) -> Option<(String, f64)> {
+    advisory.map(|a| (a.reason.clone(), a.composite))
+}
+
+/// RAWRUN — the one short line `--raw` adds on stderr, or `None` when there is nothing the
+/// caller must be told.
+///
+/// What deserves it: a forbidden call, a truncated stdout/stderr (with the spill path
+/// that holds the whole output), and a failure the program's own exit code does not
+/// explain. A program that exits non-zero BY ITSELF stays silent (`exception` with a
+/// real exit code: a native shell says nothing about `grep` finding nothing); a
+/// timeout, a death by signal or a cap that cut a file has no such code, so without
+/// this line the caller would see a bare status. A truncation is named once — by its
+/// own fact, not again by the `output-limit` failure the engine raises for it. The
+/// `run_id` is what ties the line to the journal record.
+fn raw_notice(out: &CtxExecuteOutput) -> Option<String> {
+    let mut facts: Vec<String> = Vec::new();
+    if !out.forbidden_calls.is_empty() {
+        facts.push(format!(
+            "forbidden_calls: {}",
+            out.forbidden_calls.join(", ")
+        ));
+    }
+    if out.stdout_truncated {
+        facts.push(match &out.stored_path {
+            Some(path) => format!("stdout truncated (full output: {path})"),
+            None => "stdout truncated".to_string(),
+        });
+    }
+    if out.stderr_truncated {
+        facts.push("stderr truncated".to_string());
+    }
+    facts.extend(failure_fact(out));
+    if facts.is_empty() {
+        return None;
+    }
+    Some(format!("[touring run {}] {}", out.run_id, facts.join("; ")))
+}
+
+/// The failure part of the raw notice: the class and the first line of the engine's
+/// message, unless the program's own exit code or a truncation fact already says it. A
+/// run with no exit status and no failure class still names that.
+fn failure_fact(out: &CtxExecuteOutput) -> Option<String> {
+    use touring_foundation::run_outcome::FailureKind;
+    let Some(failure) = &out.failure else {
+        return matches!(out.exit, ExitStatus::NoExitCode).then(|| "no exit status".to_string());
+    };
+    let own_exit =
+        matches!(failure.kind, FailureKind::Exception) && matches!(out.exit, ExitStatus::Code(_));
+    let already_named = matches!(failure.kind, FailureKind::OutputLimit)
+        && (out.stdout_truncated || out.stderr_truncated);
+    if own_exit || already_named {
+        return None;
+    }
+    let label = failure.kind.as_str();
+    let first_line = failure.message.lines().next().unwrap_or_default();
+    // the engine's message may already open with its own label (`timeout: …`)
+    Some(if first_line.starts_with(&format!("{label}:")) {
+        first_line.to_string()
+    } else {
+        format!("{label}: {first_line}")
+    })
+}
+
+/// RAWRUN — write the program's output where the program wrote it. A closed pipe
+/// (`… | head`) is the reader's choice, not an error of the run: write failures are
+/// ignored, the exit code below still reports the program.
+fn emit_raw(out: &CtxExecuteOutput) {
+    use std::io::Write;
+    let mut stdout = std::io::stdout().lock();
+    let _ = stdout.write_all(out.stdout.as_bytes());
+    let _ = stdout.flush();
+    let mut stderr = std::io::stderr().lock();
+    let _ = stderr.write_all(out.stderr.as_bytes());
+    if let Some(notice) = raw_notice(out) {
+        // The notice owns its line even when the program's stderr stopped mid-line.
+        if !out.stderr.is_empty() && !out.stderr.ends_with('\n') {
+            let _ = stderr.write_all(b"\n");
+        }
+        let _ = writeln!(stderr, "{notice}");
+    }
+    let _ = stderr.flush();
+}
+
+#[cfg(test)]
+mod raw_tests {
+    use super::{RunCli, raw_exit_code, raw_notice, raw_repeat_denial_line, wants_raw};
+    use crate::tools::ctx_execute_tools::{CtxExecuteOutput, RunFailure, RunPhase};
+    use clap::Parser;
+    use touring_foundation::run_outcome::{ExitStatus, FailureKind};
+
+    fn clean() -> CtxExecuteOutput {
+        CtxExecuteOutput {
+            stdout: "ola\n".into(),
+            duration_ms: 3,
+            run_id: "run-1-2".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_clean_run_says_nothing_on_stderr() {
+        assert_eq!(raw_notice(&clean()), None);
+    }
+
+    /// A program that exits non-zero by itself (`grep` with no match) is the program's
+    /// own news: the exit code carries it and a native shell prints nothing more.
+    #[test]
+    fn the_programs_own_nonzero_exit_stays_silent() {
+        let mut out = clean();
+        out.exit = ExitStatus::Code(1);
+        out.failure = Some(RunFailure {
+            kind: FailureKind::Exception,
+            phase: RunPhase::Execute,
+            message: "exited with 1".into(),
+        });
+        assert_eq!(raw_notice(&out), None);
+    }
+
+    /// No exit code of the program explains a signal death or a timeout: the line speaks.
+    #[test]
+    fn a_failure_without_an_exit_code_of_the_program_is_named() {
+        let mut out = clean();
+        out.exit = ExitStatus::NoExitCode;
+        out.failure = Some(RunFailure {
+            kind: FailureKind::Exception,
+            phase: RunPhase::Execute,
+            message: "killed by signal 9 (SIGKILL)".into(),
+        });
+        let line = raw_notice(&out).expect("a notice");
+        assert_eq!(
+            line,
+            "[touring run run-1-2] exception: killed by signal 9 (SIGKILL)"
+        );
+    }
+
+    #[test]
+    fn forbidden_truncation_and_timeout_are_named_with_the_run_id() {
+        let mut out = clean();
+        out.forbidden_calls = vec!["eval".into(), "exec".into()];
+        out.stdout_truncated = true;
+        out.stored_path = Some("/tmp/spill/run-1-2.out".into());
+        out.stderr_truncated = true;
+        out.exit = ExitStatus::TimedOut;
+        out.failure = Some(RunFailure {
+            kind: FailureKind::Timeout,
+            phase: RunPhase::Execute,
+            message: "wall-clock budget of 30000 ms expired\nsecond line".into(),
+        });
+        let line = raw_notice(&out).expect("a notice");
+        assert!(line.starts_with("[touring run run-1-2] "), "{line}");
+        assert!(line.contains("forbidden_calls: eval, exec"), "{line}");
+        assert!(
+            line.contains("stdout truncated (full output: /tmp/spill/run-1-2.out)"),
+            "{line}"
+        );
+        assert!(line.contains("stderr truncated"), "{line}");
+        assert!(
+            line.contains("timeout: wall-clock budget of 30000 ms expired"),
+            "{line}"
+        );
+        assert!(!line.contains("second line"), "one line only: {line}");
+        assert!(!line.contains('\n'), "one line only: {line:?}");
+    }
+
+    /// The engine raises `output-limit` for every truncation; the truncation fact already
+    /// says it, so the line must not say it twice.
+    #[test]
+    fn a_truncation_is_named_once() {
+        let mut out = clean();
+        out.stdout_truncated = true;
+        out.failure = Some(RunFailure {
+            kind: FailureKind::OutputLimit,
+            phase: RunPhase::Execute,
+            message: "output hit the sandbox byte cap and was cut".into(),
+        });
+        let line = raw_notice(&out).expect("a notice");
+        assert_eq!(line, "[touring run run-1-2] stdout truncated");
+    }
+
+    fn parsed(extra: &[&str]) -> RunCli {
+        let mut argv = vec!["run", "--lang", "bash", "--code", "echo hi"];
+        argv.extend_from_slice(extra);
+        RunCli::try_parse_from(argv).expect("parses")
+    }
+
+    /// The flag and the variable are one switch; an explicit presentation of THIS call
+    /// beats the ambient variable; anything but `1` is not a request.
+    #[test]
+    fn the_flag_and_the_variable_are_one_switch() {
+        assert!(
+            !wants_raw(&parsed(&[]), None),
+            "the envelope is the default"
+        );
+        assert!(wants_raw(&parsed(&["--raw"]), None));
+        assert!(wants_raw(&parsed(&[]), Some("1")));
+        assert!(
+            wants_raw(&parsed(&["--raw"]), Some("0")),
+            "the flag stands alone"
+        );
+        for not_a_request in ["", "0", "true", "yes"] {
+            assert!(
+                !wants_raw(&parsed(&[]), Some(not_a_request)),
+                "{not_a_request:?}"
+            );
+        }
+        assert!(
+            !wants_raw(&parsed(&["--brief"]), Some("1")),
+            "--brief is explicit"
+        );
+        assert!(
+            !wants_raw(&parsed(&["--stream"]), Some("1")),
+            "--stream is explicit"
+        );
+    }
+
+    /// The failure label is the journal's own string, public to readers outside
+    /// `touring-foundation` — the raw notice names a failure with it, no serde round trip.
+    #[test]
+    fn failure_kind_labels_are_public_to_the_cli() {
+        assert_eq!(FailureKind::OutputLimit.as_str(), "output-limit");
+        assert_eq!(FailureKind::Timeout.as_str(), "timeout");
+    }
+
+    /// R4.1 — the exit of a raw run is the exit of the COMMAND the gate replaced:
+    /// `timeout(1)` says 124, the shell says 128+n for a signal, and a missing status
+    /// is a plain failure (1) whose cause the notice names.
+    #[test]
+    fn the_raw_exit_code_follows_the_shell() {
+        let mut out = clean();
+        out.exit = ExitStatus::Code(3);
+        assert_eq!(raw_exit_code(&out), 3, "the program's own code");
+        out.exit = ExitStatus::TimedOut;
+        assert_eq!(raw_exit_code(&out), 124);
+        out.exit = ExitStatus::NoExitCode;
+        out.signal = Some(9);
+        assert_eq!(raw_exit_code(&out), 137, "SIGKILL");
+        out.signal = Some(15);
+        assert_eq!(raw_exit_code(&out), 143, "SIGTERM");
+        out.signal = None;
+        assert_eq!(
+            raw_exit_code(&out),
+            1,
+            "no code, no signal: a plain failure"
+        );
+    }
+
+    /// A run with no exit status and no failure class still gets its line.
+    #[test]
+    fn a_missing_exit_status_is_named_even_without_a_failure_class() {
+        let mut out = clean();
+        out.exit = ExitStatus::NoExitCode;
+        let line = raw_notice(&out).expect("a notice");
+        assert_eq!(line, "[touring run run-1-2] no exit status");
+    }
+
+    /// The engine's message already opens with its own label (`timeout: …`): the line
+    /// must not say it twice.
+    #[test]
+    fn a_label_the_message_already_carries_is_not_repeated() {
+        let mut out = clean();
+        out.exit = ExitStatus::TimedOut;
+        out.failure = Some(RunFailure {
+            kind: FailureKind::Timeout,
+            phase: RunPhase::Execute,
+            message: "timeout: process exceeded the 1000ms wall-clock budget".into(),
+        });
+        let line = raw_notice(&out).expect("a notice");
+        assert_eq!(
+            line,
+            "[touring run run-1-2] timeout: process exceeded the 1000ms wall-clock budget"
+        );
+    }
+
+    /// The repeat deny as one line: the prior run, how near, why, and the routes the JSON teaches.
+    #[test]
+    fn the_repeat_denial_is_one_line_that_teaches_the_routes() {
+        let payload = serde_json::json!({
+            "success": false,
+            "repeat_blocked": {
+                "best_run_id": "run-9-9",
+                "hamming_dist": 3,
+                "porque": "a recriação inline é o desperdício medido",
+                "rotas": ["persista e rode com --file <path>", null, "--allow-repeat confirma"],
+            }
+        });
+        let line = raw_repeat_denial_line(&payload);
+        assert_eq!(
+            line,
+            "[touring run] denied: this body repeats run-9-9 (hamming 3): a recriação inline é o \
+             desperdício medido. Routes: persista e rode com --file <path>; --allow-repeat confirma"
+        );
+        assert!(!line.contains('\n'));
+    }
+
+    #[test]
+    fn raw_parses_and_excludes_the_envelope_presentations() {
+        let cli = RunCli::try_parse_from(["run", "--lang", "bash", "--code", "echo hi", "--raw"])
+            .expect("--raw parses");
+        assert!(cli.raw);
+        let plain =
+            RunCli::try_parse_from(["run", "--lang", "bash", "--code", "echo hi"]).expect("parses");
+        assert!(!plain.raw, "the envelope stays the default");
+        for other in ["--brief", "--stream"] {
+            assert!(
+                RunCli::try_parse_from([
+                    "run", "--lang", "bash", "--code", "echo hi", "--raw", other
+                ])
+                .is_err(),
+                "--raw and {other} describe different outputs"
+            );
+        }
+    }
 }
 
 /// W3b — close the loop the harvest hint could only *ask* for.
@@ -1753,7 +2202,7 @@ fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
 /// `=off` desliga (rollback operacional); default bloqueia (ordem do Gabriel).
 /// A tentativa bloqueada é jornalizada (`repeat_blocked`) para o KPI medir o
 /// que o gate evitou. Fail-open: journal ilegível não bloqueia nada.
-fn repeat_gate(user_code: &str) {
+fn repeat_gate(user_code: &str, raw: bool) {
     let mode = std::env::var("TOURING_REPEAT_GATE").unwrap_or_else(|_| "block".into());
     if mode == "off" {
         return;
@@ -1778,8 +2227,33 @@ fn repeat_gate(user_code: &str) {
         // append exists to prevent.
         journal.append_json(&linha);
     }
-    println!("{payload}");
+    // RAWRUN: a repeat deny is a deny BEFORE any run existed (no run_id), so a raw run says
+    // it as the same one line the CEG deny does — stdout stays empty — with the same exit.
+    if raw {
+        eprintln!("{}", raw_repeat_denial_line(&payload));
+    } else {
+        println!("{payload}");
+    }
     std::process::exit(2);
+}
+
+/// RAWRUN — the repeat deny as ONE line: the prior run it repeats, how near, why the gate
+/// exists, and the routes the JSON payload teaches (`--file`, `--harvest`, `--allow-repeat`).
+fn raw_repeat_denial_line(payload: &serde_json::Value) -> String {
+    let blocked = &payload["repeat_blocked"];
+    let routes: Vec<&str> = blocked["rotas"]
+        .as_array()
+        .map(|rotas| rotas.iter().filter_map(serde_json::Value::as_str).collect())
+        .unwrap_or_default();
+    format!(
+        "[touring run] denied: this body repeats {} (hamming {}): {}. Routes: {}",
+        blocked["best_run_id"].as_str().unwrap_or("a prior run"),
+        blocked["hamming_dist"],
+        blocked["porque"]
+            .as_str()
+            .unwrap_or("recreating an inline body"),
+        routes.join("; ")
+    )
 }
 
 /// Cheap absolute-ISO-date detector (`20XX-`) without a regex dependency —

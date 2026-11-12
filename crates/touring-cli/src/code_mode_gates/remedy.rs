@@ -551,7 +551,10 @@ pub(super) fn rewrite_wall_ms(tool_input: &Value) -> u64 {
 /// background". Used by the three rewrites (G1, G2, G8).
 pub(super) fn rewritten_input(tool_input: &Value, command: String) -> Value {
     let mut novo = tool_input.as_object().cloned().unwrap_or_default();
-    novo.insert("command".to_string(), Value::String(command));
+    novo.insert(
+        "command".to_string(),
+        Value::String(crate::hook_rewrite::mark_run_rewrite(&command)),
+    );
     Value::Object(novo)
 }
 

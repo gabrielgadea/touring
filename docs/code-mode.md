@@ -23,10 +23,36 @@ touring run --lang python --orchestrate --code '…'   # injeta o SDK touring.* 
 touring run --lang js --orchestrate --code '…'       # SDK-1: o MESMO SDK em JS (Promise; node/bun/deno)
 touring run --sdk-stub                               # imprime o contrato tipado (.pyi, byte-estável)
 touring run --lang bash --stream --code '…'          # OUT-1: saída espelhada no stderr CONFORME chega
+touring run --lang bash --raw --code '…'             # RAWRUN: stdout/stderr CRUS do programa, exit do programa, sem envelope JSON
 touring run --lang python --input dados.json …       # QW-4: bytes do arquivo no stdin do programa
 touring run --lang python --allow-net-port 443 …     # NET-1: TCP de saída só nessa porta (Landlock)
 touring sandbox-runtimes status                      # RUN-1: preflight das 11 linguagens + venv
 ```
+
+**`--raw` (RAWRUN, 11/11/2026).** Quando um gate (G1 rajada, G8 laço) SUBSTITUI um
+Bash do modelo por `touring run`, o modelo espera de volta o texto do próprio
+comando — não o envelope JSON (`run_id`, `ceg_advisory`, o stdout como uma string
+escapada) precedido do banner `INFO ceg::enforcement`. O gate escreve
+`TOURING_RUN_RAW=1` na frente do comando que ele monta
+(`hook_rewrite::mark_run_rewrite`, aplicado no `rewritten_input`; prefixo por-comando
+como `TOURING_TRUSTED_OK=1`, para o programa continuar terminando na aspa de fecho e
+o prefixo `touring run --lang bash --timeout-ms N --code '` continuar contíguo): stdout
+cru no stdout, stderr cru no stderr, banner suprimido (`telemetry_init::Mode::
+CliRawOutput`; um `RUST_LOG` explícito vence). A flag `--raw` é a mesma chave;
+`--brief`/`--stream` explícitos vencem a variável e conflitam com a flag. A regra
+(flag, ou variável = 1 sem `--brief`/`--stream`) é UMA função
+(`touring_foundation::run_outcome::raw_output_requested`), e o nome da variável é UM só
+(`RAW_RUN_ENV`). **Exit do modo cru = o do comando substituído**: o código do programa;
+timeout = 124 (como o `timeout(1)`); morto por sinal n = 128+n; sem status e sem sinal
+= 1. O envelope mantém o `exit_code` de sempre (timeout sai 254). O run segue no
+`run_journal.jsonl` (`run_id`, duração, exit, `failure_kind` e, em TODOS os modos, o
+`ceg_advisory` quando houve um — campo opcional, registros sem advisory não mudam um
+byte). O que o chamador não pode perder (`forbidden_calls`, saída truncada com o
+caminho do spill, timeout/morte por sinal/teto de arquivo) sai em UMA linha no stderr:
+`[touring run <run_id>] …`; o exit não-zero do próprio programa fica em silêncio, como
+no shell. Um deny do CEG aborta antes de existir run_id: no modo cru sai UMA linha
+`[touring run] denied: <razão>` e exit 1 (sem o log ERROR do dispatcher). Uma chamada
+`touring run` escrita pelo modelo, sem a marca, mantém o envelope.
 
 ### Aliases tipados e fan-out no SDK (M0 paralelização-agentes, 29/08/2026)
 

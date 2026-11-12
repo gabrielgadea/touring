@@ -81,6 +81,12 @@ pub struct RunLog<'a> {
     pub hint: Option<(&'a str, f64)>,
     /// Bytes the run left in its private tmp dir.
     pub tmp_bytes: u64,
+    /// The CEG advisory the run proceeded under, as `(reason, composite)`: a deny the
+    /// sandbox made waivable (subprocess-only X6). Before RAWRUN it existed only in the
+    /// printed envelope, so a run whose output the caller read raw left no trace of it.
+    /// Journaled in EVERY presentation, and only when there is one: absent, the record
+    /// keeps the exact bytes it always had.
+    pub ceg_advisory: Option<(&'a str, f64)>,
 }
 
 impl RunLog<'_> {
@@ -93,7 +99,7 @@ impl RunLog<'_> {
     /// the tests, because existing journals on disk must keep parsing the same.
     #[must_use]
     pub fn to_json(&self, ts: u64, prior_same_hash: u32) -> Value {
-        json!({
+        let mut record = json!({
             "ts": ts,
             "run_id": self.run_id,
             "language": self.language,
@@ -113,7 +119,17 @@ impl RunLog<'_> {
             "orchestrate": self.orchestrate,
             "hint": self.hint.map(|(key, sim)| json!({ "key": key, "sim": sim })),
             "tmp_bytes": self.tmp_bytes,
-        })
+        });
+        // Additive and optional: an old reader ignores the key, and a record without an
+        // advisory is byte-identical to what the writer always produced.
+        if let (Some((reason, composite)), Some(map)) = (self.ceg_advisory, record.as_object_mut())
+        {
+            map.insert(
+                "ceg_advisory".to_string(),
+                json!({ "composite": composite, "reason": reason }),
+            );
+        }
+        record
     }
 }
 
