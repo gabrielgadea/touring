@@ -431,6 +431,19 @@ impl ClassifierOutput {
     }
 }
 
+/// Retro 11/11/2026 (a): a `symbol-lookup` nudge whose symbol the index does NOT define
+/// (`symbol_in_index=no (defs=0)`) is withheld. Its MUST is `touring index find <sym>`, and the
+/// enrichment printed on the same block already says that command finds nothing — measured on a
+/// real session, `RETOMADA`, `FAILED`, `add_argument`, `kimi_reanotacao_v4` and `regen_g6_fila`
+/// all went out with that contradiction attached.
+///
+/// Only an index that ANSWERED zero suppresses: no symbol store (daemon degraded) or a lookup
+/// error leaves `symbol_definition_count` as `None`, and absence of a reading is not a zero —
+/// the nudge keeps its old behaviour there. Every other cluster is untouched.
+fn symbol_nudge_unsupported(classifier: &ClassifierOutput, enrichment: &EnrichmentData) -> bool {
+    classifier.cluster == "symbol-lookup" && enrichment.symbol_definition_count == Some(0)
+}
+
 fn cmd(command: impl Into<String>, purpose: impl Into<String>) -> CommandInvocation {
     CommandInvocation {
         command: command.into(),
@@ -521,9 +534,55 @@ fn regex_find_non_assignment(pattern: &str, text: &str) -> Option<String> {
         if text[m.end()..].starts_with('=') {
             continue; // VAR=val — atribuição, não símbolo
         }
+        if is_path_like_occurrence(text, m.start(), m.end()) {
+            continue; // `regen_g6_fila.py`, `crates/touring_cli/mod` — nome de arquivo, não símbolo
+        }
         return Some(m.as_str().to_string());
     }
     None
+}
+
+/// Extensions that make `name.ext` a FILE NAME. A member access (`HookRuntime.new`) is a
+/// symbol reference and its "extension" is not here, so it stays a candidate.
+const FILE_NAME_EXTENSIONS: &[&str] = &[
+    "rs", "py", "ts", "tsx", "js", "jsx", "go", "c", "cpp", "h", "hpp", "java", "kt", "swift",
+    "rb", "php", "sh", "bash", "md", "json", "jsonl", "toml", "yaml", "yml", "txt", "log", "csv",
+    "db", "sql", "html", "css", "xml", "lock", "pdf", "toon",
+];
+
+/// Retro 11/11/2026 (a): the match `text[start..end]` is part of a path or a file name when a
+/// `/` touches it on either side, or when it is followed by `.<file extension>` (the regex
+/// escape `\.` included). Such a token names a file, not a definition the index could hold.
+fn is_path_like_occurrence(text: &str, start: usize, end: usize) -> bool {
+    if text[..start].ends_with('/') || text[end..].starts_with('/') {
+        return true;
+    }
+    let after = text[end..].strip_prefix('\\').unwrap_or(&text[end..]);
+    let Some(ext) = after.strip_prefix('.') else {
+        return false;
+    };
+    let ext: String = ext
+        .chars()
+        .take_while(char::is_ascii_alphanumeric)
+        .collect();
+    FILE_NAME_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str())
+}
+
+/// Retro 11/11/2026 (a): the symbol a grep/rg command line is looking for, taken from its
+/// PATTERN operand only — never from a flag (`-A12`, `-n`), a path, or the value of a flag
+/// (`--include '*.rs'`). A pattern with an alternation (`RETOMADA\|FAILED`, `a|b`) is a LIST of
+/// words, and none of them is "the" symbol. The operands come from
+/// [`crate::code_mode_gates::grep_operands`], the same reading G3 uses for what a grep read.
+fn extract_grep_symbol(command: &str) -> Option<String> {
+    let invocation = crate::code_mode_gates::simple_commands(command)
+        .into_iter()
+        .find(|c| matches!(c.verb.as_str(), "grep" | "rg" | "egrep" | "fgrep"))?;
+    let pattern =
+        crate::code_mode_gates::grep_operands(&invocation.verb, &invocation.args).pattern?;
+    if pattern.contains('|') {
+        return None;
+    }
+    extract_first_symbol_in_text(&pattern)
 }
 
 /// Heuristic file-path extraction from a bash command — picks the first token
@@ -783,7 +842,7 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
     // Pattern 1: grep/rg for a symbol-like token.
     if matches!(resolved_verb(command), Some("grep") | Some("rg"))
         && command.contains(' ')
-        && let Some(sym) = extract_first_symbol_in_text(command)
+        && let Some(sym) = extract_grep_symbol(command)
     {
         return Some(ClassifierOutput {
             cluster: "symbol-lookup".into(),
@@ -3181,6 +3240,10 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     }
 
     let enrichment = enrich(rt, &classifier);
+    // Retro 11/11/2026 (a): the index answered "no definition" — the nudge would contradict itself.
+    if symbol_nudge_unsupported(&classifier, &enrichment) {
+        return "{}".into();
+    }
     let suggestion = Suggestion {
         cluster: classifier.cluster,
         must: classifier.must,

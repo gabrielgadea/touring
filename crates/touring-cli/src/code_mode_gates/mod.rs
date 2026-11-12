@@ -62,7 +62,8 @@ pub use self::arm::{RouteOffer, claim_route_reward, take_route_offer};
 pub(crate) use self::mode::{CodeModeEnv, CodeModePresentation};
 pub(crate) use self::remedy::portfolio_index;
 pub(crate) use self::shell::{
-    effective_tokens, inline_edit_target, is_inline_blind_edit, scan_class_of,
+    effective_tokens, grep_operands, inline_edit_target, is_inline_blind_edit, scan_class_of,
+    simple_commands,
 };
 pub(crate) use self::spec::{
     CACHE_MAX_CAPACITY, CODE_MODE_WINDOW_SECS, CONFORMAL_TAU_MAX_PROJECTS, SUGGESTION_TTL_SECS,

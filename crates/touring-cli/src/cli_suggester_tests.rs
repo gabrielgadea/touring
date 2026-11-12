@@ -2481,3 +2481,98 @@ fn must_echo_longo_e_citado_curto_e_verbatim() {
         out2.must[0].command
     );
 }
+
+// ── Retro 11/11/2026 (a): o nudge de símbolo só nasce de um SÍMBOLO ─────────
+//
+// Medido numa sessão real: `RETOMADA`, `FAILED`, `A12`, `add_argument`,
+// `kimi_reanotacao_v4` e `regen_g6_fila` viraram `touring index find …` — palavras
+// de um grep em prosa, uma flag (`-A12`), nomes de arquivo. Dois cortes: o
+// candidato vem só do OPERANDO PADRÃO do grep (nunca de flag nem de caminho), e sem
+// definição no índice (`defs=0`) o nudge não é emitido.
+
+fn symbol_cluster_of(command: &str) -> Option<ClassifierOutput> {
+    classify_bash(&json!({ "command": command })).filter(|o| o.cluster == "symbol-lookup")
+}
+
+#[test]
+fn retro_a_flag_de_contexto_nao_e_simbolo() {
+    // `-A12` colado: antes o `\bA12\b` ganhava do padrão e o MUST era `index find A12`.
+    let out = symbol_cluster_of("grep -n -A12 HookRuntime crates/touring-cli/src/runtime.rs")
+        .expect("o padrão HookRuntime segue sendo um símbolo");
+    assert_eq!(out.symbol_hint.as_deref(), Some("HookRuntime"));
+    // `-A 12` separado e cluster `-rnA 5`: o número é VALOR da flag, não padrão.
+    for cmd in [
+        "grep -n -A 12 HookRuntime crates/x.rs",
+        "grep -rnA 5 HookRuntime crates/",
+        "rg -n -C3 HookRuntime crates/",
+        "grep -rn --include '*.rs' HookRuntime crates/",
+        "grep -rn --include=*.rs HookRuntime crates/",
+        "rg -g '*.rs' HookRuntime crates/",
+    ] {
+        let o = symbol_cluster_of(cmd).unwrap_or_else(|| panic!("{cmd}: deveria emitir"));
+        assert_eq!(o.symbol_hint.as_deref(), Some("HookRuntime"), "{cmd}");
+    }
+    // sem padrão simbólico algum, só a flag: nenhum nudge de símbolo.
+    assert!(symbol_cluster_of("grep -n -A12 needle some/file.txt").is_none());
+}
+
+#[test]
+fn retro_a_nome_de_arquivo_no_padrao_ou_no_caminho_nao_e_simbolo() {
+    // caminho posicional: antes `kimi_reanotacao_v4` (stem do arquivo) virava símbolo.
+    assert!(symbol_cluster_of("grep -n needle scripts/kimi_reanotacao_v4.py").is_none());
+    assert!(symbol_cluster_of("grep -c needle docs/regen_g6_fila.log").is_none());
+    // padrão que É um nome de arquivo (procurar quem cita o script), cru ou escapado.
+    assert!(symbol_cluster_of("grep -rl 'regen_g6_fila.py' docs/").is_none());
+    assert!(symbol_cluster_of(r#"grep -rl "regen_g6_fila\.py" docs/"#).is_none());
+    assert!(symbol_cluster_of("grep -rn 'crates/touring_cli/mod' .").is_none());
+    // mas o método `Tipo.membro` (extensão que não é de arquivo) segue sendo símbolo.
+    assert!(symbol_cluster_of("grep -rn 'HookRuntime.new' crates/").is_some());
+}
+
+#[test]
+fn retro_a_alternancia_de_regex_nao_e_um_simbolo() {
+    // uma LISTA de palavras (`RETOMADA\|FAILED`) não é um símbolo — nem a 1ª delas.
+    assert!(symbol_cluster_of(r#"grep -rn "RETOMADA\|FAILED" docs/"#).is_none());
+    assert!(symbol_cluster_of(r#"grep -E "FooBar|BazQux" crates/"#).is_none());
+    assert!(symbol_cluster_of(r#"rg -n 'add_argument|set_defaults' scripts/"#).is_none());
+}
+
+#[test]
+fn retro_a_padrao_via_flag_e_resolvido() {
+    // `-e PADRÃO`/`--regexp=PADRÃO`: o padrão é o operando da flag, o 1º posicional é caminho.
+    let a = symbol_cluster_of("grep -rn -e HookRuntime crates/kazuba_dir").expect("-e");
+    assert_eq!(a.symbol_hint.as_deref(), Some("HookRuntime"));
+    let b = symbol_cluster_of("grep -rn --regexp=HookRuntime crates/").expect("--regexp=");
+    assert_eq!(b.symbol_hint.as_deref(), Some("HookRuntime"));
+    // depois de `cd` e dentro de uma cadeia, é o grep que decide.
+    let c = symbol_cluster_of("cd crates && grep -rn -A2 HookRuntime .").expect("cd + grep");
+    assert_eq!(c.symbol_hint.as_deref(), Some("HookRuntime"));
+}
+
+#[test]
+fn retro_a_sem_definicao_no_indice_o_nudge_de_simbolo_nao_sai() {
+    let symbol = ClassifierOutput {
+        cluster: "symbol-lookup".into(),
+        symbol_hint: Some("RETOMADA".into()),
+        ..Default::default()
+    };
+    let defs = |n: Option<u32>| EnrichmentData {
+        symbol_in_index: n.map(|c| c > 0),
+        symbol_definition_count: n,
+        ..Default::default()
+    };
+    // defs=0 → suprime (era o `symbol_in_index=no (defs=0)` com MUST).
+    assert!(symbol_nudge_unsupported(&symbol, &defs(Some(0))));
+    // defs≥1 → o índice sabe o símbolo: o nudge vale.
+    assert!(!symbol_nudge_unsupported(&symbol, &defs(Some(1))));
+    assert!(!symbol_nudge_unsupported(&symbol, &defs(Some(9))));
+    // sem leitura do índice (daemon degradado / store ausente / erro): ausência não é zero.
+    assert!(!symbol_nudge_unsupported(&symbol, &defs(None)));
+    // outro cluster nunca é tocado, mesmo com defs=0 (um Edit de arquivo sem símbolo).
+    let other = ClassifierOutput {
+        cluster: "pre-edit-rust".into(),
+        file_hint: Some("a.rs".into()),
+        ..Default::default()
+    };
+    assert!(!symbol_nudge_unsupported(&other, &defs(Some(0))));
+}

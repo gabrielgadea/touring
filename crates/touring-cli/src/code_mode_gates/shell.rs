@@ -732,3 +732,156 @@ pub(super) fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<s
     }
     None
 }
+
+// ── Shell words: simple commands and the operands of grep/sed (retro 11/11/2026) ─────────
+//
+// ONE reading of "what does this command read, and what does it search for" — asked by the
+// suggester (the symbol nudge must come from the PATTERN of a grep, never from its flags or
+// its paths) and by G3 (a file the session just read through Bash counts as read). Both used
+// to scan the raw command text, which is how `-A12` became the symbol `A12` and how
+// `kimi_reanotacao_v4.py` became `kimi_reanotacao_v4`: a token is only a candidate for what
+// its POSITION says it is.
+
+/// One simple command of a shell line, as the shared lexer reads it: quotes removed, `|`, `;`,
+/// `&&`, `||` and newline ending commands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SimpleCommand {
+    /// The effective program: `VAR=value` prefixes and every wrapper removed, directory part
+    /// stripped (`/usr/bin/grep` is `grep`).
+    pub verb: String,
+    /// Its arguments, in order.
+    pub args: Vec<String>,
+}
+
+/// The simple commands of `command`, in the order a shell would run them.
+pub(crate) fn simple_commands(command: &str) -> Vec<SimpleCommand> {
+    use touring_hooks_shared::command_policy::{command_of, shell_pipelines};
+    shell_pipelines(command)
+        .into_iter()
+        .flatten()
+        .filter_map(|words| {
+            let (verb, args) = command_of(&words)?;
+            Some(SimpleCommand {
+                verb: verb.rsplit('/').next().unwrap_or(verb).to_owned(),
+                args: args.to_vec(),
+            })
+        })
+        .collect()
+}
+
+/// `grep`/`rg` long options that take their value as the NEXT word when written apart
+/// (`--include '*.rs'`); the attached form (`--include=*.rs`) is one word and needs no entry.
+const GREP_LONG_WITH_VALUE: &[&str] = &[
+    "after-context",
+    "before-context",
+    "context",
+    "max-count",
+    "include",
+    "exclude",
+    "exclude-dir",
+    "exclude-from",
+    "glob",
+    "iglob",
+    "type",
+    "type-not",
+    "max-depth",
+    "threads",
+    "label",
+    "binary-files",
+    "devices",
+    "directories",
+];
+
+/// What a `grep`/`rg` invocation was given: the pattern it searches for and the paths it
+/// searches in. Flags (and the values of flags) are neither.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct GrepOperands {
+    /// The pattern — `-e`/`--regexp` when given, else the first positional. `None` when the
+    /// patterns come from a file (`-f`) or there is no operand at all.
+    pub pattern: Option<String>,
+    /// The positional words that are not the pattern: the files and directories searched.
+    pub paths: Vec<String>,
+}
+
+/// Splits the arguments of `verb` (`grep`, `egrep`, `fgrep` or `rg`) into pattern and paths.
+///
+/// A short cluster (`-rnA`) ends at the first letter that takes a value: the rest of the word
+/// is that value (`-A12`) or, when nothing follows, the NEXT word is (`-A 12`). The letter
+/// sets differ because the two programs reuse letters (`-r` is recursive in grep and
+/// `--replace` in rg; `-T` is a tab in grep and `--type-not` in rg).
+pub(crate) fn grep_operands(verb: &str, args: &[String]) -> GrepOperands {
+    let value_letters = if verb == "rg" {
+        "ABCmefgtTdjrEM"
+    } else {
+        "ABCmefdD"
+    };
+    let mut explicit: Option<String> = None;
+    let mut patterns_from_flag = false;
+    let mut positionals: Vec<String> = Vec::new();
+    let mut end_of_options = false;
+    let mut words = args.iter();
+    while let Some(word) = words.next() {
+        if end_of_options {
+            positionals.push(word.clone());
+        } else if word == "--" {
+            end_of_options = true;
+        } else if let Some(long) = word.strip_prefix("--") {
+            let (name, attached) = match long.split_once('=') {
+                Some((name, value)) => (name, Some(value.to_owned())),
+                None => (long, None),
+            };
+            match name {
+                "regexp" => {
+                    patterns_from_flag = true;
+                    let value = attached.or_else(|| words.next().cloned());
+                    explicit = explicit.or(value);
+                }
+                "file" => {
+                    patterns_from_flag = true;
+                    if attached.is_none() {
+                        words.next();
+                    }
+                }
+                _ if attached.is_none() && GREP_LONG_WITH_VALUE.contains(&name) => {
+                    words.next();
+                }
+                _ => {}
+            }
+        } else if word.len() > 1 && word.starts_with('-') {
+            let cluster = &word[1..];
+            for (at, letter) in cluster.char_indices() {
+                if !value_letters.contains(letter) {
+                    continue;
+                }
+                let rest = &cluster[at + letter.len_utf8()..];
+                let value = if rest.is_empty() {
+                    words.next().cloned()
+                } else {
+                    Some(rest.to_owned())
+                };
+                match letter {
+                    'e' => {
+                        patterns_from_flag = true;
+                        explicit = explicit.or(value);
+                    }
+                    'f' => patterns_from_flag = true,
+                    _ => {}
+                }
+                break;
+            }
+        } else {
+            positionals.push(word.clone());
+        }
+    }
+    if explicit.is_some() || patterns_from_flag {
+        return GrepOperands {
+            pattern: explicit,
+            paths: positionals,
+        };
+    }
+    let mut positionals = positionals.into_iter();
+    GrepOperands {
+        pattern: positionals.next(),
+        paths: positionals.collect(),
+    }
+}
