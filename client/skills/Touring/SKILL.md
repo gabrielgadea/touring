@@ -146,6 +146,7 @@ Operational depth (consult on demand):
 
 | Topic | File |
 |-------|------|
+| **Reflexos do TACO (11), gatilhos automáticos e Phase Protocol 0→7 com roteamento CILA** — ler antes da primeira ação em tarefa de código | [references/taco-reflexos.md](references/taco-reflexos.md) |
 | **CLI por tier (TIER 1-9), cheatsheet, scripts Layer-3, doutrina de enriquecimento, subagent pool, melhores praticas, janela de contexto e o grafo ADW** | [references/touring-cli-e-contexto.md](references/touring-cli-e-contexto.md) |
 | **Portfólio de scripts** — hook "consultar antes de criar", 4 estados do veredito, índice do projeto, `--stats`, `plano_ativo.json`, regra `diagnostics/` | [references/portfolio-scripts.md](references/portfolio-scripts.md) |
 | Workflows by category + TACO phases + TDG action table | [references/workflows.md](references/workflows.md) |

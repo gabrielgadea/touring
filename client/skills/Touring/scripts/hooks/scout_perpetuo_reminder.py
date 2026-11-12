@@ -54,7 +54,12 @@ def load_states(root: Path) -> list[dict]:
 
 
 def topic_lines(state: dict, root: Path, now: float) -> list[str]:
-    """Status + armed command for one topic; MUST when the cycle is overdue."""
+    """Status + armed command for one topic.
+
+    Always SHOULD: nothing enforces the cycle, and a MUST nobody enforces teaches
+    the reader to ignore MUST (it sat at 876 h overdue on 11/11/2026). `VENCIDO`
+    in the status carries the fact; the verb stays honest about its force.
+    """
     topic = str(state.get("topic", "?"))
     interval_h = float(state.get("interval_hours", 24.0))
     last_ts = float(state.get("last_cycle_ts", 0.0))
@@ -65,7 +70,7 @@ def topic_lines(state: dict, root: Path, now: float) -> list[str]:
     when = f"há {age_h:.1f}h" if last_ts else "nunca"
     status = f"VENCIDO ({when}, intervalo {interval_h:g}h)" if overdue \
         else f"em dia ({when}; próximo em {max(0.0, interval_h - age_h):.1f}h)"
-    verb = "MUST (antes de trabalho novo)" if overdue else "SHOULD (ao abrir frente nova)"
+    verb = "SHOULD (ao abrir frente nova)"
     lines = [
         f"  · '{topic}': {status} — yield {curve} · {sum(1 for h in history if h.get('ticket'))} ticket(s)",
         f"    {verb} → python3 {SCRIPT} cycle --topic \"{topic}\" --root {root}",

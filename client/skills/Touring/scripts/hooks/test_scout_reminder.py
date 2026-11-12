@@ -40,7 +40,21 @@ def write_state(root: Path, topic: str, *, last_cycle_age_h: float,
     }), encoding="utf-8")
 
 
-def test_overdue_topic_emits_must_and_armed_queue(tmp_path: Path):
+def test_overdue_topic_is_should_never_must(tmp_path: Path):
+    """Retro 11/11/2026: the reminder printed `MUST (antes de trabalho novo)` on a
+    cycle 876 h overdue, session after session — a MUST nobody enforces teaches
+    the reader to ignore MUST. The hook informs; it never commands."""
+    write_state(tmp_path, "t", last_cycle_age_h=876, interval_h=6,
+                entries=[{"ts": 1.0, "yield": 1, "findings_total": 1,
+                          "ticket": "task_9", "explore_exit": 0}])
+    code, out = run_hook(json.dumps({"cwd": str(tmp_path)}))
+    assert code == 0
+    ctx = context_of(out)
+    assert "VENCIDO" in ctx and "MUST" not in ctx
+    assert "SHOULD (ao abrir frente nova)" in ctx
+
+
+def test_overdue_topic_emits_armed_queue(tmp_path: Path):
     write_state(tmp_path, "adw software factory", last_cycle_age_h=100, interval_h=6,
                 entries=[{"ts": 1.0, "yield": 3, "findings_total": 3,
                           "ticket": "task_123", "adw": "audit",
@@ -50,7 +64,6 @@ def test_overdue_topic_emits_must_and_armed_queue(tmp_path: Path):
     assert code == 0
     ctx = context_of(out)
     assert "VENCIDO" in ctx and "adw software factory" in ctx
-    assert "MUST (antes de trabalho novo)" in ctx
     assert f"--root {tmp_path}" in ctx
     assert 'touring factory start "scout-ticket: x"' in ctx  # fila engatilhada
 
