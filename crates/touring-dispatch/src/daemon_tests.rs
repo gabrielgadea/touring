@@ -854,3 +854,33 @@ fn pin_admits_clients_under_nested_markers_of_every_kind() {
     let dotdot = root.join("real").join("..").join("real").join("sub");
     assert!(pin_admits(&root, &dotdot), "o `..` resolve para dentro");
 }
+
+// ── Retro 11/11/2026 (b): o alvo e o ator da dedupe por (emissor, alvo) ─────────────
+
+#[test]
+fn dedup_alvo_e_o_arquivo_da_ferramenta_e_o_ator_e_o_subagente() {
+    use serde_json::json;
+    // Edit/Read/Write: o `file_path`.
+    let edit =
+        json!({"session_id": "s", "tool_input": {"file_path": "/p/a.rs", "old_string": "x"}});
+    assert_eq!(dedup_agent_and_target(&edit), (None, Some("/p/a.rs")));
+    // NotebookEdit: o `notebook_path`.
+    let nb = json!({"tool_input": {"notebook_path": "/p/n.ipynb"}});
+    assert_eq!(dedup_agent_and_target(&nb), (None, Some("/p/n.ipynb")));
+    // subagente: o `agent_id` separa a janela dele da do pai.
+    let sub = json!({"agent_id": "agent-7", "tool_input": {"file_path": "/p/a.rs"}});
+    assert_eq!(
+        dedup_agent_and_target(&sub),
+        (Some("agent-7"), Some("/p/a.rs"))
+    );
+    // sem alvo (Bash, Grep, prompt) ou vazio: só a dedupe por época vale.
+    for sem in [
+        json!({"tool_input": {"command": "ls"}}),
+        json!({"tool_input": {"pattern": "x", "path": "/p"}}),
+        json!({"tool_input": {"file_path": ""}}),
+        json!({"prompt": "oi"}),
+        json!({"agent_id": "", "tool_input": {}}),
+    ] {
+        assert_eq!(dedup_agent_and_target(&sem), (None, None), "{sem}");
+    }
+}

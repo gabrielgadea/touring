@@ -530,18 +530,42 @@ const KPI_SNAPSHOT_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 fn maybe_dedup_output(
     runtime: &HookRuntime,
     payload: &serde_json::Value,
+    hook_name: &str,
     output: String,
 ) -> String {
     match payload.get("session_id").and_then(|v| v.as_str()) {
         Some(session) if !session.is_empty() => {
-            touring_hooks_shared::injection_dedup::dedup_hook_output(
-                &runtime.project_root,
-                session,
+            let (agent, target) = dedup_agent_and_target(payload);
+            touring_hooks_shared::injection_dedup::dedup_hook_output_for_target(
+                &touring_hooks_shared::injection_dedup::TargetCall {
+                    root: &runtime.project_root,
+                    session,
+                    agent,
+                    emitter: hook_name,
+                    target,
+                },
                 &output,
             )
         }
         _ => output,
     }
+}
+
+/// Retro 11/11/2026 (b): quem fez a chamada e o que ela mira, para a dedupe por (emissor, alvo).
+/// O alvo é o arquivo da ferramenta (`file_path`; `notebook_path` no NotebookEdit) — um Bash, um
+/// prompt ou um Grep não têm alvo, e para eles só a dedupe por época vale. O subagente tem
+/// contexto próprio: o que o pai recebeu não está na janela dele.
+fn dedup_agent_and_target(payload: &serde_json::Value) -> (Option<&str>, Option<&str>) {
+    let agent = payload
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .filter(|a| !a.is_empty());
+    let target = payload
+        .get("tool_input")
+        .and_then(|t| t.get("file_path").or_else(|| t.get("notebook_path")))
+        .and_then(|v| v.as_str())
+        .filter(|t| !t.is_empty());
+    (agent, target)
 }
 
 fn run_hook_command(
@@ -628,7 +652,7 @@ fn run_hook_command(
     }
 
     // S8 (2026-10-08): dedupe por seção na saída central — ver `maybe_dedup_output`.
-    let output = maybe_dedup_output(runtime, &payload, output);
+    let output = maybe_dedup_output(runtime, &payload, hook_name.as_str(), output);
     // Reply to the client FIRST so hook latency never includes the
     // post-edit maintenance scan below (perf F1, 2026-06-13: the free
     // `cli_e2e` has no TTL cache, so it used to run a full workspace

@@ -29,6 +29,10 @@
 //! Tudo é fail-open: erro de I/O devolve o texto intacto.
 //!
 //! Kill switch HUMANO: `TOURING_DEDUP_DISABLED=1` (o modelo nunca o liga).
+//!
+//! Retro 11/11/2026 (item b): um 2º estágio, por (emissor, arquivo-alvo) numa janela de tempo,
+//! roda ANTES deste — ver [`dedup_hook_output_for_target`]. Este módulo mede por LINHA; o bloco do
+//! pre-edit/pre-read é uma linha só de segmentos ` | `, e o estágio novo mede por SEGMENTO.
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -310,15 +314,19 @@ fn dedup_hook_output_with(root: &Path, session: &str, output: &str, disabled: bo
     if !changed {
         return output.to_string();
     }
-    // Omissão total em todos os campos esvazia o hookSpecificOutput? O envelope
-    // vazio sai junto (~2 B é o menor rastro possível, e o CC não injeta nada).
+    finish_envelope(&mut v);
+    serde_json::to_string(&v).unwrap_or_else(|_| output.to_string())
+}
+
+/// Omissão total em todos os campos esvazia o hookSpecificOutput? O envelope
+/// vazio sai junto (~2 B é o menor rastro possível, e o CC não injeta nada).
+fn finish_envelope(v: &mut serde_json::Value) {
     if v.get("hookSpecificOutput")
         .and_then(serde_json::Value::as_object)
         .is_some_and(serde_json::Map::is_empty)
     {
         v.as_object_mut().map(|m| m.remove("hookSpecificOutput"));
     }
-    serde_json::to_string(&v).unwrap_or_else(|_| output.to_string())
 }
 
 /// Dedupa UM campo-string de contexto do JSON de saída (`parent=None` = raiz).
@@ -334,6 +342,19 @@ fn dedup_json_field(
     parent: Option<&str>,
     key: &str,
 ) -> bool {
+    map_json_field(v, parent, key, &mut |ctx| {
+        dedup_sections(root, session, ctx)
+    })
+}
+
+/// O corpo comum dos dois estágios: aplica `reduce` ao campo-string de contexto e grava o
+/// resultado — vazio REMOVE o campo. `true` quando o campo mudou.
+fn map_json_field(
+    v: &mut serde_json::Value,
+    parent: Option<&str>,
+    key: &str,
+    reduce: &mut dyn FnMut(&str) -> String,
+) -> bool {
     let field = match parent {
         Some(p) => v.get(p).and_then(|h| h.get(key)),
         None => v.get(key),
@@ -344,7 +365,7 @@ fn dedup_json_field(
     if ctx.is_empty() {
         return false;
     }
-    let deduped = dedup_sections(root, session, ctx);
+    let deduped = reduce(ctx);
     if deduped == ctx {
         return false;
     }
@@ -359,6 +380,308 @@ fn dedup_json_field(
         t[key] = serde_json::Value::String(deduped);
     }
     true
+}
+
+// ── Janela por (emissor, alvo) — retro 11/11/2026, item (b) ─────────────────────────────
+//
+// POR QUE EXISTE. A dedupe acima é por ÉPOCA e por linha: uma linha só é omitida se o seu
+// molde (ou o texto, para diretivas) já foi entregue. Medido em 5 transcripts reais do
+// `analise` (hook_success com additionalContext, agrupados por (emissor, arquivo)): de 17 % a
+// 51 % dos bytes injetados eram a 2ª+ emissão do MESMO emissor para o MESMO arquivo, e quase
+// nenhuma byte-idêntica (2 a 9 em 100 a 234). O bloco do pre-edit/pre-read é UMA linha de
+// segmentos ` | ` — fatos do arquivo (`HOTSPOT`, `callers:`) ao lado de telemetria que deriva a
+// cada chamada (a ORDEM de `related docs`, `ANN related`, `Next: Bash (51%)`) — e basta um
+// segmento derivar para a dedupe por linha tratar a linha INTEIRA como nova e reenviar os ~2 KB.
+//
+// A REGRA. Por (emissor, alvo, ator) e dentro de uma janela (`TARGET_WINDOW_SECS`, 10 min por
+// padrão; `TOURING_DEDUP_WINDOW_SECS` a muda, 0 a desliga), um SEGMENTO já entregue não volta —
+// salvo se mudou. "Mudou" é o hash do segmento NORMALIZADO (o molde de `line_key` e a lista
+// entre colchetes em ordem canônica): reordenar `related docs` ou variar um contador não é
+// conteúdo novo, um item novo na lista ou uma função nova no `note:` é. O que mudou passa
+// sozinho; o que já foi dito fica na janela do modelo (a 1ª cópia vale até a compactação, e a
+// compactação reabre o estágio — o estado carrega a época).
+//
+// O QUE NUNCA É TOCADO. Linhas estruturais (tabela, fence, heading, < 24 B) e o payload de
+// GATE/decisão (`WINDOW_EXEMPT_FAMILIES`: deny, contrato, contexto do loop…): um aviso de gate
+// repetido é um fato novo para quem o lê, e `permissionDecisionReason` nem passa por aqui.
+// O estágio roda ANTES da dedupe por época, então o que ele omitiu nunca entra no estado dela.
+//
+// ESCOPO. O ator é (sessão, subagente): um subagente tem contexto PRÓPRIO, e o que o pai
+// recebeu não está na janela dele. Só a rota do daemon conhece o alvo (`tool_input`); o
+// standalone segue só com a dedupe por época — declarado, não um buraco silencioso.
+
+/// Quem chamou, para a dedupe por (emissor, alvo).
+pub struct TargetCall<'a> {
+    /// A raiz do projeto (onde vive o arquivo de estado).
+    pub root: &'a Path,
+    /// A sessão do Claude Code.
+    pub session: &'a str,
+    /// O subagente que fez a chamada, quando foi um.
+    pub agent: Option<&'a str>,
+    /// O emissor (o hook da dispatch table) que produziu a saída.
+    pub emitter: &'a str,
+    /// O arquivo que a chamada de ferramenta mira.
+    pub target: Option<&'a str>,
+}
+
+/// Janela padrão do estágio por (emissor, alvo), em segundos.
+pub const TARGET_WINDOW_SECS: u64 = 600;
+
+/// A env var HUMANA que muda a janela (segundos; `0` desliga o estágio).
+const TARGET_WINDOW_ENV: &str = "TOURING_DEDUP_WINDOW_SECS";
+
+/// Teto de entradas do arquivo de estado — o estado de uma sessão longa não cresce sem fim.
+const TARGET_MAX_ENTRIES: usize = 4096;
+
+/// O separador dos segmentos de um bloco de contexto de uma linha só.
+const SEGMENT_SEPARATOR: &str = " | ";
+
+/// Famílias que são payload de GATE ou de decisão: nunca entram na janela. Um aviso de gate
+/// repetido não é enriquecimento redundante — é o gate falando de novo.
+const WINDOW_EXEMPT_FAMILIES: &[&str] = &[
+    "code-mode-deny",
+    "code-mode-contract",
+    "session-contract",
+    "compaction-gaps",
+    "context-monitor",
+    "pipefail-evidence",
+    "evidence-guard",
+    "loop-outer",
+    "failure-echo",
+    "quality-gate",
+];
+
+/// A decisão pura da janela: inteiro de segundos; ausente ou lixo cai no padrão.
+fn window_from(raw: Option<&str>) -> u64 {
+    raw.and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(TARGET_WINDOW_SECS)
+}
+
+fn target_window_secs() -> u64 {
+    window_from(std::env::var(TARGET_WINDOW_ENV).ok().as_deref())
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+/// Um segmento entregue: a chave (emissor+alvo), o hash do segmento normalizado e quando saiu.
+struct Seen {
+    key: u64,
+    seg: u64,
+    at: u64,
+}
+
+fn target_state_file(root: &Path, session: &str, agent: Option<&str>) -> PathBuf {
+    let actor = match agent {
+        Some(a) if !a.is_empty() => format!("{session}-agent-{a}"),
+        _ => session.to_string(),
+    };
+    let safe: String = actor
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
+    root.join(".claude/touring")
+        .join(format!("dedup-target-{safe}.txt"))
+}
+
+/// Lê o estado da época corrente; arquivo ausente, corrompido ou de OUTRA época = vazio (a
+/// compactação podou o contexto, então nada do que foi dito antes está mais na janela).
+fn read_target_state(path: &Path, epoch: u64) -> Vec<Seen> {
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    let mut lines = text.lines();
+    let file_epoch = lines
+        .next()
+        .and_then(|l| l.strip_prefix("epoch="))
+        .and_then(|v| v.trim().parse::<u64>().ok());
+    if file_epoch != Some(epoch) {
+        return Vec::new();
+    }
+    lines
+        .filter_map(|l| {
+            let mut p = l.split(' ');
+            Some(Seen {
+                key: u64::from_str_radix(p.next()?, 16).ok()?,
+                seg: u64::from_str_radix(p.next()?, 16).ok()?,
+                at: p.next()?.parse().ok()?,
+            })
+        })
+        .collect()
+}
+
+fn write_target_state(path: &Path, epoch: u64, seen: &[Seen]) {
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let keep = seen.len().saturating_sub(TARGET_MAX_ENTRIES);
+    let mut text = format!("epoch={epoch}\n");
+    for e in &seen[keep..] {
+        text.push_str(&format!("{:016x} {:016x} {}\n", e.key, e.seg, e.at));
+    }
+    let _ = std::fs::write(path, text);
+}
+
+/// Cada lista `[a, b, c]` do molde em ordem canônica: a ORDEM de uma lista (os `related docs`
+/// embaralham a cada chamada) não é conteúdo; um item novo é.
+fn sort_bracket_lists(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
+    while let Some(open) = rest.find('[') {
+        let after = &rest[open + 1..];
+        let Some(close) = after.find(']') else { break };
+        let inner = &after[..close];
+        out.push_str(&rest[..=open]);
+        if inner.contains('[') {
+            rest = after; // aninhado: deixa como está e segue pelo `[` interno
+            continue;
+        }
+        let mut items: Vec<&str> = inner.split(',').map(str::trim).collect();
+        items.sort_unstable();
+        out.push_str(&items.join(","));
+        out.push(']');
+        rest = &after[close + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// A chave de um segmento: o molde de [`line_key`] (diretiva exata; prosa sem dígitos e paths)
+/// sobre o texto com as listas já em ordem canônica. A ordem é fixada ANTES do molde: o molde
+/// troca um token com `/` por `P` INTEIRO, e leva junto o `]` do último item da lista — com a
+/// lista ainda embaralhada, o `]` apareceria ou sumiria conforme a ordem e a chave variaria.
+fn segment_key(seg: &str) -> String {
+    line_key(&sort_bracket_lists(seg.trim()))
+}
+
+fn window_exempt(seg: &str) -> bool {
+    touring_foundation::injection_family::families(seg)
+        .iter()
+        .any(|f| WINDOW_EXEMPT_FAMILIES.contains(f))
+}
+
+/// Um segmento entra na janela se tem conteúdo de sobra (o piso das linhas), não é cabeçalho
+/// e não é payload de gate.
+fn window_candidate(seg: &str) -> bool {
+    let t = seg.trim();
+    t.len() >= MIN_LINE_BYTES && !t.starts_with('#') && !t.starts_with("```") && !window_exempt(t)
+}
+
+/// O estágio sobre UM texto de contexto: omite os segmentos já entregues para `key` dentro de
+/// `window` segundos e registra os novos. Sem nada omitido, o texto volta byte a byte.
+fn window_filter(seen: &mut Vec<Seen>, key: u64, text: &str, now: u64, window: u64) -> String {
+    let mut out: Vec<String> = Vec::new();
+    let mut in_fence = false;
+    let mut dropped = false;
+    for line in text.lines() {
+        let t = line.trim_start();
+        if t.starts_with("```") {
+            in_fence = !in_fence;
+            out.push(line.to_string());
+            continue;
+        }
+        if in_fence || t.starts_with('|') || t.starts_with('#') {
+            out.push(line.to_string());
+            continue;
+        }
+        let mut kept: Vec<&str> = Vec::new();
+        for seg in line.split(SEGMENT_SEPARATOR) {
+            if !window_candidate(seg) {
+                kept.push(seg);
+                continue;
+            }
+            let h = hash_line(&segment_key(seg));
+            match seen.iter_mut().find(|e| e.key == key && e.seg == h) {
+                // entregue dentro da janela: omitido (a omissão NÃO renova o relógio — passada a
+                // janela desde a ÚLTIMA entrega, o conselho volta uma vez)
+                Some(e) if now.saturating_sub(e.at) <= window => dropped = true,
+                Some(e) => {
+                    e.at = now;
+                    kept.push(seg);
+                }
+                None => {
+                    seen.push(Seen {
+                        key,
+                        seg: h,
+                        at: now,
+                    });
+                    kept.push(seg);
+                }
+            }
+        }
+        if !kept.is_empty() {
+            out.push(kept.join(SEGMENT_SEPARATOR));
+        }
+    }
+    if dropped {
+        out.join("\n")
+    } else {
+        text.to_string()
+    }
+}
+
+/// Aplica o estágio por (emissor, alvo) e, por cima do que sobrou, a dedupe por época
+/// ([`dedup_hook_output`]). Sem alvo (Bash, prompt), sem emissor, com o kill switch
+/// `TOURING_DEDUP_DISABLED` ou com a janela em 0, é só a dedupe por época — o comportamento
+/// de antes, byte a byte.
+#[must_use]
+pub fn dedup_hook_output_for_target(call: &TargetCall<'_>, output: &str) -> String {
+    dedup_hook_output_for_target_with(
+        call,
+        output,
+        now_secs(),
+        target_window_secs(),
+        dedup_disabled(),
+    )
+}
+
+/// O corpo, com o relógio, a janela e o kill switch como PARÂMETROS (testes não mutam o env
+/// global nem esperam o tempo passar — ver `disabled_from`).
+fn dedup_hook_output_for_target_with(
+    call: &TargetCall<'_>,
+    output: &str,
+    now: u64,
+    window: u64,
+    disabled: bool,
+) -> String {
+    let (root, session) = (call.root, call.session);
+    let target = call.target.filter(|t| !t.is_empty());
+    let (Some(target), false, false) = (target, call.emitter.is_empty(), window == 0) else {
+        return dedup_hook_output_with(root, session, output, disabled);
+    };
+    if disabled {
+        return output.to_string();
+    }
+    let Ok(mut v) = serde_json::from_str::<serde_json::Value>(output) else {
+        return output.to_string();
+    };
+    let epoch = current_epoch(root, session);
+    let state_path = target_state_file(root, session, call.agent);
+    let mut seen = read_target_state(&state_path, epoch);
+    // uma entrada passada da janela é igual a nenhuma: na próxima vista ela reemite e se renova
+    seen.retain(|e| now.saturating_sub(e.at) <= window);
+    let key = hash_line(&format!("{}\u{2}{target}", call.emitter));
+    let mut changed = false;
+    for (parent, field) in [
+        (Some("hookSpecificOutput"), "additionalContext"),
+        (Some("hookSpecificOutput"), "systemMessage"),
+        (None, "systemMessage"),
+    ] {
+        changed |= map_json_field(&mut v, parent, field, &mut |ctx| {
+            window_filter(&mut seen, key, ctx, now, window)
+        });
+    }
+    write_target_state(&state_path, epoch, &seen);
+    let staged = if changed {
+        finish_envelope(&mut v);
+        serde_json::to_string(&v).unwrap_or_else(|_| output.to_string())
+    } else {
+        output.to_string()
+    };
+    dedup_hook_output_with(root, session, &staged, false)
 }
 
 #[cfg(test)]
@@ -730,6 +1053,301 @@ mod tests {
         assert!(
             third.contains("bar.rs"),
             "diretiva nova emite o bloco: {third}"
+        );
+    }
+
+    // ── Retro 11/11/2026, item (b): a janela por (emissor, alvo) ─────────────────────────
+    //
+    // Medido em 5 transcripts reais do `analise` (hook_success com additionalContext,
+    // agrupados por (emissor, arquivo)): 17–51 % dos bytes injetados eram a 2ª+ emissão do
+    // MESMO emissor para o MESMO arquivo, e quase nenhuma byte-idêntica (2–9 de 100–234) — o
+    // bloco é UMA linha de segmentos ` | `, e basta a telemetria ao redor derivar (a ordem de
+    // `related docs`, `knowledge: 21501/…`, `Next: Bash (51%)`) para a dedupe por linha tratar
+    // a linha inteira como nova. O estágio por segmento fecha esse buraco.
+
+    const T0: u64 = 1_000_000;
+    const JANELA: u64 = 600;
+
+    fn out_json(ctx: &str) -> String {
+        serde_json::json!({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": ctx}})
+            .to_string()
+    }
+
+    /// Um bloco de pre-edit com a forma dos medidos: fatos do arquivo estáveis, telemetria ao
+    /// redor a derivar a cada chamada (ordem de lista, contadores, percentuais).
+    fn pre_edit_block(i: usize) -> String {
+        let docs = [
+            "Touring CLI — Task Lifecycle@touring-cli-tasks.md",
+            "Touring CLI — Code Intelligence@touring-cli-intelligence.md",
+            "cli_anything/touring/touring_cli.py@pgcc_warm.json",
+        ];
+        // quatro ordens DISTINTAS — a ordem real embaralha e não cicla (um ciclo repetiria o molde)
+        const ORDENS: [[usize; 3]; 4] = [[0, 1, 2], [1, 0, 2], [2, 1, 0], [0, 2, 1]];
+        let rotated: Vec<&str> = ORDENS[i % 4].iter().map(|&k| docs[k]).collect();
+        format!(
+            "HOTSPOT: `len` has 12 callers | callers: [chave_norma, chave_instrumento, \
+             _e_codigo_planilha, _flush_fonte, flush_grafos (+7 more)] | note: High complexity: \
+             indexar_inventario_familia(CC=15), _normalizar_artefato(CC=12) | 📚 related docs: [{}] \
+             | knowledge: {}/21569 files indexed (score 0.99) | health: healthy 0.84 [wiring:0.84] \
+             | 🔮 Next: Bash ({}%) | ⚠️ distribution drift detected: KS=0.533 JS=0.000",
+            rotated.join(", "),
+            21500 + i,
+            50 + i
+        )
+    }
+
+    fn call<'a>(root: &'a Path, target: Option<&'a str>) -> TargetCall<'a> {
+        TargetCall {
+            root,
+            session: "sess-janela",
+            agent: None,
+            emitter: "pre_edit",
+            target,
+        }
+    }
+
+    #[test]
+    fn janela_o_mesmo_arquivo_repetido_corta_os_bytes_antes_e_depois() {
+        let blocks: Vec<String> = (0..4).map(|i| out_json(&pre_edit_block(i))).collect();
+        let raw: usize = blocks.iter().map(String::len).sum();
+
+        // ANTES: a dedupe de hoje (bloco/linha por molde) — a ordem de `related docs` e os
+        // contadores fazem a linha única parecer nova a cada chamada.
+        let (a, s) = setup();
+        let before: usize = blocks
+            .iter()
+            .map(|b| dedup_hook_output_with(a.path(), &s, b, false).len())
+            .sum();
+
+        // DEPOIS: o estágio por (emissor, alvo) + a dedupe de hoje por cima.
+        let b = tempfile::tempdir().expect("tempdir");
+        let outs: Vec<String> = blocks
+            .iter()
+            .enumerate()
+            .map(|(i, blk)| {
+                dedup_hook_output_for_target_with(
+                    &call(b.path(), Some("/p/a.rs")),
+                    blk,
+                    T0 + 60 * i as u64,
+                    JANELA,
+                    false,
+                )
+            })
+            .collect();
+        let after: usize = outs.iter().map(String::len).sum();
+
+        eprintln!(
+            "retro-b bytes (4 emissões do mesmo emissor para o mesmo arquivo): \
+             bruto={raw} antes(dedupe de hoje)={before} depois(janela)={after} \
+             → corte {:.1}% sobre o que passava",
+            100.0 * (before - after.min(before)) as f64 / before as f64
+        );
+        assert_eq!(
+            before, raw,
+            "a dedupe de hoje não tira NADA deste padrão — é o defeito"
+        );
+        assert_eq!(outs[0], blocks[0], "a 1ª emissão passa intacta");
+        assert!(
+            outs[1..]
+                .iter()
+                .all(|o| !o.contains("HOTSPOT") && !o.contains("callers:")),
+            "as repetições não carregam de novo os fatos do arquivo: {outs:?}"
+        );
+        assert!(
+            after * 2 < before,
+            "o corte é maior que a metade: {after} vs {before}"
+        );
+    }
+
+    #[test]
+    fn janela_conteudo_novo_passa_e_so_ele() {
+        let d = tempfile::tempdir().expect("tempdir");
+        let c = call(d.path(), Some("/p/a.rs"));
+        let _ =
+            dedup_hook_output_for_target_with(&c, &out_json(&pre_edit_block(0)), T0, JANELA, false);
+        let novo = format!(
+            "{} | note: nova_funcao_quebrada(CC=21) passou do limite",
+            pre_edit_block(1)
+        );
+        let out = dedup_hook_output_for_target_with(&c, &out_json(&novo), T0 + 30, JANELA, false);
+        assert!(
+            out.contains("nova_funcao_quebrada"),
+            "o que mudou passa: {out}"
+        );
+        assert!(
+            !out.contains("HOTSPOT"),
+            "o que já foi dito não volta: {out}"
+        );
+    }
+
+    #[test]
+    fn janela_expirada_reemite_no_estagio_e_a_garantia_da_epoca_nao_afrouxa() {
+        // o estágio puro: dentro da janela omite, passada a janela desde a ÚLTIMA entrega volta.
+        let mut seen = Vec::new();
+        let blk = pre_edit_block(0);
+        assert_eq!(window_filter(&mut seen, 1, &blk, T0, JANELA), blk);
+        // (só sobra o segmento curto — < 24 B, o piso que a dedupe nunca toca: `🔮 Next: Bash (N%)`)
+        let dentro = window_filter(&mut seen, 1, &blk, T0 + JANELA, JANELA);
+        assert!(
+            dentro.len() < MIN_LINE_BYTES,
+            "dentro da janela (<=): só o resíduo curto fica — {dentro:?}"
+        );
+        assert_eq!(
+            window_filter(&mut seen, 1, &blk, T0 + 2 * JANELA + 1, JANELA),
+            blk,
+            "passada a janela o conselho volta"
+        );
+        // o pipeline inteiro: um bloco IDÊNTICO segue retido pela dedupe por época — o estágio só
+        // soma omissão, nunca devolve o que a época já segura (a 1ª cópia vale até a compactação).
+        let d = tempfile::tempdir().expect("tempdir");
+        let c = call(d.path(), Some("/p/a.rs"));
+        let out = out_json(&pre_edit_block(0));
+        let _ = dedup_hook_output_for_target_with(&c, &out, T0, JANELA, false);
+        let tarde = dedup_hook_output_for_target_with(&c, &out, T0 + 2 * JANELA + 1, JANELA, false);
+        assert!(
+            !tarde.contains("HOTSPOT"),
+            "a época ainda retém o idêntico: {tarde}"
+        );
+    }
+
+    #[test]
+    fn janela_alvos_e_agentes_distintos_nao_se_suprimem() {
+        // dois ARQUIVOS: a chave (emissor, alvo) é outra, e o que o estágio já entregou para
+        // `a.rs` não protege `b.rs` — o mesmo segmento volta para o outro alvo.
+        let mut seen = Vec::new();
+        let blk = pre_edit_block(0);
+        let key = |t: &str| hash_line(&format!("pre_edit\u{2}{t}"));
+        assert_eq!(
+            window_filter(&mut seen, key("/p/a.rs"), &blk, T0, JANELA),
+            blk
+        );
+        assert_eq!(
+            window_filter(&mut seen, key("/p/b.rs"), &blk, T0 + 1, JANELA),
+            blk
+        );
+        let de_novo = window_filter(&mut seen, key("/p/a.rs"), &blk, T0 + 2, JANELA);
+        assert!(
+            de_novo.len() < MIN_LINE_BYTES,
+            "a.rs já recebeu: {de_novo:?}"
+        );
+
+        // um subagente tem contexto PRÓPRIO: o estado dele é outro arquivo, e o 1º conselho
+        // dele sai inteiro mesmo depois de o pai ter recebido o dele.
+        let d = tempfile::tempdir().expect("tempdir");
+        assert_ne!(
+            target_state_file(d.path(), "sess-janela", None),
+            target_state_file(d.path(), "sess-janela", Some("agent-7"))
+        );
+        let pai = call(d.path(), Some("/p/a.rs"));
+        let _ = dedup_hook_output_for_target_with(&pai, &out_json(&blk), T0, JANELA, false);
+        let sub = TargetCall {
+            agent: Some("agent-7"),
+            ..call(d.path(), Some("/p/a.rs"))
+        };
+        // (texto distinto do do pai para não cair na dedupe por época, que é por sessão)
+        let do_sub = blk.replace("_normalizar_artefato", "_normalizar_do_subagente");
+        let out =
+            dedup_hook_output_for_target_with(&sub, &out_json(&do_sub), T0 + 2, JANELA, false);
+        assert!(out.contains("HOTSPOT") && out.contains("callers:"), "{out}");
+    }
+
+    #[test]
+    fn janela_sem_alvo_ou_desligada_e_como_antes() {
+        let blk = out_json(&pre_edit_block(0));
+        let (a, s) = setup();
+        let d = tempfile::tempdir().expect("tempdir");
+        for i in 0..3u64 {
+            let b = out_json(&pre_edit_block(i as usize));
+            let want = dedup_hook_output_with(a.path(), &s, &b, false);
+            let got =
+                dedup_hook_output_for_target_with(&call(d.path(), None), &b, T0 + i, JANELA, false);
+            assert_eq!(got, want, "sem alvo: só a dedupe de sempre (emissão {i})");
+        }
+        // kill switch humano: nada é tocado, nem pela época.
+        let e = tempfile::tempdir().expect("tempdir");
+        let c = call(e.path(), Some("/p/a.rs"));
+        let x = dedup_hook_output_for_target_with(&c, &blk, T0, JANELA, true);
+        let y = dedup_hook_output_for_target_with(&c, &blk, T0 + 1, JANELA, true);
+        assert!(x == blk && y == blk, "disabled: intacto");
+        // janela 0 desliga SÓ o estágio: o que sai é exatamente o da dedupe por época.
+        let (f, g) = (
+            tempfile::tempdir().expect("tempdir"),
+            tempfile::tempdir().expect("tempdir"),
+        );
+        for i in 0..3u64 {
+            let b = out_json(&pre_edit_block(i as usize));
+            let got = dedup_hook_output_for_target_with(
+                &call(f.path(), Some("/p/a.rs")),
+                &b,
+                T0 + i,
+                0,
+                false,
+            );
+            assert_eq!(
+                got,
+                dedup_hook_output_with(g.path(), &s, &b, false),
+                "window=0, emissão {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn janela_epoca_nova_reabre() {
+        let d = tempfile::tempdir().expect("tempdir");
+        let c = call(d.path(), Some("/p/a.rs"));
+        let blk = out_json(&pre_edit_block(0));
+        let _ = dedup_hook_output_for_target_with(&c, &blk, T0, JANELA, false);
+        assert!(
+            !dedup_hook_output_for_target_with(&c, &blk, T0 + 5, JANELA, false).contains("HOTSPOT")
+        );
+        advance_epoch(d.path(), c.session);
+        let depois = dedup_hook_output_for_target_with(&c, &blk, T0 + 10, JANELA, false);
+        assert!(
+            depois.contains("HOTSPOT"),
+            "a compactação podou o contexto: reemite — {depois}"
+        );
+    }
+
+    #[test]
+    fn janela_payload_de_gate_nunca_e_suprimido() {
+        let mut seen = Vec::new();
+        let g3 = "[G3 edit-sem-read] Edit de /p/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega).";
+        let a = window_filter(&mut seen, 7, g3, T0, JANELA);
+        let b = window_filter(&mut seen, 7, g3, T0 + 1, JANELA);
+        assert_eq!(a, g3);
+        assert_eq!(
+            b, g3,
+            "o aviso de um gate é decisão, não enriquecimento: nunca vira omissão"
+        );
+        // e uma linha de tabela/curta passa sempre.
+        let t = "| a | b |\n|---|---|";
+        assert_eq!(window_filter(&mut seen, 7, t, T0, JANELA), t);
+        assert_eq!(window_filter(&mut seen, 7, t, T0 + 1, JANELA), t);
+    }
+
+    #[test]
+    fn janela_a_ordem_de_uma_lista_nao_e_conteudo() {
+        assert_eq!(
+            segment_key("📚 related docs: [b doc one, a doc two, c doc three]"),
+            segment_key("📚 related docs: [c doc three, b doc one, a doc two]")
+        );
+        assert_ne!(
+            segment_key("📚 related docs: [b doc one, a doc two]"),
+            segment_key("📚 related docs: [b doc one, z doc nova]"),
+            "um item novo é conteúdo novo"
+        );
+    }
+
+    #[test]
+    fn janela_from_env_so_aceita_inteiro() {
+        assert_eq!(window_from(None), TARGET_WINDOW_SECS);
+        assert_eq!(window_from(Some("30")), 30);
+        assert_eq!(window_from(Some(" 90 ")), 90);
+        assert_eq!(window_from(Some("0")), 0, "0 desliga o estágio");
+        assert_eq!(
+            window_from(Some("dez")),
+            TARGET_WINDOW_SECS,
+            "lixo cai no padrão"
         );
     }
 }
