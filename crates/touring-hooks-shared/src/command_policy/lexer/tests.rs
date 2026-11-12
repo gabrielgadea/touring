@@ -255,3 +255,27 @@ fn fd_redirections_are_words_not_separators() {
     // a lone `&` still sends the command to the background
     assert_eq!(shell_pipelines("a & b").len(), 2);
 }
+
+/// `|&` pipes stdout AND stderr: it is a pipe, never a control operator. Its `&` was read as
+/// the background marker, so `cmd |& tee log` became two pipelines of one stage and a consumer
+/// of the stages saw no pipe at all.
+#[test]
+fn pipe_ampersand_is_one_pipe_not_a_pipe_followed_by_a_background() {
+    assert_eq!(
+        shell_pipelines("cargo test |& tee log"),
+        vec![vec![vec!["cargo", "test"], vec!["tee", "log"]]]
+    );
+    assert_eq!(
+        shell_pipelines("a |& b | c"),
+        vec![vec![vec!["a"], vec!["b"], vec!["c"]]]
+    );
+    // no space after the operator: the shell reads `|&` as one token all the same
+    assert_eq!(shell_pipelines("a |&b"), vec![vec![vec!["a"], vec!["b"]]]);
+    // the control operators around it are unchanged
+    assert_eq!(
+        shell_pipelines("a && b |& c; d"),
+        vec![vec![vec!["a"]], vec![vec!["b"], vec!["c"]], vec![vec!["d"]]]
+    );
+    assert_eq!(shell_pipelines("a || b").len(), 2);
+    assert_eq!(shell_pipelines("a | b & c").len(), 2);
+}

@@ -49,7 +49,7 @@
             "description": "laço",
             "timeout": 300000
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; uma varredura no sandbox devolve só o agregado (Anthropic CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 295000 --code 'for f in a.rs b.rs; do grep -n \\\"fn main\\\" $f; done'\",\"description\":\"laço\",\"timeout\":300000}}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; uma varredura no sandbox devolve só o agregado (Anthropic CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 295000 --code 'for f in a.rs b.rs; do grep -n \\\"fn main\\\" $f; done'\",\"description\":\"laço\",\"timeout\":300000}}}"
         }
       ]
     },
@@ -624,7 +624,7 @@
           "input": {
             "command": "rg -n 'p2' src/f2.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
         }
       ]
     },
@@ -652,7 +652,7 @@
             "description": "espera",
             "timeout": 600000
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 595000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\",\"description\":\"espera\",\"timeout\":600000}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 595000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\",\"description\":\"espera\",\"timeout\":600000}}}"
         }
       ]
     },
@@ -678,7 +678,7 @@
           "input": {
             "command": "rg -n 'p12' src/f12.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p10'\\\\'' src/f10.rs\\n# já executado (não repetir): rg -n '\\\\''p11'\\\\'' src/f11.rs\\nrg -n '\\\\''p12'\\\\'' src/f12.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p10'\\\\'' src/f10.rs\\n# já executado (não repetir): rg -n '\\\\''p11'\\\\'' src/f11.rs\\nrg -n '\\\\''p12'\\\\'' src/f12.rs'\"}}}"
         }
       ]
     },
@@ -705,7 +705,7 @@
             "command": "rg -n 'p22' src/f22.rs",
             "run_in_background": true
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 600000 --code '# já executado (não repetir): rg -n '\\\\''p20'\\\\'' src/f20.rs\\n# já executado (não repetir): rg -n '\\\\''p21'\\\\'' src/f21.rs\\nrg -n '\\\\''p22'\\\\'' src/f22.rs'\",\"run_in_background\":true}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 600000 --code '# já executado (não repetir): rg -n '\\\\''p20'\\\\'' src/f20.rs\\n# já executado (não repetir): rg -n '\\\\''p21'\\\\'' src/f21.rs\\nrg -n '\\\\''p22'\\\\'' src/f22.rs'\",\"run_in_background\":true}}}"
         }
       ]
     },
@@ -823,7 +823,7 @@
           "input": {
             "command": "rg -n 'p2' src/f2.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
         }
       ]
     },
@@ -849,7 +849,7 @@
           "input": {
             "command": "rg -n 'p2' src/f2.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
         }
       ]
     },
@@ -875,7 +875,7 @@
           "input": {
             "command": "rg -n 'p2' src/f2.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): rg -n '\\\\''p0'\\\\'' src/f0.rs\\n# já executado (não repetir): rg -n '\\\\''p1'\\\\'' src/f1.rs\\nrg -n '\\\\''p2'\\\\'' src/f2.rs'\"}}}"
         }
       ]
     },
@@ -953,7 +953,7 @@
           "input": {
             "command": "grep alfa /x/b.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep alfa /x/a.rs\\ngrep alfa /x/b.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep alfa /x/a.rs\\ngrep alfa /x/b.rs'\"}}}"
         }
       ]
     },
@@ -972,7 +972,7 @@
           "input": {
             "command": "grep alfa /x/b.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep alfa /x/a.rs\\ngrep alfa /x/b.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 50% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep alfa /x/a.rs\\ngrep alfa /x/b.rs'\"}}}"
         }
       ]
     },
@@ -1017,7 +1017,7 @@
           "input": {
             "command": "grep -l gamma docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
         }
       ]
     },
@@ -1069,7 +1069,7 @@
           "input": {
             "command": "grep -l gamma docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
         }
       ]
     },
@@ -1095,7 +1095,7 @@
           "input": {
             "command": "grep -l gamma docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
         }
       ]
     },
@@ -1121,7 +1121,7 @@
           "input": {
             "command": "grep -l gamma docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
         },
         {
           "tool": "Bash",
@@ -1187,7 +1187,7 @@
           "input": {
             "command": "grep -n 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' src/a.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -n '\\\\''xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'\\\\'' src/a.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -n '\\\\''xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'\\\\'' src/a.rs'\"}}}"
         }
       ]
     },
@@ -1213,7 +1213,7 @@
           "input": {
             "command": "grep -l gamma docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
         },
         {
           "tool": "Bash",
@@ -1234,7 +1234,7 @@
           "input": {
             "command": "grep -i omega tests/eta.toml"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -c delta README.md\\n# já executado (não repetir): grep -w epsilon lib/zeta.py\\ngrep -i omega tests/eta.toml'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -c delta README.md\\n# já executado (não repetir): grep -w epsilon lib/zeta.py\\ngrep -i omega tests/eta.toml'\"}}}"
         }
       ]
     },
@@ -1830,6 +1830,267 @@
       ]
     },
     {
+      "scn": "g5_prose_edits_are_not_a_burst",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "docs/a.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "docs/a.md",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "docs/b.json"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "docs/b.json",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "Cargo.toml"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "Cargo.toml",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "ci.yaml"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "ci.yaml",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "notes.txt"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "notes.txt",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo done"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g5_only_code_edits_count_toward_the_burst",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "x1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "x1.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "docs/x2.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "docs/x2.md",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "x3.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "x3.py",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "x4.yml"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "x4.yml",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "x5.ts"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "x5.ts",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo done"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G5 telemetria] rajada de 3 edits terminou sem build/teste — P9 medido em 17%. Valide agora (cargo check/test no crate tocado); a regressão silenciosa nasce aqui.\",\"hookEventName\":\"PreToolUse\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g5_two_code_edits_among_prose_stay_below_the_burst",
+      "steps": [
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "y1.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "y1.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "docs/y2.md"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "docs/y2.md",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "y3.py"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "y3.py",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "y4.toml"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "y4.toml",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Read",
+          "input": {
+            "file_path": "y5.json"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "y5.json",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "echo done"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
       "scn": "e3_a_counterfactual_comment_advises_and_a_run_id_silences",
       "steps": [
         {
@@ -1912,7 +2173,7 @@
           "input": {
             "command": "cat d.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `cat` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `cat` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): cat a.md\\n# já executado (não repetir): cat c.md\\ncat d.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `cat` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `cat` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): cat a.md\\n# já executado (não repetir): cat c.md\\ncat d.md'\"}}}"
         },
         {
           "tool": "Bash",
@@ -1978,7 +2239,7 @@
           "input": {
             "command": "grep -rn y src/"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -rn x src/\\ngrep -rn y src/'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -rn x src/\\ngrep -rn y src/'\"}}}"
         }
       ]
     },
@@ -2075,7 +2336,7 @@
           "input": {
             "command": "grep -rn c src/"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -rn a src/\\ngrep -rn c src/'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 1 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] repete 60% dos tokens da inspeção anterior da mesma classe, sem mutação no meio — é a mesma varredura variada, não uma pergunta nova. Só o comando que disparou executa no sandbox; os 1 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -rn a src/\\ngrep -rn c src/'\"}}}"
         }
       ]
     },
@@ -2720,7 +2981,7 @@
           "input": {
             "command": "grep -l delta docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l delta docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l delta docs/x.md'\"}}}"
         }
       ]
     },
@@ -2760,7 +3021,7 @@
           "input": {
             "command": "grep -n epsilon src/e.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -c gamma README.md\\n# já executado (não repetir): grep -l delta docs/x.md\\ngrep -n epsilon src/e.rs'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -c gamma README.md\\n# já executado (não repetir): grep -l delta docs/x.md\\ngrep -n epsilon src/e.rs'\"}}}"
         }
       ]
     },
@@ -2850,7 +3111,7 @@
           "input": {
             "command": "grep -l gamma docs/x.md"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Este comando rodou como `touring run` (a saída vem no JSON do sandbox). Os 2 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa.\",\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Só o comando que disparou executa no sandbox; os 2 já executados vêm como comentário.\",\"updatedInput\":{\"command\":\"TOURING_RUN_RAW=1 touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n alpha src/a.rs\\n# já executado (não repetir): grep -rn beta crates/\\ngrep -l gamma docs/x.md'\"}}}"
         }
       ]
     },
@@ -3341,7 +3602,7 @@
         {
           "tool": "Read",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "limit": 8
           },
           "out": null
@@ -3349,7 +3610,7 @@
         {
           "tool": "Edit",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "new_string": "b",
             "old_string": "a"
           },
@@ -3358,7 +3619,7 @@
         {
           "tool": "Edit",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "new_string": "b",
             "old_string": "a"
           },
@@ -3367,7 +3628,7 @@
         {
           "tool": "Edit",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "new_string": "b",
             "old_string": "a"
           },
@@ -3376,9 +3637,9 @@
         {
           "tool": "Bash",
           "input": {
-            "command": "sed -i 's/a/b/' {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md"
+            "command": "sed -i 's/a/b/' {ROOT}/crates/x/src/lib.rs"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i '\\\\''s/a/b/'\\\\'' {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md'\\n  estrutural (N arquivos): touring ast grep {ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\\n\\n[também, sem bloquear] [G5 telemetria] rajada de 3 edits terminou sem build/teste — P9 medido em 17%. Valide agora (cargo check/test no crate tocado); a regressão silenciosa nasce aqui.\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `{ROOT}/crates/x/src/lib.rs` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i '\\\\''s/a/b/'\\\\'' {ROOT}/crates/x/src/lib.rs'\\n  estrutural (N arquivos): touring ast grep {ROOT}/crates/x/src/lib.rs '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\\n\\n[também, sem bloquear] [G5 telemetria] rajada de 3 edits terminou sem build/teste — P9 medido em 17%. Valide agora (cargo check/test no crate tocado); a regressão silenciosa nasce aqui.\"}}"
         }
       ]
     },
@@ -3388,7 +3649,7 @@
         {
           "tool": "Read",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "limit": 8
           },
           "out": null
@@ -3396,7 +3657,7 @@
         {
           "tool": "Edit",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "new_string": "b",
             "old_string": "a"
           },
@@ -3405,7 +3666,7 @@
         {
           "tool": "Edit",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "new_string": "b",
             "old_string": "a"
           },
@@ -3414,7 +3675,7 @@
         {
           "tool": "Edit",
           "input": {
-            "file_path": "{ROOT}/docs/plans/2026-10-06-geopolitica-logistica-eua/RETOMADA.md",
+            "file_path": "{ROOT}/crates/x/src/lib.rs",
             "new_string": "b",
             "old_string": "a"
           },
@@ -3743,6 +4004,6 @@
       ]
     }
   ],
-  "composition_calls": 30406,
-  "composition_digest": "313f79b2c9dd6816"
+  "composition_calls": 30377,
+  "composition_digest": "1b3bc93909f1af17"
 }

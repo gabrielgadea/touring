@@ -80,7 +80,8 @@ mod tests;
 use vocabulary::RULES;
 
 pub use lexer::{
-    command_of, heredoc_data_spans, heredocs, is_assignment, shell_pipelines, without_heredoc_data,
+    command_of, effective_command_of, heredoc_data_spans, heredocs, is_assignment, shell_pipelines,
+    without_heredoc_data,
 };
 
 /// Outcome of a judgment.

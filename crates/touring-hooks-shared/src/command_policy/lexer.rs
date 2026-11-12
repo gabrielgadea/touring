@@ -231,7 +231,7 @@ impl ShellLexer {
                 self.in_word = true;
                 self.word.push('&');
             }
-            '|' if chars.peek() != Some(&'|') => self.end_command(),
+            '|' if chars.peek() != Some(&'|') => self.pipe_operator(chars),
             ';' | '&' | '|' | '\n' => {
                 self.end_pipeline();
                 if matches!(c, '&' | '|') && chars.peek() == Some(&c) {
@@ -245,6 +245,16 @@ impl ShellLexer {
                 self.after_redirect = matches!(c, '>' | '<');
             }
         }
+    }
+
+    /// A `|` that is not `||`: it ends a command within the pipeline. `|&` is the same pipe
+    /// (stdout AND stderr of the left side): its `&` belongs to the operator and is consumed
+    /// here — read as a control operator it cut the pipeline in two and hid the pipe.
+    fn pipe_operator(&mut self, chars: &mut Chars<'_>) {
+        if chars.peek() == Some(&'&') {
+            chars.next();
+        }
+        self.end_command();
     }
 
     /// A backslash escapes the next character; before a newline it joins the lines.
@@ -713,6 +723,39 @@ pub fn command_of(words: &[String]) -> Option<(&str, &[String])> {
         }
     }
     None
+}
+
+/// Keywords of the shell grammar that PRECEDE a command inside a clause: the command is what
+/// follows (`do cargo fmt`, `then make`, `else rm x`, `{ rg x; }`, `! grep x`) — and the
+/// condition of `if`/`elif`/`while`/`until` is itself a simple command (`if cargo check; …`).
+const CLAUSE_OPENERS: &[&str] = &[
+    "do", "then", "else", "elif", "if", "while", "until", "{", "!",
+];
+
+/// Keywords that run nothing: the head of a `for`/`select`/`case` clause and every closer.
+const CLAUSE_ONLY: &[&str] = &["for", "select", "case", "done", "fi", "esac", "}"];
+
+/// [`command_of`] for a simple command that may sit inside a clause: the effective program
+/// past the clause openers ([`CLAUSE_OPENERS`]) that lead the words, `None` when the words are
+/// only a clause keyword that runs nothing ([`CLAUSE_ONLY`]) or only assignments and wrappers.
+///
+/// `for f in *; do cat $f | head; done` has the simple commands `for f in *`, `do cat $f`,
+/// `head` and `done`; this reads `None`, `cat`, `head` and `None`. [`command_of`] stays the raw
+/// reading — the gates, the lexical judge and the replay corpus classify a clause by its
+/// first word today, and widening them is a decision of its own. The two consumers that
+/// ask WHICH PROGRAM a line runs (the lesson key, `action_signature::bash_verb`, and the
+/// pipe-masking suspicion of `post_bash`) both ask this one.
+pub fn effective_command_of(words: &[String]) -> Option<(&str, &[String])> {
+    let opener = |word: &String| CLAUSE_OPENERS.contains(&word.as_str());
+    let at = words.iter().take_while(|word| opener(word)).count();
+    let words = words.get(at..).unwrap_or_default();
+    if words
+        .first()
+        .is_some_and(|word| CLAUSE_ONLY.contains(&word.as_str()))
+    {
+        return None;
+    }
+    command_of(words)
 }
 
 /// `NAME=value` or `NAME+=value`: a shell variable assignment, not a command.

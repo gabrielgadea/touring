@@ -301,23 +301,22 @@ fn run_chain(
     }
 }
 
-/// Extract the primary command name: the last `&&` step, its first `;` segment that runs
-/// something, past env assignments (`FOO=1`) and wrappers (`sudo`, `env -u X`,
-/// `timeout -s KILL 30`, `nice -n 5`, `nohup`, `time`, `command`, `exec`, `stdbuf`).
+/// The key a Bash command's lessons are WRITTEN under (`bash_outcomes.command_short`,
+/// via `post_bash`): the verb of the line — the effective program of its first simple
+/// command that is not a `cd`/`echo`/control builtin, past env assignments (`FOO=1`) and
+/// wrappers (`sudo`, `env -u X`, `timeout -s KILL 30`, `nice -n 5`, …). Empty when the
+/// line names no program (`echo hi`, `cd /x`, `export A=1`), and then no outcome is
+/// recorded for it.
+///
+/// It IS [`crate::action_signature::bash_verb`] — the function the suggester reads the
+/// same lessons by (`ActionSignature::intent_class`). Two derivations drifted apart
+/// before (this one took the LAST `&&` step, the reader the first command), so a key
+/// written one way was looked up another; a single function cannot.
 ///
 /// S21: it returned `TOURING_CODE_MODE=native` and `S=/tmp/…;` as the "command" of real
 /// failures, so the lessons named assignments instead of programs.
 pub fn extract_command_short(command: &str) -> String {
-    let step = command.trim().rsplit("&&").next().unwrap_or("").trim();
-    step.split(';').find_map(first_program).unwrap_or_default()
-}
-
-/// First word of `segment` that is a program, skipping assignments and wrapper prefixes.
-/// The effective program of the shared lexer (`command_policy::command_of`): one table of
-/// wrappers for the gate that judges a command and for the lesson that names it.
-fn first_program(segment: &str) -> Option<String> {
-    let words: Vec<String> = segment.split_whitespace().map(str::to_owned).collect();
-    crate::shared::command_policy::command_of(&words).map(|(program, _)| program.to_string())
+    crate::action_signature::bash_verb(command).unwrap_or_default()
 }
 
 /// Extract file paths mentioned in the command.

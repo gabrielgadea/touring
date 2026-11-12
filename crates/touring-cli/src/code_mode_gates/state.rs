@@ -171,7 +171,8 @@ pub(crate) struct GateState {
     pub(super) m3_distinct_reads: Cache<String, u32>,
     /// G4 — the session located something (Grep/Glob) recently.
     pub(super) g4_last_locate: Cache<String, ()>,
-    /// G5 — the streak of Edit/Write of the session.
+    /// G5 — the streak of Edit/Write of CODE in the session (prose and config do not count,
+    /// see `chain::g5_counts_edit`).
     pub(super) g5_edit_streak: Cache<String, u32>,
     /// S5 — scripts written in the window, per (project, session, path).
     pub(super) written_scripts_ledger: Cache<u64, ()>,

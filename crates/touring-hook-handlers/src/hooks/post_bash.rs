@@ -490,7 +490,7 @@ fn success_event_outcome(
     let success = exit_code == 0;
     let error_pattern = if !success {
         extract_error_pattern(output_head)
-    } else if pipe_without_pipefail(command) && check_error_indicators(output_head) != 0 {
+    } else if masked_failure_suspected(command, output_head) {
         let what = extract_error_pattern(output_head).unwrap_or_else(|| "error text".to_string());
         Some(format!("{MASKED_FAILURE_LABEL}: {what}"))
     } else {
@@ -508,14 +508,76 @@ fn success_event_outcome(
     }
 }
 
-/// A `|` the shell reads (not inside quotes/heredocs, not `||`) and no `pipefail`.
-fn pipe_without_pipefail(command: &str) -> bool {
-    let shell = touring_ceg::gateway::gate::mask_shell_data(command);
-    let b = shell.as_bytes();
-    let piped = shell
-        .match_indices('|')
-        .any(|(i, _)| b.get(i + 1) != Some(&b'|') && b.get(i.wrapping_sub(1)) != Some(&b'|'));
-    piped && !command.contains("pipefail")
+/// The S21 suspicion: rc 0, error text in the output, and a pipeline that may have hidden
+/// the status of the command that printed it — i.e. the text can have come from a
+/// NON-FINAL stage of a pipeline (the shell reports the last stage's status) and the
+/// line carries no `pipefail`.
+///
+/// Read with the shared shell lexer (`command_policy::shell_pipelines`: quotes, `||` and
+/// heredoc bodies are not pipes; `command_of` names each stage's effective program). An
+/// error line that starts `<prog>:` names its source:
+/// * `<prog>` is a non-final stage of some pipeline → masked, suspect;
+/// * `<prog>` runs elsewhere in the line (a lone command, a pipeline's last stage) →
+///   its status was the shell's own, not suspect;
+/// * the line names nothing in the command (`error[E0308]`, `FAILED`, `Error:`) → it
+///   cannot be attributed, so a pipeline is suspect, as before.
+///
+/// 11/11/2026: the test was "a `|` anywhere in the line". `ls a b c 2>&1; …| head` warned
+/// about an `ls: cannot access` — the expected "No such file" of a command with no pipe,
+/// in a line whose `|` belonged to another command further on.
+fn masked_failure_suspected(command: &str, output_head: &str) -> bool {
+    if command.contains("pipefail") {
+        return false;
+    }
+    let pipelines = crate::shared::command_policy::shell_pipelines(command);
+    let (non_final, elsewhere) = stage_programs(&pipelines);
+    if non_final.is_empty() {
+        return false; // no pipeline whose status the shell swallowed
+    }
+    output_head
+        .lines()
+        .filter(|line| check_error_indicators(line) != 0)
+        .any(|line| match error_line_program(line) {
+            Some(name) if non_final.contains(&name) => true,
+            Some(name) if elsewhere.contains(&name) => false,
+            _ => true,
+        })
+}
+
+/// The effective programs (by basename) of a line's simple commands, split into the
+/// NON-FINAL stages of a pipeline — whose status the shell does not report — and every
+/// other command (a lone command, a pipeline's last stage).
+fn stage_programs(pipelines: &[Vec<Vec<String>>]) -> (Vec<&str>, Vec<&str>) {
+    let (mut non_final, mut elsewhere) = (Vec::new(), Vec::new());
+    for pipeline in pipelines {
+        for (i, stage) in pipeline.iter().enumerate() {
+            // The same reading as the lesson key (`bash_verb`): past clause openers, so
+            // `do cat $f | head` has the non-final stage `cat`, never `do`.
+            let Some((program, _)) = crate::shared::command_policy::effective_command_of(stage)
+            else {
+                continue;
+            };
+            let program = program.rsplit('/').next().unwrap_or(program);
+            if i + 1 < pipeline.len() {
+                non_final.push(program);
+            } else {
+                elsewhere.push(program);
+            }
+        }
+    }
+    (non_final, elsewhere)
+}
+
+/// The program an error line names — `ls: cannot access …` → `ls`, `./run.sh: line 3: …`
+/// → `run.sh` — or `None` when it starts with no `<word>:` (`error[E0308]: …`, `FAILED`).
+fn error_line_program(line: &str) -> Option<&str> {
+    let (head, _) = line.trim_start().split_once(':')?;
+    let name = head.rsplit('/').next().unwrap_or(head);
+    (!name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-' | '+')))
+    .then_some(name)
 }
 
 /// WS4: Capture structured metrics from large output, persist as a note,
@@ -1534,8 +1596,213 @@ mod s21_tests {
         );
         assert_eq!(short("timeout -s KILL 30 cargo test"), "cargo");
         assert_eq!(short("sudo -E apt update"), "apt");
-        assert_eq!(short("for f in *; do grep x $f; done"), "for");
+        // 11/11/2026: the verb is the program the loop RUNS, never the keyword that opens it.
+        assert_eq!(short("for f in *; do grep x $f; done"), "grep");
         assert_eq!(short("cd /repo && git status"), "git");
+        assert_eq!(short("echo start && cargo check"), "cargo");
+        // A line of only navigation/echo/control builtins names no program.
+        assert_eq!(short("echo hello"), "");
+        assert_eq!(short("cd /x && export A=1"), "");
+    }
+
+    /// 11/11/2026: the key a lesson is WRITTEN under (`bash_outcomes.command_short`, from
+    /// `extract_command_short`) and the key it is READ by (`intent_class` of the bash
+    /// `ActionSignature`, what `cli_suggester` queries) come from one function, so a line
+    /// can never be recorded under one program and looked up under another. A key changed
+    /// on only one side never matches.
+    #[test]
+    fn writer_and_reader_derive_the_command_key_from_one_function() {
+        use super::super::pre_bash::extract_command_short as written;
+        for command in [
+            "cargo check -p touring-hooks",
+            "cd /x && cargo test",
+            "echo start && cargo check",
+            "for f in a b; do cargo fmt $f; done",
+            "make && ./deploy.sh",
+            "cd /x && echo y; rg -n foo .",
+            "FOO=1 sudo -E apt update",
+            "if [ -f x ]; then make; fi",
+            "echo hello",
+            "cd /tmp",
+            "export A=1",
+            "",
+        ] {
+            let read = crate::action_signature::ActionSignature::from_pre_tool(
+                "Bash",
+                &serde_json::json!({ "command": command }),
+                None,
+                0,
+                None,
+                None,
+            )
+            .intent_class;
+            let key = written(command);
+            let expected = if key.is_empty() { "unknown" } else { &key };
+            assert_eq!(
+                read, expected,
+                "writer and reader disagree on {command:?}: written {key:?}, read {read:?}"
+            );
+        }
+    }
+
+    /// A line with no program records no outcome at all — there is no key to file it under.
+    #[test]
+    fn a_line_of_only_builtins_records_no_outcome() {
+        for command in ["echo hello", "cd /tmp", "export A=1; set -e"] {
+            let input = post(command, "hello\n");
+            let cmd = input["tool_input"]["command"].as_str().unwrap_or("");
+            assert!(
+                build_bash_outcome_for_event(cmd, &bash_payload_output(&input, None)).is_none(),
+                "{command:?} must not be recorded"
+            );
+        }
+    }
+
+    // ── masking suspicion: only a text that may have come from a NON-FINAL pipe stage ──
+
+    /// 11/11/2026: `ls a b c 2>&1; …` printed `ls: cannot access …` — an expected "No such
+    /// file" from a command with NO pipe — and a `|` in another simple command further on
+    /// made the whole line "piped", so the hook warned about a masked exit code.
+    #[test]
+    fn error_text_from_a_command_outside_any_pipe_is_not_a_masking_suspect() {
+        let o = outcome_of(&post(
+            "ls src/nada docs/nada 2>&1; cargo metadata --format-version 1 | head -c 20",
+            "ls: cannot access 'src/nada': No such file or directory\n\
+             ls: cannot access 'docs/nada': No such file or directory\n\
+             {\"packages\":[\n",
+        ));
+        assert!(o.success, "rc 0 is what ran");
+        assert!(
+            o.error_pattern.is_none(),
+            "the error text names `ls`, which sits in no pipe: {:?}",
+            o.error_pattern
+        );
+    }
+
+    /// The text names a program that IS a non-final pipe stage: its status was masked.
+    #[test]
+    fn error_text_naming_a_non_final_pipe_stage_is_a_masking_suspect() {
+        let o = outcome_of(&post(
+            "cat missing.txt | head -3",
+            "cat: missing.txt: No such file or directory\n",
+        ));
+        let label = o
+            .error_pattern
+            .expect("`cat` is a non-final stage: suspect");
+        assert!(label.starts_with(MASKED_FAILURE_LABEL), "{label}");
+        // Same program, same pipe, reached through a wrapper and a path.
+        let wrapped = outcome_of(&post(
+            "echo go; sudo /usr/bin/cat missing.txt | wc -l",
+            "cat: missing.txt: No such file or directory\n",
+        ));
+        assert!(wrapped.error_pattern.is_some());
+    }
+
+    /// A text that names nothing in the line (`Error:`, `error[E…]`, `FAILED`) cannot be
+    /// attributed, so the pipe is still suspect — what `cargo … | tail` always was.
+    #[test]
+    fn error_text_that_cannot_be_attributed_is_still_a_masking_suspect() {
+        for text in [
+            "Error: could not compile `touring-cli`\n",
+            "error[E0308]: mismatched types\n",
+            "test result: FAILED. 1 passed; 1 failed\n",
+            "ValueError: bad input\n",
+        ] {
+            let o = outcome_of(&post("cargo test 2>&1 | tail -5", text));
+            assert!(
+                o.error_pattern
+                    .as_deref()
+                    .is_some_and(|l| l.starts_with(MASKED_FAILURE_LABEL)),
+                "{text:?} must stay suspect: {:?}",
+                o.error_pattern
+            );
+        }
+    }
+
+    /// The LAST stage of a pipe reports its own status: an error it prints is not masked.
+    #[test]
+    fn error_text_naming_the_last_pipe_stage_is_not_masked() {
+        let o = outcome_of(&post(
+            "echo x | ls /nao/existe",
+            "ls: cannot access '/nao/existe': No such file or directory\n",
+        ));
+        assert!(o.error_pattern.is_none(), "{:?}", o.error_pattern);
+    }
+
+    /// `|` in quotes, `||`, and a heredoc body are not pipes.
+    #[test]
+    fn a_pipe_character_that_is_data_or_an_or_list_is_no_pipeline() {
+        for command in [
+            "echo 'a | b'; ls nada",
+            "ls nada || echo ausente",
+            "cat <<'EOF'\na | b\nEOF\nls nada",
+        ] {
+            let o = outcome_of(&post(
+                command,
+                "ls: cannot access 'nada': No such file or directory\nerror[E0001]: x\n",
+            ));
+            assert!(
+                o.error_pattern.is_none(),
+                "{command:?}: {:?}",
+                o.error_pattern
+            );
+        }
+    }
+
+    /// `|&` is a pipe (stdout and stderr): `cargo check |& tail` masks cargo's status like
+    /// `cargo check | tail`. The lexer read its `&` as a background marker and cut the line
+    /// in two pipelines of one stage, so no pipe was left to be suspect of.
+    #[test]
+    fn pipe_ampersand_is_a_pipe_for_the_masking_suspicion() {
+        let o = outcome_of(&post(
+            "cargo check |& tail -3",
+            "error[E0308]: mismatched types\n",
+        ));
+        let label = o
+            .error_pattern
+            .expect("`cargo` is a non-final stage of `|&`: suspect");
+        assert!(label.starts_with(MASKED_FAILURE_LABEL), "{label}");
+    }
+
+    /// A command in a clause body is read PAST its keyword (`do ls $f` runs `ls`), by the same
+    /// function the lesson key uses: the stage programs and the verb never disagree about which
+    /// program a line runs.
+    #[test]
+    fn a_program_inside_a_loop_body_is_read_past_the_do_keyword() {
+        // `ls` is a lone command in the body — no pipe — while the line's pipe is elsewhere.
+        let lone = outcome_of(&post(
+            "for f in a b; do ls $f; done; cargo metadata --format-version 1 | head -c 5",
+            "ls: cannot access 'a': No such file or directory\n",
+        ));
+        assert!(
+            lone.error_pattern.is_none(),
+            "`ls` runs outside any pipe: {:?}",
+            lone.error_pattern
+        );
+        // `cat` IS a non-final stage of a pipe inside the body.
+        let piped = outcome_of(&post(
+            "for f in a b; do cat $f | head -3; done",
+            "cat: a: No such file or directory\n",
+        ));
+        assert!(piped.error_pattern.is_some(), "`cat | head` masks cat");
+    }
+
+    #[test]
+    fn stage_programs_and_the_lesson_verb_read_the_same_program() {
+        for line in [
+            "for f in *; do cat $f | head; done",
+            "if grep -q x f | wc -l; then make; fi",
+            "while read l; do sort $l | uniq; done < list",
+        ] {
+            let pipelines = crate::shared::command_policy::shell_pipelines(line);
+            let (non_final, _) = stage_programs(&pipelines);
+            let verb = crate::action_signature::bash_verb(line).expect("a program");
+            assert_eq!(
+                non_final.first().copied(),
+                Some(verb.as_str()),
+                "{line}: the first masked stage is the verb"
+            );
+        }
     }
 }
 

@@ -668,6 +668,64 @@ fn suspect_outcomes_excluded_from_lessons() {
     assert_eq!(got, vec!["verified boom".to_string()]);
 }
 
+/// 11/11/2026 — a Bash line that opened with `for`, `echo` or `cd` was keyed on that word
+/// and drew five unrelated failures ("lições de erros passados para esta ação"). The lesson
+/// key is the PROGRAM the line runs: builtins that only navigate, echo or open a clause name
+/// none, and a line made of nothing else is attached no lesson at all.
+#[test]
+fn bash_lessons_are_filed_under_the_program_the_line_runs_never_a_builtin() {
+    use crate::action_signature::ActionSignature;
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let db = dir.path().join("knowledge.db");
+    let conn = rusqlite::Connection::open(&db).expect("open");
+    conn.execute_batch(
+        "CREATE TABLE bash_outcomes (id INTEGER PRIMARY KEY, command_short TEXT,
+             error_pattern TEXT, executed_at TEXT, success INTEGER, origin_event TEXT);",
+    )
+    .expect("schema");
+    for (short, pattern) in [
+        ("echo", "echo: write error: Broken pipe"),
+        ("echo", "echo: unrelated 2"),
+        ("echo", "echo: unrelated 3"),
+        ("cd", "cd: no such file or directory: /gone"),
+        ("for", "for: unrelated loop failure"),
+        ("unknown", "unrelated row filed under the placeholder"),
+        ("grep", "grep: Unmatched ( or \\("),
+    ] {
+        conn.execute(
+            "INSERT INTO bash_outcomes (command_short, error_pattern, executed_at, success, origin_event)
+             VALUES (?1, ?2, '2026-11-10 10:00:00', 0, 'PostToolUseFailure')",
+            rusqlite::params![short, pattern],
+        )
+        .expect("seed");
+    }
+    drop(conn);
+    let sig = |command: &str| {
+        ActionSignature::from_pre_tool("Bash", &json!({ "command": command }), None, 0, None, None)
+    };
+
+    // Only builtins: no program, no lesson — whatever sits under those words stays out.
+    for command in [
+        "echo hello",
+        "cd /tmp",
+        "for i in 1 2 3; do echo $i; done",
+        "export A=1 && set -e",
+    ] {
+        assert!(
+            collect_db_lessons_from(std::slice::from_ref(&db), &sig(command)).is_empty(),
+            "{command:?} names no program: no lesson may be attached"
+        );
+    }
+
+    // A program behind builtins: its own lessons, and only its own.
+    let items = collect_db_lessons_from(
+        std::slice::from_ref(&db),
+        &sig("cd /x && for f in a b; do grep -E '(' $f; done"),
+    );
+    assert_eq!(items.len(), 1, "{items:?}");
+    assert!(items[0].text.contains("grep"), "{:?}", items[0].text);
+}
+
 #[test]
 fn query_edit_failures_federates_across_dbs() {
     let dir = tempfile::TempDir::new().expect("tempdir");

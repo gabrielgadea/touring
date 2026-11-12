@@ -286,7 +286,8 @@ pub fn classify_tool_class(tool_name: &str) -> String {
 /// Extract the intent_class from the tool_class + raw input.
 ///
 /// Rules:
-/// - `bash`: first command token (e.g. `cargo check` → `cargo`).
+/// - `bash`: the verb of the line, see [`bash_verb`] (e.g. `cargo check` → `cargo`;
+///   a line of only builtins such as `echo hi` → `unknown`).
 /// - `edit` / `write` / `read`: file extension (e.g. `.rs` → `rs`; no ext → `unknown`).
 /// - `search`: `symbol` when pattern is a clean identifier, else `free-text`.
 /// - `task` / `web` / `mcp`: tool name as-is (already descriptive).
@@ -299,7 +300,7 @@ fn classify_intent_class(tool_class: &str, tool_name: &str, input: &Value) -> St
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .trim();
-            first_command_token(cmd).unwrap_or_else(|| "unknown".to_string())
+            bash_verb(cmd).unwrap_or_else(|| "unknown".to_string())
         }
         "edit" | "write" | "read" => {
             let file = input
@@ -330,37 +331,45 @@ fn classify_intent_class(tool_class: &str, tool_name: &str, input: &Value) -> St
     }
 }
 
-/// Extract the first whitespace-delimited token from a shell command.
+/// Builtins that are not a program a lesson could be ABOUT: navigation (`cd`), echo, the
+/// builtins that only configure the shell (`export`, `set`, `true`, `:`) and the ones that
+/// only test or read shell state (`[`, `[[`, `test`, `read`) — the condition of an
+/// `if`/`while` is a simple command, and `while read l` must not name the line `read`.
+/// This is the lesson's own policy; WHICH program a simple command runs, clause keywords
+/// included, is `command_policy::effective_command_of`'s answer.
+const NOT_A_PROGRAM: &[&str] = &[
+    "cd", "echo", "export", "set", "true", ":", "[", "[[", "test", "read",
+];
+
+/// The VERB of a shell line: the effective program (`command_policy::effective_command_of`,
+/// see `GLOSSARY.md`) of the FIRST simple command that is not a [`NOT_A_PROGRAM`] builtin,
+/// by basename (`/usr/bin/cargo` → `cargo`); `None` when the line names no program.
 ///
-/// S8 (2026-10-08), defeito (b) medido ao vivo pela analise-6b: o verbo real é o
-/// primeiro COMANDO — prefixos de navegação (`cd /x && …`, `cd /x; …`),
-/// atribuições de ambiente (`VAR=val …`) e todo wrapper são pulados. Antes,
-/// TODO comando com `cd` chaveava as lições nas mesmas ~9 falhas genéricas de
-/// `cd`, repetidas a cada chamada. Ingênuo quanto a aspas (corta dentro de
-/// `grep 'a;b'`), como o `command_segments` do cli_suggester — seguro para
-/// CLASSIFICAÇÃO: o verbo do segmento não muda com o corte. O verbo é o programa
-/// efetivo do lexer compartilhado (`command_policy::command_of`), a mesma leitura
-/// dos gates — uma tabela de wrappers só.
-fn first_command_token(cmd: &str) -> Option<String> {
-    for seg in cmd
-        .split(['\n', ';'])
-        .flat_map(|p| p.split("&&"))
-        .flat_map(|p| p.split("||"))
-    {
-        let words: Vec<String> = seg.split_whitespace().map(str::to_owned).collect();
-        let Some((verb, _)) = crate::command_policy::command_of(&words) else {
-            continue; // segmento só de atribuições — o próximo decide
-        };
-        if verb == "cd" {
-            continue; // prefixo de navegação — o próximo segmento decide
-        }
-        // Strip leading path components (e.g. `/usr/bin/cargo` → `cargo`).
-        let base = verb.split('/').next_back().unwrap_or(verb);
-        if !base.is_empty() {
-            return Some(base.to_string());
-        }
-    }
-    None
+/// It is the ONE key of a lesson about a Bash command, on both sides: what
+/// `bash_outcomes.command_short` is WRITTEN under (`pre_bash::extract_command_short`,
+/// called by `post_bash`) and what the suggester READS it by
+/// ([`ActionSignature::intent_class`], `bash` class). A key changed on one side only
+/// never matches — the parity test lives in `post_bash` (`writer_and_reader_…`).
+///
+/// History. S8 (2026-10-08) skipped `cd`: every `cd <dir> && …` line had keyed its
+/// lessons on the same ~9 generic `cd` failures. On 2026-11-11 a line opening with
+/// `for`, `echo` or `cd` still keyed on that word and drew five unrelated failures, and
+/// the scan was naive about quotes (`grep 'a;b'`) — it now runs on the lexer's
+/// pipelines (quotes group, heredoc bodies are data), the same reading the gates use,
+/// one table of wrappers only.
+pub fn bash_verb(command: &str) -> Option<String> {
+    crate::command_policy::shell_pipelines(command)
+        .iter()
+        .flatten()
+        .find_map(|stage| stage_verb(stage))
+}
+
+/// [`bash_verb`] of one simple command: its effective program past clause openers,
+/// assignments and wrappers, and `None` for a builtin that names no program.
+fn stage_verb(stage: &[String]) -> Option<String> {
+    let (program, _) = crate::command_policy::effective_command_of(stage)?;
+    let base = program.rsplit('/').next().unwrap_or(program);
+    (!base.is_empty() && !NOT_A_PROGRAM.contains(&base)).then(|| base.to_string())
 }
 
 /// Extract the file extension (without the dot), lowercased.
@@ -935,5 +944,62 @@ mod tests {
             classify_intent_class("bash", "Bash", &json!({"command": ""})),
             "unknown"
         );
+    }
+
+    // ── 11/11/2026: a lesson key names a PROGRAM, never a builtin or a loop keyword ──
+
+    /// A line that opened with `for`, `echo` or `cd` keyed its lessons on that word and
+    /// got five unrelated failures back (measured in a real session). The verb is the
+    /// effective program of the first simple command that is not a navigation, echo or
+    /// control builtin — read by the shared lexer, so quotes and clause bodies
+    /// (`do cargo fmt`, `then make`) are read the way the shell reads them.
+    #[test]
+    fn lessons_verb_is_the_first_program_not_a_navigation_echo_or_control_builtin() {
+        for (command, verb) in [
+            ("for f in a b; do cargo fmt $f; done", "cargo"),
+            ("echo hi && cargo check", "cargo"),
+            ("echo 'a;b' | grep -n a", "grep"),
+            ("cd /x && echo y; rg -n foo .", "rg"),
+            ("if [ -f x ]; then make; fi", "make"),
+            ("while read l; do ruff check $l; done < list", "ruff"),
+            ("export A=1; set -e; true; : ; pytest -q", "pytest"),
+            ("A=1 sudo -u x timeout .5 rm f", "rm"),
+            ("cd /home/x && cargo test", "cargo"),
+            // The condition of `if`/`while`/`until` IS a simple command: it names the program.
+            ("if cargo check; then echo ok; fi", "cargo"),
+            ("while ping -c1 host; do sleep 1; done", "ping"),
+            ("until nc -z host 22; do sleep 1; done", "nc"),
+            // A command inside a loop body, in a pipeline, past `do`.
+            ("for f in *; do cat $f | head; done", "cat"),
+            ("cargo check |& tee log", "cargo"),
+        ] {
+            assert_eq!(
+                classify_intent_class("bash", "Bash", &json!({ "command": command })),
+                verb,
+                "{command}"
+            );
+        }
+    }
+
+    /// A line made only of those builtins names no program: no lesson is keyed on it.
+    #[test]
+    fn lessons_verb_is_unknown_when_the_line_has_only_builtins() {
+        for command in [
+            "echo hello",
+            "cd /tmp",
+            "for i in 1 2 3; do echo $i; done",
+            "export X=1",
+            "true",
+            ":",
+            "set -e && cd x",
+            "while true; do :; done",
+            "if [ -f x ]; then echo y; fi",
+        ] {
+            assert_eq!(
+                classify_intent_class("bash", "Bash", &json!({ "command": command })),
+                "unknown",
+                "{command}"
+            );
+        }
     }
 }

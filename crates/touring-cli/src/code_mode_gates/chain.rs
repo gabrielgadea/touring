@@ -318,6 +318,19 @@ pub(super) fn burst_gate_with(
     ))
 }
 
+/// Whether an Edit/Write/NotebookEdit grows the G5 burst: its target is CODE
+/// ([`crate::cli_suggester::is_code_file`], the one list of what counts as code — the
+/// Reflexo 5 exemptions `.md/.json/.toml/.yaml/.yml/.txt` are outside it). Prose and
+/// config have nothing to build or test, so "burst ended without build/test" about them
+/// is noise — four `.md` edits fired it on 11/11/2026. A call that names no `file_path`
+/// (a notebook) counts, as before: an unknown target is not proof of prose.
+fn g5_counts_edit(tool_input: &Value) -> bool {
+    tool_input
+        .get("file_path")
+        .and_then(Value::as_str)
+        .is_none_or(crate::cli_suggester::is_code_file)
+}
+
 /// The gate chain with the MOST SEVERE verdict (30.4.97, G5/G9 order): no advisory
 /// short-circuits the chain. Gates that only warn deposit the text in `avisos` and the evaluation
 /// continues; the applicable deny (any position in the chain) wins, and the advisory goes along in its text.
@@ -346,10 +359,13 @@ pub(super) fn run_chain(
         let epoch = st.mutation_epoch.get(&project).unwrap_or(0);
         st.mutation_epoch.insert(project.clone(), epoch + 1);
         // G5 (telemetry): the edit burst grows; its end is the first
-        // Bash action (where the single advisory can speak).
-        let streak = st.g5_edit_streak.get(session).unwrap_or(0);
-        st.g5_edit_streak
-            .insert(session.to_string(), streak.saturating_add(1));
+        // Bash action (where the single advisory can speak). Only an edit of CODE grows
+        // it — see `g5_counts_edit`.
+        if g5_counts_edit(tool_input) {
+            let streak = st.g5_edit_streak.get(session).unwrap_or(0);
+            st.g5_edit_streak
+                .insert(session.to_string(), streak.saturating_add(1));
+        }
         // W3 S-3.1 — G3: Edit without a recent Read of the file, PER SESSION.
         // Write stays OUTSIDE the gate: creation has nothing to read and overwrite already
         // requires a Read in the harness — G3 denied a live creation Write on

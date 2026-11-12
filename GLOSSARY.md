@@ -18,6 +18,14 @@ wrappers (`sudo`, `env`, `timeout`, `nice`, `xargs`…) com suas flags e argumen
 isso; todo gate que julga ou classifica um comando consome essa resposta, nunca uma
 tabela de wrappers própria.
 
+**Programa efetivo dentro de uma cláusula** — `effective_command_of`: o programa efetivo
+depois de ler através dos abridores de cláusula (`do`, `then`, `else`, `elif`, `{`, `!` e a
+condição de `if`/`while`/`until`, que é ela mesma um comando simples), com `None` para o que
+não executa nada (`for`/`select`/`case`, `done`, `fi`, `esac`, `}`). `for f in *; do cat $f |
+head; done` tem os comandos simples `cat` e `head`. `command_of` segue sendo a leitura crua
+que os gates e o juiz lexical usam; a chave de lição (`bash_verb`) e a suspeita de pipe
+mascarado (`post_bash`) perguntam o programa por esta função, e só por ela.
+
 **Wrapper** — programa cujo papel é executar outro programa recebido como argumento.
 A tabela é única e é a **união** do que qualquer consumidor reconhecia: ler através de
 mais wrappers só revela o programa, nunca o esconde. Um consumidor que precise ler

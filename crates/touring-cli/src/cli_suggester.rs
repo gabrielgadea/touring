@@ -459,8 +459,10 @@ fn looks_like_symbol(s: &str) -> bool {
     s.len() <= 80
 }
 
-/// Extension-based code-file classification.
-fn is_code_file(path: &str) -> bool {
+/// Extension-based code-file classification. `pub(crate)`: the G5 edit burst
+/// (`code_mode_gates::chain`) counts only edits this predicate accepts, instead of
+/// keeping a second list of what is code.
+pub(crate) fn is_code_file(path: &str) -> bool {
     matches!(
         Path::new(path)
             .extension()
@@ -1890,13 +1892,31 @@ fn federated_db_paths(
 /// project's knowledge DB so a failure recorded under any project is surfaced.
 fn collect_db_lessons(rt: &HookRuntime, sig: &ActionSignature) -> Vec<LessonItem> {
     let (_, knowledge_dbs) = federated_db_paths(rt);
+    collect_db_lessons_from(&knowledge_dbs, sig)
+}
+
+/// The `bash_outcomes.command_short` a Bash action's lessons are filed under: its
+/// `intent_class`, which is [`crate::action_signature::bash_verb`] — the very function
+/// `post_bash` derives the written key from (`extract_command_short`), so a key written
+/// is a key found. `None` for a line that names no program (`echo hi`, `cd /x`, `for …;
+/// do echo …; done`): `intent_class` is `unknown` there and no lesson is attached —
+/// five unrelated failures keyed on `for`/`echo`/`cd` were injected before 2026-11-11.
+fn bash_lesson_key(sig: &ActionSignature) -> Option<&str> {
+    (sig.tool_class == "bash" && sig.intent_class != "unknown").then_some(sig.intent_class.as_str())
+}
+
+/// [`collect_db_lessons`] over explicit knowledge DBs (the federation, resolved by the caller).
+fn collect_db_lessons_from(
+    knowledge_dbs: &[std::path::PathBuf],
+    sig: &ActionSignature,
+) -> Vec<LessonItem> {
     let mut items = Vec::new();
 
     // ── Source 1: bash_outcomes (federated) ──────────────────────────────────
-    if sig.tool_class == "bash" {
-        // intent_class is the command_short (e.g. "cargo", "touring", "ruff").
+    if let Some(command_short) = bash_lesson_key(sig) {
+        // command_short is the verb (e.g. "cargo", "touring", "ruff").
         for (cmd_short, pattern, executed_at) in
-            query_bash_failures(&knowledge_dbs, &sig.intent_class, 10)
+            query_bash_failures(knowledge_dbs, command_short, 10)
         {
             let age = age_days_from_sqlite(&executed_at);
             let text = format!("Bash `{}` failed: {}", cmd_short, truncate(&pattern, 80));
@@ -1914,7 +1934,7 @@ fn collect_db_lessons(rt: &HookRuntime, sig: &ActionSignature) -> Vec<LessonItem
     if sig.tool_class == "edit" || sig.tool_class == "write" {
         // intent_class is the file extension (e.g. "rs", "py", "ts").
         let lang = &sig.intent_class;
-        for (pattern, age) in query_edit_failures(&knowledge_dbs, lang, 10) {
+        for (pattern, age) in query_edit_failures(knowledge_dbs, lang, 10) {
             let text = format!("Edit `{}` file failed: {}", lang, truncate(&pattern, 80));
             let score =
                 severity_weight("warning") * recency_weight(age) * frequency_weight(1) * 0.7; // plain match weight

@@ -625,6 +625,26 @@ fn g3_g7_m3_g5_e3_rows() -> Vec<Scn> {
                 s.read("sess-g5ok", f, pass()).edit("sess-g5ok", f, pass())
             })
             .bash("sess-g5ok", "cargo check -p x", pass()),
+        // 11/11/2026: four `.md` edits ended in "[G5 telemetria] rajada de 4 edits terminou
+        // sem build/teste" — prose has nothing to build or test, so it is no burst.
+        base("g5_prose_edits_are_not_a_burst", &[])
+            .each(0, 5, |s, i| {
+                let f = ["docs/a.md", "docs/b.json", "Cargo.toml", "ci.yaml", "notes.txt"][i];
+                s.read("sess-g5prose", f, pass()).edit("sess-g5prose", f, pass())
+            })
+            .bash("sess-g5prose", "echo done", quiet("[G5 telemetria]")),
+        base("g5_only_code_edits_count_toward_the_burst", &[])
+            .each(0, 5, |s, i| {
+                let f = ["x1.rs", "docs/x2.md", "x3.py", "x4.yml", "x5.ts"][i];
+                s.read("sess-g5mix", f, pass()).edit("sess-g5mix", f, pass())
+            })
+            .bash("sess-g5mix", "echo done", speaks(&["G5", "rajada de 3 edits"])),
+        base("g5_two_code_edits_among_prose_stay_below_the_burst", &[])
+            .each(0, 5, |s, i| {
+                let f = ["y1.rs", "docs/y2.md", "y3.py", "y4.toml", "y5.json"][i];
+                s.read("sess-g5low", f, pass()).edit("sess-g5low", f, pass())
+            })
+            .bash("sess-g5low", "echo done", quiet("[G5 telemetria]")),
         base("e3_a_counterfactual_comment_advises_and_a_run_id_silences", &["e3_contrafactual_em_comentario_gera_advisory_e_run_id_silencia"])
             .read("sess-e3", "m.rs", pass())
             .call(
@@ -975,6 +995,15 @@ fn edit_file() -> Scn {
         .file(&format!("{{ROOT}}/{RETOMADA}"), "base")
 }
 
+/// A source file for the rows about the G5 edit burst, which counts CODE edits only.
+const CODE_TARGET: &str = "crates/x/src/lib.rs";
+
+fn edit_code_file() -> Scn {
+    scn("", &[])
+        .code()
+        .file(&format!("{{ROOT}}/{CODE_TARGET}"), "base")
+}
+
 fn g10_route_rows() -> Vec<Scn> {
     let fp = format!("{{ROOT}}/{RETOMADA}");
     let leitura = ".venv/bin/python3 -c 'import pathlib; print(pathlib.Path(\"docs\").exists())'";
@@ -1198,6 +1227,7 @@ fn rename(mut s: Scn, name: &'static str, covers: &'static [&'static str]) -> Sc
 
 fn order_rows() -> Vec<Scn> {
     let fp = format!("{{ROOT}}/{RETOMADA}");
+    let code_fp = format!("{{ROOT}}/{CODE_TARGET}");
     let burst_of_edits = |s: Scn, sess: &'static str, fp: &str| {
         s.call(sess, "Read", json!({"file_path": fp, "limit": 8}), any())
             .each(0, 3, |s, _| s.call(sess, "Edit", edit_ab(fp), not_deny()))
@@ -1209,13 +1239,15 @@ fn order_rows() -> Vec<Scn> {
             .bash(sess, &run_route("r2"), pass())
     };
     vec![
-        burst_of_edits(edit_file(), "g97-ordem-g5-g9", &fp)
+        // The G5 burst counts edits of CODE only (11/11/2026): these two rows drive it on a
+        // code file — on the plan's `.md` the advisory these rows are about never speaks.
+        burst_of_edits(edit_code_file(), "g97-ordem-g5-g9", &code_fp)
             .bash(
                 "g97-ordem-g5-g9",
-                &format!("sed -i 's/a/b/' {fp}"),
+                &format!("sed -i 's/a/b/' {code_fp}"),
                 deny(&[
                     "[G9 escrita-cega-inline]",
-                    &format!("Edit tool em `{fp}`"),
+                    &format!("Edit tool em `{code_fp}`"),
                     "[G5 telemetria]",
                 ])
                 .gate("G9"),
@@ -1224,7 +1256,7 @@ fn order_rows() -> Vec<Scn> {
                 "g5_an_advisory_does_not_swallow_the_g9_deny",
                 &["g5_advisory_nao_engole_o_deny_do_g9"],
             ),
-        burst_of_edits(edit_file(), "g97-ordem-g5-controle", &fp)
+        burst_of_edits(edit_code_file(), "g97-ordem-g5-controle", &code_fp)
             .bash(
                 "g97-ordem-g5-controle",
                 "echo ok",
