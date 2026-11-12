@@ -94,7 +94,7 @@
             "new_string": "new",
             "old_string": "old"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/foo.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/foo.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/foo.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/foo.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         }
       ]
     },
@@ -1306,7 +1306,7 @@
             "file_path": "src/a.rs",
             "new_string": "let x = 1;"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/a.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         },
         {
           "tool": "Edit",
@@ -1314,7 +1314,7 @@
             "file_path": "src/a.rs",
             "new_string": "let x = 1;"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read src/a.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram src/a.rs. Proibido até lá: Edit de src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra src/a.rs. Proibido até lá: Edit de src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
         },
         {
           "tool": "Read",
@@ -1342,7 +1342,7 @@
             "file_path": "src/x.rs",
             "new_string": "let x = 1;"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/x.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/x.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/x.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/x.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         },
         {
           "tool": "Edit",
@@ -1350,7 +1350,7 @@
             "file_path": "src/x.rs",
             "new_string": "let x = 1;"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read src/x.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram src/x.rs. Proibido até lá: Edit de src/x.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read src/x.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra src/x.rs. Proibido até lá: Edit de src/x.rs ou de qualquer outro arquivo ainda não lido.\"}}"
         },
         {
           "tool": "Edit",
@@ -1358,7 +1358,7 @@
             "file_path": "src/x.rs",
             "new_string": "let x = 1;"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/x.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/x.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/x.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/x.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         }
       ]
     },
@@ -1600,7 +1600,7 @@
             "file_path": "src/nunca_visto.rs",
             "new_string": "let x = 1;"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/nunca_visto.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/nunca_visto.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de src/nunca_visto.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read src/nunca_visto.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         }
       ]
     },
@@ -2120,6 +2120,468 @@
           "input": {
             "file_path": "m.rs",
             "new_string": "// quebraria sem pipefail — provado em run-1787618052969\nlet x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__grep_n",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__rg_n",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "rg -n needle {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__sed_n",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -n '1,5p' {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__cat",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cat {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__head",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "head -n 20 {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__tail",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "tail -n 20 {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__relative",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__cd_then_sed",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "cd {ROOT}/src && sed -n '1,5p' a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_counts_as_a_read__pipeline",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle {ROOT}/src/a.rs | head -5"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": null
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_that_does_not_read_the_exact_file_does_not_count__a_directory",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -rn needle {ROOT}/src"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/src/a.rs. Proibido até lá: Edit de {ROOT}/src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_that_does_not_read_the_exact_file_does_not_count__another_file",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle {ROOT}/src/b.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/src/a.rs. Proibido até lá: Edit de {ROOT}/src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_that_does_not_read_the_exact_file_does_not_count__a_glob",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle {ROOT}/src/*.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/src/a.rs. Proibido até lá: Edit de {ROOT}/src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_that_does_not_read_the_exact_file_does_not_count__not_a_reader",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "ls -l {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/src/a.rs. Proibido até lá: Edit de {ROOT}/src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_that_does_not_read_the_exact_file_does_not_count__an_in_place_write",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "sed -i.bak 's/needle/pin/' {ROOT}/src/a.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot atômico, gotcha). Rotas:\\n  1 arquivo:   Edit tool em `{ROOT}/src/a.rs` (old_string → new_string, gates completos)\\n  mesmo comando, sandbox: touring run --lang bash --code 'sed -i.bak '\\\\''s/needle/pin/'\\\\'' {ROOT}/src/a.rs'\\n  estrutural (N arquivos): touring ast grep {ROOT}/src/a.rs '<pattern>' --rewrite '<replacement>' (ast-grep — metavars $VAR, NÃO regex de sed)\\n  Bypass por-comando: prefixe TOURING_GATE_OK=1 (contado como bypassed).\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/src/a.rs. Proibido até lá: Edit de {ROOT}/src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_denied_bash_read_does_not_count",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n x1 {ROOT}/src/b.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n x2 {ROOT}/src/c.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle {ROOT}/src/a.rs"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G1 rajada-de-inspeção] 3ª inspeção da classe `grep` desde o último disparo (janela de 180s) — 90% das rajadas ≥3 continuavam iguais (51 disparos/55 sessões). Rode-o como programa — os já executados da rajada vêm como comentário e NUNCA são repetidos:\\n  touring run --lang bash --timeout-ms 115000 --code '# já executado (não repetir): grep -n x1 {ROOT}/src/b.rs\\n# já executado (não repetir): grep -n x2 {ROOT}/src/c.rs\\ngrep -n needle {ROOT}/src/a.rs'\\nBypass por-comando: prefixe TOURING_GATE_OK=1 (reseta a janela e é contado).\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/src/a.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/src/a.rs. Proibido até lá: Edit de {ROOT}/src/a.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+        }
+      ]
+    },
+    {
+      "scn": "g3_a_bash_read_does_not_cross_sessions",
+      "steps": [
+        {
+          "tool": "Bash",
+          "input": {
+            "command": "grep -n needle {ROOT}/src/a.rs"
+          },
+          "out": null
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
+          },
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/src/a.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/src/a.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+        },
+        {
+          "tool": "Edit",
+          "input": {
+            "file_path": "{ROOT}/src/a.rs",
+            "new_string": "let x = 1;"
           },
           "out": null
         }
@@ -3926,7 +4388,7 @@
             "new_string": "x",
             "old_string": "linha 120"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/grande.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/grande.rs offset=115 limit=11` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/grande.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/grande.rs offset=115 limit=11` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         },
         {
           "tool": "Edit",
@@ -3935,7 +4397,7 @@
             "new_string": "x",
             "old_string": "linha 120"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/grande.rs offset=115 limit=11`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {ROOT}/grande.rs. Proibido até lá: Edit de {ROOT}/grande.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/grande.rs offset=115 limit=11`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/grande.rs. Proibido até lá: Edit de {ROOT}/grande.rs ou de qualquer outro arquivo ainda não lido.\"}}"
         },
         {
           "tool": "Read",
@@ -3967,7 +4429,7 @@
             "new_string": "x",
             "old_string": "fn a"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/curto.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/curto.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/curto.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/curto.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         },
         {
           "tool": "Edit",
@@ -3976,7 +4438,7 @@
             "new_string": "x",
             "old_string": "fn a"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/curto.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {ROOT}/curto.rs. Proibido até lá: Edit de {ROOT}/curto.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/curto.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/curto.rs. Proibido até lá: Edit de {ROOT}/curto.rs ou de qualquer outro arquivo ainda não lido.\"}}"
         }
       ]
     },
@@ -3990,7 +4452,7 @@
             "new_string": "x",
             "old_string": "texto que não existe no arquivo"
           },
-          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/grande.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/grande.rs` antes do Edit — só a ferramenta Read do arquivo exato conta (cat/sed/grep via Bash não); o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
+          "out": "{\"hookSpecificOutput\":{\"additionalContext\":\"[G3 edit-sem-read] Edit de {ROOT}/grande.rs sem Read recente (advisory 1/1 — o 2º seguido nega). Próximo passo: `Read {ROOT}/grande.rs` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador.\",\"hookEventName\":\"PreToolUse\"}}"
         },
         {
           "tool": "Edit",
@@ -3999,11 +4461,11 @@
             "new_string": "x",
             "old_string": "texto que não existe no arquivo"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/grande.rs`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {ROOT}/grande.rs. Proibido até lá: Edit de {ROOT}/grande.rs ou de qualquer outro arquivo ainda não lido.\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: `Read {ROOT}/grande.rs`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo não registra {ROOT}/grande.rs. Proibido até lá: Edit de {ROOT}/grande.rs ou de qualquer outro arquivo ainda não lido.\"}}"
         }
       ]
     }
   ],
   "composition_calls": 30377,
-  "composition_digest": "1b3bc93909f1af17"
+  "composition_digest": "06ac7d2a09081b84"
 }
