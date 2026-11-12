@@ -919,3 +919,131 @@ fn bash_read_targets_names_only_the_exact_files_a_command_reads() {
         vec![a.clone()]
     );
 }
+
+// ── Retro 11/11/2026 (d): o G10 write→run com o script fora do alcance do sandbox ────────
+
+fn g10_pair_flow(root: &std::path::Path, dir: &std::path::Path, b_body: &str) -> Verdict {
+    let state = GateState::new();
+    let cfg = GateConfig::default();
+    let bash = |cmd: &str| {
+        let input = json!({ "command": cmd });
+        evaluate(
+            &state,
+            &ToolEvent {
+                project_root: root,
+                session: "retro-d",
+                tool_name: "Bash",
+                tool_input: &input,
+            },
+            &cfg,
+        )
+        .verdict
+    };
+    let (a, b) = (dir.join("a.py"), dir.join("b.py"));
+    std::fs::write(&a, "print(1)\n").expect("a.py");
+    std::fs::write(&b, b_body).expect("b.py");
+    // o par 1 (escreve e roda a.py) e o par 2 (escreve b.py e RODA b.py numa linha só, a forma
+    // que ganha a linha pronta de bypass: o comando negado cabe numa linha)
+    let _ = bash(&format!("cat > {} <<'PYEOF'\nprint(1)\nPYEOF", a.display()));
+    let _ = bash(&format!("python3 {}", a.display()));
+    let _ = bash(&format!("cat > {} <<'PYEOF'\n{b_body}PYEOF", b.display()));
+    bash(&format!("python3 {}", b.display()))
+}
+
+fn deny_reason(v: &Verdict) -> &str {
+    match v {
+        Verdict::Deny { reason, .. } => reason,
+        other => panic!("era para negar: {other:?}"),
+    }
+}
+
+/// O caso medido: o script mora em `~/claude-artefatos` (fora do que o sandbox lê). A mensagem
+/// dá a rota que FUNCIONA — o próprio comando com o bypass por-comando — ANTES da explicação, e
+/// nunca nomeia `touring run --file` (que falharia com "Permission denied").
+#[test]
+fn g10_write_run_with_the_script_outside_the_sandbox_leads_with_the_native_route() {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let Ok(dir) = tempfile::Builder::new()
+        .prefix(".retro-g10-")
+        .tempdir_in(home)
+    else {
+        return;
+    };
+    if touring_ceg::gateway::sandbox_executor::sandbox_can_reach(dir.path()) {
+        return; // TOURING_SANDBOX_READ_WIDE: não há como montar o cenário
+    }
+    let ws = tempfile::tempdir().expect("workspace");
+    let verdict = g10_pair_flow(ws.path(), dir.path(), "print(2)\n");
+    let reason = deny_reason(&verdict);
+    let b = dir.path().join("b.py");
+    let rota = reason
+        .find(&format!("TOURING_GATE_OK=1 python3 {}", b.display()))
+        .unwrap_or_else(|| panic!("a rota nativa por-comando está na mensagem: {reason}"));
+    let porque = reason
+        .find("Por quê")
+        .unwrap_or_else(|| panic!("a explicação vem DEPOIS: {reason}"));
+    assert!(
+        rota < porque,
+        "a rota que funciona vem antes da explicação: {reason}"
+    );
+    assert!(reason.contains("nenhuma rota de `touring run`"), "{reason}");
+    assert!(
+        reason.contains(&dir.path().display().to_string()),
+        "{reason}"
+    );
+    assert!(
+        !reason.contains("touring run --lang python --file")
+            && !reason.contains("TOURING_TRUSTED_OK"),
+        "nem a Sandboxed nem a Trusted são sugeridas: {reason}"
+    );
+}
+
+/// Controle: o MESMO fluxo com o script dentro do workspace segue com a rota Sandboxed.
+#[test]
+fn g10_write_run_inside_the_workspace_keeps_the_sandboxed_route() {
+    let ws = tempfile::tempdir().expect("workspace");
+    let verdict = g10_pair_flow(ws.path(), ws.path(), "print(2)\n");
+    let reason = deny_reason(&verdict);
+    let b = ws.path().join("b.py");
+    assert!(
+        reason.contains(&format!(
+            "touring run --lang python --file {} --timeout-ms 60000",
+            b.display()
+        )),
+        "{reason}"
+    );
+    assert!(
+        !reason.contains("Por quê") && !reason.contains("TOURING_GATE_OK=1 python3"),
+        "sem a linha nativa: {reason}"
+    );
+}
+
+/// Destino de escrita fora do que o sandbox escreve: a mesma ordem (rota nativa primeiro).
+#[test]
+fn g10_write_run_with_an_unwritable_destination_also_leads_with_the_native_route() {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let Ok(dir) = tempfile::Builder::new()
+        .prefix(".retro-g10-")
+        .tempdir_in(home)
+    else {
+        return;
+    };
+    let ws = tempfile::tempdir().expect("workspace");
+    // o script mora no workspace (alcançável); o que ele ESCREVE é fora do que o sandbox escreve
+    let corpo = format!(
+        "import pathlib\npathlib.Path(\"{}\").write_text(\"x\")\n",
+        dir.path().join("saida.md").display()
+    );
+    let verdict = g10_pair_flow(ws.path(), ws.path(), &corpo);
+    let reason = deny_reason(&verdict);
+    let rota = reason
+        .find("TOURING_GATE_OK=1 python3")
+        .unwrap_or_else(|| panic!("{reason}"));
+    let porque = reason.find("Por quê").unwrap_or_else(|| panic!("{reason}"));
+    assert!(rota < porque, "{reason}");
+    assert!(reason.contains("saida.md"), "{reason}");
+}

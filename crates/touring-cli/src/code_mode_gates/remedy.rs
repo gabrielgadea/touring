@@ -103,10 +103,23 @@ pub(super) fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
     }
 }
 
-/// The G10 deny when NO `touring run` route executes the body: it says so, cites the destination or
-/// the executor's refusal, and names the way out that works (the per-command bypass, native) as the
-/// ready line of the denied command ITSELF. There is no `touring run` command to paste — naming one
-/// that fails was the defect.
+/// What follows the header of a G10 deny when NO `touring run` route executes the body: the route
+/// that DOES work — the denied command itself under the per-command bypass, native — comes FIRST,
+/// as the ready line, and the why after it. Retro 11/11/2026 (d): the why used to lead and the way
+/// out came last, behind a paragraph about Landlock — and three guards disagreed (the deny named
+/// `touring run`, the sandbox could not see `~/claude-artefatos`, the tmp-write-guard sent the
+/// work there), so calls were redone. There is no `touring run` command to paste: naming one that
+/// fails was the defect.
+pub(super) fn g10_no_route_tail(rota: &g10_route::Route, project_root: &Path, cmd: &str) -> String {
+    format!(
+        " — nenhuma rota de `touring run` o executa; a que funciona é a nativa, por comando. \
+         {}\nPor quê:{}",
+        bypass_next_step(cmd),
+        rota.explanation(project_root)
+    )
+}
+
+/// The G10 exec-burst deny when NO `touring run` route executes the body.
 pub(super) fn g10_unrunnable_deny(
     n: u32,
     class: &str,
@@ -116,9 +129,8 @@ pub(super) fn g10_unrunnable_deny(
 ) -> String {
     format!(
         "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` na janela \
-         de {EXEC_BURST_WINDOW_SECS}s).{} {}",
-        rota.explanation(project_root),
-        bypass_next_step(cmd)
+         de {EXEC_BURST_WINDOW_SECS}s){}",
+        g10_no_route_tail(rota, project_root, cmd)
     )
 }
 
@@ -151,12 +163,20 @@ pub(super) fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
 /// too large for the gate to inspect → the usual route (without evidence there is nothing to change).
 pub(super) fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g10_route::Route {
     const TETO: u64 = 256 * 1024;
-    let p = Path::new(path);
-    let abs = if p.is_absolute() {
-        p.to_path_buf()
-    } else {
-        project_root.join(p)
-    };
+    // `~/x.py` is the form the command carries; the sandbox sees the expanded, normalized path.
+    let abs = resolve_operand(project_root, path).unwrap_or_else(|| {
+        let p = Path::new(path);
+        if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            project_root.join(p)
+        }
+    });
+    // Retro 11/11/2026 (d): the script FILE must be readable by the sandbox — `--file` of a path the
+    // Landlock does not grant fails with "Permission denied", whatever the program does.
+    if let Some(rota) = g10_route::script_out_of_reach(project_root, &abs) {
+        return rota;
+    }
     if std::fs::metadata(&abs).is_ok_and(|m| m.len() > TETO) {
         return g10_route::Route::Sandboxed;
     }

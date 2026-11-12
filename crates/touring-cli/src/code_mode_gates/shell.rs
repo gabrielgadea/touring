@@ -701,6 +701,26 @@ pub(super) fn ptrace_guarded_proc_entry(tok: &str) -> Option<std::path::PathBuf>
 /// `.touring/bin/touring decompose …` loop into a run that failed with "Permission
 /// denied" and still reported `success: true`.
 pub(super) fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<std::path::PathBuf> {
+    first_unreachable_path(project_root, cmd, false)
+}
+
+/// [`unreachable_in_sandbox`], except that whatever sits INSIDE the project is reachable: the
+/// workspace is always granted to the run, even when it lives outside the enumerated read roots
+/// (a project under `~/claude-artefatos`, a worktree). Retro 11/11/2026 (d): the G10 route asks
+/// this about the CONTENT of a script already on disk, where a path in the workspace is the
+/// normal case and must not read as "the sandbox cannot see it".
+pub(super) fn unreachable_beyond_workspace(
+    project_root: &Path,
+    cmd: &str,
+) -> Option<std::path::PathBuf> {
+    first_unreachable_path(project_root, cmd, true)
+}
+
+fn first_unreachable_path(
+    project_root: &Path,
+    cmd: &str,
+    workspace_is_reachable: bool,
+) -> Option<std::path::PathBuf> {
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
     for raw in cmd.split(|c: char| c.is_whitespace() || ";|&()<>`".contains(c)) {
         let tok = raw.trim_matches(|c: char| "'\"{}[],".contains(c));
@@ -726,7 +746,10 @@ pub(super) fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<s
         };
         // Only an EXISTING path is evidence: a missing one fails inside or outside the
         // sandbox alike, so it says nothing about capability (keeps `/x/a.rs` fixtures fusible).
-        if path.exists() && !touring_ceg::gateway::sandbox_executor::sandbox_can_reach(&path) {
+        if path.exists()
+            && !(workspace_is_reachable && path.starts_with(project_root))
+            && !touring_ceg::gateway::sandbox_executor::sandbox_can_reach(&path)
+        {
             return Some(path);
         }
     }
@@ -931,7 +954,7 @@ fn normalize_lexical(path: &Path) -> std::path::PathBuf {
 
 /// `raw` as an absolute, normalized path from `base`. `None` for what is not ONE exact path:
 /// stdin (`-`), a glob, or a word that still has a shell expansion in it (`$X`, `` ` ``, `{a,b}`).
-fn resolve_operand(base: &Path, raw: &str) -> Option<std::path::PathBuf> {
+pub(super) fn resolve_operand(base: &Path, raw: &str) -> Option<std::path::PathBuf> {
     if raw.is_empty() || raw == "-" || raw.contains(['*', '?', '[', '$', '`', '{']) {
         return None;
     }

@@ -55,9 +55,8 @@ pub(super) fn write_run_pair_gate_with(
             Gate::G10,
             format!(
                 "[G10 write→run] {n}º script escrito-e-executado na janela de \
-             {WRITE_RUN_WINDOW_SECS}s (`{path}`).{} {}",
-                rota.explanation(project_root),
-                bypass_next_step(cmd)
+             {WRITE_RUN_WINDOW_SECS}s (`{path}`){}",
+                g10_no_route_tail(&rota, project_root, cmd)
             ),
         ));
     }

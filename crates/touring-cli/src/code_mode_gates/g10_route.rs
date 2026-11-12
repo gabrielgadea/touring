@@ -35,6 +35,13 @@ pub(super) enum Route {
         /// The resolved destination (absolute, no `..`).
         dest: PathBuf,
     },
+    /// The program (or the script file itself) needs a path the sandbox CANNOT READ — the Landlock
+    /// read roots are /usr, /etc, ~/projects, ~/.cache, ~/.claude… and not the rest of `$HOME`
+    /// (`~/claude-artefatos` included). Sandboxed and Trusted share that ruleset, so neither runs it.
+    OutOfReach {
+        /// The first existing path the sandbox cannot reach.
+        path: PathBuf,
+    },
     /// The executor refuses the program under BOTH profiles (network, destructive pattern…).
     Unrunnable {
         /// The refusal from the Trusted profile.
@@ -43,17 +50,37 @@ pub(super) enum Route {
 }
 
 /// The route of the `code` program (`lang`: `python`, `bash`…) from the project `project_root`.
+///
+/// Retro 11/11/2026 (d): a route the executor admits is still no route when the program needs a
+/// path the Landlock does not let the sandbox READ — `touring run` would fail with "Permission
+/// denied", and the deny that named it taught failing. The reach question goes to the same table
+/// the sandbox is built from ([`unreachable_beyond_workspace`]), never to a list of its own.
 pub(super) fn route_for(project_root: &Path, lang: &str, code: &str) -> Route {
+    let out_of_reach = || {
+        super::unreachable_beyond_workspace(project_root, code)
+            .map(|path| Route::OutOfReach { path })
+    };
     match run_route(lang, code, project_root) {
-        RunRoute::Sandboxed => Route::Sandboxed,
+        RunRoute::Sandboxed => out_of_reach().unwrap_or(Route::Sandboxed),
         RunRoute::Trusted { sandbox_denial } => {
             match unwritable_destination(project_root, lang, code) {
                 Some(dest) => Route::NoWritableDest { dest },
-                None => Route::Trusted { sandbox_denial },
+                None => out_of_reach().unwrap_or(Route::Trusted { sandbox_denial }),
             }
         }
         RunRoute::Unrunnable { reason } => Route::Unrunnable { reason },
     }
+}
+
+/// The script FILE itself, when it sits where the sandbox cannot read it (outside the project and
+/// outside the Landlock read roots — `~/claude-artefatos` is the case that was measured).
+pub(super) fn script_out_of_reach(project_root: &Path, script: &Path) -> Option<Route> {
+    let unreachable = script.exists()
+        && !script.starts_with(project_root)
+        && !touring_ceg::gateway::sandbox_executor::sandbox_can_reach(script);
+    unreachable.then(|| Route::OutOfReach {
+        path: script.to_path_buf(),
+    })
 }
 
 impl Route {
@@ -93,15 +120,21 @@ impl Route {
             Self::NoWritableDest { dest } => format!(
                 " Este corpo escreve em `{}`, fora do que o sandbox pode escrever (workspace \
                  {root}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` \
-                 escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO \
-                 comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como \
-                 bypassed) ou aponte o destino para dentro do workspace.",
+                 escreve ali — a Trusted também passa pelo Landlock. Alternativa: aponte o \
+                 destino para dentro do workspace.",
                 dest.display()
+            ),
+            Self::OutOfReach { path } => format!(
+                " Este corpo precisa de `{}`, fora do que o sandbox enxerga: o Landlock só concede \
+                 leitura a /usr, /etc, ~/projects, ~/.cache, ~/.claude e poucos outros caminhos (não \
+                 a ~/claude-artefatos nem ao resto do $HOME), e as rotas Sandboxed e Trusted passam \
+                 pelo mesmo Landlock: nenhuma rota de `touring run` o executa. Alternativa: ponha \
+                 o arquivo dentro do workspace.",
+                path.display()
             ),
             Self::Unrunnable { reason } => format!(
                 " O executor nega este corpo nos DOIS perfis (Sandboxed e Trusted): {reason}. \
-                 Nenhuma rota de `touring run` o executa — rode nativo (o MESMO comando com o \
-                 prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed)."
+                 Nenhuma rota de `touring run` o executa."
             ),
         }
     }
@@ -266,5 +299,78 @@ mod tests {
             python_write_destinations(body),
             vec!["~/relatorio.md".to_string(), "../fora/y.md".to_string()]
         );
+    }
+
+    // ── Retro 11/11/2026 (d): o que o sandbox NÃO ENXERGA também não tem rota ────────────────
+    //
+    // `~/claude-artefatos` (a pasta que o `tmp_write_guard` manda usar) fica fora das raízes de
+    // leitura do Landlock; o G10 write→run nomeava `touring run --file ~/claude-artefatos/x.py`
+    // mesmo assim — a rota que o gate ensinava falhava com "Permission denied".
+
+    /// Um diretório sob `$HOME` que o sandbox não lê, com um arquivo dentro. `None` quando o
+    /// ambiente não deixa montá-lo (sem `$HOME`, ou `TOURING_SANDBOX_READ_WIDE` ligado).
+    fn scratch_fora_do_alcance() -> Option<(tempfile::TempDir, PathBuf)> {
+        let home = std::env::var_os("HOME")?;
+        let dir = tempfile::Builder::new()
+            .prefix(".retro-g10-")
+            .tempdir_in(home)
+            .ok()?;
+        let file = dir.path().join("entrada.txt");
+        std::fs::write(&file, "x").ok()?;
+        (!touring_ceg::gateway::sandbox_executor::sandbox_can_reach(&file)).then_some((dir, file))
+    }
+
+    fn corpo_que_le(path: &Path) -> String {
+        format!(
+            "import pathlib\nprint(pathlib.Path(\"{}\").read_text())\n",
+            path.display()
+        )
+    }
+
+    #[test]
+    fn corpo_que_le_fora_do_alcance_do_sandbox_nao_tem_rota() {
+        let Some((_keep, fora)) = scratch_fora_do_alcance() else {
+            return;
+        };
+        let ws = tempfile::tempdir().expect("workspace");
+        let rota = route_for(ws.path(), "python", &corpo_que_le(&fora));
+        assert_eq!(rota, Route::OutOfReach { path: fora.clone() });
+        assert!(!rota.runs(), "nenhuma rota de `touring run` o executa");
+        let por_que = rota.explanation(ws.path());
+        assert!(por_que.contains(&fora.display().to_string()), "{por_que}");
+        assert!(por_que.contains("nenhuma rota"), "{por_que}");
+        assert!(
+            !por_que.contains("TOURING_TRUSTED_OK"),
+            "Trusted não resolve: {por_que}"
+        );
+    }
+
+    /// Controles: o que o sandbox LÊ, ou o próprio workspace, segue com a rota de sempre.
+    #[test]
+    fn controles_o_que_o_sandbox_le_e_o_workspace_seguem_sandboxed() {
+        let ws = tempfile::tempdir().expect("workspace");
+        // dentro do workspace
+        let dentro = ws.path().join("dados.txt");
+        std::fs::write(&dentro, "x").expect("file");
+        assert_eq!(
+            route_for(ws.path(), "python", &corpo_que_le(&dentro)),
+            Route::Sandboxed
+        );
+        // numa raiz de leitura do sandbox (/etc)
+        let etc = Path::new("/etc/passwd");
+        if etc.exists() {
+            assert_eq!(
+                route_for(ws.path(), "python", &corpo_que_le(etc)),
+                Route::Sandboxed
+            );
+        }
+        // um workspace que ele mesmo está fora das raízes enumeradas: o workspace é sempre
+        // concedido ao run, então os arquivos DENTRO dele não são "fora do alcance".
+        if let Some((keep, file)) = scratch_fora_do_alcance() {
+            assert_eq!(
+                route_for(keep.path(), "python", &corpo_que_le(&file)),
+                Route::Sandboxed
+            );
+        }
     }
 }

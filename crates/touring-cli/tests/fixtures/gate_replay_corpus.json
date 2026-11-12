@@ -3217,7 +3217,7 @@
           "input": {
             "command": ".venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{OUT}/saida.md\").write_text(\"x\")'"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s). Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed) ou aponte o destino para dentro do workspace. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\\\"{OUT}/saida.md\\\").write_text(\\\"x\\\")'\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s) — nenhuma rota de `touring run` o executa; a que funciona é a nativa, por comando. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\\\"{OUT}/saida.md\\\").write_text(\\\"x\\\")'\\nPor quê: Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Alternativa: aponte o destino para dentro do workspace.\"}}"
         }
       ]
     },
@@ -3297,7 +3297,7 @@
           "input": {
             "command": ".venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{OUT}/saida.md\").write_text(\"x\")'"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s). Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed) ou aponte o destino para dentro do workspace. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\\\"{OUT}/saida.md\\\").write_text(\\\"x\\\")'\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela de 600s) — nenhuma rota de `touring run` o executa; a que funciona é a nativa, por comando. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 .venv/bin/python3 -c 'import pathlib; pathlib.Path(\\\"{OUT}/saida.md\\\").write_text(\\\"x\\\")'\\nPor quê: Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Alternativa: aponte o destino para dentro do workspace.\"}}"
         },
         {
           "tool": "Bash",
@@ -3526,7 +3526,7 @@
           "input": {
             "command": "python3 {ROOT}/b.py"
           },
-          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 write→run] 2º script escrito-e-executado na janela de 600s (`{ROOT}/b.py`). Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Rode nativo (o MESMO comando com o prefixo TOURING_GATE_OK=1: bypass por-comando, contado como bypassed) ou aponte o destino para dentro do workspace. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 python3 {ROOT}/b.py\"}}"
+          "out": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"[G10 write→run] 2º script escrito-e-executado na janela de 600s (`{ROOT}/b.py`) — nenhuma rota de `touring run` o executa; a que funciona é a nativa, por comando. Rode exatamente (bypass por-comando, contado como bypassed):\\n  TOURING_GATE_OK=1 python3 {ROOT}/b.py\\nPor quê: Este corpo escreve em `{OUT}/saida.md`, fora do que o sandbox pode escrever (workspace {ROOT}, ~/.cache, ~/.cargo e o tmp privado do run): nenhuma rota de `touring run` escreve ali — a Trusted também passa pelo Landlock. Alternativa: aponte o destino para dentro do workspace.\"}}"
         }
       ]
     },
