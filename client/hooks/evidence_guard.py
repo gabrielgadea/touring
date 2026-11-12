@@ -85,8 +85,10 @@ _SANDBOX = re.compile(r'"forbidden_calls"\s*:\s*\[(?!\s*\])')
 
 # --- assinatura 2: negação dentro de um "sucesso" ------------------------
 _DENY_IN_OUTPUT = re.compile(
+    # The bare key `forbidden_calls` is NOT here: every `touring run` envelope carries it,
+    # empty when nothing was denied. `_SANDBOX` above owns the non-empty list.
     r"(Permission denied|Operation not permitted|"
-    r"forbidden_calls|Forbidden calls detected|"
+    r"Forbidden calls detected|"
     r"Unknown subcommand|can\'t open file)",
     re.IGNORECASE,
 )

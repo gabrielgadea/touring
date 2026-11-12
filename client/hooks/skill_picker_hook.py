@@ -16,6 +16,7 @@ Contrato (experiments/s5-skill-picker/CONTRACT.md):
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -43,8 +44,26 @@ def _journal(record: dict) -> None:
         pass
 
 
-def _deliver_pending_suggestion() -> dict | None:
-    """Lê a sugestão do prompt ANTERIOR (se houver) e a consome."""
+_COMMAND_TAGS = ("<command-message>", "<command-name>")
+_RAW_SLASH = re.compile(r"/[A-Za-z][A-Za-z0-9_:.\-]*(?:\s|$)")
+
+
+def _is_slash_command(prompt: str) -> bool:
+    """Slash command: as tags `<command-message>`/`<command-name>`, ou `/nome [args]` cru.
+
+    O nome é UMA palavra que começa por letra; uma segunda `/` faz dela um caminho
+    (`/home/x/lib.rs não compila`), que é texto livre — como qualquer outra tag (`<div> …`).
+    Mesmo conceito e mesmos casos de `prompt_enhance::is_slash_invocation` (Rust).
+    """
+    return prompt.startswith(_COMMAND_TAGS) or _RAW_SLASH.match(prompt) is not None
+
+
+def _deliver_pending_suggestion(session_id: str = "") -> dict | None:
+    """Lê a sugestão do prompt ANTERIOR (se houver) e a consome.
+
+    A pendência é sempre consumida; só é ENTREGUE quando nasceu nesta sessão. Uma
+    pendência sem `session_id` (gravada antes de 11/11/2026) é entregue como antes.
+    """
     try:
         if not SUGGESTION_FILE.exists():
             return None
@@ -53,6 +72,9 @@ def _deliver_pending_suggestion() -> dict | None:
     except (OSError, json.JSONDecodeError):
         return None
     if not data.get("said") or not data.get("picked"):
+        return None
+    origin = str(data.get("session_id") or "")
+    if origin and session_id and origin != session_id:
         return None
     return {
         "hookSpecificOutput": {
@@ -67,7 +89,7 @@ def _deliver_pending_suggestion() -> dict | None:
     }
 
 
-def _spawn_background_judge(prompt: str) -> None:
+def _spawn_background_judge(prompt: str, session_id: str = "") -> None:
     """Dispara o juiz para o PRÓXIMO prompt. Nunca espera; nunca levanta."""
     try:
         proc = subprocess.Popen(
@@ -87,6 +109,7 @@ def _spawn_background_judge(prompt: str) -> None:
         }
         _journal(record)
         if record["said"]:
+            data["session_id"] = session_id
             SUGGESTION_FILE.write_text(json.dumps(data, ensure_ascii=False))
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as exc:
         _journal({
@@ -102,9 +125,13 @@ def main() -> int:
     except (json.JSONDecodeError, ValueError):
         payload = {}
     prompt = str(payload.get("prompt", ""))
-    suggestion = _deliver_pending_suggestion()
-    if prompt and not prompt.startswith("<"):
-        _spawn_background_judge(prompt)
+    session_id = str(payload.get("session_id") or "")
+    suggestion = _deliver_pending_suggestion(session_id)
+    if _is_slash_command(prompt):
+        suggestion = None  # o usuário já escolheu a skill; a pendência foi consumida acima
+    elif prompt and not prompt.startswith("<"):
+        # Payload gerado por máquina (qualquer tag) nunca foi julgado; texto livre é.
+        _spawn_background_judge(prompt, session_id)
     if suggestion:
         # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
         import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))

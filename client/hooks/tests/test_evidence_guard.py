@@ -127,6 +127,21 @@ def test_the_hook_path_keeps_the_whole_envelope() -> None:
           f"estado={v.state}, {len(v.findings)} detecção(ões)")
 
 
+def test_an_empty_forbidden_calls_key_is_not_a_denial() -> None:
+    """Retro 11/11/2026: todo envelope do `touring run` carrega a CHAVE
+    `forbidden_calls`, vazia quando nada foi negado. A regra de negação casava
+    o nome da chave e marcava DEGRADED uma saída de `--help` limpa. Só a lista
+    NÃO vazia (regra `_SANDBOX`) é evidência de negação."""
+    payload = {"tool_input": {"command": "touring decompose --help"},
+               "tool_response": {"exit_code": 0, "executed": True, "success": True,
+                                 "stdout": "Usage: touring decompose [COMMAND]",
+                                 "stderr": "", "forbidden_calls": []}}
+    v = eg.scan_output(eg._extract_text(payload))
+    check("test_an_empty_forbidden_calls_key_is_not_a_denial",
+          not any("forbidden_calls" in f["matched"] for f in v.findings),
+          f"estado={v.state}, detecções={[f['matched'] for f in v.findings]}")
+
+
 def test_the_hook_fails_open_but_the_detector_fails_closed() -> None:
     """[F] As duas propriedades são diferentes e ambas deliberadas: o gancho
     NUNCA trava a sessão; o detector NUNCA atesta o que não sabe."""
@@ -156,6 +171,7 @@ def main() -> int:
         test_it_never_atests_what_it_does_not_know,
         test_the_three_valued_contract_exists,
         test_the_hook_path_keeps_the_whole_envelope,
+        test_an_empty_forbidden_calls_key_is_not_a_denial,
         test_the_hook_fails_open_but_the_detector_fails_closed,
         test_clean_payload_injects_nothing,
     ):
