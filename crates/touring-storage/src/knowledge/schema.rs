@@ -346,6 +346,46 @@ impl FileKnowledgeDB {
             )?;
         Ok(())
     }
+    /// The columns `decomposition_subtasks` gained after its base DDL, added where the database is
+    /// OPENED so that no handle to it can exist without them (R6.4 review, 11/11/2026).
+    ///
+    /// They used to be added by `ensure_decompose_tables`, a function each decompose handler had to
+    /// remember to call on the handle it read from — and a handler that reached the GLOBAL store
+    /// through `locate_task_store` called it on the project's store instead. A SELECT naming
+    /// `body_file` against an old global store failed with "no such column", and an `add` against it
+    /// with "table has no column named body_file". Every column here is nullable with no default, so
+    /// a row written before it reads NULL.
+    ///
+    /// Claim (C2, 2026-08-18), Wayfinder ticket fields (C3, 2026-08-18), ticket body path and labels
+    /// (S-05, 2026-11-11). `SCHEMA_VERSION` was bumped to 13 so databases already at 12 run this.
+    fn migrate_decompose_subtask_columns(&self) -> Result<(), rusqlite::Error> {
+        const COLUMNS: [(&str, &str); 9] = [
+            ("claimed_by", "TEXT"),
+            ("claim_expires_at", "INTEGER"),
+            ("ticket_kind", "TEXT"),
+            ("ticket_subtype", "TEXT"),
+            ("autonomy", "TEXT"),
+            ("fog", "TEXT"),
+            ("origin_ticket", "TEXT"),
+            ("body_file", "TEXT"),
+            ("labels", "TEXT"),
+        ];
+        for (column, ddl) in COLUMNS {
+            let present = self
+                .conn
+                .prepare(&format!(
+                    "SELECT {column} FROM decomposition_subtasks LIMIT 0"
+                ))
+                .is_ok();
+            if !present {
+                self.conn.execute_batch(&format!(
+                    "ALTER TABLE decomposition_subtasks ADD COLUMN {column} {ddl};"
+                ))?;
+            }
+        }
+        Ok(())
+    }
+
     /// Apply incremental schema migrations for existing databases.
     ///
     /// Each migration is idempotent — safe to run multiple times.
@@ -531,6 +571,7 @@ impl FileKnowledgeDB {
                 "ALTER TABLE decomposition_subtasks ADD COLUMN quality_score REAL;",
             )?;
         }
+        self.migrate_decompose_subtask_columns()?;
         let has_consumer_type: bool = self
             .conn
             .prepare(&format!(

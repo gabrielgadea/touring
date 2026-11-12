@@ -169,12 +169,11 @@ fn migrate_decompose_columns(db: &FileKnowledgeDB) {
         "ALTER TABLE decomposition_subtasks ADD COLUMN parallel_group TEXT",
         // Wave P1 (2026-04-25): quality_score for completion-quality tracking
         "ALTER TABLE decomposition_subtasks ADD COLUMN quality_score REAL",
-        // C2 (2026-08-18): atomic claim. `ready` only READS, so two concurrent
-        // sessions polling it were handed the SAME subtask and both started it.
-        // These two columns turn "who is working on this" into persisted state
-        // that a conditional UPDATE can arbitrate.
-        "ALTER TABLE decomposition_subtasks ADD COLUMN claimed_by TEXT",
-        "ALTER TABLE decomposition_subtasks ADD COLUMN claim_expires_at INTEGER",
+        // The `decomposition_subtasks` columns added after the base DDL (claim C2, Wayfinder ticket
+        // fields C3, `body_file`/`labels` S-05) are NOT migrated here any more: a handler can only
+        // migrate the handle it was given, and `get`/`add`/`update` also run on the GLOBAL store
+        // (`locate_task_store`), which no handler ensured. They migrate where the database is
+        // opened — `touring_storage` `migrate_decompose_subtask_columns`, `SCHEMA_VERSION` 13.
         // Coordenação (2026-09-23): the monolith's INSERT writes these two, but
         // they only ever migrated in `cli::shared::ensure_decompose_tables` —
         // the OTHER live schema owner. A fresh db ensured ONLY by this complete
@@ -183,14 +182,6 @@ fn migrate_decompose_columns(db: &FileKnowledgeDB) {
         // `resolutions` already does in both owners (shared.rs T3.1 comment).
         "ALTER TABLE task_decompositions ADD COLUMN origin TEXT NOT NULL DEFAULT 'claude-code'",
         "ALTER TABLE task_decompositions ADD COLUMN mirrored_to_cc INTEGER NOT NULL DEFAULT 1",
-        // C3 (2026-08-18): Wayfinder. A DAG of uniform "tasks" cannot express that
-        // some entries exist to DECIDE something and others to BUILD it, nor how
-        // much fog surrounds each. These five columns carry that.
-        "ALTER TABLE decomposition_subtasks ADD COLUMN ticket_kind TEXT",
-        "ALTER TABLE decomposition_subtasks ADD COLUMN ticket_subtype TEXT",
-        "ALTER TABLE decomposition_subtasks ADD COLUMN autonomy TEXT",
-        "ALTER TABLE decomposition_subtasks ADD COLUMN fog TEXT",
-        "ALTER TABLE decomposition_subtasks ADD COLUMN origin_ticket TEXT",
         // T3.1 (2026-08-19): the map must age with the work. Pocock: "that
         // resolution also gets written back up to the parent map." Without it the
         // decisions live in the children while the parent keeps describing the
@@ -532,7 +523,8 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
     // T2.2: Tasksfile YAML import — quando `tasksfile_yaml` vem no payload, o
     // documento é compilado em subtarefas. O campo `subtasks` (array JSON) segue
     // funcionando; o YAML é um formato de entrada alternativo.
-    let tasksfile_subtasks_added = import_tasksfile_subtasks(db, &task_id, payload, &now);
+    let imported = import_tasksfile_subtasks(db, &task_id, payload, &now, &rt.project_root);
+    let tasksfile_subtasks_added = imported.added;
 
     // FA-2: Signal active plan hint to SessionBus for pre_edit context injection.
     rt.ctx
@@ -553,8 +545,20 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
     .to_string()
 }
 
+/// O que uma importação de tasksfile fez: quantas subtarefas gravou e as que RECUSOU, cada uma com o
+/// motivo (rótulo fora do padrão, arquivo de corpo que não existe).
+#[derive(Debug, Default)]
+pub(crate) struct TasksfileImport {
+    pub(crate) added: usize,
+    pub(crate) refused: Vec<String>,
+}
+
 /// Compila `payload["tasksfile_yaml"]` em subtarefas de `task_id`; devolve
-/// quantas foram inseridas (0 quando o campo está ausente ou o YAML não compila).
+/// quantas foram inseridas (0 quando o campo está ausente ou o YAML não compila) e as recusadas.
+///
+/// `body_file` e `labels` do arquivo seguem a regra do `add`: validados antes de gravar, e AUSENTES
+/// significa "não declarado" — importar sobre uma linha que já os tem preserva o que ela tem (o
+/// `INSERT OR REPLACE` apagava a linha inteira e, com ela, os dois campos).
 ///
 /// Extraída de `cli_decompose_create` em 03/08/2026 para ser chamada também pela
 /// implementação DESPACHADA (`cli/decompose.rs`), que não tinha esta etapa: o
@@ -571,26 +575,41 @@ pub(crate) fn import_tasksfile_subtasks(
     task_id: &str,
     payload: &serde_json::Value,
     now: &str,
-) -> usize {
+    project_root: &std::path::Path,
+) -> TasksfileImport {
+    let mut import = TasksfileImport::default();
     let Some(yaml_str) = payload.get("tasksfile_yaml").and_then(|v| v.as_str()) else {
-        return 0;
+        return import;
     };
     let root = match parse_yaml(yaml_str) {
         Ok(root) => root,
         Err(e) => {
             tracing::debug!("tasksfile parse failed: {}", e);
-            return 0;
+            return import;
         }
     };
     let compiled = match TasksfileCompiler::new().compile(&root) {
         Ok(compiled) => compiled,
         Err(e) => {
             tracing::debug!("tasksfile compile failed: {}", e);
-            return 0;
+            return import;
         }
     };
-    let mut added = 0;
     for compiled_task in &compiled.tasks {
+        let meta = match ticket_meta::imported_meta(
+            compiled_task.body_file.as_deref(),
+            &compiled_task.labels,
+            project_root,
+        ) {
+            Ok(meta) => meta,
+            Err(why) => {
+                tracing::warn!(task = %compiled_task.task_id, "tasksfile import refused: {why}");
+                import
+                    .refused
+                    .push(format!("{}: {why}", compiled_task.task_id));
+                continue;
+            }
+        };
         // T3.2: resolve o `env_file` da tarefa e mescla com o `env` inline
         // (inline vence). `load_env_for_template` é feature-gated em
         // touring-tasksfile — sem a feature, o mapa é vazio.
@@ -645,8 +664,11 @@ pub(crate) fn import_tasksfile_subtasks(
             "INSERT OR REPLACE INTO decomposition_subtasks \
              (subtask_id, task_id, description, depends_on, priority, status, \
               deadline, deadline_behavior, parallel_group, review_required, \
-              complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, ?10, ?11, 0, NULL, ?12, ?13)",
+              complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at, \
+              body_file, labels) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, ?10, ?11, 0, NULL, ?12, ?13, \
+              COALESCE(?14, (SELECT body_file FROM decomposition_subtasks WHERE subtask_id = ?1)), \
+              COALESCE(?15, (SELECT labels FROM decomposition_subtasks WHERE subtask_id = ?1)))",
             params![
                 scoped_id,
                 task_id,
@@ -661,10 +683,12 @@ pub(crate) fn import_tasksfile_subtasks(
                 retry_policy_json,
                 now,
                 now,
+                meta.body_file,
+                meta.labels_json,
             ],
         );
         if insert_result.is_ok() {
-            added += 1;
+            import.added += 1;
             log_event(
                 db,
                 task_id,
@@ -680,7 +704,7 @@ pub(crate) fn import_tasksfile_subtasks(
             );
         }
     }
-    added
+    import
 }
 
 /// Adds a subtask to an existing task's DAG.
@@ -694,83 +718,13 @@ pub(crate) fn import_tasksfile_subtasks(
 pub use crate::cli::decompose::cli_decompose_add;
 
 /// Retrieves a task and its full subtask DAG as JSON.
-pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let task_id = payload
-        .get("task_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    let db = &rt.ctx.knowledge;
-    ensure_decompose_tables(db);
-
-    let task: Option<serde_json::Value> = db.conn_ref()
-        .query_row(
-            "SELECT task_id, task_type, description, status, created_at, updated_at FROM task_decompositions WHERE task_id = ?1",
-            params![task_id],
-            |r| {
-                Ok(serde_json::json!({
-                    "task_id": r.get::<_, String>(0)?,
-                    "task_type": r.get::<_, String>(1)?,
-                    "description": r.get::<_, String>(2)?,
-                    "status": r.get::<_, String>(3)?,
-                    "created_at": r.get::<_, String>(4)?,
-                    "updated_at": r.get::<_, String>(5)?
-                }))
-            },
-        )
-        .ok();
-
-    let now_epoch = chrono::Utc::now().timestamp();
-    let subtasks: Vec<serde_json::Value> = {
-        let mut stmt = match db.conn_ref().prepare(
-            "SELECT subtask_id, description, depends_on, status, priority, deadline, deadline_behavior, parallel_group, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::debug!("decompose get subtasks prepare failed: {}", e);
-                return serde_json::json!({"error": format!("db error: {}", e)}).to_string();
-            }
-        };
-        stmt.query_map(params![task_id], |r| {
-            let deps_str = r.get::<_, String>(2)?;
-            let depends_on: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_else(|_| {
-                deps_str
-                    .split(',')
-                    .filter(|s| !s.is_empty())
-                    .map(String::from)
-                    .collect()
-            });
-            let claimed_by: Option<String> = r.get::<_, Option<String>>(8)?;
-            let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(9)?;
-            Ok(serde_json::json!({
-                "subtask_id": r.get::<_, String>(0)?,
-                "description": r.get::<_, String>(1)?,
-                "depends_on": depends_on,
-                "status": r.get::<_, String>(3)?,
-                "priority": r.get::<_, i32>(4)?,
-                "deadline": r.get::<_, Option<String>>(5)?,
-                "deadline_behavior": r.get::<_, Option<String>>(6)?,
-                "parallel_group": r.get::<_, Option<String>>(7)?,
-                // Coordenação 2026-09-23: the views name the owner, the lease and
-                // its liveness — "claimed by a live session" vs "abandoned work"
-                // must be distinguishable without querying the claim journal.
-                "claimed_by": claimed_by,
-                "claim_expires_at": claim_expires_at,
-                "claim_live": claimed_by.is_some()
-                    && claim_expires_at.is_some_and(|e| e > now_epoch),
-            }))
-        })
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default()
-    };
-
-    serde_json::json!({
-        "task": task,
-        "subtasks": subtasks,
-        "subtask_count": subtasks.len()
-    })
-    .to_string()
-}
+///
+/// The implementation lives in [`crate::cli::decompose::cli_decompose_get`], which is what the
+/// registry dispatches to (task-home store routing, the explicit not-found error). This module
+/// carried a SECOND body that no caller reached — grep over every crate, 11/11/2026 — and it was
+/// about to need the same two new columns (`body_file`, `labels`) as the live one. A re-export
+/// keeps the name and leaves ONE body to fix, exactly as `cli_decompose_add` above.
+pub use crate::cli::decompose::cli_decompose_get;
 
 /// Write a resolved DECISION back up to the map that contains it (T3.1).
 ///
@@ -896,11 +850,18 @@ fn short_subtask_id(id: &str) -> String {
 // submódulos em `src/cli_handlers_decompose/` e não os encontra. Mesma forma
 // registrada no item 27(b) do CLAUDE.md — quem usa `#[path]` precisa nomear os
 // filhos também.
+#[cfg(test)]
+#[path = "decompose/body_labels_tests.rs"]
+mod body_labels_tests;
 #[path = "decompose/lifecycle.rs"]
 mod lifecycle;
 #[cfg(test)]
 #[path = "decompose/ready_scope_tests.rs"]
 mod ready_scope_tests;
+#[path = "decompose/ticket_meta.rs"]
+pub(crate) mod ticket_meta;
+/// The label pattern, public so the CLI crate can pin the `--help` text that quotes it.
+pub use ticket_meta::LABEL_PATTERN;
 #[path = "decompose/wayfinder.rs"]
 mod wayfinder;
 

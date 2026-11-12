@@ -33,7 +33,10 @@ use tracing_attributes::instrument;
 /// perfectly innocent `0`. Verified live: the first S1 rebuild reported
 /// `name_only_candidates: 0` while `sqlite3` answered `no such table`.
 /// v12 (S22, 25/09/2026): `bash_outcomes.session_id` + `origin_event` (provenance).
-pub const SCHEMA_VERSION: u32 = 12;
+/// v13 (R6.4, 11/11/2026): the `decomposition_subtasks` columns added after its base DDL (claim,
+/// Wayfinder ticket fields, `body_file`, `labels`) now migrate where the database is OPENED, so a
+/// handle to the global decompose store cannot exist without them.
+pub const SCHEMA_VERSION: u32 = 13;
 
 /// A single schema migration step.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -306,8 +309,8 @@ mod tests {
     /// never materialises on an existing DB.
     #[test]
     fn test_schema_version_10_is_current() {
-        // v12 (S22, 25/09/2026): bash_outcomes provenance (session_id + origin_event).
-        assert_eq!(SCHEMA_VERSION, 12);
+        // v13 (R6.4, 11/11/2026): decomposition_subtasks columns migrate at open.
+        assert_eq!(SCHEMA_VERSION, 13);
     }
 
     #[test]

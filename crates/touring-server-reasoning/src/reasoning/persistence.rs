@@ -4,6 +4,7 @@
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
@@ -12,6 +13,128 @@ use super::decomposer::{
     ComplexityHint, DecomposeValidationMetrics, RetryPolicy, SubTask, SubTaskStatus, Task,
     TaskDecomposer,
 };
+
+/// The columns of `decomposition_subtasks` that `SubTask` has a field for — the ones `checkpoint`
+/// writes. Every OTHER column of the table (claim, Wayfinder ticket fields, the ticket body path
+/// and labels, `parallel_group`, `quality_score`, whatever is added next) belongs to the CLI side
+/// of the same knowledge.db and is carried across the rewrite, not dropped by it.
+const MODELED_SUBTASK_COLUMNS: [&str; 14] = [
+    "subtask_id",
+    "task_id",
+    "description",
+    "depends_on",
+    "priority",
+    "status",
+    "deadline",
+    "deadline_behavior",
+    "review_required",
+    "complexity_hint",
+    "retry_policy",
+    "attempts",
+    "created_at",
+    "updated_at",
+];
+
+/// What `checkpoint` lifts out of the subtasks it is about to delete: the names of the columns the
+/// model does not have, and each subtask's values for them.
+struct CarriedColumns {
+    names: Vec<String>,
+    rows: HashMap<String, Vec<rusqlite::types::Value>>,
+}
+
+/// Wraps a SQLite error with the step that failed.
+fn sqlite_step(context: &'static str) -> impl FnOnce(rusqlite::Error) -> CheckpointError {
+    move |source| CheckpointError::Sqlite { context, source }
+}
+
+/// The names of the columns of `decomposition_subtasks` that `SubTask` has no field for.
+fn unmodelled_columns(tx: &rusqlite::Transaction<'_>) -> Result<Vec<String>, CheckpointError> {
+    let step = "Column probe failed";
+    let mut info = tx
+        .prepare("PRAGMA table_info(decomposition_subtasks)")
+        .map_err(sqlite_step(step))?;
+    let all = info
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(sqlite_step(step))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(sqlite_step(step))?;
+    Ok(all
+        .into_iter()
+        .filter(|name| !MODELED_SUBTASK_COLUMNS.contains(&name.as_str()))
+        .collect())
+}
+
+impl CarriedColumns {
+    /// Reads the unmodelled columns of every ACTIVE plan's subtasks (the rows `checkpoint` deletes).
+    fn lift(tx: &rusqlite::Transaction<'_>) -> Result<Self, CheckpointError> {
+        let names = unmodelled_columns(tx)?;
+        let mut rows = HashMap::new();
+        if names.is_empty() {
+            return Ok(Self { names, rows });
+        }
+        let step = "Carry-over read failed";
+        let select: Vec<String> = names.iter().map(|n| quote_ident(n)).collect();
+        let sql = format!(
+            "SELECT subtask_id, {} FROM decomposition_subtasks WHERE task_id IN \
+             (SELECT task_id FROM task_decompositions WHERE archived_at IS NULL)",
+            select.join(", ")
+        );
+        let mut stmt = tx.prepare(&sql).map_err(sqlite_step(step))?;
+        let width = names.len();
+        let lifted = stmt
+            .query_map([], |row| {
+                let id: String = row.get(0)?;
+                let values = (0..width)
+                    .map(|i| row.get::<_, rusqlite::types::Value>(i + 1))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok((id, values))
+            })
+            .map_err(sqlite_step(step))?;
+        for entry in lifted {
+            let (id, values) = entry.map_err(sqlite_step(step))?;
+            rows.insert(id, values);
+        }
+        Ok(Self { names, rows })
+    }
+
+    /// Writes the lifted values back onto the freshly inserted row of `subtask_id`, if it had any.
+    fn restore(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        subtask_id: &str,
+    ) -> Result<(), CheckpointError> {
+        let Some(values) = self.rows.get(subtask_id) else {
+            return Ok(());
+        };
+        let assignments: Vec<String> = self
+            .names
+            .iter()
+            .enumerate()
+            .map(|(i, name)| format!("{} = ?{}", quote_ident(name), i + 1))
+            .collect();
+        let sql = format!(
+            "UPDATE decomposition_subtasks SET {} WHERE subtask_id = ?{}",
+            assignments.join(", "),
+            values.len() + 1
+        );
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            values.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+        params.push(&subtask_id);
+        tx.execute(&sql, params.as_slice())
+            .map_err(|source| CheckpointError::Sqlite {
+                context: "Carry-over restore failed",
+                source,
+            })?;
+        Ok(())
+    }
+}
+
+/// A column name as an SQL identifier. The names come from the table's own schema, but they are
+/// quoted anyway: a column added later with an unusual name must not turn the checkpoint into a
+/// syntax error.
+fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
 
 /// Manages persistence of TaskDecomposer state to SQLite.
 /// Checkpoints every N mutations or T seconds.
@@ -226,6 +349,10 @@ impl CheckpointManager {
                 source,
             })?;
 
+        // The rewrite below drops and re-inserts the subtasks with the columns the model has; the
+        // others (claim, ticket body and labels, ...) are lifted first and put back after.
+        let carried = CarriedColumns::lift(&tx)?;
+
         // Clear existing active tasks
         tx.execute(
             "DELETE FROM decomposition_subtasks WHERE task_id IN (SELECT task_id FROM task_decompositions WHERE archived_at IS NULL)",
@@ -282,6 +409,7 @@ impl CheckpointManager {
                         st.updated_at.to_rfc3339()
                     ]
                 ).map_err(|source| CheckpointError::Sqlite { context: "Insert subtask failed", source })?;
+                carried.restore(&tx, &st.id)?;
             }
         }
 
@@ -804,6 +932,68 @@ mod tests {
             "old active task should be gone"
         );
         assert!(loaded.tasks.contains_key("replacement"));
+    }
+
+    /// The checkpoint rewrites the active plans' subtasks (DELETE + INSERT of the fourteen columns
+    /// the in-memory model has), in the SAME knowledge.db and table the CLI writes. Every column the
+    /// model does not carry — the ticket body pointer and labels (S-05), the claim, the Wayfinder
+    /// ticket fields, and whatever is added next — used to be wiped by it. They ride across now.
+    #[test]
+    fn test_checkpoint_carries_the_columns_the_model_does_not_have() {
+        let (mgr, _f) = tmp_manager();
+        let mut decomposer = make_decomposer_with_task("tc");
+        decomposer
+            .tasks
+            .get_mut("tc")
+            .unwrap()
+            .push_subtask(make_subtask("tc::s1"));
+        mgr.checkpoint(&decomposer).unwrap();
+        {
+            // What the CLI side adds to the table, and writes to a row.
+            let conn = mgr.conn.lock().unwrap();
+            conn.execute_batch(
+                "ALTER TABLE decomposition_subtasks ADD COLUMN body_file TEXT;
+                 ALTER TABLE decomposition_subtasks ADD COLUMN labels TEXT;
+                 ALTER TABLE decomposition_subtasks ADD COLUMN claimed_by TEXT;
+                 ALTER TABLE decomposition_subtasks ADD COLUMN claim_expires_at INTEGER;
+                 ALTER TABLE decomposition_subtasks ADD COLUMN a_column_added_next TEXT;
+                 UPDATE decomposition_subtasks SET body_file = 'tickets/s1.md',
+                     labels = '[\"needs-triage\"]', claimed_by = 'session-a',
+                     claim_expires_at = 1794000000, a_column_added_next = 'x'
+                  WHERE subtask_id = 'tc::s1';",
+            )
+            .unwrap();
+        }
+
+        mgr.checkpoint(&decomposer).unwrap();
+
+        let conn = mgr.conn.lock().unwrap();
+        let row = conn
+            .query_row(
+                "SELECT body_file, labels, claimed_by, claim_expires_at, a_column_added_next
+                   FROM decomposition_subtasks WHERE subtask_id = 'tc::s1'",
+                [],
+                |r| {
+                    Ok((
+                        r.get::<_, Option<String>>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                        r.get::<_, Option<String>>(2)?,
+                        r.get::<_, Option<i64>>(3)?,
+                        r.get::<_, Option<String>>(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            row,
+            (
+                Some("tickets/s1.md".to_string()),
+                Some("[\"needs-triage\"]".to_string()),
+                Some("session-a".to_string()),
+                Some(1_794_000_000),
+                Some("x".to_string()),
+            )
+        );
     }
 
     #[test]

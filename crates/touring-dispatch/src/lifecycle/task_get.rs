@@ -26,6 +26,40 @@ use crate::runtime::HookRuntime;
 // Pull in shared helpers used by this handler.
 use super::{plan_scaffold_for_subject, suggest_generator_for_task_subject};
 
+/// A DAG/ready JSON as it rides in a hook context: without the per-subtask `body_file` and `labels`
+/// that `decompose get` and `decompose ready` gained with the ticket body pointer (S-05,
+/// 11/11/2026).
+///
+/// Hook excerpts are the first N characters of the raw JSON, whose keys sort alphabetically. The two
+/// new keys land at the FRONT of every subtask (`"body_file":null,` + `"labels":[],` = 28 bytes of
+/// nothing, for every ticket that has neither), pushing `status` and `subtask_id` — the fields the
+/// hint exists to show — out of the window, and the context grows by that much on every call. Both
+/// are a regression of THESE hooks, so their excerpts keep the shape they always had. A caller that
+/// wants a ticket's body or labels asks `touring decompose get`, the command the excerpt names.
+/// Text that is not a JSON object with such subtask arrays is returned untouched.
+pub(crate) fn without_ticket_pointer_fields(raw: &str) -> String {
+    let Ok(mut dag) = serde_json::from_str::<Value>(raw) else {
+        return raw.to_string();
+    };
+    let mut touched = false;
+    for key in ["subtasks", "ready_subtasks", "blocked_subtasks"] {
+        let Some(items) = dag.get_mut(key).and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for item in items {
+            if let Some(fields) = item.as_object_mut() {
+                touched |= fields.remove("body_file").is_some();
+                touched |= fields.remove("labels").is_some();
+            }
+        }
+    }
+    if touched {
+        dag.to_string()
+    } else {
+        raw.to_string()
+    }
+}
+
 pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> String {
     let tool_input = input.get("tool_input").unwrap_or(input);
     let task_id = tool_input
@@ -41,7 +75,10 @@ pub(crate) fn handle_task_sync_post_get(rt: &mut HookRuntime, input: &Value) -> 
     let dag_payload = serde_json::json!({"task_id": task_id});
     let dag_state = crate::cli_handlers::cli_decompose_get(rt, &dag_payload);
     let dag_context = if dag_state.contains("\"status\"") {
-        format!(" [live: {}]", truncate_str(&dag_state, 180))
+        format!(
+            " [live: {}]",
+            truncate_str(&without_ticket_pointer_fields(&dag_state), 180)
+        )
     } else {
         String::new()
     };
@@ -1108,6 +1145,48 @@ fn generator_for_active_subtask(dag_json: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// S-05: `get` now carries `body_file` and `labels` per subtask; the hook excerpt must come out
+    /// exactly as it did before they existed, or the 180-character window loses `status`.
+    #[test]
+    fn the_excerpt_omits_the_ticket_body_pointer_and_labels() {
+        let with_new_keys = r#"{"subtask_count":1,"subtasks":[{"body_file":null,"claim_live":false,"depends_on":[],"description":"scout","labels":[],"priority":5,"status":"completed","subtask_id":"T::scout"}],"task":{"task_id":"T"}}"#;
+        let before_s05 = r#"{"subtask_count":1,"subtasks":[{"claim_live":false,"depends_on":[],"description":"scout","priority":5,"status":"completed","subtask_id":"T::scout"}],"task":{"task_id":"T"}}"#;
+        assert_eq!(
+            super::without_ticket_pointer_fields(with_new_keys),
+            before_s05
+        );
+        // A populated ticket loses them from the excerpt too: the excerpt is a status glance.
+        let populated =
+            r#"{"subtasks":[{"body_file":"tickets/S-01.md","labels":["a"],"status":"pending"}]}"#;
+        assert_eq!(
+            super::without_ticket_pointer_fields(populated),
+            r#"{"subtasks":[{"status":"pending"}]}"#
+        );
+    }
+
+    #[test]
+    fn the_excerpt_passes_through_anything_that_carries_no_such_fields() {
+        for raw in [
+            "not-json",
+            r#"{"error":"db error"}"#,
+            r#"{"subtasks":"nope"}"#,
+            // Nothing to remove: the text comes back byte for byte, key order and spacing included.
+            r#"{ "subtasks": [ {"status":"pending"} ] }"#,
+        ] {
+            assert_eq!(super::without_ticket_pointer_fields(raw), raw);
+        }
+    }
+
+    /// `decompose ready` is excerpted by ExitPlanMode: both of its item arrays are covered.
+    #[test]
+    fn the_excerpt_covers_the_ready_and_blocked_item_arrays_of_decompose_ready() {
+        let ready = r#"{"blocked_subtasks":[{"body_file":null,"labels":[],"status":"pending","subtask_id":"T::b"}],"ready_count":1,"ready_subtasks":[{"body_file":"x.md","labels":["a"],"status":"pending","subtask_id":"T::a"}]}"#;
+        assert_eq!(
+            super::without_ticket_pointer_fields(ready),
+            r#"{"blocked_subtasks":[{"status":"pending","subtask_id":"T::b"}],"ready_count":1,"ready_subtasks":[{"status":"pending","subtask_id":"T::a"}]}"#
+        );
+    }
+
     #[test]
     fn plan_scaffold_for_active_subtask_returns_none_for_invalid_json() {
         // Invalid JSON → graceful None, no panic

@@ -7,6 +7,7 @@ use serde_json::Value;
 use touring_foundation::truncate_str;
 
 use super::super::suggest_generator_for_task_subject;
+use super::super::task_get::without_ticket_pointer_fields;
 use super::hints::{
     maybe_adr_hint_on_exit_plan, maybe_asyncapi_hint_on_exit_plan,
     maybe_benchmark_hint_on_exit_plan, maybe_changelog_hint_on_exit_plan,
@@ -40,7 +41,10 @@ pub(crate) fn handle_exit_plan_mode(rt: &mut HookRuntime, input: &Value) -> Stri
         if ready_json.contains("\"ready_count\":0") || !ready_json.contains("\"ready_count\"") {
             String::new()
         } else {
-            format!(" | ready-subtasks: {}", truncate_str(&ready_json, 150))
+            format!(
+                " | ready-subtasks: {}",
+                truncate_str(&without_ticket_pointer_fields(&ready_json), 150)
+            )
         };
 
     // R18-S3: Auto-assess the planning session to generate a quality score.

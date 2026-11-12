@@ -757,11 +757,21 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
         fog: String,
         origin: Option<String>,
         claimed_by: Option<String>,
+        /// The PATH of the ticket's markdown body, when one was recorded (S-05).
+        body_file: Option<String>,
+        labels: Vec<String>,
     }
+
+    // `--label`: list only the tickets carrying EVERY one of these labels. It narrows what is LISTED
+    // and nothing else — see the note where the lists are filtered.
+    let label_filter = match ticket_meta::parse_label_list(payload, "labels") {
+        Ok(set) => set,
+        Err(msg) => return serde_json::json!({"error": msg}).to_string(),
+    };
 
     let rows: Vec<Ticket> = {
         let Ok(mut stmt) = db.conn_ref().prepare(
-            "SELECT subtask_id, description, status, depends_on, priority,                     ticket_kind, ticket_subtype, autonomy, fog, origin_ticket, claimed_by              FROM decomposition_subtasks WHERE task_id = ?1",
+            "SELECT subtask_id, description, status, depends_on, priority,                     ticket_kind, ticket_subtype, autonomy, fog, origin_ticket, claimed_by, body_file, labels FROM decomposition_subtasks WHERE task_id = ?1",
         ) else {
             return serde_json::json!({"error": "db error"}).to_string();
         };
@@ -798,6 +808,8 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
                     .unwrap_or_else(|| "unknown".to_string()),
                 origin: r.get::<_, Option<String>>(9)?,
                 claimed_by: r.get::<_, Option<String>>(10)?,
+                body_file: r.get::<_, Option<String>>(11)?,
+                labels: ticket_meta::decode_labels(r.get::<_, Option<String>>(12)?.as_deref()),
             })
         })
         .map(|it| it.filter_map(Result::ok).collect())
@@ -834,10 +846,25 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
             "fog": t.fog,
             "origin_ticket": t.origin,
             "claimed_by": t.claimed_by,
+            "body_file": t.body_file,
+            "labels": t.labels,
         })
     };
-    let (decisions, implementation): (Vec<&Ticket>, Vec<&Ticket>) =
+    let (mut decisions, mut implementation): (Vec<&Ticket>, Vec<&Ticket>) =
         open.iter().partition(|t| t.kind == "decision");
+
+    // The label filter narrows what is LISTED, never what is TRUE about the map. Whether decisions
+    // are open (`gated`, `next_action`) is a fact about the whole map: computed from the filtered
+    // list, `--label x` would answer "no open decisions" about decisions that merely carry another
+    // label — the reassuring lie this view exists to prevent. Fog and the waterfall check read the
+    // whole map as well. What the filter hides is COUNTED, so nothing is dropped silently.
+    let gated = !decisions.is_empty();
+    let implementation_unblocked = !implementation.is_empty();
+    let listed_before = (decisions.len(), implementation.len());
+    if !label_filter.is_empty() {
+        decisions.retain(|t| ticket_meta::has_all_labels(&t.labels, &label_filter));
+        implementation.retain(|t| ticket_meta::has_all_labels(&t.labels, &label_filter));
+    }
 
     let mut fog_counts = std::collections::BTreeMap::new();
     for t in rows.iter().filter(|t| !is_done(&t.status)) {
@@ -888,8 +915,7 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
         .and_then(|raw| serde_json::from_str(&raw).ok())
         .unwrap_or_else(|| serde_json::json!([]));
 
-    let gated = !decisions.is_empty();
-    serde_json::json!({
+    let mut reply = serde_json::json!({
         "task_id": task_id,
         "gated_by_open_decisions": gated,
         "fog": fog_counts,
@@ -911,13 +937,20 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
         "untraceable_implementation": untraceable,
         "next_action": if gated {
             "resolve the decision tickets first — implementation planned past an              unmade decision is a plan resting on a guess"
-        } else if implementation.is_empty() {
+        } else if !implementation_unblocked {
             "the frontier is empty: nothing is unblocked"
         } else {
             "no open decisions — implementation tickets may be claimed"
         },
-    })
-    .to_string()
+    });
+    if !label_filter.is_empty() {
+        reply["label_filter"] = serde_json::json!(label_filter);
+        reply["label_filtered_out"] = serde_json::json!({
+            "decisions": listed_before.0 - decisions.len(),
+            "implementation": listed_before.1 - implementation.len(),
+        });
+    }
+    reply.to_string()
 }
 
 /// Return ready-to-execute subtasks (deps satisfied) grouped by `parallel_group`.
@@ -945,6 +978,10 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         depends_on: Vec<String>,
         parallel_group: Option<String>,
         priority: i32,
+        /// The PATH of the ticket's markdown body, when one was recorded (S-05).
+        body_file: Option<String>,
+        /// The ticket's triage labels, ordered; `[]` for a subtask that never had any.
+        labels: Vec<String>,
         /// Who holds the claim, when one exists (coordenação 2026-09-23: the
         /// views must name the owner, or "claimed by a live session" and
         /// "abandoned work" are indistinguishable).
@@ -960,9 +997,14 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 
     let now_epoch = chrono::Utc::now().timestamp();
 
+    // `--label`: keep only the subtasks carrying EVERY one of these labels (S-05).
+    let label_filter = match ticket_meta::parse_label_list(payload, "labels") {
+        Ok(set) => set,
+        Err(msg) => return serde_json::json!({"error": msg}).to_string(),
+    };
     let (where_clause, bind) = ready_scope(task_id, payload);
     let sql = format!(
-        "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at, autonomy FROM decomposition_subtasks WHERE {where_clause}"
+        "SELECT subtask_id, status, depends_on, parallel_group, priority, claimed_by, claim_expires_at, autonomy, body_file, labels FROM decomposition_subtasks WHERE {where_clause}"
     );
 
     // Load the subtasks in scope
@@ -987,12 +1029,15 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             let claimed_by: Option<String> = r.get::<_, Option<String>>(5)?;
             let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(6)?;
             let autonomy: Option<String> = r.get::<_, Option<String>>(7)?;
+            let labels = ticket_meta::decode_labels(r.get::<_, Option<String>>(9)?.as_deref());
             Ok(SubtaskInfo {
                 subtask_id: r.get::<_, String>(0)?,
                 status: r.get::<_, String>(1)?,
                 depends_on: deps,
                 parallel_group: r.get::<_, Option<String>>(3)?,
                 priority: r.get::<_, i32>(4)?,
+                body_file: r.get::<_, Option<String>>(8)?,
+                labels,
                 claim_live: claimed_by.is_some() && claim_expires_at.is_some_and(|e| e > now_epoch),
                 claimed_by,
                 claim_expires_at,
@@ -1038,10 +1083,20 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // `blocked` was the whole complement of `ready`, so a FINISHED subtask was listed as blocked
     // (cross-audit 03/10/2026 finding I, seen live on a finalized plan on 04/10): only an open
     // subtask that is not ready is waiting, and `cancelled` is as finished as `completed`.
-    let blocked: Vec<SubtaskInfo> = blocked
+    let mut blocked: Vec<SubtaskInfo> = blocked
         .into_iter()
         .filter(|s| !has_finished(&s.status))
         .collect();
+
+    // The label filter runs HERE, after readiness: a dependency's completion is a fact about the
+    // whole plan, so the `completed` set above was built from every subtask in scope. Filtering the
+    // rows first would leave a ticket blocked forever behind a finished dependency that merely
+    // carries another label.
+    let unfiltered = (ready.len(), blocked.len());
+    if !label_filter.is_empty() {
+        ready.retain(|s| ticket_meta::has_all_labels(&s.labels, &label_filter));
+        blocked.retain(|s| ticket_meta::has_all_labels(&s.labels, &label_filter));
+    }
 
     // The SAME queue order the claim hands out (24/09/2026, analise-d4 via
     // touring-36): ready listed INSERTION order while claim sorted by
@@ -1075,24 +1130,25 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // `ready_count` is emitted because four hook readers (plan mode enter/exit, task list,
     // task update) key on it; before 04/11/2026 no producer wrote it and they never fired.
     let ready_count = ready.len();
-    if only_ready {
-        serde_json::json!({
-            "task_id": task_id,
-            "ready_count": ready_count,
-            "ready_subtasks": ready,
-            "parallel_groups": parallel_groups
-        })
-        .to_string()
-    } else {
-        serde_json::json!({
-            "task_id": task_id,
-            "ready_count": ready_count,
-            "ready_subtasks": ready,
-            "blocked_subtasks": blocked,
-            "parallel_groups": parallel_groups
-        })
-        .to_string()
+    let mut reply = serde_json::json!({
+        "task_id": task_id,
+        "ready_count": ready_count,
+        "ready_subtasks": ready,
+        "parallel_groups": parallel_groups
+    });
+    if !only_ready {
+        reply["blocked_subtasks"] = serde_json::json!(blocked);
     }
+    // A filtered answer says what it left out: `ready_count` alone would read as "that is all there
+    // is" (S-05).
+    if !label_filter.is_empty() {
+        reply["label_filter"] = serde_json::json!(label_filter);
+        reply["label_filtered_out"] = serde_json::json!({
+            "ready": unfiltered.0 - ready_count,
+            "blocked": unfiltered.1 - blocked.len(),
+        });
+    }
+    reply.to_string()
 }
 
 /// Which subtasks `ready` reads, as a `WHERE` clause plus its optional bind value

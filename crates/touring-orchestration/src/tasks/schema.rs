@@ -115,6 +115,14 @@ pub struct TaskDefinition {
     /// Per-task hooks run before and after the task.
     #[serde(default)]
     pub hooks: TaskHooks,
+    /// Path of the ticket's markdown body (the PATH, never the content). Absent means "not stated":
+    /// importing over an existing subtask keeps the body it already points at.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_file: Option<String>,
+    /// Triage labels of the ticket. Empty means "not stated" (the existing labels are kept); a
+    /// non-empty list replaces them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
 }
 
 /// Parameter definition with optional default and allowed options.

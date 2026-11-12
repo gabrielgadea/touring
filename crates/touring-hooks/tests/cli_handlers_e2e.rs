@@ -5337,3 +5337,173 @@ fn a_closed_prototype_still_answers_the_risk() {
         "{frontier}"
     );
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// S-05: a ticket's body pointer and triage labels live ON the subtask
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Through the surface the registry dispatches to (`cli_handlers::*`, the live handlers). The unit
+// tests in `touring-cli` (`decompose/body_labels_tests.rs`) cover the edge cases; these two are the
+// end-to-end mirror of the Wayfinder `ticket`/`frontier` tests above.
+
+/// A decision ticket and the implementation it gates, each carrying a body path and labels: `get`,
+/// `ready` and `frontier` all return both fields, and the label filter narrows the listing without
+/// lifting the gate.
+#[test]
+fn a_ticket_body_and_its_labels_travel_through_get_ready_and_frontier() {
+    let (tmp, mut rt) = setup_runtime();
+    std::fs::create_dir_all(tmp.path().join("tickets")).expect("tickets dir");
+    for name in ["S-00.md", "S-01.md"] {
+        std::fs::write(tmp.path().join("tickets").join(name), "# body\n").expect("body file");
+    }
+    let task_id = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "body + labels"}),
+    ))["task_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let add = |rt: &mut HookRuntime, sub: &str, labels: serde_json::Value| {
+        parse_json(&cli_decompose_add(
+            rt,
+            &serde_json::json!({
+                "task_id": task_id, "subtask_id": sub, "description": format!("ticket {sub}"),
+                "body_file": format!("tickets/{sub}.md"), "labels": labels
+            }),
+        ))
+    };
+    let added = add(&mut rt, "S-00", serde_json::json!(["needs-info"]));
+    assert_eq!(added["persisted"], serde_json::json!(true), "{added}");
+    add(&mut rt, "S-01", serde_json::json!(["ready-for-agent"]));
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "grilling", "autonomy": "hitl", "fog": "hazy"}),
+    );
+
+    // get: both fields, per subtask.
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let s1 = got["subtasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| {
+            s["subtask_id"]
+                .as_str()
+                .is_some_and(|i| i.ends_with("S-01"))
+        })
+        .expect("S-01 in get");
+    assert_eq!(
+        s1["body_file"],
+        serde_json::json!("tickets/S-01.md"),
+        "{got}"
+    );
+    assert_eq!(
+        s1["labels"],
+        serde_json::json!(["ready-for-agent"]),
+        "{got}"
+    );
+
+    // update: swap a label; the reply is the set AFTER the change.
+    let updated = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01",
+                            "add_labels": ["kind:bug"], "remove_labels": ["ready-for-agent"]}),
+    ));
+    assert_eq!(
+        updated["labels"],
+        serde_json::json!(["kind:bug"]),
+        "{updated}"
+    );
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "add_labels": ["ready-for-agent"]}),
+    );
+
+    // ready (the dispatched wrapper): per-item fields, conjunctive label filter.
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "labels": ["ready-for-agent", "kind:bug"]}),
+    ));
+    assert_eq!(ready["ready_count"], serde_json::json!(1), "{ready}");
+    assert_eq!(
+        ready["ready_subtasks"][0]["body_file"],
+        serde_json::json!("tickets/S-01.md"),
+        "{ready}"
+    );
+
+    // frontier: the filter narrows the LISTING, not the gate — the open decision carries another label.
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "labels": ["ready-for-agent"]}),
+    ));
+    assert_eq!(
+        frontier["decisions"].as_array().map(Vec::len),
+        Some(0),
+        "{frontier}"
+    );
+    assert_eq!(
+        frontier["implementation"].as_array().map(Vec::len),
+        Some(1),
+        "{frontier}"
+    );
+    assert_eq!(
+        frontier["gated_by_open_decisions"],
+        serde_json::json!(true),
+        "{frontier}"
+    );
+    assert_eq!(
+        frontier["label_filtered_out"]["decisions"],
+        serde_json::json!(1),
+        "{frontier}"
+    );
+}
+
+/// A body file that is not on disk, or a label outside the pattern, refuses the call by name and
+/// writes nothing — the pointer is never recorded dangling.
+#[test]
+fn a_dangling_body_file_or_a_malformed_label_is_refused_and_nothing_is_written() {
+    let (tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+
+    let refused = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-09", "description": "x",
+                            "body_file": "tickets/missing.md"}),
+    ));
+    assert_eq!(refused["persisted"], serde_json::json!(false), "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap()
+            .contains(&tmp.path().join("tickets/missing.md").display().to_string()),
+        "the refusal names the RESOLVED path: {refused}"
+    );
+
+    let bad = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "add_labels": ["Not Valid"]}),
+    ));
+    assert_eq!(bad["subtask_updated"], serde_json::json!(false), "{bad}");
+    assert!(
+        bad["error"]
+            .as_str()
+            .unwrap()
+            .contains("^[a-z0-9][a-z0-9:_-]{0,63}$"),
+        "{bad}"
+    );
+
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        got["subtask_count"],
+        serde_json::json!(1),
+        "S-09 was never created: {got}"
+    );
+    assert_eq!(got["subtasks"][0]["labels"], serde_json::json!([]), "{got}");
+}

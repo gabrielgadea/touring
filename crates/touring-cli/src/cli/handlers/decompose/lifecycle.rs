@@ -127,7 +127,7 @@ fn take_snapshot(db: &FileKnowledgeDB, task_id: &str, metrics: &serde_json::Valu
         let mut stmt = match db.conn_ref().prepare(
             "SELECT subtask_id, description, depends_on, priority, status, deadline,
                     deadline_behavior, review_required, quality_score, attempts,
-                    parallel_group, created_at, updated_at
+                    parallel_group, created_at, updated_at, body_file, labels
              FROM decomposition_subtasks WHERE task_id = ?1",
         ) {
             Ok(s) => s,
@@ -147,7 +147,13 @@ fn take_snapshot(db: &FileKnowledgeDB, task_id: &str, metrics: &serde_json::Valu
                 "attempts": r.get::<_, i32>(9)?,
                 "parallel_group": r.get::<_, Option<String>>(10)?,
                 "created_at": r.get::<_, String>(11)?,
-                "updated_at": r.get::<_, String>(12)?
+                "updated_at": r.get::<_, String>(12)?,
+                // S-05: the snapshot is the replay record of the plan as it was closed, and the
+                // pointer to each ticket's body and its triage labels are part of that plan.
+                "body_file": r.get::<_, Option<String>>(13)?,
+                "labels": super::ticket_meta::decode_labels(
+                    r.get::<_, Option<String>>(14)?.as_deref()
+                )
             }))
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())

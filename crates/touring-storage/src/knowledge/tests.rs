@@ -1243,7 +1243,7 @@ fn test_migrate_schema_directly_is_idempotent() {
 fn test_schema_version_drift_guard() {
     assert_eq!(
         SCHEMA_VERSION,
-        12, // v12 = S22; migration test: legacy_rows_are_labelled_unverified_by_the_migration
+        13, // v13 = R6.4; migration test: test_open_adds_the_decompose_subtask_columns_to_a_store_from_before_them (v12 = S22: legacy_rows_are_labelled_unverified_by_the_migration)
         "SCHEMA_VERSION changed to {} — bump this guard AND add a fixture/migration test \
              (see Master Plan C.W2.P3.T9: build_v7_fixture + \
              test_migration_v7_to_v8_upgrades_schema_and_preserves_data)",
@@ -1436,4 +1436,70 @@ fn prevented_flag_matches_the_existence_of_a_production_producer() {
         "PREVENTED_MEASURED must be true iff production code calls \
          increment_gotcha_prevented (callers: {producers:?})"
     );
+}
+
+/// R6.4 (11/11/2026): the `decomposition_subtasks` columns added after the base DDL — claim, the
+/// Wayfinder ticket fields, `body_file`, `labels` — migrate WHERE THE DATABASE IS OPENED. A store
+/// left at the previous version without them (an install from before S-05, or the global decompose
+/// store nobody ensured) opens with every one of them present and keeps its rows.
+#[test]
+fn test_open_adds_the_decompose_subtask_columns_to_a_store_from_before_them() {
+    const LATE_COLUMNS: [&str; 9] = [
+        "claimed_by",
+        "claim_expires_at",
+        "ticket_kind",
+        "ticket_subtype",
+        "autonomy",
+        "fog",
+        "origin_ticket",
+        "body_file",
+        "labels",
+    ];
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("old_decompose.db");
+    drop(FileKnowledgeDB::new(&db_path).unwrap());
+    {
+        let conn = Connection::open(&db_path).unwrap();
+        for column in LATE_COLUMNS {
+            conn.execute_batch(&format!(
+                "ALTER TABLE decomposition_subtasks DROP COLUMN {column};"
+            ))
+            .unwrap();
+        }
+        conn.execute_batch(
+            "INSERT INTO task_decompositions (task_id, task_type, description, status, created_at, updated_at)
+               VALUES ('t', 'feature', 'legacy', 'created', '2026-01-01', '2026-01-01');
+             INSERT INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, status, created_at, updated_at)
+               VALUES ('t::S-01', 't', 'legacy row', '[]', 'pending', '2026-01-01', '2026-01-01');
+             PRAGMA user_version = 12;",
+        )
+        .unwrap();
+        for column in LATE_COLUMNS {
+            assert!(
+                !column_exists(&conn, "decomposition_subtasks", column),
+                "the fixture must not have {column}"
+            );
+        }
+    }
+
+    let db = FileKnowledgeDB::new(&db_path).unwrap();
+    for column in LATE_COLUMNS {
+        assert!(
+            column_exists(&db.conn, "decomposition_subtasks", column),
+            "opening the store must add {column}"
+        );
+    }
+    let (description, labels): (String, Option<String>) = db
+        .conn
+        .query_row(
+            "SELECT description, labels FROM decomposition_subtasks WHERE subtask_id = 't::S-01'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(description, "legacy row", "the row survives the migration");
+    assert_eq!(labels, None, "a row written before the column reads NULL");
+    // And a second open is a no-op, not an error.
+    drop(db);
+    FileKnowledgeDB::new(&db_path).unwrap();
 }

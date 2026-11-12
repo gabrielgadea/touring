@@ -84,7 +84,7 @@ fn export_task_as_tasksfile(rt: &mut HookRuntime, payload: &serde_json::Value) -
 
     // Get all subtasks
     let mut stmt = match db.conn_ref().prepare(
-        "SELECT subtask_id, description, depends_on, priority, status, deadline, deadline_behavior, review_required FROM decomposition_subtasks WHERE task_id = ?1",
+        "SELECT subtask_id, description, depends_on, priority, status, deadline, deadline_behavior, review_required, body_file, labels FROM decomposition_subtasks WHERE task_id = ?1",
     ) {
         Ok(s) => s,
         Err(e) => return serde_json::json!({"error": e.to_string(), "success": false}).to_string(),
@@ -100,6 +100,10 @@ fn export_task_as_tasksfile(rt: &mut HookRuntime, payload: &serde_json::Value) -
             r.get::<_, Option<String>>(5)?,
             r.get::<_, Option<String>>(6)?,
             r.get::<_, i32>(7)?,
+            r.get::<_, Option<String>>(8)?,
+            crate::cli_handlers_decompose::ticket_meta::decode_labels(
+                r.get::<_, Option<String>>(9)?.as_deref(),
+            ),
         ))
     }) {
         Ok(r) => r.filter_map(|x| x.ok()).collect::<Vec<_>>(),
@@ -119,6 +123,8 @@ fn export_task_as_tasksfile(rt: &mut HookRuntime, payload: &serde_json::Value) -
                 deadline,
                 deadline_behavior,
                 review_required,
+                body_file,
+                labels,
             )| {
                 let mut task_map = serde_json::Map::new();
                 task_map.insert("desc".to_string(), serde_json::json!(desc));
@@ -145,6 +151,14 @@ fn export_task_as_tasksfile(rt: &mut HookRuntime, payload: &serde_json::Value) -
                 // Review required
                 if *review_required != 0 {
                     task_map.insert("review_required".to_string(), serde_json::json!(true));
+                }
+                // S-05: the ticket's body pointer and labels travel with the file, so an import
+                // elsewhere rebuilds the same tickets. Absent fields stay absent ("not stated").
+                if let Some(body) = body_file {
+                    task_map.insert("body_file".to_string(), serde_json::json!(body));
+                }
+                if !labels.is_empty() {
+                    task_map.insert("labels".to_string(), serde_json::json!(labels));
                 }
                 (subtask_id.clone(), serde_json::Value::Object(task_map))
             },

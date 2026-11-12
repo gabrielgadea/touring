@@ -188,6 +188,8 @@ fn convert_task(
         retry_policy,
         env_file: vec![],
         hooks,
+        body_file: None,
+        labels: vec![],
     })
 }
 

@@ -48,6 +48,10 @@ pub struct CompiledTask {
     pub timeout: Option<String>,
     /// Free-form tags used for filtering and grouping.
     pub tags: Vec<String>,
+    /// Path of the ticket's markdown body, when the file states one.
+    pub body_file: Option<String>,
+    /// Triage labels the file states (empty = not stated).
+    pub labels: Vec<String>,
 }
 
 impl CompiledTask {
@@ -220,6 +224,8 @@ impl TasksfileCompiler {
             env_file: effective.env_file.clone(),
             timeout: effective.timeout.clone(),
             tags: effective.tags.clone(),
+            body_file: effective.body_file.clone(),
+            labels: effective.labels.clone(),
         })
     }
 

@@ -63,10 +63,21 @@ enum DecomposeCmd {
         /// Comma-separated dependency list (e.g. --depends-on=S-01,S-02).
         #[arg(long, value_delimiter = ',')]
         depends_on: Option<Vec<String>>,
+        /// Markdown file holding the ticket's body (docs/agents/issue-tracker.md). The PATH is
+        /// stored, never the content; a relative path is read from the current directory and
+        /// recorded relative to the project root. The file must exist now: otherwise the add is
+        /// refused, naming the resolved path.
+        #[arg(long, value_name = "PATH")]
+        body_file: Option<String>,
+        /// Triage label; repeat for several (--label needs-triage --label kind:bug). Pattern:
+        /// ^[a-z0-9][a-z0-9:_-]{0,63}$ — anything else is refused. Re-adding an existing subtask
+        /// WITH --label replaces its label set; without it the stored labels are kept.
+        #[arg(long = "label", value_name = "LABEL")]
+        labels: Vec<String>,
     },
-    /// Fetch one task DAG by id.
+    /// Fetch one task DAG by id. Each subtask carries `body_file` (null when none) and `labels`.
     Get { task_id: String },
-    /// Update a subtask (status, deps, priority, quality score).
+    /// Update a subtask (status, deps, priority, quality score, body file, labels).
     Update {
         task_id: String,
         subtask_id: String,
@@ -89,6 +100,17 @@ enum DecomposeCmd {
         /// Quality score 0.0-1.0.
         #[arg(long)]
         quality_score: Option<f64>,
+        /// Point the subtask at a (new) markdown body file. Same rules as `add --body-file`: the
+        /// path is stored, not the content, and the file must exist now.
+        #[arg(long, value_name = "PATH")]
+        body_file: Option<String>,
+        /// Add a triage label (repeatable). Pattern ^[a-z0-9][a-z0-9:_-]{0,63}$.
+        #[arg(long = "add-label", value_name = "LABEL")]
+        add_labels: Vec<String>,
+        /// Remove a triage label (repeatable); removing one the subtask never had is a no-op. A
+        /// label named by both --add-label and --remove-label is refused.
+        #[arg(long = "remove-label", value_name = "LABEL")]
+        remove_labels: Vec<String>,
     },
     /// Validate a task DAG (cycles, dangling deps).
     Validate { task_id: String },
@@ -137,6 +159,10 @@ enum DecomposeCmd {
         /// the flag, not the order.
         #[arg(long)]
         by_priority: bool,
+        /// Keep only subtasks carrying EVERY given label (repeatable). Readiness is still judged
+        /// on the whole plan; the output says how many items the filter hid.
+        #[arg(long = "label", value_name = "LABEL")]
+        labels: Vec<String>,
     },
     /// Atomically take the next ready subtask for one owner. Unlike `ready`,
     /// which only reads (so two sessions polling it receive the SAME subtask),
@@ -202,7 +228,14 @@ enum DecomposeCmd {
     },
     /// The frontier: unblocked work partitioned into open DECISIONS and the
     /// implementation they gate, with the map's traceability reported.
-    Frontier { task_id: String },
+    Frontier {
+        task_id: String,
+        /// List only tickets carrying EVERY given label (repeatable). It narrows what is listed,
+        /// never what is true: `gated_by_open_decisions`, fog and the waterfall check still read
+        /// the whole map, and `label_filtered_out` counts what the filter hid.
+        #[arg(long = "label", value_name = "LABEL")]
+        labels: Vec<String>,
+    },
     /// List the 10 reusable workflow templates W1-W10 (TR-5). Emits JSON
     /// `{count, templates: [...]}` — consumed by touring-web `/plans`.
     Templates,
@@ -251,6 +284,42 @@ fn take_legacy_comma_deps(desc_parts: &mut Vec<String>) -> Vec<String> {
     let deps = parse_csv_deps(last);
     desc_parts.pop();
     deps
+}
+
+/// `--body-file` as the daemon needs it: absolute. The daemon's working directory is not the
+/// user's, so a relative path typed from a subdirectory has to be resolved HERE, against the
+/// directory the user was standing in; the daemon then records it relative to the project root.
+fn absolutize_against(raw: &str, cwd: &std::path::Path) -> String {
+    let path = std::path::Path::new(raw);
+    // An empty path is passed through untouched so the daemon refuses it by name.
+    if raw.is_empty() || path.is_absolute() {
+        raw.to_string()
+    } else {
+        cwd.join(path).to_string_lossy().into_owned()
+    }
+}
+
+/// Puts a ticket's body path and its labels (under `labels_key`: `labels` for `add`, `add_labels`
+/// for `update`) on the payload. Only what was given travels: an absent key means "not stated" to
+/// the daemon, which for a re-add means "keep what the row holds".
+fn apply_ticket_meta(
+    payload: &mut serde_json::Value,
+    body_file: Option<String>,
+    labels_key: &str,
+    labels: Vec<String>,
+) -> anyhow::Result<()> {
+    if let Some(raw) = body_file {
+        let cwd = std::env::current_dir().map_err(|e| {
+            anyhow::anyhow!(
+                "cannot resolve --body-file: the current directory is unavailable ({e})"
+            )
+        })?;
+        payload["body_file"] = serde_json::json!(absolutize_against(&raw, &cwd));
+    }
+    if !labels.is_empty() {
+        payload[labels_key] = serde_json::json!(labels);
+    }
+    Ok(())
 }
 
 /// Entry point for the `touring decompose` CLI handler — parses the argv slice
@@ -303,6 +372,8 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             deadline,
             parallel_group,
             depends_on,
+            body_file,
+            labels,
         } => {
             let mut depends_on = depends_on.map(normalize_deps).unwrap_or_default();
             if depends_on.is_empty() {
@@ -321,6 +392,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             if let Some(pg) = parallel_group {
                 payload["parallel_group"] = serde_json::json!(pg);
             }
+            apply_ticket_meta(&mut payload, body_file, "labels", labels)?;
             let output = daemon_query("cli-decompose-add", payload)?;
             println!("{output}");
         }
@@ -337,6 +409,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             depends_on,
             priority,
             quality_score,
+            body_file,
+            add_labels,
+            remove_labels,
         } => {
             let mut payload = serde_json::json!({
                 "task_id": task_id,
@@ -359,6 +434,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             }
             if let Some(q) = quality_score {
                 payload["quality_score"] = serde_json::json!(q);
+            }
+            apply_ticket_meta(&mut payload, body_file, "add_labels", add_labels)?;
+            if !remove_labels.is_empty() {
+                payload["remove_labels"] = serde_json::json!(remove_labels);
             }
             let output = daemon_query("cli-decompose-update", payload)?;
             println!("{output}");
@@ -402,11 +481,15 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         DecomposeCmd::Ready {
             task_id,
             by_priority,
+            labels,
         } => {
-            let payload = serde_json::json!({
+            let mut payload = serde_json::json!({
                 "task_id": task_id.unwrap_or_default(),
                 "by_priority": by_priority,
             });
+            if !labels.is_empty() {
+                payload["labels"] = serde_json::json!(labels);
+            }
             let output = daemon_query("cli-decompose-ready", payload)?;
             println!("{output}");
         }
@@ -476,8 +559,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             let output = daemon_query("cli-decompose-ticket", payload)?;
             println!("{output}");
         }
-        DecomposeCmd::Frontier { task_id } => {
-            let payload = serde_json::json!({ "task_id": task_id });
+        DecomposeCmd::Frontier { task_id, labels } => {
+            let mut payload = serde_json::json!({ "task_id": task_id });
+            if !labels.is_empty() {
+                payload["labels"] = serde_json::json!(labels);
+            }
             let output = daemon_query("cli-decompose-frontier", payload)?;
             println!("{output}");
         }
@@ -774,6 +860,7 @@ mod tests {
             let Some(DecomposeCmd::Ready {
                 task_id,
                 by_priority,
+                ..
             }) = cli.cmd
             else {
                 panic!("expected Ready");
@@ -795,6 +882,178 @@ mod tests {
         };
         assert_eq!(task_id, "task_1");
         assert_eq!(quality_threshold, Some(0.85));
+    }
+
+    // ── S-05 — ticket body file + triage labels ─────────────────────────────
+
+    #[test]
+    fn add_parses_a_body_file_and_repeated_labels() {
+        let cli = parse(&[
+            "decompose",
+            "add",
+            "task_1",
+            "S-05",
+            "Ticket",
+            "--body-file=tickets/S-05-x.md",
+            "--label",
+            "needs-triage",
+            "--label=kind:bug",
+        ]);
+        let Some(DecomposeCmd::Add {
+            body_file, labels, ..
+        }) = cli.cmd
+        else {
+            panic!("expected Add");
+        };
+        assert_eq!(body_file.as_deref(), Some("tickets/S-05-x.md"));
+        assert_eq!(labels, vec!["needs-triage", "kind:bug"]);
+    }
+
+    #[test]
+    fn add_without_the_new_flags_states_nothing() {
+        let cli = parse(&["decompose", "add", "t", "S-01", "title"]);
+        let Some(DecomposeCmd::Add {
+            body_file, labels, ..
+        }) = cli.cmd
+        else {
+            panic!("expected Add");
+        };
+        assert!(body_file.is_none() && labels.is_empty());
+    }
+
+    #[test]
+    fn update_parses_body_file_and_add_remove_label_forms() {
+        let cli = parse(&[
+            "decompose",
+            "update",
+            "task_1",
+            "S-05",
+            "--body-file",
+            "tickets/S-05-x.md",
+            "--add-label",
+            "ready-for-agent",
+            "--add-label=kind:bug",
+            "--remove-label",
+            "needs-triage",
+        ]);
+        let Some(DecomposeCmd::Update {
+            body_file,
+            add_labels,
+            remove_labels,
+            ..
+        }) = cli.cmd
+        else {
+            panic!("expected Update");
+        };
+        assert_eq!(body_file.as_deref(), Some("tickets/S-05-x.md"));
+        assert_eq!(add_labels, vec!["ready-for-agent", "kind:bug"]);
+        assert_eq!(remove_labels, vec!["needs-triage"]);
+    }
+
+    #[test]
+    fn ready_and_frontier_accept_a_repeatable_conjunctive_label_filter() {
+        let cli = parse(&["decompose", "ready", "task_9", "--label", "a", "--label=b"]);
+        let Some(DecomposeCmd::Ready {
+            task_id, labels, ..
+        }) = cli.cmd
+        else {
+            panic!("expected Ready");
+        };
+        assert_eq!(task_id.as_deref(), Some("task_9"));
+        assert_eq!(labels, vec!["a", "b"]);
+
+        let cli = parse(&["decompose", "frontier", "task_9", "--label", "a"]);
+        let Some(DecomposeCmd::Frontier { task_id, labels }) = cli.cmd else {
+            panic!("expected Frontier");
+        };
+        assert_eq!(task_id, "task_9");
+        assert_eq!(labels, vec!["a"]);
+    }
+
+    /// A typo of the new flags must be a parse error, never description text (the 2026-06-11
+    /// failure the clap migration made loud) — `--labels` is not `--label`.
+    #[test]
+    fn a_mistyped_label_flag_is_a_parse_error_not_description_text() {
+        for args in [
+            &["decompose", "add", "t", "S-01", "x", "--labels", "a"][..],
+            &["decompose", "update", "t", "S-01", "--add-labels", "a"][..],
+            &["decompose", "add", "t", "S-01", "x", "--label"][..],
+        ] {
+            assert!(DecomposeCli::try_parse_from(args).is_err(), "{args:?}");
+        }
+    }
+
+    /// The pattern appears in the `--help` of the label flags as typed text, and enforced by
+    /// `ticket_meta::validate_label` in the daemon. A help that quotes a DIFFERENT pattern than the
+    /// one enforced is the drift this pins: the constant is the daemon's, so editing it fails here.
+    #[test]
+    fn every_help_that_quotes_the_label_pattern_quotes_the_enforced_one() {
+        use clap::CommandFactory;
+        let pattern = touring_hooks::cli_handlers_decompose::LABEL_PATTERN;
+        let root = DecomposeCli::command();
+        let mut quoting = Vec::new();
+        for sub in root.get_subcommands() {
+            for arg in sub.get_arguments() {
+                let help = [arg.get_help(), arg.get_long_help()]
+                    .into_iter()
+                    .flatten()
+                    .map(|h| h.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                // Anything that starts quoting a label pattern must quote the whole, current one.
+                if help.contains("^[a-z0-9]") {
+                    assert!(
+                        help.contains(pattern),
+                        "`{} --{}` quotes a label pattern other than {pattern}: {help}",
+                        sub.get_name(),
+                        arg.get_id()
+                    );
+                    quoting.push(format!("{}/{}", sub.get_name(), arg.get_id()));
+                }
+            }
+        }
+        quoting.sort();
+        assert_eq!(
+            quoting,
+            vec!["add/labels", "update/add_labels"],
+            "the flags that document the pattern: add --label and update --add-label"
+        );
+    }
+
+    #[test]
+    fn a_relative_body_path_is_resolved_against_the_users_cwd_not_the_daemons() {
+        let cwd = std::path::Path::new("/work/repo/docs");
+        assert_eq!(
+            absolutize_against("tickets/S-05.md", cwd),
+            "/work/repo/docs/tickets/S-05.md"
+        );
+        assert_eq!(
+            absolutize_against("/elsewhere/S-05.md", cwd),
+            "/elsewhere/S-05.md"
+        );
+        // Empty stays empty so the daemon refuses it by name instead of resolving it to the cwd.
+        assert_eq!(absolutize_against("", cwd), "");
+    }
+
+    #[test]
+    fn ticket_meta_travels_in_the_payload_only_when_given() {
+        let mut bare = serde_json::json!({"task_id": "t"});
+        apply_ticket_meta(&mut bare, None, "labels", Vec::new()).expect("nothing to resolve");
+        assert!(
+            bare.get("body_file").is_none() && bare.get("labels").is_none(),
+            "{bare}"
+        );
+
+        let mut full = serde_json::json!({"task_id": "t"});
+        apply_ticket_meta(
+            &mut full,
+            Some("/abs/S-05.md".to_string()),
+            "add_labels",
+            vec!["a".to_string()],
+        )
+        .expect("absolute path needs no cwd");
+        assert_eq!(full["body_file"], "/abs/S-05.md");
+        assert_eq!(full["add_labels"], serde_json::json!(["a"]));
     }
 
     // ── New failure modes the migration makes LOUD ─────────────────────────

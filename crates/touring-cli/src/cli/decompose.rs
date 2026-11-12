@@ -10,6 +10,7 @@
 //! naming them failed closed (12 get-only e2e tests, 2026-09-23).
 
 use crate::cli_handlers_decompose::ensure_decompose_tables;
+use crate::cli_handlers_decompose::ticket_meta;
 use crate::runtime::HookRuntime;
 use crate::schemas::validate_payload;
 use rusqlite::params;
@@ -197,17 +198,27 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
     // silêncio (provado com o binário em produção: YAML de 2 tarefas →
     // `subtask_count = 0`). A lógica é compartilhada, não copiada: duas cópias
     // divergentes foram justamente o que produziu o defeito.
-    let tasksfile_subtasks_added =
-        crate::cli_handlers_decompose::import_tasksfile_subtasks(db, &task_id, payload, &now);
-    serde_json::json!(
+    let imported = crate::cli_handlers_decompose::import_tasksfile_subtasks(
+        db,
+        &task_id,
+        payload,
+        &now,
+        &rt.project_root,
+    );
+    let mut reply = serde_json::json!(
         { "task_id" : task_id, "task_type" : task_type, "description" : description,
         "status" : "created", "created_at" : now, "origin" : origin, "mirrored_to_cc" :
         mirrored_to_cc == 1, "cila_level" : cila_level, "priority" : priority_token,
         "priority_int" : priority_int, "persisted" : result.is_ok(), "bandit_split_factor" : bandit_split_factor,
         "bandit_subtasks" : bandit_subtasks,
-        "tasksfile_subtasks_added" : tasksfile_subtasks_added, }
-    )
-    .to_string()
+        "tasksfile_subtasks_added" : imported.added, }
+    );
+    // A subtask the file carries a bad label or a missing body file for is REFUSED, and the reply names
+    // it and why — the count alone would read as a smaller file. Present only when something was refused.
+    if !imported.refused.is_empty() {
+        reply["tasksfile_subtasks_refused"] = serde_json::json!(imported.refused);
+    }
+    reply.to_string()
 }
 /// Mark an existing decompose task as mirrored to Claude Code.
 ///
@@ -247,6 +258,10 @@ struct SubtaskDef<'a> {
     deadline_behavior: &'a str,
     parallel_group: Option<&'a str>,
     review_required: i32,
+    /// The stored form of the ticket body's path (`None` = not stated: an existing row keeps its own).
+    body_file: Option<&'a str>,
+    /// The encoded label set (`None` = not stated, or empty: an existing row keeps its own).
+    labels_json: Option<&'a str>,
     now: &'a str,
 }
 
@@ -258,6 +273,10 @@ struct SubtaskDef<'a> {
 /// retry_policy, the claim lease, created_at) went back to its default. Re-adding is how a caller
 /// restates what a step IS — its description and edges — and it must not undo the work. The
 /// conflict arm therefore names only the definition columns; everything else is untouched.
+///
+/// `body_file` and `labels` are the two columns a re-add must NOT blank by silence: triage labels are
+/// applied after a ticket exists (`update --add-label`), so an `add` that merely restates the
+/// description keeps both, and an `add` that STATES them replaces them (`COALESCE(excluded, stored)`).
 ///
 /// An id that already belongs to ANOTHER task is refused: the upsert would update that row in place
 /// and report `persisted` for a step that never reached the plan the caller named.
@@ -281,12 +300,14 @@ fn upsert_subtask(
     let written = db
         .conn_ref()
         .execute(
-            "INSERT INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, NULL, NULL, 0, NULL, ?10, ?10) \
+            "INSERT INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at, body_file, labels) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, NULL, NULL, 0, NULL, ?10, ?10, ?11, ?12) \
              ON CONFLICT(subtask_id) DO UPDATE SET description = excluded.description, \
              depends_on = excluded.depends_on, priority = excluded.priority, \
              deadline = excluded.deadline, deadline_behavior = excluded.deadline_behavior, \
              parallel_group = excluded.parallel_group, review_required = excluded.review_required, \
+             body_file = COALESCE(excluded.body_file, decomposition_subtasks.body_file), \
+             labels = COALESCE(excluded.labels, decomposition_subtasks.labels), \
              updated_at = excluded.updated_at \
              WHERE decomposition_subtasks.task_id = excluded.task_id",
             params![
@@ -299,7 +320,9 @@ fn upsert_subtask(
                 def.deadline_behavior,
                 def.parallel_group,
                 def.review_required,
-                def.now
+                def.now,
+                def.body_file,
+                def.labels_json
             ],
         )
         .map_err(|e| e.to_string())?;
@@ -365,6 +388,15 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             }
         },
     };
+    // S-05: triage labels and the ticket body's path. Both are validated BEFORE any write — a bad
+    // label or a body that is not on disk refuses the whole add, naming what was wrong.
+    let refuse = |error: String| {
+        serde_json::json!({ "task_id": task_id, "persisted": false, "error": error }).to_string()
+    };
+    let meta = match ticket_meta::AddMeta::from_payload(payload) {
+        Ok(meta) => meta,
+        Err(msg) => return refuse(msg),
+    };
     let now = chrono::Utc::now().to_rfc3339();
     let local = &rt.ctx.knowledge;
     // F1-ROUTING: subtasks attach to the task's home store; a task in NO
@@ -383,6 +415,17 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
     };
     let db = store.db();
+    // The global store belongs to no single project, so a root-relative path stored there would
+    // have no stable base: it keeps the absolute one.
+    let body_file = match ticket_meta::resolve_optional_body(
+        meta.body_file,
+        &rt.project_root,
+        matches!(store, TaskStore::Global(_)),
+    ) {
+        Ok(stored) => stored,
+        Err(msg) => return refuse(msg),
+    };
+    let labels_json = ticket_meta::encode_labels(&meta.labels);
     let deps_json = serde_json::to_string(&depends_on).unwrap_or_else(|_| "[]".to_string());
     let scoped_id = if subtask_id.contains("::") {
         subtask_id.to_string()
@@ -418,6 +461,8 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             deadline_behavior,
             parallel_group,
             review_required,
+            body_file: body_file.as_deref(),
+            labels_json: labels_json.as_deref(),
             now: &now,
         },
     );
@@ -435,16 +480,27 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     if result.is_ok() && !touring_foundation::task_lifecycle::is_terminal_task_status(&status) {
         crate::cli_handlers_decompose::reopen_parent_if_closed(db, task_id, &now);
     }
+    // What the row holds NOW, not what the call stated: a re-add that omits them keeps the stored
+    // body and labels, and the reply must not claim the row is bare.
+    //
+    // The read can FAIL after the write succeeded. That is reported as `readback_error` (and the two
+    // fields are left out) rather than collapsed into "no body, no labels": a bare row in the reply
+    // would be a claim about the store that nothing checked.
+    let readback = result
+        .is_ok()
+        .then(|| ticket_meta::stored_meta(db, &scoped_id));
+    let mut event = serde_json::json!(
+        { "scoped_id" : scoped_id, "description" : description, "depends_on" :
+        depends_on, "priority" : priority_int, "deadline" : deadline,
+        "deadline_behavior" : deadline_behavior }
+    );
+    ticket_meta::attach_readback(&mut event, readback.as_ref(), None);
     crate::cli_handlers_decompose::log_event(
         db,
         task_id,
         Some(&scoped_id),
         "subtask_added",
-        &serde_json::json!(
-            { "scoped_id" : scoped_id, "description" : description, "depends_on" :
-            depends_on, "priority" : priority_int, "deadline" : deadline,
-            "deadline_behavior" : deadline_behavior }
-        ),
+        &event,
     );
     let mut reply = serde_json::json!(
         { "task_id" : task_id, "subtask_id" : subtask_id, "scoped_id" : scoped_id,
@@ -454,6 +510,9 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "priority_int" : priority_int, "created_at" : now, "persisted" : result.is_ok(),
         "parallel_group" : parallel_group }
     );
+    // A distinct key for a failed read: `error` means "the add failed" to the scaffold bridge, and
+    // this add did not.
+    ticket_meta::attach_readback(&mut reply, readback.as_ref(), Some("readback_error"));
     // The key exists ONLY on failure: the scaffold bridge reads the quoted word `"error"` in the raw
     // reply as "the add failed" (`hook_decompose_bridge.rs`), so a `"error":null` on success logged a
     // false failure for every scaffold stage of every mirrored task (independent review, 04/10/2026).
@@ -498,7 +557,7 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         let mut stmt = match db
             .conn_ref()
             .prepare(
-                "SELECT subtask_id, description, depends_on, status, priority, claimed_by, claim_expires_at FROM decomposition_subtasks WHERE task_id = ?1",
+                "SELECT subtask_id, description, depends_on, status, priority, claimed_by, claim_expires_at, body_file, labels FROM decomposition_subtasks WHERE task_id = ?1",
             )
         {
             Ok(s) => s,
@@ -519,6 +578,9 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             });
             let claimed_by: Option<String> = r.get::<_, Option<String>>(5)?;
             let claim_expires_at: Option<i64> = r.get::<_, Option<i64>>(6)?;
+            // S-05: rows written before these columns read `null` / `[]`.
+            let body_file: Option<String> = r.get::<_, Option<String>>(7)?;
+            let labels = ticket_meta::decode_labels(r.get::<_, Option<String>>(8)?.as_deref());
             Ok(serde_json::json!(
                 { "subtask_id" : r.get::< _, String > (0) ?, "description" :
                 r.get::< _, String > (1) ?, "depends_on" : depends_on,
@@ -530,7 +592,8 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                 "claimed_by" : claimed_by,
                 "claim_expires_at" : claim_expires_at,
                 "claim_live" : claimed_by.is_some()
-                    && claim_expires_at.is_some_and(|e| e > now_epoch) }
+                    && claim_expires_at.is_some_and(|e| e > now_epoch),
+                "body_file" : body_file, "labels" : labels }
             ))
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -589,6 +652,22 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
                 .collect()
         })
     });
+    // S-05: the ticket body's path and the label changes. Validated before ANY write, like the
+    // priority above: a bad label, a label named by both lists, or a body that is not on disk
+    // refuses the whole update and leaves the subtask exactly as it was.
+    let refuse = |error: String| {
+        serde_json::json!({
+            "task_id": task_id,
+            "updated": false,
+            "subtask_updated": false,
+            "error": error,
+        })
+        .to_string()
+    };
+    let meta = match ticket_meta::UpdateMeta::from_payload(payload) {
+        Ok(meta) => meta,
+        Err(msg) => return refuse(msg),
+    };
     let local = &rt.ctx.knowledge;
     ensure_decompose_tables(local);
     // F1-ROUTING: write to the task's home store; a task in NO store is a
@@ -610,6 +689,21 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     let db = store.db();
     let now = chrono::Utc::now().to_rfc3339();
     let has_subtask_id = payload.get("subtask_id").and_then(|v| v.as_str()).is_some();
+    if !meta.is_empty() && !has_subtask_id {
+        return refuse(
+            "a body file and labels belong to ONE subtask — pass its subtask_id".to_string(),
+        );
+    }
+    // The global store belongs to no single project: a root-relative path stored there would have
+    // no stable base, so it keeps the absolute one.
+    let body_file = match ticket_meta::resolve_optional_body(
+        meta.body_file,
+        &rt.project_root,
+        matches!(store, TaskStore::Global(_)),
+    ) {
+        Ok(stored) => stored,
+        Err(msg) => return refuse(msg),
+    };
     // O status vai direto para a linha-PAI apenas quando o chamador endereçou o
     // pai. Endereçando uma subtarefa, o pai é DERIVADO dos filhos logo abaixo —
     // até 03/08/2026 gravava-se nos dois casos, e o primeiro
@@ -628,6 +722,7 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     } else {
         0
     };
+    let mut labels_after: Option<Vec<String>> = None;
     let subtask_affected = if has_subtask_id
         || priority.is_some()
         || quality_score.is_some()
@@ -641,6 +736,26 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
             raw_subtask_id.to_string()
         } else {
             format!("{}::{}", task_id, raw_subtask_id)
+        };
+        // The body path and the labels go FIRST: the label rewrite is the one write here that can
+        // refuse (it gives up after repeated lost races), and a refusal must not arrive after the
+        // status and priority were already written.
+        let meta_rows = if meta.is_empty() {
+            0
+        } else {
+            match ticket_meta::write_update(
+                db,
+                &subtask_id_owned,
+                &meta,
+                body_file.as_deref(),
+                &now,
+            ) {
+                Ok(written) => {
+                    labels_after = written.labels;
+                    i64::from(written.row_found)
+                }
+                Err(msg) => return refuse(msg),
+            }
         };
         let mut sets: Vec<String> = Vec::new();
         let mut sql_params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -661,7 +776,7 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
             sets.push(format!("depends_on = ?{}", sql_params.len() + 1));
             sql_params.push(Box::new(deps_json));
         }
-        if sets.is_empty() {
+        let generic_rows = if sets.is_empty() {
             0
         } else {
             let sql = format!(
@@ -675,7 +790,8 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
             db.conn_ref()
                 .execute(&sql, param_refs.as_slice())
                 .unwrap_or(0) as i64
-        }
+        };
+        generic_rows.max(meta_rows)
     } else {
         0
     };
@@ -732,6 +848,21 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     } else {
         false
     };
+    // ONE reply for both exits — the early return below used to repeat this literal. `body_file`
+    // and `labels` are present only when the call asked for them, and `labels` is the set the
+    // subtask holds AFTER the change.
+    let mut reply = serde_json::json!(
+        { "task_id" : task_id, "status" : status, "updated" : task_affected > 0,
+        "subtask_updated" : subtask_affected > 0, "priority" : priority, "quality_score"
+        : quality_score, "resolution_logged" : resolution_logged, "retry_scheduled" :
+        retry_scheduled, "subtask_missing" : subtask_missing }
+    );
+    if let Some(body) = &body_file {
+        reply["body_file"] = serde_json::json!(body);
+    }
+    if let Some(labels) = &labels_after {
+        reply["labels"] = serde_json::json!(labels);
+    }
     if subtask_affected > 0 {
         let raw_subtask_id = payload
             .get("subtask_id")
@@ -746,16 +877,7 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
             "in_progress" => "subtask_started",
             "completed" => "subtask_completed",
             "failed" => "subtask_failed",
-            _ => {
-                return serde_json::json!(
-                    { "task_id" : task_id, "status" : status, "updated" : task_affected >
-                    0, "subtask_updated" : subtask_affected > 0, "priority" : priority,
-                    "quality_score" : quality_score, "resolution_logged" :
-                    resolution_logged, "retry_scheduled" : retry_scheduled,
-                    "subtask_missing" : subtask_missing }
-                )
-                .to_string();
-            }
+            _ => return reply.to_string(),
         };
         crate::cli_handlers_decompose::log_event(
             db,
@@ -768,13 +890,7 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
             ),
         );
     }
-    serde_json::json!(
-        { "task_id" : task_id, "status" : status, "updated" : task_affected > 0,
-        "subtask_updated" : subtask_affected > 0, "priority" : priority, "quality_score"
-        : quality_score, "resolution_logged" : resolution_logged, "retry_scheduled" :
-        retry_scheduled, "subtask_missing" : subtask_missing }
-    )
-    .to_string()
+    reply.to_string()
 }
 /// Validates a task's DAG for structural integrity, detecting dependency cycles and dangling references.
 pub fn cli_decompose_validate(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
@@ -933,6 +1049,7 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
 /// Optional `task_id` filter via payload; without one, `scope: "latest"` reads only the
 /// most recently updated open task and no scope reads every open task (see `ready_scope`
 /// in the wayfinder delegate).
+/// An optional `labels` list keeps only the subtasks carrying EVERY one of those labels.
 /// Returns JSON: `{ready_count, ready_subtasks: [{task_id, subtask_id, description}]}`.
 pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let task_id = payload
@@ -954,8 +1071,15 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         .get("only_ready")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // `labels` is forwarded for the same reason as `scope`: this wrapper is what the registry
+    // dispatches to, and a key it drops here never reaches the delegate — `ready --label` would
+    // parse, travel, and silently filter nothing (S-05).
+    let labels = payload
+        .get("labels")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let delegate_payload = serde_json::json!(
-        { "task_id" : task_id, "only_ready" : only_ready, "scope" : scope }
+        { "task_id" : task_id, "only_ready" : only_ready, "scope" : scope, "labels" : labels }
     );
     let result = crate::cli_handlers_decompose::cli_decompose_ready(rt, &delegate_payload);
     // `--by-priority` é VERDADEIRA POR CONSTRUÇÃO desde a 30.4.67: o delegate
