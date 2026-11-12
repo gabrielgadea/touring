@@ -2538,6 +2538,59 @@ fn retro_a_alternancia_de_regex_nao_e_um_simbolo() {
 }
 
 #[test]
+fn retro_a_frase_de_prosa_nao_e_simbolo() {
+    // 12/11/2026 (resíduo medido no projeto analise): `Pattern 'Falta' looks like a symbol`
+    // para uma FRASE ancorada num Markdown. Um padrão com espaço é frase quando sobra alguma
+    // palavra que não é o símbolo nem palavra-chave de código.
+    assert!(
+        symbol_cluster_of(r"grep -n '^- \*\*Falta\*\*: Ondas 3 e 4' docs/plans/x/RETOMADA.md")
+            .is_none()
+    );
+    assert!(symbol_cluster_of(r#"grep -rn "TODO fix the thing" crates/"#).is_none());
+    assert!(symbol_cluster_of(r#"grep -rn "Falta fechar Ondas" crates/"#).is_none());
+    assert!(symbol_cluster_of(r#"rg -n "impl Display for HookRuntime" crates/"#).is_none());
+    // Declaração procurada pela forma: as outras palavras são palavras-chave, o símbolo vale.
+    for (cmd, sym) in [
+        (
+            r#"grep -n "fn mark_run_rewrite" crates/x.rs"#,
+            "mark_run_rewrite",
+        ),
+        (
+            r#"grep -rn "pub struct HookRuntime" crates/"#,
+            "HookRuntime",
+        ),
+        (
+            r#"grep -rn "pub(crate) async fn run_gateway" crates/"#,
+            "run_gateway",
+        ),
+        (r#"rg -n "^class HookRuntime" scripts/"#, "HookRuntime"),
+        (r#"grep -rn "def load_states" scripts/"#, "load_states"),
+    ] {
+        let out = symbol_cluster_of(cmd).unwrap_or_else(|| panic!("{cmd}: deveria emitir"));
+        assert_eq!(out.symbol_hint.as_deref(), Some(sym), "{cmd}");
+    }
+}
+
+#[test]
+fn retro_a_alvo_so_de_prosa_nao_pede_lookup_de_simbolo() {
+    // Quem procura uma palavra DENTRO de um documento quer as menções naquele documento; o
+    // índice de símbolos não responde isso, mesmo quando a palavra coincide com um símbolo.
+    assert!(symbol_cluster_of("grep -n Falta docs/plans/x/RETOMADA.md").is_none());
+    assert!(symbol_cluster_of("grep -c HookRuntime notes.txt CHANGELOG.md").is_none());
+    assert!(symbol_cluster_of("rg -n HookRuntime docs/build.log").is_none());
+    // Um alvo de código, um diretório ou nenhum alvo: a busca pode ser pela definição.
+    for cmd in [
+        "grep -n HookRuntime docs/x.md crates/y.rs",
+        "grep -rn HookRuntime docs/",
+        "grep -rn HookRuntime .",
+        "rg -n HookRuntime",
+    ] {
+        let out = symbol_cluster_of(cmd).unwrap_or_else(|| panic!("{cmd}: deveria emitir"));
+        assert_eq!(out.symbol_hint.as_deref(), Some("HookRuntime"), "{cmd}");
+    }
+}
+
+#[test]
 fn retro_a_padrao_via_flag_e_resolvido() {
     // `-e PADRÃO`/`--regexp=PADRÃO`: o padrão é o operando da flag, o 1º posicional é caminho.
     let a = symbol_cluster_of("grep -rn -e HookRuntime crates/kazuba_dir").expect("-e");

@@ -577,12 +577,77 @@ fn extract_grep_symbol(command: &str) -> Option<String> {
     let invocation = crate::code_mode_gates::simple_commands(command)
         .into_iter()
         .find(|c| matches!(c.verb.as_str(), "grep" | "rg" | "egrep" | "fgrep"))?;
-    let pattern =
-        crate::code_mode_gates::grep_operands(&invocation.verb, &invocation.args).pattern?;
-    if pattern.contains('|') {
+    let operands = crate::code_mode_gates::grep_operands(&invocation.verb, &invocation.args);
+    let pattern = operands.pattern?;
+    if pattern.contains('|') || searches_only_prose(&operands.paths) {
         return None;
     }
-    extract_first_symbol_in_text(&pattern)
+    let symbol = extract_first_symbol_in_text(&pattern)?;
+    (!is_prose_phrase(&pattern, &symbol)).then_some(symbol)
+}
+
+/// Extensions of files that hold prose or records, not definitions.
+const PROSE_EXTENSIONS: &[&str] = &[
+    "md", "markdown", "mdx", "txt", "rst", "adoc", "log", "csv", "tsv",
+];
+
+/// 12/11/2026: every file the grep reads is prose (`grep -n Falta RETOMADA.md`). Whoever
+/// searches a word INSIDE a document wants its mentions there; the symbol index does not answer
+/// that, even when the word happens to be a symbol's name. A code file, a directory (no
+/// extension) or no path at all leaves the search open to being for a definition.
+fn searches_only_prose(paths: &[String]) -> bool {
+    !paths.is_empty()
+        && paths.iter().all(|path| {
+            Path::new(path)
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| PROSE_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+        })
+}
+
+/// Words that can stand beside a symbol in a pattern that searches for its DECLARATION
+/// (`pub struct HookRuntime`, `async fn run`, `def load`, `^class Foo`).
+const DECLARATION_WORDS: &[&str] = &[
+    "pub",
+    "crate",
+    "super",
+    "fn",
+    "async",
+    "unsafe",
+    "const",
+    "static",
+    "struct",
+    "enum",
+    "trait",
+    "impl",
+    "mod",
+    "type",
+    "use",
+    "let",
+    "mut",
+    "def",
+    "class",
+    "function",
+    "export",
+    "default",
+    "import",
+    "from",
+    "interface",
+    "var",
+    "func",
+    "package",
+];
+
+/// 12/11/2026: a pattern with whitespace is a PHRASE when any word in it is neither the
+/// candidate symbol nor a declaration keyword — `^- \*\*Falta\*\*: Ondas 3 e 4` produced
+/// `Pattern 'Falta' looks like a symbol`. `fn mark_run_rewrite` and `pub struct HookRuntime`
+/// stay symbol searches; `impl Display for HookRuntime` names two things and is not "a" symbol.
+fn is_prose_phrase(pattern: &str, symbol: &str) -> bool {
+    pattern.contains(char::is_whitespace)
+        && pattern
+            .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+            .filter(|word| !word.is_empty())
+            .any(|word| word != symbol && !DECLARATION_WORDS.contains(&word))
 }
 
 /// Heuristic file-path extraction from a bash command — picks the first token
