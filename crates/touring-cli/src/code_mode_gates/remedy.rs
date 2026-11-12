@@ -435,22 +435,26 @@ pub(super) fn g3_advisory_text(
     let leitura = g3_read_call(project_root, fp, tool_input);
     format!(
         "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/1 — o 2º seguido nega). \
-         Próximo passo: `{leitura}` antes do Edit — só a ferramenta Read do arquivo exato conta \
-         (cat/sed/grep via Bash não); o Read zera o contador."
+         Próximo passo: `{leitura}` antes do Edit — ou um grep -n/sed -n/cat/head/tail via Bash \
+         sobre este MESMO arquivo (caminho exato) nesta sessão; o Read zera o contador."
     )
 }
 
 /// The G3 deny. Measured before the 27/10/2026 deploy: in 37 of 40 denials the session had
 /// already looked at the file through Bash only, and 9 of the 40 were answered with another
 /// unread Edit — so the reason says what counts as a Read and what stays forbidden meanwhile.
+/// Since 11/11/2026 (retro item c) a Bash read of the EXACT file counts too (`note_bash_reads`
+/// feeds the same ledger), so the text names both forms — what the reason declares and what the
+/// predicate applies derive from the same rule (D8).
 pub(super) fn g3_deny_reason(project_root: &Path, fp: &str, n: u32, tool_input: &Value) -> String {
     let leitura = g3_read_call(project_root, fp, tool_input);
     format!(
         "[G3 edit-sem-read] {n}º Edit sem Read recente nesta sessão — os 11 erros \
          `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: \
-         `{leitura}`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: \
-         cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {fp}. Proibido até lá: \
-         Edit de {fp} ou de qualquer outro arquivo ainda não lido."
+         `{leitura}`, e só então o Edit. Conta a leitura do arquivo exato — a ferramenta Read, ou \
+         grep -n/sed -n/cat/head/tail via Bash sobre ele —; o Read ou o grep de OUTRO arquivo \
+         não registra {fp}. Proibido até lá: Edit de {fp} ou de qualquer outro arquivo ainda \
+         não lido."
     )
 }
 

@@ -260,6 +260,11 @@ pub(crate) fn session_key(payload: &Value) -> String {
 pub(crate) fn evaluate(state: &GateState, event: &ToolEvent<'_>, cfg: &GateConfig) -> Decision {
     let mut advisories: Vec<Advisory> = Vec::new();
     let verdict = chain::run_chain(state, event, cfg, &mut advisories).unwrap_or(Verdict::Allow);
+    // Retro 11/11/2026 (c): a Bash that RUNS (allowed, or only advised — a deny or a rewrite
+    // replaces it) and reads the exact file counts, for G3, as the session having read it.
+    if event.tool_name == "Bash" && matches!(verdict, Verdict::Allow | Verdict::Advise { .. }) {
+        chain::note_bash_reads(state, event);
+    }
     Decision {
         verdict,
         advisories,

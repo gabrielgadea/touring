@@ -42,6 +42,7 @@ pub(crate) fn scenarios() -> Vec<Scn> {
     v.extend(g6_rows());
     v.extend(g1_rows());
     v.extend(g3_g7_m3_g5_e3_rows());
+    v.extend(g3_bash_evidence_rows());
     v.extend(s3_rows());
     v.extend(g11_rows());
     v.extend(actor_rows());
@@ -50,6 +51,97 @@ pub(crate) fn scenarios() -> Vec<Scn> {
     v.extend(order_rows());
     v.extend(reason_rows());
     v
+}
+
+// ── Retro 11/11/2026 (c): a leitura por Bash do arquivo EXATO vale como Read para o G3 ───────
+//
+// Medido antes do deploy de 27/10: em 37 de 40 negações do G3 a sessão já tinha olhado o
+// arquivo por Bash, e o harness do Claude Code deixa o Edit rodar sem Read dentro do
+// diretório de trabalho. O G3 existe contra `edit_string_not_found` (um old_string chutado), e
+// um `grep -n`/`sed -n` do arquivo exato entrega a linha exata que será editada.
+
+fn g3_bash_evidence_rows() -> Vec<Scn> {
+    let a = "{ROOT}/src/a.rs";
+    let corpo = "fn main() {}\nlet needle = 1;\n";
+    // Todos leem o MESMO arquivo, nas formas que o modelo usa de verdade.
+    let leituras: [(&str, &str); 9] = [
+        ("grep_n", "grep -n needle {ROOT}/src/a.rs"),
+        ("rg_n", "rg -n needle {ROOT}/src/a.rs"),
+        ("sed_n", "sed -n '1,5p' {ROOT}/src/a.rs"),
+        ("cat", "cat {ROOT}/src/a.rs"),
+        ("head", "head -n 20 {ROOT}/src/a.rs"),
+        ("tail", "tail -n 20 {ROOT}/src/a.rs"),
+        ("relative", "grep -n needle src/a.rs"),
+        ("cd_then_sed", "cd {ROOT}/src && sed -n '1,5p' a.rs"),
+        ("pipeline", "grep -n needle {ROOT}/src/a.rs | head -5"),
+    ];
+    let mut rows: Vec<Scn> = leituras
+        .iter()
+        .map(|(nome, cmd)| {
+            let sess = leak(format!("retro-c-{nome}"));
+            scn(
+                leak(format!("g3_a_bash_read_counts_as_a_read__{nome}")),
+                &[],
+            )
+            .file(a, corpo)
+            .bash(sess, cmd, any())
+            .edit(sess, a, pass())
+            .edit(sess, a, pass())
+        })
+        .collect();
+    // Controles negativos: o que NÃO é a leitura do arquivo exato segue como antes —
+    // advisory no 1º Edit, deny no 2º.
+    let nao_contam: [(&str, &str); 5] = [
+        ("a_directory", "grep -rn needle {ROOT}/src"),
+        ("another_file", "grep -n needle {ROOT}/src/b.rs"),
+        ("a_glob", "grep -n needle {ROOT}/src/*.rs"),
+        ("not_a_reader", "ls -l {ROOT}/src/a.rs"),
+        (
+            "an_in_place_write",
+            "sed -i.bak 's/needle/pin/' {ROOT}/src/a.rs",
+        ),
+    ];
+    rows.extend(nao_contam.iter().map(|(nome, cmd)| {
+        let sess = leak(format!("retro-c-neg-{nome}"));
+        scn(
+            leak(format!(
+                "g3_a_bash_that_does_not_read_the_exact_file_does_not_count__{nome}"
+            )),
+            &[],
+        )
+        .file(a, corpo)
+        .file("{ROOT}/src/b.rs", corpo)
+        .bash(sess, cmd, any())
+        .edit(sess, a, advisory(&["[G3 "]))
+        .edit(sess, a, deny(&[]).gate("G3"))
+    }));
+    // Um Bash NEGADO não rodou: não leu nada.
+    rows.push(
+        scn("g3_a_denied_bash_read_does_not_count", &[])
+            .cfg(Cfg {
+                g1_rewrite_disabled: true,
+                ..Cfg::default()
+            })
+            .file(a, corpo)
+            .bash("retro-c-denied", "grep -n x1 {ROOT}/src/b.rs", any())
+            .bash("retro-c-denied", "grep -n x2 {ROOT}/src/c.rs", any())
+            .bash(
+                "retro-c-denied",
+                "grep -n needle {ROOT}/src/a.rs",
+                deny(&[]).gate("G1"),
+            )
+            .edit("retro-c-denied", a, advisory(&["[G3 "]))
+            .edit("retro-c-denied", a, deny(&[]).gate("G3")),
+    );
+    // A leitura é da SESSÃO (do ator): outra sessão não herda.
+    rows.push(
+        scn("g3_a_bash_read_does_not_cross_sessions", &[])
+            .file(a, corpo)
+            .bash("retro-c-sa", "grep -n needle {ROOT}/src/a.rs", any())
+            .edit("retro-c-sb", a, advisory(&["[G3 "]))
+            .edit("retro-c-sa", a, pass()),
+    );
+    rows
 }
 
 // ── G2 / G8 / G9 ─────────────────────────────────────────────────────────────────────────
@@ -1417,8 +1509,9 @@ fn reason_rows() -> Vec<Scn> {
                 "[G3 edit-sem-read] ",
                 "(advisory 1/1",
                 "`Read {ROOT}/grande.rs offset=115 limit=11`",
-                "cat/sed/grep via Bash não",
-            ]),
+                "via Bash sobre este MESMO arquivo",
+            ])
+            .without(&["cat/sed/grep via Bash não"]),
         )
         .call(
             "s13-g3-janela",
@@ -1427,9 +1520,10 @@ fn reason_rows() -> Vec<Scn> {
             deny(&[
                 "[G3 edit-sem-read] 2º Edit sem Read",
                 "`Read {ROOT}/grande.rs offset=115 limit=11`, e só então o Edit",
-                "cat/sed/grep via Bash e o Read de OUTRO arquivo não registram",
+                "o Read ou o grep de OUTRO arquivo não registra",
                 "Proibido até lá",
             ])
+            .without(&["cat/sed/grep via Bash e o Read de OUTRO arquivo não registram"])
             .gate("G3"),
         )
         .call(

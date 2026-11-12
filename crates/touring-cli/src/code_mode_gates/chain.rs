@@ -87,6 +87,37 @@ pub(super) fn write_run_pair_gate_with(
     ))
 }
 
+/// Retro 11/11/2026 (c) — the session READ these files through Bash: G3 counts it as a Read.
+///
+/// Why: G3 exists against `edit_string_not_found` (an `old_string` guessed instead of seen), and
+/// a `grep -n`/`sed -n`/`cat`/`head`/`tail` of the EXACT file hands the model the very lines it
+/// is about to edit. Measured before the 27/10/2026 deploy: in 37 of 40 G3 denials the session
+/// had already looked at the file through Bash only — the gate asked for a second look at what
+/// had just been seen — and the Claude Code harness lets an `Edit` run inside the working
+/// directory without a prior `Read` (owner's order of 11/11/2026, "aplique todas as
+/// recomendações"). What does NOT count stays exactly as before: a directory, a glob, another
+/// file, `sed -i` (a write, and G9's), a redirection target, a missing file.
+///
+/// The ledger is the one the Read tool feeds (`g3_read_files`, keyed by actor and file), so the
+/// evidence is the session's own and never crosses actors. The file is recorded under its
+/// absolute path AND, when it sits in the project, its project-relative one: an Edit may name
+/// either. Called only for a Bash that RUNS (see `evaluate`): a denied or rewritten command read
+/// nothing.
+pub(super) fn note_bash_reads(st: &GateState, event: &ToolEvent<'_>) {
+    let Some(command) = event.tool_input.get("command").and_then(Value::as_str) else {
+        return;
+    };
+    let (root, session) = (event.project_root, event.session);
+    for path in bash_read_targets(root, command) {
+        st.g3_read_files
+            .insert(g3_read_key(root, session, &path.to_string_lossy()), ());
+        if let Ok(relative) = path.strip_prefix(root) {
+            st.g3_read_files
+                .insert(g3_read_key(root, session, &relative.to_string_lossy()), ());
+        }
+    }
+}
+
 /// The G11 decision on a bypass that has JUST been charged.
 ///
 /// `None` lets it through. `Some(rule)` denies, and the named rule goes into the deny reason —

@@ -842,3 +842,80 @@ fn lista_vazia_devolve_corpo_vazio_sem_omissao() {
     assert!(corpo.is_empty());
     assert_eq!(omitidos, 0);
 }
+
+// ── Retro 11/11/2026 (c): os arquivos que um comando Bash LÊ, pelo caminho exato ───────────
+
+/// Arquivos reais num projeto temporário, e os caminhos que `bash_read_targets` devolve para
+/// cada forma de leitura — com os controles negativos (o que NÃO conta) ao lado.
+#[test]
+fn bash_read_targets_names_only_the_exact_files_a_command_reads() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let root = tmp.path();
+    std::fs::create_dir_all(root.join("src")).expect("src");
+    for f in ["src/a.rs", "src/b.rs", "notes.txt"] {
+        std::fs::write(root.join(f), "x\n").expect("file");
+    }
+    let a = root.join("src/a.rs");
+    let b = root.join("src/b.rs");
+    let at = |cmd: &str| bash_read_targets(root, cmd);
+
+    // as formas que leem o arquivo exato
+    let abs = |tail: &str| format!("{tail} {}", a.display());
+    for cmd in [
+        abs("grep -n needle"),
+        abs("rg -n needle"),
+        abs("egrep -c needle"),
+        abs("cat"),
+        abs("head -n 20"),
+        abs("tail -n +5"),
+        abs("sed -n '1,5p'"),
+        format!("sed -n -e '1,5p' {}", a.display()),
+        format!("sed --quiet '3p' {}", a.display()),
+        "grep -n needle src/a.rs".to_string(),
+        format!("cd {}/src && sed -n '1,5p' a.rs", root.display()),
+        format!("grep -n 'a b' \"{}\"", a.display()),
+        format!("grep -e needle -r {}", a.display()),
+        format!("grep -n needle {} | head -3", a.display()),
+        format!("TOURING_CODE_MODE=native grep -n needle {}", a.display()),
+    ] {
+        assert_eq!(at(&cmd), vec![a.clone()], "deveria ler a.rs: {cmd}");
+    }
+    // vários arquivos de um comando só, em ordem
+    assert_eq!(
+        at(&format!("head -n 3 {} {}", a.display(), b.display())),
+        vec![a.clone(), b.clone()]
+    );
+    // o `..` e o `.` se resolvem lexicalmente
+    assert_eq!(at("cat src/../src/./a.rs"), vec![a.clone()]);
+
+    // controles negativos: nada disto é a leitura de um arquivo exato
+    for cmd in [
+        format!("grep -rn needle {}/src", root.display()), // diretório
+        format!("grep -n needle {}/src/*.rs", root.display()), // glob
+        format!("grep -n needle {}/src/ausente.rs", root.display()), // não existe
+        format!("ls -l {}", a.display()),                  // não é verbo de leitura
+        format!("sed -i 's/x/y/' {}", a.display()),        // escrita no lugar
+        format!("sed -n -i '1p' {}", a.display()),         // -i vence o -n
+        format!("sed 's/x/y/' {}", a.display()),           // sem -n: não é um recorte
+        format!(
+            "grep -f {} {}",
+            b.display(),
+            root.join("notes.txt").display()
+        ), // -f: padrões de arquivo; só o alvo conta
+        format!("echo {}", a.display()),
+        format!("cat > {}", a.display()), // redirecionamento é escrita
+        "grep needle -".to_string(),
+        "grep needle".to_string(),
+    ] {
+        let got = at(&cmd);
+        assert!(
+            !got.contains(&a),
+            "NÃO deveria contar a.rs: {cmd} → {got:?}"
+        );
+    }
+    // o -f troca o padrão por um arquivo: o 1º posicional já é um caminho
+    assert_eq!(
+        at(&format!("grep -f {} {}", b.display(), a.display())),
+        vec![a.clone()]
+    );
+}

@@ -885,3 +885,153 @@ pub(crate) fn grep_operands(verb: &str, args: &[String]) -> GrepOperands {
         paths: positionals.collect(),
     }
 }
+
+// ── What a Bash command READS (retro 11/11/2026, item c) ─────────────────────────────────
+
+/// The words of `args` that are not redirections. `>`/`>>`/`2>` (and the `&>` forms) write, so
+/// they and their target are dropped; `< file` is an input and its target stays as an operand.
+/// `2>&1`-style words carry their target attached and are dropped alone.
+fn drop_redirects(args: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut words = args.iter();
+    while let Some(word) = words.next() {
+        let body = word.trim_start_matches(|c: char| c.is_ascii_digit() || c == '&');
+        if !(body.starts_with('>') || body.starts_with('<')) {
+            out.push(word.clone());
+            continue;
+        }
+        let input = body.starts_with('<');
+        let attached = body.trim_start_matches(['<', '>']);
+        if attached.is_empty() {
+            let target = words.next();
+            if let (true, Some(target)) = (input, target) {
+                out.push(target.clone());
+            }
+        } else if input && !attached.starts_with('&') {
+            out.push(attached.to_owned());
+        }
+    }
+    out
+}
+
+/// `.` and `..` resolved by component, without touching the disk.
+fn normalize_lexical(path: &Path) -> std::path::PathBuf {
+    let mut out = std::path::PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// `raw` as an absolute, normalized path from `base`. `None` for what is not ONE exact path:
+/// stdin (`-`), a glob, or a word that still has a shell expansion in it (`$X`, `` ` ``, `{a,b}`).
+fn resolve_operand(base: &Path, raw: &str) -> Option<std::path::PathBuf> {
+    if raw.is_empty() || raw == "-" || raw.contains(['*', '?', '[', '$', '`', '{']) {
+        return None;
+    }
+    let expanded = match (raw.strip_prefix("~/"), std::env::var_os("HOME")) {
+        (Some(rest), Some(home)) => std::path::PathBuf::from(home).join(rest),
+        _ => std::path::PathBuf::from(raw),
+    };
+    let absolute = if expanded.is_absolute() {
+        expanded
+    } else {
+        base.join(expanded)
+    };
+    Some(normalize_lexical(&absolute))
+}
+
+/// The FILES a `sed` invocation reads and prints a selection of: only with `-n`/`--quiet`
+/// (an explicit "show me these lines") and never with `-i` (that is a write, and G9's). The
+/// script is the first operand unless `-e`/`-f` gave it.
+fn sed_read_files(args: &[String]) -> Vec<String> {
+    let (mut quiet, mut in_place, mut script_given) = (false, false, false);
+    let mut operands: Vec<String> = Vec::new();
+    let mut words = args.iter();
+    while let Some(word) = words.next() {
+        if let Some(long) = word.strip_prefix("--") {
+            let (name, attached) = long
+                .split_once('=')
+                .map_or((long, false), |(n, _)| (n, true));
+            match name {
+                "quiet" | "silent" => quiet = true,
+                "in-place" => in_place = true,
+                "expression" | "file" => {
+                    script_given = true;
+                    if !attached {
+                        words.next();
+                    }
+                }
+                _ => {}
+            }
+        } else if word.len() > 1 && word.starts_with('-') {
+            let cluster = &word[1..];
+            for (at, letter) in cluster.char_indices() {
+                match letter {
+                    'n' => quiet = true,
+                    'i' => {
+                        in_place = true;
+                        break; // `-iSUFFIX`: the rest of the word is the suffix
+                    }
+                    'e' | 'f' => {
+                        script_given = true;
+                        if cluster[at + 1..].is_empty() {
+                            words.next();
+                        }
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            operands.push(word.clone());
+        }
+    }
+    if !quiet || in_place {
+        return Vec::new();
+    }
+    operands
+        .into_iter()
+        .skip(usize::from(!script_given))
+        .collect()
+}
+
+/// The files `command` READS, by exact path: the path operands of `grep`/`egrep`/`fgrep`/`rg`,
+/// `sed -n`, `cat`, `head` and `tail`. Relative paths resolve from the project root and follow
+/// `cd` (`cd src && sed -n 1,5p a.rs`); a directory, a glob, a missing file, `-i` and any
+/// redirection target are not reads, and neither is a verb outside the list. Only files that
+/// EXIST count: a read of nothing is no read.
+pub(super) fn bash_read_targets(project_root: &Path, command: &str) -> Vec<std::path::PathBuf> {
+    let mut cwd = project_root.to_path_buf();
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    for c in simple_commands(command) {
+        let args = drop_redirects(&c.args);
+        let operands: Vec<String> = match c.verb.as_str() {
+            "cd" => {
+                let dir = args.iter().rev().find(|a| !a.starts_with('-'));
+                if let Some(dir) = dir.and_then(|d| resolve_operand(&cwd, d)) {
+                    cwd = dir;
+                }
+                continue;
+            }
+            "grep" | "egrep" | "fgrep" | "rg" => grep_operands(&c.verb, &args).paths,
+            "cat" | "head" | "tail" => args.into_iter().filter(|a| !a.starts_with('-')).collect(),
+            "sed" => sed_read_files(&args),
+            _ => continue,
+        };
+        for operand in operands {
+            if let Some(path) = resolve_operand(&cwd, &operand).filter(|p| p.is_file())
+                && !out.contains(&path)
+            {
+                out.push(path);
+            }
+        }
+    }
+    out
+}
