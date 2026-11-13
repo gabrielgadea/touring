@@ -16,7 +16,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -134,7 +134,9 @@ def test_the_advice_is_dense_and_specific(tmp_path: Path) -> None:
         assert recent in text, recent
     assert text.index("src/ultimo.rs") < text.index("src/mod4.rs") < text.index("src/mod3.rs")
     assert "src/mod0.rs" not in text
-    assert 'Agent(subagent_type="Explore", model="haiku", prompt="' in text
+    # 13/11/2026: the gate refuses an `Agent` call without `effort`, so the advice must carry the pool's level —
+    # an advised call that comes back denied teaches the model to ignore the advice (found by the MiniMax sweep).
+    assert 'Agent(subagent_type="Explore", model="haiku", effort="xhigh", prompt="' in text
     assert "touring run --lang python --file" in text
     assert "§1" in text and "economia-de-creditos-e-contexto.md" in text
     assert "SEGREDO" not in text
@@ -400,7 +402,7 @@ def _prompt(tmp_path: Path, transcript: Path, *, session: str = "sess-a", extra:
                                    "prompt": "continue", **(extra or {})}, env_extra)
 
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 def _switch_lines(first: str = "claude-opus-5-5", second: str = "claude-sonnet-5-5",

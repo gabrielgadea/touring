@@ -49,7 +49,9 @@ definição e o env na precedência do Claude Code, então nenhum dos dois o pro
 
 * `SEARCH_TYPES` com sonnet/opus/fable → `fit:busca-exige-haiku`;
 * fable em qualquer tipo → `fable:sem-consentimento`, salvo consentimento vigente (`fable:consentido`);
-* `IMPLEMENT_TYPES` com opus → `fit:opus-fica-na-sessao-principal`.
+* `IMPLEMENT_TYPES` com opus → `fit:opus-fica-na-sessao-principal`, SALVO quando a sessão principal é
+  comprovadamente Fable (13/11/2026: o pool prevê um assento Opus sob o orquestrador Fable). Sessão principal
+  = último turno do transcript > `ANTHROPIC_MODEL` > `model` do settings.json; sem sinal, não é Fable.
 
 Tipos fora das duas classes só passam pela regra de presença e pelo Fable. Omitir `model` não escapa:
 o `model:` que a DEFINIÇÃO fixa no frontmatter é o que rodaria (chamada > definição > env), e é julgado
@@ -58,9 +60,18 @@ definição sem `model` não têm regra de ajuste; o default de built-in (`statu
 frontmatter e segue passando; o env `CLAUDE_CODE_SUBAGENT_MODEL` é decisão tomada em outro lugar e não é
 julgado. Cada veredito de ajuste grava no log `judged` (o modelo visto) e `origin` (`chamada`|`definição`).
 
+EFFORT PADRÃO DO POOL (13/11/2026)
+==================================
+Diretriz de Gabriel: opus em `medium`, sonnet em `high`, haiku em `xhigh` (`model_pool.POOL`, a MESMA fonte do
+anúncio `model_pool_roster.py`). Uma chamada permitida cujo modelo efetivo (o da chamada, o `model:` da
+definição ou o default do built-in) tem nível no pool e que não decide o effort em lugar nenhum — parâmetro
+`effort` da chamada, `effort:` no frontmatter ou `CLAUDE_CODE_EFFORT_LEVEL` — volta com `effort:ausente` e o
+nível exato a passar. Qualquer nível nomeado é decisão e passa: o pool é o PADRÃO, não um teto. Fora do alcance:
+kill switch, sessão irmã, fork, modelo decidido pelo env e `inherit`.
+
 CONSENTIMENTO DO FABLE
 ======================
-Fable custa 2,5x o Opus e consome a franquia semanal mais rápido: ligá-lo é decisão do Gabriel, com
+Fable custa mais que o Opus e consome a franquia semanal mais rápido: ligá-lo é decisão do Gabriel, com
 prazo. `~/.claude/touring/fable_consent.json` = `{"valido_ate": "<ISO-8601 com fuso>", "criado_em",
 "motivo"}`; só vale com fuso, no futuro e a no máximo 24 h de agora (o teto é do LEITOR, não só do
 escritor: um arquivo à mão com ano 9999 não vira consentimento eterno). Ausente, expirado, ilegível,
@@ -89,13 +100,14 @@ import os
 import re
 import sys
 from collections.abc import Iterator, Mapping, Sequence
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, NamedTuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # One predicate for every hook (D8).
 from backend_provider import SISTER_PROVIDERS, model_family, provider_of
+from model_pool import default_effort
 
 #: Task classes judged on fit (docs/economia-de-creditos-e-contexto.md §1); every other type is not.
 SEARCH_TYPES = frozenset({"Explore", "touring-scouter", "claude-code-guide", "statusline-setup"})
@@ -103,6 +115,7 @@ IMPLEMENT_TYPES = frozenset({"touring-engineer", "general-purpose", "touring-arc
                              "touring-scriber", "Plan"})
 WHY_SEARCH = "fit:busca-exige-haiku"
 WHY_OPUS = "fit:opus-fica-na-sessao-principal"
+WHY_EFFORT = "effort:ausente"
 WHY_NO_CONSENT = "fable:sem-consentimento"
 WHY_CONSENT = "fable:consentido"
 #: A call decided by the env var alone logs `<prefix><value>`; scripts/model_routing_adherence.py counts these.
@@ -115,9 +128,9 @@ DOC_REF = "~/projects/touring/docs/economia-de-creditos-e-contexto.md §1"
 MATRIX = (
     ("haiku", "buscar, extrair, classificar, recuperar documentação, varredura mecânica"),
     ("sonnet", "implementar com spec clara, testes, revisão, pesquisa web com julgamento"),
-    ("opus", ("decidir, sintetizar, julgar, arquitetura: é a sessão principal — "
-              f"`model: \"opus\"` é recusado em {', '.join(sorted(SEARCH_TYPES | IMPLEMENT_TYPES))}")),
-    ("fable", "só com consentimento vigente do Gabriel (ambiguidade longa em que o Opus em effort alto já falhou)"),
+    ("opus", ("decisão difícil delegada, arquitetura, 2º juiz: 1 assento, só com a sessão principal em Fable — "
+              f"fora dela `model: \"opus\"` é recusado em {', '.join(sorted(SEARCH_TYPES | IMPLEMENT_TYPES))}")),
+    ("fable", "é o orquestrador; como subagente, só com consentimento vigente do Gabriel"),
 )
 #: (keyword the canonical doc's bullet must contain, phrase shown to the model), in predicate order.
 EXEMPTIONS = (
@@ -197,8 +210,8 @@ def _definition_dirs(subagent_type: str, project_dirs: Sequence[Path], home: Pat
     yield home / ".claude" / "agents", name
 
 
-def definition_model(subagent_type: str, project_dirs: Sequence[Path], home: Path) -> str | None:
-    """`model:` of the winning definition: None = no definition found, "" = found without one."""
+def definition_fields(subagent_type: str, project_dirs: Sequence[Path], home: Path) -> dict[str, str] | None:
+    """Frontmatter of the winning definition; None = no definition found."""
     is_plugin = ":" in subagent_type
     for directory, name in _definition_dirs(subagent_type, project_dirs, home):
         if not directory.is_dir():
@@ -207,8 +220,14 @@ def definition_model(subagent_type: str, project_dirs: Sequence[Path], home: Pat
             fields = frontmatter(path)
             # A plugin file registers by its path (agents/review/security.md → plug:review:security).
             if fields.get("name") == name or (is_plugin and path.stem == name):
-                return fields.get("model", "")
+                return fields
     return None
+
+
+def definition_model(subagent_type: str, project_dirs: Sequence[Path], home: Path) -> str | None:
+    """`model:` of the winning definition: None = no definition found, "" = found without one."""
+    fields = definition_fields(subagent_type, project_dirs, home)
+    return None if fields is None else fields.get("model", "")
 
 
 def _session_decision(env: Mapping[str, str]) -> str | None:
@@ -250,7 +269,7 @@ def fable_consent(home: Path, now: datetime | None = None) -> tuple[bool, str]:
 
     Fail-closed on every doubt: a missing, unreadable, zone-less or over-long consent never counts.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     try:
         raw = json.loads((home / ".claude" / "touring" / CONSENT_NAME).read_text(encoding="utf-8"))
         valid_until = datetime.fromisoformat(raw["valido_ate"])
@@ -268,10 +287,11 @@ def fable_consent(home: Path, now: datetime | None = None) -> tuple[bool, str]:
 
 
 def _fit_decision(subagent_type: str, model: object, home: Path, now: datetime | None,
-                  origin: str = "chamada") -> Verdict | None:
+                  origin: str = "chamada", session_family: str | None = None) -> Verdict | None:
     """Judge a model (named by the call, or pinned by the definition) against the task class.
 
-    None = no fit rule objects (or applies).
+    None = no fit rule objects (or applies). `session_family` is the main session's family: only a proven
+    Fable orchestrator opens the Opus seat for the implement class (absent signal is not Fable).
     """
     family = model_family(model)
     if family is None:
@@ -282,7 +302,7 @@ def _fit_decision(subagent_type: str, model: object, home: Path, now: datetime |
     if family == "fable":
         live, state = fable_consent(home, now)
         return Verdict(live, WHY_CONSENT if live else WHY_NO_CONSENT, state, judged, origin)
-    if subagent_type in IMPLEMENT_TYPES and family == "opus":
+    if subagent_type in IMPLEMENT_TYPES and family == "opus" and session_family != "fable":
         return Verdict(False, WHY_OPUS, None, judged, origin)
     return None
 
@@ -292,14 +312,14 @@ def _explicit_why(model: object) -> str | None:
 
 
 def _omitted_model_verdict(subagent_type: str, project_dirs: Sequence[Path], home: Path, env: Mapping[str, str],
-                           now: datetime | None) -> Verdict:
+                           now: datetime | None, session_family: str | None = None) -> Verdict:
     """The call omitted `model`: the definition's pin is what would run, so it is judged like a named model.
 
     Claude Code resolves call > definition > env. A pin that passes the fit (or `inherit`, or no pin) falls
     through to the presence rules; the env var is a decision made elsewhere and is not judged.
     """
     pinned = definition_model(subagent_type, project_dirs, home)
-    if pinned and (fit := _fit_decision(subagent_type, pinned, home, now, "definição")):
+    if pinned and (fit := _fit_decision(subagent_type, pinned, home, now, "definição", session_family)):
         return fit
     env_model = env.get("CLAUDE_CODE_SUBAGENT_MODEL", "").strip()
     # Without _FORCE the variable does not reach Explore or Plan (code.claude.com/docs/en/sub-agents, 24/10/2026):
@@ -311,7 +331,7 @@ def _omitted_model_verdict(subagent_type: str, project_dirs: Sequence[Path], hom
 
 
 def decide(tool_input: Mapping[str, Any], env: Mapping[str, str], project_dirs: Sequence[Path],
-           home: Path, now: datetime | None = None) -> Verdict:
+           home: Path, now: datetime | None = None, session_family: str | None = None) -> Verdict:
     """The verdict. Pure but for reading the definitions and the consent: every input is an argument.
 
     Order: session-wide exemptions (kill switch, sister session) > fork (runs in the session model, no
@@ -325,8 +345,49 @@ def decide(tool_input: Mapping[str, Any], env: Mapping[str, str], project_dirs: 
     if session or subagent_type == "fork":
         return Verdict(True, session or "fork")
     if explicit:
-        return _fit_decision(subagent_type, tool_input.get("model"), home, now) or Verdict(True, explicit)
-    return _omitted_model_verdict(subagent_type, project_dirs, home, env, now)
+        return (_fit_decision(subagent_type, tool_input.get("model"), home, now, "chamada", session_family)
+                or Verdict(True, explicit))
+    return _omitted_model_verdict(subagent_type, project_dirs, home, env, now, session_family)
+
+
+def missing_effort(tool_input: Mapping[str, Any], env: Mapping[str, str], project_dirs: Sequence[Path],
+                   home: Path, verdict: Verdict) -> str | None:
+    """The pool's effort an ALLOWED call fails to decide anywhere; None = decided, or outside the pool's reach.
+
+    Decided = the call's `effort`, the definition's `effort:`, or `CLAUDE_CODE_EFFORT_LEVEL` (which Claude Code
+    ranks above both). The effective model is the call's, then the definition's pin, then the built-in default;
+    a model decided by the env var or by `inherit` names no family here, so it carries no pool level.
+    """
+    subagent_type = str(tool_input.get("subagent_type") or "general-purpose")
+    if not verdict.allowed or verdict.why in ("disabled", "fork", "malformed") or verdict.why.startswith("irmã:"):
+        return None
+    effort = tool_input.get("effort")
+    if (isinstance(effort, str) and effort.strip()) or env.get("CLAUDE_CODE_EFFORT_LEVEL", "").strip():
+        return None
+    fields = definition_fields(subagent_type, project_dirs, home)
+    if fields and fields.get("effort"):
+        return None
+    named = tool_input.get("model")
+    model = named if _explicit_why(named) else ((fields or {}).get("model") or BUILTIN_DEFAULTS.get(subagent_type))
+    return default_effort(model)
+
+
+def main_session_model(transcript_path: str | None, env: Mapping[str, str], home: Path) -> str | None:
+    """The main session's model: what last ran (transcript tail) > `ANTHROPIC_MODEL` > settings.json `model`.
+
+    None when no source says anything — an unknown session is never taken for Fable.
+    """
+    ran = session_model(transcript_path)
+    if ran:
+        return ran
+    named = env.get("ANTHROPIC_MODEL", "").strip()
+    if named:
+        return named
+    try:
+        configured = json.loads((home / ".claude" / "settings.json").read_text(encoding="utf-8")).get("model")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return configured.strip() if isinstance(configured, str) and configured.strip() else None
 
 
 def session_model(transcript_path: str | None) -> str | None:
@@ -348,42 +409,49 @@ _FIT_HEAD = {
     (WHY_SEARCH, "chamada"): '[agent-model-gate] Busca/extração com `model: "{named}"` ({call}): a matriz §1 manda busca → haiku.',
     (WHY_SEARCH, "definição"): ("[agent-model-gate] A definição de {sub} fixa `model: {named}` e a chamada ({call}) omitiu "
                                 "`model` — o parâmetro `model` da chamada vence a definição, e a matriz §1 manda busca → haiku."),
-    (WHY_OPUS, "chamada"): ('[agent-model-gate] `model: "{named}"` para {call}: decidir/sintetizar fica na sessão principal, '
-                            "que já é o Opus — delegar a outro Opus só soma contexto e franquia."),
+    (WHY_OPUS, "chamada"): ('[agent-model-gate] `model: "{named}"` para {call}: decidir/sintetizar fica na sessão principal '
+                            "({session}) — o assento Opus do pool só abre sob um orquestrador Fable; fora dele, delegar "
+                            "a um Opus só soma contexto e franquia."),
     (WHY_OPUS, "definição"): ("[agent-model-gate] A definição de {sub} fixa `model: {named}` e a chamada ({call}) omitiu "
                               "`model` — o parâmetro `model` da chamada vence a definição, e decidir/sintetizar fica na sessão "
-                              "principal (delegar a outro Opus só soma contexto e franquia)."),
+                              "principal ({session}): o assento Opus do pool só abre sob um orquestrador Fable."),
 }
-_FIT_FABLE = ("custa 2,5× o Opus 5.5 por token, consome a franquia semanal mais rápido e só serve à ambiguidade longa em "
-              "que o Opus em effort alto já falhou — ligá-lo é decisão do Gabriel, com prazo.")
+_FIT_FABLE = ("é o modelo mais caro por token, consome a franquia semanal mais rápido e, como SUBAGENTE, só serve à "
+              "ambiguidade longa que o orquestrador não resolveu — ligá-lo é decisão do Gabriel, com prazo.")
+
+
+def _taught(alias: str) -> str:
+    """`model` AND the pool's `effort` for it: a way back that names only the model is denied again for the effort."""
+    return f'`model: "{alias}"` e `effort: "{default_effort(alias)}"`'
 
 
 def _fit_reason(why: str, call: str, named: str, consent: str | None, origin: str = "chamada",
-                sub: str = "general-purpose") -> list[str]:
+                sub: str = "general-purpose", session: str | None = None) -> list[str]:
     """The fit deny: what was refused, why (matrix §1), and the exact way back."""
-    head = _FIT_HEAD.get((why, origin), "").format(named=named, call=call, sub=sub)
+    seen = f"sessão vista: {session}" if session else "sessão não identificada, e sinal ausente não é Fable"
+    head = _FIT_HEAD.get((why, origin), "").format(named=named, call=call, sub=sub, session=seen)
     if why == WHY_SEARCH:
         return [
             head,
-            ('Reemita a MESMA chamada com `model: "haiku"` (busca/extração → haiku). Se a tarefa exige raciocínio, '
-             'faça a síntese na sessão principal ou use touring-engineer/general-purpose com `model: "sonnet"`.'),
+            (f"Reemita a MESMA chamada com {_taught('haiku')} (busca/extração → haiku). Se a tarefa exige raciocínio, "
+             f"faça a síntese na sessão principal ou use touring-engineer/general-purpose com {_taught('sonnet')}."),
             f"Tipos julgados como busca: {' · '.join(sorted(SEARCH_TYPES))}.",
         ]
     if why == WHY_OPUS:
         return [
             head,
-            ('Reemita a MESMA chamada com `model: "sonnet"` (implementação com spec, testes, revisão) ou '
-             '`model: "haiku"` (busca/extração), ou faça você mesmo na sessão principal.'),
+            (f"Reemita a MESMA chamada com {_taught('sonnet')} (implementação com spec, testes, revisão) ou "
+             f"{_taught('haiku')} (busca/extração), ou faça você mesmo na sessão principal."),
             f"Tipos julgados como implementação: {' · '.join(sorted(IMPLEMENT_TYPES))}.",
         ]
     state = f"consentimento {consent or 'ausente'}"
-    who = (f"A definição de {sub} fixa `model: {named}` (Fable 5.1; {call}) sem consentimento vigente ({state}): "
-           if origin == "definição" else f"Fable 5.1 ({call}) sem consentimento vigente ({state}): ")
+    who = (f"A definição de {sub} fixa `model: {named}` (Fable como subagente; {call}) sem consentimento vigente ({state}): "
+           if origin == "definição" else f"Fable como subagente ({call}) sem consentimento vigente ({state}): ")
     return [
         f"[agent-model-gate] {who}{_FIT_FABLE}",
         f"PEÇA ao Gabriel o consentimento; ele roda no prompt: {CONSENT_CMD}",
-        ('Sem o sim dele: continue na sessão principal, ou delegue a `model: "sonnet"` (implementar) / '
-         '`model: "haiku"` (buscar).'),
+        (f"Sem o sim dele: continue na sessão principal, ou delegue a {_taught('sonnet')} (implementar) / "
+         f"{_taught('haiku')} (buscar)."),
     ]
 
 
@@ -391,15 +459,28 @@ def _omitted_reason(call: str, model: str | None, quota: str | None) -> list[str
     """The omitted-`model` deny: the matrix and the exemptions that would have let the call through."""
     return [
         (f"[agent-model-gate] Agent sem `model` ({call}) herdaria {model or 'o modelo desta sessão'}: "
-         "a decisão de modelo não foi tomada. Reemita a MESMA chamada com `model`:"),
-        *(f"  {alias:<6} — {use}" for alias, use in MATRIX),
+         "a decisão de modelo não foi tomada. Reemita a MESMA chamada com `model` e o `effort` da linha:"),
+        *(f"  {alias:<6} — {use}" + (f' · effort: "{default_effort(alias)}"' if alias != "fable" else "")
+          for alias, use in MATRIX),
         *([f"{quota}."] if quota else []),
         "Passam sem `model`: " + " · ".join(phrase for _, phrase in EXEMPTIONS) + ".",
     ]
 
 
+def _effort_reason(call: str, effort: str) -> list[str]:
+    """The effort deny: the call is otherwise fine, and one argument brings it back."""
+    return [
+        (f"[agent-model-gate] Agent sem `effort` ({call}): o nível de esforço não foi decidido e o subagente rodaria no "
+         "default do modelo, não no do pool."),
+        (f'Reemita a MESMA chamada com `effort: "{effort}"` — o padrão do pool para esse modelo (opus medium · sonnet high '
+         "· haiku xhigh). Outro nível nomeado também passa: o pool é o padrão, não um teto."),
+        ("Passam sem `effort`: definição com `effort:` no frontmatter · CLAUDE_CODE_EFFORT_LEVEL definido · fork · "
+         "sessão irmã · modelo decidido por CLAUDE_CODE_SUBAGENT_MODEL."),
+    ]
+
+
 def deny_reason(tool_input: Mapping[str, Any], model: str | None, quota: str | None = None, why: str = "deny",
-                verdict: Verdict | None = None) -> str:
+                verdict: Verdict | None = None, effort: str | None = None) -> str:
     """The matrix plus the real call — dense, specific, and the way back named.
 
     `why` picks the text (omitted `model`, a fit rule, or the Fable consent; `verdict` carries the judged model,
@@ -411,10 +492,13 @@ def deny_reason(tool_input: Mapping[str, Any], model: str | None, quota: str | N
     call = f'subagent_type={subagent_type}, "{description}"' if description else f"subagent_type={subagent_type}"
     if why == "deny":
         lines = _omitted_reason(call, model, quota)
+    elif why == WHY_EFFORT:
+        lines = _effort_reason(call, effort or "")
     else:
         judged = verdict.judged if verdict and verdict.judged else str(tool_input.get("model") or "").strip()
         origin, consent = (verdict.origin, verdict.consent) if verdict else ("chamada", None)
-        lines = [*_fit_reason(why, call, judged, consent, origin, str(subagent_type)), *([f"{quota}."] if quota else [])]
+        lines = [*_fit_reason(why, call, judged, consent, origin, str(subagent_type), model),
+                 *([f"{quota}."] if quota else [])]
     return "\n".join([*lines, f"Matriz e fatos datados: {DOC_REF}."])
 
 
@@ -453,7 +537,7 @@ def parse_duration(text: str) -> timedelta:
 
 def write_consent(home: Path, duration: timedelta, motivo: str, now: datetime | None = None) -> str:
     """Write the consent atomically (tmp + replace); returns the `valido_ate` it carries."""
-    now = (now or datetime.now(timezone.utc)).astimezone()
+    now = (now or datetime.now(UTC)).astimezone()
     valid_until = (now + duration).isoformat(timespec="seconds")
     path = home / ".claude" / "touring" / CONSENT_NAME
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -510,13 +594,16 @@ def judge(payload: Mapping[str, Any], home: Path, record: dict[str, Any]) -> dic
     env_project = os.environ.get("CLAUDE_PROJECT_DIR")
     cwd = payload.get("cwd") or env_project
     dirs = project_agent_dirs(Path(cwd) if cwd else None, Path(env_project) if env_project else None, home)
-    verdict = decide(tool_input, os.environ, dirs, home)
+    session = main_session_model(payload.get("transcript_path"), os.environ, home)
+    verdict = decide(tool_input, os.environ, dirs, home, session_family=model_family(session))
+    effort = missing_effort(tool_input, os.environ, dirs, home, verdict)
+    if effort:  # the model decision stands; what is missing is the effort, so that is what the log names
+        verdict = Verdict(False, WHY_EFFORT, verdict.consent, verdict.judged, verdict.origin)
     record.update(allowed=verdict.allowed, why=verdict.why, subagent_type=tool_input.get("subagent_type"),
-                  model=tool_input.get("model"), **_verdict_fields(verdict))
+                  model=tool_input.get("model"), effort=tool_input.get("effort"), **_verdict_fields(verdict))
     if verdict.allowed:
         return None
-    reason = deny_reason(tool_input, session_model(payload.get("transcript_path")), recorded_quota(home),
-                         verdict.why, verdict)
+    reason = deny_reason(tool_input, session, recorded_quota(home), verdict.why, verdict, effort)
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                    "permissionDecisionReason": reason}}
 

@@ -211,17 +211,19 @@ timestamp: 2026-08-20T11:15:00-03:00
     semana; e o contexto desta sessão é reenviado inteiro a cada requisição. Cada parte desce ao
     executor **mais barato que ainda passa no juiz**: determinístico → código (`touring run`) ·
     busca/extração/classificação → subagente `model: haiku` · implementar com spec, testes,
-    revisão → `model: sonnet` · decidir/sintetizar/julgar → esta sessão (Opus 5.5; suba o effort
-    antes de trocar de modelo, e nunca `/model` no meio — cada modelo tem o próprio cache) ·
-    ambiguidade longa em que o Opus em effort alto falhou → Fable 5.1, e em headless (`claude -p`,
-    SDK sem prompt) só com o sim do Gabriel, porque ali cobra créditos sem perguntar · corpus longo,
+    revisão → `model: sonnet` · decidir/sintetizar/julgar → esta sessão (Fable, effort `medium`, desde
+    13/11/2026; suba o effort antes de trocar de modelo, e nunca `/model` no meio — cada modelo tem o
+    próprio cache) · decisão difícil delegada ou 2º juiz → `model: opus`, 1 assento, só sob o Fable ·
+    Fable em headless (`claude -p`, SDK sem prompt) só com o sim do Gabriel: ali cobra sem perguntar · corpus longo,
     lote extenso, 2º leitor → sessão irmã Kimi K3 1M / MiniMax M3.1-Flash-Preview 1M (cota fora da
     Anthropic; quem é quem por código: `python3 ~/.claude/tools/sessoes_irmas.py --text`; um brief
     com arquivos exclusivos e aceite escrito antes, `notify_when_idle`, um relatório, e a entrega é
     hipótese até o seu juiz). **Numa sessão irmã** (backend Kimi/MiniMax) esta matriz não se
     aplica: ela e seus subagentes ficam no próprio modelo, sem rotear para opus/sonnet/haiku/fable
     (decisão de Gabriel, 08/10). Modelo novo ou desconhecido → doc oficial antes de rotear. Executor:
-    hook `agent_model_gate.py` recusa `Agent` sem `model`. Corpo: `docs/economia-de-creditos-e-contexto.md`.
+    hook `agent_model_gate.py` recusa `Agent` sem `model` ou sem `effort`. **Pool de toda sessão Anthropic
+    (13/11/2026)**: 1 Opus `medium` · 3 Sonnet `high` · 5 Haiku `xhigh`, anunciado no início da sessão por
+    `model_pool_roster.py` junto das irmãs Kimi/MiniMax vivas. Corpo: `docs/economia-de-creditos-e-contexto.md`.
 
 ## Agent skills
 

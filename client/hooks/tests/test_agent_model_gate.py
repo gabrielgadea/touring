@@ -18,7 +18,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -30,8 +30,12 @@ HOOK = CLIENT_HOOKS / "agent_model_gate.py"
 CANONICAL_DOC = REPO_ROOT / "docs" / "economia-de-creditos-e-contexto.md"
 SESSOES_IRMAS = Path.home() / ".claude" / "tools" / "sessoes_irmas.py"
 SESSION_ENV = ("ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
-               "CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "AGENT_MODEL_GATE_DISABLED", "PYTHONIOENCODING")
-CALL = {"description": "Achar callers de foo", "prompt": "SEGREDO-DO-PROMPT", "subagent_type": "general-purpose"}
+               "CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "AGENT_MODEL_GATE_DISABLED", "PYTHONIOENCODING",
+               "CLAUDE_CODE_EFFORT_LEVEL")
+# `effort` is named so the suites below judge the MODEL rules alone; the effort rule has its own section at the end.
+CALL = {"description": "Achar callers de foo", "prompt": "SEGREDO-DO-PROMPT", "subagent_type": "general-purpose",
+        "effort": "high"}
+NO_EFFORT = {k: v for k, v in CALL.items() if k != "effort"}
 Run = tuple[subprocess.CompletedProcess[str], dict[str, Any]]
 
 
@@ -517,13 +521,13 @@ def test_fable_with_a_live_consent_is_allowed_and_logged(tmp_path: Path) -> None
 
 
 def test_a_consent_with_a_utc_z_suffix_is_read(tmp_path: Path) -> None:
-    _consent(tmp_path, (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    _consent(tmp_path, (datetime.now(UTC) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
     _assert_allowed(tmp_path, _run(tmp_path, FABLE_CALL), "fable:consentido")
 
 
 @pytest.mark.parametrize(("valido_ate", "state"), [
     pytest.param(lambda: _in(timedelta(seconds=-30)), "expirado", id="expired"),
-    pytest.param(lambda: (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)).isoformat(timespec="seconds"), "ilegível",
+    pytest.param(lambda: (datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1)).isoformat(timespec="seconds"), "ilegível",
                  id="naive-timestamp-has-no-zone"),
     pytest.param(lambda: "amanhã", "ilegível", id="not-iso"),
     pytest.param(lambda: 12345, "ilegível", id="not-a-string"),
@@ -819,3 +823,126 @@ def test_canonical_doc_declares_the_fit_classes_whys_and_consent_from_the_same_s
                    "**definição**", "inherit", "statusline-setup", "fable_consent_guard.sh"):
         assert needle in section, needle
 
+
+
+# ---- 13/11/2026: Fable orchestrator, one Opus seat, and the pool's default effort -----------------------
+
+def _transcript(tmp_path: Path, model: str) -> Path:
+    path = tmp_path / "sessao.jsonl"
+    path.write_text(json.dumps({"type": "assistant", "message": {"model": model}}, separators=(",", ":")) + "\n")
+    return path
+
+
+@pytest.mark.parametrize("subagent_type", IMPLEMENT_TYPES)
+def test_opus_takes_an_implement_seat_when_the_main_session_is_fable(tmp_path: Path, subagent_type: str) -> None:
+    run = _run(tmp_path, {**CALL, "subagent_type": subagent_type, "model": "opus"},
+               transcript=_transcript(tmp_path, "claude-fable-5-2"))
+    _assert_allowed(tmp_path, run, "explicit:opus")
+
+
+@pytest.mark.parametrize("session", ["claude-opus-5-5", "claude-sonnet-5-5"])
+def test_opus_stays_refused_when_the_main_session_is_not_fable(tmp_path: Path, session: str) -> None:
+    run = _run(tmp_path, {**CALL, "model": "opus"}, transcript=_transcript(tmp_path, session))
+    reason = _assert_denied_why(tmp_path, run, "fit:opus-fica-na-sessao-principal")
+    assert session in reason and "Fable" in reason
+
+
+def test_an_unknown_main_session_never_licenses_opus(tmp_path: Path) -> None:
+    """Absent signal is not Fable: no transcript, no env, no settings → the old deny."""
+    _assert_denied_why(tmp_path, _run(tmp_path, {**CALL, "model": "opus"}), "fit:opus-fica-na-sessao-principal")
+
+
+def test_the_main_session_is_also_known_by_env_and_then_by_the_settings_model(tmp_path: Path) -> None:
+    call = {**CALL, "model": "opus"}
+    _assert_allowed(tmp_path, _run(tmp_path, call, env_extra={"ANTHROPIC_MODEL": "claude-fable-5-2"}), "explicit:opus")
+    settings = tmp_path / "home" / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text(json.dumps({"model": "fable"}))
+    _assert_allowed(tmp_path, _run(tmp_path, call), "explicit:opus")
+    # The transcript is what actually ran: it outranks the configured default.
+    _assert_denied_why(tmp_path, _run(tmp_path, call, transcript=_transcript(tmp_path, "claude-opus-5-5")),
+                       "fit:opus-fica-na-sessao-principal")
+
+
+def test_a_fable_session_does_not_make_opus_a_search_model(tmp_path: Path) -> None:
+    run = _run(tmp_path, {**CALL, "subagent_type": "Explore", "model": "opus"},
+               transcript=_transcript(tmp_path, "claude-fable-5-2"))
+    _assert_denied_why(tmp_path, run, "fit:busca-exige-haiku")
+
+
+def test_a_definition_pinning_opus_passes_in_a_fable_session(tmp_path: Path) -> None:
+    _project_def(tmp_path, "touring-architect", "opus")
+    run = _run(tmp_path, {**CALL, "subagent_type": "touring-architect"},
+               transcript=_transcript(tmp_path, "claude-fable-5-2"))
+    _assert_allowed(tmp_path, run, "frontmatter:opus")
+
+
+@pytest.mark.parametrize(("model", "effort"), [("sonnet", "high"), ("haiku", "xhigh"), ("claude-haiku-5-5", "xhigh")])
+def test_a_call_without_effort_is_denied_and_taught_the_pool_level(tmp_path: Path, model: str, effort: str) -> None:
+    reason = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "model": model}), "effort:ausente")
+    assert f'effort: "{effort}"' in reason and "Achar callers de foo" in reason and "SEGREDO-DO-PROMPT" not in reason
+
+
+def test_opus_without_effort_is_taught_medium(tmp_path: Path) -> None:
+    run = _run(tmp_path, {**NO_EFFORT, "model": "opus"}, transcript=_transcript(tmp_path, "claude-fable-5-2"))
+    assert 'effort: "medium"' in _assert_denied_why(tmp_path, run, "effort:ausente")
+
+
+@pytest.mark.parametrize("effort", ["low", "medium", "high", "xhigh", "max", "lower", "higher"])
+def test_any_named_effort_is_a_decision_and_passes(tmp_path: Path, effort: str) -> None:
+    _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "model": "sonnet", "effort": effort}), "explicit:sonnet")
+
+
+def test_the_definition_effort_is_a_decision_and_its_absence_is_not(tmp_path: Path) -> None:
+    agents = tmp_path / "proj" / ".claude" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "com.md").write_text("---\nname: com\ndescription: x\nmodel: sonnet\neffort: high\n---\ncorpo\n")
+    (agents / "sem.md").write_text("---\nname: sem\ndescription: x\nmodel: sonnet\n---\ncorpo\n")
+    _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "com"}), "frontmatter:sonnet")
+    reason = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "sem"}), "effort:ausente")
+    assert 'effort: "high"' in reason
+
+
+def test_a_builtin_default_model_still_needs_the_effort(tmp_path: Path) -> None:
+    reason = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "claude-code-guide"}),
+                                "effort:ausente")
+    assert 'effort: "xhigh"' in reason
+
+
+def test_the_effort_env_decides_for_every_call(tmp_path: Path) -> None:
+    run = _run(tmp_path, {**NO_EFFORT, "model": "sonnet"}, env_extra={"CLAUDE_CODE_EFFORT_LEVEL": "medium"})
+    _assert_allowed(tmp_path, run, "explicit:sonnet")
+
+
+def test_the_effort_rule_reaches_no_session_or_call_outside_the_pool(tmp_path: Path) -> None:
+    _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "fork"}), "fork")
+    _assert_allowed(tmp_path, _run(tmp_path, NO_EFFORT, env_extra={"AGENT_MODEL_GATE_DISABLED": "1"}), "disabled")
+    _assert_allowed(tmp_path, _run(tmp_path, NO_EFFORT, env_extra={"ANTHROPIC_BASE_URL": "https://api.kimi.com/coding/"}),
+                    "irmã:kimi")
+    _assert_allowed(tmp_path, _run(tmp_path, NO_EFFORT, env_extra={"CLAUDE_CODE_SUBAGENT_MODEL": "haiku"}),
+                    "env:CLAUDE_CODE_SUBAGENT_MODEL=haiku")
+    _project_def(tmp_path, "herdeiro", "inherit")
+    _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "herdeiro"}), "frontmatter:inherit")
+
+
+def test_the_gate_and_the_roster_read_the_same_pool() -> None:
+    """D8: the level the deny teaches is the level the SessionStart roster announces."""
+    hook = _load(HOOK, "agent_model_gate_pool")
+    pool = _load(CLIENT_HOOKS / "model_pool.py", "model_pool_under_test")
+    assert hook.default_effort is not None and hook.default_effort("sonnet") == pool.EFFORT_BY_FAMILY["sonnet"]
+    assert {slot.family: slot.count for slot in pool.subagent_slots()} == {"opus": 1, "sonnet": 3, "haiku": 5}
+
+
+def test_every_way_back_a_deny_teaches_carries_the_effort_so_it_is_not_denied_twice(tmp_path: Path) -> None:
+    """A call without `model` AND without `effort`, reissued exactly as taught, must pass at the first retry."""
+    omitted = _assert_denied(tmp_path, _run(tmp_path, NO_EFFORT))
+    for alias, effort in (("haiku", "xhigh"), ("sonnet", "high"), ("opus", "medium")):
+        line = next(ln for ln in omitted.splitlines() if ln.strip().startswith(alias))
+        assert f'effort: "{effort}"' in line, line
+    search = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "Explore", "model": "sonnet"}),
+                                "fit:busca-exige-haiku")
+    assert '`model: "haiku"` e `effort: "xhigh"`' in search
+    opus = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "model": "opus"}), "fit:opus-fica-na-sessao-principal")
+    assert '`model: "sonnet"` e `effort: "high"`' in opus and '`model: "haiku"` e `effort: "xhigh"`' in opus
+    _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "Explore", "model": "haiku", "effort": "xhigh"}),
+                    "explicit:haiku")

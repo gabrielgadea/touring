@@ -5,7 +5,7 @@ POR QUE ISTO EXISTE
 ===================
 O `agent_model_gate` fiscaliza a escolha do modelo QUANDO se delega. Nada induz delegar: desde
 08/10/2026 o haiku foi 0,2% dos tokens Anthropic (régua deduplicada por message.id do
-`scripts/model_routing_adherence.py`), porque o Opus da sessão principal lê e
+`scripts/model_routing_adherence.py`), porque o orquestrador da sessão principal (o Opus até 12/11/2026, o Fable desde então) lê e
 busca sozinho — e cada KB lido entra no contexto reenviado em todo turno seguinte
 (docs/economia-de-creditos-e-contexto.md §0 orçamento 4, §5). Prosa já falhou como persuasão
 (nudges MUST ignorados), então este hook entrega o PROGRAMA pronto: o `Agent(...)` derivado dos
@@ -17,7 +17,7 @@ DOIS AVISOS (ambos aditivos, `additionalContext`, jamais `permissionDecision`)
    volume estimado (Read = tamanho do arquivo, limitado por `limit` linhas — ou pelo teto padrão de
    2000 linhas do Read — a 80 B/linha; Grep/Glob = 1 chamada, volume 0). Com ≥ 6 chamadas OU ≥ 150 KB
    na janela devolve 1 aviso, no máximo 1 a cada 10 min por sessão: quantas chamadas/KB, os 3
-   alvos mais recentes e o `Agent(subagent_type="Explore", model="haiku", ...)` / `touring run`.
+   alvos mais recentes e o `Agent(subagent_type="Explore", model="haiku", effort=<o do pool>, ...)` / `touring run`.
 2. `UserPromptSubmit`: lê só a cauda (~200 linhas) do transcript; se os turnos assistentes da sessão
    principal mostram mais de uma família Anthropic (opus/sonnet/haiku/fable), avisa que a troca de
    modelo no meio invalida o cache (cada modelo tem o próprio) e que o effort sobe antes (regra 17).
@@ -49,7 +49,7 @@ import os
 import sys
 import time
 from collections.abc import Callable, Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from itertools import pairwise
 from pathlib import Path
 from typing import Any
@@ -57,6 +57,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 # One predicate and one family classifier for every hook (D8).
 from backend_provider import SISTER_PROVIDERS, model_family, provider_of
+from model_pool import default_effort
 
 READ_TOOLS = frozenset({"Read", "Grep", "Glob"})
 WINDOW_S = 600  # sliding window of reads
@@ -194,7 +195,8 @@ def read_advice(n: int, kb: float, minutes: int, targets: list[str]) -> str:
     return (
         f"[delegation-nudge] {n} leituras (Read/Grep/Glob) em {minutes} min, ~{kb:.0f} KB direto no contexto desta "
         f"sessão — cada KB é reenviado em todo turno seguinte. Mais recentes: {' · '.join(targets)}.\n"
-        f'Delegue: Agent(subagent_type="Explore", model="haiku", prompt="<a pergunta sobre {named}>") e fique só '
+        f'Delegue: Agent(subagent_type="Explore", model="haiku", effort="{default_effort("haiku")}", '
+        f'prompt="<a pergunta sobre {named}>") e fique só '
         "com a síntese; varredura determinística de ≥3 arquivos: touring run --lang python --file <script> "
         "(só o agregado entra no contexto).\n"
         f"Matriz: {MATRIX_REF} §1 (busca/extração → haiku)."
@@ -234,7 +236,7 @@ def tail_lines(path: str) -> list[bytes]:
 
 def _epoch(stamp: object) -> float | None:
     try:
-        return datetime.fromisoformat(stamp).astimezone(timezone.utc).timestamp() if isinstance(stamp, str) else None
+        return datetime.fromisoformat(stamp).astimezone(UTC).timestamp() if isinstance(stamp, str) else None
     except ValueError:
         return None
 
@@ -361,8 +363,7 @@ def main() -> int:
         output = handle(payload, os.environ, home, time.time())
         if output is not None:
             # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
-            import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
-            import injection_policy
+            import injection_policy  # beside this file: its directory is on sys.path since the top of the module
             if not injection_policy.allows("plugin-hook"):
                 return 0
             # S-4p (26/10/2026): dedupe por época via ponte Rust — fail-open.
