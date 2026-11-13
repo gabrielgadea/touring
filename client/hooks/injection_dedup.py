@@ -62,7 +62,7 @@ def dedup_output(output: str, session_id: str = "", cwd: str = "") -> str:
             argv, input=output, capture_output=True, text=True,
             timeout=_TIMEOUT_S, check=False,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — fail-open: any failure returns the text untouched
         return output
     # Binário antigo sem o subcomando sai 0 com stdout vazio — também fail-open.
     if proc.returncode != 0 or not proc.stdout:

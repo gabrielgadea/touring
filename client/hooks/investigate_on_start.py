@@ -77,7 +77,9 @@ def main() -> int:
 
 
 # Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
-import sys as _ipsys, pathlib as _ippath
+import pathlib as _ippath
+import sys as _ipsys
+
 _ip_spec = _ipsys.path
 _ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
 if _ip_mod_path.exists():

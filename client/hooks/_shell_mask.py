@@ -570,7 +570,7 @@ _STRING_RUNNERS = {"su": ("-c", "--command"), "flock": ("-c", "--command"), "scr
 _QUERY_FLAGS = {"command": frozenset({"-v", "-V"})}  # `command -v git` prints a path, runs nothing
 
 
-def _valued_letter(spec: "_Wrap", arg: str) -> tuple[str, str] | None:
+def _valued_letter(spec: _Wrap, arg: str) -> tuple[str, str] | None:
     """The first letter of a short-option cluster (``-iu``, ``-n5``, ``-iSCODE``) that takes a
     value for the launcher, and what follows it in the word — as getopt reads a cluster: flags
     until a letter that takes an argument, which owns the rest of the word (or the next word
@@ -585,7 +585,7 @@ def _valued_letter(spec: "_Wrap", arg: str) -> tuple[str, str] | None:
     return None
 
 
-def _split_string_code(name: str, args: list["_Word"], i: int) -> str | None:
+def _split_string_code(name: str, args: list[_Word], i: int) -> str | None:
     """The code `env`'s split-string option at ``args[i]`` hands to a fresh split, in every
     spelling: ``-S CODE``, ``--split-string CODE``, ``--split-string=CODE``, ``-SCODE``, and ``S``
     inside a short-option cluster (``-iS CODE``, ``-iSCODE``) when it is the cluster's first

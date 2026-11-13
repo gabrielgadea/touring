@@ -46,11 +46,10 @@ import json
 import os
 import re
 import sys
+import tomllib
 from collections import Counter
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 KILL_SWITCH = "TOURING_CONFIG_PROTECTION_DISABLED"
 MAX_STDIN_BYTES = 8 * 1024 * 1024

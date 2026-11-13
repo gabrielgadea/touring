@@ -358,14 +358,14 @@ def _run_as_hook() -> int:
     # S-4p (26/10/2026): dedupe por época via ponte Rust — este processo nunca
     # passa pelo daemon. Fail-open: qualquer falha devolve o texto intacto.
     try:
-        import sys as _dsys; _dsys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+        import sys as _dsys; _dsys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))  # noqa: I001 — the path insert must precede the import below
         import injection_dedup
         _out = injection_dedup.dedup_output(
             _out,
             session_id=str(payload.get("session_id") or ""),
             cwd=str(payload.get("cwd") or ""),
         )
-    except Exception:  # noqa: BLE001 — a dedupe nunca derruba o hook
+    except Exception:  # noqa: BLE001, S110 — a dedupe nunca derruba o hook
         pass
     print(_out)
     return 0
@@ -535,7 +535,9 @@ def self_test() -> int:
 
 
 # Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
-import sys as _ipsys, pathlib as _ippath
+import pathlib as _ippath
+import sys as _ipsys
+
 _ip_spec = _ipsys.path
 _ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
 if _ip_mod_path.exists():

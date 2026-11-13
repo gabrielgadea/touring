@@ -182,7 +182,7 @@ def main() -> int:
     if os.environ.get("TOURING_SDK_SECTION_DISABLED") == "1":
         return 0
     # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
-    import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+    import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))  # noqa: I001 — the path insert must precede the import below
     import injection_policy
     # O nome canônico do contrato do code mode na taxonomia unificada (S-3):
     # `code-mode-contract` — o mesmo nome que a régua publica.
@@ -216,7 +216,7 @@ def main() -> int:
             session_id=str(payload.get("session_id") or ""),
             cwd=str(payload.get("cwd") or os.getcwd()),
         )
-    except Exception:  # noqa: BLE001 — a dedupe nunca custa a seção
+    except Exception:  # noqa: BLE001, S110 — a dedupe nunca custa a seção
         pass
     print(out)
     return 0

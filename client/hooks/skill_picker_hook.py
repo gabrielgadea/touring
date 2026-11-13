@@ -134,7 +134,7 @@ def main() -> int:
         _spawn_background_judge(prompt, session_id)
     if suggestion:
         # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
-        import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+        import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))  # noqa: I001 — the path insert must precede the import below
         import injection_policy
         if not injection_policy.allows("plugin-hook"):
             return 0

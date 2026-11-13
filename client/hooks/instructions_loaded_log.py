@@ -24,7 +24,7 @@ Reversão: remover a entrada `instructions_loaded_log.py` do bloco `Instructions
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 LOG = Path.home() / ".claude" / "touring" / "instructions_loaded.jsonl"
@@ -76,7 +76,7 @@ def _linha_do_evento(payload: dict) -> dict:
     """
     file_path = str(payload.get("file_path") or "")
     return {
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "session_id": payload.get("session_id"),
         "file_path": file_path or None,
         "memory_type": payload.get("memory_type"),
@@ -89,11 +89,11 @@ def _registrar_erro(exc: Exception) -> None:
     try:
         _registrar(
             {
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
                 "erro": f"{type(exc).__name__}: {exc}",
             }
         )
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 — the error log itself is best-effort
         pass
 
 
@@ -105,7 +105,7 @@ def main() -> int:
         return 0
     try:
         _registrar(_linha_do_evento(payload))
-    except Exception as exc:  # fail-open observável: a falha vira dado, nunca silêncio
+    except Exception as exc:  # noqa: BLE001 — fail-open observável: a falha vira dado, nunca silêncio
         _registrar_erro(exc)
     print("{}")
     return 0

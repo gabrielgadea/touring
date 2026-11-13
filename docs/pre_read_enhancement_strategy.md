@@ -171,7 +171,7 @@ Pipeline sequencial: DB → symbol_map → cognitive. Rayon poderia paralelizar.
 | S1.5 | Sinal de hierarquia de módulos (lib.rs/mod.rs) | Médio | ~20 linhas |
 
 **Implementação Sprint 1**: apenas `pre_read.rs`, sem dependências externas novas.
-`touring_ast::{ModuleTree, extract_imports_resolved}` já são exports públicos.
+`touring_code::ast::{ModuleTree, import_resolver::extract_imports_resolved}` já são exports públicos.
 
 ---
 

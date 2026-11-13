@@ -145,16 +145,21 @@ def emit_kind(body):
     return "inerte"
 
 
-def _rust_subcommand(command):
-    tail = command.split("touring-hook ", 1)[1].strip()
-    return tail.split()[0] if tail else ""
+#: `touring-hook <sub>`, with the binary quoted or not (`"$HOME/.claude/hooks/touring-hook" teammate-idle`).
+SHIM_CALL_RE = re.compile(r"""touring-hook["']?[ \t]+([A-Za-z][A-Za-z0-9_-]*)""")
+
+
+def shim_subcommands(command):
+    """Every `touring-hook <sub>` the command runs, in order — a shell `if` may name one per branch."""
+    return SHIM_CALL_RE.findall(command)
 
 
 def classify(command):
     """(categoria, caminho) — 'shim', 'shim-puro', 'injetor', 'enforcement', 'misto', 'inerte'."""
-    if "touring-hook " in command:
-        sub = _rust_subcommand(command)
-        return ("shim-puro", None) if sub in PURE_SUBCOMMANDS else ("shim", None)
+    subs = shim_subcommands(command)
+    if subs:
+        # Pure only when EVERY branch is: one filtering subcommand makes the whole command a context source.
+        return ("shim-puro", None) if all(sub in PURE_SUBCOMMANDS for sub in subs) else ("shim", None)
     path = script_path(command)
     if path is None:
         return "opaco", None
