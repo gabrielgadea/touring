@@ -1,4 +1,52 @@
-# RETOMADA — aprofundamento do touring-code + cross-audit (estado em 13/11/2026 05:55 BRT)
+# RETOMADA — aprofundamento do touring-code + cross-audit
+
+## PARADA DE 13/11/2026 08:10 BRT — LER PRIMEIRO (substitui o que abaixo disser o contrário)
+
+Gabriel: «Faça o commit e o deploy», depois «preciso desligar, pare e salve tudo». **O commit está feito; o
+deploy foi interrompido no meio do gate 1 do rito e NÃO instalou nada pelo caminho sancionado.**
+
+**Commits (branch `feat/2026-09-16-shell-quality-wiring-python`, 5 à frente do `origin`, sem push):**
+`215b15c3` código C1–C8 + F1–F16 (135 arquivos) · `42600e54` documentos · `74d5b074` versão 30.4.110 ·
+`01c3ab90` `docs/reference/modules.md` regenerado (gate do rito acusou drift) · `74260484` teste do rito que
+ainda procurava o item (e) no `CLAUDE.md` (movido em 11/11 para `docs/propagate-release-gotchas.md`).
+Árvore de trabalho limpa de arquivo rastreado.
+
+**Onde o rito parou** (`scripts/propagate-release.sh 30.4.110 --stop-before-propagate`, 3ª tentativa, log em
+`~/claude-artefatos/touring/propagate-30.4.110-etapa1.log`): `cargo check`, clippy, espelho `client/`,
+referência, testes Python do rito, medição r3 e **build de release 30.4.110** passaram; dos 30 pacotes de
+teste, 13 entraram (inferlets … touring-hooks), 0 falhas, e o de `touring-hooks` foi interrompido. Os passos
+2 (`update-touring`), 3 (toolchain), 4 (default) e 5 (projetos) **não rodaram**.
+
+**ESTADO MISTO, atenção:** `target/release/` já tem os binários 30.4.110, e `touring` no PATH é symlink para
+lá (`touring --version` → 30.4.110). O daemon que estava de pé era o 30.4.109; **depois do boot o daemon
+global sobe do `target/release/touring-daemon` novo**, com o `touring-hook` de `~/.claude/hooks/` ainda antigo
+(cópia) e sem `update-touring`/verify. Não existe toolchain `30.4.110` em `~/.touring/toolchains/`. Primeira
+coisa na retomada: `touring daemon-ctl status`, `touring doctor -j`, e então rodar o rito inteiro de novo.
+
+**Retomar, em ordem:**
+1. `scripts/hw-slot --status`; depois `scripts/propagate-release.sh 30.4.110 --stop-before-propagate` (o cache de
+   debug foi limpo: 255 GiB liberados; o primeiro `cargo check` é frio, ~8 min). Cada job `rust` precisa de
+   `rust-1` + um `heavy`.
+2. **NÃO propagar para o `analise` sem o "livre" da sessão dona** (analise-76 pediu: há uma medida em curso;
+   trocar o binário pinado muda o ambiente dela). Etapa 2 só depois: `--skip-gates --skip-build --skip-freeze`.
+3. `touring index rebuild`, depois o juiz (comando na seção "Próximos passos"); esperado `orphans_base` verde.
+4. Atualizar relatório e esta nota com o veredito; decidir o `git push` (não pedido).
+
+**Auxiliares (pedido do Gabriel: usar Kimi e MiniMax), entregas em `~/claude-artefatos/touring/irmas/`, ambas
+hipótese até conferir:**
+- MiniMax, docs defasadas: conferi 1 achado — `~/.claude/rules/touring-cli-index.md:37` (e o espelho em
+  `client/rules/`) usa `jq '{index, orphans, rl, composite_health_score}'`, e `orphans`/`rl` não existem no
+  status (as chaves são `.wiring.orphan_count` e `.learning.ema_reward`). Não corrigido.
+- Kimi, revisão do `215b15c3`: R1 do F14 pode creditar função livre homônima no mesmo arquivo do tipo (o
+  filtro aceita `function`, não só `method`); caminho de edit limpa e regrava sem transação; `r#` continua no
+  resolvedor quando não há arquivo de origem; `crate_prefix` entra por `format!` no SQL. Nenhum conferido por
+  execução; viram ticket no esforço de pendências.
+
+Snapshots `safety/wip-aprofundamento-20261113` e `…20261113b` continuam válidos, mas o código agora está nos commits.
+
+---
+
+# Estado anterior (13/11/2026 05:55 BRT, antes do commit)
 
 Pedidos do Gabriel que regem a frente: «todas as sugestçoes de arquitetura estão aprovadas, implemente tudo»,
 `/TACO-cross-audit`, «ligar o escritor do grafo de dependências e alinhar os seis leitores , aprovado»,
