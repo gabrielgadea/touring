@@ -235,3 +235,46 @@ def test_the_opt_in_ceiling_is_configurable_and_a_bad_value_falls_back(tmp_path:
     short = "y" * 3000
     assert _run(_stop(tmp_path, short), tmp_path, SUBAGENT_OUTPUT_CONTRACT_MODE="block", SUBAGENT_OUTPUT_MAX_CHARS="2000")[1]["decision"] == "block"
     assert _run(_stop(tmp_path, short), tmp_path, SUBAGENT_OUTPUT_CONTRACT_MODE="block", SUBAGENT_OUTPUT_MAX_CHARS="abc")[1] == {}
+
+
+# ---- the folder is never cleaned; it is measured once a day and the parent is told when it is big ---------
+# Gabriel's decision of 13/11/2026: no deletion (a pruned file breaks the memory pointer), an alarm at 1 GB.
+
+def _launch(tmp_path: Path, **env: str) -> str:
+    payload = {"hook_event_name": "PostToolUse", "tool_name": "Agent", "cwd": str(tmp_path / "proj"),
+               "tool_response": {"agentId": "af71b59db0d91199e"}}
+    return _run(payload, tmp_path, **env)[1]["hookSpecificOutput"]["additionalContext"]
+
+
+def test_a_small_folder_raises_no_alarm(tmp_path: Path) -> None:
+    _run(_stop(tmp_path, RICH), tmp_path)
+    assert "ALARME" not in _launch(tmp_path)
+
+
+def test_a_folder_over_the_limit_is_told_to_the_parent_with_its_size_and_never_deleted(tmp_path: Path) -> None:
+    _run(_stop(tmp_path, RICH), tmp_path)
+    before = sorted(p.name for p in _file(tmp_path).parent.iterdir())
+    text = _launch(tmp_path, SUBAGENT_DELIVERIES_ALARM_BYTES="2000")
+    assert "ALARME" in text and str(_file(tmp_path).parent) in text and "1 arquivo" in text
+    assert sorted(p.name for p in _file(tmp_path).parent.iterdir()) == before, "the alarm never removes a delivery"
+
+
+def test_the_alarm_speaks_once_a_day_not_on_every_launch(tmp_path: Path) -> None:
+    _run(_stop(tmp_path, RICH), tmp_path)
+    assert "ALARME" in _launch(tmp_path, SUBAGENT_DELIVERIES_ALARM_BYTES="2000")
+    assert "ALARME" not in _launch(tmp_path, SUBAGENT_DELIVERIES_ALARM_BYTES="2000")
+    stamp = tmp_path / ".claude" / "touring" / "subagent_deliveries_size.json"
+    data = json.loads(stamp.read_text())
+    (key,) = data
+    data[key]["ts"] -= 90_000  # a day and an hour ago
+    stamp.write_text(json.dumps(data))
+    assert "ALARME" in _launch(tmp_path, SUBAGENT_DELIVERIES_ALARM_BYTES="2000")
+
+
+def test_a_missing_folder_or_a_broken_stamp_never_costs_the_launch_notice(tmp_path: Path) -> None:
+    assert "ALARME" not in _launch(tmp_path, SUBAGENT_DELIVERIES_ALARM_BYTES="1")
+    stamp = tmp_path / ".claude" / "touring" / "subagent_deliveries_size.json"
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text("{ quebrado")
+    _run(_stop(tmp_path, RICH), tmp_path)
+    assert "ALARME" in _launch(tmp_path, SUBAGENT_DELIVERIES_ALARM_BYTES="2000")

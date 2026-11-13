@@ -27,6 +27,10 @@ WHAT IT DOES (three events, one module)
 * `PostToolUse` on `Agent` — the PARENT is told where the whole text of the agent it just launched will be, so a
   reply that arrives cut is read from disk instead of asked for again.
 
+THE FOLDER IS NEVER CLEANED (Gabriel's decision, 13/11/2026): a pruned file would break the memory pointer, and
+the measured growth is small (≈ 49 deliveries a day, median 2 KB). It is measured at most once a day per folder,
+and when it passes `ALARM_BYTES` (1 GB) the parent is told, with the size, on its next agent launch.
+
 The ceiling survives only as an opt-in (`SUBAGENT_OUTPUT_CONTRACT_MODE=block`, `SUBAGENT_OUTPUT_MAX_CHARS`): then
 a final message above it is sent back once to be moved into a file. It is off by default.
 
@@ -66,6 +70,10 @@ MEMORY_HEAD_CHARS = 600
 MEMORY_TIMEOUT_S = 3
 #: Built-in types with no Write/Edit/Bash: they cannot save a file of their own.
 READ_ONLY_TYPES = frozenset({"Explore", "Plan", "claude-code-guide", "statusline-setup"})
+#: Above this the parent is told the folder is big — it is never cleaned here.
+ALARM_BYTES = 1_000_000_000
+ALARM_EVERY_S = 86_400
+STAMP_NAME = "subagent_deliveries_size.json"
 INJECTION_FAMILY = "plugin-hook"
 LOG_NAME = "subagent_output_contract.jsonl"
 AGENT_ID = re.compile(r'"?agent_?[iI]d"?\s*[:=]\s*"?([A-Za-z0-9][A-Za-z0-9_-]{5,80})')
@@ -166,6 +174,37 @@ def block_reason(chars: int, limit: int, target: Path, agent_type: str) -> str:
             "ele está no arquivo.")
 
 
+def folder_alarm(directory: Path, env: Mapping[str, str], home: Path, now: float) -> str | None:
+    """The alarm line when `directory` is over the limit, at most once a day; None otherwise. Never deletes.
+
+    The folder is measured only when the last measurement is a day old, so the cost is one directory scan a day.
+    A broken stamp is treated as "never measured"; any filesystem error means no alarm, never a lost notice.
+    """
+    raw = env.get("SUBAGENT_DELIVERIES_ALARM_BYTES", "").strip()
+    limit = int(raw) if raw.isdigit() and int(raw) > 0 else ALARM_BYTES
+    stamp = home / ".claude" / "touring" / STAMP_NAME
+    try:
+        seen = json.loads(stamp.read_text(encoding="utf-8"))
+        seen = seen if isinstance(seen, dict) else {}
+    except (OSError, ValueError):
+        seen = {}
+    last = seen.get(str(directory))
+    if isinstance(last, dict) and now - float(last.get("ts", 0)) < ALARM_EVERY_S:
+        return None
+    try:
+        sizes = [entry.stat().st_size for entry in os.scandir(directory) if entry.is_file()]
+        seen[str(directory)] = {"ts": now, "bytes": sum(sizes), "files": len(sizes)}
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(json.dumps(seen), encoding="utf-8")
+    except OSError:
+        return None
+    if sum(sizes) <= limit:
+        return None
+    files = f"{len(sizes)} arquivo" + ("" if len(sizes) == 1 else "s")
+    return (f"ALARME: {directory} tem {sum(sizes) / 1e6:.1f} MB em {files} (limite de aviso {limit / 1e6:.0f} MB). Nada é "
+            "apagado sozinho: apagar quebra o ponteiro da memória. Avise o Gabriel para decidir a limpeza.")
+
+
 def log(home: Path, record: dict[str, Any]) -> None:
     """Append one measurement. Never raises: the log is best-effort and never changes the verdict."""
     path = home / ".claude" / "touring" / LOG_NAME
@@ -221,7 +260,9 @@ def on_agent_launched(payload: Mapping[str, Any], env: Mapping[str, str], home: 
     found = AGENT_ID.search(json.dumps(payload.get("tool_response"), ensure_ascii=False, default=str))
     if not found:
         return None  # no id in the response: nothing true to say about a path
-    text = parent_text(deliveries_dir(payload, env, home), found.group(1))
+    directory = deliveries_dir(payload, env, home)
+    alarm = folder_alarm(directory, env, home, datetime.now().timestamp())
+    text = parent_text(directory, found.group(1)) + (f"\n{alarm}" if alarm else "")
     return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}
 
 
