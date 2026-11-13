@@ -8,6 +8,7 @@
 //! - [`assemble_scored_context`]: Budget-limited assembly of scored signals.
 //! - [`normalize_scores`]: Min-max normalization to `[0, 1]`.
 //! - [`blast_radius_signal`]: Blast radius from `SymbolIndex`.
+//! - [`blast_aggregate_signal`]: the same radius as ONE bounded line for the graph pipeline.
 //! - [`enrich_with_cognitive`]: Risk + gotcha + optional prediction signals.
 //! - [`similar_symbol_signal_for_path`]: Cross-file similar-symbol navigation hint.
 //! - [`rank_gotchas_by_relevance`]: BM25+TF-IDF semantic ranking of gotcha entries.
@@ -18,7 +19,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use touring_code::ast::graph::SymbolIndex;
+use touring_code::ast::graph::{Importers, SymbolIndex};
 use touring_foundation::knowledge_source::BashOutcomeRecord;
 use touring_intelligence::reasoning::BM25TfIdfVectorizer;
 use touring_simd::WilsonRanker;
@@ -229,30 +230,70 @@ fn prune_below_cutoff(signals: &mut Vec<(f32, String)>, cutoff: f32) -> usize {
     before - signals.len()
 }
 
+/// How many hops every blast text walks. ONE number for each surface that counts the
+/// radius (the one-line reader, the pipeline's aggregate, [`blast_radius_file_count`]):
+/// two depths would print two counts for the same file.
+pub const BLAST_SIGNAL_DEPTH: usize = 4;
+
+/// Direct importers a blast text NAMES; the rest are counted (`(+K outros)`), never listed.
+/// The full list is one command away (`touring ast blast <file>`).
+pub const BLAST_DIRECT_SHOWN: usize = 5;
+
+/// Direct importers the one-line reader names (it rides in every pre_edit/pre_read/pre_write
+/// context, so it stays shorter than the pipeline's aggregate).
+const ONE_LINE_DIRECT_SHOWN: usize = 3;
+
+/// Score of a connected file: 1.0 for one dependent, rising to 3.0 as the radius grows.
+fn blast_score(file_count: usize) -> f32 {
+    1.0_f32 + ((file_count.saturating_sub(1) as f32) / 20.0).min(2.0)
+}
+
 /// Blast radius signal from `SymbolIndex`.
 ///
 /// **Always injected** when `SymbolIndex` is available — even for isolated files.
 /// Knowing `blast_radius = 0` tells Claude the change is low-risk; knowing it is
 /// large tells Claude to audit transitive impact.
 ///
-/// Score: isolated = 0.7 (informational); connected scales from 1.0 to 3.0.
-/// Returns `None` only when `SymbolIndex` is entirely absent (project not indexed).
+/// The index is asked first what it knows about the importers
+/// ([`SymbolIndex::importers_status`]), because an empty answer has two causes: the
+/// wiring looked at the file and nothing imports it (isolated), or the wiring never
+/// looked (no coverage). Saying "isolado" for the second is a false safety claim, so it
+/// has a text of its own — but only when it informs.
 ///
-/// When `include_direct_deps` is `true`, appends the top 3 direct reverse
-/// dependencies ranked by BM25+TF-IDF semantic relevance to `rel_path`
-/// (used by pre_read/pre_edit for richer context). When `false`,
-/// uses a compact format (used by pre_write).
+/// "Sem cobertura" is said when the index has an edge source AND that source covers other
+/// files with this file's extension ([`SymbolIndex::coverage_expected`]) AND this file is not
+/// covered: a source file that SHOULD be in the graph and is not (new, parse failed,
+/// excluded). Otherwise the reader stays silent: a doc, a config, a `.py` in a project whose
+/// wiring reads only `.rs`, or a project with no coverage at all would carry the same ~100
+/// characters in EVERY pre_edit/pre_read/pre_write — a banner, not a signal — and silence,
+/// unlike "isolado", claims nothing.
+///
+/// Score: isolated and no-coverage = 0.7 (informational); connected scales from 1.0 to
+/// 3.0. Returns `None` when `SymbolIndex` is absent (project not indexed) and when the file is
+/// uncovered in a way the wiring would never have covered.
+///
+/// When `include_direct_deps` is `true`, appends the top 3 direct importers
+/// ([`SymbolIndex::ranked_importers`]: co-edit weight, then in-degree, then path;
+/// used by pre_read/pre_edit for richer context). When `false`, uses a compact format
+/// (used by pre_write).
 pub fn blast_radius_signal(
     idx_opt: Option<&SymbolIndex>,
     rel_path: &str,
     include_direct_deps: bool,
 ) -> Option<(f32, String)> {
     let idx = idx_opt?;
-    let br = idx.blast_radius_with_depth(rel_path, 4);
-    if br.file_count <= 1 {
-        return Some((0.7_f32, format_blast_isolated(include_direct_deps)));
+    match idx.importers_status(rel_path) {
+        Importers::Isolated => {
+            return Some((0.7_f32, format_blast_isolated(include_direct_deps)));
+        }
+        Importers::Uncovered if idx.coverage_expected(rel_path) => {
+            return Some((0.7_f32, format_blast_uncovered(include_direct_deps)));
+        }
+        Importers::Uncovered => return None,
+        Importers::Known(_) => {}
     }
-    let score = 1.0_f32 + ((br.file_count.saturating_sub(1) as f32) / 20.0).min(2.0);
+    // Counts only: the line says the size and the depth, never the file list.
+    let br = idx.blast_extent(rel_path, BLAST_SIGNAL_DEPTH);
     let connected_text = format_blast_connected(
         idx,
         rel_path,
@@ -260,22 +301,150 @@ pub fn blast_radius_signal(
         br.max_distance,
         include_direct_deps,
     );
-    Some((score, connected_text))
+    Some((blast_score(br.file_count), connected_text))
 }
 
 /// Returns the blast radius file count for `rel_path` via `SymbolIndex`.
 pub fn blast_radius_file_count(idx_opt: Option<&SymbolIndex>, rel_path: &str) -> Option<usize> {
     let idx = idx_opt?;
-    let br = idx.blast_radius_with_depth(rel_path, 4);
-    Some(br.file_count)
+    Some(idx.blast_extent(rel_path, BLAST_SIGNAL_DEPTH).file_count)
 }
 
-/// Format the blast-radius message for an isolated file (0 reverse deps).
+/// The last two components of a path (`graph/mod.rs`): enough to tell the many `mod.rs`
+/// of a workspace apart without spending the line on the whole path.
+pub fn short_path_label(path: &str) -> &str {
+    let mut slashes = 0usize;
+    for (at, ch) in path.char_indices().rev() {
+        if ch == '/' {
+            slashes += 1;
+            if slashes == 2 {
+                return path.get(at + 1..).unwrap_or(path);
+            }
+        }
+    }
+    path
+}
+
+/// ONE line saying how far a change to `rel_path` reaches: the pipeline's blast text.
+///
+/// `blast: N arquivos, até d saltos; diretos (D): a/x.rs, b/y.rs, … (+K outros); lista
+/// completa: touring ast blast <file>` — the radius as a count and a depth, the direct
+/// importers that matter most ([`SymbolIndex::ranked_importers`], at most
+/// [`BLAST_DIRECT_SHOWN`], the rest counted), and the command that lists them all. A hub
+/// reaches thousands of files, and one line per file buries the reader; the count is the
+/// answer, the list is a route.
+///
+/// `max_chars` is a ceiling on the text, in characters: names are dropped from the end
+/// of the list (the count in `(+K outros)` grows with them) until the line fits, and only
+/// a path too long even for the bare line is cut. `None` unless the index KNOWS an
+/// importer: an isolated or uncovered file is [`blast_radius_signal`]'s to say, and
+/// saying it again would only repeat it. The score is the same as that reader's.
+pub fn blast_aggregate_signal(
+    idx: &SymbolIndex,
+    rel_path: &str,
+    max_chars: usize,
+) -> Option<(f32, String)> {
+    let Importers::Known(_) = idx.importers_status(rel_path) else {
+        return None;
+    };
+    let br = idx.blast_extent(rel_path, BLAST_SIGNAL_DEPTH);
+    let ranked = idx.ranked_importers(rel_path);
+    let labels: Vec<&str> = ranked.iter().map(|path| short_path_label(path)).collect();
+    let text = fit_blast_text(br.file_count, br.max_distance, &labels, rel_path, max_chars);
+    Some((blast_score(br.file_count), text))
+}
+
+/// The blast line with `shown` direct importers named (`0` names none, only counts them).
+fn render_blast_text(
+    files: usize,
+    max_distance: usize,
+    labels: &[&str],
+    shown: usize,
+    rel_path: &str,
+) -> String {
+    let direct = labels.len();
+    let named = if shown == 0 {
+        format!("{direct} diretos")
+    } else {
+        let list = labels
+            .iter()
+            .take(shown)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(", ");
+        match direct.saturating_sub(shown) {
+            0 => format!("diretos ({direct}): {list}"),
+            rest => format!("diretos ({direct}): {list} (+{rest} outros)"),
+        }
+    };
+    format!(
+        "blast: {files} arquivos, até {max_distance} saltos; {named}; \
+         lista completa: touring ast blast {rel_path}"
+    )
+}
+
+/// The richest blast line that fits `max_chars`: as many importers as
+/// [`BLAST_DIRECT_SHOWN`] allows, fewer until it fits, none, and only then a cut.
+fn fit_blast_text(
+    files: usize,
+    max_distance: usize,
+    labels: &[&str],
+    rel_path: &str,
+    max_chars: usize,
+) -> String {
+    let most = labels.len().min(BLAST_DIRECT_SHOWN);
+    for shown in (0..=most).rev() {
+        let text = render_blast_text(files, max_distance, labels, shown, rel_path);
+        if text.chars().count() <= max_chars {
+            return text;
+        }
+    }
+    // Even the bare line is over the ceiling (a very long path, a tiny ceiling): cut it
+    // and say so, rather than overrun the ceiling.
+    cut_to_chars(
+        &render_blast_text(files, max_distance, labels, 0, rel_path),
+        max_chars,
+    )
+}
+
+/// `text` unchanged when it fits `max_chars` characters; otherwise its first
+/// `max_chars - 3` characters and `...`, so the result is exactly `max_chars` long and
+/// says it was cut. Counts characters, never bytes: a cut inside a multi-byte letter
+/// would be invalid text.
+pub fn cut_to_chars(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    let mut cut: String = text.chars().take(max_chars.saturating_sub(3)).collect();
+    cut.push_str("...");
+    cut
+}
+
+/// Format the blast-radius message for an isolated file: the wiring looked at it and no
+/// RESOLVED import points at it (F13: a use of one of its names that only matched by name
+/// is not an import). It says what was measured — no resolved import — and never that
+/// nobody depends on the file.
 fn format_blast_isolated(verbose: bool) -> String {
     if verbose {
-        "\u{26a1} blast(0 deps \u{2014} arquivo isolado, impacto transitive: nenhum)".to_string()
+        "\u{26a1} blast(0 deps \u{2014} nenhum import resolvido aponta para este arquivo)"
+            .to_string()
     } else {
         "blast(0 deps)".to_string()
+    }
+}
+
+/// Format the blast-radius message for a file the dependency graph does not cover although
+/// it covers files like it ([`SymbolIndex::coverage_expected`]): the wiring never read this
+/// one (new, failed to parse, excluded), so the absence of importers is not evidence that
+/// there are none. Never says "isolado". [`blast_radius_signal`] says nothing at all for a
+/// file the wiring would never have read.
+fn format_blast_uncovered(verbose: bool) -> String {
+    if verbose {
+        "\u{26a1} blast(sem cobertura \u{2014} o grafo de dependências não leu este arquivo: \
+         impacto desconhecido, não nulo)"
+            .to_string()
+    } else {
+        "blast(sem cobertura)".to_string()
     }
 }
 
@@ -295,34 +464,33 @@ fn format_blast_connected(
     }
 }
 
-/// Format the direct reverse-dependency list for blast radius context.
+/// Format the direct importer list for blast radius context.
 ///
-/// Collects all reverse-dependency basenames, ranks them by BM25+TF-IDF
-/// semantic relevance to `rel_path`, then returns the top 3 most relevant.
-/// Returns `"; diretos: [a, b, c]"` for up to 3 deps, or empty string when none.
+/// Asks the index for the importers of `rel_path` ([`SymbolIndex::ranked_importers`]:
+/// co-edit weight, then the importer's own in-degree, then path — the same order on every
+/// run, and one sort instead of a relevance model over a hub's thousand names), names the
+/// top 3 by basename and counts the rest.
+/// Returns `"; diretos: [a, b, c] (+K outros)"`, or an empty string when there are none.
 fn format_direct_deps(idx: &SymbolIndex, rel_path: &str) -> String {
-    let all_deps: Vec<String> = idx
-        .reverse_deps
-        .get(rel_path)
-        .map(|deps| {
-            deps.iter()
-                .map(|d| {
-                    std::path::Path::new(d.as_str())
-                        .file_name()
-                        .and_then(|f| f.to_str())
-                        .unwrap_or(d.as_str())
-                        .to_string()
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    if all_deps.is_empty() {
+    let ranked = idx.ranked_importers(rel_path);
+    if ranked.is_empty() {
         return String::new();
     }
-    // Rank by semantic relevance to the current file path, then take top 3.
-    let ranked = rank_symbols_by_relevance(&all_deps, rel_path);
-    let top3: Vec<&str> = ranked.iter().take(3).map(|s| s.as_str()).collect();
-    format!("; diretos: [{}]", top3.join(", "))
+    let names: Vec<&str> = ranked
+        .iter()
+        .take(ONE_LINE_DIRECT_SHOWN)
+        .map(|dep| {
+            std::path::Path::new(dep)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(dep)
+        })
+        .collect();
+    let more = match ranked.len().saturating_sub(ONE_LINE_DIRECT_SHOWN) {
+        0 => String::new(),
+        rest => format!(" (+{rest} outros)"),
+    };
+    format!("; diretos: [{}]{more}", names.join(", "))
 }
 
 /// Rank gotcha entries by semantic relevance to a query using BM25+TF-IDF.
@@ -1231,8 +1399,8 @@ mod tests {
 
     #[test]
     fn test_blast_radius_signal_isolated_verbose() {
-        // File with no reverse deps → file_count == 1 → isolated message, score 0.7.
-        let idx = touring_code::ast::graph::SymbolIndex::new();
+        // A file the wiring looked at and nothing imports → isolated message, score 0.7.
+        let idx = index_covering(&["src/orphan.rs"]);
         let (score, text) = blast_radius_signal(Some(&idx), "src/orphan.rs", true)
             .expect("Expected Some for verbose isolated file");
         assert!(
@@ -1240,15 +1408,15 @@ mod tests {
             "Isolated file score should be 0.7, got {score}"
         );
         assert!(
-            text.contains("isolado") || text.contains("0 deps"),
-            "Expected isolated-file message, got: {text}"
+            text.contains("0 deps") && text.contains("nenhum import resolvido"),
+            "Expected the no-resolved-import message, got: {text}"
         );
     }
 
     #[test]
     fn test_blast_radius_signal_isolated_compact() {
         // include_direct_deps=false → compact "blast(0 deps)" format.
-        let idx = touring_code::ast::graph::SymbolIndex::new();
+        let idx = index_covering(&["src/orphan.rs"]);
         let (score, text) = blast_radius_signal(Some(&idx), "src/orphan.rs", false)
             .expect("Expected Some for compact isolated file");
         assert!((score - 0.7).abs() < f32::EPSILON);
@@ -1256,9 +1424,9 @@ mod tests {
     }
 
     #[test]
-    fn test_blast_radius_signal_connected_bm25_ranked_deps() {
-        // Build an index with reverse deps so format_direct_deps exercises BM25 ranking.
-        // Verifies the BM25 ranking path is taken and top-3 deps appear in the output.
+    fn test_blast_radius_signal_connected_names_the_top_three_importers() {
+        // Four importers, no co-edit history, none imported in turn: the order falls to the
+        // path, so the three named are the first three paths and one is counted.
         let mut idx = touring_code::ast::graph::SymbolIndex::new();
         idx.reverse_deps.insert(
             "src/database.rs".to_string(),
@@ -1271,19 +1439,13 @@ mod tests {
         );
         let (_, text) = blast_radius_signal(Some(&idx), "src/database.rs", true)
             .expect("Expected Some for connected file");
-        // BM25-ranked direct deps section must be present.
         assert!(
-            text.contains("diretos:"),
-            "Expected direct deps section, got: {text}"
+            text.contains("diretos: [cache.rs, db_connect.rs, db_pool.rs] (+1 outros)"),
+            "the first three paths are named and the fourth counted, got: {text}"
         );
-        // Top 3 of 4 deps appear — exact order is BM25-determined.
-        let dep_count = ["renderer.rs", "db_connect.rs", "cache.rs", "db_pool.rs"]
-            .iter()
-            .filter(|d| text.contains(*d))
-            .count();
         assert!(
-            dep_count >= 3,
-            "Expected at least 3 of 4 deps in diretos section, got {dep_count}: {text}"
+            !text.contains("renderer.rs"),
+            "an importer past the third is counted, never listed: {text}"
         );
     }
 
@@ -1294,8 +1456,12 @@ mod tests {
         let text = format_blast_isolated(true);
         assert!(text.contains("blast(0 deps"), "verbose isolated: {text}");
         assert!(
-            text.contains("isolado"),
-            "verbose isolated should mention 'isolado': {text}"
+            text.contains("nenhum import resolvido"),
+            "F13: it says what was measured (no RESOLVED import), not that nobody depends: {text}"
+        );
+        assert!(
+            !text.contains("isolado") && !text.contains("impacto"),
+            "it never claims the file is isolated or that its transitive impact is none: {text}"
         );
     }
 
@@ -1325,6 +1491,271 @@ mod tests {
             text.contains("blast(dist=2, 5 files)"),
             "verbose connected: {text}"
         );
+    }
+
+    // ── C8: importers asked of the index, isolated told from uncovered ────
+
+    /// An index whose edge source (the wiring) looked at `files` and found no edges.
+    fn index_covering(files: &[&str]) -> touring_code::ast::graph::SymbolIndex {
+        let mut idx = touring_code::ast::graph::SymbolIndex::new();
+        idx.load_file_edges(
+            std::iter::empty::<(String, String)>(),
+            files.iter().map(|file| (*file).to_string()),
+        );
+        idx
+    }
+
+    const HUB: &str = "crates/hub/src/hub.rs";
+
+    /// A hub: 12 direct importers, each imported by 160 more files (2 hops, 1.920 files
+    /// beyond the direct ones). The five heaviest by co-edit history are, in order,
+    /// d07 d03 d11 d00 d05; the other seven have none and tie on in-degree.
+    fn hub_index() -> touring_code::ast::graph::SymbolIndex {
+        let mut idx = touring_code::ast::graph::SymbolIndex::new();
+        let mut edges: Vec<(String, String)> = Vec::new();
+        let mut covered = vec![HUB.to_string()];
+        for d in 0..12 {
+            let direct = format!("crates/app/src/d{d:02}.rs");
+            edges.push((direct.clone(), HUB.to_string()));
+            covered.push(direct.clone());
+            for t in 0..160 {
+                let leaf = format!("crates/leaf/src/l{d:02}_{t:03}.rs");
+                edges.push((leaf.clone(), direct.clone()));
+                covered.push(leaf);
+            }
+        }
+        idx.load_file_edges(edges, covered);
+        let heaviest = [7, 3, 11, 0, 5];
+        idx.apply_co_edit_weights(heaviest.iter().enumerate().map(|(rank, d)| {
+            (
+                format!("crates/app/src/d{d:02}.rs"),
+                HUB.to_string(),
+                100 - 10 * rank as i64,
+            )
+        }));
+        idx
+    }
+
+    /// The five heaviest importers of [`hub_index`], as the texts label them.
+    const HUB_TOP_FIVE: &str = "src/d07.rs, src/d03.rs, src/d11.rs, src/d00.rs, src/d05.rs";
+
+    #[test]
+    fn test_blast_radius_signal_no_coverage_is_never_called_isolated() {
+        // The wiring reads `.rs` here (src/other.rs is covered) and never read src/new.rs: a
+        // source file that SHOULD be in the graph and is not. No importers is not "none".
+        let idx = index_covering(&["src/other.rs"]);
+        let (score, text) = blast_radius_signal(Some(&idx), "src/new.rs", true).expect(
+            "an uncovered source file the wiring should read gets the informational signal",
+        );
+        assert!((score - 0.7).abs() < f32::EPSILON, "got {score}");
+        assert!(text.contains("sem cobertura"), "own text: {text}");
+        assert!(!text.contains("isolado"), "never isolated: {text}");
+        assert!(
+            !text.contains("0 deps"),
+            "never claims zero importers: {text}"
+        );
+
+        let (_, compact) =
+            blast_radius_signal(Some(&idx), "src/new.rs", false).expect("compact form exists too");
+        assert_eq!(compact, "blast(sem cobertura)");
+
+        // The extension match is case-insensitive: `SRC/NEW.RS` is a source file too.
+        assert!(blast_radius_signal(Some(&idx), "SRC/NEW.RS", true).is_some());
+
+        // The same absence on a file the wiring DID read says what it measured: no RESOLVED
+        // import (F13) — a claim about the graph, not about the file.
+        let (_, covered) = blast_radius_signal(Some(&idx), "src/other.rs", true).expect("signal");
+        assert!(
+            covered.contains("nenhum import resolvido"),
+            "covered, no importers: {covered}"
+        );
+    }
+
+    /// Density rule: a file of a kind the wiring never reads carries NO blast text, in either
+    /// form — ~100 characters of "sem cobertura" on every pre_edit/pre_read/pre_write of a doc or
+    /// a config would be a banner, and silence (unlike "nenhum import resolvido") claims nothing.
+    #[test]
+    fn test_blast_radius_signal_is_silent_for_a_file_kind_the_wiring_never_reads() {
+        let idx = index_covering(&["src/other.rs", "src/lib.rs"]);
+        for file in [
+            "docs/readme.md",
+            "Cargo.toml",
+            "scripts/run.py",
+            "Makefile",
+            ".gitignore",
+        ] {
+            for verbose in [true, false] {
+                assert_eq!(
+                    blast_radius_signal(Some(&idx), file, verbose),
+                    None,
+                    "{file} (verbose={verbose}): the wiring reads only .rs here"
+                );
+            }
+        }
+    }
+
+    /// A project the wiring never covered says nothing about a file it was not asked about:
+    /// no edge source loaded means "no coverage" is the whole project's state, not news.
+    #[test]
+    fn test_blast_radius_signal_is_silent_when_the_project_has_no_coverage_at_all() {
+        let idx = touring_code::ast::graph::SymbolIndex::new();
+        for verbose in [true, false] {
+            assert_eq!(blast_radius_signal(Some(&idx), "src/new.rs", verbose), None);
+        }
+        // Still absent, not "isolated", for a symbols-only index that does not hold the file.
+        let mut symbols_only = touring_code::ast::graph::SymbolIndex::new();
+        symbols_only
+            .index_file(
+                "src/held.rs",
+                "pub fn held() {}\n",
+                touring_code::ast::languages::Lang::Rust,
+            )
+            .expect("index held.rs");
+        assert_eq!(
+            blast_radius_signal(Some(&symbols_only), "src/new.rs", true),
+            None
+        );
+    }
+
+    #[test]
+    fn test_blast_radius_signal_reads_resolved_file_edges() {
+        // The wiring resolved `src/a.rs` -> `src/foo.rs`; a stem lookup would not.
+        let mut idx = touring_code::ast::graph::SymbolIndex::new();
+        idx.load_file_edges(
+            [("src/a.rs".to_string(), "src/foo.rs".to_string())],
+            ["src/a.rs", "src/foo.rs"].map(str::to_string),
+        );
+        let (score, text) = blast_radius_signal(Some(&idx), "src/foo.rs", true).expect("signal");
+        assert!(score > 1.0, "connected, got {score}");
+        assert!(text.contains("diretos: [a.rs]"), "got: {text}");
+        assert!(!text.contains("outros"), "nothing left to count: {text}");
+    }
+
+    #[test]
+    fn test_blast_radius_signal_on_a_hub_names_the_heaviest_and_counts_the_rest() {
+        let idx = hub_index();
+        let (_, text) = blast_radius_signal(Some(&idx), HUB, true).expect("signal");
+        let expected = idx.blast_radius_with_depth(HUB, BLAST_SIGNAL_DEPTH);
+        assert!(
+            text.contains(&format!(
+                "blast(dist={}, {} files)",
+                expected.max_distance, expected.file_count
+            )),
+            "the count the oracle walk gives, got: {text}"
+        );
+        assert!(
+            text.contains("diretos: [d07.rs, d03.rs, d11.rs] (+9 outros)"),
+            "top three by co-edit weight, nine counted, got: {text}"
+        );
+    }
+
+    #[test]
+    fn test_blast_aggregate_signal_on_a_hub_is_one_short_line_with_the_right_count() {
+        let idx = hub_index();
+        let (score, text) = blast_aggregate_signal(&idx, HUB, 400).expect("hub has importers");
+        let walk = idx.blast_radius_with_depth(HUB, BLAST_SIGNAL_DEPTH);
+
+        assert_eq!(walk.file_count, 1 + 12 + 12 * 160, "fixture shape");
+        assert!(text.chars().count() <= 400, "ceiling kept: {text}");
+        assert!(
+            text.starts_with(&format!(
+                "blast: {} arquivos, até {} saltos; ",
+                walk.file_count, walk.max_distance
+            )),
+            "the count is the walk's, got: {text}"
+        );
+        assert!(
+            text.contains(&format!("diretos (12): {HUB_TOP_FIVE} (+7 outros)")),
+            "the five heaviest in weight order, 12 - 5 = 7 counted, got: {text}"
+        );
+        assert!(
+            text.contains(&format!("touring ast blast {HUB}")),
+            "teaches the route to the full list, naming the file: {text}"
+        );
+        assert!(
+            !text.contains("crates/leaf"),
+            "no transitive file is listed: {text}"
+        );
+        assert!(score > 2.0, "a hub outranks the informational 0.7: {score}");
+        assert!(!text.contains('\n'), "one line: {text}");
+    }
+
+    #[test]
+    fn test_blast_aggregate_signal_drops_names_to_fit_and_keeps_the_count_honest() {
+        let idx = hub_index();
+        let ideal = [
+            "src/d07.rs",
+            "src/d03.rs",
+            "src/d11.rs",
+            "src/d00.rs",
+            "src/d05.rs",
+        ];
+        let full = blast_aggregate_signal(&idx, HUB, 400).expect("signal").1;
+        let ceiling = full.chars().count() - 20;
+        let (_, text) = blast_aggregate_signal(&idx, HUB, ceiling).expect("signal");
+
+        assert!(text.chars().count() <= ceiling, "fits {ceiling}: {text}");
+        let shown = text.matches("src/d").count();
+        assert!(shown < 5, "names were dropped to fit: {text}");
+        for name in ideal.iter().take(shown) {
+            assert!(
+                text.contains(name),
+                "the heaviest stay, {name} missing: {text}"
+            );
+        }
+        assert!(
+            text.contains(&format!("(+{} outros)", 12 - shown)),
+            "K grows with every name dropped: {text}"
+        );
+    }
+
+    #[test]
+    fn test_blast_aggregate_signal_cuts_only_a_line_too_long_for_its_ceiling() {
+        let idx = hub_index();
+        let (_, text) = blast_aggregate_signal(&idx, HUB, 60).expect("signal");
+        assert_eq!(text.chars().count(), 60, "cut to the ceiling: {text}");
+        assert!(text.ends_with("..."), "says it was cut: {text}");
+        assert!(text.starts_with("blast: "), "the count survives: {text}");
+    }
+
+    #[test]
+    fn test_blast_aggregate_signal_is_silent_unless_an_importer_is_known() {
+        let idx = index_covering(&["src/orphan.rs"]);
+        assert!(
+            blast_aggregate_signal(&idx, "src/orphan.rs", 400).is_none(),
+            "isolated is blast_radius_signal's to say"
+        );
+        assert!(
+            blast_aggregate_signal(&idx, "docs/readme.md", 400).is_none(),
+            "uncovered is blast_radius_signal's to say"
+        );
+    }
+
+    #[test]
+    fn test_short_path_label_keeps_the_last_two_components() {
+        assert_eq!(
+            short_path_label("crates/touring-code/src/ast/graph/mod.rs"),
+            "graph/mod.rs"
+        );
+        assert_eq!(short_path_label("src/lib.rs"), "src/lib.rs");
+        assert_eq!(short_path_label("lib.rs"), "lib.rs");
+        assert_eq!(short_path_label(""), "");
+    }
+
+    #[test]
+    fn test_cut_to_chars_counts_characters_not_bytes() {
+        assert_eq!(
+            cut_to_chars("até", 3),
+            "até",
+            "3 characters, 4 bytes: it fits"
+        );
+        assert_eq!(
+            cut_to_chars("até logo", 6),
+            "até...",
+            "cut on a character boundary"
+        );
+        assert_eq!(cut_to_chars("abcdef", 6), "abcdef");
+        assert_eq!(cut_to_chars("abcdefg", 6).chars().count(), 6);
     }
 
     // ── format_similar_symbol_label ───────────────────────────────────────

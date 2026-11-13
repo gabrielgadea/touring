@@ -637,7 +637,7 @@ fn pheromone_graph_signal_layer_normalized_scores() {
 // ── Test 11: build_graph_pipeline ──────────────────────────────────────
 
 #[test]
-fn build_graph_pipeline_has_five_layers() {
+fn build_graph_pipeline_registers_the_blast_group_pheromone_and_hnsw() {
     use std::sync::Arc;
     use touring_code::ast::SymbolIndex;
 
@@ -645,10 +645,12 @@ fn build_graph_pipeline_has_five_layers() {
     let graph = Arc::new(RwLock::new(PheromoneGraph::new(0.1)));
     let pipeline = build_graph_pipeline(Arc::clone(&index), Arc::clone(&graph), 2000);
 
+    // C8: the three blast layers (BFS, enriched, weighted) register as ONE group so a
+    // single ceiling bounds their text; five graph layers, three pipeline entries.
     assert_eq!(
         pipeline.layer_count(),
-        5,
-        "build_graph_pipeline should have 5 layers"
+        3,
+        "build_graph_pipeline should register the blast group, pheromone and hnsw"
     );
 }
 

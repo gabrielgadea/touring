@@ -3,18 +3,33 @@
 //! Persists `SymbolLocation` and `DependencyEdge` data from the in-memory
 //! `SymbolIndex` to disk so that indexed symbols survive process restarts.
 //! Uses WAL mode for concurrent access from multiple hook processes.
+//!
+//! # Keys
+//!
+//! Rows carry the same two kinds of key as the in-memory index (the grammar is in
+//! `ast::graph`): `symbols.file_path` and `dependencies.from_file` are **file keys**,
+//! `dependencies.to_file` is a **module key**. [`SymbolStore::get_reverse_deps`] therefore
+//! matches a file by its own key and by `module_key(file)` — without the unique-owner rule
+//! `SymbolIndex::importers_of` adds on top, so the two part ways on a homonymous stem.
+//!
+//! # The write path
+//!
+//! Every row of `symbols`, `dependencies` and `dependency_symbols` is written by one of
+//! three functions below: `put_symbol_row`, `put_edge_row` (a `dependencies` row and the
+//! `dependency_symbols` rows it owns) and `delete_file_rows`. A verb that writes more
+//! than one row runs them inside a `rusqlite::Transaction`, which rolls back when it is
+//! dropped without a commit — so an error halfway through leaves the file as it was.
 
 use std::collections::HashSet;
 use std::path::Path;
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, TransactionBehavior, params};
+use touring_storage::knowledge::FileKnowledgeDB;
 
-use crate::ast::graph::{DependencyEdge, SymbolIndex, SymbolLocation};
+use crate::ast::graph::{DependencyEdge, SymbolIndex, SymbolLocation, module_key};
 
-/// Upsert (insert-or-update) for a single `symbols` row. Shared by
-/// [`SymbolStore::upsert_symbol`] and every batched prepared-statement path so
-/// the schema-coupled column list + conflict clause live in exactly one place —
-/// changing the schema now touches one string instead of four.
+/// Upsert (insert-or-update) for a single `symbols` row — the schema-coupled column
+/// list and conflict clause, used only by `put_symbol_row`.
 const UPSERT_SYMBOL_SQL: &str =
     "INSERT INTO symbols (name, file_path, line, column_offset, is_definition, kind, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))
@@ -23,6 +38,68 @@ const UPSERT_SYMBOL_SQL: &str =
         is_definition = ?5,
         kind = COALESCE(?6, kind),
         updated_at = datetime('now')";
+
+/// Upsert for a single `dependencies` row; `RETURNING id` hands back the row's id on both
+/// the insert and the update path, which `put_edge_row` needs for `dependency_symbols`.
+const UPSERT_DEPENDENCY_SQL: &str =
+    "INSERT INTO dependencies (from_file, to_file, symbols_json, co_edit_weight, updated_at)
+     VALUES (?1, ?2, ?3, ?4, datetime('now'))
+     ON CONFLICT(from_file, to_file) DO UPDATE SET
+        symbols_json = ?3,
+        co_edit_weight = ?4,
+        updated_at = datetime('now')
+     RETURNING id";
+
+/// Write one `symbols` row (insert, or update on `(name, file_path, line)`).
+fn put_symbol_row(conn: &Connection, sym: &SymbolLocation) -> Result<(), rusqlite::Error> {
+    conn.prepare_cached(UPSERT_SYMBOL_SQL)?.execute(params![
+        sym.symbol_name,
+        sym.file_path,
+        sym.line as i64,
+        sym.column as i64,
+        sym.is_definition as i64,
+        sym.kind,
+    ])?;
+    Ok(())
+}
+
+/// Write one `dependencies` row together with its `dependency_symbols`, the normalised
+/// copy of `symbols_json` that makes `WHERE symbol_name = ?` an index lookup. The edge's
+/// previous symbols are replaced, not merged.
+fn put_edge_row(conn: &Connection, edge: &DependencyEdge) -> Result<(), rusqlite::Error> {
+    let symbols_json = serde_json::to_string(&edge.symbols).unwrap_or_else(|_| "[]".to_string());
+    let dep_id: i64 = conn.prepare_cached(UPSERT_DEPENDENCY_SQL)?.query_row(
+        params![edge.from, edge.to, symbols_json, edge.co_edit_weight],
+        |row| row.get(0),
+    )?;
+    conn.prepare_cached("DELETE FROM dependency_symbols WHERE dep_id = ?1")?
+        .execute(params![dep_id])?;
+    let mut insert = conn.prepare_cached(
+        "INSERT OR IGNORE INTO dependency_symbols (dep_id, symbol_name) VALUES (?1, ?2)",
+    )?;
+    for symbol in &edge.symbols {
+        insert.execute(params![dep_id, symbol])?;
+    }
+    Ok(())
+}
+
+/// Delete everything a file contributed: its `symbols`, its outgoing `dependencies` and
+/// the `dependency_symbols` of those. The last is deleted here, explicitly, instead of
+/// leaning on `ON DELETE CASCADE`: the cascade fires only while `PRAGMA foreign_keys` is
+/// on, which is a build-time default of the bundled SQLite and not something this store
+/// sets. Rows other files declare toward this one are not its contribution and stay.
+fn delete_file_rows(conn: &Connection, file_path: &str) -> Result<(), rusqlite::Error> {
+    conn.prepare_cached(
+        "DELETE FROM dependency_symbols
+         WHERE dep_id IN (SELECT id FROM dependencies WHERE from_file = ?1)",
+    )?
+    .execute(params![file_path])?;
+    conn.prepare_cached("DELETE FROM dependencies WHERE from_file = ?1")?
+        .execute(params![file_path])?;
+    conn.prepare_cached("DELETE FROM symbols WHERE file_path = ?1")?
+        .execute(params![file_path])?;
+    Ok(())
+}
 
 /// Observer notified when symbols change via [`SymbolStore::apply_change_set`].
 ///
@@ -293,59 +370,20 @@ impl SymbolStore {
     /// Insert or update a single symbol location.
     pub fn upsert_symbol(&self, sym: &SymbolLocation) -> Result<(), rusqlite::Error> {
         let conn = self.conn.lock().expect("symbol store conn lock");
-        conn.execute(
-            UPSERT_SYMBOL_SQL,
-            params![
-                sym.symbol_name,
-                sym.file_path,
-                sym.line as i64,
-                sym.column as i64,
-                sym.is_definition as i64,
-                sym.kind,
-            ],
-        )?;
-        Ok(())
+        put_symbol_row(&conn, sym)
     }
 
     /// Insert or update a single dependency edge.
     ///
     /// Also maintains the normalised `dependency_symbols` table so that
     /// `WHERE symbol_name = ?` queries are direct index lookups instead of
-    /// O(n) JSON deserialisation in Rust.
+    /// O(n) JSON deserialisation in Rust. The edge and its symbols land together
+    /// or not at all.
     pub fn upsert_dependency(&self, edge: &DependencyEdge) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().expect("symbol store conn lock");
-        let symbols_json =
-            serde_json::to_string(&edge.symbols).unwrap_or_else(|_| "[]".to_string());
-        conn.execute(
-            "INSERT INTO dependencies (from_file, to_file, symbols_json, co_edit_weight, updated_at)
-             VALUES (?1, ?2, ?3, ?4, datetime('now'))
-             ON CONFLICT(from_file, to_file) DO UPDATE SET
-                symbols_json = ?3,
-                co_edit_weight = ?4,
-                updated_at = datetime('now')",
-            params![edge.from, edge.to, symbols_json, edge.co_edit_weight],
-        )?;
-
-        // Maintain the normalised dependency_symbols table.
-        let dep_id: i64 = conn.query_row(
-            "SELECT id FROM dependencies WHERE from_file = ?1 AND to_file = ?2",
-            params![edge.from, edge.to],
-            |row| row.get(0),
-        )?;
-        conn.execute(
-            "DELETE FROM dependency_symbols WHERE dep_id = ?1",
-            params![dep_id],
-        )?;
-        if !edge.symbols.is_empty() {
-            let mut sym_stmt = conn.prepare_cached(
-                "INSERT OR IGNORE INTO dependency_symbols (dep_id, symbol_name) VALUES (?1, ?2)",
-            )?;
-            for sym in &edge.symbols {
-                sym_stmt.execute(params![dep_id, sym])?;
-            }
-        }
-
-        Ok(())
+        let mut conn = self.conn.lock().expect("symbol store conn lock");
+        let tx = conn.transaction()?;
+        put_edge_row(&tx, edge)?;
+        tx.commit()
     }
 
     /// Find all dependency edges that import a specific symbol by name.
@@ -358,7 +396,7 @@ impl SymbolStore {
     ) -> Result<Vec<DependencyEdge>, rusqlite::Error> {
         let conn = self.conn.lock().expect("symbol store conn lock");
         let mut stmt = conn.prepare(
-            "SELECT d.from_file, d.to_file, d.symbols_json
+            "SELECT d.from_file, d.to_file, d.symbols_json, d.co_edit_weight
              FROM dependency_symbols ds
              JOIN dependencies d ON ds.dep_id = d.id
              WHERE ds.symbol_name = ?1",
@@ -457,7 +495,7 @@ impl SymbolStore {
     ) -> Result<Vec<DependencyEdge>, rusqlite::Error> {
         let conn = self.conn.lock().expect("symbol store conn lock");
         let mut stmt = conn.prepare(
-            "SELECT from_file, to_file, symbols_json
+            "SELECT from_file, to_file, symbols_json, co_edit_weight
              FROM dependencies WHERE from_file = ?1",
         )?;
         let rows = stmt.query_map(params![file_path], row_to_dep)?;
@@ -465,29 +503,37 @@ impl SymbolStore {
     }
 
     /// Get all files that depend on (import from) the given file.
+    ///
+    /// An edge points at the file when its `to_file` is the file's own key (a path an
+    /// edge was written with by hand) or its module key — the stem the extractors
+    /// write, `utils` for `pkg/utils.py`.
+    ///
+    /// This is NOT the reading `SymbolIndex::importers_of` does. Memory answers by the
+    /// stem only when the file is the one indexed file with it; the SQL has no notion of
+    /// indexed files, so with `a/utils.py` and `b/utils.py` memory credits nobody and
+    /// this credits the importers of `utils` to both. Where every stem has one owner the
+    /// two agree. The split is deliberate and pinned by
+    /// `memory_and_sqlite_part_ways_on_a_homonymous_stem`; the one production consumer
+    /// moves to the wiring in S5 of the C8 note.
     pub fn get_reverse_deps(&self, file_path: &str) -> Result<Vec<String>, rusqlite::Error> {
         let conn = self.conn.lock().expect("symbol store conn lock");
         let mut stmt =
-            conn.prepare("SELECT DISTINCT from_file FROM dependencies WHERE to_file = ?1")?;
-        let rows = stmt.query_map(params![file_path], |row| row.get(0))?;
+            conn.prepare("SELECT DISTINCT from_file FROM dependencies WHERE to_file IN (?1, ?2)")?;
+        let rows = stmt.query_map(params![file_path, module_key(file_path)], |row| row.get(0))?;
         rows.collect()
     }
 
-    /// Remove all symbols and dependencies associated with a file.
+    /// Remove everything a file contributed: the symbols defined in it, the dependency
+    /// edges originating from it and the `dependency_symbols` of those edges.
     ///
-    /// This cascades: removes symbols defined in the file AND dependency
-    /// edges originating from the file.
+    /// Edges OTHER files declare toward it stay: their imports still say what they say.
+    /// (The in-memory `SymbolIndex::remove_file` is the one that severs them, once no
+    /// file is left under the module key.)
     pub fn remove_file(&self, file_path: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().expect("symbol store conn lock");
-        conn.execute(
-            "DELETE FROM symbols WHERE file_path = ?1",
-            params![file_path],
-        )?;
-        conn.execute(
-            "DELETE FROM dependencies WHERE from_file = ?1",
-            params![file_path],
-        )?;
-        Ok(())
+        let mut conn = self.conn.lock().expect("symbol store conn lock");
+        let tx = conn.transaction()?;
+        delete_file_rows(&tx, file_path)?;
+        tx.commit()
     }
 
     /// Get summary statistics about the store.
@@ -576,70 +622,28 @@ impl SymbolStore {
 
     /// Bulk-insert symbols and dependency edges inside a single transaction.
     ///
-    /// Much faster than individual upserts for initial indexing.
+    /// Much faster than individual upserts for initial indexing. All or nothing: an
+    /// error on any row rolls every row back.
     pub(crate) fn bulk_index(
         &self,
         symbols: &[SymbolLocation],
         edges: &[DependencyEdge],
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().expect("symbol store conn lock");
-        conn.execute_batch("BEGIN")?;
-
-        {
-            let mut sym_stmt = conn.prepare_cached(UPSERT_SYMBOL_SQL)?;
-
-            for sym in symbols {
-                sym_stmt.execute(params![
-                    sym.symbol_name,
-                    sym.file_path,
-                    sym.line as i64,
-                    sym.column as i64,
-                    sym.is_definition as i64,
-                    sym.kind,
-                ])?;
-            }
+        let mut conn = self.conn.lock().expect("symbol store conn lock");
+        let tx = conn.transaction()?;
+        for sym in symbols {
+            put_symbol_row(&tx, sym)?;
         }
-
-        {
-            let mut dep_stmt = conn.prepare_cached(
-                "INSERT INTO dependencies (from_file, to_file, symbols_json, co_edit_weight, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, datetime('now'))
-                 ON CONFLICT(from_file, to_file) DO UPDATE SET
-                    symbols_json = ?3,
-                    co_edit_weight = ?4,
-                    updated_at = datetime('now')",
-            )?;
-
-            for edge in edges {
-                let symbols_json =
-                    serde_json::to_string(&edge.symbols).unwrap_or_else(|_| "[]".to_string());
-                dep_stmt.execute(params![
-                    edge.from,
-                    edge.to,
-                    symbols_json,
-                    edge.co_edit_weight
-                ])?;
-            }
+        for edge in edges {
+            put_edge_row(&tx, edge)?;
         }
-
-        // Rebuild dependency_symbols from symbols_json for all rows.
-        // This is O(n) but bulk_index runs infrequently and keeps the
-        // normalised table in sync with symbols_json in a single pass.
-        conn.execute_batch(
-            "DELETE FROM dependency_symbols;
-             INSERT OR IGNORE INTO dependency_symbols (dep_id, symbol_name)
-             SELECT d.id, j.value
-             FROM dependencies d, json_each(d.symbols_json) j
-             WHERE d.symbols_json != '[]';",
-        )?;
-
-        conn.execute_batch("COMMIT")?;
-        Ok(())
+        tx.commit()
     }
 
     /// Load all persisted symbols and edges into a `SymbolIndex`.
     ///
-    /// Used on startup to restore the in-memory graph from disk.
+    /// Used on startup to restore the in-memory graph from disk. Rows enter through the
+    /// index's own writer (`insert_symbol` / `insert_edge`), in row order.
     pub fn load_into_index(&self, index: &mut SymbolIndex) -> Result<usize, rusqlite::Error> {
         let conn = self.conn.lock().expect("symbol store conn lock");
         let mut loaded = 0usize;
@@ -649,93 +653,43 @@ impl SymbolStore {
             let mut stmt = conn.prepare(
                 "SELECT name, file_path, line, column_offset, is_definition, kind FROM symbols WHERE is_definition = 1",
             )?;
-            let rows = stmt.query_map([], row_to_symbol)?;
-            for row in rows {
-                let sym = row?;
-                // Populate symbols map
-                index
-                    .symbols
-                    .entry(sym.symbol_name.clone())
-                    .or_default()
-                    .push(sym.clone());
-
-                // Populate file_to_symbols map
-                if sym.is_definition {
-                    index
-                        .file_to_symbols
-                        .entry(sym.file_path.clone())
-                        .or_default()
-                        .push(sym.symbol_name.clone());
-                }
-
+            for row in stmt.query_map([], row_to_symbol)? {
+                index.insert_symbol(row?);
                 loaded += 1;
             }
         }
 
         // Load dependency edges
         {
-            let mut stmt =
-                conn.prepare("SELECT from_file, to_file, symbols_json FROM dependencies")?;
-            let rows = stmt.query_map([], row_to_dep)?;
-            for row in rows {
-                let edge = row?;
-
-                // Populate dependencies map
-                index
-                    .dependencies
-                    .entry(edge.from.clone())
-                    .or_default()
-                    .push(edge.clone());
-
-                // Populate reverse_deps map
-                index
-                    .reverse_deps
-                    .entry(edge.to.clone())
-                    .or_default()
-                    .push(edge.from.clone());
+            let mut stmt = conn.prepare(
+                "SELECT from_file, to_file, symbols_json, co_edit_weight FROM dependencies",
+            )?;
+            for row in stmt.query_map([], row_to_dep)? {
+                index.insert_edge(row?);
             }
         }
 
         Ok(loaded)
     }
 
-    /// Atomically replace all symbols for a file.
-    /// Removes old symbols and inserts new ones in a single transaction.
+    /// Atomically replace a file in the store: everything it contributed is deleted and
+    /// `symbols` are written, in one transaction. On error nothing changes.
+    ///
+    /// The verb carries symbols only. The file's outgoing edges are deleted with the rest
+    /// and are NOT rewritten here; a caller that needs them back writes them with
+    /// [`SymbolStore::upsert_dependency`] or [`SymbolIndex::persist_to`].
     pub fn replace_file_symbols(
         &self,
         file_path: &str,
         symbols: &[SymbolLocation],
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().expect("symbol store conn lock");
-        conn.execute_batch("BEGIN")?;
-
-        // Remove old symbols for this file
-        conn.execute(
-            "DELETE FROM symbols WHERE file_path = ?1",
-            params![file_path],
-        )?;
-        conn.execute(
-            "DELETE FROM dependencies WHERE from_file = ?1",
-            params![file_path],
-        )?;
-
-        // Insert new symbols
-        {
-            let mut stmt = conn.prepare_cached(UPSERT_SYMBOL_SQL)?;
-            for sym in symbols {
-                stmt.execute(params![
-                    sym.symbol_name,
-                    sym.file_path,
-                    sym.line as i64,
-                    sym.column as i64,
-                    sym.is_definition as i64,
-                    sym.kind,
-                ])?;
-            }
+        let mut conn = self.conn.lock().expect("symbol store conn lock");
+        let tx = conn.transaction()?;
+        delete_file_rows(&tx, file_path)?;
+        for sym in symbols {
+            put_symbol_row(&tx, sym)?;
         }
-
-        conn.execute_batch("COMMIT")?;
-        Ok(())
+        tx.commit()
     }
 }
 
@@ -846,62 +800,37 @@ impl SymbolStore {
             return Ok(());
         }
 
-        // Acquire lock once for the entire transaction.
-        let conn = self.conn.lock().expect("symbol store conn lock");
-        conn.execute_batch("BEGIN IMMEDIATE")?;
+        // Acquire lock once for the entire transaction. An error before the commit drops
+        // the transaction, which rolls it back and surfaces the original error.
+        let mut conn = self.conn.lock().expect("symbol store conn lock");
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
-        // Inner block so we can ROLLBACK on any error before returning.
-        // We use a labelled block instead of a closure to avoid re-borrowing
-        // issues with MutexGuard across a closure boundary.
-        let result: Result<(), rusqlite::Error> = (|| {
-            // Phase 1: removals
-            {
-                let mut del_stmt = conn.prepare_cached(
-                    "DELETE FROM symbols WHERE name = ?1 AND file_path = ?2 AND line = ?3",
-                )?;
-                for (name, file_path, line) in &changes.remove {
-                    del_stmt.execute(params![name, file_path, *line as i64])?;
-                }
-            }
-
-            // Phase 2: upserts
-            {
-                let mut ups_stmt = conn.prepare_cached(UPSERT_SYMBOL_SQL)?;
-                for sym in &changes.upsert {
-                    ups_stmt.execute(params![
-                        sym.symbol_name,
-                        sym.file_path,
-                        sym.line as i64,
-                        sym.column as i64,
-                        sym.is_definition as i64,
-                        sym.kind,
-                    ])?;
-                }
-            }
-
-            Ok(())
-        })();
-
-        match result {
-            Ok(()) => {
-                conn.execute_batch("COMMIT")?;
-                // Release the lock before notifying observers to avoid holding it
-                // across potentially expensive observer callbacks.
-                drop(conn);
-                for observer in &self.observers {
-                    observer.on_symbol_change(changes);
-                }
-                // H3: broadcast to async stream subscribers (fire-and-forget; ignore if no receivers).
-                #[cfg(feature = "async-pipeline")]
-                let _ = self.stream_sender.send(changes.clone());
-                Ok(())
-            }
-            Err(e) => {
-                // Best-effort rollback — ignore rollback error to surface the original.
-                let _ = conn.execute_batch("ROLLBACK");
-                Err(e)
+        // Phase 1: removals
+        {
+            let mut del_stmt = tx.prepare_cached(
+                "DELETE FROM symbols WHERE name = ?1 AND file_path = ?2 AND line = ?3",
+            )?;
+            for (name, file_path, line) in &changes.remove {
+                del_stmt.execute(params![name, file_path, *line as i64])?;
             }
         }
+
+        // Phase 2: upserts
+        for sym in &changes.upsert {
+            put_symbol_row(&tx, sym)?;
+        }
+
+        tx.commit()?;
+        // Release the lock before notifying observers to avoid holding it
+        // across potentially expensive observer callbacks.
+        drop(conn);
+        for observer in &self.observers {
+            observer.on_symbol_change(changes);
+        }
+        // H3: broadcast to async stream subscribers (fire-and-forget; ignore if no receivers).
+        #[cfg(feature = "async-pipeline")]
+        let _ = self.stream_sender.send(changes.clone());
+        Ok(())
     }
 
     /// Compute the change set between currently stored symbols for a file
@@ -989,6 +918,9 @@ fn row_to_symbol(row: &rusqlite::Row<'_>) -> Result<SymbolLocation, rusqlite::Er
     })
 }
 
+/// Read a `dependencies` row. Every SELECT that feeds it projects, in this order,
+/// `from_file, to_file, symbols_json, co_edit_weight` — a SELECT that stops at three
+/// columns reads the weight back as 0.0 (a NULL, from a row older than the column, does too).
 fn row_to_dep(row: &rusqlite::Row<'_>) -> Result<DependencyEdge, rusqlite::Error> {
     let from: String = row.get(0)?;
     let to: String = row.get(1)?;
@@ -1003,13 +935,71 @@ fn row_to_dep(row: &rusqlite::Row<'_>) -> Result<DependencyEdge, rusqlite::Error
     })
 }
 
+/// Load the whole graph of a project into a fresh index: the symbols (and any edge the
+/// `SymbolStore` holds) from `store`, then the resolved file-to-file edges, the set of
+/// files they cover and the co-edit weights from `knowledge`.
+///
+/// The edges come from the wiring because that is the graph production keeps current and
+/// resolved — a Rust `crate::foo` already points at `foo.rs` there. The index it returns
+/// says, through `SymbolIndex::importers_status`, whether a file with no importer is
+/// isolated (the wiring looked at it and no RESOLVED import points at it, F13) or merely
+/// uncovered (it did not look), so a reader never has to read an empty list as "nobody".
+/// An edge needs import evidence: a consumer that only matched a bare name in the file
+/// (`ast_inferred`) is not an importer.
+///
+/// # Errors
+///
+/// Propagates any `rusqlite` failure from either database.
+pub fn load_index(
+    store: &SymbolStore,
+    knowledge: &FileKnowledgeDB,
+) -> Result<SymbolIndex, rusqlite::Error> {
+    let mut index = SymbolIndex::new();
+    store.load_into_index(&mut index)?;
+    index.load_file_edges(knowledge.file_dependency_edges()?, knowledge.wired_files()?);
+    index.apply_co_edit_weights(knowledge.co_edit_pairs()?);
+    Ok(index)
+}
+
+/// [`load_index`] for a caller that holds an open [`SymbolStore`] and only the PATH of the
+/// knowledge database — the MCP server and `touring_ast_find`, which have no runtime. The
+/// wiring store is opened when it exists and read exactly as [`load_index`] reads it.
+///
+/// A missing or unreadable knowledge database is not an error and is never created here:
+/// the index comes back as `load_into_index` always built it — the symbols and the raw
+/// stem edges of the `dependencies` table, no resolved edge, no coverage — and an index
+/// with no edge source speaks for the files it holds, as it always did.
+///
+/// # Errors
+///
+/// Propagates any `rusqlite` failure from the symbol store, or from a knowledge database
+/// that opened.
+pub fn load_index_for(
+    store: &SymbolStore,
+    knowledge_db: &Path,
+) -> Result<SymbolIndex, rusqlite::Error> {
+    if knowledge_db.exists() {
+        match FileKnowledgeDB::new(knowledge_db) {
+            Ok(knowledge) => return load_index(store, &knowledge),
+            Err(e) => tracing::warn!(
+                path = %knowledge_db.display(),
+                error = %e,
+                "the wiring store could not be opened; the index is loaded without file edges"
+            ),
+        }
+    }
+    let mut index = SymbolIndex::new();
+    store.load_into_index(&mut index)?;
+    Ok(index)
+}
+
 // ── Persist helper on SymbolIndex ────────────────────────────────────────
 
 impl SymbolIndex {
     /// Write all in-memory symbols and edges to the given store.
     ///
-    /// Uses `bulk_index` for performance. Clears and re-inserts to ensure
-    /// the persistent state matches the in-memory state exactly.
+    /// Uses `bulk_index`: one transaction, upserting every symbol and every edge. It
+    /// does not delete rows of files the index no longer holds — `remove_file` does.
     pub fn persist_to(&self, store: &SymbolStore) -> Result<(), rusqlite::Error> {
         // Collect all symbol locations
         let symbols: Vec<SymbolLocation> = self
@@ -1706,6 +1696,93 @@ mod tests {
             "Only b.py should remain after removing a.py"
         );
         assert_eq!(remaining[0].from, "b.py");
+    }
+
+    /// `dependency_symbols` rows that no `dependencies` row owns any more.
+    fn orphan_dependency_symbols(store: &SymbolStore) -> i64 {
+        store
+            .conn
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM dependency_symbols
+                 WHERE dep_id NOT IN (SELECT id FROM dependencies)",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn test_co_edit_weight_round_trips_through_every_reader() {
+        let (_tmp, store) = test_store();
+        let weighted = DependencyEdge {
+            co_edit_weight: 0.75,
+            ..make_edge("a.py", "lib.py", &["Shared"])
+        };
+        store.upsert_dependency(&weighted).unwrap();
+        let bulk = DependencyEdge {
+            co_edit_weight: 2.5,
+            ..make_edge("b.py", "lib.py", &["Shared"])
+        };
+        store.bulk_index(&[], &[bulk]).unwrap();
+
+        let from_get = store.get_dependencies("a.py").unwrap();
+        assert_eq!(from_get[0].co_edit_weight, 0.75, "get_dependencies");
+
+        let mut by_symbol = store.find_deps_by_symbol("Shared").unwrap();
+        by_symbol.sort_by(|x, y| x.from.cmp(&y.from));
+        let weights: Vec<f64> = by_symbol.iter().map(|e| e.co_edit_weight).collect();
+        assert_eq!(weights, [0.75, 2.5], "find_deps_by_symbol");
+
+        let mut index = SymbolIndex::new();
+        store.load_into_index(&mut index).unwrap();
+        assert_eq!(index.dependencies["a.py"][0].co_edit_weight, 0.75, "load");
+        assert_eq!(index.dependencies["b.py"][0].co_edit_weight, 2.5, "load");
+    }
+
+    #[test]
+    fn test_deleting_a_file_clears_its_dependency_symbols_without_the_cascade() {
+        let (_tmp, store) = test_store();
+        store
+            .bulk_index(
+                &[
+                    make_symbol("a_fn", "a.py", 1),
+                    make_symbol("b_fn", "b.py", 1),
+                ],
+                &[
+                    make_edge("a.py", "lib.py", &["Shared"]),
+                    make_edge("b.py", "lib.py", &["Shared", "Only"]),
+                ],
+            )
+            .unwrap();
+
+        // `ON DELETE CASCADE` fires only while `PRAGMA foreign_keys` is on, and that is a
+        // build-time default of the bundled SQLite — nothing in this store asserts it.
+        // The writer must clean up by itself, not by leaning on the default.
+        store
+            .conn
+            .lock()
+            .unwrap()
+            .execute_batch("PRAGMA foreign_keys = OFF;")
+            .unwrap();
+
+        store.remove_file("a.py").unwrap();
+        assert_eq!(
+            orphan_dependency_symbols(&store),
+            0,
+            "remove_file left dependency_symbols behind"
+        );
+
+        store
+            .replace_file_symbols("b.py", &[make_symbol("b_fn", "b.py", 1)])
+            .unwrap();
+        assert_eq!(
+            orphan_dependency_symbols(&store),
+            0,
+            "replace_file_symbols left dependency_symbols behind"
+        );
+        assert!(store.find_deps_by_symbol("Only").unwrap().is_empty());
     }
 
     #[test]

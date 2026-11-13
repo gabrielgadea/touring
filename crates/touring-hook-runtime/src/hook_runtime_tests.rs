@@ -1234,3 +1234,691 @@ fn hook_response_with_advisories_keeps_the_rewritten_tool_output() {
         other => panic!("a variante muda: {other:?}"),
     }
 }
+
+// ── C7: the pipeline's memory budget and the heat map that ranks its victims ──
+
+/// Comment padding: a big document with almost no symbols to extract.
+fn padded_source(bytes: usize) -> String {
+    format!(
+        "pub fn f() {{}}\n{}",
+        "// padding padding padding padding padding padding padding\n".repeat(bytes / 58 + 1)
+    )
+}
+
+fn heat_now() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
+
+/// M2 (12/11/2026): `max(64, floor((guard / 8 - 260) / 1,43))`, guard = rebuild memory guard.
+#[test]
+fn test_default_pipeline_budget_follows_the_rebuild_guard_formula() {
+    assert_eq!(
+        default_pipeline_budget_mb(16_000.0),
+        1216,
+        "(2000-260)/1,43"
+    );
+    assert_eq!(default_pipeline_budget_mb(8_000.0), 517);
+    assert_eq!(default_pipeline_budget_mb(4_000.0), 167);
+    assert_eq!(default_pipeline_budget_mb(3_000.0), 80);
+    assert_eq!(
+        default_pipeline_budget_mb(500.0),
+        64,
+        "a guard too small for the fixed cost gets the floor"
+    );
+    assert_eq!(default_pipeline_budget_mb(f64::NAN), 64);
+    assert_eq!(default_pipeline_budget_mb(f64::INFINITY), 64);
+}
+
+#[test]
+fn test_pipeline_memory_budget_decides_each_form_of_the_knob() {
+    const GUARD: f64 = 16_000.0;
+    let default = PipelineBudget {
+        mb: 1216,
+        source: BudgetSource::Default,
+        rejected_knob: None,
+    };
+    assert_eq!(
+        pipeline_memory_budget(None, GUARD),
+        default,
+        "absent = formula"
+    );
+    assert_eq!(
+        pipeline_memory_budget(Some("  "), GUARD),
+        default,
+        "blank = absent, not a typo"
+    );
+
+    let off = pipeline_memory_budget(Some("0"), GUARD);
+    assert_eq!(
+        (off.mb, off.source, off.rejected_knob),
+        (0, BudgetSource::Disabled, None)
+    );
+
+    let set = pipeline_memory_budget(Some(" 64 "), GUARD);
+    assert_eq!(
+        (set.mb, set.source, set.rejected_knob),
+        (64, BudgetSource::Env, None)
+    );
+
+    for bad in ["abc", "-5", "1.5", "64MB", "99999999999999999999999"] {
+        let refused = pipeline_memory_budget(Some(bad), GUARD);
+        assert_eq!(
+            (refused.mb, refused.source),
+            (1216, BudgetSource::Default),
+            "{bad:?} falls back to the default"
+        );
+        assert_eq!(
+            refused.rejected_knob.as_deref(),
+            Some(bad),
+            "{bad:?} is reported to the caller, never swallowed"
+        );
+    }
+}
+
+#[test]
+fn test_budget_source_words_are_the_ones_status_prints() {
+    assert_eq!(BudgetSource::Env.as_str(), "env");
+    assert_eq!(BudgetSource::Default.as_str(), "default");
+    assert_eq!(BudgetSource::Disabled.as_str(), "disabled");
+}
+
+#[test]
+#[serial_test::serial(pipeline_knob)]
+fn test_runtime_boots_the_pipeline_budget_from_the_knob() {
+    const KNOB: &str = "TOURING_PIPELINE_MEMORY_MB";
+    let boot = |value: Option<&str>| {
+        // SAFETY: `#[serial(pipeline_knob)]` — no other test of this process touches the knob.
+        unsafe {
+            match value {
+                Some(v) => std::env::set_var(KNOB, v),
+                None => std::env::remove_var(KNOB),
+            }
+        }
+        let tmp = TempDir::new().unwrap();
+        let runtime = HookRuntime::new(tmp.path()).unwrap();
+        let stats = runtime.infra.pipeline.as_ref().unwrap().stats();
+        (stats.budget_mb, runtime.infra.pipeline_budget_source)
+    };
+    let default_mb =
+        default_pipeline_budget_mb(crate::shared::feature_flags::rebuild_memory_hard_mb());
+    let outcome = (
+        boot(None),
+        boot(Some("0")),
+        boot(Some("64")),
+        boot(Some("abc")),
+    );
+    // SAFETY: same serial group as above.
+    unsafe { std::env::remove_var(KNOB) };
+
+    assert_eq!(
+        outcome.0,
+        (default_mb, BudgetSource::Default),
+        "absent = formula"
+    );
+    assert_eq!(outcome.1, (0, BudgetSource::Disabled), "0 = no ceiling");
+    assert_eq!(outcome.2, (64, BudgetSource::Env), "64 = 64");
+    assert_eq!(
+        outcome.3,
+        (default_mb, BudgetSource::Default),
+        "garbage = the default (and a warning), never a silent no-ceiling"
+    );
+}
+
+#[test]
+fn test_boot_seeds_the_heat_map_from_the_edit_history() {
+    let tmp = TempDir::new().unwrap();
+    {
+        let first = HookRuntime::new(tmp.path()).unwrap();
+        for _ in 0..3 {
+            first
+                .ctx
+                .knowledge
+                .record_edit("src/hot.rs", "Edit", None)
+                .unwrap();
+        }
+        first
+            .ctx
+            .knowledge
+            .record_edit("src/cold.rs", "Write", None)
+            .unwrap();
+    }
+    // A restarted daemon: a new runtime over the same knowledge DB.
+    let second = HookRuntime::new(tmp.path()).unwrap();
+    let heat = second.learning.heat_map.borrow();
+    assert_eq!(heat.len(), 2, "heat survives the restart");
+    assert_eq!(heat.get("src/hot.rs").map(|h| h.edits), Some(3));
+    assert_eq!(heat.get("src/cold.rs").map(|h| h.edits), Some(1));
+}
+
+#[test]
+fn test_seeding_the_heat_map_reports_an_unreadable_history() {
+    let tmp = TempDir::new().unwrap();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime
+        .ctx
+        .knowledge
+        .record_edit("src/hot.rs", "Edit", None)
+        .unwrap();
+    assert_eq!(
+        seed_heat_map(&runtime.ctx.knowledge).unwrap().len(),
+        1,
+        "control: a readable history seeds"
+    );
+
+    runtime
+        .ctx
+        .knowledge
+        .conn_ref()
+        .execute("DROP TABLE edit_history", [])
+        .unwrap();
+
+    assert!(
+        seed_heat_map(&runtime.ctx.knowledge).is_err(),
+        "an unreadable history is an error the boot logs, not an empty seed"
+    );
+}
+
+/// `project_key` is the heat map's spelling and the index's: for a path under the root the
+/// two functions must agree character for character (a heat key the index does not use is a
+/// heat miss with no error), and `./`-relative spellings fold into the same key.
+#[test]
+fn test_project_key_is_the_index_policys_key_for_a_path_under_the_root() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    let policy = touring_hooks_shared::index_policy::IndexPolicy::for_root(root);
+    for rel in ["src/a.rs", "crates/x/src/lib.rs", "docs/a b.md"] {
+        let abs = root.join(rel);
+        assert_eq!(
+            Some(project_key(abs.to_str().unwrap(), root)),
+            policy.key_for(&abs),
+            "absolute spelling of {rel}"
+        );
+        assert_eq!(project_key(rel, root), rel, "already relative: {rel}");
+        assert_eq!(
+            project_key(&format!("./{rel}"), root),
+            rel,
+            "`./`-relative spelling of {rel}"
+        );
+    }
+    assert_eq!(
+        project_key("/elsewhere/x.rs", root),
+        "/elsewhere/x.rs",
+        "a path outside the project stays as given"
+    );
+}
+
+#[test]
+fn test_boot_with_no_edit_history_starts_with_an_empty_heat_map() {
+    let tmp = TempDir::new().unwrap();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    assert!(runtime.learning.heat_map.borrow().is_empty());
+}
+
+#[test]
+fn test_process_file_enforces_the_budget_and_the_heat_decides_who_leaves() {
+    let tmp = TempDir::new().unwrap();
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime.infra.pipeline =
+        Some(touring_code::ast::SharedPipeline::new().with_memory_budget_mb(1));
+    runtime
+        .learning
+        .heat_map
+        .borrow_mut()
+        .record_edit("hot.rs", heat_now());
+    let body = padded_source(400 * 1024);
+    for name in ["hot.rs", "cold_a.rs", "cold_b.rs"] {
+        runtime.process_file(name, &body).unwrap();
+    }
+    let pipeline = runtime.infra.pipeline.as_ref().unwrap();
+    let stats = pipeline.stats();
+    assert_eq!(
+        (stats.documents, stats.evictions),
+        (2, 1),
+        "3 x 400 KiB > 1 MiB"
+    );
+    assert_eq!(
+        stats.heat_consulted, 1,
+        "the runtime heat map was the ranking"
+    );
+    pipeline.with_read(|p| {
+        assert!(p.get_document("hot.rs").is_some(), "the hot file stays");
+        assert!(
+            p.get_document("cold_a.rs").is_none(),
+            "untracked, first by path"
+        );
+        assert!(
+            p.get_document("cold_b.rs").is_some(),
+            "the file just processed stays"
+        );
+    });
+}
+
+#[test]
+fn test_enforce_pipeline_budget_survives_a_heat_map_that_is_busy() {
+    let tmp = TempDir::new().unwrap();
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime.infra.pipeline =
+        Some(touring_code::ast::SharedPipeline::new().with_memory_budget_mb(1));
+    let body = padded_source(400 * 1024);
+    for name in ["a.rs", "b.rs", "c.rs"] {
+        runtime
+            .infra
+            .pipeline
+            .as_ref()
+            .unwrap()
+            .process_file(name, &body)
+            .unwrap();
+    }
+    // A hook holds the heat map: enforcement must not block or panic, and falls
+    // back to the deterministic path order.
+    let _busy = runtime.learning.heat_map.borrow_mut();
+    assert_eq!(runtime.enforce_pipeline_budget("c.rs"), 1);
+    let pipeline = runtime.infra.pipeline.as_ref().unwrap();
+    pipeline.with_read(|p| assert!(p.get_document("a.rs").is_none()));
+}
+
+#[test]
+fn test_prefetch_hot_files_skips_what_the_index_would_refuse() {
+    let tmp = TempDir::new().unwrap();
+    let outside = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+    std::fs::create_dir_all(tmp.path().join("node_modules/pkg")).unwrap();
+    std::fs::write(tmp.path().join("src/ok.rs"), "pub fn ok() {}\n").unwrap();
+    std::fs::write(
+        tmp.path().join("node_modules/pkg/dep.js"),
+        "function dep() {}\n",
+    )
+    .unwrap();
+    std::fs::write(outside.path().join("elsewhere.rs"), "pub fn x() {}\n").unwrap();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    {
+        // The three are HOTTER than ok.rs: nothing but the admission filter keeps them out.
+        let mut heat = runtime.learning.heat_map.borrow_mut();
+        for _ in 0..5 {
+            heat.record_edit(
+                &outside.path().join("elsewhere.rs").to_string_lossy(),
+                heat_now(),
+            );
+            heat.record_edit("node_modules/pkg/dep.js", heat_now());
+            heat.record_edit("@companion/rules/x.md", heat_now());
+        }
+        heat.record_edit("src/ok.rs", heat_now());
+    }
+    assert_eq!(
+        runtime.prefetch_hot_files(1),
+        1,
+        "the one slot goes to the hottest ADMITTED file"
+    );
+    let pipeline = runtime.infra.pipeline.as_ref().unwrap();
+    pipeline.with_read(|p| {
+        assert!(p.get_document("src/ok.rs").is_some());
+        assert!(
+            p.get_document("node_modules/pkg/dep.js").is_none(),
+            "excluded directory"
+        );
+        assert_eq!(p.stats().documents, 1, "nothing from outside the project");
+    });
+}
+
+#[test]
+fn test_enforce_pipeline_budget_without_a_pipeline_is_a_noop() {
+    let tmp = TempDir::new().unwrap();
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime.infra.pipeline = None;
+    assert_eq!(runtime.enforce_pipeline_budget("a.rs"), 0);
+    assert_eq!(runtime.prefetch_hot_files(8), 0);
+}
+
+#[test]
+fn test_prefetch_hot_files_warms_the_hottest_from_under_the_project_root() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+    std::fs::write(tmp.path().join("src/hot.rs"), "pub fn hot() {}\n").unwrap();
+    std::fs::write(tmp.path().join("src/cold.rs"), "pub fn cold() {}\n").unwrap();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    {
+        let mut heat = runtime.learning.heat_map.borrow_mut();
+        for _ in 0..3 {
+            heat.record_edit("src/hot.rs", heat_now());
+        }
+        heat.record_edit("src/cold.rs", heat_now());
+    }
+    assert_eq!(
+        runtime.prefetch_hot_files(1),
+        1,
+        "only the hottest of the top 1"
+    );
+    let pipeline = runtime.infra.pipeline.as_ref().unwrap();
+    pipeline.with_read(|p| {
+        assert!(p.get_document("src/hot.rs").is_some());
+        assert!(p.get_document("src/cold.rs").is_none());
+    });
+    assert_eq!(pipeline.stats().heat_prefetched, 1);
+}
+
+// ── C8: the dependency index — one loader, one kill switch, edges that follow an edit ──
+
+/// A crate with `a.rs` (no imports yet), `b.rs` (a public fn) and a `lib.rs` declaring both.
+fn crate_with_two_modules() -> TempDir {
+    let tmp = TempDir::new().unwrap();
+    let src = tmp.path().join("src");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(
+        tmp.path().join("Cargo.toml"),
+        "[package]\nname=\"probe\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
+    )
+    .unwrap();
+    std::fs::write(src.join("lib.rs"), "pub mod a;\npub mod b;\n").unwrap();
+    std::fs::write(src.join("b.rs"), "pub fn helper() {}\n").unwrap();
+    std::fs::write(src.join("a.rs"), "pub fn run() {}\n").unwrap();
+    tmp
+}
+
+fn importers_of_b(runtime: &HookRuntime) -> Vec<String> {
+    runtime
+        .infra
+        .symbol_index
+        .get()
+        .map(|generation| generation.index().importers_of("src/b.rs").to_vec())
+        .unwrap_or_default()
+}
+
+#[test]
+fn the_one_loader_loads_by_default_and_the_switch_keeps_the_slot_empty() {
+    use crate::index_slot::{FileEdgesSource, IndexLoad};
+    let tmp = crate_with_two_modules();
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+
+    // Switch on (the default position): the slot is filled by the one loader.
+    runtime.infra.file_edges_source = FileEdgesSource::Default;
+    assert!(
+        !runtime.infra.symbol_index.is_loaded(),
+        "nothing loads on its own"
+    );
+    assert!(matches!(
+        runtime.load_symbol_index(),
+        IndexLoad::Loaded { .. }
+    ));
+    assert!(runtime.infra.symbol_index.is_loaded());
+
+    // Switch off: a runtime that never loaded stays empty, and asking for the index
+    // answers from an empty one WITHOUT storing it (the hooks keep seeing "no index").
+    let mut off = HookRuntime::new(tmp.path()).unwrap();
+    off.infra.file_edges_source = FileEdgesSource::Disabled;
+    assert_eq!(off.load_symbol_index(), IndexLoad::Disabled);
+    assert!(off.get_symbol_index().file_to_symbols.is_empty());
+    assert!(
+        !off.infra.symbol_index.is_loaded(),
+        "the answer was not stored: the slot is what the hooks read"
+    );
+}
+
+#[test]
+fn an_edit_that_adds_an_import_lists_the_importer_without_a_rebuild() {
+    let tmp = crate_with_two_modules();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    for file in ["src/lib.rs", "src/b.rs", "src/a.rs"] {
+        assert!(
+            runtime.refresh_file_wiring_and_edges_from_disk(file),
+            "{file}"
+        );
+    }
+    runtime.load_symbol_index();
+    assert!(
+        !importers_of_b(&runtime).contains(&"src/a.rs".to_string()),
+        "control: a.rs does not import b.rs yet: {:?}",
+        importers_of_b(&runtime)
+    );
+
+    // The edit: a.rs now imports b.rs. The hook path refreshes the wiring and the index.
+    std::fs::write(
+        tmp.path().join("src/a.rs"),
+        "use crate::b::helper;\npub fn run() { helper(); }\n",
+    )
+    .unwrap();
+    assert!(runtime.refresh_file_wiring_and_edges_from_disk("src/a.rs"));
+    assert_eq!(
+        importers_of_b(&runtime),
+        ["src/a.rs"],
+        "the importer is listed at once, with no reload and no rebuild"
+    );
+}
+
+#[test]
+fn an_edit_that_removes_an_import_drops_the_importer_without_a_rebuild() {
+    let tmp = crate_with_two_modules();
+    std::fs::write(
+        tmp.path().join("src/a.rs"),
+        "use crate::b::helper;\npub fn run() { helper(); }\n",
+    )
+    .unwrap();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    for file in ["src/lib.rs", "src/b.rs", "src/a.rs"] {
+        assert!(
+            runtime.refresh_file_wiring_and_edges_from_disk(file),
+            "{file}"
+        );
+    }
+    runtime.load_symbol_index();
+    assert_eq!(
+        importers_of_b(&runtime),
+        ["src/a.rs"],
+        "control: the index starts with the edge"
+    );
+
+    // The inverse edit: a.rs stops importing b.rs.
+    std::fs::write(tmp.path().join("src/a.rs"), "pub fn run() {}\n").unwrap();
+    assert!(runtime.refresh_file_wiring_and_edges_from_disk("src/a.rs"));
+    assert!(
+        importers_of_b(&runtime).is_empty(),
+        "the importer is gone at once: {:?}",
+        importers_of_b(&runtime)
+    );
+}
+
+// ── C8, phase 3: the index loads on the FIRST read that needs it, not when the runtime opens ──
+
+/// A project whose wiring is already in the store (`a.rs` imports nothing, `b.rs` is public):
+/// written through the hook path, so no index is loaded by it. Returns the runtime that wrote.
+fn project_with_wiring_in_the_store() -> (TempDir, HookRuntime) {
+    use crate::index_slot::FileEdgesSource;
+    let tmp = crate_with_two_modules();
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime.infra.file_edges_source = FileEdgesSource::Default;
+    // The daemon's runtimes are on demand; the tests that reuse this one read like the daemon.
+    runtime.infra.index_on_demand = true;
+    for file in ["src/lib.rs", "src/b.rs", "src/a.rs"] {
+        assert!(
+            runtime.refresh_file_wiring_and_edges_from_disk(file),
+            "{file}"
+        );
+    }
+    (tmp, runtime)
+}
+
+#[test]
+fn a_fresh_runtime_holds_no_index_and_the_first_graph_read_loads_it_exactly_once() {
+    use std::sync::Arc;
+    let (tmp, writer) = project_with_wiring_in_the_store();
+    assert!(
+        !writer.infra.symbol_index.is_loaded(),
+        "writing the wiring through the hook path is not a read that needs the index"
+    );
+
+    // A runtime opened over the project holds nothing: opening is not a read.
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime.infra.file_edges_source = crate::index_slot::FileEdgesSource::Default;
+    runtime.infra.index_on_demand = true; // what the daemon does for every project runtime
+    assert!(!runtime.infra.symbol_index.is_loaded());
+    assert!(runtime.infra.symbol_index.get().is_none());
+
+    // The first read loads; the second reuses the same generation (a second load would have
+    // replaced it with a new `Arc`), and so does the HNSW cache that travels with it.
+    let first = runtime.index_generation().expect("the first read loads");
+    assert!(runtime.infra.symbol_index.is_loaded());
+    let second = runtime.index_generation().expect("the slot is filled");
+    assert!(
+        Arc::ptr_eq(first.index(), second.index()),
+        "one load, one generation"
+    );
+    assert!(Arc::ptr_eq(first.hnsw_cache(), second.hnsw_cache()));
+}
+
+#[test]
+fn a_one_hook_runtime_never_loads_for_the_graph_signals_but_the_symbol_queries_still_do() {
+    use crate::index_slot::FileEdgesSource;
+    let (tmp, _writer) = project_with_wiring_in_the_store();
+
+    // A fresh runtime is NOT on demand: only the daemon turns it on. This is the `touring-hook`
+    // standalone process: loading per invocation would cost ~259 ms and ~133 MiB each time and
+    // change what the standalone route prints, so the signals stay as they were before C8.
+    let mut once = HookRuntime::new(tmp.path()).unwrap();
+    once.infra.file_edges_source = FileEdgesSource::Default;
+    assert!(!once.infra.index_on_demand, "only the daemon turns it on");
+    assert!(once.index_generation().is_none());
+    assert!(!once.infra.symbol_index.is_loaded());
+    assert!(
+        !once.infra.symbol_index.load_failed(),
+        "not loading is a policy, not a failed load"
+    );
+
+    // The symbol queries have always loaded on demand, in every runtime...
+    let _ = once.get_symbol_index();
+    assert!(once.infra.symbol_index.is_loaded());
+    // ...and once somebody loaded it, the graph signals read what is held.
+    assert!(once.index_generation().is_some());
+}
+
+#[test]
+fn the_kill_switch_decides_whether_the_first_read_loads_in_both_positions() {
+    use crate::index_slot::FileEdgesSource;
+    let (tmp, _writer) = project_with_wiring_in_the_store();
+
+    let mut on = HookRuntime::new(tmp.path()).unwrap();
+    on.infra.file_edges_source = FileEdgesSource::Default;
+    on.infra.index_on_demand = true;
+    assert!(on.index_generation().is_some(), "switch on: the read loads");
+    assert!(on.infra.symbol_index.is_loaded());
+
+    let mut off = HookRuntime::new(tmp.path()).unwrap();
+    off.infra.file_edges_source = FileEdgesSource::Disabled;
+    off.infra.index_on_demand = true;
+    assert!(
+        off.index_generation().is_none(),
+        "switch off: the same store, the same read, nothing is loaded"
+    );
+    assert!(!off.infra.symbol_index.is_loaded());
+    assert!(
+        !off.infra.symbol_index.load_failed(),
+        "a switch is a choice, not a failed load"
+    );
+}
+
+#[test]
+fn an_edit_with_no_index_loaded_is_not_synced_and_the_first_read_already_reflects_it() {
+    let (tmp, runtime) = project_with_wiring_in_the_store();
+    assert!(!runtime.infra.symbol_index.is_loaded());
+
+    // The edit: a.rs now imports b.rs. No index is loaded, so S4's sync has nothing to edit —
+    // and it must not load one as a side effect (that would defeat the lazy load).
+    std::fs::write(
+        tmp.path().join("src/a.rs"),
+        "use crate::b::helper;\npub fn run() { helper(); }\n",
+    )
+    .unwrap();
+    assert!(runtime.refresh_file_wiring_and_edges_from_disk("src/a.rs"));
+    assert!(
+        !runtime.infra.symbol_index.is_loaded(),
+        "the sync skipped the unloaded index and did not load it"
+    );
+
+    // The first read loads from the store, which the hook path already wrote: the edit is
+    // there with no rebuild and no second refresh.
+    let generation = runtime.index_generation().expect("the first read loads");
+    assert_eq!(
+        generation.index().importers_of("src/b.rs").to_vec(),
+        ["src/a.rs"],
+        "the first read after the edit already lists the importer"
+    );
+}
+
+#[test]
+fn a_rebuild_reloads_a_loaded_index_and_leaves_an_unloaded_one_alone() {
+    use crate::index_slot::{FileEdgesSource, IndexLoad};
+    use std::sync::Arc;
+    let (_tmp, mut runtime) = project_with_wiring_in_the_store();
+
+    // No generation held: nothing to refresh, nothing is loaded, and it says so (never a zero).
+    assert_eq!(
+        runtime.reload_symbol_index_if_loaded(),
+        IndexLoad::NotLoaded
+    );
+    assert!(!runtime.infra.symbol_index.is_loaded());
+
+    // A generation held: the reload replaces it with a NEW one; the old one stays valid.
+    let before = runtime
+        .index_generation()
+        .expect("loaded by the first read");
+    assert!(matches!(
+        runtime.reload_symbol_index_if_loaded(),
+        IndexLoad::Loaded { .. }
+    ));
+    let after = runtime.index_generation().expect("still loaded");
+    assert!(
+        !Arc::ptr_eq(before.index(), after.index()),
+        "the reload is a new generation"
+    );
+
+    // The switch wins over everything.
+    runtime.infra.file_edges_source = FileEdgesSource::Disabled;
+    assert_eq!(runtime.reload_symbol_index_if_loaded(), IndexLoad::Disabled);
+}
+
+#[test]
+fn a_failed_load_is_not_retried_on_every_read_and_a_rebuild_forgets_it() {
+    use crate::index_slot::{FileEdgesSource, IndexLoad};
+    let tmp = crate_with_two_modules();
+    let mut runtime = HookRuntime::new(tmp.path()).unwrap();
+    runtime.infra.file_edges_source = FileEdgesSource::Default;
+    runtime.infra.index_on_demand = true;
+
+    // A project with no symbol store cannot load: the read answers `None` and marks it.
+    let store = runtime.infra.symbol_store.take();
+    assert!(store.is_some(), "control: the runtime opened with a store");
+    assert!(runtime.index_generation().is_none());
+    assert!(runtime.infra.symbol_index.load_failed());
+
+    // The store comes back, but the next read does NOT retry: a hook that fires on every edit
+    // would otherwise pay (and log) a failed load each time.
+    runtime.infra.symbol_store = store;
+    assert!(runtime.index_generation().is_none());
+    assert!(!runtime.infra.symbol_index.is_loaded());
+
+    // `index rebuild` is the retry: it forgets the failure, and the next read loads.
+    assert_eq!(
+        runtime.reload_symbol_index_if_loaded(),
+        IndexLoad::NotLoaded
+    );
+    assert!(!runtime.infra.symbol_index.load_failed());
+    assert!(runtime.index_generation().is_some());
+}
+
+#[test]
+fn syncing_edges_touches_nothing_when_there_is_no_index_or_the_file_is_a_companion() {
+    let tmp = crate_with_two_modules();
+    let runtime = HookRuntime::new(tmp.path()).unwrap();
+    // No index loaded: nothing to keep in step, and the call must not load one.
+    assert!(!runtime.sync_index_edges_of("src/a.rs"));
+    assert!(!runtime.infra.symbol_index.is_loaded());
+
+    // A companion file is search, never wiring: it is not marked as covered.
+    runtime.load_symbol_index();
+    assert!(!runtime.sync_index_edges_of("@companion/skills/x/SKILL.md"));
+    assert!(
+        runtime.sync_index_edges_of("src/a.rs"),
+        "control: a project file is synced"
+    );
+}

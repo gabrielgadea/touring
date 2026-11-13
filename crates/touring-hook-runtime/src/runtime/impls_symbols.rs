@@ -17,33 +17,16 @@ impl SymbolIndexOps for HookRuntime {
     }
 
     fn get_symbol_index(&mut self) -> &SymbolIndex {
-        if self.infra.symbol_index.is_none() {
-            let mut idx = SymbolIndex::new();
-            if let Some(ref store) = self.infra.symbol_store {
-                let _ = store.load_into_index(&mut idx);
-            }
-            self.infra.symbol_index = Some(idx);
-        }
-        // SAFETY: we just inserted this in the if-block above
-        self.infra
-            .symbol_index
-            .as_ref()
-            .expect("symbol_index initialized above")
+        // One implementation, and the one loader: the inherent method.
+        HookRuntime::get_symbol_index(self)
     }
 
     fn find_symbol(&mut self, name: &str) -> Vec<SymbolLocation> {
-        self.get_symbol_index()
-            .find_symbol(name)
-            .into_iter()
-            .cloned()
-            .collect()
+        HookRuntime::find_symbol(self, name)
     }
 
     fn blast_radius(&mut self, file_path: &str, max_depth: usize) -> BlastRadiusOutput {
-        BlastRadiusOutput::Rich(
-            self.get_symbol_index()
-                .blast_radius_with_depth(file_path, max_depth),
-        )
+        HookRuntime::blast_radius(self, file_path, max_depth)
     }
 
     fn persist_symbols(&self, file_path: &str, symbols: &[SymbolLocation]) -> Result<(), String> {
@@ -54,10 +37,6 @@ impl SymbolIndexOps for HookRuntime {
         }
         Ok(())
     }
-
-    fn symbol_index_ref(&self) -> Option<&SymbolIndex> {
-        self.infra.symbol_index.as_ref()
-    }
 }
 
 impl Pipeline for HookRuntime {
@@ -66,14 +45,8 @@ impl Pipeline for HookRuntime {
         file_path: &str,
         content: &str,
     ) -> Result<IncrementalEditResult, String> {
-        let pipeline = self
-            .infra
-            .pipeline
-            .as_ref()
-            .ok_or_else(|| "IncrementalPipeline not initialized".to_string())?;
-        pipeline
-            .process_file(file_path, content)
-            .map_err(|e| e.to_string())
+        // One implementation: the inherent method also applies the memory budget.
+        HookRuntime::process_file(self, file_path, content)
     }
 
     fn get_cached_symbols(&self, file_path: &str) -> Vec<SymbolLocation> {

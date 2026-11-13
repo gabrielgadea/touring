@@ -30,7 +30,7 @@
 //! the correction).
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -239,32 +239,6 @@ pub fn parse_hook(s: &str) -> Result<HookName, SdkError> {
         }
     }
     Err(SdkError::UnknownHook(s.to_string()))
-}
-
-/// Record one hook invocation: appends to the mirror JSONL sink and is
-/// available for downstream `signal_report_from_journal_and_mirror` reads.
-///
-/// This is the PostToolUse-side hook the strategy-doc D4 names. The Rust
-/// caller (e.g. the daemon's RPC handler) invokes this with the canonical
-/// hook + measured duration + success flag, and the mirror carries the
-/// signal forward into the next report aggregation.
-///
-/// Returns the path the line was appended to. The parent dir is created
-/// lazily if absent (`~/.claude/touring/` exists by convention; we mkdir
-/// the rest of the way).
-///
-/// LatencyMarker note: we DO NOT touch `/tmp/touring-hooks/latency/` here —
-/// that path lives in a different crate (`touring-hooks-shared`) and the
-/// marker file format is incompatible with JSONL. The mirror is the
-/// canonical PostToolUse-side sink for `SignalReport::load`.
-pub fn record_hook_call(
-    mirror_path: &Path,
-    hook: HookName,
-    duration_ms: u32,
-    success: bool,
-    origin: crate::sdk_signal_mirror::MirrorOrigin,
-) -> Result<PathBuf, crate::sdk_signal_mirror::MirrorError> {
-    crate::sdk_signal_mirror::record(mirror_path, hook, duration_ms, success, origin)
 }
 
 /// F4 P3 (2026-09-01) — classify a PostToolUse bash command line into the

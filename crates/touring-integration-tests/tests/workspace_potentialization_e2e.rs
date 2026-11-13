@@ -85,11 +85,17 @@ fn feature_activation_ast_incremental_pipeline() {
     use touring_code::ast::{IncrementalPipeline, SHARD_COUNT};
 
     let mut p = IncrementalPipeline::new();
-    p.queue_for_lazy("src/sample.rs", "pub fn sample() {}");
-    assert_eq!(p.pending_lazy_count(), 1);
-    let loaded = p.ensure_loaded("src/sample.rs");
-    assert!(loaded, "ensure_loaded must report success for queued file");
-    assert_eq!(p.pending_lazy_count(), 0);
+    let parsed = p
+        .process_file("src/sample.rs", "pub fn sample() {}")
+        .expect("process_file must not fail on valid Rust");
+    assert!(
+        parsed
+            .symbols_added
+            .iter()
+            .any(|s| s.symbol_name == "sample"),
+        "the pipeline must report the symbol it parsed"
+    );
+    assert_eq!(p.cache_stats(), (1, 1), "one document and one tree cached");
 
     assert!(
         SHARD_COUNT.is_power_of_two(),

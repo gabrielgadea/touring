@@ -459,62 +459,101 @@ fn test_symbol_map_constants_are_reasonable() {
     );
 }
 
-// ── Signal I-6: bfs_hop_signal ────────────────────────────────────────────
+// ── Signal I-6 (`bfs_hop_signal`) — retired in C8 ─────────────────────────
+//
+// Three tests that pinned `bfs_hop_signal` (absent index -> None, no reverse deps -> None,
+// the `bfs_hops[N]:` format) left with the function. Reason: the signal cloned the whole
+// `SymbolIndex` per read to run a second BFS, and its one format test accepted `None`, so it
+// could not fail. What it said (the radius, the depth, the importers that matter) is now
+// ONE bounded line from the pipeline's blast group, covered by `signal_pipeline.rs` tests
+// and `touring-hooks/tests/signal_pipeline_e2e.rs`. The test below pins the retirement: a
+// loaded index with an importer must not bring the old signal back.
 
+/// C8: the graph layers read the runtime's loaded index by `Arc` and build the HNSW graph
+/// into the generation's own cache: once per generation, never once per read.
 #[test]
-fn test_bfs_hop_signal_none_when_idx_absent() {
-    // No SymbolIndex available (Option::None) — must return None silently
-    let result = bfs_hop_signal(None, "src/lib.rs");
+fn the_graph_layers_share_the_loaded_generation_and_its_hnsw_cache() {
+    use crate::shared::signal_pipeline::SignalContext;
+    use touring_hook_runtime::index_slot::FileEdgesSource;
+    let tmp = TempDir::new().unwrap();
+    let mut rt = HookRuntime::new(tmp.path()).unwrap();
+    // The daemon builds its project runtimes on demand; a bare runtime never loads for the hooks.
     assert!(
-        result.is_none(),
-        "absent SymbolIndex must return None, got: {result:?}"
+        !rt.infra.index_on_demand,
+        "control: not on demand by default"
+    );
+    rt.infra.index_on_demand = true;
+
+    // Kill switch on: nothing is loaded, no graph layers, the pipeline comes back as it was.
+    rt.infra.file_edges_source = FileEdgesSource::Disabled;
+    let bare = with_graph_layers(SignalPipeline::new(3200), &rt, 3200);
+    assert_eq!(bare.layer_count(), 0, "no index, no graph layers");
+    assert!(
+        !rt.infra.symbol_index.is_loaded(),
+        "the switch loads nothing"
+    );
+
+    // Switch back on: the index loads on the FIRST read that needs a graph signal — this one.
+    rt.infra.file_edges_source = FileEdgesSource::Default;
+    assert!(
+        !rt.infra.symbol_index.is_loaded(),
+        "control: still unloaded"
+    );
+    let _ = with_graph_layers(SignalPipeline::new(3200), &rt, 3200);
+    assert!(
+        rt.infra.symbol_index.is_loaded(),
+        "the first graph read loaded the index"
+    );
+
+    rt.infra
+        .symbol_index
+        .replace(build_symbol_index(&[("my_fn", "src/lib.rs")], &[], &[]));
+    let generation = rt.infra.symbol_index.get().expect("loaded generation");
+    assert!(
+        generation.hnsw_cache().get().is_none(),
+        "control: nothing has built the HNSW graph of this generation yet"
+    );
+
+    // A read at CILA 5 builds INTO the generation's cache.
+    let pipeline = with_graph_layers(SignalPipeline::new(3200), &rt, 3200);
+    assert_eq!(pipeline.layer_count(), 3, "blast group, pheromone, hnsw");
+    let _ = pipeline.execute(&SignalContext::new("src/lib.rs", "").with_cila(5));
+    assert!(
+        generation.hnsw_cache().get().is_some(),
+        "the read built the HNSW graph into the generation's cache, not a private one"
+    );
+
+    // A new generation (the index reloaded) starts with an empty cache: the old graph
+    // described the old index and must not answer for the new one.
+    rt.infra
+        .symbol_index
+        .replace(build_symbol_index(&[("other", "src/other.rs")], &[], &[]));
+    assert!(
+        rt.infra
+            .symbol_index
+            .get()
+            .expect("new generation")
+            .hnsw_cache()
+            .get()
+            .is_none(),
+        "the replacement generation carries a fresh cache"
     );
 }
 
 #[test]
-fn test_bfs_hop_signal_none_when_no_reverse_deps() {
-    // SymbolIndex present but the target file has no reverse deps — guard fires
-    let idx = build_symbol_index(
-        &[("my_fn", "src/lib.rs")],
-        &[],
-        &[], // no reverse deps for src/lib.rs
-    );
-    let result = bfs_hop_signal(Some(&idx), "src/lib.rs");
-    assert!(
-        result.is_none(),
-        "file with empty reverse_deps must return None, got: {result:?}"
-    );
-}
-
-#[test]
-fn test_bfs_hop_signal_format_contains_bfs_hops() {
-    // Build an index where "src/lib.rs" is imported by "src/main.rs"
-    // This satisfies the reverse_deps guard and produces a BFS signal.
-    let mut idx = build_symbol_index(
+fn test_index_signals_no_longer_carry_bfs_hops() {
+    let tmp = TempDir::new().unwrap();
+    let rt = HookRuntime::new(tmp.path()).unwrap();
+    rt.infra.symbol_index.replace(build_symbol_index(
         &[("my_fn", "src/lib.rs")],
         &[("my_fn", "src/main.rs")],
-        &[("src/lib.rs", "src/main.rs")], // lib.rs ← main.rs
+        &[("src/lib.rs", "src/main.rs")], // lib.rs <- main.rs
+    ));
+    let signals = collect_index_signals(&rt, "src/lib.rs", "src/lib.rs");
+    assert!(
+        !signals.iter().any(|(_, text)| text.contains("bfs_hops[")),
+        "the retired `bfs_hops[N]:` signal came back: {signals:?}"
     );
-    // Also wire main.rs into the reverse_deps of lib.rs so the engine can traverse
-    idx.reverse_deps
-        .entry("src/lib.rs".to_string())
-        .or_default()
-        .push("src/main.rs".to_string());
-
-    let result = bfs_hop_signal(Some(&idx), "src/lib.rs");
-    // Result may be None if budget exceeded or BFS returns empty list (engine
-    // behaviour under test conditions). When Some, check the format contract.
-    if let Some((score, text)) = result {
-        assert!(
-            (score - 1.5_f32).abs() < 0.001,
-            "BFS hop signal score must be 1.5, got {score}"
-        );
-        assert!(
-            text.contains("bfs_hops["),
-            "output must contain 'bfs_hops[N]:', got: {text:?}"
-        );
-    }
-    // None is acceptable when the BFS engine finds nothing traversable in test env
 }
 
 // ── Sprint 3 tests ─────────────────────────────────────────────────────
@@ -866,7 +905,8 @@ fn audit_s2_1_blast_radius_signal_format_and_score() {
 #[test]
 fn audit_s2_1_blast_radius_always_injected_for_isolated_file() {
     // PURPOSE: blast radius always injected so Claude always knows what will be impacted.
-    // Isolated files (no reverse deps) get score=0.7 with "isolado" label.
+    // Isolated files (no RESOLVED reverse deps, F13) get score=0.7 and say so: "nenhum
+    // import resolvido" — a claim about the graph, never "nobody depends on it".
     let idx = build_symbol_index(
         &[("my_fn", "src/isolated.rs")],
         &[],
@@ -884,8 +924,8 @@ fn audit_s2_1_blast_radius_always_injected_for_isolated_file() {
         "Isolated file score must be 0.7, got {score}"
     );
     assert!(
-        text.contains("isolado"),
-        "Isolated file signal must contain 'isolado', got: {text}"
+        text.contains("nenhum import resolvido"),
+        "Isolated file signal must say no resolved import points at it, got: {text}"
     );
 
     // Still None when SymbolIndex is entirely absent (project not indexed)

@@ -231,11 +231,35 @@ fn unix_millis_now() -> u64 {
 /// and the five `root_causes` scores — designed to be embedded inside
 /// `touring status -j` without the bulk of `diagnostics`.
 ///
-/// On failure (unreadable root, etc.), the returned JSON carries an
-/// `error` field and a neutral `signal_0_10000 = 0` so downstream
+/// A signal that could not be produced is `null`, never `0` (Lei L2: sinal
+/// ausente ≠ zero): on failure (unreadable root, etc.) the JSON carries an
+/// `error` field, and from `$HOME` or `/` — not a project — a `skipped`
+/// field that says to run from inside one. Both keep the keys, so downstream
 /// callers can still parse without special-casing.
 fn compute_quality_signal_snapshot() -> serde_json::Value {
-    let root = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    quality_signal_snapshot_for(&cwd, touring_foundation::user_home::home_dir().as_deref())
+}
+
+/// The pure core of [`compute_quality_signal_snapshot`]: `cwd` and `home` come in as arguments so
+/// the guard and the failure shape are testable without touching the process environment.
+fn quality_signal_snapshot_for(
+    cwd: &std::path::Path,
+    home: Option<&std::path::Path>,
+) -> serde_json::Value {
+    let root = cwd.to_path_buf();
+    if is_home_or_filesystem_root(cwd, home) {
+        // The status bar of the desktop runs `touring status -j` from `$HOME` every 120 s;
+        // walking the whole home took 27–57 s of a core (cross-audit 12/11/2026, F9). There is
+        // no project here to measure, so nothing is walked and nothing is invented.
+        return serde_json::json!({
+            "root": root.to_string_lossy().into_owned(),
+            "skipped": "cwd is `$HOME` or `/`, not a project: run `touring status` from inside a \
+                        project directory to get its quality signal",
+            "signal_0_10000": serde_json::Value::Null,
+            "signal_normalized": serde_json::Value::Null,
+        });
+    }
     match touring_analysis::quality::build_workspace_from_path(&root) {
         Ok(ws) => {
             let signal = touring_analysis::quality::compute_quality_signal(&ws);
@@ -248,14 +272,27 @@ fn compute_quality_signal_snapshot() -> serde_json::Value {
                 "raw": signal.raw,
             })
         }
+        // Lei L2 (sinal ausente ≠ zero): a signal that could not be measured is `null`. The old
+        // `0` / `"Tied"` read, on a dashboard, as "the worst quality, no bottleneck".
         Err(err) => serde_json::json!({
             "root": root.to_string_lossy().into_owned(),
-            "signal_0_10000": 0,
-            "signal_normalized": 0.0,
-            "bottleneck": "Tied",
+            "signal_0_10000": serde_json::Value::Null,
+            "signal_normalized": serde_json::Value::Null,
+            "bottleneck": serde_json::Value::Null,
             "error": err.to_string(),
         }),
     }
+}
+
+/// Is `cwd` the user's home or the filesystem root — the two places that are not a project?
+///
+/// Deliberately NOT `has_project_marker`: `~/.touring` exists, which makes `~` look like a
+/// project. The comparison is between the REAL directories (canonical form, falling back to the
+/// path as given when it cannot be resolved), so reaching `$HOME` through a symlink is still `$HOME`.
+fn is_home_or_filesystem_root(cwd: &std::path::Path, home: Option<&std::path::Path>) -> bool {
+    let real = |p: &std::path::Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let cwd = real(cwd);
+    cwd.parent().is_none() || home.is_some_and(|h| real(h) == cwd)
 }
 
 /// Derive the `code_mode` adoption block from the daemon's `gate_metrics`
@@ -341,6 +378,98 @@ pub fn compute_composite_health_score(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
+
+    fn write(dir: &std::path::Path, rel: &str, body: &str) {
+        let path = dir.join(rel);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+        std::fs::write(path, body).expect("write");
+    }
+
+    /// A `$HOME` as `mise` leaves it: Rust sources and a symlink back to the root.
+    fn home_with_a_loop() -> tempfile::TempDir {
+        let home = tempfile::tempdir().expect("home");
+        write(home.path(), "scratch/a.rs", "pub fn a() {}\n");
+        std::fs::create_dir_all(home.path().join(".local/state/mise")).expect("mkdir");
+        std::os::unix::fs::symlink(home.path(), home.path().join(".local/state/mise/home"))
+            .expect("symlink");
+        home
+    }
+
+    /// F9 (cross-audit 12/11/2026): `touring status -j` from `$HOME` walked the whole home —
+    /// 27–57 s at 99 % of a core, fired every 120 s by a status bar — and ended in ELOOP with a
+    /// fabricated `signal_0_10000: 0`. From `$HOME` or `/` there is no project to measure.
+    #[test]
+    fn the_quality_signal_does_not_walk_home_or_the_filesystem_root() {
+        let home = home_with_a_loop();
+        let elsewhere = tempfile::tempdir().expect("other home");
+        let started = std::time::Instant::now();
+        for (cwd, home_arg) in [
+            (home.path(), Some(home.path())),
+            (std::path::Path::new("/"), Some(elsewhere.path())),
+            (std::path::Path::new("/"), None),
+        ] {
+            let out = quality_signal_snapshot_for(cwd, home_arg);
+            let skipped = out["skipped"].as_str().unwrap_or_default();
+            assert!(
+                skipped.contains("project"),
+                "{cwd:?} must be skipped with a reason that teaches: {out}"
+            );
+            assert_eq!(out["signal_0_10000"], Value::Null, "{cwd:?}: {out}");
+            assert_eq!(out["signal_normalized"], Value::Null, "{cwd:?}: {out}");
+            assert!(
+                out.get("error").is_none(),
+                "skipping is not a failure: {out}"
+            );
+            assert_eq!(out["root"], Value::from(cwd.to_string_lossy().into_owned()));
+        }
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "nothing was walked: {:?}",
+            started.elapsed()
+        );
+    }
+
+    /// The guard compares the REAL places: reaching `$HOME` through a symlink is still `$HOME`.
+    #[test]
+    fn a_symlinked_path_to_home_is_still_home() {
+        let home = home_with_a_loop();
+        let holder = tempfile::tempdir().expect("holder");
+        let alias = holder.path().join("alias");
+        std::os::unix::fs::symlink(home.path(), &alias).expect("symlink");
+        let out = quality_signal_snapshot_for(&alias, Some(home.path()));
+        assert!(out.get("skipped").is_some(), "{out}");
+        assert_eq!(out["signal_0_10000"], Value::Null);
+    }
+
+    /// Control: a directory that is not `$HOME` still gets its signal — the guard names exactly
+    /// the two places that are not a project, nothing else.
+    #[test]
+    fn a_project_directory_still_gets_its_signal() {
+        let home = tempfile::tempdir().expect("home");
+        let project = home.path().join("proj");
+        write(&project, "Cargo.toml", "[workspace]\nmembers = []\n");
+        write(&project, "src/lib.rs", "pub fn f() { if true {} }\n");
+        let out = quality_signal_snapshot_for(&project, Some(home.path()));
+        assert!(out.get("skipped").is_none(), "{out}");
+        assert!(out.get("error").is_none(), "{out}");
+        assert!(out["signal_0_10000"].is_number(), "{out}");
+        assert!(out["signal_normalized"].is_number(), "{out}");
+    }
+
+    /// Lei L2: a signal that could not be measured is `null`, never a `0` a dashboard would
+    /// plot as "worst quality".
+    #[test]
+    fn a_failed_measurement_reads_null_not_zero() {
+        let home = tempfile::tempdir().expect("home");
+        let missing = home.path().join("no-such-dir");
+        let out = quality_signal_snapshot_for(&missing, Some(home.path()));
+        let error = out["error"].as_str().unwrap_or_default();
+        assert!(error.contains("not found or unreadable"), "{out}");
+        assert_eq!(out["signal_0_10000"], Value::Null, "{out}");
+        assert_eq!(out["signal_normalized"], Value::Null, "{out}");
+        assert!(out.get("skipped").is_none(), "{out}");
+    }
 
     #[test]
     fn status_queries_has_entries() {

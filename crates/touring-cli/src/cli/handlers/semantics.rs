@@ -346,7 +346,10 @@ mod tests {
 }
 
 fn resolve_impl(file: &str, line: usize, column: usize, source: &str) -> String {
-    let lang = Lang::from_path(std::path::Path::new(file)).unwrap_or(Lang::Rust);
+    let lang = match crate::cli::shared::lang_or_error(file, serde_json::json!({})) {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
 
     let pool = ParserPool::new();
     let parsed = match pool.parse(source, lang) {
@@ -482,7 +485,10 @@ pub fn cli_find_references(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         }
     };
 
-    let lang = Lang::from_path(std::path::Path::new(file)).unwrap_or(Lang::Rust);
+    let lang = match crate::cli::shared::lang_or_error(file, serde_json::json!({})) {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
     let pool = ParserPool::new();
     let parsed = match pool.parse(&source, lang) {
         Ok(p) => p,
@@ -586,7 +592,11 @@ pub fn cli_rename(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
         }
     };
 
-    let lang = Lang::from_path(std::path::Path::new(file)).unwrap_or(Lang::Rust);
+    let lang = match crate::cli::shared::lang_or_error(file, serde_json::json!({"status": "error"}))
+    {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
     let pool = ParserPool::new();
     let parsed = match pool.parse(&source, lang) {
         Ok(p) => p,
@@ -1051,5 +1061,69 @@ fn extract_node_context(node: tree_sitter::Node<'_>, source: &str) -> String {
         lines[line - 1].trim().to_string()
     } else {
         String::new()
+    }
+}
+
+/// F11 (cross-audit 12/11/2026): `cli-resolve-def`, `cli-find-references` and `cli-rename` took the
+/// language from the parser's table and, for an extension it does not read, fell back to
+/// `Lang::Rust` — a `.xyz` file was parsed as Rust and answered (for `cli-rename`: with a preview
+/// of edits to apply). An extension the parser does not read is an explicit error now.
+#[cfg(test)]
+mod unsupported_extension_tests {
+    use super::*;
+
+    #[test]
+    fn an_extension_the_parser_does_not_read_is_an_explicit_error_never_rust() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // sound Rust under a name the parser does not read: the old fallback parsed it
+        let file = dir.path().join("notes.xyz");
+        std::fs::write(&file, "fn target() {}\nfn main() { target(); }\n").expect("write");
+        let f = file.to_str().expect("utf-8 path");
+        let rt_root = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(rt_root.path()).expect("HookRuntime::new");
+        let at = |extra: serde_json::Value| {
+            let mut p = serde_json::json!({"file": f, "line": 1, "column": 4});
+            p.as_object_mut()
+                .expect("object")
+                .extend(extra.as_object().expect("object").clone());
+            p
+        };
+        let answers = [
+            (
+                "cli-resolve-def",
+                cli_resolve_def(&mut rt, &at(serde_json::json!({}))),
+            ),
+            (
+                "cli-find-references",
+                cli_find_references(&mut rt, &at(serde_json::json!({"scope": "file"}))),
+            ),
+            (
+                "cli-rename",
+                cli_rename(&mut rt, &at(serde_json::json!({"new_name": "renamed"}))),
+            ),
+        ];
+        for (label, raw) in &answers {
+            let out: serde_json::Value = serde_json::from_str(raw).expect("handler returns JSON");
+            assert_eq!(
+                out["error"],
+                serde_json::json!("unsupported_extension"),
+                "{label}: {out}"
+            );
+            assert_eq!(out["file_path"], serde_json::json!(f), "{label}: {out}");
+            assert!(
+                out["detail"]
+                    .as_str()
+                    .is_some_and(|d| d.contains("file_path")),
+                "{label}: the detail must teach the fix: {out}"
+            );
+            assert!(
+                out.get("locations").is_none() && out.get("source_change").is_none(),
+                "{label}: nothing was analysed, so nothing is reported: {out}"
+            );
+        }
+        // `cli-rename` keeps its own error envelope
+        let rename: serde_json::Value =
+            serde_json::from_str(&answers[2].1).expect("handler returns JSON");
+        assert_eq!(rename["status"], serde_json::json!("error"), "{rename}");
     }
 }

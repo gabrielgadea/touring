@@ -15,17 +15,17 @@
 //! [`Transversal`]s in their own file (`cdn.rs`, `classe_css.rs`), registered in
 //! `TRANSVERSAIS` the same way.
 //!
-//! Grammar access is centralised here too ([`gramatica`], [`parse`]): TypeScript and TSX are two
-//! grammars (`<T>expr` is a cast in `.ts` and an unclosed JSX element in `.tsx`), and the
-//! shared `ast::Lang::TypeScript` (TSX for everything) must not be used by an adapter.
+//! Grammar access is centralised here too ([`parse`]), over the shared door of
+//! `ast::grammar`: TypeScript and TSX are two grammars (`<T>expr` is a cast in `.ts` and an
+//! unclosed JSX element in `.tsx`), and the shared `ast::Lang::TypeScript` (TSX for everything)
+//! must not be used by an adapter.
 
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::path::Path;
 
-use tree_sitter::{Language, Parser, Tree};
+use tree_sitter::Tree;
 
 use super::{CheckInput, Finding};
+use crate::ast::grammar::{Grammar, Reach, Refusal};
 
 pub mod caminho;
 pub mod cdn;
@@ -39,6 +39,7 @@ pub mod python;
 pub mod rust;
 pub mod tsx;
 pub mod typescript;
+pub(crate) mod vista;
 
 /// What an adapter reports about one content: the findings it could prove, and — when part of
 /// the content (or all of it) was out of its reach — why. `nao_medido` set with no findings is
@@ -135,84 +136,42 @@ pub fn langs_registradas() -> Vec<&'static str> {
 
 /// The language of a path by its extension (VL0 §2) — the single source hooks, CLI and judge
 /// derive from. `None` for a path with no known extension (an inline `<string>`, `Makefile`,
-/// `.md`, a dotfile named `.py`).
+/// `.md`, a dotfile named `.py`) or whose language has no adapter in [`REGISTRO`] (`.go`).
+///
+/// The extension table is the shared one of [`Grammar`] (exact reach: `.scss` is not CSS here);
+/// what VL0 adds is only "has an adapter".
 pub fn lang_do_caminho(path: &str) -> Option<&'static str> {
     let ext = Path::new(path).extension()?.to_str()?.to_ascii_lowercase();
-    EXTENSOES
-        .iter()
-        .find(|(e, _)| *e == ext)
-        .map(|(_, lang)| *lang)
+    let grammar = Grammar::of_extension(&ext, Reach::Exact)?;
+    adaptador_de(grammar.name()).map(|adaptador| adaptador.lang())
 }
 
-/// VL0 §2: extension (lowercase, no dot) → `lang`. The one table; add a row here and nowhere else.
-const EXTENSOES: &[(&str, &str)] = &[
-    ("py", "python"),
-    ("pyi", "python"),
-    ("rs", "rust"),
-    ("ts", "typescript"),
-    ("mts", "typescript"),
-    ("cts", "typescript"),
-    ("tsx", "tsx"),
-    ("js", "javascript"),
-    ("mjs", "javascript"),
-    ("cjs", "javascript"),
-    ("jsx", "javascript"),
-    ("html", "html"),
-    ("htm", "html"),
-    ("css", "css"),
-];
-
-/// The tree-sitter grammar of a VL0 §2 `lang` (`None` for any other string). TypeScript and
-/// TSX are distinct grammars (`tree_sitter_typescript::LANGUAGE_TYPESCRIPT` / `LANGUAGE_TSX`);
-/// `javascript` already includes JSX.
-pub fn gramatica(lang: &str) -> Option<Language> {
-    Some(match lang {
-        "python" => tree_sitter_python::LANGUAGE.into(),
-        "rust" => tree_sitter_rust::LANGUAGE.into(),
-        "typescript" => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
-        "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
-        "javascript" => tree_sitter_javascript::LANGUAGE.into(),
-        "html" => tree_sitter_html::LANGUAGE.into(),
-        "css" => tree_sitter_css::LANGUAGE.into(),
-        _ => return None,
-    })
-}
-
-thread_local! {
-    /// One parser per (thread, lang): `Parser` is mutable state, `Language` is `Sync`.
-    static PARSERS: RefCell<HashMap<String, Parser>> = RefCell::new(HashMap::new());
-}
-
-/// Parse `source` with the grammar of `lang`, bounded in time like every parse of the crate
-/// (a grammar stuck in error recovery must not hold a hook). `Err` carries the reason — an
-/// adapter turns it into [`Verificacao::nao_medido`]. Note a returned tree may still contain
-/// ERROR nodes: the grammars recover; judging them is the adapter's call.
+/// Parse `source` with the grammar of a VL0 §2 `lang` (the languages of [`REGISTRO`]), bounded in
+/// time like every parse of the crate (a grammar stuck in error recovery must not hold a hook).
+/// TypeScript and TSX are distinct grammars; `javascript` already includes JSX. `Err` carries the
+/// reason — an adapter turns it into [`Verificacao::nao_medido`]. Note a returned tree may still
+/// contain ERROR nodes: the grammars recover; judging them is the adapter's call.
 pub fn parse(lang: &str, source: &str) -> Result<Tree, String> {
-    PARSERS.with(|cell| {
-        let mut parsers = cell.borrow_mut();
-        if !parsers.contains_key(lang) {
-            let gram = gramatica(lang).ok_or_else(|| format!("sem gramática para `{lang}`"))?;
-            let mut p = Parser::new();
-            p.set_language(&gram).map_err(|e| {
-                format!("gramática `{lang}` recusada pelo runtime tree-sitter: {e}")
-            })?;
-            parsers.insert(lang.to_string(), p);
+    let grammar = Grammar::from_name(lang)
+        .filter(|_| adaptador_de(lang).is_some())
+        .ok_or_else(|| format!("sem gramática para `{lang}`"))?;
+    grammar.parse(source).map_err(|refusal| match refusal {
+        Refusal::Rejected(why) => {
+            format!("gramática `{lang}` recusada pelo runtime tree-sitter: {why}")
         }
-        let parser = parsers
-            .get_mut(lang)
-            .ok_or_else(|| format!("parser de `{lang}` ausente"))?;
-        crate::ast::parser::parse_bounded(parser, source, None)
-            .ok_or_else(|| format!("parse de `{lang}` não terminou no orçamento"))
+        Refusal::Halted => format!("parse de `{lang}` não terminou no orçamento"),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::grammar::extensions;
     use crate::vgp::politica::Alvo;
     use crate::vgp::{CheckOutput, Contexto, check, check_em, julgar};
     use std::collections::{HashMap, HashSet};
     use std::path::PathBuf;
+    use strum::IntoEnumIterator;
 
     fn entrada(path: &str, content: &str, lang: &str) -> CheckInput {
         CheckInput {
@@ -263,21 +222,32 @@ mod tests {
     }
 
     #[test]
-    fn toda_extensao_da_tabela_leva_a_uma_lang_com_adaptador_e_gramatica() {
-        let langs: HashSet<&str> = EXTENSOES.iter().map(|(_, l)| *l).collect();
+    fn toda_lang_registrada_tem_gramatica_e_extensao_e_so_as_registradas_resolvem() {
+        let langs = langs_registradas();
         assert_eq!(langs.len(), 7, "as sete linguagens do §2: {langs:?}");
-        for lang in langs {
+        for lang in &langs {
+            let gramatica = Grammar::from_name(lang)
+                .unwrap_or_else(|| panic!("`{lang}` registrada mas sem gramática"));
+            let extensoes = extensions(gramatica, Reach::Exact);
             assert!(
-                adaptador_de(lang).is_some(),
-                "`{lang}` na tabela de extensões mas sem linha no REGISTRO"
+                !extensoes.is_empty(),
+                "`{lang}` registrada mas nenhuma extensão leva a ela"
             );
-            assert!(gramatica(lang).is_some(), "`{lang}` sem gramática");
+            for ext in extensoes {
+                assert_eq!(lang_do_caminho(&format!("a.{ext}")), Some(*lang), "{ext}");
+            }
         }
-        for adaptador in langs_registradas() {
-            assert!(
-                EXTENSOES.iter().any(|(_, l)| *l == adaptador),
-                "`{adaptador}` registrada mas nenhuma extensão leva a ela"
-            );
+        // o inverso: uma extensão resolve para uma lang se, e só se, essa lang tem adaptador
+        for gramatica in Grammar::iter() {
+            let tem_adaptador = adaptador_de(gramatica.name()).is_some();
+            for ext in extensions(gramatica, Reach::Exact) {
+                assert_eq!(
+                    lang_do_caminho(&format!("a.{ext}")).is_some(),
+                    tem_adaptador,
+                    "`.{ext}` ({})",
+                    gramatica.name()
+                );
+            }
         }
     }
 
@@ -334,7 +304,12 @@ mod tests {
             let tree = parse(lang, amostra).unwrap_or_else(|e| panic!("{lang}: {e}"));
             assert!(!tree.root_node().has_error(), "{lang} deve parsear limpo");
         }
-        assert!(gramatica("go").is_none());
+        // só as langs do REGISTRO: `go` não tem gramática aqui, e `bash` tem na porta
+        // compartilhada mas nenhum adaptador do VGP responde por ela
+        for sem_adaptador in ["go", "bash", "json"] {
+            let e = parse(sem_adaptador, "x").unwrap_err();
+            assert!(e.contains("sem gramática"), "{sem_adaptador}: {e}");
+        }
         // `<T>expr` é asserção de tipo em .ts e elemento JSX não fechado em .tsx
         let cast = "const y = <number>x;\n";
         assert!(!parse("typescript", cast).unwrap().root_node().has_error());

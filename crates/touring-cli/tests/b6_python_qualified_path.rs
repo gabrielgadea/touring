@@ -34,7 +34,8 @@ fn fixture(name: &str, consumer_src: &str) -> (PathBuf, PathBuf) {
 /// The join under test: every pair the extractor yields, resolved to a file.
 fn resolved_edges(consumer: &Path) -> Vec<(String, String)> {
     let src = fs::read_to_string(consumer).expect("read consumer");
-    touring_code::ast::graph::python_qualified_uses(&src)
+    touring_code::ast::graph::FileReferences::new(&src, touring_code::ast::Lang::Python)
+        .python_qualified_uses()
         .into_iter()
         .filter_map(|(module_path, symbol)| {
             touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
@@ -112,7 +113,9 @@ fn the_old_extractor_shape_would_have_found_nothing_here() {
         "the fixture must contain NO plain `import` — otherwise the edge could come from the old branch"
     );
     assert_eq!(
-        touring_code::ast::graph::python_qualified_uses(&src).len(),
+        touring_code::ast::graph::FileReferences::new(&src, touring_code::ast::Lang::Python)
+            .python_qualified_uses()
+            .len(),
         1
     );
     let _ = fs::remove_dir_all(&root);

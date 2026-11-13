@@ -556,8 +556,13 @@ pub fn touring_ast_find(
         if db_path.exists()
             && let Ok(store) = touring_code::ast::store::SymbolStore::new(&db_path)
         {
-            let loaded = store.load_into_index(&mut index).unwrap_or(0);
-            if loaded > 0 {
+            // The index's one loader: symbols plus the wiring's resolved file edges.
+            let knowledge_db =
+                touring_foundation::config::TouringConfig::knowledge_db_canonical(&project_root);
+            if let Ok(loaded) = touring_code::ast::store::load_index_for(&store, &knowledge_db)
+                && loaded.stats().total_locations > 0
+            {
+                index = loaded;
                 from_cache = true;
             }
         }

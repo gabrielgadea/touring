@@ -1041,11 +1041,17 @@ fn record_consumer_from_path_resolves_workspace_crate_root() {
 
 #[test]
 fn a_pub_use_is_a_forwarded_path_not_a_use() {
+    use touring_code::ast::Lang;
+    use touring_code::ast::graph::FileReferences;
+
     let src = "pub use crate::a::Foo;\n\
                pub(crate) use crate::b::{Bar, Baz as Q};\n\
                pub use sub::Relative;\n\
                use crate::c::Used;\n";
-    let mut paths: Vec<String> = reexported_paths("src/lib.rs", src).into_iter().collect();
+    let mut paths: Vec<String> = FileReferences::new(src, Lang::Rust)
+        .forwarded_paths()
+        .into_iter()
+        .collect();
     paths.sort();
     assert_eq!(
         paths,
@@ -1057,7 +1063,12 @@ fn a_pub_use_is_a_forwarded_path_not_a_use() {
         ],
         "every visible `use` leaf, and only those"
     );
-    assert!(reexported_paths("pkg/mod.py", src).is_empty(), "Rust only");
+    assert!(
+        FileReferences::new(src, Lang::Python)
+            .forwarded_paths()
+            .is_empty(),
+        "Rust only"
+    );
 }
 
 #[test]

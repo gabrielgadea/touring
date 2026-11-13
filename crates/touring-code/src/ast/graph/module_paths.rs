@@ -14,8 +14,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::ast::grammar::Grammar;
 use crate::ast::languages::Lang;
-use crate::ast::parser::parse_bounded;
 
 /// Every module path a Rust file names, longest prefixes included and
 /// deduplicated: `use crate::a::b::Z` yields `crate::a` and `crate::a::b`.
@@ -25,7 +25,7 @@ use crate::ast::parser::parse_bounded;
 /// a module. A path that only a re-export names is left out unless the file also
 /// uses the symbol it forwards — the rule of 18/09/2026.
 #[must_use]
-pub fn rust_module_paths(source: &str) -> Vec<String> {
+pub(crate) fn rust_module_paths(source: &str) -> Vec<String> {
     let Some(tree) = parse_rust(source) else {
         return Vec::new();
     };
@@ -159,12 +159,11 @@ pub enum ModuleDeclaration {
 
 /// Every child module a Rust file declares, and how each one's file is found.
 ///
-/// [`rust_declared_child_modules`] answers only "does this file declare it",
-/// which is all the bare-name rule needs. Resolving `crate::x` forward from the
-/// crate root needs the other two shapes as well: `#[path]` (12 modules of this
-/// workspace, all of touring-cli's `cli_handlers_*`) and an inline body.
+/// Resolving `crate::x` forward from the crate root needs all three shapes:
+/// Cargo's layout, `#[path]` (12 modules of this workspace, all of touring-cli's
+/// `cli_handlers_*`) and an inline body.
 #[must_use]
-pub fn rust_module_declarations(source: &str) -> BTreeMap<String, ModuleDeclaration> {
+pub(crate) fn rust_module_declarations(source: &str) -> BTreeMap<String, ModuleDeclaration> {
     let mut out = BTreeMap::new();
     let Some(tree) = parse_rust(source) else {
         return out;
@@ -219,52 +218,33 @@ fn path_attribute(node: tree_sitter::Node<'_>, bytes: &[u8]) -> Option<String> {
 /// Every child module a Rust file declares, in ALL three shapes — the set that
 /// answers "is this first segment a module of THIS file".
 ///
-/// [`rust_declared_child_modules`] answers a narrower question (which children
-/// live in another file) and leaves an inline `mod x { … }` out on purpose, since
-/// an inline module has no file to find. For NAMING, though, it is as nameable as
+/// An inline `mod x { … }` has no file to find, but for NAMING it is as nameable as
 /// any other: `pub mod compute { … }` beside `compute::f()` is the parent using
 /// its own child — the `internal_only` class of 19/09/2026 — and four modules
-/// stayed orphans because the narrower set was the one asked.
+/// stayed orphans while only the children living in another file were asked.
 #[must_use]
-pub fn rust_declared_module_names(source: &str) -> BTreeSet<String> {
+pub(crate) fn rust_declared_module_names(source: &str) -> BTreeSet<String> {
     rust_module_declarations(source).into_keys().collect()
 }
 
-/// The child modules a Rust file declares (`mod x;`, `pub mod x;`), with no
-/// body: those live in another file, and this file is their declarer.
-#[must_use]
-pub fn rust_declared_child_modules(source: &str) -> BTreeSet<String> {
-    let mut out = BTreeSet::new();
-    let Some(tree) = parse_rust(source) else {
-        return out;
-    };
-    let bytes = source.as_bytes();
-    let mut stack = vec![tree.root_node()];
-    while let Some(node) = stack.pop() {
-        if node.kind() == "mod_item"
-            && node.child_by_field_name("body").is_none()
-            && let Some(name) = node.child_by_field_name("name")
-            && let Ok(text) = name.utf8_text(bytes)
-        {
-            out.insert(text.to_string());
-        }
-        let mut cursor = node.walk();
-        stack.extend(node.children(&mut cursor));
-    }
-    out
-}
-
 fn parse_rust(source: &str) -> Option<tree_sitter::Tree> {
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(&Lang::Rust.tree_sitter_language())
-        .ok()?;
-    parse_bounded(&mut parser, source, None)
+    Grammar::Rust.parse(source).ok()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A parse that outlives its budget is "no tree", which every caller reads as a
+    /// parse error.
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let rs = "fn f() {}\n".repeat(3_000);
+        assert!(parse_rust(&rs).is_some(), "control: it parses");
+        with_budget(Duration::ZERO, || assert!(parse_rust(&rs).is_none()));
+    }
 
     #[test]
     fn a_use_path_names_every_module_it_crosses() {
@@ -448,24 +428,32 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["at_path", "elsewhere", "inline"]
         );
+        let declarations = rust_module_declarations(source);
         assert_eq!(
-            rust_declared_child_modules(source)
-                .into_iter()
+            declarations
+                .iter()
+                .filter(|(_, how)| **how != ModuleDeclaration::Inline)
+                .map(|(name, _)| name.as_str())
                 .collect::<Vec<_>>(),
             ["at_path", "elsewhere"],
-            "the narrower set still answers only 'which child lives in another file'"
+            "an inline `mod` block declares nothing in another file"
         );
     }
 
     #[test]
-    fn declared_child_modules_are_the_ones_living_in_another_file() {
-        let mods = rust_declared_child_modules(
+    fn a_child_module_lives_in_another_file_unless_it_has_a_body() {
+        let declarations = rust_module_declarations(
             "mod a;\npub mod b;\nmod inline { pub fn f() {} }\npub(crate) mod c;\n",
         );
         assert_eq!(
-            mods.into_iter().collect::<Vec<_>>(),
+            declarations
+                .iter()
+                .filter(|(_, how)| **how == ModuleDeclaration::Elsewhere)
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
             ["a", "b", "c"],
             "an inline `mod` block declares nothing in another file"
         );
+        assert_eq!(declarations["inline"], ModuleDeclaration::Inline);
     }
 }

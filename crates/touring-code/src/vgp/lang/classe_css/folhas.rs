@@ -16,6 +16,7 @@ use tree_sitter::Node;
 use crate::vgp::lang::caminho;
 use crate::vgp::lang::cdn::cache::{self, Cache, Veredito};
 use crate::vgp::lang::parse;
+use crate::vgp::lang::vista::Vista;
 
 /// Largest stylesheet read; a bigger file is reported instead of parsed.
 const MAX_BYTES_FOLHA: u64 = 4 * 1024 * 1024;
@@ -223,7 +224,7 @@ pub(super) fn ler_css(texto: &str) -> Result<Definicoes, String> {
 /// Where sheets come from: the overlays of the entry (module files at its instant) first, then
 /// the disk; remote sheets are looked up in the CDN cache, loaded on first use.
 pub(super) struct Leitor<'a> {
-    overlays: &'a HashMap<String, String>,
+    vista: Vista<'a>,
     cdn: OnceCell<Arc<Cache>>,
 }
 
@@ -231,7 +232,7 @@ impl<'a> Leitor<'a> {
     /// A reader whose CDN cache is the default one ([`cache::padrao`]), read on first need.
     pub fn novo(overlays: &'a HashMap<String, String>) -> Self {
         Self {
-            overlays,
+            vista: Vista::nova(overlays),
             cdn: OnceCell::new(),
         }
     }
@@ -239,7 +240,7 @@ impl<'a> Leitor<'a> {
     /// A reader with the CDN cache injected (tests).
     pub fn com_cache(overlays: &'a HashMap<String, String>, cache: Arc<Cache>) -> Self {
         Self {
-            overlays,
+            vista: Vista::nova(overlays),
             cdn: OnceCell::from(cache),
         }
     }
@@ -250,29 +251,27 @@ impl<'a> Leitor<'a> {
 
     /// Is `arquivo` a sheet — in the overlays, or a file on the disk INSIDE `raizes`?
     pub fn existe(&self, arquivo: &Path, raizes: &[&Path]) -> bool {
-        self.overlays.contains_key(&*arquivo.to_string_lossy())
-            || caminho::e_arquivo(raizes, arquivo)
+        self.vista.e_arquivo(raizes, arquivo)
     }
 
     /// The text of the sheet: the overlay, else the file if it is inside `raizes` and not over
     /// [`MAX_BYTES_FOLHA`]. A refusal for being outside the roots does not echo the path.
     pub fn ler(&self, arquivo: &Path, raizes: &[&Path]) -> Result<String, String> {
-        if let Some(texto) = self.overlays.get(&*arquivo.to_string_lossy()) {
-            return Ok(texto.clone());
-        }
-        caminho::ler_contido_ate(raizes, arquivo, MAX_BYTES_FOLHA).map_err(|recusa| {
-            if recusa.fora_das_raizes() {
-                recusa.to_string()
-            } else {
-                format!("{}: {recusa}", arquivo.display())
-            }
-        })
+        self.vista
+            .ler(raizes, arquivo, Some(MAX_BYTES_FOLHA))
+            .map_err(|recusa| {
+                if recusa.fora_das_raizes() {
+                    recusa.to_string()
+                } else {
+                    format!("{}: {recusa}", arquivo.display())
+                }
+            })
     }
 
     /// The parsed sheet at `caminho`: from the overlay, else from the process memo when the file
     /// has not changed (mtime and length), else read and parsed now.
     fn definicoes(&self, arquivo: &Path, raizes: &[&Path]) -> Result<Arc<Definicoes>, String> {
-        if self.overlays.contains_key(&*arquivo.to_string_lossy()) {
+        if self.vista.sobreposto(arquivo).is_some() {
             return ler_css(&self.ler(arquivo, raizes)?).map(Arc::new);
         }
         let assinatura = caminho::assinatura_contida(raizes, arquivo);

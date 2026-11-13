@@ -30,6 +30,47 @@ const TYPE_KINDS: &[&str] = &[
     "union",
 ];
 
+/// The one rule for "this `wiring_map` row has a REAL consumer file": the row has a
+/// consumer, and it is not a virtual call site such as `touring-daemon://dispatch`
+/// (the `daemon_hook` rows) — a call site is not a file, and counting it would add a
+/// node no file has.
+///
+/// A macro, not a `const`/`format!`: `concat!` splices it into a literal at compile
+/// time, so every reader below (`file_dependency_edges`, `file_importers`,
+/// `wired_files`) sends a constant SQL string. Building the string with `format!`
+/// reads as SQL injection to the F2.1 gate, and a runtime-built string is also the
+/// way two readers drift apart.
+macro_rules! real_consumer_filter {
+    () => {
+        "consumer_file IS NOT NULL AND consumer_file NOT LIKE '%://%'"
+    };
+}
+
+/// A real file-to-file edge: a real consumer that is not the producer itself (a file
+/// consuming its own symbols is not a dependency) AND whose row is not a name guess. The
+/// rule [`FileKnowledgeDB::file_dependency_edges`], [`FileKnowledgeDB::file_importers`] and
+/// [`FileKnowledgeDB::file_dependencies`] share — the one place that decides what an edge
+/// is, so the whole-table read and the pointwise reads cannot disagree.
+///
+/// F13 (13/11/2026): a file edge needs IMPORT evidence. A row written under
+/// [`WiringOrigin::AstInferred`] matched a bare name (cap 4, same crate first) — a guess
+/// made to keep a SYMBOL from reading as an orphan, never evidence that the file depends on
+/// the producer's file. Measured on this workspace: 101.730 of the 114.097 consumer rows
+/// were guesses, so 77.572 distinct edges collapsed to 6.722; `domain_circuit.rs` had
+/// 1.236 "importers", 1.170 of them through the name `map`. One consumer→producer pair
+/// is an edge when at least one of its rows is not inferred. `IS NOT` (not `!=`) so a NULL
+/// origin, which no writer produces, would still count as evidence. The literal is pinned
+/// to `WiringOrigin::AstInferred.as_str()` by a test: a macro cannot call it.
+macro_rules! file_edge_filter {
+    () => {
+        concat!(
+            real_consumer_filter!(),
+            " AND consumer_file != module_file",
+            " AND contract_source IS NOT 'ast_inferred'"
+        )
+    };
+}
+
 /// The root this database's paths are canonical against, **derived from the
 /// database's own location** — never from the process environment.
 ///
@@ -1976,6 +2017,12 @@ impl FileKnowledgeDB {
     /// against the producer rows, cap 4 per name, record with
     /// [`WiringOrigin::AstInferred`]. Returns the number of edges recorded.
     ///
+    /// F14 (13/11/2026) adds two passes that only ADD rows — the ones above keep their
+    /// ranking, so no symbol loses a credit it has: R1 for `Type::assoc(..)`
+    /// ([`Self::find_type_qualified_producers`], exact or nothing) and R2 for
+    /// `receiver.method()` ([`Self::find_receiver_method_producers`], held by a resolved
+    /// type row). Both write the inferred origin, which no file edge counts.
+    ///
     /// Measured before: `index rebuild` inferred (68.641 edges) while
     /// `update_wiring_after_edit` only re-recorded `use` imports after
     /// `clear_consumer_entries` — so every file EDITED after a rebuild lost its
@@ -2012,6 +2059,11 @@ impl FileKnowledgeDB {
                 }
             }
         }
+        // F14 R1 — `Type::assoc(..)`: additive to the passes around it, exact or nothing.
+        recorded += self.record_inferred_producers(
+            consumer_file,
+            self.find_type_qualified_producers(qualified_calls, consumer_file),
+        );
         for (names, callable) in [(method_names, true), (type_refs, false)] {
             if names.is_empty() {
                 continue;
@@ -2041,7 +2093,246 @@ impl FileKnowledgeDB {
                 }
             }
         }
+        // F14 R2 — `receiver.method()`: held by a RESOLVED type in the producer's module.
+        // Python keeps its own gate (`find_python_method_producers`, above).
+        if language_family(consumer_file) != Some("python") {
+            recorded += self.record_inferred_producers(
+                consumer_file,
+                self.find_receiver_method_producers(method_names, consumer_file),
+            );
+        }
         recorded
+    }
+
+    /// Records each `(module_file, symbol_name)` as an [`WiringOrigin::AstInferred`]
+    /// consumer row of `consumer_file`; a failed lookup is a blind spot and records
+    /// nothing. Returns the rows recorded. The one writer of the two F14 passes.
+    fn record_inferred_producers(
+        &self,
+        consumer_file: &str,
+        producers: Result<Vec<(String, String)>, rusqlite::Error>,
+    ) -> usize {
+        let Ok(producers) = producers else {
+            return 0;
+        };
+        producers
+            .iter()
+            .filter(|(module_file, symbol_name)| {
+                self.record_consumer_with_origin(
+                    module_file,
+                    symbol_name,
+                    consumer_file,
+                    None,
+                    WiringOrigin::AstInferred,
+                )
+                .is_ok()
+            })
+            .count()
+    }
+
+    /// Whether `consumer_file` holds a row to `module_file` that is NOT a name guess:
+    /// an import the resolver mapped, a compiler answer, a declaration.
+    fn has_resolved_row(
+        &self,
+        consumer_file: &str,
+        module_file: &str,
+    ) -> Result<bool, rusqlite::Error> {
+        self.conn_ref()
+            .prepare_cached(
+                "SELECT 1 FROM wiring_map
+                 WHERE consumer_file = ?1 AND module_file = ?2 AND contract_source IS NOT ?3
+                 LIMIT 1",
+            )?
+            .exists(params![
+                consumer_file,
+                module_file,
+                WiringOrigin::AstInferred.as_str()
+            ])
+    }
+
+    /// F14 R1 (13/11/2026) — a call through a TYPE: `Verdict::parse(x)`,
+    /// `a::b::FileReferences::new(..)`, `Mirror::from_env()`.
+    ///
+    /// [`Self::find_producer_modules_for_qualified`] is exact only when the qualifier is a
+    /// MODULE (`…/<qualifier>.rs`); a type is not a file, so `Verdict::parse` fell through
+    /// to the by-name pass, where four same-crate `parse` homonyms took the cap and the real
+    /// producer read as an orphan. Here the producer is the public callable `name` living in
+    /// a module that ALSO declares a public producer `Q` of a type kind.
+    ///
+    /// Exact or nothing, never a fan-out: one such module is recorded; several are narrowed
+    /// to the single one the consumer already has a RESOLVED row to; otherwise nothing. The
+    /// consumer's own module is out (its own use of its own type belongs to the
+    /// self-reference pass) and so is any module outside the consumer's language family.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    fn find_type_qualified_producers(
+        &self,
+        pairs: &[(String, String)],
+        consumer_file: &str,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        let consumer = self.canonicalize_module_path(consumer_file);
+        let mut out: Vec<(String, String)> = Vec::new();
+        for (qualifier, name) in pairs {
+            let modules = self.modules_declaring_type_and_method(&consumer, qualifier, name)?;
+            if let Some(module) = self.the_one_module(&consumer, modules)? {
+                let pair = (module, name.clone());
+                if !out.contains(&pair) {
+                    out.push(pair);
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// Whether a producer in `module_file` may be credited to `consumer`: another file, a
+    /// wireable one, in the consumer's own language family.
+    fn credits_across_files(&self, consumer: &str, module_file: &str) -> bool {
+        module_file != consumer
+            && wireable_extensions(self.polyglot())
+                .iter()
+                .any(|ext| module_file.ends_with(ext))
+            && language_family(consumer).is_none_or(|f| language_family(module_file) == Some(f))
+    }
+
+    /// The modules that declare a public callable `name` AND a public producer `qualifier`
+    /// of a type kind — R1's candidates, ordered by path.
+    fn modules_declaring_type_and_method(
+        &self,
+        consumer: &str,
+        qualifier: &str,
+        name: &str,
+    ) -> Result<Vec<String>, rusqlite::Error> {
+        let mut lookup = self.conn_ref().prepare_cached(
+            "SELECT p.module_file, p.symbol_kind, t.symbol_kind
+             FROM wiring_map p
+             JOIN wiring_map t
+               ON t.module_file = p.module_file
+              AND t.symbol_name = ?2
+              AND t.consumer_file IS NULL
+              AND t.visibility = 'public'
+             WHERE p.consumer_file IS NULL
+               AND p.visibility = 'public'
+               AND p.symbol_name = ?1
+             ORDER BY p.module_file",
+        )?;
+        let rows = lookup.query_map(params![name, qualifier], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })?;
+        let mut modules: Vec<String> = Vec::new();
+        for row in rows {
+            let (module_file, callable, ty) = row?;
+            let is_candidate = CALLABLE_KINDS.contains(&callable.as_str())
+                && TYPE_KINDS.contains(&ty.as_str())
+                && self.credits_across_files(consumer, &module_file);
+            if is_candidate && !modules.contains(&module_file) {
+                modules.push(module_file);
+            }
+        }
+        Ok(modules)
+    }
+
+    /// R1's tie-break: the lone candidate, or among several the single one the consumer
+    /// holds a RESOLVED row to; `None` when that does not decide.
+    fn the_one_module(
+        &self,
+        consumer: &str,
+        modules: Vec<String>,
+    ) -> Result<Option<String>, rusqlite::Error> {
+        if modules.len() <= 1 {
+            return Ok(modules.into_iter().next());
+        }
+        let mut held = Vec::new();
+        for module in modules {
+            if self.has_resolved_row(consumer, &module)? {
+                held.push(module);
+            }
+        }
+        Ok(if held.len() == 1 {
+            held.into_iter().next()
+        } else {
+            None
+        })
+    }
+
+    /// F14 R2 (13/11/2026) — a method reached through a RECEIVER: `family.as_str()`.
+    ///
+    /// The syntax names the method, never its type, so the guess is held the way
+    /// [`Self::find_python_method_producers`] holds Python's: a called name credits the public
+    /// `method` producers of that name only in a module where the consumer already has a
+    /// RESOLVED row (an import, not a guess) to a producer of a type kind — the module the
+    /// consumer has a type from. Without that row nothing is credited, so a bare `as_str`
+    /// never reaches a module the file has no relation to. The consumer's own module is out.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    fn find_receiver_method_producers(
+        &self,
+        names: &[String],
+        consumer_file: &str,
+    ) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        if names.is_empty() {
+            return Ok(Vec::new());
+        }
+        let consumer = self.canonicalize_module_path(consumer_file);
+        let mut out = Vec::new();
+        for module in self.modules_of_resolved_types(&consumer)? {
+            for symbol in self.public_methods_of(&module)? {
+                if names.contains(&symbol) {
+                    out.push((module.clone(), symbol));
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    /// The modules `consumer` holds a type from through a RESOLVED row: a consumer row that
+    /// is not a name guess, to a symbol whose producer is of a type kind. R2's gate.
+    fn modules_of_resolved_types(&self, consumer: &str) -> Result<Vec<String>, rusqlite::Error> {
+        let mut held = self.conn_ref().prepare_cached(
+            "SELECT DISTINCT r.module_file, t.symbol_kind
+             FROM wiring_map r
+             JOIN wiring_map t
+               ON t.module_file = r.module_file
+              AND t.symbol_name = r.symbol_name
+              AND t.consumer_file IS NULL
+             WHERE r.consumer_file = ?1
+               AND r.module_file != ?1
+               AND r.contract_source IS NOT ?2
+             ORDER BY r.module_file",
+        )?;
+        let rows = held.query_map(params![consumer, WiringOrigin::AstInferred.as_str()], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?;
+        let mut modules: Vec<String> = Vec::new();
+        for row in rows {
+            let (module_file, kind) = row?;
+            if TYPE_KINDS.contains(&kind.as_str())
+                && self.credits_across_files(consumer, &module_file)
+                && !modules.contains(&module_file)
+            {
+                modules.push(module_file);
+            }
+        }
+        Ok(modules)
+    }
+
+    /// The public `method` producers `module_file` declares, ordered by name.
+    fn public_methods_of(&self, module_file: &str) -> Result<Vec<String>, rusqlite::Error> {
+        let mut methods = self.conn_ref().prepare_cached(
+            "SELECT symbol_name FROM wiring_map
+             WHERE module_file = ?1 AND consumer_file IS NULL
+               AND visibility = 'public' AND symbol_kind = 'method'
+             ORDER BY symbol_name",
+        )?;
+        let rows = methods.query_map(params![module_file], |r| r.get::<_, String>(0))?;
+        rows.collect()
     }
 
     /// Python methods reached as `obj.metodo()` / `obj.atributo` (18/09/2026,
@@ -2893,6 +3184,105 @@ impl FileKnowledgeDB {
         )?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         Ok(rows.filter_map(Result::ok).collect())
+    }
+
+    /// The wiring as file-to-file edges: one `(consumer_file, module_file)` pair for every
+    /// file that consumes a symbol another file defines, each pair once, ordered by
+    /// consumer then producer. Both ends are file keys, spelled as `symbols.file_path` is.
+    ///
+    /// Left out: a file consuming itself, a producer row nobody consumes (no consumer),
+    /// a virtual consumer such as `touring-daemon://dispatch` (the `daemon_hook`
+    /// rows): that is a call site, not a file, and it would add a node no file has — and
+    /// (F13) a pair whose every row is an `ast_inferred` name guess. A pair is an edge on
+    /// import evidence: a resolved `use`, a compiler answer, a declaration. Its absence
+    /// says "no resolved import points here", never "nobody depends on this file".
+    ///
+    /// # Errors
+    /// Propagates the SQLite error of the query or of reading a row.
+    pub fn file_dependency_edges(&self) -> Result<Vec<(String, String)>, rusqlite::Error> {
+        let mut stmt = self.conn_ref().prepare(concat!(
+            "SELECT DISTINCT consumer_file, module_file FROM wiring_map WHERE ",
+            file_edge_filter!(),
+            " ORDER BY consumer_file, module_file",
+        ))?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        rows.collect()
+    }
+
+    /// The files with import evidence for a symbol `module_file` defines: ONE producer's
+    /// column of [`Self::file_dependency_edges`], each consumer once, ordered by path. An
+    /// empty answer means no RESOLVED import points at the file (F13: a consumer whose only
+    /// rows are `ast_inferred` name guesses is not an importer) — not that nobody uses it.
+    /// `module_file`
+    /// is canonicalized as every other `wiring_map` accessor does, so an absolute path
+    /// under the project root and `./crates/x.rs` find the same row as `crates/x.rs`.
+    ///
+    /// The filter is `file_edge_filter!`, the macro `file_dependency_edges` uses: a file
+    /// that consumes itself is not its own importer, and a virtual consumer such as
+    /// `touring-daemon://dispatch` is not a file. `touring ast blast` reads this, so its
+    /// consumer count and the graph the index loads are the same set.
+    ///
+    /// # Errors
+    /// Propagates the SQLite error of the query or of reading a row.
+    pub fn file_importers(&self, module_file: &str) -> Result<Vec<String>, rusqlite::Error> {
+        let mut stmt = self.conn_ref().prepare(concat!(
+            "SELECT DISTINCT consumer_file FROM wiring_map WHERE module_file = ?1 AND ",
+            file_edge_filter!(),
+            " ORDER BY consumer_file",
+        ))?;
+        let rows = stmt.query_map(
+            params![self.canonicalize_module_path(module_file).as_ref()],
+            |r| r.get::<_, String>(0),
+        )?;
+        rows.collect()
+    }
+
+    /// The files `consumer_file` depends on: ONE consumer's row of
+    /// [`Self::file_dependency_edges`], each producer once, ordered by path — the inverse of
+    /// [`Self::file_importers`], under the same `file_edge_filter!`. What a hook that just
+    /// refreshed one file's wiring hands to the in-memory index
+    /// (`SymbolIndex::replace_edges_of`) so the graph follows the edit without a rebuild.
+    /// `consumer_file` is canonicalized like every other `wiring_map` accessor.
+    ///
+    /// # Errors
+    /// Propagates the SQLite error of the query or of reading a row.
+    pub fn file_dependencies(&self, consumer_file: &str) -> Result<Vec<String>, rusqlite::Error> {
+        let mut stmt = self.conn_ref().prepare(concat!(
+            "SELECT DISTINCT module_file FROM wiring_map WHERE consumer_file = ?1 AND ",
+            file_edge_filter!(),
+            " ORDER BY module_file",
+        ))?;
+        let rows = stmt.query_map(
+            params![self.canonicalize_module_path(consumer_file).as_ref()],
+            |r| r.get::<_, String>(0),
+        )?;
+        rows.collect()
+    }
+
+    /// Every file the wiring speaks for: each producer (`module_file`, consumed or not)
+    /// and each real consumer, ordered, each once. A file outside this list was never
+    /// looked at, so the absence of an edge for it is not evidence that nothing depends
+    /// on it; a file inside it with no edge was looked at and no RESOLVED import points
+    /// at it (a consumer that only matched a name in it, `ast_inferred`, does not count —
+    /// F13 — and is still listed here as a file the wiring spoke for).
+    ///
+    /// # Errors
+    /// Propagates the SQLite error of the query or of reading a row.
+    pub fn wired_files(&self) -> Result<Vec<String>, rusqlite::Error> {
+        let mut files = std::collections::BTreeSet::new();
+        for sql in [
+            "SELECT DISTINCT module_file FROM wiring_map",
+            concat!(
+                "SELECT DISTINCT consumer_file FROM wiring_map WHERE ",
+                real_consumer_filter!()
+            ),
+        ] {
+            let mut stmt = self.conn_ref().prepare(sql)?;
+            for row in stmt.query_map([], |r| r.get::<_, String>(0))? {
+                files.insert(row?);
+            }
+        }
+        Ok(files.into_iter().collect())
     }
 
     /// Remove consumer entries for a specific file (used when file is re-scanned).
@@ -4642,6 +5032,312 @@ mod provenance_tests {
         assert_eq!(
             db.record_inferred_consumers("crates/b/src/exec.rs", &[], &[], &[]),
             0
+        );
+    }
+
+    /// F13: the edge rule is a compile-time literal (a macro cannot call `as_str`), so the
+    /// origin it excludes is pinned to the one the writers use.
+    #[test]
+    fn the_edge_rule_excludes_the_origin_the_inference_writes() {
+        let rule = file_edge_filter!();
+        assert!(
+            rule.contains(&format!(
+                "contract_source IS NOT '{}'",
+                WiringOrigin::AstInferred.as_str()
+            )),
+            "{rule}"
+        );
+        assert!(
+            rule.contains("consumer_file != module_file") && rule.contains("NOT LIKE '%://%'"),
+            "the rule keeps what it had: no self edge, no virtual call site: {rule}"
+        );
+    }
+
+    // ── F14 (13/11/2026): `Type::assoc(..)` and receiver methods ─────────────────
+
+    /// `n` public `method` producers called `name` in `krate`. Under the by-name pass
+    /// (same crate as the consumer first, then by path, cap 4) they take every slot, so a
+    /// lone `name` in another crate is never reached — the crowd that left `Verdict::parse`,
+    /// `FileReferences::new`, `Mirror::from_env` and `PluginFamily::as_str` without a consumer.
+    fn crowd_of_homonyms(db: &FileKnowledgeDB, krate: &str, name: &str, n: usize) {
+        for i in 0..n {
+            db.register_pub_symbol(
+                &format!("crates/{krate}/src/h{i}.rs"),
+                name,
+                "method",
+                "public",
+            )
+            .expect("homonym producer");
+        }
+    }
+
+    /// `(consumer_file, contract_source)` of every consumer row of `(module, symbol)`.
+    fn consumers_of(db: &FileKnowledgeDB, module: &str, symbol: &str) -> Vec<(String, String)> {
+        db.conn_ref()
+            .prepare(
+                "SELECT consumer_file, contract_source FROM wiring_map
+                 WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file IS NOT NULL
+                 ORDER BY consumer_file",
+            )
+            .and_then(|mut s| {
+                s.query_map(rusqlite::params![module, symbol], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })
+                .map(|it| it.filter_map(Result::ok).collect())
+            })
+            .expect("consumer rows")
+    }
+
+    fn one(consumer: &str) -> Vec<(String, String)> {
+        vec![(consumer.to_string(), "ast_inferred".to_string())]
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    fn pair(q: &str, n: &str) -> Vec<(String, String)> {
+        vec![(q.to_string(), n.to_string())]
+    }
+
+    #[test]
+    fn a_type_qualified_call_reaches_the_method_of_the_type_module_through_a_crowd() {
+        let (_tmp, db) = setup();
+        // `Verdict::parse(choice)` in touring-server: four `parse` homonyms in the SAME
+        // crate take the by-name cap; the real producer lives in touring-foundation.
+        crowd_of_homonyms(&db, "touring-server", "parse", 4);
+        let module = "crates/touring-foundation/src/portfolio/mod.rs";
+        db.register_pub_symbol(module, "Verdict", "enum", "public")
+            .expect("type");
+        db.register_pub_symbol(module, "parse", "method", "public")
+            .expect("method");
+        let consumer = "crates/touring-server/src/cli/portfolio.rs";
+
+        db.record_inferred_consumers(
+            consumer,
+            &names(&["parse"]),
+            &names(&["Verdict"]),
+            &pair("Verdict", "parse"),
+        );
+
+        assert_eq!(
+            consumers_of(&db, module, "parse"),
+            one(consumer),
+            "`Verdict::parse` names the type, and the module that declares `Verdict` and `parse`"
+        );
+        let crowd: usize = (0..4)
+            .map(|i| {
+                consumers_of(&db, &format!("crates/touring-server/src/h{i}.rs"), "parse").len()
+            })
+            .sum();
+        assert_eq!(
+            crowd, 4,
+            "the by-name pass keeps crediting its four, as before"
+        );
+    }
+
+    #[test]
+    fn an_associated_new_and_from_env_reach_their_types_module() {
+        let (_tmp, db) = setup();
+        for (krate, name, module, ty, consumer) in [
+            (
+                "touring-cli",
+                "new",
+                "crates/touring-code/src/ast/graph/references.rs",
+                "FileReferences",
+                "crates/touring-cli/src/cli/handlers/index.rs",
+            ),
+            (
+                "touring-hook-handlers",
+                "from_env",
+                "crates/touring-code/src/sdk_signal_mirror.rs",
+                "Mirror",
+                "crates/touring-hook-handlers/src/hooks/post_bash.rs",
+            ),
+        ] {
+            crowd_of_homonyms(&db, krate, name, 5);
+            db.register_pub_symbol(module, ty, "struct", "public")
+                .expect("type");
+            db.register_pub_symbol(module, name, "method", "public")
+                .expect("method");
+            db.record_inferred_consumers(consumer, &names(&[name]), &names(&[ty]), &pair(ty, name));
+            assert_eq!(
+                consumers_of(&db, module, name),
+                one(consumer),
+                "`{ty}::{name}(..)` in {consumer}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_receiver_method_reaches_the_type_module_the_consumer_resolved() {
+        let (_tmp, db) = setup();
+        crowd_of_homonyms(&db, "touring-cli", "as_str", 4);
+        let module = "crates/touring-foundation/src/plugin/trait.rs";
+        db.register_pub_symbol(module, "PluginFamily", "enum", "public")
+            .expect("type");
+        db.register_pub_symbol(module, "as_str", "method", "public")
+            .expect("method");
+        let consumer = "crates/touring-cli/src/cli/plugin.rs";
+        // The consumer imported the type through a resolved `use`.
+        db.record_consumer(module, "PluginFamily", consumer, Some(3))
+            .expect("resolved import");
+
+        // `family.as_str()`: no qualifier, only the method name.
+        db.record_inferred_consumers(consumer, &names(&["as_str"]), &[], &[]);
+
+        let rows = consumers_of(&db, module, "as_str");
+        assert_eq!(
+            rows,
+            one(consumer),
+            "the receiver call credits the module of the type it imported"
+        );
+    }
+
+    #[test]
+    fn a_type_name_declared_in_two_modules_is_credited_only_through_a_resolved_row() {
+        let (_tmp, db) = setup();
+        let (x, y) = ("crates/a/src/x.rs", "crates/b/src/y.rs");
+        for module in [x, y] {
+            db.register_pub_symbol(module, "Config", "struct", "public")
+                .expect("type");
+            db.register_pub_symbol(module, "load", "method", "public")
+                .expect("method");
+        }
+        let consumer = "crates/c/src/main.rs";
+
+        db.record_inferred_consumers(consumer, &[], &[], &pair("Config", "load"));
+        assert!(
+            consumers_of(&db, x, "load").is_empty() && consumers_of(&db, y, "load").is_empty(),
+            "two modules declare `Config::load` and the consumer imported neither: nothing, never a fan-out"
+        );
+
+        db.record_consumer(y, "Config", consumer, Some(1))
+            .expect("resolved import of y's Config");
+        db.record_inferred_consumers(consumer, &[], &[], &pair("Config", "load"));
+        assert_eq!(consumers_of(&db, y, "load"), one(consumer));
+        assert!(
+            consumers_of(&db, x, "load").is_empty(),
+            "the resolved row picks the one module; the other stays uncredited"
+        );
+
+        // An INFERRED row to the other module is a guess, not the tie-break.
+        let (_tmp2, db2) = setup();
+        for module in [x, y] {
+            db2.register_pub_symbol(module, "Config", "struct", "public")
+                .expect("type");
+            db2.register_pub_symbol(module, "load", "method", "public")
+                .expect("method");
+        }
+        db2.record_consumer_with_origin(x, "Config", consumer, None, WiringOrigin::AstInferred)
+            .expect("guess");
+        db2.record_inferred_consumers(consumer, &[], &[], &pair("Config", "load"));
+        assert!(
+            consumers_of(&db2, x, "load").is_empty() && consumers_of(&db2, y, "load").is_empty(),
+            "an inferred row never breaks a tie"
+        );
+    }
+
+    #[test]
+    fn a_type_and_a_method_in_different_modules_are_not_paired() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/ty.rs", "Verdict", "enum", "public")
+            .expect("type");
+        db.register_pub_symbol("crates/a/src/other.rs", "parse", "method", "public")
+            .expect("method elsewhere");
+        db.record_inferred_consumers("crates/b/src/use.rs", &[], &[], &pair("Verdict", "parse"));
+        assert!(
+            consumers_of(&db, "crates/a/src/other.rs", "parse").is_empty(),
+            "the module of `parse` does not declare `Verdict`"
+        );
+        // A module qualifier is still the existing pass's business: unchanged.
+        db.register_pub_symbol("crates/a/src/cli/backup.rs", "run", "function", "public")
+            .expect("module-qualified producer");
+        db.record_inferred_consumers("crates/b/src/use.rs", &[], &[], &pair("backup", "run"));
+        assert_eq!(
+            consumers_of(&db, "crates/a/src/cli/backup.rs", "run"),
+            one("crates/b/src/use.rs")
+        );
+    }
+
+    #[test]
+    fn a_receiver_method_without_a_resolved_type_row_credits_nothing() {
+        let (_tmp, db) = setup();
+        crowd_of_homonyms(&db, "touring-cli", "as_str", 4);
+        let module = "crates/touring-foundation/src/plugin/trait.rs";
+        db.register_pub_symbol(module, "PluginFamily", "enum", "public")
+            .expect("type");
+        db.register_pub_symbol(module, "as_str", "method", "public")
+            .expect("method");
+        db.register_pub_symbol(module, "helper", "function", "public")
+            .expect("function");
+        let consumer = "crates/touring-cli/src/cli/plugin.rs";
+
+        // 1. no row to the module at all
+        db.record_inferred_consumers(consumer, &names(&["as_str"]), &[], &[]);
+        assert!(
+            consumers_of(&db, module, "as_str").is_empty(),
+            "no row: nothing"
+        );
+
+        // 2. an INFERRED row to the type
+        db.record_consumer_with_origin(
+            module,
+            "PluginFamily",
+            consumer,
+            None,
+            WiringOrigin::AstInferred,
+        )
+        .expect("guess");
+        db.record_inferred_consumers(consumer, &names(&["as_str"]), &[], &[]);
+        assert_eq!(
+            consumers_of(&db, module, "as_str"),
+            Vec::<(String, String)>::new(),
+            "an inferred row to the type is a guess: it holds nothing"
+        );
+
+        // 3. a RESOLVED row, but to a function and not to a type
+        db.record_consumer(module, "helper", consumer, Some(1))
+            .expect("resolved import of a function");
+        db.record_inferred_consumers(consumer, &names(&["as_str"]), &[], &[]);
+        assert!(
+            consumers_of(&db, module, "as_str").is_empty(),
+            "a resolved row to a function is not a type in hand"
+        );
+    }
+
+    #[test]
+    fn a_receiver_method_never_credits_the_consumers_own_file() {
+        let (_tmp, db) = setup();
+        crowd_of_homonyms(&db, "a", "as_str", 4);
+        let module = "crates/a/src/own.rs";
+        db.register_pub_symbol(module, "Own", "struct", "public")
+            .expect("type");
+        db.register_pub_symbol(module, "as_str", "method", "public")
+            .expect("method");
+        db.record_consumer(module, "Own", module, Some(1))
+            .expect("self row");
+        db.record_inferred_consumers(module, &names(&["as_str"]), &[], &[]);
+        assert!(
+            consumers_of(&db, module, "as_str").is_empty(),
+            "a file's use of its own methods belongs to the self-reference pass"
+        );
+    }
+
+    #[test]
+    fn the_by_name_pass_keeps_its_cap_of_four_when_there_is_no_type_evidence() {
+        let (_tmp, db) = setup();
+        crowd_of_homonyms(&db, "a", "run", 6);
+        let consumer = "crates/a/src/main.rs";
+        let recorded = db.record_inferred_consumers(consumer, &names(&["run"]), &[], &[]);
+        assert_eq!(recorded, 4, "cap 4 per name, nothing added");
+        let credited: Vec<usize> = (0..6)
+            .map(|i| consumers_of(&db, &format!("crates/a/src/h{i}.rs"), "run").len())
+            .collect();
+        assert_eq!(
+            credited,
+            [1, 1, 1, 1, 0, 0],
+            "the first four by path, as before"
         );
     }
 

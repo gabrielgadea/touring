@@ -436,14 +436,18 @@ pub fn reindex_file_with_old(
     //    Also used on first edit after daemon startup (tree not yet cached).
     // 3. extract_symbols_fallback — regex-based when pipeline unavailable.
     let (symbols_json, symbol_count) = if let Some(ref pipeline) = runtime.infra.pipeline {
-        extract_symbols_via_pipeline(
+        let extracted = extract_symbols_via_pipeline(
             pipeline,
             runtime.infra.symbol_store.as_ref(),
             rel_path,
             &content,
             old_content,
             &full_path,
-        )
+        );
+        // C7: the file just written is in the pipeline now — apply the memory budget,
+        // never evicting it; the heat map the hooks feed ranks who leaves.
+        runtime.enforce_pipeline_budget(rel_path);
+        extracted
     } else {
         extract_symbols_fallback(
             runtime.infra.symbol_store.as_ref(),
@@ -501,6 +505,9 @@ pub fn reindex_file_with_old(
     // sites with no `use`) and the inferred edges — through the one function the
     // read, file-changed and task-output paths share (cross-audit 14/09/2026, B1/B2).
     crate::wiring::refresh_file_wiring(&runtime.ctx.knowledge, rel_path, &language, &content);
+    // S4: the loaded dependency index follows the rows just rewritten — an import this edit
+    // added is listed at once, one it removed is gone at once, no rebuild in between.
+    runtime.sync_index_edges_of(rel_path);
 
     // ── Pln2: Wire feature flags into file_feature_flags table ─────────────
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -811,5 +818,66 @@ mod self_reference_tests {
         std::fs::write(&file, "pub const LIMIT: usize = 3;\n").expect("edit");
         super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(&edited)).expect("reindex");
         assert!(internal(&rt, "src/limits.rs").is_empty());
+    }
+}
+
+/// C7 (12/11/2026): the pipeline's memory budget is applied after every reindex, and the
+/// heat map the post_edit/pre_read hooks feed decides who leaves — keyed by the SAME
+/// project-relative spelling the pipeline and the index use.
+#[cfg(test)]
+mod pipeline_budget_tests {
+    fn padded(bytes: usize) -> String {
+        format!(
+            "pub fn f() {{}}\n{}",
+            "// padding padding padding padding padding padding padding\n".repeat(bytes / 58 + 1)
+        )
+    }
+
+    #[test]
+    fn a_reindex_applies_the_budget_and_evicts_the_coldest_not_the_file_it_just_wrote() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        let mut rt = crate::HookRuntime::new(root).expect("runtime");
+        rt.infra.pipeline = Some(touring_code::ast::SharedPipeline::new().with_memory_budget_mb(1));
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0);
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_edit("src/hot.rs", now);
+
+        for name in ["hot.rs", "cold_a.rs", "cold_b.rs"] {
+            let file = root.join("src").join(name);
+            std::fs::write(&file, padded(400 * 1024)).expect("write");
+            super::reindex_file_with_old(
+                &rt,
+                &file.to_string_lossy(),
+                &format!("src/{name}"),
+                None,
+            )
+            .expect("reindex");
+        }
+
+        let pipeline = rt.infra.pipeline.as_ref().expect("pipeline");
+        let stats = pipeline.stats();
+        assert_eq!(
+            (stats.documents, stats.evictions),
+            (2, 1),
+            "3 x 400 KiB > 1 MiB"
+        );
+        pipeline.with_read(|p| {
+            assert!(p.get_document("src/hot.rs").is_some(), "the hot file stays");
+            assert!(
+                p.get_document("src/cold_a.rs").is_none(),
+                "the coldest left"
+            );
+            assert!(
+                p.get_document("src/cold_b.rs").is_some(),
+                "the file just written stays"
+            );
+        });
     }
 }

@@ -310,6 +310,125 @@ async fn test_blast_radius_reflects_importer_count() {
     );
 }
 
+// ── Sole-owner rule of `importers_of` (C8, 12/11/2026) ──────────────────
+//
+// Before C8 the three `GraphService` readers (`resolve_ctx`, `predict_coedit_files`,
+// `expand_neighbors`) asked `reverse_deps` for the STEM of the file, so a homonym
+// (`a/utils.py` x `b/utils.py`) and a file nobody indexed were credited with every importer of
+// `utils`. `SymbolIndex::importers_of` credits a stem only to the ONE indexed file that owns
+// it. This changed what those three answer, and the tests below pin it at the service level.
+
+/// Assert that every surface of the service that reads importers answers `expected` (full
+/// paths, sorted) for `file`: `resolve_ctx` (`imported_by` and `blast_radius_count`),
+/// `expand_neighbors` and `predict_coedit_files`. The files used here import nothing, so
+/// their neighbours and their blast list are the same set.
+async fn assert_importers_on_every_surface(svc: &GraphService, file: &str, expected: &[&str]) {
+    let want: Vec<String> = expected.iter().map(|p| (*p).to_string()).collect();
+
+    let ctx = svc.resolve_ctx(Some(file)).await;
+    let mut imported_by = ctx.imported_by.clone();
+    imported_by.sort();
+    assert_eq!(imported_by, want, "resolve_ctx.imported_by for {file}");
+    assert_eq!(
+        ctx.blast_radius_count,
+        want.len(),
+        "resolve_ctx.blast_radius_count for {file}"
+    );
+
+    assert_eq!(
+        svc.expand_neighbors(file, 10).await,
+        want,
+        "expand_neighbors for {file}"
+    );
+
+    let mut predicted: Vec<String> = svc
+        .predict_coedit_files(file, 10)
+        .await
+        .into_iter()
+        .map(|(path, _score)| path)
+        .collect();
+    predicted.sort();
+    assert_eq!(predicted, want, "predict_coedit_files for {file}");
+}
+
+#[tokio::test]
+async fn test_a_unique_stem_reaches_its_importers_on_every_service_surface() {
+    // Control: the one owner of a stem is credited with the importers of that stem.
+    let (temp_dir, main_py) = create_python_file("import utils", "main.py");
+    let (_t2, other_py) = create_python_file("import utils", "other.py");
+    let (_t3, util_py) = create_python_file("def util_fn(): pass", "utils.py");
+
+    let index = Arc::new(Mutex::new(SymbolIndex::new()));
+    let svc = GraphService::new(Arc::clone(&index), temp_dir.path().to_path_buf());
+    {
+        let mut idx = index.lock().await;
+        idx.index_file(main_py.to_str().unwrap(), "import utils", Lang::Python)
+            .unwrap();
+        idx.index_file(other_py.to_str().unwrap(), "import utils", Lang::Python)
+            .unwrap();
+        idx.index_file(
+            util_py.to_str().unwrap(),
+            "def util_fn(): pass",
+            Lang::Python,
+        )
+        .unwrap();
+    }
+
+    let mut importers = [main_py.to_str().unwrap(), other_py.to_str().unwrap()];
+    importers.sort_unstable();
+    assert_importers_on_every_surface(&svc, util_py.to_str().unwrap(), &importers).await;
+}
+
+#[tokio::test]
+async fn test_a_homonymous_stem_has_no_importers_on_any_service_surface() {
+    // `a/utils.py` and `b/utils.py` both answer to the import `utils`: the index cannot say
+    // which one `main.py` meant, so it credits neither (precision first).
+    let (temp_dir, main_py) = create_python_file("import utils", "main.py");
+    let (_t2, first_utils) = create_python_file("def first(): pass", "utils.py");
+    let (_t3, second_utils) = create_python_file("def second(): pass", "utils.py");
+
+    let index = Arc::new(Mutex::new(SymbolIndex::new()));
+    let svc = GraphService::new(Arc::clone(&index), temp_dir.path().to_path_buf());
+    {
+        let mut idx = index.lock().await;
+        idx.index_file(main_py.to_str().unwrap(), "import utils", Lang::Python)
+            .unwrap();
+        idx.index_file(
+            first_utils.to_str().unwrap(),
+            "def first(): pass",
+            Lang::Python,
+        )
+        .unwrap();
+        idx.index_file(
+            second_utils.to_str().unwrap(),
+            "def second(): pass",
+            Lang::Python,
+        )
+        .unwrap();
+    }
+
+    assert_importers_on_every_surface(&svc, first_utils.to_str().unwrap(), &[]).await;
+    assert_importers_on_every_surface(&svc, second_utils.to_str().unwrap(), &[]).await;
+}
+
+#[tokio::test]
+async fn test_a_file_that_was_never_indexed_has_no_importers_on_any_service_surface() {
+    // The importer is indexed, the file it names is not: nothing ties `utils.py` to the
+    // import `utils`, so the stem is not credited to it.
+    let (temp_dir, main_py) = create_python_file("import utils", "main.py");
+    let (_t2, util_py) = create_python_file("def util_fn(): pass", "utils.py");
+
+    let index = Arc::new(Mutex::new(SymbolIndex::new()));
+    let svc = GraphService::new(Arc::clone(&index), temp_dir.path().to_path_buf());
+    index
+        .lock()
+        .await
+        .index_file(main_py.to_str().unwrap(), "import utils", Lang::Python)
+        .unwrap();
+
+    assert_importers_on_every_surface(&svc, util_py.to_str().unwrap(), &[]).await;
+}
+
 // ── Confidence modifier tests ────────────────────────────────────────────
 
 #[test]

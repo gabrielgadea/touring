@@ -255,6 +255,22 @@ enum AstCmd {
     },
 }
 
+/// The language `touring ast importance` ranks the node types of: the parser's table. An
+/// extension it does not read is an error that says so — it used to fall back to `Lang::Rust`,
+/// so `notes.xyz` printed the Rust node types as if they were its own (cross-audit 12/11/2026,
+/// F11; `touring-code/tests/lang_fallback_guard.rs` keeps a new fallback out).
+fn importance_lang(file_path: &str) -> anyhow::Result<touring_code::ast::languages::Lang> {
+    touring_code::ast::languages::Lang::from_path(std::path::Path::new(file_path)).ok_or_else(
+        || {
+            anyhow::anyhow!(
+                "unsupported extension: `{file_path}` is not a language the parser reads, so there \
+             are no node types to rank; use a file whose extension names one (e.g. `.rs`, `.ts`, \
+             `.py`, `.sh`)"
+            )
+        },
+    )
+}
+
 /// `touring ast workspace-info` helper — Cargo view via `cargo_metadata` (may be
 /// absent on a non-Rust project) PLUS the multi-ecosystem manifest inventory
 /// (npm/PyPI/Go). P-E toolchain parity: `workspace-info` no longer fails on a
@@ -546,9 +562,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "importance requires a file path: touring ast importance <file.rs> --threshold <0.0-1.0>"
                 );
             }
-            let lang =
-                touring_code::ast::languages::Lang::from_path(std::path::Path::new(&file_path))
-                    .unwrap_or(touring_code::ast::languages::Lang::Rust);
+            let lang = importance_lang(&file_path)?;
             let node_types = touring_code::ast::node_types_for_language(lang.as_str());
             let filtered =
                 touring_code::ast::importance_threshold(&node_types.node_types, threshold);
@@ -674,6 +688,28 @@ mod tests {
 
     fn parse(args: &[&str]) -> AstCli {
         AstCli::try_parse_from(args).expect("args should parse")
+    }
+
+    /// F11: `touring ast importance <file>` reads the language from the path by the parser's table;
+    /// an extension the parser does not read is an error, not the Rust node types.
+    #[test]
+    fn importance_reads_the_language_from_the_path_and_refuses_an_unknown_one() {
+        use touring_code::ast::languages::Lang;
+        for (file, lang) in [
+            ("a.rs", Lang::Rust),
+            ("a.mts", Lang::TypeScript),
+            ("a.py", Lang::Python),
+        ] {
+            assert_eq!(importance_lang(file).expect(file), lang, "{file}");
+        }
+        for file in ["notes.xyz", "Makefile", ""] {
+            let err = importance_lang(file).expect_err(file).to_string();
+            assert!(err.contains("unsupported extension"), "{file}: {err}");
+            assert!(
+                err.contains("not a language the parser reads"),
+                "{file}: {err}"
+            );
+        }
     }
 
     // ── defaults ──────────────────────────────────────────────────────────────

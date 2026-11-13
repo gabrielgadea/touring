@@ -23,6 +23,10 @@
 #[cfg(feature = "post-hooks")]
 #[path = "hooks/check_compile.rs"]
 pub mod check_compile;
+/// C7: the heat producers (`post_edit`, `pre_read`) key by the relative path the pipeline budget ranks by.
+#[cfg(all(test, feature = "post-hooks"))]
+#[path = "hooks/heat_producers_tests.rs"]
+mod heat_producers_tests;
 #[path = "hooks/hooks_task_lifecycle.rs"]
 pub mod hooks_task_lifecycle;
 #[path = "hooks/instructions_loaded.rs"]

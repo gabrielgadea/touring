@@ -72,7 +72,7 @@ fn context_of(response: &HookResponse) -> Option<&str> {
 ///
 /// Env vars are process-global and `cargo test` runs a process' tests on parallel threads, so
 /// every test here is `#[serial]`.
-fn use_state_dir(tag: &str) -> std::path::PathBuf {
+pub(crate) fn use_state_dir(tag: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("s28-gate-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     // 0700: the store refuses a pre-existing directory that is not private, so the test's

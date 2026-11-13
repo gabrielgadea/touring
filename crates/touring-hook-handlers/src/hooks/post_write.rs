@@ -687,8 +687,9 @@ fn collect_quality_issues(
         .with_files(files);
         // Wire symbol index for blast-radius dimension (enables BFS blast analysis).
         // touring-analysis is always linked with default features (includes blast-radius).
-        let builder = if let Some(ref idx) = runtime.infra.symbol_index {
-            builder.with_symbol_index(std::sync::Arc::new(idx.clone()))
+        // Shared by `Arc` with the runtime's slot: no copy of the index per write.
+        let builder = if let Some(generation) = runtime.index_generation() {
+            builder.with_symbol_index(std::sync::Arc::clone(generation.index()))
         } else {
             builder
         };

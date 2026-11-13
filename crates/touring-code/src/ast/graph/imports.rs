@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use streaming_iterator::StreamingIterator;
 
+use crate::ast::grammar::Grammar;
 use crate::ast::languages::Lang;
 
 /// Import information extracted from source
@@ -19,7 +20,7 @@ pub struct ImportInfo {
 ///
 /// Falls back to regex-based extraction if the tree-sitter query fails
 /// (e.g., due to grammar version mismatch).
-pub fn extract_imports(source: &str, lang: Lang) -> Vec<ImportInfo> {
+pub(crate) fn extract_imports(source: &str, lang: Lang) -> Vec<ImportInfo> {
     let mut imports = extract_imports_treesitter(source, lang)
         .unwrap_or_else(|| extract_imports_regex(source, lang));
     // Aliases de tipo consomem seu alvo como um import consome — e nenhum dos
@@ -100,11 +101,9 @@ fn extract_rust_type_alias_targets(source: &str) -> Vec<ImportInfo> {
 
 /// Tree-sitter-powered import extraction — precise and multi-line-safe.
 fn extract_imports_treesitter(source: &str, lang: Lang) -> Option<Vec<ImportInfo>> {
-    use tree_sitter::{Parser, Query, QueryCursor};
+    use tree_sitter::{Query, QueryCursor};
 
-    let mut parser = Parser::new();
-    parser.set_language(&lang.tree_sitter_language()).ok()?;
-    let tree = crate::ast::parser::parse_bounded(&mut parser, source, None)?;
+    let tree = Grammar::of_lang(lang).parse(source).ok()?;
 
     // Rust walks the `use` trees instead of querying them: a nested list
     // (`use a::{b::C, d::{E, F}}`, rustfmt's everyday shape) needs the prefix of
@@ -219,15 +218,8 @@ fn rust_use_imports(root: tree_sitter::Node, src: &[u8]) -> Vec<ImportInfo> {
 /// real consumer that reaches the symbol through the re-exported path is still
 /// credited to the definer, which follows the chain.
 #[must_use]
-pub fn rust_reexports(source: &str) -> Vec<ImportInfo> {
-    let mut parser = tree_sitter::Parser::new();
-    if parser
-        .set_language(&Lang::Rust.tree_sitter_language())
-        .is_err()
-    {
-        return Vec::new();
-    }
-    let Some(tree) = crate::ast::parser::parse_bounded(&mut parser, source, None) else {
+pub(crate) fn rust_reexports(source: &str) -> Vec<ImportInfo> {
+    let Ok(tree) = Grammar::Rust.parse(source) else {
         return Vec::new();
     };
     let src = source.as_bytes();
@@ -257,16 +249,9 @@ pub fn rust_reexports(source: &str) -> Vec<ImportInfo> {
 /// such assist handlers read as orphans the day re-exports stopped counting
 /// (18/09/2026), because no by-name pass sees a bare identifier in an expression.
 #[must_use]
-pub fn rust_names_used_outside_use(source: &str) -> std::collections::HashSet<String> {
+pub(crate) fn rust_names_used_outside_use(source: &str) -> std::collections::HashSet<String> {
     let mut used = std::collections::HashSet::new();
-    let mut parser = tree_sitter::Parser::new();
-    if parser
-        .set_language(&Lang::Rust.tree_sitter_language())
-        .is_err()
-    {
-        return used;
-    }
-    let Some(tree) = crate::ast::parser::parse_bounded(&mut parser, source, None) else {
+    let Ok(tree) = Grammar::Rust.parse(source) else {
         return used;
     };
     let src = source.as_bytes();
@@ -638,6 +623,29 @@ fn extract_ts_imports_regex(source: &str) -> Vec<ImportInfo> {
 mod tests {
     #![allow(clippy::indexing_slicing)]
     use super::*;
+
+    /// A parse that outlives its budget is "no tree" at every parse of this file, and
+    /// each caller reads "no tree" as a parse error (an empty answer, never a hang).
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let py = "import os\nfrom a import b\n".repeat(2_000);
+        let rs = "pub use a::B;\nuse c::D;\nfn f() { let x = y; }\n".repeat(2_000);
+        assert!(extract_imports_treesitter(&py, Lang::Python).is_some_and(|i| !i.is_empty()));
+        assert!(extract_imports_treesitter(&rs, Lang::Rust).is_some_and(|i| !i.is_empty()));
+        assert!(!rust_reexports(&rs).is_empty(), "control: re-exports found");
+        assert!(
+            !rust_names_used_outside_use(&rs).is_empty(),
+            "control: names found"
+        );
+        with_budget(Duration::ZERO, || {
+            assert!(extract_imports_treesitter(&py, Lang::Python).is_none());
+            assert!(extract_imports_treesitter(&rs, Lang::Rust).is_none());
+            assert!(rust_reexports(&rs).is_empty());
+            assert!(rust_names_used_outside_use(&rs).is_empty());
+        });
+    }
 
     #[test]
     fn test_extract_python_imports_regex() {

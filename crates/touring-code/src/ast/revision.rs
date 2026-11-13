@@ -262,11 +262,6 @@ impl SymbolCache {
         self.entries.remove(file_path);
     }
 
-    /// Clear all cached entries.
-    pub fn clear(&mut self) {
-        self.entries.clear();
-    }
-
     /// Number of cached files.
     pub fn len(&self) -> usize {
         self.entries.len()

@@ -11,6 +11,19 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+/// How far a change reaches, as two numbers: what [`SymbolIndex::blast_extent`] answers
+/// where the caller prints a count and a depth and never reads the files or symbols
+/// themselves.
+///
+/// [`SymbolIndex::blast_extent`]: super::SymbolIndex::blast_extent
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BlastExtent {
+    /// Files reached, the start file included (the same count as `BlastRadius::file_count`).
+    pub file_count: usize,
+    /// Farthest distance reached, in hops (`BlastRadius::max_distance`).
+    pub max_distance: usize,
+}
+
 /// Blast radius analysis result
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct BlastRadius {
@@ -236,7 +249,7 @@ pub fn blast_radius_approximate(
 /// Build a pseudo-embedding for a file based on its dependency fingerprint.
 ///
 /// The fingerprint is a sparse f32 vector where dimension `i` is 1.0 if
-/// `files[i]` imports this file (i.e., this file is in `reverse_deps[files[i]]`),
+/// this file is among the importers of `files[i]` (`importers_of(files[i])`),
 /// otherwise 0.0. This creates a Hamming-like signature that HNSW can
 /// search over — files with similar fingerprints share importers and are
 /// likely co-impacted.
@@ -246,8 +259,7 @@ fn file_dependency_fingerprint(index: &super::SymbolIndex, file: &str) -> Vec<f3
     let mut fingerprint = vec![0.0_f32; files.len()];
 
     for (i, &f) in files.iter().enumerate() {
-        if let Some(importers) = index.reverse_deps.get(f)
-            && importers.iter().any(|imp| imp == file)
+        if index.importers_of(f).iter().any(|imp| imp == file)
             && let Some(slot) = fingerprint.get_mut(i)
         {
             *slot = 1.0;
@@ -495,5 +507,42 @@ mod salsa_consumer_tests {
         // c.rs defines nothing anyone imports ⇒ empty blast radius.
         let result = blast_radius_via_salsa(&idx, "c.rs");
         assert_eq!(result.file_count, 0);
+    }
+}
+
+#[cfg(all(test, feature = "ann"))]
+mod fingerprint_tests {
+    use super::{file_dependency_fingerprint, simple_hash};
+    use crate::ast::graph::SymbolIndex;
+    use crate::ast::languages::Lang;
+
+    /// A file that imports `a.py` by its stem sets the slot of `a.py` in its fingerprint;
+    /// only a file nothing connects falls back on the hash seed. Which importer name keeps
+    /// the two apart depends on the order of the map, so the test tries names until one does.
+    #[test]
+    fn the_fingerprint_sees_an_importer_reached_through_the_stem() {
+        for n in 0..16 {
+            let importer = format!("imp{n}.py");
+            let mut index = SymbolIndex::new();
+            index
+                .index_file("a.py", "def helper():\n    pass\n", Lang::Python)
+                .unwrap();
+            index
+                .index_file(
+                    &importer,
+                    "import a\n\ndef run():\n    pass\n",
+                    Lang::Python,
+                )
+                .unwrap();
+            let files: Vec<&str> = index.file_to_symbols.keys().map(String::as_str).collect();
+            let slot_a = files.iter().position(|f| *f == "a.py").unwrap();
+            if simple_hash(&importer) as usize % files.len() == slot_a {
+                continue; // this name could not tell the edge from the seed
+            }
+            let fingerprint = file_dependency_fingerprint(&index, &importer);
+            assert_eq!(fingerprint.get(slot_a), Some(&1.0));
+            return;
+        }
+        panic!("no importer name separated the edge from the hash seed");
     }
 }

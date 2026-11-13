@@ -97,23 +97,20 @@ fn run_returning_core(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
     // and a mirror error never touches the hook response — observability,
     // not correctness.
     if let Some(hook) = touring_code::sdk::classify_bash_command(command)
-        && let Some(home) = std::env::var_os("HOME")
+        && let Some(mirror) = touring_code::sdk_signal_mirror::Mirror::from_env()
     {
-        let mirror =
-            touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&home));
         // F0 (01/09) — LOUD on both arms (fail-soft kept): the info line is
         // the delivery-path instrument — grep the daemon log to see WHICH
         // process ran the feeder for a live session event.
         // F10: a PostToolUseFailure delivery is a failed hook call — the
         // mirror's `success` stops being unconditionally `true`.
-        match touring_code::sdk::record_hook_call(
-            &mirror,
+        match mirror.record(
             hook,
             0,
             !payload.failure_event,
             touring_code::sdk_signal_mirror::MirrorOrigin::PostBash,
         ) {
-            Ok(_) => tracing::info!("post_bash feeder: {} -> signal mirror", hook.as_str()),
+            Ok(()) => tracing::info!("post_bash feeder: {} -> signal mirror", hook.as_str()),
             Err(e) => tracing::warn!("post_bash feeder: mirror write failed: {e}"),
         }
     }

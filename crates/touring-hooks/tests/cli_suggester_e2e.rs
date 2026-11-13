@@ -62,6 +62,30 @@ fn make_runtime() -> (TempDir, HookRuntime) {
 /// lado do produto por `open_lessons_db_readonly`.
 static RUNTIME_BUILD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// Define `name` in the runtime's symbol store, the way a rebuild does.
+///
+/// The `symbol-lookup` nudge is withheld for a symbol the index ANSWERS "no definition" for
+/// (retro 11/11/2026, item a: its MUST is `touring index find <sym>`, and the enrichment on
+/// the same block would say that command finds nothing). A fresh runtime's store is empty, so a
+/// test of the nudge has to hand it a symbol the index holds, as production does.
+fn define_symbol(rt: &HookRuntime, name: &str) {
+    let store = rt
+        .infra
+        .symbol_store
+        .as_ref()
+        .expect("a fresh runtime opens its symbol store");
+    store
+        .upsert_symbol(&touring_code::ast::SymbolLocation {
+            file_path: "src/lib.rs".to_string(),
+            symbol_name: name.to_string(),
+            line: 1,
+            column: 0,
+            is_definition: true,
+            kind: None,
+        })
+        .expect("the symbol is stored");
+}
+
 /// Parse the raw JSON string returned by `cli_suggester::run`, returning the
 /// `additionalContext` text when present (None for the `"{}"` empty case).
 fn additional_context(output: &str) -> Option<String> {
@@ -80,6 +104,7 @@ fn additional_context(output: &str) -> Option<String> {
 #[test]
 fn classifier_grep_pascalcase_emits_symbol_lookup() {
     let (_tmp, rt) = make_runtime();
+    define_symbol(&rt, "DomainCircuitBreaker");
     let payload = json!({
         "tool_name": "Grep",
         "tool_input": { "pattern": "DomainCircuitBreaker" }
@@ -505,6 +530,7 @@ fn disable_env_var_worker() {
 #[test]
 fn classifier_ttl_cache_suppresses_duplicate_input_in_same_process() {
     let (_tmp, rt) = make_runtime();
+    define_symbol(&rt, "UniqueAuditSymbolName_E2E");
     let payload = json!({
         "tool_name": "Grep",
         "tool_input": { "pattern": "UniqueAuditSymbolName_E2E" }

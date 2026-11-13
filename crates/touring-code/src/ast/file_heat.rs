@@ -25,7 +25,17 @@ pub struct FileHeat {
     pub last_edit_epoch: f64,
     /// Number of read accesses.
     pub access_count: u32,
-    /// Multiplicative boost from blast radius file_count.
+    /// Multiplicative boost from blast radius file_count: `heat_score` is scaled by
+    /// `1 + blast_radius_weight`.
+    ///
+    /// NO production code sets it (C7, 12/11/2026): the boot seed and
+    /// `record_edit`/`record_access` leave it `0.0`, so the factor is 1 and the score every
+    /// consumer ranks by (`enforce_budget`, `prefetch_from_heat`, `touring ast heat`) is
+    /// edits x recency alone — a file with a large blast radius gets no boost. The only way
+    /// to give it a value is an explicit [`FileHeat::from_existing`] handed to
+    /// [`HeatMap::insert`]. The source of the blast radius is being changed (C8), so its
+    /// producer waits for it; `touring ast heat` says so with
+    /// `blast_radius_weight_has_producer: false`.
     pub blast_radius_weight: f64,
     /// Monotonically increasing write generation counter.
     /// Each call to `record_edit` increments this. Heap entries carry the
@@ -140,11 +150,30 @@ impl HeatMap {
         entry.access_count = entry.access_count.saturating_add(1);
     }
 
-    /// Set blast radius weight for a file.
-    pub fn set_blast_radius_weight(&mut self, file: &str, weight: f64) {
-        if let Some(entry) = self.entries.get_mut(file) {
-            entry.blast_radius_weight = weight;
-        }
+    /// Heat of one tracked file (`None` when the file has no entry).
+    pub fn get(&self, file: &str) -> Option<&FileHeat> {
+        self.entries.get(file)
+    }
+
+    /// Insert (or replace) a file's heat from persisted data — the way a freshly
+    /// booted map is seeded from the edit history instead of starting empty.
+    ///
+    /// Bumps the entry's generation so any heap snapshot of a previous value is
+    /// stale, pushes a fresh snapshot and enforces the capacity (the coldest
+    /// entry leaves first, exactly as on `record_edit`).
+    pub fn insert(&mut self, file: &str, heat: FileHeat, now: f64) {
+        let generation = self
+            .entries
+            .get(file)
+            .map_or(1, |old| old.generation.wrapping_add(1));
+        let entry = FileHeat { generation, ..heat };
+        let heat_bits = entry
+            .heat_score(now, Self::DEFAULT_HALF_LIFE_SECS)
+            .to_bits();
+        self.entries.insert(file.to_string(), entry);
+        self.eviction_heap
+            .push(Reverse((heat_bits, generation, file.to_owned())));
+        self.evict_if_needed(now);
     }
 
     /// Return files sorted by heat score descending.
@@ -298,8 +327,8 @@ mod tests {
     fn test_blast_radius_boosts_heat() {
         let mut hm = HeatMap::new(100);
         hm.record_edit("a.rs", NOW);
-        hm.record_edit("b.rs", NOW);
-        hm.set_blast_radius_weight("b.rs", 5.0);
+        // Same edits and recency as `a.rs`; only the blast-radius weight differs.
+        hm.insert("b.rs", FileHeat::from_existing(1, NOW, 0, 5.0), NOW);
         let order = hm.get_priority_order(NOW);
         let b_score = order.iter().find(|(f, _)| *f == "b.rs").expect("b.rs").1;
         let a_score = order.iter().find(|(f, _)| *f == "a.rs").expect("a.rs").1;
@@ -366,6 +395,66 @@ mod tests {
             !keys.contains(&"b.rs"),
             "b.rs (cold) should be evicted; remaining={keys:?}"
         );
+    }
+
+    #[test]
+    fn test_insert_seeds_a_tracked_entry_with_its_persisted_heat() {
+        let mut hm = HeatMap::new(10);
+        assert!(hm.get("a.rs").is_none(), "untracked before the seed");
+        hm.insert(
+            "a.rs",
+            FileHeat::from_existing(5, NOW - 3_600.0, 2, 0.5),
+            NOW,
+        );
+        let heat = hm.get("a.rs").expect("tracked after insert");
+        assert_eq!(
+            (heat.edits, heat.access_count, heat.blast_radius_weight),
+            (5, 2, 0.5)
+        );
+        assert!(hm.get_priority_order(NOW)[0].1 > 0.0);
+    }
+
+    #[test]
+    fn test_insert_over_capacity_evicts_the_coldest_seeded_entry() {
+        let mut hm = HeatMap::new(2);
+        let month = 86_400.0 * 30.0;
+        hm.insert(
+            "cold.rs",
+            FileHeat::from_existing(1, NOW - month, 0, 0.0),
+            NOW,
+        );
+        hm.insert("hot.rs", FileHeat::from_existing(9, NOW, 0, 0.0), NOW);
+        hm.insert(
+            "warm.rs",
+            FileHeat::from_existing(3, NOW - 3_600.0, 0, 0.0),
+            NOW,
+        );
+        assert_eq!(hm.len(), 2);
+        assert!(hm.get("cold.rs").is_none(), "the coldest seed leaves first");
+        assert!(hm.get("hot.rs").is_some() && hm.get("warm.rs").is_some());
+    }
+
+    #[test]
+    fn test_insert_replacing_an_entry_makes_its_old_snapshot_stale() {
+        let mut hm = HeatMap::new(2);
+        let month = 86_400.0 * 30.0;
+        // a.rs first seeded cold, then replaced by a hot value: the cold heap
+        // snapshot is stale and must not evict the now-hot file.
+        hm.insert("a.rs", FileHeat::from_existing(1, NOW - month, 0, 0.0), NOW);
+        hm.insert("a.rs", FileHeat::from_existing(9, NOW, 0, 0.0), NOW);
+        hm.insert(
+            "b.rs",
+            FileHeat::from_existing(2, NOW - 3_600.0, 0, 0.0),
+            NOW,
+        );
+        hm.insert(
+            "c.rs",
+            FileHeat::from_existing(1, NOW - 7_200.0, 0, 0.0),
+            NOW,
+        );
+        assert_eq!(hm.len(), 2);
+        assert!(hm.get("a.rs").is_some(), "the hot replacement must survive");
+        assert_eq!(hm.get("a.rs").map(|h| h.edits), Some(9));
     }
 
     #[test]

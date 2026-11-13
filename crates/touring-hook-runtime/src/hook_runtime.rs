@@ -29,9 +29,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc;
-use touring_code::ast::{
-    SharedPipeline, SymbolIndex, SymbolStore, graph::pheromone::PheromoneGraph,
-};
+use touring_code::ast::{SharedPipeline, SymbolStore, graph::pheromone::PheromoneGraph};
 use touring_foundation::schema::entity_registry::EntityRegistry;
 /// I-3 (31/10/2026): the hook answer type is ONE, defined in
 /// `touring-hooks-core` (`hook_response.rs`). This layer used to carry a second
@@ -361,9 +359,29 @@ pub struct InfraRuntime {
     /// P4.3: SymbolStore for cross-session symbol persistence.
     /// Opened lazily on first use.
     pub symbol_store: Option<SymbolStore>,
-    /// P4.4: In-memory SymbolIndex for fast symbol lookups.
-    /// Populated from SymbolStore on first access.
-    pub symbol_index: Option<SymbolIndex>,
+    /// P4.4: the in-memory dependency index and the HNSW over it, one shared generation
+    /// (see [`crate::index_slot`]). EMPTY when the runtime is built: it loads on the first read
+    /// that needs a graph signal ([`HookRuntime::index_generation`], which calls the one loader,
+    /// [`HookRuntime::load_symbol_index`]) — and empty for good while
+    /// `TOURING_FILE_EDGES_DISABLED=1`, which is what every hook did before C8: no index,
+    /// no graph signal. Hooks ask `index_generation()`, which hands out the generation; none
+    /// clones the index. Reads that must not cost a load (`touring status`) use `get()`.
+    pub symbol_index: crate::index_slot::IndexSlot,
+    /// Whether the index is loaded and so whether the graph signals exist: `default`, or
+    /// `disabled` by the human switch `TOURING_FILE_EDGES_DISABLED=1`, read once when the
+    /// runtime is built. `touring status -j` prints it as `file_edges.source`.
+    pub file_edges_source: crate::index_slot::FileEdgesSource,
+    /// Whether the hooks' graph signals may LOAD the index on the first read that needs one
+    /// ([`HookRuntime::index_generation`]), logging the load (one
+    /// [`crate::index_slot::IndexLoad::describe`] line on stderr). OFF by default, ON for the
+    /// runtimes the daemon builds: it keeps a project's runtime across hooks, so the load is
+    /// paid once. A process that lives for ONE hook (`touring-hook`, standalone) would pay it on
+    /// every invocation (~259 ms, ~133 MiB on an 11.579-file project) and would change what the
+    /// standalone route prints and logs (its stdout and stderr are the hook's output contract,
+    /// held byte for byte by `touring-hooks/tests/standalone_table_parity.rs`): there the signals
+    /// stay as they were before C8. The symbol queries (`get_symbol_index`, `find_symbol`,
+    /// `blast_radius`) load on demand whatever this says.
+    pub index_on_demand: bool,
     /// P7.4: Incremental AST pipeline — caches parsed trees so that
     /// a second read of the same file pays O(edit) instead of O(file).
     /// Backed by SQLite for cross-session symbol persistence.
@@ -399,6 +417,9 @@ pub struct InfraRuntime {
     /// as they record co-access edges. Arc<RwLock<_>> allows clone into SignalPipeline
     /// without moving InfraRuntime.
     pub pheromone_graph: Arc<RwLock<PheromoneGraph>>,
+    /// Where `pipeline`'s memory budget came from (`env`, `default` or `disabled`);
+    /// `touring status -j` reports it next to the budget itself.
+    pub pipeline_budget_source: BudgetSource,
 }
 /// Lightweight runtime shared by all hook subcommands.
 ///
@@ -650,9 +671,32 @@ impl HookRuntime {
             store.subscribe(bridge);
         }
         let pipeline_db = touring_foundation::TouringConfig::graph_db_canonical(project_root);
+        // C7: the ceiling for the rope bytes this pipeline holds. Unset, it is derived
+        // from the machine (`default_pipeline_budget_mb`); `0` turns the ceiling off; a
+        // value that is not a whole number of MB is refused LOUDLY, never silently.
+        let budget = pipeline_memory_budget(
+            std::env::var("TOURING_PIPELINE_MEMORY_MB").ok().as_deref(),
+            crate::shared::feature_flags::rebuild_memory_hard_mb(),
+        );
+        warn_if_pipeline_knob_rejected(&budget);
+        // C8: the human kill switch of the dependency index, read once, here. A value that
+        // is not a switch position is refused LOUDLY and leaves the index on.
+        let (file_edges_source, file_edges_rejected) = crate::index_slot::resolve_file_edges_source(
+            std::env::var(crate::index_slot::FILE_EDGES_DISABLED_ENV)
+                .ok()
+                .as_deref(),
+        );
+        if let Some(raw) = file_edges_rejected {
+            eprintln!(
+                "[touring-hooks] WARN: {}={raw:?} is not a switch position; the dependency \
+                 index stays ON (use 1 to turn it off, 0 or unset to leave it on)",
+                crate::index_slot::FILE_EDGES_DISABLED_ENV
+            );
+        }
         let pipeline = match pipeline_db.to_str() {
             Some(p) => {
-                let r = SharedPipeline::with_symbol_store(p);
+                let r = SharedPipeline::with_symbol_store(p)
+                    .map(|pipeline| pipeline.with_memory_budget_mb(budget.mb));
                 if let Err(ref e) = r {
                     eprintln!("[touring-hooks] WARN: pipeline init failed: {e}");
                 }
@@ -663,6 +707,9 @@ impl HookRuntime {
                 None
             }
         };
+        // C7: heat survives a restart — seeded from the edit history, read before
+        // `knowledge` moves into the context runtime.
+        let heat_map = seed_heat_map_or_empty(&knowledge);
         let crdt_path = data_dir.join("crdt_graph.rkyv");
         let crdt_graph = CrdtSemanticGraph::load_from_mmap(&crdt_path).ok();
         let cache_ttl_ms = std::env::var("TOURING_CACHE_TTL_SECS")
@@ -731,7 +778,7 @@ impl HookRuntime {
                 markov_predictor: MarkovPredictor::new(),
                 pensieve: RefCell::new(Pensieve::new(32).with_threshold(0.4)),
                 learning_loop: RefCell::new(touring_code::ast::learning_loop::LearningLoop::new()),
-                heat_map: RefCell::new(touring_code::ast::HeatMap::new(100)),
+                heat_map: RefCell::new(heat_map),
                 agentic_rl: None,
                 pattern_bandit: None,
                 last_arm_selected: None,
@@ -741,7 +788,9 @@ impl HookRuntime {
             },
             infra: InfraRuntime {
                 symbol_store,
-                symbol_index: None,
+                symbol_index: crate::index_slot::IndexSlot::default(),
+                file_edges_source,
+                index_on_demand: false,
                 pipeline,
                 dependency_cache: None,
                 prediction: PredictionLayer::new(),
@@ -750,6 +799,7 @@ impl HookRuntime {
                 entity_registry: RefCell::new(None),
                 cortex_dispatcher,
                 pheromone_graph: Arc::new(RwLock::new(PheromoneGraph::new(0.1))),
+                pipeline_budget_source: budget.source,
             },
             project_root: project_root.to_path_buf(),
             session_turn: AtomicUsize::new(0),
@@ -1572,7 +1622,7 @@ impl std::fmt::Debug for HookRuntime {
             .field("result_cache", &"HookResultCache { .. }")
             .field("linucb", &self.learning.linucb.is_some())
             .field("symbol_store", &self.infra.symbol_store.is_some())
-            .field("symbol_index", &self.infra.symbol_index.is_some())
+            .field("symbol_index", &self.infra.symbol_index.is_loaded())
             .field("pipeline", &self.infra.pipeline.is_some())
             .field("predictor", &self.learning.predictor.is_some())
             .field("crdt_graph", &self.learning.crdt_graph.is_some())
@@ -1627,6 +1677,179 @@ pub fn make_relative(path: &str, project_root: &Path) -> String {
     p.strip_prefix(project_root)
         .map(|r| r.to_string_lossy().to_string())
         .unwrap_or_else(|_| path.to_string())
+}
+
+/// The ONE spelling a file has in the heat map — and so in the pipeline, the index store and
+/// the edit history: project-relative, never `./`-prefixed (`IndexPolicy::key_for` is the
+/// same rule for an absolute path under the root; a test pins the two together). A path
+/// outside the project stays as given. Every producer and reader of the heat map spells its
+/// keys through this function; a second spelling is a heat miss with no error to say so.
+pub fn project_key(path: &str, project_root: &Path) -> String {
+    make_relative(path, project_root)
+        .trim_start_matches("./")
+        .to_string()
+}
+
+/// Files the runtime's heat map tracks (the hottest `HEAT_MAP_CAPACITY` stay).
+const HEAT_MAP_CAPACITY: usize = 100;
+
+/// Files a session start warms from the heat map. NOT MEASURED: no experiment picked
+/// 16. It bounds the work the hook does at session start (`examples/pipeline_memory_probe.rs`
+/// took 4,3-5,4 ms per file in a debug build on 12/11/2026, so 16 files is on the order
+/// of 70-90 ms there). Revisit it once `touring status -j` -> `heat.prefetched` has a few
+/// days of real sessions behind it.
+pub const SESSION_PREFETCH_FILES: usize = 16;
+
+/// The pipeline's default budget is this fraction (1/8) of `rebuild_memory_hard_mb()`:
+/// the guard that already says how much memory the whole daemon may take.
+const PIPELINE_BUDGET_GUARD_DIVISOR: f64 = 8.0;
+/// Anonymous memory (RssAnon) the pipeline costs whatever its budget is: the cache of
+/// 128 parse trees, the parser and the allocator's high-water mark.
+///
+/// Origin of this and [`PIPELINE_RSS_PER_ROPE_MB`]: `examples/pipeline_memory_probe.rs`
+/// (M2, 12/11/2026) on THIS workspace, 11.579 files and 214 MB of rope: RssAnon is
+/// 260,7 MB + 1,43 MB per MB of rope (residual <= 5 MB over four budgets). ONE
+/// measurement of ONE project; the 51 k-file `analise` project was not measured.
+const PIPELINE_FIXED_RSS_MB: f64 = 260.0;
+/// Anonymous memory per megabyte of rope the pipeline holds; see [`PIPELINE_FIXED_RSS_MB`].
+const PIPELINE_RSS_PER_ROPE_MB: f64 = 1.43;
+/// The default budget never goes below this, however small the guard.
+const PIPELINE_BUDGET_FLOOR_MB: usize = 64;
+
+/// The default rope budget in MB for a machine whose rebuild memory guard is
+/// `rebuild_hard_mb`: `max(64, floor((guard / 8 - 260) / 1,43))` — the rope that, with
+/// the pipeline's fixed cost, fits in an eighth of the guard (constants above). On a
+/// guard of 16.000 MB that is 1.216 MB of rope, 5,7x this workspace: it never evicts
+/// here and only contains runaway growth. Pure; a non-finite guard gets the floor.
+pub fn default_pipeline_budget_mb(rebuild_hard_mb: f64) -> usize {
+    let rope_mb = (rebuild_hard_mb / PIPELINE_BUDGET_GUARD_DIVISOR - PIPELINE_FIXED_RSS_MB)
+        / PIPELINE_RSS_PER_ROPE_MB;
+    if !rope_mb.is_finite() {
+        return PIPELINE_BUDGET_FLOOR_MB;
+    }
+    rope_mb.floor().max(PIPELINE_BUDGET_FLOOR_MB as f64) as usize
+}
+
+/// Where the pipeline's memory budget came from; `touring status -j` prints it as
+/// `pipeline.budget_source`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BudgetSource {
+    /// `TOURING_PIPELINE_MEMORY_MB` held a positive number of MB.
+    Env,
+    /// The knob was unset (or empty), or held something that is not a number of MB:
+    /// the budget is [`default_pipeline_budget_mb`].
+    Default,
+    /// `TOURING_PIPELINE_MEMORY_MB=0`: no ceiling (the kill switch).
+    Disabled,
+}
+
+impl BudgetSource {
+    /// The word `touring status -j` prints.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Env => "env",
+            Self::Default => "default",
+            Self::Disabled => "disabled",
+        }
+    }
+}
+
+/// The pipeline's memory budget and how it was decided.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PipelineBudget {
+    /// Megabytes of rope the pipeline may hold; `0` = no ceiling.
+    pub mb: usize,
+    /// Where `mb` came from.
+    pub source: BudgetSource,
+    /// The knob's text when it was refused (not a whole number of MB), so the caller
+    /// can say so: a typo never turns the ceiling off or on in silence.
+    pub rejected_knob: Option<String>,
+}
+
+/// Decide the pipeline's memory budget from the `TOURING_PIPELINE_MEMORY_MB` knob
+/// (`raw`, `None` when unset) and the machine's rebuild memory guard.
+///
+/// - unset or empty: [`default_pipeline_budget_mb`] (`BudgetSource::Default`);
+/// - `"0"`: no ceiling (`Disabled`) — the explicit kill switch;
+/// - a positive whole number of MB: that number (`Env`);
+/// - anything else (`"abc"`, `"-5"`, `"1.5"`): the default, with the text in
+///   `rejected_knob` for the caller to log.
+pub fn pipeline_memory_budget(raw: Option<&str>, rebuild_hard_mb: f64) -> PipelineBudget {
+    let default_mb = default_pipeline_budget_mb(rebuild_hard_mb);
+    let Some(text) = raw.map(str::trim).filter(|t| !t.is_empty()) else {
+        return PipelineBudget {
+            mb: default_mb,
+            source: BudgetSource::Default,
+            rejected_knob: None,
+        };
+    };
+    match text.parse::<usize>() {
+        Ok(0) => PipelineBudget {
+            mb: 0,
+            source: BudgetSource::Disabled,
+            rejected_knob: None,
+        },
+        Ok(mb) => PipelineBudget {
+            mb,
+            source: BudgetSource::Env,
+            rejected_knob: None,
+        },
+        Err(_) => PipelineBudget {
+            mb: default_mb,
+            source: BudgetSource::Default,
+            rejected_knob: Some(text.to_string()),
+        },
+    }
+}
+
+/// Fail loud on a refused knob: the daemon boots with the default, but says why.
+fn warn_if_pipeline_knob_rejected(budget: &PipelineBudget) {
+    if let Some(raw) = &budget.rejected_knob {
+        eprintln!(
+            "[touring-hooks] WARN: TOURING_PIPELINE_MEMORY_MB={raw:?} is not a whole number of MB; \
+             using the default of {} MB (0 turns the ceiling off)",
+            budget.mb
+        );
+    }
+}
+
+/// A heat map seeded from the edit history, so a restarted daemon does not forget which
+/// files the user works on. The history is keyed the way the producers (`post_edit`,
+/// `pre_read`) key the heat map: project-relative for files inside the project.
+/// `access_count` and `blast_radius_weight` seed as `0`/`0.0`: the history keeps neither,
+/// and no producer sets the weight yet (see `FileHeat::blast_radius_weight`).
+///
+/// No history is an empty map (`Ok`); an UNREADABLE history is an `Err`, so the boot can say
+/// "heat not seeded" instead of letting a daemon that lost its heat look like a fresh one.
+fn seed_heat_map(
+    knowledge: &FileKnowledgeDB,
+) -> Result<touring_code::ast::HeatMap, rusqlite::Error> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0);
+    let mut heat = touring_code::ast::HeatMap::new(HEAT_MAP_CAPACITY);
+    for row in knowledge.recent_edit_heat(HEAT_MAP_CAPACITY)? {
+        heat.insert(
+            &row.file_path,
+            touring_code::ast::FileHeat::from_existing(row.edits, row.last_edit_epoch, 0, 0.0),
+            now,
+        );
+    }
+    Ok(heat)
+}
+
+/// The boot's heat map: [`seed_heat_map`], or an empty one WITH A WARNING when the history
+/// cannot be read. The daemon carries on (a hook runtime never refuses to start over a heat
+/// seed) but not in silence — the heat from before this boot is lost and the log says so.
+fn seed_heat_map_or_empty(knowledge: &FileKnowledgeDB) -> touring_code::ast::HeatMap {
+    seed_heat_map(knowledge).unwrap_or_else(|e| {
+        eprintln!(
+            "[touring-hooks] WARN: heat map not seeded from the edit history ({e}); \
+             starting empty — the heat from before this boot is lost"
+        );
+        touring_code::ast::HeatMap::new(HEAT_MAP_CAPACITY)
+    })
 }
 
 /// F2 (hashtag library, 2026-08-11): re-harvest `#tags:` codetag anchors from

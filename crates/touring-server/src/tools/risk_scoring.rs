@@ -9,6 +9,78 @@ use serde_json::json;
 
 use crate::server::params::DetailLevel;
 
+// ── Blast radius input ─────────────────────────────────────────────────
+
+/// The direct importers of the `changed` files, from the loaded dependency index: each one
+/// once, in first-seen order, none of them a changed file itself.
+///
+/// `SymbolIndex::importers_of` answers from the wiring's resolved file edges (a file-key
+/// bucket) and credits a bare module stem only to the ONE indexed file that owns it. The
+/// SQL it replaces (`SymbolStore::get_reverse_deps`) matched the stem for every file, so
+/// `a/utils.py` and `b/utils.py` shared all their importers.
+pub(crate) fn direct_importers_of(
+    index: &touring_code::ast::graph::SymbolIndex,
+    changed: &[String],
+) -> Vec<String> {
+    let mut affected: Vec<String> = Vec::new();
+    for file in changed {
+        for importer in index.importers_of(file) {
+            if !affected.contains(importer) && !changed.contains(importer) {
+                affected.push(importer.clone());
+            }
+        }
+    }
+    affected
+}
+
+/// How much of the change the dependency index could actually LOOK AT: the `coverage` field of
+/// the `detect_changes` payload.
+///
+/// `affected_files` is the answer of [`direct_importers_of`], and an empty answer has two
+/// causes the list cannot tell apart: no resolved import points at the file (`Isolated`; F13: a name
+/// guess is not an importer), or the wiring never
+/// looked at the file (`Uncovered`: a new file, a file outside the indexed tree, a project whose
+/// wiring was not built). Reading the second as the first understates the blast radius and the
+/// risk derived from it, so the payload says how many changed files the index covers and names
+/// the ones it does not. It never changes `affected_files` or `blast_penalty`: for an uncovered
+/// file the true count is unknown, and the honest move is to say so beside the number, not to
+/// invent a different one.
+///
+/// `{changed_files, covered, uncovered, uncovered_files}`; `uncovered_files` lists at most
+/// [`COVERAGE_LISTED_FILES`] names and `caveat` (present only when `uncovered > 0`) says what
+/// to do about it.
+pub(crate) fn importer_coverage(
+    index: &touring_code::ast::graph::SymbolIndex,
+    changed: &[String],
+) -> serde_json::Value {
+    use touring_code::ast::graph::Importers;
+    let uncovered_files: Vec<&String> = changed
+        .iter()
+        .filter(|file| matches!(index.importers_status(file), Importers::Uncovered))
+        .collect();
+    let mut coverage = json!({
+        "changed_files": changed.len(),
+        "covered": changed.len() - uncovered_files.len(),
+        "uncovered": uncovered_files.len(),
+        "uncovered_files": uncovered_files
+            .iter()
+            .take(COVERAGE_LISTED_FILES)
+            .collect::<Vec<_>>(),
+    });
+    if !uncovered_files.is_empty() {
+        coverage["caveat"] = json!(
+            "the dependency index holds no wiring for the `uncovered_files`: an empty list of \
+             importers there means 'not looked at', not 'isolated', so `affected_files` and \
+             the blast penalty are a lower bound for them. Run `touring index rebuild` (or \
+             check the path spelling: keys are project-relative) and ask again."
+        );
+    }
+    coverage
+}
+
+/// The most `uncovered_files` names [`importer_coverage`] lists (the count is always exact).
+const COVERAGE_LISTED_FILES: usize = 20;
+
 // ── Criticality Scoring ────────────────────────────────────────────────
 
 /// Criticality score for a single symbol or file.
@@ -333,6 +405,151 @@ mod tests {
             score.factors.len() >= 3,
             "Should have multiple factors: {:?}",
             score.factors
+        );
+    }
+
+    /// C8 before/after: two modules with the same stem, each imported by its own consumer.
+    /// The SQL stem match (`get_reverse_deps`) gave BOTH consumers to either file
+    /// (affected 2, blast_ratio 2, blast_penalty 0.2 for one changed file); the loaded
+    /// index answers with the one that imports it (affected 1, penalty 0.1).
+    #[test]
+    fn detect_changes_counts_only_the_importers_of_the_changed_homonym() {
+        use touring_code::ast::graph::SymbolIndex;
+        let s = |text: &str| text.to_string();
+        let mut index = SymbolIndex::new();
+        index.load_file_edges(
+            [
+                (s("app_a.py"), s("a/utils.py")),
+                (s("app_b.py"), s("b/utils.py")),
+            ],
+            [
+                s("a/utils.py"),
+                s("b/utils.py"),
+                s("app_a.py"),
+                s("app_b.py"),
+            ],
+        );
+
+        let changed = vec![s("a/utils.py")];
+        let affected = direct_importers_of(&index, &changed);
+        assert_eq!(
+            affected,
+            ["app_a.py"],
+            "only the consumer wired to a/utils.py"
+        );
+
+        let report = build_change_risk_report(ChangeRiskInput {
+            changed_files: changed,
+            affected_symbols: affected.len() as u32,
+            affected_files: affected,
+            test_gaps: vec![],
+            hotspots: vec![],
+            gotcha_warnings: vec![],
+            wiring_score: 1.0,
+            detail_level: DetailLevel::Standard,
+        });
+        assert_eq!(report["affected_files"].as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn direct_importers_are_listed_once_and_never_include_a_changed_file() {
+        use touring_code::ast::graph::SymbolIndex;
+        let s = |text: &str| text.to_string();
+        let mut index = SymbolIndex::new();
+        index.load_file_edges(
+            [
+                (s("main.rs"), s("a.rs")),
+                (s("main.rs"), s("b.rs")),
+                (s("b.rs"), s("a.rs")),
+            ],
+            [s("a.rs"), s("b.rs"), s("main.rs")],
+        );
+        // `b.rs` imports `a.rs` but is itself part of the change: it is not "affected".
+        let affected = direct_importers_of(&index, &[s("a.rs"), s("b.rs")]);
+        assert_eq!(affected, ["main.rs"], "main.rs once, b.rs not at all");
+    }
+
+    /// An empty `affected_files` has two causes the list cannot tell apart; `coverage` can. `solo.py`
+    /// was looked at and nobody imports it (isolated); `fresh.py` was never looked at (uncovered).
+    /// Both give 0 affected files — only the second is "unknown", and the payload says which.
+    #[test]
+    fn detect_changes_coverage_separates_isolated_from_never_looked_at() {
+        use touring_code::ast::graph::SymbolIndex;
+        let s = |text: &str| text.to_string();
+        let mut index = SymbolIndex::new();
+        index.load_file_edges(
+            [(s("app.py"), s("lib.py"))],
+            [s("app.py"), s("lib.py"), s("solo.py")],
+        );
+        let changed = vec![s("lib.py"), s("solo.py"), s("fresh.py")];
+
+        // The number is unchanged by the coverage: lib.py's one importer, nothing for the rest.
+        assert_eq!(direct_importers_of(&index, &changed), ["app.py"]);
+        assert!(direct_importers_of(&index, &[s("solo.py")]).is_empty());
+        assert!(direct_importers_of(&index, &[s("fresh.py")]).is_empty());
+
+        let coverage = importer_coverage(&index, &changed);
+        assert_eq!(coverage["changed_files"], 3, "{coverage}");
+        assert_eq!(coverage["covered"], 2, "lib.py and solo.py: {coverage}");
+        assert_eq!(coverage["uncovered"], 1, "{coverage}");
+        assert_eq!(coverage["uncovered_files"], serde_json::json!(["fresh.py"]));
+        assert!(
+            coverage["caveat"]
+                .as_str()
+                .is_some_and(|c| c.contains("not looked at") && c.contains("index rebuild")),
+            "the caveat says what 0 means and what to do: {coverage}"
+        );
+
+        // The blast penalty is derived from the same list as before: the coverage moved nothing.
+        let fresh_only = vec![s("fresh.py")];
+        let report = build_change_risk_report(ChangeRiskInput {
+            changed_files: fresh_only.clone(),
+            affected_files: direct_importers_of(&index, &fresh_only),
+            affected_symbols: 0,
+            test_gaps: vec![],
+            hotspots: vec![],
+            gotcha_warnings: vec![],
+            wiring_score: 1.0,
+            detail_level: DetailLevel::Standard,
+        });
+        assert_eq!(report["affected_files"].as_array().map(Vec::len), Some(0));
+    }
+
+    #[test]
+    fn detect_changes_coverage_is_silent_when_every_changed_file_was_looked_at() {
+        use touring_code::ast::graph::SymbolIndex;
+        let s = |text: &str| text.to_string();
+        let mut index = SymbolIndex::new();
+        index.load_file_edges([(s("app.py"), s("lib.py"))], [s("app.py"), s("lib.py")]);
+        let coverage = importer_coverage(&index, &[s("lib.py"), s("app.py")]);
+        assert_eq!(coverage["covered"], 2, "{coverage}");
+        assert_eq!(coverage["uncovered"], 0, "{coverage}");
+        assert_eq!(coverage["uncovered_files"], serde_json::json!([]));
+        assert!(
+            coverage.get("caveat").is_none(),
+            "nothing to caveat when everything was looked at: {coverage}"
+        );
+    }
+
+    #[test]
+    fn detect_changes_coverage_counts_every_uncovered_file_but_lists_a_bounded_few() {
+        use touring_code::ast::graph::SymbolIndex;
+        let s = |text: &str| text.to_string();
+        let mut index = SymbolIndex::new();
+        index.load_file_edges([(s("app.py"), s("lib.py"))], [s("app.py"), s("lib.py")]);
+        let changed: Vec<String> = (0..COVERAGE_LISTED_FILES + 5)
+            .map(|n| format!("new_{n}.py"))
+            .collect();
+        let coverage = importer_coverage(&index, &changed);
+        assert_eq!(
+            coverage["uncovered"],
+            COVERAGE_LISTED_FILES + 5,
+            "{coverage}"
+        );
+        assert_eq!(
+            coverage["uncovered_files"].as_array().map(Vec::len),
+            Some(COVERAGE_LISTED_FILES),
+            "the count is exact, the list is bounded: {coverage}"
         );
     }
 

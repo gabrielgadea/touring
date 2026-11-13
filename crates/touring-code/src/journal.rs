@@ -260,9 +260,11 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
     }
 }
 
-/// In-place percentile (linear interpolation, R7 method). Returns (p50, p99).
-/// Sorts `values` ascending as a side effect — caller passes a fresh vec.
-fn percentiles(values: &mut [u32]) -> (u64, u64) {
+/// In-place (p50, p99) by nearest rank: the value at index `round(q * (n - 1))` of the
+/// sorted samples — no interpolation, so a percentile is always a value that was
+/// measured. Sorts `values` ascending as a side effect — caller passes a fresh vec.
+/// The ONE copy in the crate: the run journal and the signal mirror both ask it.
+pub(crate) fn percentiles(values: &mut [u32]) -> (u64, u64) {
     if values.is_empty() {
         return (0, 0);
     }

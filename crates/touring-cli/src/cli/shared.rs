@@ -903,6 +903,239 @@ pub(crate) fn require_file_path(payload: &serde_json::Value) -> Result<&str, Str
     }
 }
 
+/// The language a handler analyses `file_path` as: the parser's table
+/// (`touring_code::ast::languages::Lang::from_path`) — or, for an extension it does not read,
+/// the typed error JSON to return as the handler's own answer.
+///
+/// The error is `{"error": "unsupported_extension", "detail": <teaches the fix>, "file_path": …}`
+/// plus `neutral`: the handler's own envelope (`{"status": "error"}`) or empty collections
+/// (`{"entries": [], "count": 0}`), the way `cli-ast-detail` answers an unreadable file. Handlers
+/// used to fall back to `Lang::Rust` for that `None` — a `.xyz` file was "analysed" as Rust, a
+/// rename previewed over text that was never parsed as what it is (cross-audit 12/11/2026, F2,
+/// F10, F11). `touring-code/tests/lang_fallback_guard.rs` keeps a new fallback out.
+pub(crate) fn lang_or_error(
+    file_path: &str,
+    neutral: serde_json::Value,
+) -> Result<touring_code::ast::languages::Lang, String> {
+    touring_code::ast::languages::Lang::from_path(std::path::Path::new(file_path)).ok_or_else(
+        || {
+            let mut out = neutral;
+            if let Some(obj) = out.as_object_mut() {
+                obj.insert("file_path".into(), file_path.into());
+                obj.insert("error".into(), "unsupported_extension".into());
+                obj.insert(
+                    "detail".into(),
+                    "the extension of `file_path` is not a language the parser reads, so there \
+                     is no grammar to analyse it with; send a `file_path` whose extension names \
+                     one (e.g. `.rs`, `.ts`, `.py`, `.sh`)"
+                        .into(),
+                );
+            }
+            out.to_string()
+        },
+    )
+}
+
+/// I16 (`touring-cli/.claude/CLAUDE.md`): "a cold rebuild is byte-identical to a warm one".
+/// A batch operation that reindexes every file of a tree must leave the SAME tables
+/// whatever the daemon's heat map says: C7 once reordered the walk by heat and the rowids of
+/// `graph.db`/`symbols` came out different (measured, 12/11/2026). This is the guard — one
+/// method for every batch writer (`index rebuild`, `file-knowledge populate`).
+#[cfg(test)]
+pub(crate) mod heat_invariant {
+    use crate::runtime::HookRuntime;
+    use std::collections::BTreeMap;
+
+    type Dump = BTreeMap<String, Vec<Vec<String>>>;
+
+    /// The fixture: four Python files with cross-file imports, so the wiring tables have rows.
+    const FILES: [(&str, &str); 4] = [
+        (
+            "memoria/modelo.py",
+            "class No:\n    def tags_cli(self):\n        return []\n\n    def todas_as_arestas(self):\n        return []\n",
+        ),
+        (
+            "memoria/gravacao.py",
+            "from memoria.modelo import No\n\n\ndef gravar(no: No):\n    return no.tags_cli(), no.todas_as_arestas\n",
+        ),
+        (
+            "artefato/solto.py",
+            "def usar(x):\n    return x.tags_cli()\n",
+        ),
+        (
+            "artefato/qualificado.py",
+            "from memoria import modelo as mm\n\n\ndef criar():\n    return mm.No()\n",
+        ),
+    ];
+
+    /// Every user table of every SQLite database under `<root>/.claude/touring`, as
+    /// `"<db file>/<table>"` -> its rows ordered by rowid, the rowid first; every cell as text.
+    fn dump_databases(root: &std::path::Path) -> Dump {
+        let mut dbs = Vec::new();
+        let mut pending = vec![root.join(".claude/touring")];
+        while let Some(dir) = pending.pop() {
+            for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    pending.push(path);
+                } else if path.extension().is_some_and(|e| e == "db") {
+                    dbs.push(path);
+                }
+            }
+        }
+        dbs.sort();
+        let mut dump = Dump::new();
+        for db in dbs {
+            let file = db.file_name().map(|n| n.to_string_lossy().into_owned());
+            for (table, rows) in dump_database(&db) {
+                dump.insert(format!("{}/{table}", file.as_deref().unwrap_or("?")), rows);
+            }
+        }
+        dump
+    }
+
+    /// The tables of one database file, each with its rows (see [`dump_databases`]).
+    fn dump_database(db: &std::path::Path) -> Dump {
+        use rusqlite::{Connection, OpenFlags, types::ValueRef};
+        let conn = Connection::open_with_flags(db, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .expect("open the database read-only");
+        let tables: Vec<String> = conn
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' \
+                 AND sql NOT LIKE 'CREATE VIRTUAL%' ORDER BY name",
+            )
+            .expect("prepare")
+            .query_map([], |r| r.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows");
+        let mut out = Dump::new();
+        for table in tables {
+            // A `WITHOUT ROWID` table has no rowid to select: its own order stands.
+            let mut stmt = conn
+                .prepare(&format!("SELECT rowid, * FROM \"{table}\" ORDER BY rowid"))
+                .or_else(|_| conn.prepare(&format!("SELECT * FROM \"{table}\"")))
+                .expect("prepare table dump");
+            let columns = stmt.column_count();
+            let rows: Vec<Vec<String>> = stmt
+                .query_map([], |row| {
+                    (0..columns)
+                        .map(|i| {
+                            Ok(match row.get_ref(i)? {
+                                ValueRef::Null => "NULL".to_string(),
+                                ValueRef::Integer(n) => n.to_string(),
+                                ValueRef::Real(x) => x.to_string(),
+                                ValueRef::Text(t) => String::from_utf8_lossy(t).into_owned(),
+                                ValueRef::Blob(b) => format!("blob[{}]", b.len()),
+                            })
+                        })
+                        .collect()
+                })
+                .expect("query table")
+                .collect::<Result<_, _>>()
+                .expect("table rows");
+            out.insert(table, rows);
+        }
+        out
+    }
+
+    /// `where` -> `(a, b)` for every cell two dumps disagree on; a table whose row counts
+    /// differ is reported once.
+    fn differing_cells(a: &Dump, b: &Dump) -> BTreeMap<String, (String, String)> {
+        let mut out = BTreeMap::new();
+        for table in a.keys().chain(b.keys()) {
+            let (Some(rows_a), Some(rows_b)) = (a.get(table), b.get(table)) else {
+                out.insert(table.clone(), ("present".to_string(), "absent".to_string()));
+                continue;
+            };
+            if rows_a.len() != rows_b.len() {
+                out.insert(
+                    table.clone(),
+                    (
+                        format!("{} rows", rows_a.len()),
+                        format!("{} rows", rows_b.len()),
+                    ),
+                );
+                continue;
+            }
+            for (r, (row_a, row_b)) in rows_a.iter().zip(rows_b).enumerate() {
+                for (c, (cell_a, cell_b)) in row_a.iter().zip(row_b).enumerate() {
+                    if cell_a != cell_b {
+                        out.insert(
+                            format!("{table} row {r} col {c}"),
+                            (cell_a.clone(), cell_b.clone()),
+                        );
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Build the fixture project in a fresh tempdir, seed the runtime's heat map with
+    /// `edits[i]` edits of the i-th file (by key order), run `operation`, and dump the tables.
+    fn tables_after(edits: Option<[u32; 4]>, operation: &dyn Fn(&mut HookRuntime)) -> Dump {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let mut keys: Vec<&str> = FILES.iter().map(|(file, _)| *file).collect();
+        keys.sort_unstable();
+        for (file, body) in FILES {
+            let path = proj.path().join(file);
+            std::fs::create_dir_all(path.parent().expect("parent")).expect("dir");
+            std::fs::write(path, body).expect(file);
+        }
+        let mut rt = HookRuntime::new(proj.path()).expect("HookRuntime::new");
+        if let Some(edits) = edits {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0);
+            let mut heat = rt.learning.heat_map.borrow_mut();
+            for (key, n) in keys.iter().zip(edits) {
+                for _ in 0..n {
+                    heat.record_edit(key, now);
+                }
+            }
+        }
+        operation(&mut rt);
+        let dump = dump_databases(proj.path());
+        // A second apart, so every timestamp column differs between two runs and the
+        // control below finds it.
+        std::thread::sleep(std::time::Duration::from_millis(1_100));
+        dump
+    }
+
+    /// Run `operation` on the fixture with no heat, again with no heat (the CONTROL: what
+    /// differs between two identical runs — timestamps, the tempdir's name — is volatile), and
+    /// under heat that ranks the files alphabetically and in reverse (one of the two cannot be
+    /// the walker's own order). Every cell outside the volatile ones must match the cold dump.
+    pub(crate) fn assert_tables_independent_of_heat(
+        what: &str,
+        operation: &dyn Fn(&mut HookRuntime),
+    ) {
+        let cold = tables_after(None, operation);
+        let control = tables_after(None, operation);
+        assert!(
+            cold.values().any(|rows| !rows.is_empty()),
+            "{what}: the operation must have written something to compare"
+        );
+        let volatile = differing_cells(&cold, &control);
+        for (ranking, edits) in [("alphabetical", [4, 3, 2, 1]), ("reverse", [1, 2, 3, 4])] {
+            let hot = tables_after(Some(edits), operation);
+            let order_dependent: Vec<String> = differing_cells(&cold, &hot)
+                .into_iter()
+                .filter(|(place, _)| !volatile.contains_key(place))
+                .take(12)
+                .map(|(place, (cold, hot))| format!("{place}: cold {cold:?} vs hot {hot:?}"))
+                .collect();
+            assert!(
+                order_dependent.is_empty(),
+                "{what}, heat ranking {ranking}: the tables depend on the heat map:\n{}",
+                order_dependent.join("\n")
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod retrieval_reward_tests {
     use super::retrieval_coverage_reward;

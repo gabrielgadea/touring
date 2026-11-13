@@ -16,7 +16,7 @@
 //! Target latency: <50ms (was <80ms before I/O consolidation).
 use super::hook_decompose_bridge;
 use super::knowledge::FileKnowledgeDB;
-use super::runtime::{HookResponse, HookRuntime, make_relative};
+use super::runtime::{HookResponse, HookRuntime, make_relative, project_key};
 use crate::pipeline::TouringFlowBuilder;
 use crate::shared::gate_metrics;
 use crate::shared::hook_helpers;
@@ -779,8 +779,10 @@ fn phase1_tracking(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as f64)
         .unwrap_or(0.0);
+    // C7: keyed by the project key — the spelling the pipeline, the index and the edit
+    // history use — so the heat can rank the pipeline's documents.
     if let Ok(mut hm) = runtime.learning.heat_map.try_borrow_mut() {
-        hm.record_edit(file_path, now);
+        hm.record_edit(&project_key(file_path, &runtime.project_root), now);
     }
     let prev_file = runtime
         .infra
@@ -1012,12 +1014,13 @@ fn phase2_verification(
     {
         issues.push(diff_msg);
     }
+    let index_generation = runtime.index_generation();
     if let (Some(old_src), Some(new_src)) = (old_source, file_content)
         && let Some(impact) = crate::ast_bridge::validate_edit_impact(
             old_src,
             new_src,
             file_path,
-            runtime.infra.symbol_index.as_ref(),
+            index_generation.as_ref().map(|g| g.index().as_ref()),
             15,
         )
     {

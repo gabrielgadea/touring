@@ -21,7 +21,7 @@
 
 use super::knowledge::FileKnowledgeDB;
 use super::runtime::traits::KnowledgeDB;
-use super::runtime::{HookResponse, HookRuntime, make_relative};
+use super::runtime::{HookResponse, HookRuntime, make_relative, project_key};
 use crate::schemas::{validate_payload, validation_deny};
 use crate::shared::gate_metrics;
 use crate::shared::hook_helpers;
@@ -29,7 +29,7 @@ use crate::shared::metadata_collector::TokenBudget;
 use crate::shared::parser_cache_global::global_cache;
 use crate::shared::result_ext::{OptionExt, ResultExt};
 use crate::shared::signal_pipeline::{
-    SignalPipeline, StaticSignalLayer, build_graph_pipeline, context_for_read,
+    SignalPipeline, StaticSignalLayer, build_graph_pipeline_with_cache, context_for_read,
 };
 use crate::shared::signals::{
     assemble_scored_context, blast_radius_signal, enrich_with_cognitive, normalize_scores,
@@ -228,8 +228,9 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as f64)
         .unwrap_or(0.0);
+    // C7: keyed by the project key, like the pipeline and the index.
     if let Ok(mut hm) = runtime.learning.heat_map.try_borrow_mut() {
-        hm.record_access(file_path, now);
+        hm.record_access(&project_key(file_path, &runtime.project_root), now);
     }
     // EC7: Fire-and-forget async record_access to AsyncFileKnowledgeDB.
     // Captures file access in the async knowledge DB alongside the HeatMap.
@@ -297,11 +298,10 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Flows to pre_edit (via blast_radius_cache) and post_tool_rl (last_read_file),
     // completing the perception → execution path of the Fasciculus Arcuatus pattern.
     {
+        // Counts only (`blast_extent`): the file list the full radius builds is never read here.
         let blast_count = runtime
-            .infra
-            .symbol_index
-            .as_ref()
-            .map(|idx| idx.blast_radius_with_depth(&rel_path, 4).file_count)
+            .index_generation()
+            .map(|generation| generation.index().blast_extent(&rel_path, 4).file_count)
             .unwrap_or_debug(0, "pre_read: blast_radius fallback");
         let mut bus = runtime.ctx.session_bus.borrow_mut();
         bus.signal_file_read(rel_path.clone(), None);
@@ -842,7 +842,8 @@ fn collect_index_signals(
 ) -> Vec<(f32, String)> {
     use crate::shared::thread_pool::with_hook_pool;
 
-    let idx_opt = runtime.infra.symbol_index.as_ref();
+    let index_generation = runtime.index_generation();
+    let idx_opt: Option<&SymbolIndex> = index_generation.as_ref().map(|g| g.index().as_ref());
     let rp = rel_path.to_string();
     let ((blast_sig, callers_sig), similar_sig) = with_hook_pool(|| {
         rayon::join(
@@ -867,13 +868,10 @@ fn collect_index_signals(
         signals.push(s);
     }
 
-    // ── Signal I-6: BFS blast radius enrichment — hop distances per affected file ──
-    // Supplements the existing `blast_radius_signal` (count+max) with precise hop distances
-    // via BlastRadiusEngine::bfs_only(). Budget: 8ms. Falls back to count-only silently.
-    // Only fires when SymbolIndex is available and has reverse_deps for this file.
-    if let Some(s) = bfs_hop_signal(idx_opt, rel_path) {
-        signals.push(s);
-    }
+    // Signal I-6 (`bfs_hop_signal`, top-5 files with their hop distance) retired with C8: it
+    // cloned the whole index per read to run a second BFS, and the pipeline's blast group
+    // already says the radius, the depth and the importers that matter most in one bounded
+    // line, over the same file-to-file edges.
 
     // L7: co-edit predictions (owned data — safe to include here)
     let l7_preds = runtime.infra.prediction.predict_next(file_path, 3);
@@ -981,13 +979,7 @@ fn build_parallel_signal_pipeline(
         SignalPipeline::new(budget).add_layer(StaticSignalLayer::new("rrf_fused", fused));
 
     // CILA>=2: Graph signal layers — only wired when SymbolIndex is available.
-    // SymbolIndex is cloned into Arc to satisfy 'static bounds of SignalPipeline.
-    // PheromoneGraph Arc is cloned from InfraRuntime (cheap Arc::clone).
-    if let Some(idx) = runtime.infra.symbol_index.as_ref() {
-        let arc_idx = std::sync::Arc::new(idx.clone());
-        let arc_graph = std::sync::Arc::clone(&runtime.infra.pheromone_graph);
-        pipeline = pipeline.extend(build_graph_pipeline(arc_idx, arc_graph, budget));
-    }
+    pipeline = with_graph_layers(pipeline, runtime, budget);
 
     // Wave v4.29.0: AstGrepRiskSignalLayer — defensive risk patterns
     // (unwrap/panic/eval/exec) per language. Layer's own should_run gates at
@@ -1392,62 +1384,27 @@ fn is_code_file(path: &str) -> bool {
 
 // ── Sprint 2: BlastRadius + External Callers ────────────────────────────
 
-/// Signal I-6: BFS hop-distance enrichment via BlastRadiusEngine.
+/// The graph layers over the runtime's loaded index generation, appended to `pipeline`.
 ///
-/// Supplements the existing `blast_radius_signal` (which shows count + max distance)
-/// with precise per-file hop distances via `BlastRadiusEngine::bfs_only()`.
-/// Shows top 5 `AffectedFile` entries sorted by distance ascending.
-///
-/// Budget guard: 8ms via `AnalysisConfig::hook_path().with_budget(8)`.
-/// Falls back to `None` (silent) if BFS is not possible or budget exceeded.
-/// Score: 1.5
-fn bfs_hop_signal(idx_opt: Option<&SymbolIndex>, rel_path: &str) -> Option<(f32, String)> {
-    let idx = idx_opt?;
-
-    // Guard: only fire when this file has at least one reverse dep
-    if idx
-        .reverse_deps
-        .get(rel_path)
-        .map_or(true, |v| v.is_empty())
-    {
-        return None;
-    }
-
-    use std::sync::Arc;
-    use touring_analysis::blast_radius::BlastRadiusEngine;
-    use touring_analysis::engine::AnalysisConfig;
-
-    let config = AnalysisConfig::hook_path().with_budget(8);
-    let engine = BlastRadiusEngine::bfs_only(Arc::new(idx.clone()));
-    let result = engine.compute(rel_path, &config);
-
-    if result.affected_files.is_empty() || result.strategy_used == "budget-exceeded" {
-        return None;
-    }
-
-    let shown: Vec<String> = result
-        .affected_files
-        .iter()
-        .take(5)
-        .map(|f| {
-            let name = std::path::Path::new(&f.path)
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or(&f.path);
-            format!("{name}(hop{})", f.distance)
-        })
-        .collect();
-
-    let total = result.affected_files.len();
-    let suffix = if total > 5 {
-        format!(" +{} more", total - 5)
-    } else {
-        String::new()
+/// The generation already holds the index in an `Arc` (the 'static bound of `SignalPipeline`
+/// is met by sharing, not by copying the index per read) and the HNSW cache that goes with
+/// it, so the CILA>=5 layer builds its graph once per generation, not once per read. The
+/// pheromone graph is an `Arc` cloned from `InfraRuntime` (cheap). With no index loaded
+/// (the kill switch, or a load that failed) there are no graph layers and `pipeline` comes
+/// back as it was.
+fn with_graph_layers(
+    pipeline: SignalPipeline,
+    runtime: &HookRuntime,
+    budget: usize,
+) -> SignalPipeline {
+    let Some(generation) = runtime.index_generation() else {
+        return pipeline;
     };
-
-    Some((
-        1.5_f32,
-        format!("bfs_hops[{total}]: {}{suffix}", shown.join(", ")),
+    pipeline.extend(build_graph_pipeline_with_cache(
+        std::sync::Arc::clone(generation.index()),
+        std::sync::Arc::clone(&runtime.infra.pheromone_graph),
+        budget,
+        std::sync::Arc::clone(generation.hnsw_cache()),
     ))
 }
 

@@ -49,11 +49,8 @@ pub(crate) fn handle_file_changed(rt: &mut HookRuntime, input: &Value) -> String
     // The whole wiring of the changed file, inferred edges included — this path
     // used to clear every consumer row and re-record only `use` imports
     // (cross-audit 14/09/2026, B2).
-    let _ = crate::wiring::refresh_file_wiring_from_disk(
-        &rt.ctx.knowledge,
-        &rt.project_root,
-        &rel_path,
-    );
+    // S4: and the loaded dependency index follows the rows it rewrote.
+    let _ = rt.refresh_file_wiring_and_edges_from_disk(&rel_path);
     // R22-S2: Upsert file change event to Tantivy for BM25 audit trail.
     super::upsert_file_changed_to_tantivy(&rt.project_root, &rel_path);
     // R129: Persist file change event to knowledge graph — enables `touring memory recall "file_changed:<path>"`.

@@ -136,6 +136,8 @@ pub fn run(
     // positions and qualified calls — it used to record guesses as `ast_resolved`.)
     if !content_unchanged {
         populate_wiring_map(&runtime.ctx.knowledge, &rel_path, &knowledge, &content);
+        // S4: the loaded dependency index follows the rows a read just rewrote.
+        runtime.sync_index_edges_of(&rel_path);
     }
 
     // ── Functional Signature: register module's functional identity for chain detection ──

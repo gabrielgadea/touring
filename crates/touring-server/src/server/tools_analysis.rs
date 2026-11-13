@@ -145,7 +145,8 @@ impl TouringServer {
                     .parse()
                     .map_err(|e: String| McpError::invalid_params(e, None))?;
 
-                let imports = touring_code::ast::graph::extract_imports(&content, lang);
+                let imports =
+                    touring_code::ast::graph::FileReferences::new(&content, lang).imports();
                 let imports_json: Vec<serde_json::Value> = imports
                     .iter()
                     .map(|imp| {
@@ -202,8 +203,16 @@ impl TouringServer {
 
                 if let Some(ref store_arc) = self.symbol_store {
                     let store = store_arc.lock().await;
-                    match store.load_into_index(&mut idx) {
-                        Ok(n) => loaded = n,
+                    // The index's one loader: symbols plus the wiring's resolved file edges.
+                    let knowledge_db =
+                        touring_foundation::config::TouringConfig::knowledge_db_canonical(
+                            &self.config.project_root,
+                        );
+                    match touring_code::ast::store::load_index_for(&store, &knowledge_db) {
+                        Ok(index) => {
+                            loaded = index.stats().total_locations;
+                            *idx = index;
+                        }
                         Err(e) => error_msg = Some(format!("load failed: {}", e)),
                     }
                 } else {
@@ -638,15 +647,11 @@ impl TouringServer {
                 // Warns the planner which files will cascade changes through the project.
                 let graph_hotspots: Vec<serde_json::Value> = {
                     let idx = self.graph_svc.index().lock().await;
-                    let mut by_indegree: Vec<(String, usize)> = idx
-                        .reverse_deps
-                        .iter()
-                        .map(|(f, importers)| (f.clone(), importers.len()))
-                        .collect();
-                    by_indegree.sort_unstable_by_key(|b| std::cmp::Reverse(b.1));
-                    by_indegree
+                    // FILES by importers (`SymbolIndex::hotspots`): `reverse_deps` is keyed by
+                    // FILE for resolved edges and by MODULE (`utils`) for raw ones, so listing its
+                    // keys named modules that are not files.
+                    idx.hotspots(5)
                         .into_iter()
-                        .take(5)
                         .map(
                             |(file, count)| serde_json::json!({"file": file, "depended_by": count}),
                         )
@@ -1289,15 +1294,11 @@ impl TouringServer {
                 // Surfaces the "load-bearing" files that disproportionately affect the codebase.
                 let graph_hotspots: Vec<serde_json::Value> = {
                     let idx = self.graph_svc.index().lock().await;
-                    let mut by_indegree: Vec<(String, usize)> = idx
-                        .reverse_deps
-                        .iter()
-                        .map(|(f, importers)| (f.clone(), importers.len()))
-                        .collect();
-                    by_indegree.sort_unstable_by_key(|b| std::cmp::Reverse(b.1));
-                    by_indegree
+                    // FILES by importers (`SymbolIndex::hotspots`): `reverse_deps` is keyed by
+                    // FILE for resolved edges and by MODULE (`utils`) for raw ones, so listing its
+                    // keys named modules that are not files.
+                    idx.hotspots(5)
                         .into_iter()
-                        .take(5)
                         .map(
                             |(file, count)| serde_json::json!({"file": file, "depended_by": count}),
                         )

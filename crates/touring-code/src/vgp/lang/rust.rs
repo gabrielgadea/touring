@@ -49,6 +49,7 @@ use std::rc::Rc;
 use tree_sitter::Node;
 
 use super::coletor::{self, empurrar};
+use super::vista::Vista;
 use super::{Adaptador, Verificacao, caminho, parse};
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding};
@@ -674,7 +675,7 @@ struct CrateInfo {
 /// The PROPOSED file's model is registered (`registrar_proposto`) so `self::` resolutions use
 /// the proposed content even when the file does not exist on disk yet.
 struct Resolver<'a> {
-    overlays: &'a HashMap<String, String>,
+    vista: Vista<'a>,
     raiz: &'a Path,
     proposto: RefCell<Option<(PathBuf, Rc<ModModel>)>>,
     cache_modelo: RefCell<HashMap<PathBuf, Option<Rc<ModModel>>>>,
@@ -687,7 +688,7 @@ struct Resolver<'a> {
 impl<'a> Resolver<'a> {
     fn new(raiz: &'a Path, overlays: &'a HashMap<String, String>) -> Self {
         Self {
-            overlays,
+            vista: Vista::nova(overlays),
             raiz,
             proposto: RefCell::new(None),
             cache_modelo: RefCell::new(HashMap::new()),
@@ -703,19 +704,21 @@ impl<'a> Resolver<'a> {
         *self.proposto.borrow_mut() = Some((path.to_path_buf(), modelo));
     }
 
-    /// Overlay content first (the entry's instant), then disk.
+    /// Overlay content first (the entry's instant), then disk — the view's precedence.
     ///
     /// V-4 (31/10/2026): only what is INSIDE the allowed roots is read. The proposed
     /// content chooses the path (`#[path = "…"]`), and an absolute path or a `../..`
-    /// put the read outside the project — [`caminho::ler_contido`] refuses it.
+    /// put the read outside the project — the disk read refuses it ([`caminho::ler_contido`]).
     fn ler(&self, p: &Path) -> Option<String> {
-        if let Some(c) = self.overlays.get(p.to_string_lossy().as_ref()) {
-            return Some(c.clone());
-        }
-        caminho::ler_contido(&[self.raiz], p).ok()
+        self.vista.ler(&[self.raiz], p, None).ok()
     }
 
-    /// Is `p` a file inside the project root?
+    /// Is `p` a file on the DISK inside the project root?
+    ///
+    /// Disk-only on purpose (C4, D2): the crate root — a manifest, `lib.rs`, `main.rs` — is
+    /// probed on the disk, while a module file is read overlay-first ([`Self::ler`]). A crate that
+    /// exists only in the overlays is therefore an abstention, never a finding; widening this
+    /// probe is a change of verdicts, and waits for a measurement of its own.
     fn e_arquivo(&self, p: &Path) -> bool {
         caminho::e_arquivo(&[self.raiz], p)
     }

@@ -26,9 +26,11 @@
 //! - **Observable**: Per-layer timing and signal count metrics.
 //! - **Budget-aware**: Truncation applied as a final step, not scattered.
 
-use super::signals::{normalize_scores, score_cmp};
-use std::sync::Arc;
-use touring_analysis::{AnalysisConfig, BlastRadiusEngine, BlastRadiusStrategy, HnswStrategy};
+use super::signals::{
+    blast_aggregate_signal, cut_to_chars, normalize_scores, score_cmp, short_path_label,
+};
+use std::sync::{Arc, OnceLock};
+use touring_analysis::{AnalysisConfig, BlastRadiusStrategy, HnswStrategy};
 use touring_code::ast::graph::pheromone::PheromoneGraph;
 use touring_code::ast::{ImpactCategory, SymbolIndex, compute_enriched_blast_radius};
 
@@ -257,20 +259,25 @@ where
 
 // ─── Pipeline Factory ───────────────────────────────────────────────────
 
-/// Build a [`SignalPipeline`] pre-configured with all 5 graph-integrated layers.
+/// Build a [`SignalPipeline`] pre-configured with the graph-integrated layers.
 ///
 /// Convenience constructor for composing the full analysis stack:
 ///
 /// | Layer | Type | CILA gate | Cost |
 /// |---|---|---|---|
-/// | BFS blast radius | [`BlastRadiusSignalLayer`] | ≥ 2 | ~8ms (budget-capped) |
-/// | Enriched blast radius | [`EnrichedBlastRadiusSignalLayer`] | ≥ 3 | ~2ms |
-/// | Weighted Dijkstra blast | [`WeightedBlastSignalLayer`] | ≥ 4 | ~5ms |
+/// | BFS blast radius | [`BlastRadiusSignalLayer`] | ≥ 2 | one walk of the index |
+/// | Enriched blast radius | [`EnrichedBlastRadiusSignalLayer`] | ≥ 3 | one walk of the index |
+/// | Weighted Dijkstra blast | [`WeightedBlastSignalLayer`] | ≥ 4 | one Dijkstra |
 /// | ACO pheromone hot-edges | [`PheromoneGraphSignalLayer`] | ≥ 2 | <1ms |
 /// | HNSW approximate NN | [`HnswSignalLayer`] | ≥ 5 | ~50ms (cold start, cached) |
 ///
-/// The HNSW layer is wrapped in [`CilaGatedLayer`] to prevent cold-start cost
-/// on hooks where `cila_level < 5`. All other layers use their built-in
+/// The three blast layers register as ONE entry, [`BlastGroupLayer`]: each of them says
+/// its piece in one line, and the group keeps the whole under the text ceiling (default
+/// 400 characters, `TOURING_GRAPH_BLAST_MAX_CHARS`). Before, every layer emitted one
+/// signal PER affected file, and a hub filled the 3.200-character budget with
+/// `blast:<path> (hop 1)` lines in path order — about 3 KB of context per read. The
+/// HNSW layer is wrapped in [`CilaGatedLayer`] to prevent cold-start cost on hooks where
+/// `cila_level < 5`; the group and the pheromone layer carry their own
 /// [`SignalLayer::should_run`] gate.
 ///
 /// # Example
@@ -294,22 +301,28 @@ pub fn build_graph_pipeline(
     graph: Arc<std::sync::RwLock<PheromoneGraph>>,
     budget: usize,
 ) -> SignalPipeline {
+    // A private cache: the HNSW index lives as long as this pipeline, i.e. one call.
+    build_graph_pipeline_with_cache(index, graph, budget, Arc::new(OnceLock::new()))
+}
+
+/// [`build_graph_pipeline`] with the HNSW cache supplied by the caller.
+///
+/// The runtime keeps one cache per loaded generation of the index (see
+/// `touring_hook_runtime::index_slot::IndexGeneration::hnsw_cache`), so the CILA >= 5 layer
+/// pays the O(n log n) build once per generation instead of once per read: the
+/// pipeline of a hook call is built and dropped, the cache is not. A cache must be paired
+/// with the index it was built from; the generation carries both for that reason.
+pub fn build_graph_pipeline_with_cache(
+    index: Arc<SymbolIndex>,
+    graph: Arc<std::sync::RwLock<PheromoneGraph>>,
+    budget: usize,
+    hnsw_cache: Arc<OnceLock<HnswStrategy>>,
+) -> SignalPipeline {
     SignalPipeline::new(budget)
-        // CILA>=2: BFS blast radius — fast hop-distance impact via BlastRadiusEngine
-        .add_layer(CilaGatedLayer::new(
-            BlastRadiusSignalLayer::new(Arc::clone(&index)),
-            2,
-        ))
-        // CILA>=3: enriched blast radius (exact hop distances per affected file)
-        .add_layer(CilaGatedLayer::new(
-            EnrichedBlastRadiusSignalLayer::new(Arc::clone(&index)),
-            3,
-        ))
-        // CILA>=4: weighted Dijkstra blast (edge-weight-aware impact ranking)
-        .add_layer(CilaGatedLayer::new(
-            WeightedBlastSignalLayer::new(Arc::clone(&index)),
-            4,
-        ))
+        // CILA>=2: the blast layers as one bounded text — BFS radius (>=2), enriched
+        // impact split (>=3), co-edit-weighted nearest files (>=4); each member gates
+        // itself, the group keeps the whole under the ceiling.
+        .add_layer(BlastGroupLayer::new(Arc::clone(&index)))
         // CILA>=2: ACO pheromone hot-edges (co-access trail signals)
         .add_layer(CilaGatedLayer::new(
             PheromoneGraphSignalLayer::new(Arc::clone(&graph)),
@@ -317,23 +330,29 @@ pub fn build_graph_pipeline(
         ))
         // CILA>=5: HNSW approximate nearest-neighbor (cold-start cached)
         .add_layer(CilaGatedLayer::new(
-            HnswSignalLayer::new(Arc::clone(&index), 10),
+            HnswSignalLayer::with_cache(Arc::clone(&index), 10, hnsw_cache),
             5,
         ))
 }
 
 // ─── Graph-Integrated Layers ────────────────────────────────────────────
 
-/// BFS blast radius layer — exact hop-distance impact via [`BlastRadiusEngine`].
+/// BFS blast radius layer — how far a change reaches, as ONE line.
 ///
-/// Produces one scored signal per affected file: `score = 1.0 / (1.0 + distance)`.
-/// Uses an 8 ms hook budget via [`AnalysisConfig::hook_path`] to stay within the
-/// pre-edit latency envelope.
+/// Produces at most one signal (`blast: N arquivos, até d saltos; diretos (D): …
+/// (+K outros); lista completa: touring ast blast <file>`), built by
+/// [`blast_aggregate_signal`]: the count and depth of the radius, the importers that
+/// matter most (co-edit weight, then in-degree, then path), and the route to the rest.
+/// It was one signal per affected file, so a hub shipped thousands of them.
 ///
-/// Only runs at CILA level ≥ 2. Recommended usage with [`CilaGatedLayer`]:
-/// ```ignore
-/// pipeline.add_layer(CilaGatedLayer::new(BlastRadiusSignalLayer::new(Arc::clone(&idx)), 2))
-/// ```
+/// The count is the whole radius ([`SymbolIndex::blast_radius_with_depth`], the number
+/// the one-line `blast_radius_signal` prints), not the same-crate slice the engine's hook
+/// path keeps: two numbers for one file is a contradiction the reader cannot resolve.
+/// Silent unless the index KNOWS an importer — an isolated or uncovered file is
+/// `blast_radius_signal`'s to say.
+///
+/// Only runs at CILA level ≥ 2. Normally reached through [`BlastGroupLayer`], which
+/// keeps its text and its siblings' under one ceiling.
 pub struct BlastRadiusSignalLayer {
     index: Arc<SymbolIndex>,
 }
@@ -351,16 +370,8 @@ impl SignalLayer for BlastRadiusSignalLayer {
     }
 
     fn enrich(&self, ctx: &SignalContext<'_>) -> Vec<(f32, String)> {
-        let engine = BlastRadiusEngine::bfs_only(Arc::clone(&self.index));
-        let config = AnalysisConfig::hook_path().with_budget(8);
-        let result = engine.compute(ctx.file_path, &config);
-        result
-            .affected_files
+        blast_aggregate_signal(&self.index, ctx.file_path, graph_blast_text_cap())
             .into_iter()
-            .map(|af| {
-                let score = 1.0_f32 / (1.0 + af.distance as f32);
-                (score, format!("blast:{} (hop {})", af.path, af.distance))
-            })
             .collect()
     }
 
@@ -369,14 +380,16 @@ impl SignalLayer for BlastRadiusSignalLayer {
     }
 }
 
-/// Enriched blast radius layer — direct, transitive, and co-edited dependents.
+/// Enriched blast radius layer — direct, transitive, and co-edited dependents, counted.
 ///
-/// Uses [`compute_enriched_blast_radius`] for semantic categorisation of impact.
-/// Severity score (0–1) is propagated from the enriched result and discounted by
-/// dependency kind ([`ImpactCategory::signal_discount`]: direct=100%, transitive=50%,
-/// co-edited=30%).
+/// Uses [`compute_enriched_blast_radius`] for semantic categorisation of impact and says
+/// it as one line: `impacto: 12 direct, 1920 transitive (severidade 0.31)` — the
+/// categories' wire names ([`ImpactCategory::signal_prefix`]), the empty ones left out.
+/// The score is the severity (0–1) discounted by the most direct non-empty category
+/// ([`ImpactCategory::signal_discount`]: direct=100%, transitive=50%, co-edited=30%). It
+/// was one signal per file of each category.
 ///
-/// Only runs at CILA level ≥ 3.
+/// Silent when no category holds a file. Only runs at CILA level ≥ 3.
 pub struct EnrichedBlastRadiusSignalLayer {
     index: Arc<SymbolIndex>,
 }
@@ -400,15 +413,29 @@ impl SignalLayer for EnrichedBlastRadiusSignalLayer {
         // co-edit signals; behaviour preserved.
         let co_edit: indexmap::IndexMap<String, Vec<String>> = Default::default();
         let enriched = compute_enriched_blast_radius(&self.index, ctx.file_path, &co_edit);
-        let severity = enriched.severity as f32;
-        let mut signals = Vec::new();
+        let mut counted: Vec<String> = Vec::new();
+        let mut strongest: Option<ImpactCategory> = None;
         for category in ImpactCategory::ALL {
-            let weight = severity * category.signal_discount();
-            for dep in enriched.files(category) {
-                signals.push((weight, format!("{}:{dep}", category.signal_prefix())));
+            let count = enriched.files(category).len();
+            if count > 0 {
+                if strongest.is_none() {
+                    strongest = Some(category);
+                }
+                counted.push(format!("{count} {}", category.signal_prefix()));
             }
         }
-        signals
+        // The signal weighs what its most direct non-empty category weighs.
+        let Some(strongest) = strongest else {
+            return Vec::new();
+        };
+        vec![(
+            enriched.severity as f32 * strongest.signal_discount(),
+            format!(
+                "impacto: {} (severidade {:.2})",
+                counted.join(", "),
+                enriched.severity
+            ),
+        )]
     }
 
     fn should_run(&self, cila_level: usize) -> bool {
@@ -416,13 +443,19 @@ impl SignalLayer for EnrichedBlastRadiusSignalLayer {
     }
 }
 
-/// Weighted blast radius layer — Dijkstra co-edit-weighted dependency distance.
+/// How many of the nearest files the weighted layer names.
+const WEIGHTED_NEAREST_SHOWN: usize = 3;
+
+/// Weighted blast radius layer — Dijkstra co-edit-weighted dependency distance, as ONE line.
 ///
 /// Uses [`SymbolIndex::weighted_blast_radius`] for O(V log V) Dijkstra traversal
-/// with co-edit-history-weighted edges (`w = 1.0 / (1.0 + co_edit_weight)`).
-/// Score = `1.0 / (1.0 + cost)`. The start file (cost = 0.0) is filtered out.
+/// with co-edit-history-weighted edges (`w = 1.0 / (1.0 + co_edit_weight)`), and names
+/// the nearest few: `custo de co-edição: a/x.rs 0.01, b/y.rs 0.02 (de 1920 arquivos)`.
+/// Score = `1.0 / (1.0 + cost)` of the nearest. The start file (cost = 0.0) is filtered
+/// out, and files at the same cost come in path order (the index fixes the tie), so the
+/// few named are the same on every run.
 ///
-/// Only runs at CILA level ≥ 4.
+/// Silent when nothing else is reachable. Only runs at CILA level ≥ 4.
 pub struct WeightedBlastSignalLayer {
     index: Arc<SymbolIndex>,
 }
@@ -440,19 +473,147 @@ impl SignalLayer for WeightedBlastSignalLayer {
     }
 
     fn enrich(&self, ctx: &SignalContext<'_>) -> Vec<(f32, String)> {
-        self.index
+        // Ascending cost, ties in path order; the start file (cost 0) is not a dependent.
+        let reached: Vec<(String, f64)> = self
+            .index
             .weighted_blast_radius(ctx.file_path)
             .into_iter()
             .filter(|(_, cost)| *cost > 0.0)
-            .map(|(path, cost)| {
-                let score = 1.0_f32 / (1.0 + cost as f32);
-                (score, format!("weighted:{path} (cost {cost:.2})"))
-            })
-            .collect()
+            .collect();
+        let Some((_, nearest_cost)) = reached.first() else {
+            return Vec::new();
+        };
+        let nearest = reached
+            .iter()
+            .take(WEIGHTED_NEAREST_SHOWN)
+            .map(|(path, cost)| format!("{} {cost:.2}", short_path_label(path)))
+            .collect::<Vec<_>>()
+            .join(", ");
+        vec![(
+            1.0_f32 / (1.0 + *nearest_cost as f32),
+            format!(
+                "custo de co-edição: {nearest} (de {} arquivos)",
+                reached.len()
+            ),
+        )]
     }
 
     fn should_run(&self, cila_level: usize) -> bool {
         cila_level >= 4
+    }
+}
+
+/// Default ceiling, in characters, on the blast text the graph pipeline emits.
+const GRAPH_BLAST_TEXT_MAX_CHARS: usize = 400;
+
+/// Environment knob that overrides [`GRAPH_BLAST_TEXT_MAX_CHARS`] (a character count).
+const GRAPH_BLAST_TEXT_ENV: &str = "TOURING_GRAPH_BLAST_MAX_CHARS";
+
+/// Smallest ceiling the knob accepts: the bare blast line with a short path is ~110
+/// characters, and a ceiling below it would cut the count it exists to deliver.
+const GRAPH_BLAST_TEXT_MIN_CHARS: usize = 120;
+
+/// Largest ceiling the knob accepts: the pipeline's own context budget.
+const GRAPH_BLAST_TEXT_LIMIT_CHARS: usize = 3200;
+
+/// The ceiling `raw` asks for: nothing set, or an integer inside the accepted range. An
+/// invalid value is NOT silently honoured or dropped: the default holds and the log says
+/// why, naming the accepted range, so a typo does not become a different ceiling.
+fn resolve_graph_blast_text_cap(raw: Option<&str>) -> usize {
+    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return GRAPH_BLAST_TEXT_MAX_CHARS;
+    };
+    match raw.parse::<usize>() {
+        Ok(chars)
+            if (GRAPH_BLAST_TEXT_MIN_CHARS..=GRAPH_BLAST_TEXT_LIMIT_CHARS).contains(&chars) =>
+        {
+            chars
+        }
+        _ => {
+            tracing::warn!(
+                "{GRAPH_BLAST_TEXT_ENV}={raw:?} is not an integer between \
+                 {GRAPH_BLAST_TEXT_MIN_CHARS} and {GRAPH_BLAST_TEXT_LIMIT_CHARS}; using the \
+                 default {GRAPH_BLAST_TEXT_MAX_CHARS}. Set it to a character count such as 600, \
+                 or unset it."
+            );
+            GRAPH_BLAST_TEXT_MAX_CHARS
+        }
+    }
+}
+
+/// The ceiling in force: read from the environment once per process (so an invalid value
+/// warns once, not on every hook call).
+fn graph_blast_text_cap() -> usize {
+    static CAP: OnceLock<usize> = OnceLock::new();
+    *CAP.get_or_init(|| {
+        resolve_graph_blast_text_cap(std::env::var(GRAPH_BLAST_TEXT_ENV).ok().as_deref())
+    })
+}
+
+/// The blast layers as ONE signal under ONE ceiling.
+///
+/// Runs [`BlastRadiusSignalLayer`] (CILA ≥ 2), [`EnrichedBlastRadiusSignalLayer`]
+/// (≥ 3) and [`WeightedBlastSignalLayer`] (≥ 4), each of which says its piece in a line,
+/// and joins what they said with ` | `, the pipeline's own separator, under
+/// `TOURING_GRAPH_BLAST_MAX_CHARS` (default 400 characters). The radius line comes first
+/// and always stays; a later line joins only whole and only while it fits. The group
+/// scores as the radius line does. Silent when the radius layer is: an isolated or
+/// uncovered file has no radius to describe, and what its siblings could add depends on
+/// one.
+///
+/// Why a group: layers that each emit per-file signals cannot be bounded by one number,
+/// and the pipeline's budget truncates by signal, in score order, not by meaning.
+pub struct BlastGroupLayer {
+    members: Vec<Box<dyn SignalLayer>>,
+}
+
+impl BlastGroupLayer {
+    /// The three blast layers over `index`, radius line first.
+    pub fn new(index: Arc<SymbolIndex>) -> Self {
+        Self {
+            members: vec![
+                Box::new(BlastRadiusSignalLayer::new(Arc::clone(&index))),
+                Box::new(EnrichedBlastRadiusSignalLayer::new(Arc::clone(&index))),
+                Box::new(WeightedBlastSignalLayer::new(index)),
+            ],
+        }
+    }
+}
+
+/// Join `parts` (radius line first) into one signal of at most `max_chars` characters.
+fn compose_blast_parts(parts: Vec<(f32, String)>, max_chars: usize) -> Option<(f32, String)> {
+    let mut parts = parts.into_iter();
+    let (score, first) = parts.next()?;
+    let mut text = cut_to_chars(&first, max_chars);
+    for (_, part) in parts {
+        let joined = text.chars().count() + " | ".len() + part.chars().count();
+        if joined <= max_chars {
+            text.push_str(" | ");
+            text.push_str(&part);
+        }
+    }
+    Some((score, text))
+}
+
+impl SignalLayer for BlastGroupLayer {
+    fn name(&self) -> &'static str {
+        "blast_radius_group"
+    }
+
+    fn enrich(&self, ctx: &SignalContext<'_>) -> Vec<(f32, String)> {
+        let parts: Vec<(f32, String)> = self
+            .members
+            .iter()
+            .filter(|member| member.should_run(ctx.cila_level))
+            .flat_map(|member| member.enrich(ctx))
+            .collect();
+        compose_blast_parts(parts, graph_blast_text_cap())
+            .into_iter()
+            .collect()
+    }
+
+    fn should_run(&self, cila_level: usize) -> bool {
+        cila_level >= 2
     }
 }
 
@@ -532,11 +693,19 @@ pub struct HnswSignalLayer {
 impl HnswSignalLayer {
     /// Create a new layer. `k` is the HNSW neighbour count (typical: 5–20).
     pub fn new(index: Arc<SymbolIndex>, k: usize) -> Self {
-        Self {
-            index,
-            cache: Arc::new(std::sync::OnceLock::new()),
-            k,
-        }
+        Self::with_cache(index, k, Arc::new(std::sync::OnceLock::new()))
+    }
+
+    /// Create a layer over a cache the caller owns, so the HNSW index survives the layer.
+    ///
+    /// The cache must have been (or will be) built from `index` and nothing else: the
+    /// runtime hands both out together as one `IndexGeneration`.
+    pub fn with_cache(
+        index: Arc<SymbolIndex>,
+        k: usize,
+        cache: Arc<std::sync::OnceLock<HnswStrategy>>,
+    ) -> Self {
+        Self { index, cache, k }
     }
 }
 
@@ -1149,6 +1318,47 @@ mod tests {
         let _ = layer.enrich(&ctx);
     }
 
+    /// C8: the runtime keeps ONE HNSW cache per loaded generation of the index and hands it to
+    /// every read's pipeline; the pipeline is built and dropped per read, the cache is not.
+    #[test]
+    fn the_hnsw_layer_builds_into_the_cache_it_is_given_and_every_pipeline_reuses_it() {
+        use std::sync::{Arc, OnceLock, RwLock};
+        use touring_code::ast::SymbolIndex;
+        use touring_code::ast::graph::pheromone::PheromoneGraph;
+        let index = Arc::new(SymbolIndex::new());
+        let graph = Arc::new(RwLock::new(PheromoneGraph::new(0.1)));
+        let cache: Arc<OnceLock<HnswStrategy>> = Arc::new(OnceLock::new());
+        let pipeline_over = |cache: &Arc<OnceLock<HnswStrategy>>| {
+            build_graph_pipeline_with_cache(
+                Arc::clone(&index),
+                Arc::clone(&graph),
+                2000,
+                Arc::clone(cache),
+            )
+        };
+
+        // Below CILA 5 the layer does not run: nothing is built, the cache stays empty.
+        let _ = pipeline_over(&cache).execute(&SignalContext::new("x.rs", "").with_cila(4));
+        assert!(
+            cache.get().is_none(),
+            "control: CILA 4 must not build the HNSW graph"
+        );
+
+        // At CILA 5 the first read builds INTO the cache the caller owns.
+        let _ = pipeline_over(&cache).execute(&SignalContext::new("x.rs", "").with_cila(5));
+        let built = cache
+            .get()
+            .expect("the CILA 5 run must build into the supplied cache, not a private one")
+            as *const HnswStrategy;
+
+        // A later read, through a brand new pipeline over the same cache, finds it built.
+        let _ = pipeline_over(&cache).execute(&SignalContext::new("y.rs", "").with_cila(5));
+        assert!(
+            std::ptr::eq(built, cache.get().expect("still built")),
+            "the second pipeline reused the first read's HNSW graph"
+        );
+    }
+
     #[test]
     fn test_all_graph_layers_compose_in_pipeline() {
         use std::sync::{Arc, RwLock};
@@ -1170,5 +1380,270 @@ mod tests {
         let ctx = SignalContext::new("src/lib.rs", "fn main() {}").with_cila(6);
         // Empty index + empty graph → no signals produced; must not panic
         assert!(pipeline.execute(&ctx).is_none());
+    }
+
+    // ── C8: the blast layers say their piece in ONE line, under ONE ceiling ──
+
+    const HUB: &str = "crates/hub/src/hub.rs";
+
+    /// A hub: 12 direct importers, each imported by 160 more files — 1.932 files in the
+    /// radius besides the hub itself. The five heaviest by co-edit history are, in order,
+    /// d07 d03 d11 d00 d05.
+    fn hub_index() -> Arc<SymbolIndex> {
+        let mut idx = SymbolIndex::new();
+        let mut edges: Vec<(String, String)> = Vec::new();
+        let mut covered = vec![HUB.to_string()];
+        for d in 0..12 {
+            let direct = format!("crates/app/src/d{d:02}.rs");
+            edges.push((direct.clone(), HUB.to_string()));
+            covered.push(direct.clone());
+            for t in 0..160 {
+                let leaf = format!("crates/leaf/src/l{d:02}_{t:03}.rs");
+                edges.push((leaf.clone(), direct.clone()));
+                covered.push(leaf);
+            }
+        }
+        idx.load_file_edges(edges, covered);
+        idx.apply_co_edit_weights([7, 3, 11, 0, 5].iter().enumerate().map(|(rank, d)| {
+            (
+                format!("crates/app/src/d{d:02}.rs"),
+                HUB.to_string(),
+                100 - 10 * rank as i64,
+            )
+        }));
+        Arc::new(idx)
+    }
+
+    #[test]
+    fn test_hub_is_one_signal_per_layer_not_one_per_file() {
+        let index = hub_index();
+        let ctx = SignalContext::new(HUB, "").with_cila(4);
+        // Before: one signal PER affected file from each of the three layers (1.932, 1.932
+        // and 1.932 here; ~1.920 x 3 on the touring project's hubs).
+        assert_eq!(
+            BlastRadiusSignalLayer::new(Arc::clone(&index))
+                .enrich(&ctx)
+                .len(),
+            1,
+            "the radius is one line"
+        );
+        assert_eq!(
+            EnrichedBlastRadiusSignalLayer::new(Arc::clone(&index))
+                .enrich(&ctx)
+                .len(),
+            1,
+            "the impact split is one line"
+        );
+        assert_eq!(
+            WeightedBlastSignalLayer::new(Arc::clone(&index))
+                .enrich(&ctx)
+                .len(),
+            1,
+            "the nearest files are one line"
+        );
+    }
+
+    #[test]
+    fn test_enriched_layer_counts_the_categories() {
+        let index = hub_index();
+        let ctx = SignalContext::new(HUB, "").with_cila(4);
+        let (score, text) = EnrichedBlastRadiusSignalLayer::new(index)
+            .enrich(&ctx)
+            .pop()
+            .expect("a hub has impact");
+        assert!(
+            text.starts_with("impacto: 12 direct, 1920 transitive (severidade "),
+            "12 direct importers, 12 x 160 beyond them, empty categories left out: {text}"
+        );
+        assert!(score > 0.0 && score <= 1.0, "severity-scaled, got {score}");
+    }
+
+    #[test]
+    fn test_weighted_layer_names_the_nearest_in_cost_then_path_order() {
+        let index = hub_index();
+        let ctx = SignalContext::new(HUB, "").with_cila(4);
+        let (score, text) = WeightedBlastSignalLayer::new(index)
+            .enrich(&ctx)
+            .pop()
+            .expect("a hub reaches files");
+        assert!(
+            text.starts_with(
+                "custo de co-edição: src/d07.rs 0.01, src/d03.rs 0.01, src/d11.rs 0.01 "
+            ),
+            "the three heaviest edges cost least (1/(1+100), 1/(1+90), 1/(1+80)): {text}"
+        );
+        assert!(
+            text.ends_with("(de 1932 arquivos)"),
+            "every other file counted: {text}"
+        );
+        assert!(score > 0.9, "the nearest costs about 0.01, got {score}");
+    }
+
+    #[test]
+    fn test_blast_group_on_a_hub_is_one_bounded_line_with_the_right_count_and_heaviest_five() {
+        let index = hub_index();
+        let walked = index.blast_radius_with_depth(HUB, 4);
+        let group = BlastGroupLayer::new(Arc::clone(&index));
+        let ctx = SignalContext::new(HUB, "").with_cila(4);
+
+        let signals = group.enrich(&ctx);
+        assert_eq!(signals.len(), 1, "the group is one signal");
+        let (_, text) = signals.first().expect("one signal");
+
+        assert!(
+            text.chars().count() <= GRAPH_BLAST_TEXT_MAX_CHARS,
+            "{} chars over the {GRAPH_BLAST_TEXT_MAX_CHARS} ceiling: {text}",
+            text.chars().count()
+        );
+        assert!(
+            text.starts_with(&format!(
+                "blast: {} arquivos, até {} saltos; ",
+                walked.file_count, walked.max_distance
+            )),
+            "the count is the walk's: {text}"
+        );
+        assert!(
+            text.contains(
+                "diretos (12): src/d07.rs, src/d03.rs, src/d11.rs, src/d00.rs, src/d05.rs (+7 outros)"
+            ),
+            "the five heaviest in weight order, 12 - 5 = 7 counted: {text}"
+        );
+        assert!(
+            text.contains(&format!("touring ast blast {HUB}")),
+            "teaches the route to the full list: {text}"
+        );
+        assert!(
+            text.contains("impacto: 12 direct, 1920 transitive"),
+            "{text}"
+        );
+        assert!(text.contains("custo de co-edição: "), "{text}");
+        assert!(
+            !text.contains("crates/leaf") && !text.contains("hop"),
+            "no per-file lines: {text}"
+        );
+    }
+
+    #[test]
+    fn test_blast_group_adds_a_line_per_cila_level() {
+        let index = hub_index();
+        let group = BlastGroupLayer::new(index);
+        let text_at = |cila: usize| {
+            group
+                .enrich(&SignalContext::new(HUB, "").with_cila(cila))
+                .pop()
+                .map(|(_, text)| text)
+        };
+
+        assert!(!group.should_run(1), "off below CILA 2");
+        assert!(group.should_run(2));
+        let two = text_at(2).expect("CILA 2 gives the radius line");
+        let three = text_at(3).expect("CILA 3");
+        let four = text_at(4).expect("CILA 4");
+        assert!(
+            two.starts_with("blast: ") && !two.contains("impacto:"),
+            "{two}"
+        );
+        assert!(
+            three.contains("impacto:") && !three.contains("custo de co-edição"),
+            "{three}"
+        );
+        assert!(
+            four.contains("impacto:") && four.contains("custo de co-edição"),
+            "{four}"
+        );
+    }
+
+    #[test]
+    fn test_blast_group_is_silent_for_a_file_with_no_known_importer() {
+        let mut idx = SymbolIndex::new();
+        idx.load_file_edges(
+            std::iter::empty::<(String, String)>(),
+            ["src/orphan.rs".to_string()],
+        );
+        let group = BlastGroupLayer::new(Arc::new(idx));
+        for file in ["src/orphan.rs", "docs/never_read.md"] {
+            assert!(
+                group
+                    .enrich(&SignalContext::new(file, "").with_cila(5))
+                    .is_empty(),
+                "{file}: isolated and uncovered are blast_radius_signal's to say, not the group's"
+            );
+        }
+    }
+
+    #[test]
+    fn test_graph_pipeline_on_a_hub_stays_under_the_ceiling() {
+        // The measured defect: at CILA 4 a hub's graph text filled the 3.200-character
+        // budget (median 3.144 over 50 files) in path order. Through the real factory:
+        let index = hub_index();
+        let graph = Arc::new(std::sync::RwLock::new(PheromoneGraph::new(0.1)));
+        let pipeline = build_graph_pipeline(Arc::clone(&index), graph, 3200);
+        let out = pipeline
+            .execute(&SignalContext::new(HUB, "").with_cila(4))
+            .expect("a hub has a blast text");
+        assert!(
+            out.chars().count() <= GRAPH_BLAST_TEXT_MAX_CHARS,
+            "{} chars: {out}",
+            out.chars().count()
+        );
+        assert!(
+            out.starts_with("blast: 1933 arquivos, até 2 saltos; "),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn test_compose_blast_parts_keeps_the_first_whole_and_later_ones_only_whole() {
+        let first = (2.5_f32, "R".repeat(100));
+        let second = (0.4_f32, "S".repeat(60));
+        let third = (0.9_f32, "T".repeat(30));
+
+        // Room for all: joined by the pipeline's separator, scored as the first.
+        let (score, all) =
+            compose_blast_parts(vec![first.clone(), second.clone(), third.clone()], 400)
+                .expect("a first part");
+        assert!((score - 2.5).abs() < f32::EPSILON);
+        assert_eq!(all, format!("{} | {} | {}", first.1, second.1, third.1));
+
+        // 100 + 3 + 60 = 163 > 150: the second is dropped whole (not cut), the third fits.
+        let (_, partial) =
+            compose_blast_parts(vec![first.clone(), second.clone(), third.clone()], 150)
+                .expect("a first part");
+        assert_eq!(partial, format!("{} | {}", first.1, third.1));
+
+        // A first part over the ceiling is cut and says so; nothing is appended after it.
+        let (_, cut) = compose_blast_parts(vec![first.clone(), second], 90).expect("a first part");
+        assert_eq!(cut.chars().count(), 90);
+        assert!(cut.ends_with("..."), "{cut}");
+
+        assert!(compose_blast_parts(Vec::new(), 400).is_none());
+    }
+
+    #[test]
+    fn test_graph_blast_text_ceiling_knob_defaults_and_rejects_the_invalid() {
+        let default = GRAPH_BLAST_TEXT_MAX_CHARS;
+        assert_eq!(default, 400, "the documented default");
+        assert_eq!(resolve_graph_blast_text_cap(None), default);
+        assert_eq!(resolve_graph_blast_text_cap(Some("")), default);
+        assert_eq!(resolve_graph_blast_text_cap(Some("  ")), default);
+        assert_eq!(resolve_graph_blast_text_cap(Some("600")), 600);
+        assert_eq!(resolve_graph_blast_text_cap(Some(" 800 ")), 800);
+        assert_eq!(
+            resolve_graph_blast_text_cap(Some("120")),
+            120,
+            "the floor is accepted"
+        );
+        assert_eq!(
+            resolve_graph_blast_text_cap(Some("3200")),
+            3200,
+            "the limit is accepted"
+        );
+        for invalid in ["119", "3201", "0", "-5", "abc", "400.5", "4e2"] {
+            assert_eq!(
+                resolve_graph_blast_text_cap(Some(invalid)),
+                default,
+                "{invalid:?} is not a ceiling in range: the default holds (and the log warns)"
+            );
+        }
     }
 }

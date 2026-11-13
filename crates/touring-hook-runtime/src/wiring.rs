@@ -759,9 +759,12 @@ pub fn record_module_path_consumers(
         return 0;
     };
     let root = std::path::Path::new(root);
-    let declared = touring_code::ast::graph::rust_declared_module_names(content);
+    let modules =
+        touring_code::ast::graph::FileReferences::new(content, touring_code::ast::Lang::Rust)
+            .module_references();
+    let declared = modules.declared;
     let mut recorded = 0;
-    for path in touring_code::ast::graph::rust_module_paths(content) {
+    for path in modules.paths {
         let Some(module) = path.rsplit("::").next() else {
             continue;
         };
@@ -808,10 +811,19 @@ pub fn record_module_path_consumers(
 }
 
 /// B5: `import pacote.modulo as m` + `m.Nome`. The module path resolves the way
-/// an import's does, the symbol is credited to the module that DEFINES it (a
-/// façade only forwards), and the edge is an `ast_inferred` guess by name. Each
-/// `(module_path, symbol)` comes from `python_qualified_uses`. Returns the edges
-/// recorded.
+/// an import's does, and the symbol is credited to the module that DEFINES it (a
+/// façade only forwards). Each `(module_path, symbol)` comes from
+/// `python_qualified_uses`. Returns the edges recorded.
+///
+/// F16 (13/11/2026): the edge is IMPORT evidence, written as `ast_resolved` like any
+/// `from m import X`. The module comes from the file's own `import` statement and goes
+/// through the same resolver; the only inference is that `m.Nome` is the module's `Nome`,
+/// and the FILE depends on the module whatever the attribute names. Written as
+/// `ast_inferred` these rows stopped being file edges with F13 (analise: 2.426 of 3.094
+/// inferred-only `.py` pairs are of this form; the alias is rebound elsewhere in the file in
+/// 29 of them). Being non-inferred they are cleared by `clear_declared_consumer_entries`
+/// — before the import pass on the edit path, with the file's other rows per walk step in
+/// the rebuild — so a use that leaves the file takes its row with it.
 ///
 /// One pass for the rebuild and the hook path (C08). Until 18/09/2026 only the
 /// rebuild wrote these edges, and without the definer: the edit path cleared
@@ -835,16 +847,7 @@ pub fn record_python_qualified_uses(
         };
         let definer =
             crate::symbol_extractors::definer_module(&module_file, symbol, Some(abs_path));
-        if db
-            .record_consumer_with_origin(
-                &definer,
-                symbol,
-                rel_path,
-                None,
-                crate::knowledge_wiring::WiringOrigin::AstInferred,
-            )
-            .is_ok()
-        {
+        if db.record_consumer(&definer, symbol, rel_path, None).is_ok() {
             recorded += 1;
         }
     }
@@ -895,7 +898,11 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
             db,
             file_path,
             &abs.to_string_lossy(),
-            &touring_code::ast::graph::python_qualified_uses(content),
+            &touring_code::ast::graph::FileReferences::new(
+                content,
+                touring_code::ast::Lang::Python,
+            )
+            .python_qualified_uses(),
         );
     }
     record_direct_path_consumers(db, file_path, content);
@@ -919,20 +926,25 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
 
 /// The file's use of its own public symbols (`internal_only`), re-derived like
 /// every other consumer row it owns, through the rebuild's own rule
-/// ([`touring_code::ast::graph::self_referenced_names`]). Until 18/09/2026 only
+/// ([`touring_code::ast::graph::FileReferences::self_references`]). Until 18/09/2026 only
 /// the rebuild wrote these edges, so an edit cleared them with the other inferred
 /// rows and the file's internal symbols read as orphans until the next rebuild.
 fn record_self_references(db: &FileKnowledgeDB, file_path: &str, language: &str, content: &str) {
     if !(language == "rust" || (language == "python" && db.polyglot())) {
         return;
     }
+    let Ok(lang) = language.parse::<touring_code::ast::Lang>() else {
+        return;
+    };
     let Some(symbols) = crate::ast_bridge::extract_enriched_symbols(content, file_path) else {
         return;
     };
-    // The producer is the file itself: `self_referenced_names` only returns
+    // The producer is the file itself: `self_references` only returns
     // symbols this file declares, so it is the definer by construction.
     let declaring_file = file_path;
-    for name in touring_code::ast::graph::self_referenced_names(content, &symbols, language) {
+    for name in
+        touring_code::ast::graph::FileReferences::new(content, lang).self_references(&symbols)
+    {
         let _ = db.record_consumer_with_origin(
             declaring_file,
             &name,
@@ -956,9 +968,21 @@ pub fn refresh_file_wiring_from_disk(
     project_root: &std::path::Path,
     file_path: &str,
 ) -> bool {
+    refresh_file_wiring_keyed_from_disk(db, project_root, file_path).is_some()
+}
+
+/// [`refresh_file_wiring_from_disk`] that says WHICH key it refreshed: `Some(key)` — the
+/// one key the walker gives the file — when the wiring was rewritten, `None` when nothing
+/// was touched. A caller that keeps an in-memory copy of the edges needs the key to bring
+/// that copy in step (`HookRuntime::refresh_file_wiring_and_edges_from_disk`).
+pub fn refresh_file_wiring_keyed_from_disk(
+    db: &FileKnowledgeDB,
+    project_root: &std::path::Path,
+    file_path: &str,
+) -> Option<String> {
     let rel = crate::hook_runtime::make_relative(file_path, project_root);
     let Ok(key) = crate::shared::reindex::admission_key_for_root(project_root, &rel) else {
-        return false;
+        return None;
     };
     let abs = if std::path::Path::new(&rel).is_absolute() {
         std::path::PathBuf::from(&rel)
@@ -966,11 +990,11 @@ pub fn refresh_file_wiring_from_disk(
         project_root.join(&rel)
     };
     let Ok(content) = std::fs::read_to_string(abs) else {
-        return false;
+        return None;
     };
     let language = crate::shared::detect_language::detect_language_owned(&key);
     refresh_file_wiring(db, &key, &language, &content);
-    true
+    Some(key)
 }
 
 /// Update wiring map after a file is edited.
@@ -1050,7 +1074,9 @@ pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, c
     if matches!(lang, Some(touring_code::ast::Lang::Rust)) {
         // The scan reads every `crate::`/`super::` path, `use` lines included, so
         // the path a `pub use` forwards would read as a use of it (18/09/2026).
-        let forwarded = reexported_paths(consumer_file, content);
+        let forwarded =
+            touring_code::ast::graph::FileReferences::new(content, touring_code::ast::Lang::Rust)
+                .forwarded_paths();
         for path in extract_direct_path_expressions(content) {
             if !forwarded.contains(&path) {
                 record_consumer_from_path(db, &path, consumer_file);
@@ -1064,38 +1090,19 @@ pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, c
     // reached by a bare call or a type position read as orphans (measured on
     // `sandbox_executor.rs` → `limits.rs::apply_resource_caps_to`, 02/09).
     if let Some(lang) = lang {
-        let method_names = touring_code::ast::graph::extract_method_calls(content, lang);
-        let type_refs = touring_code::ast::graph::extract_type_and_const_refs(content, lang);
-        let qualified_calls = touring_code::ast::graph::extract_qualified_calls(content, lang);
+        let inferred = touring_code::ast::graph::FileReferences::new(content, lang).inferred();
         let _ = db.record_inferred_consumers(
             consumer_file,
-            &method_names,
-            &type_refs,
+            &inferred.method_names,
+            &inferred.type_refs,
             // D2 (2026-09-02) — ver `index.rs`: o par qualificado é exato.
-            &qualified_calls,
+            &inferred.qualified_calls,
         );
     }
     // FIX-4 (2026-04-13) recorded a `pub use <submod>::<symbol>` as the parent's
     // use of the symbol, on this path only. Removed 18/09/2026: a re-export is
     // not a use (Gabriel), and a caller reaching the symbol through the parent
     // is credited to the definer, which follows the chain.
-}
-
-/// Full paths (`crate::a::Foo`) a Rust file re-exports, from the one reading of
-/// re-exports ([`touring_code::ast::graph::rust_reexports`]).
-fn reexported_paths(consumer_file: &str, content: &str) -> HashSet<String> {
-    if !consumer_file.ends_with(".rs") {
-        return HashSet::new();
-    }
-    touring_code::ast::graph::rust_reexports(content)
-        .into_iter()
-        .flat_map(|imp| {
-            let module = imp.module_path;
-            imp.symbols
-                .into_iter()
-                .map(move |symbol| format!("{module}::{symbol}"))
-        })
-        .collect()
 }
 
 /// `consumer_file` as an absolute path under the project this database belongs to.

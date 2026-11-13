@@ -239,16 +239,24 @@ impl GraphService {
     /// Gracefully logs and continues if DB does not exist or has schema errors.
     fn load_symbols_from_db(db_path: &std::path::Path, index: &mut SymbolIndex) {
         match SymbolStore::new(db_path) {
-            Ok(store) => match store.load_into_index(index) {
-                Ok(n) => tracing::info!(
-                    path = %db_path.display(),
-                    symbols = n,
-                    "GraphService warm-start: loaded symbols from DB"
-                ),
+            // The index's one loader: symbols plus the wiring's resolved file edges, from the
+            // `knowledge.db` beside `symbols.db` (the canonical layout of a project's stores).
+            Ok(store) => match touring_code::ast::store::load_index_for(
+                &store,
+                &db_path.with_file_name("knowledge.db"),
+            ) {
+                Ok(loaded) => {
+                    tracing::info!(
+                        path = %db_path.display(),
+                        symbols = loaded.stats().total_locations,
+                        "GraphService warm-start: loaded symbols from DB"
+                    );
+                    *index = loaded;
+                }
                 Err(e) => tracing::warn!(
                     path = %db_path.display(),
                     error = %e,
-                    "GraphService warm-start: load_into_index failed (starting empty)"
+                    "GraphService warm-start: index load failed (starting empty)"
                 ),
             },
             Err(e) => tracing::debug!(
@@ -384,20 +392,8 @@ impl GraphService {
             .map(|edges| edges.iter().map(|e| e.to.clone()).collect())
             .unwrap_or_default();
 
-        // reverse_deps is keyed by MODULE NAME (e.g., "utils"), not file path (e.g., "utils.py")
-        // Extract module name from file path
-        let module_name = std::path::Path::new(file)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .and_then(|n| n.rsplit_once('.'))
-            .map(|(name, _)| name.to_string())
-            .unwrap_or_else(|| file.to_string());
-
-        let imported_by: Vec<String> = idx
-            .reverse_deps
-            .get(&module_name)
-            .cloned()
-            .unwrap_or_default();
+        // `reverse_deps` is keyed by MODULE key, not file path: `importers_of` does the lookup.
+        let imported_by: Vec<String> = idx.importers_of(file).to_vec();
 
         let blast_radius_count = imported_by.len();
         let confidence_modifier = Self::compute_confidence_modifier(blast_radius_count);
@@ -547,24 +543,12 @@ impl GraphService {
             .unwrap_or_default();
 
         // Build blast_radius ranked list (files that import `file`)
-        let module_name = std::path::Path::new(file)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .and_then(|n| n.rsplit_once('.'))
-            .map(|(name, _)| name.to_string())
-            .unwrap_or_else(|| file.to_string());
-
         let blast_radius: Vec<(String, f64)> = idx
-            .reverse_deps
-            .get(&module_name)
-            .map(|files| {
-                files
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| (f.clone(), 1.0 / (i as f64 + 1.0)))
-                    .collect()
-            })
-            .unwrap_or_default();
+            .importers_of(file)
+            .iter()
+            .enumerate()
+            .map(|(i, f)| (f.clone(), 1.0 / (i as f64 + 1.0)))
+            .collect();
 
         drop(idx);
 
@@ -599,18 +583,8 @@ impl GraphService {
             .get(file)
             .map(|e| e.iter().map(|d| d.to.clone()).collect())
             .unwrap_or_default();
-        // reverse_deps keyed by module name, not file path
-        let module_name = std::path::Path::new(file)
-            .file_name()
-            .and_then(|n| n.to_str())
-            .and_then(|n| n.rsplit_once('.'))
-            .map(|(name, _)| name.to_string())
-            .unwrap_or_else(|| file.to_string());
-        let imported_by: Vec<String> = idx
-            .reverse_deps
-            .get(&module_name)
-            .cloned()
-            .unwrap_or_default();
+        // `reverse_deps` is keyed by module key, not file path: `importers_of` does the lookup
+        let imported_by: Vec<String> = idx.importers_of(file).to_vec();
         drop(idx);
 
         // Sort BEFORE truncating for deterministic neighbor selection
@@ -737,14 +711,11 @@ impl GraphService {
     /// Top N files by incoming edge count (for `touring_decompose` hotspots).
     pub async fn hotspots(&self, limit: usize) -> Vec<(String, usize)> {
         let idx = self.index.lock().await;
-        let mut counts: Vec<(String, usize)> = idx
-            .reverse_deps
-            .iter()
-            .map(|(k, v)| (k.clone(), v.len()))
-            .collect();
-        counts.sort_by_key(|b| std::cmp::Reverse(b.1));
-        counts.truncate(limit);
-        counts
+        // FILES by importers: `reverse_deps` also holds MODULE keys (`utils`), which are not files.
+        idx.hotspots(limit)
+            .into_iter()
+            .map(|(file, count)| (file.to_string(), count))
+            .collect()
     }
 
     /// Handle a file system event — index, remove, or update the symbol index.
@@ -857,6 +828,41 @@ mod tests {
         assert_eq!(found[0].file_path, "src/main.rs");
         assert_eq!(found[0].line, 42);
         assert!(found[0].is_definition);
+    }
+
+    /// C8: the warm start reads the wiring's resolved file edges from the `knowledge.db` beside
+    /// `symbols.db`, so `importers_of` answers by FILE and `hotspots` names files, not modules.
+    #[test]
+    fn warm_start_loads_the_wiring_edges_beside_the_symbols_db() {
+        use touring_code::ast::graph::Importers;
+        const LIB: &str = "crates/a/src/lib.rs";
+        const MAIN: &str = "crates/a/src/main.rs";
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let db_path = tmp.path().join("symbols.db");
+        let store = SymbolStore::new(&db_path).expect("store");
+        store
+            .upsert_symbol(&SymbolLocation::new(LIB, "helper", 1, 0, true))
+            .expect("upsert");
+        drop(store);
+
+        // The wiring says: `main.rs` consumes `helper` from `lib.rs`.
+        let knowledge =
+            touring_storage::knowledge::FileKnowledgeDB::new(&tmp.path().join("knowledge.db"))
+                .expect("knowledge db");
+        knowledge
+            .register_pub_symbol(LIB, "helper", "fn", "public")
+            .expect("producer");
+        knowledge
+            .record_consumer(LIB, "helper", MAIN, Some(1))
+            .expect("consumer");
+        drop(knowledge);
+
+        let mut index = SymbolIndex::new();
+        GraphService::load_symbols_from_db(&db_path, &mut index);
+
+        let importers = [MAIN.to_string()];
+        assert_eq!(index.importers_status(LIB), Importers::Known(&importers));
+        assert_eq!(index.hotspots(3), [(LIB, 1)], "a hotspot is a FILE");
     }
 
     #[test]

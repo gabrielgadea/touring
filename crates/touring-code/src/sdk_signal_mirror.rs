@@ -1,79 +1,55 @@
-//! SDK signal mirror — append-only JSONL sink consumed by `SignalReport::load`.
+//! SDK signal mirror — the append-only JSONL sink of hook calls, behind ONE interface.
 //!
 //! ## Why a mirror
 //!
-//! The `touring run` journal (`~/.claude/touring/run_journal.jsonl`) records
-//! program execution envelope (lang, exit, duration, bytes). It does NOT
-//! record which hooks a program called — those calls live in the daemon's
-//! RPC traffic and never reach the journal file.
+//! The `touring run` journal (`~/.claude/touring/run_journal.jsonl`) records the
+//! program execution envelope (lang, exit, duration, bytes). It does NOT record
+//! which hooks a program called — those calls live in the daemon's RPC traffic
+//! and never reach the journal file. This module is the **bridge**: every
+//! observed hook call (a native `touring <hook>` command seen by PostToolUse, or
+//! an in-sandbox SDK query) gets one JSON line in `sdk_signal_mirror.jsonl`.
 //!
-//! This module is the **bridge**: every `touring run` execution that
-//! touched an SDK hook gets a JSON line appended to `sdk_signal_mirror.jsonl`.
-//! `signal_report_from_journal` then AUGMENTS its base report with these
-//! hook-level calls, so the `HookSignal::call_count` field finally reflects
-//! reality instead of zero.
+//! ## One interface, the format behind it
+//!
+//! [`Mirror::record`] writes a call; [`Mirror::read`] returns the aggregate
+//! ([`MirrorAggregate`]). Where the file lives, the line format (`ts`,
+//! `hook_name`, `duration_ms`, `success`, `origin`), which names count as
+//! canonical (`HookName::ALL`), the percentile math and the `ts` window are
+//! all decided here — no caller parses a mirror line or builds the path.
+//! Same shape as the sibling `touring_foundation::run_outcome::Journal`.
 //!
 //! ## Why append-only
 //!
-//! Two reasons:
-//! 1. Crash safety — a torn write loses a line, not the whole file. The
-//!    signal report rebuild is idempotent (re-deriving from the mirror is
-//!    cheaper than maintaining a mutable index).
-//! 2. The mirror is a journal, not a state. `signal_report_from_journal`
-//!    is the reader; nothing else mutates it.
+//! 1. Crash safety — a torn write loses a line, not the whole file; the reader
+//!    SKIPS a line it cannot read (not UTF-8, not JSON, no string `hook_name`) and
+//!    COUNTS it in `skipped_lines`, so one torn line never hides the rest and never
+//!    disappears silently.
+//! 2. The mirror is a journal, not a state; the aggregate is re-derived on read.
 //!
-//! ## Path
-//!
-//! `~/.claude/touring/sdk_signal_mirror.jsonl` — same dir as the run
-//! journal, same SEG-2 allowlist path.
+//! The in-sandbox Python SDK (`touring-server`'s `run.rs` template) appends the
+//! same line format itself; `MirrorOrigin::as_str` is the shared constant a test
+//! there pins.
 
+use std::collections::HashSet;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use serde::Serialize;
+use serde_json::Value;
 
-use crate::journal;
-use crate::sdk::{HookName, HookSignal, SignalReport};
+use crate::journal::percentiles;
+use crate::sdk::{HookName, parse_hook};
 
-/// Canonical mirror file path under the active user's `$HOME.
-pub fn default_mirror_path(home_dir: &Path) -> PathBuf {
-    home_dir
-        .join(".claude")
-        .join("touring")
-        .join("sdk_signal_mirror.jsonl")
-}
-
-/// One mirror entry — one hook call observed by PostToolUse.
-///
-/// Schema mirrors the Rust `SignalReport::hooks` key (canonical `as_str`),
-/// not the camelCase variant name. The two emitters (PostToolUse handler
-/// + signal report reader) MUST agree on this string.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HookCallEntry {
-    /// Unix timestamp (seconds) of the hook call.
-    pub ts: u64,
-    /// Canonical hook name (`ast_meta`, `parallel`, etc).
-    pub hook_name: String,
-    /// How long the hook took (ms).
-    pub duration_ms: u32,
-    /// `true` if the hook returned a result the caller could consume;
-    /// `false` if it errored / timed out / returned empty.
-    pub success: bool,
-    /// Who wrote the line (F9-origem, 2026-09-02): `post_bash` for the
-    /// PostToolUse/PostToolUseFailure feeder, `sdk` for in-sandbox
-    /// `--orchestrate` queries. `None` on lines written before the field
-    /// existed — readers treat it as unknown, never as a post-bash delivery.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub origin: Option<String>,
-}
+/// File name of the mirror under `~/.claude/touring/`.
+const MIRROR_FILE: &str = "sdk_signal_mirror.jsonl";
 
 /// The writer of a mirror line. `hooks_complement` divides only the
 /// `PostBash` deliveries by the post-bash dispatch count; before this tag the
-/// SDK's own queries inflated that ratio to 5.0.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+/// SDK's own queries inflated that ratio to 5.0. A line written before the tag
+/// existed has no origin — the aggregate counts it as unknown, never as a
+/// post-bash delivery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MirrorOrigin {
     /// The `post_bash` hook handler classifying a real `touring …` command.
     PostBash,
@@ -83,7 +59,7 @@ pub enum MirrorOrigin {
 
 impl MirrorOrigin {
     /// Canonical snake_case string — the exact value written to the mirror
-    /// and matched by the KPI reader (`post_bash` / `sdk`).
+    /// (`post_bash` / `sdk`).
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -91,196 +67,208 @@ impl MirrorOrigin {
             Self::Sdk => "sdk",
         }
     }
+
+    /// The inverse of [`Self::as_str`]; any other value (or none) is unknown.
+    fn from_wire(s: &str) -> Option<Self> {
+        match s {
+            "post_bash" => Some(Self::PostBash),
+            "sdk" => Some(Self::Sdk),
+            _ => None,
+        }
+    }
 }
 
-/// Aggregate over the mirror — sums calls + failures + durations by hook.
+/// What the mirror says, already aggregated. Plain data: [`Mirror::read`] is
+/// where the work happens.
 ///
-/// Mirrors `JournalAggregate::by_language` shape (HashMap by key) but
-/// computed over mirror entries, not journal entries.
-#[derive(Debug, Clone, Default)]
+/// A name outside `HookName::ALL` (a daemon alias like `cli-index-find`) counts
+/// in `total_calls` and `non_canonical_calls` but never in
+/// `canonical_hooks_used` — alias drift stays visible and never inflates the
+/// signal-use ratio (measured 01/09/2026: ratio 1.0 with 3 canonical hooks).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MirrorAggregate {
-    /// Total hook calls recorded across the entire mirror.
+    /// Every readable call in the window, canonical or not.
     pub total_calls: u64,
-    /// Total calls that returned a non-success status.
-    pub total_failures: u64,
-    /// Per-hook breakdown (key = canonical `HookName::as_str`).
-    pub by_hook: std::collections::HashMap<String, HookCallCounts>,
-}
-
-/// Per-hook aggregate carried by `MirrorAggregate::by_hook`.
-#[derive(Debug, Clone, Default)]
-pub struct HookCallCounts {
-    /// Total invocations of this hook.
-    pub call_count: u64,
-    /// Invocations that returned non-success.
-    pub failure_count: u64,
-    /// Per-call durations for percentile math (sorted lazily).
-    pub durations: Vec<u32>,
+    /// Distinct canonical hooks (`HookName::ALL`) seen at least once.
+    pub canonical_hooks_used: usize,
+    /// Calls whose name is outside the canonical set.
+    pub non_canonical_calls: u64,
+    /// Canonical calls written by the `post_bash` feeder.
+    pub post_bash_calls: u64,
+    /// Canonical calls written by the in-sandbox SDK.
+    pub sdk_calls: u64,
+    /// Canonical calls with no (or an unrecognised) origin — legacy lines.
+    pub unknown_origin_calls: u64,
+    /// Median duration over every call that carries one (ms).
+    pub duration_ms_p50: u64,
+    /// 99th-percentile duration over every call that carries one (ms).
+    pub duration_ms_p99: u64,
+    /// Non-blank lines that could not be read as a call — not UTF-8, not JSON, or no string
+    /// `hook_name` (a torn append, a foreign writer). They are in no other count, whatever
+    /// the window, so a damaged mirror shows itself instead of reading as a quiet one.
+    pub skipped_lines: u64,
 }
 
 impl MirrorAggregate {
-    /// Median duration across all hook calls in the mirror (ms).
-    pub fn duration_p50(&self) -> u64 {
-        let mut all: Vec<u32> = self
-            .by_hook
-            .values()
-            .flat_map(|c| c.durations.iter().copied())
-            .collect();
-        percentiles(&mut all).0
-    }
-    /// 99th-percentile duration across all hook calls in the mirror (ms).
-    pub fn duration_p99(&self) -> u64 {
-        let mut all: Vec<u32> = self
-            .by_hook
-            .values()
-            .flat_map(|c| c.durations.iter().copied())
-            .collect();
-        percentiles(&mut all).1
+    /// Calls whose name is one of `HookName::ALL` — `post_bash_calls +
+    /// sdk_calls + unknown_origin_calls`, the deliveries the KPIs credit.
+    #[must_use]
+    pub fn canonical_calls(&self) -> u64 {
+        self.total_calls.saturating_sub(self.non_canonical_calls)
     }
 }
 
-/// Errors that can surface from `record` / `read` / `augment_with_mirror`.
-#[derive(Debug, Error)]
-pub enum MirrorError {
-    /// Underlying I/O error (open, append, mkdir).
-    #[error("io error writing mirror: {0}")]
-    Io(#[from] std::io::Error),
-    /// A line in the mirror failed JSON parsing; `line` is its 0-indexed position.
-    #[error("malformed mirror entry at line {line}: {source}")]
-    Malformed {
-        /// Zero-indexed line number of the malformed JSON entry.
-        line: usize,
-        /// The serde JSON parse error itself (chained via `#[source]`).
-        #[source]
-        source: serde_json::Error,
-    },
-    /// A hook name string did not match any canonical `HookName` variant.
-    #[error("unknown hook name: {0}")]
-    UnknownHook(String),
+/// A handle on the signal mirror file.
+#[derive(Debug, Clone)]
+pub struct Mirror {
+    path: PathBuf,
 }
 
-/// Append one hook-call entry to the mirror. Called by PostToolUse handler.
-///
-/// Returns the path that was appended. The parent dir is created lazily
-/// (`~/.claude/touring/` exists by convention; we mkdir if absent).
-pub fn record(
-    path: &Path,
-    hook: HookName,
+impl Mirror {
+    /// A mirror at an explicit path (tests, a copy of the mirror).
+    #[must_use]
+    pub fn at(path: impl Into<PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+
+    /// The canonical mirror under `$HOME`; `None` when `HOME` is unset.
+    #[must_use]
+    pub fn from_env() -> Option<Self> {
+        std::env::var_os("HOME").map(|home| Self::at(default_path(Path::new(&home))))
+    }
+
+    /// The mirror's path (the sandbox gets it as `TOURING_SDK_SIGNAL_MIRROR`).
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Append one hook-call line. The parent dir is created lazily.
+    ///
+    /// # Errors
+    /// The directory cannot be created or the file cannot be opened/written.
+    /// Callers treat it as observability, never as correctness.
+    pub fn record(
+        &self,
+        hook: HookName,
+        duration_ms: u32,
+        success: bool,
+        origin: MirrorOrigin,
+    ) -> io::Result<()> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut line = serde_json::to_string(&Line {
+            ts: now_unix(),
+            hook_name: hook.as_str(),
+            duration_ms,
+            success,
+            origin: origin.as_str(),
+        })
+        .map_err(io::Error::other)?;
+        line.push('\n');
+        // ONE write: `writeln!` on a `File` issues the text and the newline as two
+        // syscalls, and a concurrent writer (the sandbox's Python SDK appends to the
+        // same file) can land between them.
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?
+            .write_all(line.as_bytes())
+    }
+
+    /// Read the mirror and aggregate the calls with `ts >= since_epoch`
+    /// (`0` reads everything). `Ok(None)` means there is no mirror file yet —
+    /// information, not an empty aggregate. The file is read as BYTES, one line at a
+    /// time: a line that is not UTF-8, not JSON, or has no string `hook_name` is skipped
+    /// and counted in `skipped_lines`, so a torn line never aborts the read.
+    ///
+    /// # Errors
+    /// The file exists but cannot be read (permissions, a directory in its place).
+    pub fn read(&self, since_epoch: u64) -> io::Result<Option<MirrorAggregate>> {
+        match fs::read(&self.path) {
+            Ok(bytes) => Ok(Some(aggregate(&bytes, since_epoch))),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+/// The line `record` writes. Field order is the format.
+#[derive(Serialize)]
+struct Line<'a> {
+    ts: u64,
+    hook_name: &'a str,
     duration_ms: u32,
     success: bool,
-    origin: MirrorOrigin,
-) -> Result<PathBuf, MirrorError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let entry = HookCallEntry {
-        ts: now_unix(),
-        hook_name: hook.as_str().to_string(),
-        duration_ms,
-        success,
-        origin: Some(origin.as_str().to_string()),
-    };
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    let line =
-        serde_json::to_string(&entry).map_err(|e| MirrorError::Malformed { line: 0, source: e })?;
-    writeln!(file, "{}", line)?;
-    Ok(path.to_path_buf())
+    origin: &'a str,
 }
 
-/// Read the entire mirror and return the aggregate.
-pub fn read(path: &Path) -> Result<MirrorAggregate, MirrorError> {
-    if !path.exists() {
-        return Ok(MirrorAggregate::default());
+/// One readable call. Tolerant on purpose: only `hook_name` is required, the
+/// rest degrade (a missing `ts` is `0`, a missing duration is no sample).
+struct Call {
+    ts: u64,
+    hook_name: String,
+    duration_ms: Option<u32>,
+    origin: Option<MirrorOrigin>,
+}
+
+impl Call {
+    fn parse(line: &str) -> Option<Self> {
+        let v: Value = serde_json::from_str(line).ok()?;
+        Some(Self {
+            hook_name: v.get("hook_name")?.as_str()?.to_owned(),
+            ts: v.get("ts").and_then(Value::as_u64).unwrap_or(0),
+            duration_ms: v
+                .get("duration_ms")
+                .and_then(Value::as_u64)
+                .and_then(|d| u32::try_from(d).ok()),
+            origin: v
+                .get("origin")
+                .and_then(Value::as_str)
+                .and_then(MirrorOrigin::from_wire),
+        })
     }
-    let content = fs::read_to_string(path)?;
+}
+
+fn aggregate(bytes: &[u8], since_epoch: u64) -> MirrorAggregate {
     let mut agg = MirrorAggregate::default();
-    for (line_no, raw) in content.lines().enumerate() {
-        let trimmed = raw.trim();
-        if trimmed.is_empty() {
+    let mut seen: HashSet<HookName> = HashSet::new();
+    let mut durations: Vec<u32> = Vec::new();
+    for raw in bytes.split(|b| *b == b'\n') {
+        let raw = raw.strip_suffix(b"\r").unwrap_or(raw);
+        if raw.trim_ascii().is_empty() {
             continue;
         }
-        let entry: HookCallEntry =
-            serde_json::from_str(trimmed).map_err(|e| MirrorError::Malformed {
-                line: line_no,
-                source: e,
-            })?;
-        let counts = agg.by_hook.entry(entry.hook_name).or_default();
-        counts.call_count += 1;
-        if !entry.success {
-            counts.failure_count += 1;
+        let Some(call) = std::str::from_utf8(raw).ok().and_then(Call::parse) else {
+            agg.skipped_lines += 1;
+            continue;
+        };
+        if call.ts < since_epoch {
+            continue;
         }
-        counts.durations.push(entry.duration_ms);
         agg.total_calls += 1;
-        if !entry.success {
-            agg.total_failures += 1;
+        durations.extend(call.duration_ms);
+        match parse_hook(&call.hook_name) {
+            Ok(hook) => {
+                seen.insert(hook);
+                match call.origin {
+                    Some(MirrorOrigin::PostBash) => agg.post_bash_calls += 1,
+                    Some(MirrorOrigin::Sdk) => agg.sdk_calls += 1,
+                    None => agg.unknown_origin_calls += 1,
+                }
+            }
+            Err(_) => agg.non_canonical_calls += 1,
         }
     }
-    Ok(agg)
+    agg.canonical_hooks_used = seen.len();
+    (agg.duration_ms_p50, agg.duration_ms_p99) = percentiles(&mut durations);
+    agg
 }
 
-/// Augment a `SignalReport` with mirror data. The base report's hook stats
-/// are zeroed (today); this function fills them in from the mirror so the
-/// downstream consumer sees real counts.
-///
-/// Existing entries with `call_count > 0` are left alone — the base report
-/// may have hardcoded stats we don't want to clobber.
-pub fn augment_with_mirror(report: &mut SignalReport, agg: &MirrorAggregate) {
-    for (hook_name, counts) in &agg.by_hook {
-        let entry = report.hooks.entry(hook_name.clone()).or_default();
-        if entry.call_count == 0 {
-            entry.call_count = counts.call_count;
-            entry.failure_count = counts.failure_count;
-            let (p50, p99) = percentiles(&mut counts.durations.clone());
-            entry.duration_ms_p50 = p50;
-            entry.duration_ms_p99 = p99;
-        }
-    }
-}
-
-/// Convenience: build a fresh `SignalReport` from BOTH the journal and the
-/// mirror. Equivalent to `signal_report_from_journal` + `augment_with_mirror`.
-pub fn signal_report_from_journal_and_mirror(
-    journal_path: &Path,
-    mirror_path: &Path,
-) -> Result<SignalReport, Box<dyn std::error::Error>> {
-    let mut report =
-        journal::read_journal(journal_path).map_err(|e| anyhow::anyhow!("journal: {e}"))?;
-    // Bridge: we only need the aggregate bits — build a SignalReport
-    // shape on the fly and call augment.
-    let mut partial = SignalReport {
-        generated_at_unix: now_unix(),
-        source_journal_path: journal_path.display().to_string(),
-        total_runs: report.total_entries,
-        hooks: std::collections::BTreeMap::new(),
-        by_language: std::collections::BTreeMap::new(),
-        failure_taxonomy: std::collections::BTreeMap::new(),
-    };
-    for (lang, stats) in &report.by_language {
-        partial.by_language.insert(
-            lang.clone(),
-            crate::sdk::JournalLanguageStats {
-                count: stats.count,
-                failure_count: stats.failure_count,
-            },
-        );
-    }
-    for (kind, count) in &report.failure_counts {
-        partial.failure_taxonomy.insert(kind.clone(), *count);
-    }
-    for hook in HookName::ALL {
-        partial
-            .hooks
-            .insert(hook.as_str().to_string(), HookSignal::default());
-    }
-
-    let agg = read(mirror_path)?;
-    augment_with_mirror(&mut partial, &agg);
-
-    // The journal summary gets discarded — only the augmented SignalReport
-    // shape survives. Caller gets back `report` so they can compare
-    // journal-only stats separately if needed.
-    report.total_entries = partial.total_runs;
-    Ok(partial)
+/// `~/.claude/touring/sdk_signal_mirror.jsonl` — the run journal's directory.
+fn default_path(home: &Path) -> PathBuf {
+    home.join(".claude").join("touring").join(MIRROR_FILE)
 }
 
 fn now_unix() -> u64 {
@@ -290,157 +278,250 @@ fn now_unix() -> u64 {
         .unwrap_or(0)
 }
 
-fn percentiles(values: &mut [u32]) -> (u64, u64) {
-    if values.is_empty() {
-        return (0, 0);
-    }
-    values.sort_unstable();
-    let n = values.len() as f64;
-    let p = |q: f64| -> u64 {
-        let idx = (q * (n - 1.0)).round() as usize;
-        values[idx.min(values.len() - 1)] as u64
-    };
-    (p(0.50), p(0.99))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn tmp_mirror(name: &str) -> PathBuf {
+    fn tmp_mirror(name: &str) -> Mirror {
         let mut p = std::env::temp_dir();
         p.push(format!(
             "sdk-mirror-{}-{}-{name}.jsonl",
             std::process::id(),
             now_unix()
         ));
-        p
+        Mirror::at(p)
+    }
+
+    fn cleanup(m: &Mirror) {
+        std::fs::remove_file(m.path()).ok();
     }
 
     #[test]
-    fn empty_mirror_returns_default() {
-        let p = tmp_mirror("none");
-        std::fs::write(&p, "").unwrap_or(());
-        let r = read(&p).expect("read empty mirror");
-        assert_eq!(r.total_calls, 0);
-        assert_eq!(r.by_hook.len(), 0);
-        std::fs::remove_file(&p).ok();
+    fn empty_mirror_is_present_with_zero_calls() {
+        let m = tmp_mirror("empty");
+        std::fs::write(m.path(), "").expect("write empty mirror");
+        let agg = m.read(0).expect("read empty mirror").expect("file exists");
+        assert_eq!(agg, MirrorAggregate::default());
+        cleanup(&m);
+    }
+
+    #[test]
+    fn no_file_is_none_not_an_empty_aggregate() {
+        let m = Mirror::at("/nonexistent/mirror.jsonl");
+        assert_eq!(m.read(0).expect("a missing mirror is not an error"), None);
     }
 
     #[test]
     fn record_appends_valid_jsonl() {
-        let p = tmp_mirror("append");
+        let m = tmp_mirror("append");
         for _ in 0..3 {
-            record(&p, HookName::AstMeta, 12, true, MirrorOrigin::Sdk).expect("record ast_meta");
+            m.record(HookName::AstMeta, 12, true, MirrorOrigin::Sdk)
+                .expect("record ast_meta");
         }
-        record(&p, HookName::Parallel, 5, false, MirrorOrigin::Sdk).expect("record parallel fail");
-        let r = read(&p).expect("read after appends");
-        assert_eq!(r.total_calls, 4);
-        assert_eq!(r.total_failures, 1);
-        assert_eq!(r.by_hook["ast_meta"].call_count, 3);
-        assert_eq!(r.by_hook["ast_meta"].failure_count, 0);
-        assert_eq!(r.by_hook["parallel"].call_count, 1);
-        assert_eq!(r.by_hook["parallel"].failure_count, 1);
-        std::fs::remove_file(&p).ok();
+        m.record(HookName::Parallel, 5, false, MirrorOrigin::Sdk)
+            .expect("record parallel fail");
+        let agg = m.read(0).expect("read").expect("file exists");
+        assert_eq!(agg.total_calls, 4);
+        assert_eq!(agg.canonical_hooks_used, 2, "ast_meta + parallel");
+        assert_eq!(agg.sdk_calls, 4);
+        assert_eq!(agg.non_canonical_calls, 0);
+        assert_eq!(agg.canonical_calls(), 4);
+        cleanup(&m);
     }
 
-    // ── F9-origem (2026-09-02) ───────────────────────────────────────────
-    // The `hooks_complement` ratio divided EVERY mirror delivery by the
-    // post-bash dispatch count; the SDK's in-sandbox queries inflated it to
-    // 5.0. Each line now says who wrote it.
-
+    /// The line format is the contract with every other writer (the Python SDK in the
+    /// sandbox) and every reader of the real mirror: field names AND order.
     #[test]
-    fn record_writes_the_origin_of_the_delivery() {
-        let p = tmp_mirror("origin");
-        record(&p, HookName::IndexFind, 3, true, MirrorOrigin::PostBash).expect("record");
-        let raw = std::fs::read_to_string(&p).expect("mirror text");
-        assert!(raw.contains(r#""origin":"post_bash""#), "line: {raw}");
-        let entry: HookCallEntry = serde_json::from_str(raw.trim()).expect("entry parses");
-        assert_eq!(entry.origin.as_deref(), Some("post_bash"));
+    fn record_writes_the_documented_line() {
+        let m = tmp_mirror("format");
+        m.record(HookName::IndexFind, 3, false, MirrorOrigin::PostBash)
+            .expect("record");
+        let raw = std::fs::read_to_string(m.path()).expect("mirror text");
+        assert!(raw.ends_with('\n'), "one line, newline-terminated: {raw:?}");
+        let v: Value = serde_json::from_str(raw.trim()).expect("one JSON line");
+        let mut keys: Vec<&str> = v
+            .as_object()
+            .expect("object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            ["duration_ms", "hook_name", "origin", "success", "ts"]
+        );
+        assert!(raw.starts_with(r#"{"ts":"#), "line: {raw}");
+        assert!(
+            raw.trim_end().ends_with(
+                r#","hook_name":"index_find","duration_ms":3,"success":false,"origin":"post_bash"}"#
+            ),
+            "line: {raw}"
+        );
         assert_eq!(MirrorOrigin::Sdk.as_str(), "sdk");
-        std::fs::remove_file(&p).ok();
+        assert_eq!(
+            MirrorOrigin::from_wire("post_bash"),
+            Some(MirrorOrigin::PostBash)
+        );
+        cleanup(&m);
     }
 
+    /// The real mirror carries lines written before `origin` existed.
     #[test]
-    fn legacy_line_without_origin_still_parses_and_counts() {
-        let p = tmp_mirror("legacy");
+    fn legacy_line_without_origin_counts_as_unknown() {
+        let m = tmp_mirror("legacy");
         std::fs::write(
-            &p,
+            m.path(),
             "{\"ts\":1788300000,\"hook_name\":\"ast_meta\",\"duration_ms\":1,\"success\":true}\n",
         )
         .expect("write legacy line");
-        let entry: HookCallEntry =
-            serde_json::from_str(std::fs::read_to_string(&p).expect("text").trim())
-                .expect("legacy entry parses");
+        let agg = m.read(0).expect("read").expect("file exists");
+        assert_eq!(agg.total_calls, 1);
         assert_eq!(
-            entry.origin, None,
+            agg.unknown_origin_calls, 1,
             "absent origin is unknown, never invented"
         );
-        let r = read(&p).expect("read legacy mirror");
-        assert_eq!(r.total_calls, 1);
-        std::fs::remove_file(&p).ok();
+        assert_eq!(agg.post_bash_calls, 0);
+        cleanup(&m);
     }
 
+    /// Measured 01/09/2026: alias names (`cli-index-find`) lifted the ratio to 1.0 with
+    /// only 3 canonical hooks. They stay visible, apart.
     #[test]
-    fn augment_zeroed_hooks_get_mirror_counts() {
-        let mut report = SignalReport::default();
-        for h in HookName::ALL {
-            report
-                .hooks
-                .insert(h.as_str().to_string(), HookSignal::default());
-        }
-        let mut agg = MirrorAggregate::default();
-        let counts = agg.by_hook.entry("ast_meta".to_string()).or_default();
-        counts.call_count = 7;
-        counts.failure_count = 1;
-        counts.durations.push(10);
-        counts.durations.push(20);
-        counts.durations.push(30);
-
-        augment_with_mirror(&mut report, &agg);
-
-        let entry = &report.hooks["ast_meta"];
-        assert_eq!(entry.call_count, 7);
-        assert_eq!(entry.failure_count, 1);
-        assert_eq!(entry.duration_ms_p50, 20); // sorted [10,20,30] → idx 1
-        assert_eq!(entry.duration_ms_p99, 30);
-    }
-
-    #[test]
-    fn augment_does_not_clobber_existing() {
-        // If a hook already has call_count > 0 (e.g. hardcoded stat), the
-        // mirror MUST NOT overwrite it. The base report is the authority
-        // for hardcoded stats; the mirror fills in the gaps.
-        let mut report = SignalReport::default();
-        let mut entry = HookSignal::default();
-        entry.call_count = 999;
-        report.hooks.insert("ast_meta".to_string(), entry);
-
-        let mut agg = MirrorAggregate::default();
-        agg.by_hook
-            .entry("ast_meta".to_string())
-            .or_default()
-            .call_count = 7;
-
-        augment_with_mirror(&mut report, &agg);
-
-        assert_eq!(report.hooks["ast_meta"].call_count, 999);
-    }
-
-    #[test]
-    fn default_mirror_path_is_canonical() {
-        let home = std::path::Path::new("/home/test");
-        let p = default_mirror_path(home);
+    fn alias_names_count_apart_and_never_as_used() {
+        let m = tmp_mirror("alias");
+        std::fs::write(
+            m.path(),
+            concat!(
+                "{\"ts\":1,\"hook_name\":\"ast_meta\",\"duration_ms\":2,\"success\":true}\n",
+                "{\"ts\":2,\"hook_name\":\"cli-index-find\",\"duration_ms\":0,\"success\":true}\n",
+                "{\"ts\":3,\"hook_name\":\"cli-gate-metrics\",\"duration_ms\":0,\"success\":true}\n",
+                "{\"ts\":4,\"hook_name\":\"index_find\",\"duration_ms\":1,\"success\":true}\n",
+                "{\"ts\":5,\"hook_name\":\"index_find\",\"duration_ms\":1,\"success\":true}\n",
+            ),
+        )
+        .expect("write");
+        let agg = m.read(0).expect("read").expect("file exists");
         assert_eq!(
-            p.to_str().expect("utf8"),
+            agg.canonical_hooks_used, 2,
+            "ast_meta + index_find; cli-* never count"
+        );
+        assert_eq!(agg.total_calls, 5, "every readable line is a call");
+        assert_eq!(agg.non_canonical_calls, 2);
+        assert_eq!(agg.canonical_calls(), 3);
+        cleanup(&m);
+    }
+
+    #[test]
+    fn the_window_drops_older_lines_from_every_count() {
+        let m = tmp_mirror("window");
+        std::fs::write(
+            m.path(),
+            concat!(
+                "{\"ts\":100,\"hook_name\":\"index_find\",\"duration_ms\":9,\"success\":true,\"origin\":\"sdk\"}\n",
+                "{\"ts\":200,\"hook_name\":\"ast_meta\",\"duration_ms\":1,\"success\":true,\"origin\":\"post_bash\"}\n",
+                "{\"ts\":300,\"hook_name\":\"cli-index-find\",\"duration_ms\":2,\"success\":true}\n",
+            ),
+        )
+        .expect("write");
+        let all = m.read(0).expect("read").expect("file exists");
+        assert_eq!((all.total_calls, all.sdk_calls), (3, 1));
+        let since = m.read(200).expect("read").expect("file exists");
+        assert_eq!(since.total_calls, 2);
+        assert_eq!(
+            since.sdk_calls, 0,
+            "the ts=100 delivery is outside the window"
+        );
+        assert_eq!(since.post_bash_calls, 1);
+        assert_eq!(since.non_canonical_calls, 1);
+        assert_eq!(since.canonical_hooks_used, 1);
+        cleanup(&m);
+    }
+
+    /// RED→GREEN (C5): the old `read` aborted on the first malformed line, so ONE torn
+    /// line (a crash mid-append) made the KPI drop the percentiles while the counts —
+    /// read by a tolerant second parser — kept going. One reader, one semantic: skip.
+    #[test]
+    fn a_torn_line_does_not_hide_the_durations() {
+        let m = tmp_mirror("torn");
+        std::fs::write(
+            m.path(),
+            concat!(
+                "{\"ts\":1,\"hook_name\":\"index_find\",\"duration_ms\":8,\"success\":true}\n",
+                "{\"ts\":2,\"hook_name\":\"ast_me\n",
+                "not json at all\n",
+                "{\"ts\":3,\"foo\":1}\n",
+                "{\"ts\":4,\"hook_name\":\"memory_recall\",\"duration_ms\":40,\"success\":true}\n",
+            ),
+        )
+        .expect("write");
+        let agg = m
+            .read(0)
+            .expect("a torn line is not an error")
+            .expect("file exists");
+        assert_eq!(agg.total_calls, 2, "only the two readable lines are calls");
+        assert_eq!(agg.canonical_hooks_used, 2);
+        assert_eq!(
+            (agg.duration_ms_p50, agg.duration_ms_p99),
+            (40, 40),
+            "p50/p99 over [8, 40]"
+        );
+        assert_eq!(
+            agg.skipped_lines, 3,
+            "the torn line, the text and the JSON with no hook_name are counted, not lost"
+        );
+        let late = m.read(4).expect("read").expect("file exists");
+        assert_eq!(
+            late.skipped_lines, 3,
+            "a line that cannot be read has no date: no window excludes it"
+        );
+        cleanup(&m);
+    }
+
+    /// RED→GREEN (review 12/11/2026, C2): the promise is "a bad line never aborts the read", and
+    /// `read_to_string` broke it for a line that is not UTF-8.
+    #[test]
+    fn a_line_that_is_not_utf8_does_not_abort_the_read() {
+        let m = tmp_mirror("utf8");
+        let mut body =
+            br#"{"ts":1,"hook_name":"index_find","duration_ms":8,"success":true}"#.to_vec();
+        body.extend_from_slice(b"\n{\"ts\":2,\"hook_name\":\"ast_\xff\xfe\"}\n");
+        body.extend_from_slice(
+            br#"{"ts":4,"hook_name":"memory_recall","duration_ms":40,"success":true}"#,
+        );
+        body.push(b'\n');
+        std::fs::write(m.path(), body).expect("write");
+        let agg = m
+            .read(0)
+            .expect("a line that is not UTF-8 is not an error")
+            .expect("file exists");
+        assert_eq!(agg.total_calls, 2);
+        assert_eq!((agg.duration_ms_p50, agg.duration_ms_p99), (40, 40));
+        assert_eq!(
+            agg.skipped_lines, 1,
+            "the line that is not UTF-8 is counted"
+        );
+        cleanup(&m);
+    }
+
+    #[test]
+    fn percentiles_follow_the_sorted_nearest_rank() {
+        let m = tmp_mirror("pct");
+        for ms in [30u32, 10, 20] {
+            m.record(HookName::IndexFind, ms, true, MirrorOrigin::Sdk)
+                .expect("record");
+        }
+        let agg = m.read(0).expect("read").expect("file exists");
+        assert_eq!((agg.duration_ms_p50, agg.duration_ms_p99), (20, 30));
+        cleanup(&m);
+    }
+
+    #[test]
+    fn default_path_is_canonical() {
+        assert_eq!(
+            default_path(Path::new("/home/test"))
+                .to_str()
+                .expect("utf8"),
             "/home/test/.claude/touring/sdk_signal_mirror.jsonl"
         );
-    }
-
-    #[test]
-    fn read_missing_returns_default_not_error() {
-        let r = read(std::path::Path::new("/nonexistent/mirror.jsonl"))
-            .expect("read missing mirror is empty aggregate");
-        assert_eq!(r.total_calls, 0);
     }
 }

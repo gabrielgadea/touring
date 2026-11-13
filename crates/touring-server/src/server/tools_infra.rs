@@ -1502,22 +1502,20 @@ impl TouringServer {
 
         let db_path = &self.config.symbols_db_path;
 
-        // 1. Blast radius via SymbolStore::get_reverse_deps
-        let affected_files: Vec<String> = if let Some(ref store) = self.symbol_store {
-            let st = store.lock().await;
-            let mut affected = Vec::new();
-            for f in &changed_files {
-                if let Ok(deps) = st.get_reverse_deps(f) {
-                    for dep in deps {
-                        if !affected.contains(&dep) && !changed_files.contains(&dep) {
-                            affected.push(dep);
-                        }
-                    }
-                }
-            }
-            affected
-        } else {
-            vec![]
+        // 1. Blast radius: the direct importers of each changed file, from the in-memory
+        //    dependency index (`SymbolIndex::importers_of`, resolved wiring edges first). It used
+        //    to be `SymbolStore::get_reverse_deps`, a SQL match on the file STEM: `a/utils.py` and
+        //    `b/utils.py` shared every importer, which inflated `affected_files` and the
+        //    `blast_penalty` derived from it.
+        //    The same lock also says how much of the change the index covers (`coverage` in the
+        //    payload): an empty `affected_files` for a file the wiring never looked at is "not
+        //    looked at", not "isolated" — the number itself is left as it was.
+        let (affected_files, coverage): (Vec<String>, serde_json::Value) = {
+            let idx = self.graph_svc.index().lock().await;
+            (
+                crate::tools::risk_scoring::direct_importers_of(&idx, &changed_files),
+                crate::tools::risk_scoring::importer_coverage(&idx, &changed_files),
+            )
         };
 
         // 2. Wiring score via direct SQLite
@@ -1627,6 +1625,7 @@ impl TouringServer {
         // Include the base ref used for diff context in the report
         if let Some(obj) = output.as_object_mut() {
             obj.insert("base_ref".to_string(), serde_json::json!(base_ref));
+            obj.insert("coverage".to_string(), coverage);
         }
 
         {

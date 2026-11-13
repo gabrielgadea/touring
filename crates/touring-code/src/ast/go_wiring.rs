@@ -26,9 +26,9 @@
 //! Gated behind the `more-languages` feature (the Go grammar is), so a
 //! `--no-default-features` build of `touring-code` compiles without it.
 
-use tree_sitter::{Node, Parser};
+use tree_sitter::Node;
 
-use crate::ast::languages::Lang;
+use crate::ast::grammar::Grammar;
 
 /// An exported top-level Go declaration (the producer side).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,9 +65,7 @@ fn unquote(literal: &str) -> &str {
 /// grammar/load failure — the caller then contributes no Go wiring, never an
 /// error, mirroring the fail-open feeder).
 fn parse_go(source: &str) -> Option<tree_sitter::Tree> {
-    let mut parser = Parser::new();
-    parser.set_language(&Lang::Go.tree_sitter_language()).ok()?;
-    crate::ast::parser::parse_bounded(&mut parser, source, None)
+    Grammar::Go.parse(source).ok()
 }
 
 /// Collect the `name:`-field children of a spec node. A single `var_spec` /
@@ -304,6 +302,17 @@ pub fn go_package_key_for_file(abs_file_path: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A parse that outlives its budget is "no tree": the Go feeder then contributes
+    /// no wiring, as it does on a grammar failure.
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let go = format!("package main\n\n{}", "func F() {}\n".repeat(3_000));
+        assert!(parse_go(&go).is_some(), "control: it parses");
+        with_budget(Duration::ZERO, || assert!(parse_go(&go).is_none()));
+    }
 
     // ── Producer extraction ────────────────────────────────────────────────
 

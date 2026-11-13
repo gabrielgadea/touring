@@ -21,6 +21,7 @@ use super::Saida;
 use super::documento::{Documento, Elemento};
 use super::texto::{decodificar_percentual, mais_proximos, tem_template};
 use crate::vgp::lang::caminho;
+use crate::vgp::lang::vista::Vista;
 use crate::vgp::politica::Alvo;
 use crate::vgp::{CheckInput, Finding, is_inline};
 
@@ -283,7 +284,7 @@ struct Disco<'a> {
     /// Directory of the document itself — where ancestors are counted from.
     dir_doc: PathBuf,
     raiz: &'a Path,
-    overlays: &'a HashMap<String, String>,
+    vista: Vista<'a>,
     cache: HashMap<PathBuf, bool>,
     /// Sorted names inside each directory listed for "você quis dizer" (`None`: no such directory).
     listagens: HashMap<PathBuf, Option<Vec<String>>>,
@@ -309,7 +310,7 @@ impl<'a> Disco<'a> {
             base,
             dir_doc,
             raiz: &input.project_root,
-            overlays: &input.overlays,
+            vista: Vista::nova(&input.overlays),
             cache: HashMap::new(),
             listagens: HashMap::new(),
             motivo_de_nao_medir: motivo,
@@ -321,8 +322,7 @@ impl<'a> Disco<'a> {
         if let Some(&b) = self.cache.get(&p) {
             return b;
         }
-        let b = caminho::existe(&self.raizes(), &p)
-            || self.overlays.contains_key(p.to_string_lossy().as_ref());
+        let b = self.vista.existe(&self.raizes(), &p);
         self.cache.insert(p, b);
         b
     }

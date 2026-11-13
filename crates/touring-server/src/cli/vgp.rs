@@ -13,9 +13,10 @@
 //! still prints a valid JSON with verdict "unknown" — the hook channel never dies on the motor.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
+use touring_code::vgp::lang::caminho::normaliza;
 use touring_code::vgp::sombra::camada2_ligada;
 use touring_code::vgp::{CheckInput, Contexto, check_em, lang_do_caminho};
 
@@ -184,6 +185,59 @@ fn lang_efetiva(explicita: Option<String>, path: &str) -> String {
         .unwrap_or_else(|| "python".into())
 }
 
+/// The project root as an absolute, lexically normal path: the base a relative `--overlay`
+/// key is read against. `None` when the root is relative and the working directory cannot be
+/// read — the keys then stay as typed (fail-open, like every argument problem of this CLI).
+fn raiz_absoluta(raiz: &Path) -> Option<PathBuf> {
+    let absoluta = if raiz.is_absolute() {
+        raiz.to_path_buf()
+    } else {
+        std::env::current_dir().ok()?.join(raiz)
+    };
+    Some(normaliza(&absoluta))
+}
+
+/// The key an `--overlay` is stored under. The project view (`vgp::lang::vista`) looks a file
+/// up by its lexically normal ABSOLUTE path, so a key typed `./src/a.rs`, `src/../src/a.rs` or
+/// `src/a.rs` (relative to the project root) never matched and the motor read the disk in
+/// silence (cross-audit 12/11/2026, F4): it is resolved against `raiz` and normalized with the
+/// view's own helper ([`normaliza`]).
+///
+/// A key that lands OUTSIDE the root (absolute, or a relative one that climbs out) keeps the
+/// behaviour it had: stored exactly as typed. The view honours an overlay whatever the roots
+/// say, so this module does not widen what a path outside the project can reach.
+fn chave_do_overlay(orig: &str, raiz: &Path) -> String {
+    let pedida = Path::new(orig);
+    let resolvida = normaliza(&if pedida.is_absolute() {
+        pedida.to_path_buf()
+    } else {
+        raiz.join(pedida)
+    });
+    if resolvida.starts_with(raiz) {
+        resolvida.to_string_lossy().into_owned()
+    } else {
+        orig.to_string()
+    }
+}
+
+/// Every `--overlay <orig>=<arquivo>` as `chave → texto`, the key resolved by
+/// [`chave_do_overlay`] against the project root.
+fn ler_overlays(
+    pedidos: Vec<(String, String)>,
+    project_root: &Path,
+    lang: &str,
+) -> std::result::Result<HashMap<String, String>, Recusa> {
+    let raiz = raiz_absoluta(project_root);
+    let mut overlays = HashMap::new();
+    for (orig, arq) in pedidos {
+        let chave = raiz
+            .as_deref()
+            .map_or_else(|| orig.clone(), |r| chave_do_overlay(&orig, r));
+        overlays.insert(chave, ler_texto(&arq, "overlay", lang)?);
+    }
+    Ok(overlays)
+}
+
 fn parse_args(
     args: &[String],
 ) -> std::result::Result<(CheckInput, Vec<u8>, Contexto, Option<u64>), Recusa> {
@@ -244,10 +298,8 @@ fn parse_args(
         .disk_file
         .map(|d| ler_texto(&d, "disk-file", &lang))
         .transpose()?;
-    let mut overlays = HashMap::new();
-    for (orig, arq) in overlays_pedidos {
-        overlays.insert(orig, ler_texto(&arq, "overlay", &lang)?);
-    }
+    let project_root = PathBuf::from(o.root.unwrap_or_else(|| ".".into()));
+    let overlays = ler_overlays(overlays_pedidos, &project_root, &lang)?;
     let camadas = o
         .camadas
         .as_deref()
@@ -266,7 +318,7 @@ fn parse_args(
         CheckInput {
             path,
             content,
-            project_root: PathBuf::from(o.root.unwrap_or_else(|| ".".into())),
+            project_root,
             disk,
             overlays,
             lang,
@@ -793,6 +845,100 @@ mod tests {
         ]));
         assert_eq!(out.verdict, "allow");
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// F4 (cross-audit 12/11/2026): the `--overlay` key went into the map as typed, but the
+    /// project view looks a file up by its normal ABSOLUTE path — so `./scripts/memoria.py`
+    /// and `scripts/../scripts/memoria.py` never matched, the VGP read the disk, and judged
+    /// the file as it is today instead of as the entry will leave it. Silent: no warning.
+    #[test]
+    fn overlay_com_chave_relativa_ou_nao_normalizada_e_o_conteudo_julgado() {
+        let tmp = std::env::temp_dir().join(format!("vgp-cli-ovl-rel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let raiz = tmp.join("raiz");
+        std::fs::create_dir_all(raiz.join("scripts")).unwrap();
+        // the disk's `memoria.py` does NOT define `g`; the overlay — the file as the entry will
+        // leave it — does. Only a matched overlay turns the verdict from deny to allow.
+        std::fs::write(raiz.join("scripts/memoria.py"), "outra = 1\n").unwrap();
+        let prog = tmp.join("prog.py");
+        std::fs::write(&prog, "from scripts.memoria import g\nprint(g)\n").unwrap();
+        let ovl = tmp.join("ovl.py");
+        std::fs::write(&ovl, "g = 1\n").unwrap();
+        let julgar = |chave: Option<&str>| {
+            let mut a = vec![
+                "check".to_string(),
+                "--path".into(),
+                "/tmp/x.py".into(),
+                "--content-file".into(),
+                prog.display().to_string(),
+                "--project-root".into(),
+                raiz.display().to_string(),
+                "-j".into(),
+            ];
+            if let Some(c) = chave {
+                a.extend(["--overlay".into(), format!("{c}={}", ovl.display())]);
+            }
+            run_json(&a).verdict
+        };
+        // (`warn`, not `deny`: the entry path is under /tmp, which the policy downgrades)
+        assert_ne!(
+            julgar(None),
+            "allow",
+            "control: the disk's `memoria.py` has no `g`, so without a matched overlay the import is not clean"
+        );
+        let absoluta = raiz.join("scripts/memoria.py").display().to_string();
+        for chave in [
+            absoluta.as_str(),
+            "scripts/memoria.py",
+            "./scripts/memoria.py",
+            "scripts/../scripts/memoria.py",
+        ] {
+            assert_eq!(
+                julgar(Some(chave)),
+                "allow",
+                "overlay `{chave}` must be the content judged"
+            );
+        }
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// The key rule, pure: inside the root every spelling collapses to ONE normal absolute
+    /// key; outside the root the key stays exactly as typed (the behaviour it had).
+    #[test]
+    fn chave_do_overlay_normaliza_dentro_da_raiz_e_preserva_fora_dela() {
+        let raiz = Path::new("/p");
+        for (digitada, esperada) in [
+            ("src/a.rs", "/p/src/a.rs"),
+            ("./src/a.rs", "/p/src/a.rs"),
+            ("src/../src/a.rs", "/p/src/a.rs"),
+            ("/p/src/a.rs", "/p/src/a.rs"),
+            ("/p/src/../src/a.rs", "/p/src/a.rs"),
+            ("/p/./src//a.rs", "/p/src/a.rs"),
+            // outside the root: as typed, not resolved — the climb out, an absolute path
+            // elsewhere, and a sibling that merely shares the textual prefix `/p`
+            ("../fora/a.rs", "../fora/a.rs"),
+            ("src/../../fora/a.rs", "src/../../fora/a.rs"),
+            ("/fora/a.rs", "/fora/a.rs"),
+            ("/fora/../x/a.rs", "/fora/../x/a.rs"),
+            ("/pp/a.rs", "/pp/a.rs"),
+        ] {
+            assert_eq!(chave_do_overlay(digitada, raiz), esperada, "{digitada}");
+        }
+    }
+
+    /// A relative `--project-root` (the default is `.`) is read against the working directory.
+    #[test]
+    fn raiz_absoluta_resolve_a_relativa_contra_o_cwd_e_normaliza() {
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(raiz_absoluta(Path::new(".")), Some(normaliza(&cwd)));
+        assert_eq!(
+            raiz_absoluta(Path::new("sub/../x")),
+            Some(normaliza(&cwd.join("x")))
+        );
+        assert_eq!(
+            raiz_absoluta(Path::new("/p/./q/../r")),
+            Some(PathBuf::from("/p/r"))
+        );
     }
 
     fn projeto_com(toml: Option<&str>, etiqueta: &str) -> PathBuf {

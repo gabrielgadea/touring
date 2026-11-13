@@ -3,7 +3,7 @@
 //! Verifies all 11 claimed changes actually work as documented.
 //! Each test section maps to a specific change from the audit context.
 
-use touring_code::ast::graph::{build_index_from_files, extract_imports};
+use touring_code::ast::graph::{FileReferences, build_index_from_files};
 use touring_code::ast::{
     AstError, IncrementalParser, Lang, ParserPool, Symbol, SymbolIndex, extract_symbols,
     extract_symbols_from_file, validate_syntax,
@@ -144,7 +144,7 @@ impl Foo {
 fn audit_03_python_imports_treesitter() {
     let source =
         "import os\nfrom pathlib import Path\nfrom collections import OrderedDict, defaultdict\n";
-    let imports = extract_imports(source, Lang::Python);
+    let imports = FileReferences::new(source, Lang::Python).imports();
 
     assert!(
         !imports.is_empty(),
@@ -173,7 +173,7 @@ fn audit_03_python_imports_treesitter() {
 #[test]
 fn audit_03_rust_imports_treesitter() {
     let source = "use std::collections::HashMap;\nuse serde::Deserialize;\n";
-    let imports = extract_imports(source, Lang::Rust);
+    let imports = FileReferences::new(source, Lang::Rust).imports();
 
     assert!(
         !imports.is_empty(),
@@ -194,7 +194,7 @@ fn audit_03_rust_imports_treesitter() {
 #[test]
 fn audit_03_ts_imports_treesitter() {
     let source = "import { useState, useEffect } from 'react';\nimport axios from 'axios';\n";
-    let imports = extract_imports(source, Lang::TypeScript);
+    let imports = FileReferences::new(source, Lang::TypeScript).imports();
 
     assert!(
         !imports.is_empty(),
@@ -221,7 +221,7 @@ fn audit_03_treesitter_matches_regex_fallback() {
     // Tree-sitter and regex should extract the same module paths
     // (symbols may differ in order but the set of modules should match).
     let python_source = "import os\nfrom pathlib import Path\n";
-    let ts_imports = extract_imports(python_source, Lang::Python);
+    let ts_imports = FileReferences::new(python_source, Lang::Python).imports();
 
     let ts_modules: std::collections::HashSet<&str> =
         ts_imports.iter().map(|i| i.module_path.as_str()).collect();
@@ -614,7 +614,7 @@ fn edge_case_empty_source() {
     let symbols = extract_symbols("", Lang::Python).unwrap();
     assert!(symbols.is_empty(), "Empty source should produce no symbols");
 
-    let imports = extract_imports("", Lang::Python);
+    let imports = FileReferences::new("", Lang::Python).imports();
     assert!(imports.is_empty(), "Empty source should produce no imports");
 }
 
@@ -742,13 +742,13 @@ fn full_flow_parse_extract_index_blast_radius() {
     assert_eq!(read_locs[0].file_path, "reader.rs");
 
     // Step 5: Imports are extracted
-    let py_imports = extract_imports(py_source, Lang::Python);
+    let py_imports = FileReferences::new(py_source, Lang::Python).imports();
     assert!(
         py_imports.iter().any(|i| i.module_path.contains("os")),
         "Should extract 'os' import"
     );
 
-    let rs_imports = extract_imports(rs_source, Lang::Rust);
+    let rs_imports = FileReferences::new(rs_source, Lang::Rust).imports();
     assert!(!rs_imports.is_empty(), "Should extract Rust 'use' imports");
 
     // Step 6: Blast radius (with manually wired reverse deps for test)

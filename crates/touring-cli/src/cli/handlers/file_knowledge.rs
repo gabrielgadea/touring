@@ -155,16 +155,13 @@ pub fn cli_file_knowledge_populate(rt: &mut HookRuntime, payload: &serde_json::V
     let mut failed = 0i64;
     let mut errors: Vec<String> = Vec::new();
 
-    walk_dir_recursive(
-        &root,
-        &root,
-        &extensions,
-        walk_hidden,
-        rt,
-        &mut processed,
-        &mut failed,
-        &mut errors,
-    );
+    // The walk is the walker's order (path order, see `walk_matching_files`) whatever the
+    // runtime's heat map holds: the tables this leaves must not depend on what the daemon
+    // happened to edit (I16, `shared::heat_invariant`).
+    let mut files: Vec<std::path::PathBuf> = Vec::new();
+    walk_matching_files(&root, &extensions, walk_hidden, &mut files);
+
+    reindex_in_order(rt, &root, &files, &mut processed, &mut failed, &mut errors);
 
     serde_json::json!({
         "processed": processed,
@@ -175,65 +172,107 @@ pub fn cli_file_knowledge_populate(rt: &mut HookRuntime, payload: &serde_json::V
     .to_string()
 }
 
-/// Recursive directory walker that calls reindex_file_with_old for each matching file.
-///
-/// Takes `rt` as a mutable reference parameter to avoid nested function borrow issues.
-/// The 8-argument signature is intentional: splitting into a context struct would add
-/// indirection without clarity benefit for this single private recursive helper.
-#[allow(clippy::too_many_arguments)]
-fn walk_dir_recursive(
-    dir: &Path,
-    root: &Path,
-    extensions: &[String],
-    walk_hidden: bool,
+/// Reindex `files` in the given order, counting successes and failures (the first ten
+/// failures are reported).
+fn reindex_in_order(
     rt: &mut HookRuntime,
+    root: &Path,
+    files: &[std::path::PathBuf],
     processed: &mut i64,
     failed: &mut i64,
     errors: &mut Vec<String>,
 ) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
+    for path in files {
+        let Ok(rel) = path.strip_prefix(root) else {
+            continue;
+        };
+        let rel_path = rel.to_string_lossy().to_string();
+        let abs_path = path.to_string_lossy().to_string();
+        match reindex_file_with_old(rt, &abs_path, &rel_path, None) {
+            Ok(()) => *processed += 1,
+            Err(e) => {
+                *failed += 1;
+                if errors.len() < 10 {
+                    errors.push(format!("{}: {}", rel_path, e));
+                }
+            }
+        }
+    }
+}
 
-    for entry in entries.flatten() {
-        let path = entry.path();
+/// Recursive directory walker: every file under `dir` whose extension is in
+/// `extensions`, each directory visited in path order — so the walk is the same on every
+/// filesystem (hidden directories skipped unless `walk_hidden`).
+fn walk_matching_files(
+    dir: &Path,
+    extensions: &[String],
+    walk_hidden: bool,
+    out: &mut Vec<std::path::PathBuf>,
+) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut paths: Vec<std::path::PathBuf> = entries.flatten().map(|e| e.path()).collect();
+    paths.sort();
+    for path in paths {
         if path.is_dir() {
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if !walk_hidden && name.starts_with('.') {
                 continue;
             }
-            walk_dir_recursive(
-                &path,
-                root,
-                extensions,
-                walk_hidden,
-                rt,
-                processed,
-                failed,
-                errors,
-            );
+            walk_matching_files(&path, extensions, walk_hidden, out);
         } else if path.is_file() {
             let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if !extensions.iter().any(|e| e == ext) {
-                continue;
-            }
-            let rel_path = match path.strip_prefix(root) {
-                Ok(r) => r.to_string_lossy().to_string(),
-                Err(_) => continue,
-            };
-            let abs_path = path.to_string_lossy().to_string();
-
-            match reindex_file_with_old(rt, &abs_path, &rel_path, None) {
-                Ok(()) => *processed += 1,
-                Err(e) => {
-                    *failed += 1;
-                    if errors.len() < 10 {
-                        errors.push(format!("{}: {}", rel_path, e));
-                    }
-                }
+            if extensions.iter().any(|e| e == ext) {
+                out.push(path);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod populate_tests {
+    use super::cli_file_knowledge_populate;
+    use crate::runtime::HookRuntime;
+
+    /// I16 for the batch walk of `file-knowledge populate`: it reindexes through the same
+    /// writer as the rebuild, so the tables it leaves must not depend on the heat map either
+    /// (method and volatile-cell control: `shared::heat_invariant`).
+    #[test]
+    fn populate_leaves_the_same_tables_whatever_the_heat() {
+        crate::cli::shared::heat_invariant::assert_tables_independent_of_heat(
+            "file-knowledge populate",
+            &|rt| {
+                let out =
+                    cli_file_knowledge_populate(rt, &serde_json::json!({"extensions": ["py"]}));
+                let report: serde_json::Value = serde_json::from_str(&out).expect("json");
+                assert_eq!(report["processed"], 4, "{out}");
+            },
+        );
+    }
+
+    /// The batch walk reports what it reindexed, not what the heat map held: the C7 fields
+    /// `hot_first` / `first` left with the heat ordering and must not come back.
+    #[test]
+    fn populate_processes_every_file_and_reports_no_heat_ordering() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        for name in ["a", "b", "c"] {
+            std::fs::write(
+                root.join(format!("src/{name}.rs")),
+                format!("pub fn {name}() {{}}\n"),
+            )
+            .expect("write");
+        }
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        let out = cli_file_knowledge_populate(&mut rt, &serde_json::json!({"extensions": ["rs"]}));
+        let report: serde_json::Value = serde_json::from_str(&out).expect("json");
+        assert_eq!(report["processed"].as_i64(), Some(3), "{out}");
+        assert!(
+            report.get("hot_first").is_none() && report.get("first").is_none(),
+            "the report must not carry heat-ordering fields: {out}"
+        );
     }
 }
 

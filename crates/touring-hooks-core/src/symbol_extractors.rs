@@ -37,7 +37,10 @@ static TS_JS_SYMBOL_RE: Lazy<Regex> = Lazy::new(|| {
 /// `pub use <crate>::<…>;` — the facade re-export form that
 /// [`resolve_reexport`] follows back to the crate that really owns the module.
 static REEXPORT_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?m)^\s*pub\s+use\s+([A-Za-z_][A-Za-z0-9_]*)::([^;]+);").expect("static regex")
+    // The head may be a raw identifier (`pub use r#trait::{…}`, F15): it names the child
+    // module `trait`, and the layout probe drops the `r#` ([`unraw_segments`]).
+    Regex::new(r"(?m)^\s*pub\s+use\s+((?:r#)?[A-Za-z_][A-Za-z0-9_]*)::([^;]+);")
+        .expect("static regex")
 });
 
 /// A Cargo workspace as the resolver sees it: its root and the crate map derived
@@ -298,7 +301,28 @@ fn under_workspace(ws_root: &str, p: &str) -> String {
     }
 }
 
+/// `rel_path` (module segments joined by `/`) with the `r#` marker of every raw-identifier
+/// segment dropped. A raw identifier names the SAME item as the plain one: `r#trait` is the
+/// module `trait`, whose file is `trait.rs` — the marker exists so the keyword can be written,
+/// not to name another module (F15, 13/11/2026). Module paths reach the resolver raw, from the
+/// AST extractor (`use crate::plugin::r#trait::{…}`) and from the regex over a facade's
+/// `pub use r#trait::{…}`; [`resolve_module_layout`] is the one place every one of them becomes
+/// a file, so it is the one place the marker is dropped.
+fn unraw_segments(rel_path: &str) -> std::borrow::Cow<'_, str> {
+    if !rel_path.contains("r#") {
+        return std::borrow::Cow::Borrowed(rel_path);
+    }
+    std::borrow::Cow::Owned(
+        rel_path
+            .split('/')
+            .map(|segment| segment.strip_prefix("r#").unwrap_or(segment))
+            .collect::<Vec<_>>()
+            .join("/"),
+    )
+}
+
 fn resolve_module_layout(ws_root: &str, dir: &str, rel_path: &str) -> Option<String> {
+    let rel_path = unraw_segments(rel_path);
     // A relative `dir` is relative to the WORKSPACE root, never to the cwd.
     let abs_dir = if std::path::Path::new(dir).is_absolute() {
         dir.to_string()
@@ -1219,7 +1243,10 @@ fn module_declarations_of(
         return Some(Arc::clone(declarations));
     }
     let source = std::fs::read_to_string(file).ok()?;
-    let declarations = Arc::new(touring_code::ast::graph::rust_module_declarations(&source));
+    let declarations = Arc::new(
+        touring_code::ast::graph::FileReferences::new(&source, touring_code::ast::Lang::Rust)
+            .module_declarations(),
+    );
     if let Ok(mut map) = cache.lock() {
         map.insert(file.to_path_buf(), (modified, Arc::clone(&declarations)));
     }
@@ -1737,6 +1764,106 @@ mod crate_map_and_reexport_tests {
             got.as_deref()
                 .is_some_and(|p| p.ends_with("crates/demo/src/capability/mod.rs")),
             "got {got:?}"
+        );
+    }
+
+    /// F15 (13/11/2026) fixture: `plugin/trait.rs` and `async/*.rs` are modules whose names are
+    /// Rust keywords, so every path to them is spelled with a raw identifier (`r#trait`,
+    /// `r#async`). `plugin/mod.rs` forwards `PluginFamily` the way the workspace's
+    /// `touring_foundation::plugin` does.
+    fn raw_fixture() -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "touring-raw-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        let src = base.join("crates/demo/src");
+        std::fs::create_dir_all(src.join("plugin")).expect("fixture plugin dir");
+        std::fs::create_dir_all(src.join("async")).expect("fixture async dir");
+        std::fs::write(src.join("lib.rs"), "").expect("fixture lib");
+        std::fs::write(
+            src.join("plugin/mod.rs"),
+            "mod r#trait;\npub use r#trait::{PluginFamily};\n",
+        )
+        .expect("fixture facade");
+        std::fs::write(src.join("plugin/trait.rs"), "pub enum PluginFamily { A }\n")
+            .expect("fixture trait module");
+        std::fs::write(src.join("plugin/registry.rs"), "").expect("fixture registry");
+        for f in ["mod.rs", "inner.rs", "await.rs"] {
+            std::fs::write(src.join("async").join(f), "").expect("fixture async module");
+        }
+        base
+    }
+
+    /// F15: a raw identifier names the SAME module as the plain one, so `r#trait` is the file
+    /// `trait.rs`. `use crate::plugin::r#trait::{PluginFamily, ProviderPlugin}` reached the
+    /// resolver as the module path `crate::plugin::r#trait`, probed the file `r#trait.rs`, found
+    /// nothing and was filed as `scope_keyword` (the class of every unresolved `crate::` head);
+    /// 3 `use` lines of this workspace, and `PluginFamily::as_str` stayed an orphan.
+    #[test]
+    fn a_raw_identifier_segment_resolves_to_the_module_it_names() {
+        let base = raw_fixture();
+        let registry = base.join("crates/demo/src/plugin/registry.rs");
+        let src = registry.to_str().expect("utf8");
+        let resolve = |import: &str| resolve_import_path_with_source(import, "rust", Some(src));
+        let at_the_end = resolve("crate::plugin::r#trait");
+        let in_the_middle = resolve("crate::r#async::inner");
+        let at_both_ends = resolve("crate::r#async::r#await");
+        let relative = resolve("super::r#trait");
+        let _ = std::fs::remove_dir_all(&base);
+        for (what, got, tail) in [
+            ("at the end", &at_the_end, "crates/demo/src/plugin/trait.rs"),
+            (
+                "in the middle",
+                &in_the_middle,
+                "crates/demo/src/async/inner.rs",
+            ),
+            (
+                "at both ends",
+                &at_both_ends,
+                "crates/demo/src/async/await.rs",
+            ),
+            (
+                "through super",
+                &relative,
+                "crates/demo/src/plugin/trait.rs",
+            ),
+        ] {
+            assert!(
+                got.as_deref().is_some_and(|p| p.ends_with(tail)),
+                "`r#` {what}: got {got:?}, wanted …{tail}"
+            );
+        }
+    }
+
+    /// F15: stripping `r#` must not turn a miss into a phantom — a raw identifier that names
+    /// no file resolves to `None`, and never to a path that still carries the marker.
+    #[test]
+    fn a_raw_identifier_that_names_no_file_stays_none() {
+        let base = raw_fixture();
+        let registry = base.join("crates/demo/src/plugin/registry.rs");
+        let src = registry.to_str().expect("utf8");
+        let got = resolve_import_path_with_source("crate::plugin::r#missing", "rust", Some(src));
+        let _ = std::fs::remove_dir_all(&base);
+        assert_eq!(got, None, "no `missing.rs` exists");
+    }
+
+    /// F15: the facade follows `pub use r#trait::{..}` to the file that DEFINES the symbol, so a
+    /// consumer of `plugin::PluginFamily` is credited to `plugin/trait.rs`, not left on the
+    /// facade — the re-export tail arrives from a regex over the text, raw as written.
+    #[test]
+    fn a_facade_that_re_exports_through_a_raw_module_credits_the_defining_file() {
+        let base = raw_fixture();
+        let facade = base.join("crates/demo/src/plugin/mod.rs");
+        let facade = facade.to_str().expect("utf8");
+        let got = super::definer_module(facade, "PluginFamily", None);
+        let _ = std::fs::remove_dir_all(&base);
+        assert!(
+            got.ends_with("crates/demo/src/plugin/trait.rs"),
+            "the definer is the module that holds `pub enum PluginFamily`, got {got}"
         );
     }
 

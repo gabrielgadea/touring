@@ -26,7 +26,7 @@ use crate::ast::symbol_detail::SymbolDetail;
 /// that compile with that feature enabled — not just the default build graph.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CfgGatedItem {
-    /// Symbol or item name (e.g., `"AsyncSharedPipeline"`)
+    /// Symbol or item name (e.g., `"subscribe_stream"`)
     pub name: String,
     /// Full cfg condition (e.g., `"unix"`, `"feature = \"async-pipeline\""`, `"all(feature = \"x\", unix)"`)
     pub cfg_condition: String,

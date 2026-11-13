@@ -1,7 +1,5 @@
 //! Parser pool for efficient multi-threaded parsing
 
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -16,74 +14,11 @@ use tracing::instrument;
 
 use crate::ast::document::RopeDocument;
 use crate::ast::error::{AstError, AstResult};
+use crate::ast::grammar::{self, Grammar, Refusal};
 use crate::ast::languages::Lang;
 
 /// Maximum number of cached trees in [`IncrementalParser`].
 const MAX_TREE_CACHE: usize = 128;
-
-// ── Bounded parse (cross-audit R2-25) ─────────────────────────────────────
-
-/// Wall-clock budget of one parse: 2 s, plus 2 s per MiB of source.
-///
-/// Tree-sitter parses megabytes per second, so a real file finishes far inside
-/// it; the budget only ever cuts a parse that stopped making progress.
-fn parse_budget(len_bytes: usize) -> std::time::Duration {
-    const BASE_MS: u64 = 2_000;
-    const PER_MIB_MS: u64 = 2_000;
-    std::time::Duration::from_millis(BASE_MS + PER_MIB_MS * (len_bytes as u64 / (1024 * 1024)))
-}
-
-/// Parse `source`, halting when the parse outlives [`parse_budget`].
-///
-/// Every tree-sitter parse in this crate goes through here. With the
-/// TypeScript grammar 0.23.2 on runtime 0.26.9, an 86-byte ASCII input keeps
-/// `ts_parser_parse` in error recovery (`ts_language_next_state`) forever: the
-/// fuzz suite hung and, under the full workspace run, crashed. The daemon parses
-/// every indexed `.ts`, so one such file held the project actor for good.
-/// `None` means the parse did not complete (halted or refused); the parser is
-/// reset, because a halted parser keeps its state to resume the SAME document
-/// and would corrupt the next one.
-pub(crate) fn parse_bounded(
-    parser: &mut tree_sitter::Parser,
-    source: &str,
-    old_tree: Option<&tree_sitter::Tree>,
-) -> Option<tree_sitter::Tree> {
-    let bytes = source.as_bytes();
-    parse_bounded_with(
-        parser,
-        bytes.len(),
-        &mut |offset: usize, _: tree_sitter::Point| bytes.get(offset..).unwrap_or(&[]),
-        old_tree,
-    )
-}
-
-/// [`parse_bounded`] over a chunked reader (the rope path).
-pub(crate) fn parse_bounded_with<T: AsRef<[u8]>, F: FnMut(usize, tree_sitter::Point) -> T>(
-    parser: &mut tree_sitter::Parser,
-    len_bytes: usize,
-    read: &mut F,
-    old_tree: Option<&tree_sitter::Tree>,
-) -> Option<tree_sitter::Tree> {
-    let deadline = std::time::Instant::now() + parse_budget(len_bytes);
-    let mut halt = |_: &tree_sitter::ParseState| {
-        if std::time::Instant::now() >= deadline {
-            std::ops::ControlFlow::Break(())
-        } else {
-            std::ops::ControlFlow::Continue(())
-        }
-    };
-    let options = tree_sitter::ParseOptions::new().progress_callback(&mut halt);
-    let tree = parser.parse_with_options(read, old_tree, Some(options));
-    if tree.is_none() {
-        parser.reset();
-        tracing::warn!(
-            len_bytes,
-            budget_ms = parse_budget(len_bytes).as_millis() as u64,
-            "tree-sitter parse halted: it outlived its budget without completing"
-        );
-    }
-    tree
-}
 
 // ── Standalone incremental parse (P2.2) ───────────────────────────────────
 
@@ -91,9 +26,9 @@ pub(crate) fn parse_bounded_with<T: AsRef<[u8]>, F: FnMut(usize, tree_sitter::Po
 /// an edit description.
 ///
 /// This is a **standalone** function — it does not require [`IncrementalParser`]
-/// or any cached state. It creates a one-shot parser, applies `edit` to
-/// `old_tree` so tree-sitter knows which byte ranges shifted, then re-parses
-/// only the affected region.
+/// or any cached state. It parses on the thread's cached parser for the grammar
+/// of `old_tree`, applies `edit` to `old_tree` so tree-sitter knows which byte
+/// ranges shifted, then re-parses only the affected region.
 ///
 /// # Incremental vs Full
 ///
@@ -145,11 +80,7 @@ pub fn incremental_parse(
     old_tree: &tree_sitter::Tree,
     edit: &tree_sitter::InputEdit,
 ) -> AstResult<tree_sitter::Tree> {
-    let lang = old_tree.language();
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(&lang)
-        .map_err(|e| AstError::GrammarUnavailable(format!("old tree language rejected: {e}")))?;
+    let language = old_tree.language();
 
     // Apply the edit so tree-sitter knows which ranges shifted.
     // Then re-parse: unchanged subtrees are reused automatically.
@@ -157,55 +88,44 @@ pub fn incremental_parse(
     edited_tree.edit(edit);
 
     // "never returns None" held only until a parse could be halted (R2-25).
-    parse_bounded(&mut parser, source, Some(&edited_tree))
-        .ok_or_else(|| AstError::ParseFailed("incremental parse did not complete".into()))
+    grammar::parse_str(&language, source, Some(&edited_tree)).map_err(|refusal| match refusal {
+        Refusal::Rejected(why) => {
+            AstError::GrammarUnavailable(format!("old tree language rejected: {why}"))
+        }
+        Refusal::Halted => AstError::ParseFailed("incremental parse did not complete".into()),
+    })
 }
 
-// ── Thread-local parser storage ──────────────────────────────────────────
-
-thread_local! {
-    /// Per-thread parser instances — avoids Mutex contention entirely.
-    /// `Parser` is `!Send` so this is the natural fit.
-    static THREAD_PARSERS: RefCell<HashMap<Lang, tree_sitter::Parser>> =
-        RefCell::new(HashMap::new());
+/// The [`AstError`] of a refused parse of `lang`: a rejected grammar is a tooling
+/// limitation (`GrammarUnavailable`), a halted parse is `ParseFailed(halted)`.
+fn ast_error(refusal: Refusal, lang: Lang, halted: &str) -> AstError {
+    match refusal {
+        Refusal::Rejected(why) => AstError::GrammarUnavailable(format!(
+            "{} grammar rejected by the tree-sitter runtime (ABI mismatch): {why}",
+            lang.as_str()
+        )),
+        Refusal::Halted => AstError::ParseFailed(halted.into()),
+    }
 }
 
-/// Parse `source` for `lang` using a thread-local parser (zero contention).
+/// Parse `source` for `lang` on the thread's cached parser (zero contention).
 ///
 /// This is the fastest parse path — no Mutex, no allocation per call.
 pub(crate) fn parse_thread_local(source: &str, lang: Lang) -> AstResult<tree_sitter::Tree> {
-    THREAD_PARSERS.with(|cell| {
-        let mut parsers = cell.borrow_mut();
-
-        // Use entry API to avoid contains_key + insert (clippy)
-        if let std::collections::hash_map::Entry::Vacant(entry) = parsers.entry(lang) {
-            let mut p = tree_sitter::Parser::new();
-            p.set_language(&lang.tree_sitter_language()).map_err(|e| {
-                AstError::GrammarUnavailable(format!(
-                    "{} grammar rejected by the tree-sitter runtime (ABI mismatch): {e}",
-                    lang.as_str()
-                ))
-            })?;
-            entry.insert(p);
-        }
-
-        let parser = parsers.get_mut(&lang).ok_or_else(|| {
-            AstError::ParseFailed(format!("Parser not found for {}", lang.as_str()))
-        })?;
-
-        parse_bounded(parser, source, None)
-            .ok_or_else(|| AstError::ParseFailed("Parse failed".into()))
-    })
+    Grammar::of_lang(lang)
+        .parse(source)
+        .map_err(|refusal| ast_error(refusal, lang, "Parse failed"))
 }
 
 // ── ParserPool (backward-compatible, thread-safe) ────────────────────────
 
 /// Thread-safe parser pool that reuses parsers per language.
 ///
-/// Internally delegates to [`thread_local`] storage for zero-contention
-/// parsing. `ParserPool` is a zero-size type (ZST) — all state lives in
-/// per-thread `THREAD_PARSERS`. `Send + Sync` are safe because each thread
-/// owns its own `Parser` via `thread_local!` and none is shared across threads.
+/// Internally delegates to the per-thread parser cache of
+/// [`crate::ast::grammar`] for zero-contention parsing. `ParserPool` is a
+/// zero-size type (ZST) — all state lives in that per-thread cache. `Send + Sync`
+/// are safe because each thread owns its own `Parser` via `thread_local!` and
+/// none is shared across threads.
 #[derive(Clone)]
 pub struct ParserPool;
 
@@ -335,11 +255,10 @@ impl ParsedFile {
 ///
 /// # Thread Safety
 ///
-/// This struct is `!Send` because [`tree_sitter::Parser`] is `!Send`.
-/// Use from a single thread, or wrap access behind a `Mutex`.
+/// It owns no [`tree_sitter::Parser`] (those are `!Send` and live in the
+/// per-thread cache of [`crate::ast::grammar`], shared by every door), only the
+/// tree cache, so it is `Send`: the parser in use is always the calling thread's.
 pub struct IncrementalParser {
-    /// One parser per language, reused across calls.
-    parsers: HashMap<Lang, tree_sitter::Parser>,
     /// LRU-cached trees keyed by file path.
     trees: Cache<String, tree_sitter::Tree>,
 }
@@ -347,7 +266,6 @@ pub struct IncrementalParser {
 impl std::fmt::Debug for IncrementalParser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IncrementalParser")
-            .field("languages", &self.parsers.len())
             .field("cached_trees", &self.trees.entry_count())
             .finish()
     }
@@ -363,7 +281,6 @@ impl IncrementalParser {
     /// Create a new incremental parser with empty caches.
     pub fn new() -> Self {
         Self {
-            parsers: HashMap::new(),
             trees: Cache::builder()
                 .max_capacity(MAX_TREE_CACHE as u64)
                 .eviction_policy(moka::policy::EvictionPolicy::lru())
@@ -371,31 +288,9 @@ impl IncrementalParser {
         }
     }
 
-    /// Get or create a parser for the given language.
-    fn get_parser(&mut self, lang: Lang) -> AstResult<&mut tree_sitter::Parser> {
-        use std::collections::hash_map::Entry;
-        match self.parsers.entry(lang) {
-            Entry::Occupied(e) => Ok(e.into_mut()),
-            Entry::Vacant(e) => {
-                let mut parser = tree_sitter::Parser::new();
-                parser
-                    .set_language(&lang.tree_sitter_language())
-                    .map_err(|err| {
-                        AstError::GrammarUnavailable(format!(
-                            "{} grammar rejected by the tree-sitter runtime (ABI mismatch): {err}",
-                            lang.as_str()
-                        ))
-                    })?;
-                Ok(e.insert(parser))
-            }
-        }
-    }
-
     /// Full parse without caching. Returns the syntax tree.
     pub fn parse_full(&mut self, source: &str, lang: Lang) -> AstResult<tree_sitter::Tree> {
-        let parser = self.get_parser(lang)?;
-        parse_bounded(parser, source, None)
-            .ok_or_else(|| AstError::ParseFailed("Parse failed".into()))
+        parse_thread_local(source, lang)
     }
 
     /// Parse a [`RopeDocument`] using `parse_with` — avoids the O(N) `to_string()` copy.
@@ -420,11 +315,15 @@ impl IncrementalParser {
         lang: Lang,
         old_tree: Option<&tree_sitter::Tree>,
     ) -> AstResult<tree_sitter::Tree> {
-        let parser = self.get_parser(lang)?;
         let mut callback =
             |byte_offset: usize, _: tree_sitter::Point| -> &[u8] { doc.chunk_at_byte(byte_offset) };
-        parse_bounded_with(parser, doc.len_bytes(), &mut callback, old_tree)
-            .ok_or_else(|| AstError::ParseFailed("Rope parse failed".into()))
+        grammar::parse_chunks(
+            &Grammar::of_lang(lang).language(),
+            doc.len_bytes(),
+            &mut callback,
+            old_tree,
+        )
+        .map_err(|refusal| ast_error(refusal, lang, "Rope parse failed"))
     }
 
     /// Parse source and store the resulting tree in the LRU cache.
@@ -488,9 +387,12 @@ impl IncrementalParser {
                 old_tree.edit(edit);
 
                 // Re-parse — tree-sitter reuses unchanged subtrees.
-                let parser = self.get_parser(lang)?;
-                let new_tree = parse_bounded(parser, new_source, Some(&old_tree))
-                    .ok_or_else(|| AstError::ParseFailed("Incremental parse failed".into()))?;
+                let new_tree = grammar::parse_str(
+                    &Grammar::of_lang(lang).language(),
+                    new_source,
+                    Some(&old_tree),
+                )
+                .map_err(|refusal| ast_error(refusal, lang, "Incremental parse failed"))?;
 
                 let changes: Vec<tree_sitter::Range> = old_tree.changed_ranges(&new_tree).collect();
 

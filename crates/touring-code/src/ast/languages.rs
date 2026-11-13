@@ -10,6 +10,8 @@
 
 use std::path::Path;
 
+use crate::ast::grammar::{Grammar, Reach};
+
 /// Supported programming languages.
 ///
 /// Wave 5: `strum::EnumIter` gives consumers `Lang::iter()` — a compile-time
@@ -27,7 +29,7 @@ pub enum Lang {
     Python,
     /// The Rust programming language (`.rs`).
     Rust,
-    /// The TypeScript programming language (`.ts`, `.tsx`).
+    /// The TypeScript programming language (`.ts`, `.mts`, `.cts`, `.tsx`).
     TypeScript,
     /// The JavaScript programming language (`.js`, `.jsx`, `.mjs`, `.cjs`).
     JavaScript,
@@ -57,47 +59,19 @@ pub enum Lang {
 }
 
 impl Lang {
-    /// Detect language from file extension
+    /// Detect language from file extension (the case as written; `.scss`, `.mdx`
+    /// and `.jsonc` count as the language whose grammar reads them).
+    ///
+    /// The extension table lives in [`crate::ast::grammar`], shared with the VGP
+    /// and polyglot readers.
     pub fn from_path(path: &Path) -> Option<Self> {
-        match path.extension()?.to_str()? {
-            "py" | "pyi" => Some(Lang::Python),
-            "rs" => Some(Lang::Rust),
-            "ts" | "tsx" => Some(Lang::TypeScript),
-            "js" | "jsx" | "mjs" | "cjs" => Some(Lang::JavaScript),
-            "sh" | "bash" | "zsh" => Some(Lang::Bash),
-            "html" | "htm" => Some(Lang::Html),
-            "css" | "scss" => Some(Lang::Css),
-            "md" | "mdx" => Some(Lang::Markdown),
-            "json" | "jsonc" => Some(Lang::Json),
-            "toml" => Some(Lang::Toml),
-            "yaml" | "yml" => Some(Lang::Yaml),
-            #[cfg(feature = "more-languages")]
-            "go" => Some(Lang::Go),
-            #[cfg(feature = "more-languages")]
-            "java" => Some(Lang::Java),
-            _ => None,
-        }
+        Grammar::of_path(path, Reach::WithNeighbours).map(Grammar::lang)
     }
 
-    /// Get the tree-sitter language object
+    /// Get the tree-sitter language object (the grammar of [`Grammar::of_lang`]:
+    /// `TypeScript` reads TSX).
     pub(crate) fn tree_sitter_language(&self) -> tree_sitter::Language {
-        match self {
-            Lang::Python => tree_sitter_python::LANGUAGE.into(),
-            Lang::Rust => tree_sitter_rust::LANGUAGE.into(),
-            Lang::TypeScript => tree_sitter_typescript::LANGUAGE_TSX.into(),
-            Lang::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
-            Lang::Bash => tree_sitter_bash::LANGUAGE.into(),
-            Lang::Html => tree_sitter_html::LANGUAGE.into(),
-            Lang::Css => tree_sitter_css::LANGUAGE.into(),
-            Lang::Json => tree_sitter_json::LANGUAGE.into(),
-            Lang::Yaml => tree_sitter_yaml::LANGUAGE.into(),
-            Lang::Toml => tree_sitter_toml_ng::LANGUAGE.into(),
-            Lang::Markdown => tree_sitter_md::LANGUAGE.into(),
-            #[cfg(feature = "more-languages")]
-            Lang::Go => tree_sitter_go::LANGUAGE.into(),
-            #[cfg(feature = "more-languages")]
-            Lang::Java => tree_sitter_java::LANGUAGE.into(),
-        }
+        Grammar::of_lang(*self).language()
     }
 
     /// Get the query file for this language (symbol extraction)
@@ -307,6 +281,58 @@ mod tests {
             Lang::from_path(&PathBuf::from("test.tsx")),
             Some(Lang::TypeScript)
         );
+    }
+
+    /// `.mts` / `.cts` are TypeScript (ESM / CJS). The VGP table already said so; the
+    /// ast table did not, so a project's `vite.config.mts` was invisible to the index.
+    #[test]
+    fn test_detect_typescript_module_extensions() {
+        assert_eq!(
+            Lang::from_path(&PathBuf::from("vite.config.mts")),
+            Some(Lang::TypeScript)
+        );
+        assert_eq!(
+            Lang::from_path(&PathBuf::from("legacy.cts")),
+            Some(Lang::TypeScript)
+        );
+    }
+
+    /// The table moved to `ast::grammar` (C1); what `from_path` answered for every
+    /// extension it knew before stays as it was, neighbours (`.scss`, `.mdx`,
+    /// `.jsonc`) and case-as-written included.
+    #[test]
+    fn from_path_answers_every_extension_it_always_answered() {
+        let table: &[(&str, Lang)] = &[
+            ("a.py", Lang::Python),
+            ("a.pyi", Lang::Python),
+            ("a.rs", Lang::Rust),
+            ("a.ts", Lang::TypeScript),
+            ("a.tsx", Lang::TypeScript),
+            ("a.js", Lang::JavaScript),
+            ("a.jsx", Lang::JavaScript),
+            ("a.mjs", Lang::JavaScript),
+            ("a.cjs", Lang::JavaScript),
+            ("a.sh", Lang::Bash),
+            ("a.bash", Lang::Bash),
+            ("a.zsh", Lang::Bash),
+            ("a.html", Lang::Html),
+            ("a.htm", Lang::Html),
+            ("a.css", Lang::Css),
+            ("a.scss", Lang::Css),
+            ("a.md", Lang::Markdown),
+            ("a.mdx", Lang::Markdown),
+            ("a.json", Lang::Json),
+            ("a.jsonc", Lang::Json),
+            ("a.toml", Lang::Toml),
+            ("a.yaml", Lang::Yaml),
+            ("a.yml", Lang::Yaml),
+        ];
+        for (path, lang) in table {
+            assert_eq!(Lang::from_path(&PathBuf::from(path)), Some(*lang), "{path}");
+        }
+        for path in ["A.PY", "a.Rs", "a.TSX", ".py", "Makefile", "a.txt", ""] {
+            assert_eq!(Lang::from_path(&PathBuf::from(path)), None, "{path:?}");
+        }
     }
 
     #[test]

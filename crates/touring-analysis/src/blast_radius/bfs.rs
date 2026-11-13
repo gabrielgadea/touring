@@ -1,7 +1,7 @@
 //! BFS exact blast radius strategy.
 //!
-//! Performs BFS directly over `SymbolIndex::reverse_deps` to compute real
-//! hop distances per affected file — rather than delegating to
+//! Performs BFS over the index's importers (`SymbolIndex::importers_of`, one hop at a
+//! time) to compute real hop distances per affected file — rather than delegating to
 //! `blast_radius_with_depth()` which only exposes the maximum distance.
 
 use super::{AffectedFile, BlastRadiusResult, BlastRadiusStrategy, LatencyTier};
@@ -12,7 +12,7 @@ use touring_code::ast::SymbolIndex;
 
 /// BFS exact blast radius strategy.
 ///
-/// Algorithm: breadth-first search over `SymbolIndex::reverse_deps` starting
+/// Algorithm: breadth-first search over `SymbolIndex::importers_of` starting
 /// from `start_file`. Each hop increments `distance` by 1. BFS guarantees
 /// shortest-path distances (unlike DFS which may report inflated distances).
 ///
@@ -81,16 +81,18 @@ impl BlastRadiusStrategy for BfsStrategy {
             if hop >= depth {
                 continue;
             }
-            if let Some(importers) = self.index.reverse_deps.get(&current) {
-                for importer in importers {
-                    if visited.insert(importer.clone()) {
-                        affected_files.push(AffectedFile {
-                            path: importer.clone(),
-                            distance: hop + 1,
-                            co_edit_weight: 0.0,
-                        });
-                        queue.push_back((importer.clone(), hop + 1));
-                    }
+            // Each hop asks the index who imports the file it stands on: the importer a
+            // hop finds is a FILE key, and the next hop must look it up as one. Reading
+            // `reverse_deps[current]` by hand missed every resolved edge (keyed by file)
+            // and credited a shared stem to every homonymous file.
+            for importer in self.index.importers_of(&current) {
+                if visited.insert(importer.clone()) {
+                    affected_files.push(AffectedFile {
+                        path: importer.clone(),
+                        distance: hop + 1,
+                        co_edit_weight: 0.0,
+                    });
+                    queue.push_back((importer.clone(), hop + 1));
                 }
             }
         }
@@ -249,6 +251,77 @@ mod tests {
                 .iter()
                 .any(|f| f.path == "crates/other/src/c.rs"),
             "cross-crate file must be included when cross_crate=true"
+        );
+    }
+
+    #[test]
+    fn test_bfs_follows_stem_edges_hop_by_hop() {
+        // Extraction only: `import utils` names the module, not the file, so the edge sits
+        // under the module key. Each hop must ask the index who imports the FILE it stands
+        // on (`importers_of`) — `reverse_deps["pkg/utils.py"]` is empty.
+        let mut idx = SymbolIndex::new();
+        for (path, text) in [
+            ("pkg/utils.py", "def helper():\n    pass\n"),
+            ("pkg/main.py", "import utils\n"),
+            ("pkg/app.py", "import main\n"),
+        ] {
+            idx.index_file(path, text, touring_code::ast::Lang::Python)
+                .expect("python source indexes");
+        }
+
+        let result =
+            BfsStrategy::new(Arc::new(idx)).compute("pkg/utils.py", &AnalysisConfig::standard());
+
+        let hops: Vec<(&str, usize)> = result
+            .affected_files
+            .iter()
+            .map(|f| (f.path.as_str(), f.distance))
+            .collect();
+        assert_eq!(
+            hops,
+            [("pkg/main.py", 1), ("pkg/app.py", 2)],
+            "main.py imports utils (1 hop), app.py imports main (2 hops)"
+        );
+    }
+
+    #[test]
+    fn test_bfs_follows_resolved_file_edges_and_credits_a_homonym_to_nobody() {
+        // Edges loaded from the wiring are file-to-file. A stem two files share is not
+        // resolved by guessing: `a/utils.py` and `b/utils.py` both exist, `c.py` imports
+        // `utils` by name only, and neither file is blamed for it.
+        let mut idx = SymbolIndex::new();
+        for (path, text) in [
+            ("a/utils.py", "def one():\n    pass\n"),
+            ("b/utils.py", "def two():\n    pass\n"),
+            ("c.py", "import utils\n"),
+        ] {
+            idx.index_file(path, text, touring_code::ast::Lang::Python)
+                .expect("python source indexes");
+        }
+        idx.load_file_edges(
+            [("d.py".to_string(), "a/utils.py".to_string())],
+            ["a/utils.py", "b/utils.py", "d.py"].map(str::to_string),
+        );
+
+        let strategy = BfsStrategy::new(Arc::new(idx));
+        let config = AnalysisConfig::standard();
+        let paths = |start: &str| -> Vec<String> {
+            strategy
+                .compute(start, &config)
+                .affected_files
+                .into_iter()
+                .map(|f| f.path)
+                .collect()
+        };
+
+        assert_eq!(
+            paths("a/utils.py"),
+            ["d.py"],
+            "the wiring resolved d.py to a/utils.py"
+        );
+        assert!(
+            paths("b/utils.py").is_empty(),
+            "c.py names `utils` and both files own the stem: nobody is credited"
         );
     }
 

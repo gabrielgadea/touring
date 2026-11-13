@@ -4,6 +4,7 @@
 
 use crate::hook_runtime::{HookPersistError, HookResponse, HookRuntime, StdinError};
 use crate::hook_runtime::{find_cargo_workspace_root, hash_path};
+use crate::index_slot::{IndexGeneration, IndexLoad};
 use serde_json::Value;
 use std::path::PathBuf;
 use touring_code::ast::IncrementalEditResult;
@@ -14,6 +15,16 @@ use touring_intelligence::rl::rl::tiny_transformer::{
     PredictionContext, ToolPrediction, ToolPredictor,
 };
 
+/// Whether a heat key is a file the pipeline should be warmed with: a project-relative
+/// key (not absolute, not a companion key) that the index itself admits — the same
+/// predicate `reindex_file_with_old` applies before it feeds the pipeline.
+fn is_prefetchable(project_root: &std::path::Path, key: &str) -> bool {
+    !std::path::Path::new(key).is_absolute()
+        && !touring_foundation::config::is_companion_key(key)
+        && crate::shared::reindex::admission_key_for_root(project_root, key)
+            .is_ok_and(|admitted| admitted == key)
+}
+
 impl HookRuntime {
     /// Get a reference to the OnlineRL engine, if available.
     pub fn online_rl_engine(&self) -> Option<&OnlineRLEngine> {
@@ -23,18 +34,163 @@ impl HookRuntime {
     pub fn symbol_store(&self) -> Option<&SymbolStore> {
         self.infra.symbol_store.as_ref()
     }
-    /// Get or initialize the in-memory SymbolIndex.
+    /// Load the dependency index into `infra.symbol_index`: the ONE loader of the runtime.
     ///
-    /// On first call, loads symbols from the SymbolStore (if available).
-    pub fn get_symbol_index(&mut self) -> &SymbolIndex {
-        if self.infra.symbol_index.is_none() {
-            let mut idx = SymbolIndex::new();
-            if let Some(ref store) = self.infra.symbol_store {
-                let _ = store.load_into_index(&mut idx);
-            }
-            self.infra.symbol_index = Some(idx);
+    /// Reads the symbol store AND the wiring ([`touring_code::ast::store::load_index`]):
+    /// symbols, the resolved file-to-file edges, the files the wiring covers and the co-edit
+    /// weights. The result replaces the slot as a NEW generation (a reader that holds the
+    /// old one keeps it). Only two methods call it: `load_on_first_read` (reached by
+    /// [`Self::index_generation`] and [`Self::get_symbol_index`], on the first read that needs
+    /// the index: LAZY, a project the daemon opened and nobody reads pays no memory and no
+    /// time), and [`Self::reload_symbol_index_if_loaded`], when an `index rebuild` ends. The
+    /// daemon does not load it when it builds a runtime.
+    ///
+    /// With `TOURING_FILE_EDGES_DISABLED=1` nothing is read and the slot is left as it was
+    /// (empty, for a runtime that never loaded): the hooks stay silent, as they were before
+    /// the index was ever loaded in production.
+    pub fn load_symbol_index(&self) -> IndexLoad {
+        if !self.infra.file_edges_source.enabled() {
+            return IndexLoad::Disabled;
         }
-        self.infra.symbol_index.as_ref().expect("just created")
+        let Some(store) = self.infra.symbol_store.as_ref() else {
+            return IndexLoad::NoStore;
+        };
+        match touring_code::ast::store::load_index(store, &self.ctx.knowledge) {
+            Ok(index) => {
+                let coverage = index.edge_coverage_summary();
+                let files = index.file_to_symbols.len();
+                self.infra.symbol_index.replace(index);
+                IndexLoad::Loaded {
+                    files,
+                    edges: coverage.edges,
+                    covered_files: coverage.covered_files,
+                }
+            }
+            Err(e) => IndexLoad::Failed(e.to_string()),
+        }
+    }
+    /// The loaded generation of the dependency index for the hooks' graph signals, loading it
+    /// first when this is the first read that needs it. EVERY consumer of a graph signal (the
+    /// blast readers, the pipeline's graph layers, the edit-impact check) asks here instead of
+    /// reading the slot, so the index is loaded once, by whoever asks first, with one log line
+    /// saying what was loaded ([`IndexLoad::describe`]).
+    ///
+    /// That is how the runtimes the DAEMON builds behave (`InfraRuntime::index_on_demand`, set by
+    /// the daemon). A runtime that lives for one hook (`touring-hook`, standalone) has it off and
+    /// only hands out a generation somebody already loaded: loading per invocation would cost
+    /// ~259 ms and ~133 MiB each time and change the standalone route's output.
+    ///
+    /// `None` is "no index": the kill switch is on (nothing is ever loaded, nothing logged), the
+    /// runtime is not on demand, or a load was tried and failed (not retried on every read;
+    /// `index rebuild` clears it). A reader that gets `None` stays silent, as it did before the
+    /// index was ever loaded. Reads that must NOT cost a load (`touring status`) read
+    /// `infra.symbol_index` directly.
+    pub fn index_generation(&self) -> Option<IndexGeneration> {
+        if !self.infra.index_on_demand {
+            return self.infra.symbol_index.get();
+        }
+        self.load_on_first_read()
+    }
+    /// The loading half of [`Self::index_generation`] and of the symbol queries
+    /// ([`Self::get_symbol_index`]): the held generation, or the first load (logged when the
+    /// runtime is on demand), or `None` when the switch is on or an earlier load failed.
+    fn load_on_first_read(&self) -> Option<IndexGeneration> {
+        if let Some(generation) = self.infra.symbol_index.get() {
+            return Some(generation);
+        }
+        if !self.infra.file_edges_source.enabled() || self.infra.symbol_index.load_failed() {
+            return None;
+        }
+        let load = self.load_symbol_index();
+        if self.infra.index_on_demand {
+            eprintln!(
+                "[touring-daemon] {}: {}",
+                self.project_root.display(),
+                load.describe()
+            );
+        }
+        if !matches!(load, IndexLoad::Loaded { .. }) {
+            self.infra.symbol_index.mark_load_failed();
+        }
+        self.infra.symbol_index.get()
+    }
+    /// What an `index rebuild` does about the in-memory index when it ends: reload it ONLY if a
+    /// generation is held (the readers that use it are active; they get the fresh one), else
+    /// load nothing — the next read that needs it loads, from the stores the rebuild just wrote
+    /// ([`IndexLoad::NotLoaded`], never a zero) — and forget a failed earlier load. Switch off:
+    /// [`IndexLoad::Disabled`].
+    pub fn reload_symbol_index_if_loaded(&self) -> IndexLoad {
+        if !self.infra.file_edges_source.enabled() {
+            return IndexLoad::Disabled;
+        }
+        if !self.infra.symbol_index.is_loaded() {
+            self.infra.symbol_index.retry_load();
+            return IndexLoad::NotLoaded;
+        }
+        self.load_symbol_index()
+    }
+    /// Get the in-memory index, loading it first if nobody has ([`Self::load_on_first_read`]):
+    /// the symbol queries (`find_symbol`, `blast_radius`) have always loaded on demand, in every
+    /// runtime, so this does not look at `index_on_demand`.
+    ///
+    /// While the file-edges switch is off there is no index to load: this answers from an
+    /// empty one and stores nothing, so the slot the hooks read stays empty.
+    pub fn get_symbol_index(&mut self) -> &SymbolIndex {
+        let _ = self.load_on_first_read();
+        self.infra
+            .symbol_index
+            .loaded_mut()
+            .unwrap_or_else(|| crate::index_slot::empty_symbol_index())
+    }
+    /// Bring the in-memory dependency index in step with the wiring rows of ONE file a hook
+    /// just refreshed (S4): its edges toward the files it imports are replaced by what
+    /// `wiring_map` says now ([`touring_code::ast::SymbolIndex::replace_edges_of`]), so
+    /// `importers_of` and the blast radius follow an edit without a rebuild. An import
+    /// added is listed at once; an import removed is gone at once.
+    ///
+    /// Returns whether the index was edited. `false`, touching nothing: no index is loaded
+    /// (the next load reads the store, which is already right), a companion file (its rows
+    /// are search, never wiring), or the wiring could not be read — logged, and
+    /// `touring index rebuild` reloads the index from the stores.
+    pub fn sync_index_edges_of(&self, file_key: &str) -> bool {
+        if !self.infra.symbol_index.is_loaded()
+            || touring_foundation::config::is_companion_key(file_key)
+        {
+            return false;
+        }
+        let key = file_key.strip_prefix("./").unwrap_or(file_key);
+        match self.ctx.knowledge.file_dependencies(key) {
+            Ok(producers) => self
+                .infra
+                .symbol_index
+                .edit(|index| index.replace_edges_of(key, &producers))
+                .is_some(),
+            Err(e) => {
+                tracing::warn!(
+                    file = key,
+                    error = %e,
+                    "the wiring of an edited file could not be read; the in-memory dependency \
+                     index keeps its old edges until `touring index rebuild`"
+                );
+                false
+            }
+        }
+    }
+    /// Rewrite the wiring of a file named only by its path ([`crate::wiring::refresh_file_wiring_from_disk`])
+    /// AND bring the in-memory dependency index in step ([`Self::sync_index_edges_of`]).
+    /// `false`, touching nothing, when the walker would refuse the file or it cannot be read.
+    pub fn refresh_file_wiring_and_edges_from_disk(&self, file_path: &str) -> bool {
+        match crate::wiring::refresh_file_wiring_keyed_from_disk(
+            &self.ctx.knowledge,
+            &self.project_root,
+            file_path,
+        ) {
+            Some(key) => {
+                self.sync_index_edges_of(&key);
+                true
+            }
+            None => false,
+        }
     }
     /// Find all locations of a symbol by name.
     pub fn find_symbol(&mut self, name: &str) -> Vec<touring_code::ast::graph::SymbolLocation> {
@@ -88,9 +244,42 @@ impl HookRuntime {
             .pipeline
             .as_ref()
             .ok_or("IncrementalPipeline not initialized")?;
-        pipeline
+        let result = pipeline
             .process_file(file_path, content)
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+        // C7: the memory budget is applied after every file the pipeline takes in.
+        self.enforce_pipeline_budget(file_path);
+        Ok(result)
+    }
+    /// Apply the pipeline's memory budget, never evicting `keep` (the file just
+    /// processed). Returns how many documents were evicted; `0` with no pipeline or
+    /// no budget. The runtime's heat map ranks the victims (coldest first); if a hook
+    /// holds it at this very moment the order falls back to path order — enforcement
+    /// never waits on a hook and never panics.
+    pub fn enforce_pipeline_budget(&self, keep: &str) -> usize {
+        let Some(pipeline) = self.infra.pipeline.as_ref() else {
+            return 0;
+        };
+        match self.learning.heat_map.try_borrow() {
+            Ok(heat) => pipeline.enforce_budget(&heat, Some(keep)),
+            Err(_) => pipeline.enforce_budget(&touring_code::ast::HeatMap::new(0), Some(keep)),
+        }
+    }
+    /// Warm the pipeline's cache with the `n` hottest files of the runtime's heat map,
+    /// read from under the project root, so the first edit of each is incremental.
+    /// Only files the index itself admits count (the heat map also holds files outside
+    /// the project and in excluded directories, which `reindex_file_with_old` refuses
+    /// and which must not enter the pipeline through this door). Returns how many files
+    /// were loaded; `0` with no pipeline or while a hook holds the heat map.
+    pub fn prefetch_hot_files(&self, n: usize) -> usize {
+        let (Some(pipeline), Ok(heat)) = (
+            self.infra.pipeline.as_ref(),
+            self.learning.heat_map.try_borrow(),
+        ) else {
+            return 0;
+        };
+        let root = self.project_root.as_path();
+        pipeline.prefetch_from_heat(root, &heat, n, |key| is_prefetchable(root, key))
     }
     /// Get cached symbols for a file from the incremental pipeline.
     ///

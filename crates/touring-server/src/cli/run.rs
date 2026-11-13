@@ -872,10 +872,9 @@ pub fn run(args: &[String]) -> Result<()> {
     // destination: the sandbox exports it as TOURING_SDK_SIGNAL_MIRROR with a
     // FILE-level Landlock write grant, so `record_hook_call` materializes real
     // per-hook counts instead of no-oping (the path comes from the SAME
-    // `default_mirror_path` the KPI reader uses — one source, no drift).
+    // `Mirror` the KPI reader and the post-bash feeder use — one source, no drift).
     let sdk_signal_mirror = if cli.orchestrate {
-        std::env::var_os("HOME")
-            .map(|h| touring_code::sdk_signal_mirror::default_mirror_path(std::path::Path::new(&h)))
+        touring_code::sdk_signal_mirror::Mirror::from_env().map(|m| m.path().to_path_buf())
     } else {
         None
     };

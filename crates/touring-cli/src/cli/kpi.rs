@@ -1270,7 +1270,9 @@ mod tests {
             r#"{"ts":1788300030,"hook_name":"cli-index-find"}"#, // alias: visível, à parte
             "not json at all",
         ];
-        let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mirror = mirror_holding(dir.path(), &mirror);
+        let v = hooks_complement_from(&by_name, Some(&mirror), Some(epoch));
         assert_eq!(v["available"], true);
         assert_eq!(v["since_epoch"], epoch);
         assert_eq!(v["dispatched"]["post-bash"], 10);
@@ -1303,7 +1305,9 @@ mod tests {
             r#"{"ts":1788300030,"hook_name":"index_find"}"#, // legado, sem origem
             r#"{"ts":1788300040,"hook_name":"cli-index-find","origin":"post_bash"}"#, // alias: fora
         ];
-        let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mirror = mirror_holding(dir.path(), &mirror);
+        let v = hooks_complement_from(&by_name, Some(&mirror), Some(epoch));
         assert_eq!(
             v["mirror_deliveries_since"], 6,
             "todas as canônicas seguem contadas"
@@ -1321,7 +1325,7 @@ mod tests {
 
     #[test]
     fn hooks_complement_before_any_dispatch_is_visible_not_a_division() {
-        let v = hooks_complement_from(&Default::default(), std::iter::empty(), None);
+        let v = hooks_complement_from(&Default::default(), None, None);
         assert_eq!(v["available"], false);
         assert_eq!(v["reason"], "no hook dispatched yet in this daemon");
     }
@@ -1330,7 +1334,7 @@ mod tests {
     fn hooks_complement_ratio_is_null_when_post_bash_never_dispatched() {
         let mut by_name = std::collections::BTreeMap::new();
         by_name.insert("cli-suggest".to_string(), 3u64);
-        let v = hooks_complement_from(&by_name, std::iter::empty(), Some(1));
+        let v = hooks_complement_from(&by_name, None, Some(1));
         assert_eq!(v["available"], true);
         assert_eq!(v["post_bash_dispatched"], 0);
         assert!(v["post_bash_delivery_ratio"].is_null(), "{v}");
@@ -1348,7 +1352,8 @@ mod tests {
             r#"{"ts":4,"hook_name":"index_find","duration_ms":1,"success":true}"#,
             r#"{"ts":5,"hook_name":"index_find","duration_ms":1,"success":true}"#,
         ];
-        let v = signal_use_from_lines(lines.iter().copied());
+        let dir = tempfile::tempdir().expect("tempdir");
+        let v = code_mode_signal_use_at(&mirror_holding(dir.path(), &lines));
         assert_eq!(v["used"], 2, "ast_meta + index_find; cli-* never count");
         assert_eq!(v["total_calls"], 5, "every parsed line is a call");
         assert_eq!(
@@ -2454,29 +2459,28 @@ mod tests {
 #[cfg(test)]
 mod signal_latency_tests {
     use touring_code::sdk::HookName;
-    use touring_code::sdk_signal_mirror::{MirrorOrigin, read, record};
+    use touring_code::sdk_signal_mirror::{Mirror, MirrorOrigin};
 
     #[test]
     fn the_kpi_publishes_the_latency_the_mirror_measures() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let path = dir.path().join("mirror.jsonl");
+        let mirror = Mirror::at(dir.path().join("mirror.jsonl"));
         for ms in [10u32, 20, 30, 400] {
-            record(&path, HookName::IndexFind, ms, true, MirrorOrigin::Sdk).expect("record");
+            mirror
+                .record(HookName::IndexFind, ms, true, MirrorOrigin::Sdk)
+                .expect("record");
         }
-        let agg = read(&path).expect("read");
-        assert!(agg.duration_p50() > 0, "p50 must be measured");
-        assert!(
-            agg.duration_p99() >= agg.duration_p50(),
-            "p99 {} < p50 {}",
-            agg.duration_p99(),
-            agg.duration_p50()
-        );
-        let content = std::fs::read_to_string(&path).expect("content");
-        let mut out = super::signal_use_from_lines(content.lines());
-        out["duration_ms_p50"] = serde_json::json!(agg.duration_p50());
-        out["duration_ms_p99"] = serde_json::json!(agg.duration_p99());
-        assert!(out.get("duration_ms_p50").is_some());
-        assert!(out.get("duration_ms_p99").is_some());
+        // The KPI itself, not a re-assembly of its parts: the guard fails if the
+        // wiring between the mirror's percentiles and the payload is undone.
+        let out = super::code_mode_signal_use_at(&mirror);
+        let p50 = out["duration_ms_p50"]
+            .as_u64()
+            .expect("the KPI publishes p50");
+        let p99 = out["duration_ms_p99"]
+            .as_u64()
+            .expect("the KPI publishes p99");
+        assert!(p50 > 0, "p50 must be measured");
+        assert!(p99 >= p50, "p99 {p99} < p50 {p50}");
     }
 }
 

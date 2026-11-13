@@ -90,7 +90,7 @@ impl EnrichedBlastRadius {
 
 /// Compute an enriched blast radius for a file.
 ///
-/// Uses `SymbolIndex.reverse_deps` for direct dependents (depth=1),
+/// Uses `SymbolIndex::importers_of` for direct dependents (depth=1),
 /// `blast_radius` for transitive, and `co_edit_data` for co-edit history.
 pub fn compute_enriched_blast_radius(
     index: &SymbolIndex,
@@ -100,7 +100,7 @@ pub fn compute_enriched_blast_radius(
     let base = index.blast_radius(file);
 
     // Direct dependents: files that directly import `file` (depth=1)
-    let direct_dependents: Vec<String> = index.reverse_deps.get(file).cloned().unwrap_or_default();
+    let direct_dependents: Vec<String> = index.importers_of(file).to_vec();
 
     // Transitive dependents: in affected_files but NOT in direct_dependents and NOT start_file
     let direct_set: HashSet<&str> = direct_dependents.iter().map(String::as_str).collect();

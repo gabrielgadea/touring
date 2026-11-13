@@ -90,6 +90,47 @@ impl FileKnowledgeDB {
         );
         result.unwrap_or(0)
     }
+    /// The `limit` most recently edited files with their edit counts and last-edit
+    /// instants — the seed of a freshly booted heat map, so heat survives a daemon
+    /// restart. Only files inside the project: those outside it are recorded under
+    /// their absolute path and would crowd the project's own files out of a small map.
+    ///
+    /// A missing table, a failed `prepare` or an unreadable row is an `Err`, never an empty
+    /// list: "no history yet" and "history unreadable" are different facts, and the caller
+    /// (the boot seed of the heat map) must be able to say which one it met. A row whose
+    /// last instant does not parse has no recency to decay from and is left out.
+    pub fn recent_edit_heat(&self, limit: usize) -> Result<Vec<EditHeatRow>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT file_path, COUNT(*), CAST(strftime('%s', MAX(edited_at)) AS REAL)
+             FROM {}
+             WHERE file_path NOT LIKE '/%'
+             GROUP BY file_path
+             ORDER BY MAX(edited_at) DESC, file_path
+             LIMIT ?1",
+            schema_guard::TABLE_EDIT_HISTORY
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(params![limit as i64], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, Option<f64>>(2)?,
+            ))
+        })?;
+        let mut heat = Vec::new();
+        for row in rows {
+            let (file_path, edits, last_edit_epoch) = row?;
+            let Some(last_edit_epoch) = last_edit_epoch else {
+                continue;
+            };
+            heat.push(EditHeatRow {
+                file_path,
+                edits: u32::try_from(edits).unwrap_or(u32::MAX),
+                last_edit_epoch,
+            });
+        }
+        Ok(heat)
+    }
     /// Get recent edits across ALL files (for cross-file pattern analysis).
     ///
     /// Returns up to `limit` most recent edits regardless of file path.

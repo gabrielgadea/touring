@@ -50,6 +50,7 @@ pub mod hook_memory;
 pub mod hook_runtime;
 pub mod hook_runtime_ext;
 pub mod hook_trace;
+pub mod index_slot;
 pub mod inferlets;
 #[cfg(feature = "inferlets-wasm")]
 pub mod inferlets_assets;
@@ -79,7 +80,9 @@ pub use classifier::{
     CILALevel, CILAResult, CachedIntentClassifier, CognitiveTechnique, IntentClassifier,
 };
 pub use pii::{PIIFinding, PIIScanner, PIIType};
-pub use runtime::{HookResponse, HookRuntime, HookTimer, make_relative, sync_codetag_anchors};
+pub use runtime::{
+    HookResponse, HookRuntime, HookTimer, make_relative, project_key, sync_codetag_anchors,
+};
 pub use touring_ceg::capability; // Wave H: ceg_adapter consumes crate::capability
 pub use touring_ceg::gateway;
 pub use touring_hooks_core::aco_bridge;

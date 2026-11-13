@@ -1019,6 +1019,46 @@ fn test_ast_blast_returns_consumers_array() {
     assert!(result["blast_radius"].is_number());
 }
 
+/// C8 S2-cli: `touring ast blast` lists the files that depend on a file, not the rows of
+/// the wiring. A file that consumes its own symbols is not its own dependent (it used to
+/// count itself, so the radius was one too high for the 1.401 files of the touring
+/// project that do), a virtual call site (`touring-daemon://dispatch`) is not a file, and
+/// the list comes in path order whatever order the wiring was written in.
+#[test]
+fn test_ast_blast_lists_other_files_once_in_path_order() {
+    let (_tmp, mut rt) = setup_runtime();
+    let wiring = &rt.ctx.knowledge;
+    wiring
+        .register_pub_symbol("src/foo.rs", "Foo", "struct", "public")
+        .unwrap();
+    wiring
+        .register_pub_symbol("src/foo.rs", "bar", "fn", "public")
+        .unwrap();
+    for (symbol, consumer) in [
+        ("Foo", "src/zeta.rs"),
+        ("bar", "src/zeta.rs"),
+        ("Foo", "src/alpha.rs"),
+        ("Foo", "src/foo.rs"),
+        ("Foo", "touring-daemon://dispatch"),
+    ] {
+        wiring
+            .record_consumer("src/foo.rs", symbol, consumer, Some(1))
+            .unwrap();
+    }
+
+    let result = parse_json(&cli_ast_blast(
+        &mut rt,
+        &serde_json::json!({ "file_path": "src/foo.rs" }),
+    ));
+
+    assert_eq!(
+        result["consumers"],
+        serde_json::json!(["src/alpha.rs", "src/zeta.rs"]),
+        "not src/foo.rs itself, not the virtual call site, each file once, in path order"
+    );
+    assert_eq!(result["blast_radius"], 2);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // DECOMPOSE FULL WORKFLOW E2E
 // ═══════════════════════════════════════════════════════════════════════

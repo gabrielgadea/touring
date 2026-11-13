@@ -34,9 +34,17 @@ pub const MAX_INDEXABLE_FILE_BYTES: u64 = 8 * 1024 * 1024;
 /// Extensions the walker indexes. Shared with `touring index why` and the hook
 /// writers so "why is this file not indexed" is answered by the rule that excluded
 /// it — never by a second copy that can drift.
+///
+/// The parser's own table (`touring_code::ast::Lang::from_path`) and this list are one
+/// language table seen twice: the test
+/// `the_index_admits_every_extension_the_parser_reads_or_says_why_not` fails when an
+/// extension is read by one and refused by the other without a stated reason. Cross-audit
+/// 12/11/2026 (F1) added the spellings the parser already read: `mts`/`cts` (TypeScript
+/// module flavours), `htm` (HTML), `zsh` (read by the Bash grammar) and `jsonc` (JSON with
+/// comments, the neighbour reach that already admits `scss` and `mdx`).
 pub const INDEX_SUPPORTED_EXTS: &[&str] = &[
-    "rs", "py", "pyi", "ts", "tsx", "js", "jsx", "mjs", "cjs", "sh", "bash", "html", "css", "scss",
-    "md", "mdx", "json", "toml", "yaml", "yml",
+    "rs", "py", "pyi", "ts", "mts", "cts", "tsx", "js", "jsx", "mjs", "cjs", "sh", "bash", "zsh",
+    "html", "htm", "css", "scss", "md", "mdx", "json", "jsonc", "toml", "yaml", "yml",
 ];
 
 /// Directory names the walker never enters (exact match; [`dir_skip_reason`] layers
@@ -909,6 +917,169 @@ mod tests {
         ] {
             let json = serde_json::to_string(&v).unwrap();
             assert_eq!(json, format!("\"{}\"", v.as_str()), "{v:?}");
+        }
+    }
+
+    /// Extensions the parser (`touring_code::ast::Lang::from_path`) reads that the
+    /// index deliberately does not admit, each with the reason. The sweep below fails
+    /// on any parser extension that is neither admitted nor listed here, so a new
+    /// grammar can never diverge from the index in silence (cross-audit 12/11/2026,
+    /// F1: `.mts`/`.cts` were read by the parser as TypeScript and refused by this
+    /// policy, so the in-memory pipeline and `symbols.db` disagreed about one file,
+    /// and `rebuild`, `ingest` and `index why` all turned it away).
+    const PARSER_READS_INDEX_REFUSES: &[(&str, &str)] = &[
+        (
+            "go",
+            "grammar behind the `more-languages` feature; the index admission was never \
+             extended to it. Go wiring (`go_wiring`, opt-in via `knowledge.polyglot()`) \
+             exists, but admitting `.go` changes what a rebuild writes for every Go \
+             project — a product decision, not drift. To admit: add it to \
+             INDEX_SUPPORTED_EXTS and delete this row.",
+        ),
+        (
+            "java",
+            "same as `go`: `more-languages` grammar, admission never extended, no Java \
+             wiring consumer. To admit: add it to INDEX_SUPPORTED_EXTS and delete this row.",
+        ),
+    ];
+
+    /// Every extension the parser answers for. `Lang::from_path` is the only public
+    /// door to its table, so this sweeps every `[a-z0-9]` extension of 1 to 4
+    /// characters (about 1,7 million probes, well under a second) plus the longer
+    /// ones worth naming. A row the table gains with 5+ characters that is not in
+    /// `LONGER` escapes the sweep — the gap is a missing enumerator in
+    /// `touring-code`, recorded in the F1 report.
+    fn parser_extensions() -> Vec<String> {
+        use touring_code::ast::Lang;
+        const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+        const LONGER: &[&str] = &[
+            "jsonc", "jsonl", "ipynb", "xhtml", "svelte", "kotlin", "swift", "gradle", "cmake",
+        ];
+        let reads = |ext: &str| Lang::from_path(Path::new(&format!("x.{ext}"))).is_some();
+        let mut found: Vec<String> = LONGER
+            .iter()
+            .filter(|ext| reads(ext))
+            .map(|ext| (*ext).to_string())
+            .collect();
+        let mut probe = String::from("x.");
+        let stem = probe.len();
+        for len in 1..=4u32 {
+            for n in 0..ALPHABET.len().pow(len) {
+                probe.truncate(stem);
+                let mut rest = n;
+                for _ in 0..len {
+                    probe.push(ALPHABET[rest % ALPHABET.len()] as char);
+                    rest /= ALPHABET.len();
+                }
+                if Lang::from_path(Path::new(&probe)).is_some() {
+                    found.push(probe[stem..].to_string());
+                }
+            }
+        }
+        found.sort();
+        found.dedup();
+        found
+    }
+
+    /// F1: the parser and the index admission are ONE language table seen twice. Every
+    /// extension the parser reads is either admitted by `INDEX_SUPPORTED_EXTS` or named,
+    /// with a reason, in `PARSER_READS_INDEX_REFUSES`; every admitted extension is one
+    /// the parser can read (an admitted file nobody can parse is a row with no symbols).
+    #[test]
+    fn the_index_admits_every_extension_the_parser_reads_or_says_why_not() {
+        let read = parser_extensions();
+        assert!(
+            read.iter().any(|e| e == "rs") && read.iter().any(|e| e == "ts"),
+            "the sweep must at least find the base table: {read:?}"
+        );
+        let admitted = |ext: &str| INDEX_SUPPORTED_EXTS.contains(&ext);
+        let excepted = |ext: &str| PARSER_READS_INDEX_REFUSES.iter().any(|(e, _)| *e == ext);
+
+        let diverged: Vec<&str> = read
+            .iter()
+            .map(String::as_str)
+            .filter(|e| !admitted(e) && !excepted(e))
+            .collect();
+        assert!(
+            diverged.is_empty(),
+            "the parser reads {diverged:?} but the index refuses it with no listed reason: \
+             admit it in INDEX_SUPPORTED_EXTS or add a justified row to PARSER_READS_INDEX_REFUSES"
+        );
+
+        let unreadable: Vec<&str> = INDEX_SUPPORTED_EXTS
+            .iter()
+            .copied()
+            .filter(|e| !read.iter().any(|r| r == e))
+            .collect();
+        assert!(
+            unreadable.is_empty(),
+            "the index admits {unreadable:?} but `Lang::from_path` reads none of them"
+        );
+
+        let stale: Vec<&str> = PARSER_READS_INDEX_REFUSES
+            .iter()
+            .map(|(e, _)| *e)
+            .filter(|e| admitted(e))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "{stale:?} is admitted now: delete its row from PARSER_READS_INDEX_REFUSES"
+        );
+        for (ext, why) in PARSER_READS_INDEX_REFUSES {
+            assert!(why.len() > 40, "`.{ext}` needs a real reason, not `{why}`");
+        }
+    }
+
+    /// F1, the symptom itself: `index why`, the rebuild walker and the hook writers all
+    /// ask `classify_index_candidate`, so a TypeScript module spelled `.mts`/`.cts` must
+    /// pass it exactly like `.ts`.
+    #[test]
+    fn module_flavoured_typescript_is_eligible_like_ts() {
+        for rel in ["src/a.ts", "src/a.mts", "src/a.cts"] {
+            assert_eq!(
+                classify_index_candidate(rel, facts(true, 10)),
+                None,
+                "`{rel}` must be eligible"
+            );
+        }
+    }
+
+    /// Every extension this policy admits on top of the original set reaches the real
+    /// extractor with the grammar of its twin and yields symbols: admitting an
+    /// extension is only worth it if the file is then readable.
+    #[test]
+    fn the_admitted_twins_yield_symbols_through_the_real_extractor() {
+        use touring_code::ast::symbols::extract_symbols;
+        let samples: &[(&str, &str, &str)] = &[
+            (
+                "a.mts",
+                "export function fromModule(x: number): number { return x; }\n",
+                "fromModule",
+            ),
+            (
+                "a.cts",
+                "export function fromCommon(x: number): number { return x; }\n",
+                "fromCommon",
+            ),
+            ("a.zsh", "greet() { print hello; }\n", "greet"),
+            // The HTML extractor names elements (`html`, `body`, `h1`), not ids.
+            ("a.htm", "<html><body><h1>x</h1></body></html>\n", "body"),
+            // A line comment is what makes a file `.jsonc` rather than `.json`.
+            (
+                "a.jsonc",
+                "{\n  // the comment the JSON grammar must tolerate\n  \"name\": 1\n}\n",
+                "name",
+            ),
+        ];
+        for (file, source, wanted) in samples {
+            let lang = touring_code::ast::Lang::from_path(Path::new(file))
+                .unwrap_or_else(|| panic!("`{file}` is not read by the parser"));
+            let symbols = extract_symbols(source, lang).expect("extractor runs");
+            assert!(
+                symbols.iter().any(|s| s.name == *wanted),
+                "`{file}` should yield `{wanted}`, got {:?}",
+                symbols.iter().map(|s| &s.name).collect::<Vec<_>>()
+            );
         }
     }
 }

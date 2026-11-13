@@ -39,9 +39,10 @@
 //! ```
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Node, Parser};
+use tree_sitter::Node;
 
 use crate::ast::error::{AstError, AstResult};
+use crate::ast::grammar::Grammar;
 use crate::ast::languages::Lang;
 
 /// Full semantic analysis report for a single Python / TypeScript / JavaScript
@@ -86,12 +87,9 @@ impl PolyglotSemanticReport {
                  (Rust uses rust_semantic; Go/Java/C++ semantic parity is future work)"
             )));
         }
-        let mut parser = Parser::new();
-        parser
-            .set_language(&lang.tree_sitter_language())
-            .map_err(|e| AstError::ParseFailed(format!("set_language: {e}")))?;
-        let tree = crate::ast::parser::parse_bounded(&mut parser, source, None)
-            .ok_or_else(|| AstError::ParseFailed("tree-sitter parse returned None".into()))?;
+        let tree = Grammar::of_lang(lang)
+            .parse(source)
+            .map_err(|refusal| AstError::ParseFailed(refusal.to_string()))?;
 
         let bytes = source.as_bytes();
         let root = tree.root_node();
@@ -279,6 +277,21 @@ fn count_python_params(node: Node, bytes: &[u8]) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A parse that outlives its budget is a `ParseFailed` error, never a hang.
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let py = "def f(a: int) -> int:\n    return a\n".repeat(2_000);
+        assert!(PolyglotSemanticReport::from_source(Lang::Python, &py).is_ok());
+        with_budget(Duration::ZERO, || {
+            assert!(matches!(
+                PolyglotSemanticReport::from_source(Lang::Python, &py),
+                Err(AstError::ParseFailed(_))
+            ));
+        });
+    }
 
     // Node-kind reality is validated empirically here (VP-Scout Chain 5):
     // each assertion pins a semantic count to a known source, so a wrong

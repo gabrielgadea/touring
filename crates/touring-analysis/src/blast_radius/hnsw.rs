@@ -73,6 +73,23 @@ pub fn path_hash_embedding(path: &str) -> Vec<f32> {
     vec
 }
 
+/// The files the HNSW index is built over: every key of `reverse_deps` and every file that
+/// imports one, each once, in path order, at most `MAX_HNSW_FILES` of them.
+///
+/// One ordered set does the dedup and the sort in a single pass, so the cost is
+/// O((n + e) log n) for `n` files and `e` edges. This was a `Vec::contains` inside the loop
+/// over every edge, O(e * n): free while `reverse_deps` was empty in production (the dependency
+/// graph was never loaded), ~600 ms at opt-level 0 once the wiring's 76.9 thousand file edges
+/// are loaded (C8 probe, 12/11/2026). The result is the same list the old code produced.
+fn indexed_files(symbol_index: &SymbolIndex) -> Vec<String> {
+    let mut unique: std::collections::BTreeSet<&String> =
+        symbol_index.reverse_deps.keys().collect();
+    for importers in symbol_index.reverse_deps.values() {
+        unique.extend(importers.iter());
+    }
+    unique.into_iter().take(MAX_HNSW_FILES).cloned().collect()
+}
+
 /// HNSW approximate blast radius strategy.
 ///
 /// On construction, builds an HNSW index over all files known to the
@@ -105,19 +122,7 @@ impl HnswStrategy {
         // gives ~2x faster build with negligible recall loss at this dimensionality.
         let mut hnsw = HnswIndex::new(HnswConfig::for_path_hashes());
 
-        // Collect unique file paths from reverse_deps keys and values
-        let mut files: Vec<String> = symbol_index.reverse_deps.keys().cloned().collect();
-        for deps in symbol_index.reverse_deps.values() {
-            for dep in deps {
-                if !files.contains(dep) {
-                    files.push(dep.clone());
-                }
-            }
-        }
-        files.sort();
-        files.dedup();
-        files.truncate(MAX_HNSW_FILES);
-
+        let files = indexed_files(symbol_index);
         for (id, path) in files.iter().enumerate() {
             let embedding = path_hash_embedding(path);
             hnsw.insert(id, embedding);
@@ -241,6 +246,84 @@ mod tests {
         let result = strategy.compute("src/lib.rs", &AnalysisConfig::deep());
         assert!(result.affected_files.is_empty());
         assert_eq!(result.strategy_used, "hnsw_ann");
+    }
+
+    /// The list the code built before the ordered set: a `Vec` filled behind a `contains`
+    /// scan, then sorted, deduplicated and cut. It is the oracle `indexed_files` must equal.
+    fn legacy_indexed_files(idx: &SymbolIndex) -> Vec<String> {
+        let mut files: Vec<String> = idx.reverse_deps.keys().cloned().collect();
+        for deps in idx.reverse_deps.values() {
+            for dep in deps {
+                if !files.contains(dep) {
+                    files.push(dep.clone());
+                }
+            }
+        }
+        files.sort();
+        files.dedup();
+        files.truncate(MAX_HNSW_FILES);
+        files
+    }
+
+    /// `edges` importer edges over `names` files, drawn by a fixed LCG. Producers come from
+    /// the first third of the names only, importers from all of them: producers and importers
+    /// overlap, one importer can repeat under a producer, and two thirds of the files are
+    /// importers that never appear as a key.
+    fn graph_of(names: usize, edges: usize) -> SymbolIndex {
+        let name = |i: usize| format!("crates/c{}/src/m{i}.rs", i % 37);
+        let mut state: u64 = 0x2545_f491_4f6c_dd1d;
+        let mut next = move || {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((state >> 33) as usize) % names
+        };
+        let mut idx = SymbolIndex::new();
+        for _ in 0..edges {
+            let producer = name(next() % (names / 3));
+            let importer = name(next());
+            idx.reverse_deps.entry(producer).or_default().push(importer);
+        }
+        idx
+    }
+
+    #[test]
+    fn indexed_files_equals_the_old_list_on_a_graph_with_overlap_and_repeats() {
+        let idx = graph_of(300, 2_000);
+        let files = indexed_files(&idx);
+        assert_eq!(files, legacy_indexed_files(&idx));
+        // The fixture is not trivial: importers that never appear as a key are in the list,
+        // and the same importer is listed more than once under some producers.
+        assert!(
+            files.len() > idx.reverse_deps.len(),
+            "importer-only files must be indexed"
+        );
+        let listed: usize = idx.reverse_deps.values().map(Vec::len).sum();
+        assert!(
+            listed > files.len(),
+            "edges outnumber files, so repeats exist"
+        );
+        assert!(files.windows(2).all(|w| w[0] < w[1]), "sorted and unique");
+    }
+
+    #[test]
+    fn indexed_files_keeps_the_same_files_when_the_cap_cuts() {
+        let idx = graph_of(6_000, 12_000);
+        let mut every: std::collections::BTreeSet<&String> = idx.reverse_deps.keys().collect();
+        every.extend(idx.reverse_deps.values().flatten());
+        assert!(
+            every.len() > MAX_HNSW_FILES,
+            "the fixture must exceed the cap to test it"
+        );
+
+        let files = indexed_files(&idx);
+        assert_eq!(files.len(), MAX_HNSW_FILES);
+        assert_eq!(files, legacy_indexed_files(&idx));
+    }
+
+    #[test]
+    fn indexed_files_of_an_empty_index_is_empty() {
+        assert!(indexed_files(&SymbolIndex::new()).is_empty());
     }
 
     #[test]

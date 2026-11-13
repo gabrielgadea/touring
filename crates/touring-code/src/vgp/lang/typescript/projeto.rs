@@ -17,6 +17,7 @@ use std::rc::Rc;
 use serde_json::Value;
 
 use crate::vgp::lang::caminho::{self, Sonda};
+use crate::vgp::lang::vista::Vista;
 
 /// Files bigger than this are never read (a generated bundle is not a module summary).
 pub(super) const MAX_LEITURA: u64 = 3 * 1024 * 1024;
@@ -97,7 +98,7 @@ pub(super) enum Procura {
 /// The disk laid under the entry's overlays, plus the per-call config cache.
 pub(super) struct Projeto<'a> {
     pub raiz: &'a Path,
-    sobrepor: &'a HashMap<String, String>,
+    vista: Vista<'a>,
     configs: RefCell<HashMap<PathBuf, Rc<ConfigTs>>>,
     /// The roots the disk may be touched inside: the project root, the directory of the file being
     /// checked (a fragment in `/tmp` resolves its imports next to itself) and the `node_modules`
@@ -150,7 +151,7 @@ impl<'a> Projeto<'a> {
     fn de(raiz: &'a Path, sobrepor: &'a HashMap<String, String>, entrada: Option<&Path>) -> Self {
         Self {
             raiz,
-            sobrepor,
+            vista: Vista::nova(sobrepor),
             configs: RefCell::new(HashMap::new()),
             raizes: raizes_de(raiz, entrada),
             fora: Cell::new(false),
@@ -165,10 +166,7 @@ impl<'a> Projeto<'a> {
     /// What `p` is: a file of the overlays, else what the disk says INSIDE the roots. Something that
     /// exists outside them is [`Sonda::Fora`] — and remembered for [`Projeto::provar`].
     fn sonda(&self, p: &Path) -> Sonda {
-        if self.sobrepor.contains_key(p.to_string_lossy().as_ref()) {
-            return Sonda::Arquivo;
-        }
-        let s = caminho::sondar(&self.raizes, p);
+        let s = self.vista.sondar(&self.raizes, p);
         if s == Sonda::Fora {
             self.fora.set(true);
         }
@@ -180,29 +178,24 @@ impl<'a> Projeto<'a> {
         self.sonda(p) == Sonda::Arquivo
     }
 
-    /// Is `p` a directory — on disk (inside the roots), or the parent of an overlay file?
+    /// Is `p` a directory — on disk (inside the roots), or one the overlays lie under?
+    ///
+    /// It does not set `fora` itself (C4): every caller that reads `fora` reaches here through
+    /// [`Projeto::provar_caminho`], whose first probe ([`Projeto::eh_arquivo`] on the same path)
+    /// already saw whatever exists outside the roots there.
     pub fn eh_diretorio(&self, p: &Path) -> bool {
-        match caminho::sondar(&self.raizes, p) {
-            Sonda::Diretorio => return true,
-            Sonda::Fora => self.fora.set(true),
-            _ => {}
-        }
-        let prefixo = format!("{}/", p.to_string_lossy());
-        self.sobrepor.keys().any(|k| k.starts_with(&prefixo))
+        self.vista.e_diretorio(&self.raizes, p)
     }
 
     /// Content of `p` (overlay first, then disk inside the roots, capped); `None` if unreadable,
     /// outside the roots or too big.
     pub fn ler(&self, p: &Path) -> Option<String> {
-        if let Some(c) = self.sobrepor.get(p.to_string_lossy().as_ref()) {
-            return Some(c.clone());
-        }
-        caminho::ler_contido_ate(&self.raizes, p, MAX_LEITURA).ok()
+        self.vista.ler(&self.raizes, p, Some(MAX_LEITURA)).ok()
     }
 
-    /// The overlay map (read-only), for callers that scan sibling overlays.
-    pub fn sobrepostos(&self) -> &HashMap<String, String> {
-        self.sobrepor
+    /// The overlays, for callers that scan the entry's siblings.
+    pub fn vista(&self) -> Vista<'a> {
+        self.vista
     }
 
     // ------------------------------------------------------------------ config

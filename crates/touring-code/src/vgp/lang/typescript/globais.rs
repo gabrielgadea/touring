@@ -175,11 +175,10 @@ impl<'a> Mundo<'a> {
     }
 
     fn nas_sobreposicoes(&self, nome: &str) -> bool {
-        let eu = self.arquivo.to_string_lossy();
         self.projeto
-            .sobrepostos()
-            .iter()
-            .any(|(k, v)| k.as_str() != eu.as_ref() && palavra_presente(v, nome))
+            .vista()
+            .outros(self.arquivo)
+            .any(|(_, texto)| palavra_presente(texto, nome))
     }
 
     /// The nearest ancestor (up to the project root) that marks a package; else the file's directory.

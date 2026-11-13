@@ -6,6 +6,7 @@
 //! inspecao, aderencia, reuso da escada e uso do sinal do SDK.
 
 use super::*;
+use touring_code::sdk_signal_mirror::Mirror;
 use touring_foundation::run_outcome::{Journal, Line, LineFamily, classify_line};
 /// P5b (achado de Gabriel, 2026-08-26) — dos programas que o modelo rodou,
 /// qual fração FUNDIU round-trips.
@@ -482,6 +483,9 @@ mod reuse_tests {
 #[cfg(test)]
 mod adherence_tests;
 
+#[cfg(test)]
+mod signal_mirror_tests;
+
 /// F6 — aggregate per-canonical-hook stats from the post-tool-use mirror.
 /// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
 /// Fail-open: missing file → `(0, 8)` (consistent with the gate).
@@ -554,66 +558,55 @@ pub(crate) fn signal_delta(live: &Value, baseline: &Value) -> Value {
 }
 
 pub(crate) fn code_mode_signal_use() -> Value {
-    let Some(home) = std::env::var_os("HOME") else {
-        return json!({"available": false, "reason": "HOME unset"});
-    };
-    // F4 P4 (2026-09-01) — same source the writers use (`default_mirror_path`),
-    // so reader and sinks cannot drift apart on the path.
-    let path = touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home));
-    match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            let mut out = signal_use_from_lines(content.lines());
-            // REGRA #0 (2026-09-02) — `duration_p50`/`duration_p99` do agregado
-            // do mirror não tinham UM consumidor. O consumidor natural é este
-            // KPI, que já lia o mesmo arquivo e descartava a duração de cada
-            // entrada: um contador diz se os hooks são usados, o percentil diz
-            // se valem o que custam.
-            if let Ok(agg) = touring_code::sdk_signal_mirror::read(&path) {
-                out["duration_ms_p50"] = json!(agg.duration_p50());
-                out["duration_ms_p99"] = json!(agg.duration_p99());
-            }
-            out
-        }
-        Err(_) => json!({"available": false, "reason": "no mirror yet"}),
+    // F4 P4 (2026-09-01) — the SAME `Mirror` the writers use, so reader and
+    // sinks cannot drift apart on the path.
+    match Mirror::from_env() {
+        Some(mirror) => code_mode_signal_use_at(&mirror),
+        None => json!({"available": false, "reason": "HOME unset"}),
     }
 }
 
-/// F0 wave signal-layer-tier-ab (01/09) — a agregação pura por trás de
-/// [`code_mode_signal_use`], testável sem FS. `used` cruza com os 8 canônicos
-/// de `HookName::ALL`; nomes fora do cânone (alias `cli-*` do daemon) contam
-/// em `non_canonical_calls` — visíveis, nunca somados ao ratio (E4: a
-/// ausência/anomalia é exibida, não escondida). Medido 01/09: sem o filtro o
-/// ratio leu 1.0 com só 3 hooks canônicos no mirror.
-pub(crate) fn signal_use_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> Value {
-    const TOTAL_HOOKS: u64 = 8;
-    let canonical: std::collections::BTreeSet<&'static str> = touring_code::sdk::HookName::ALL
-        .iter()
-        .map(|h| h.as_str())
-        .collect();
-    let mut seen: std::collections::BTreeSet<String> = Default::default();
-    let mut calls = 0u64;
-    let mut non_canonical = 0u64;
-    for line in lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
-            calls += 1;
-            if canonical.contains(name) {
-                seen.insert(name.to_string());
-            } else {
-                non_canonical += 1;
+/// The signal-use reading of ONE mirror: a single pass over the whole file, so the counts and
+/// the latency percentiles come from the SAME lines (it used to read the file twice with two
+/// parsers of different tolerance, and one torn line dropped `duration_ms_p50/p99` while the
+/// counts went on).
+///
+/// F0 wave signal-layer-tier-ab (01/09): `used` crosses with the 8 canonical hooks of
+/// `HookName::ALL`; names outside the canon (the daemon's `cli-*` aliases) count in
+/// `non_canonical_calls` — visible, never summed into the ratio (E4: an anomaly is shown, not
+/// hidden; measured 01/09: without the filter the ratio read 1.0 with 3 canonical hooks in the
+/// mirror). REGRA #0 (02/09): a counter says whether the hooks are used, the percentile says
+/// whether they are worth what they cost. Lines the reader could not read are `skipped_lines`,
+/// present only when there are any, so a clean mirror's payload is byte for byte what it was.
+/// A missing mirror reads `no mirror yet`; one that exists and cannot be read reads
+/// `unreadable: <why>`.
+pub(crate) fn code_mode_signal_use_at(mirror: &Mirror) -> Value {
+    match mirror.read(0) {
+        Ok(Some(agg)) => {
+            let total = touring_code::sdk::HookName::ALL.len() as u64;
+            let used = agg.canonical_hooks_used as u64;
+            let mut out = json!({
+                "available": true,
+                "used": used,
+                "total": total,
+                "ratio": used as f64 / total as f64,
+                "total_calls": agg.total_calls,
+                "non_canonical_calls": agg.non_canonical_calls,
+                "duration_ms_p50": agg.duration_ms_p50,
+                "duration_ms_p99": agg.duration_ms_p99,
+            });
+            if agg.skipped_lines > 0 {
+                out["skipped_lines"] = json!(agg.skipped_lines);
             }
+            out
         }
+        Ok(None) => json!({"available": false, "reason": "no mirror yet"}),
+        // The file EXISTS and cannot be read (permissions, a directory in its place): not
+        // "nobody has written it yet". Reading both as `no mirror yet` made a deployment that
+        // cannot read its own signal look like one that had not started (cross-audit
+        // 12/11/2026, F8). A line that is not UTF-8 no longer lands here: the reader skips it.
+        Err(e) => json!({"available": false, "reason": format!("unreadable: {e}")}),
     }
-    json!({
-        "available": true,
-        "used": seen.len() as u64,
-        "total": TOTAL_HOOKS,
-        "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
-        "total_calls": calls,
-        "non_canonical_calls": non_canonical,
-    })
 }
 
 /// F9 (2026-09-01) — régua do complemento de hooks.
@@ -629,21 +622,22 @@ pub(crate) fn signal_use_from_lines<'a>(lines: impl Iterator<Item = &'a str>) ->
 pub(crate) fn hooks_complement() -> Value {
     let by_name = touring_foundation::gate_metrics::hook_dispatch_by_name();
     let since = touring_foundation::gate_metrics::hook_dispatch_since_epoch();
-    let mirror = std::env::var_os("HOME")
-        .map(|home| touring_code::sdk_signal_mirror::default_mirror_path(&PathBuf::from(home)))
-        .and_then(|path| std::fs::read_to_string(path).ok())
-        .unwrap_or_default();
-    hooks_complement_from(&by_name, mirror.lines(), since)
+    hooks_complement_from(&by_name, Mirror::from_env().as_ref(), since)
 }
 
-/// A agregação pura por trás de [`hooks_complement`] — testável sem FS nem
-/// daemon. Linhas do mirror anteriores a `since_epoch` ficam fora (o mirror é
-/// cumulativo, os contadores do daemon não); nomes fora de `HookName::ALL`
-/// contam à parte (E4: visíveis, nunca somados). Sem despacho ainda, a razão
-/// não existe — e diz isso em vez de dividir por zero.
-pub(crate) fn hooks_complement_from<'a>(
+/// The aggregation behind [`hooks_complement`], testable without the daemon: the mirror enters
+/// as a `Mirror` (`Mirror::at` in a temp dir), not as lines. The window is decided here, in ONE
+/// place: `since_epoch` slices the mirror (cumulative, unlike the daemon's counters) and is the
+/// same value the payload publishes. Names outside `HookName::ALL` count apart (E4: visible,
+/// never summed). With no dispatch yet the ratio does not exist, and says so instead of dividing
+/// by zero.
+///
+/// The mirror half is `null` — never 0 — when there is nothing to read: `mirror_absent: true`
+/// (no `HOME`, no file yet) or `mirror_unreadable: "<why>"` (it exists and cannot be read). The
+/// daemon's half (`dispatched`, `post_bash_dispatched`) is real in both cases and stays.
+pub(crate) fn hooks_complement_from(
     by_name: &std::collections::BTreeMap<String, u64>,
-    mirror_lines: impl Iterator<Item = &'a str>,
+    mirror: Option<&Mirror>,
     since_epoch: Option<u64>,
 ) -> Value {
     let Some(since) = since_epoch else {
@@ -652,60 +646,57 @@ pub(crate) fn hooks_complement_from<'a>(
             "reason": "no hook dispatched yet in this daemon",
         });
     };
-    let canonical: std::collections::BTreeSet<&'static str> = touring_code::sdk::HookName::ALL
-        .iter()
-        .map(|h| h.as_str())
-        .collect();
-    let mut deliveries = 0u64;
-    let mut non_canonical = 0u64;
-    // F9-origem (02/09): cada linha canônica é creditada a quem a escreveu
-    // (`origin`: `post_bash` | `sdk`; ausente = `unknown`, linhas legadas).
-    let mut by_origin: std::collections::BTreeMap<&'static str, u64> =
-        [("post_bash", 0u64), ("sdk", 0u64), ("unknown", 0u64)]
-            .into_iter()
-            .collect();
-    for line in mirror_lines {
-        let Ok(v) = serde_json::from_str::<Value>(line) else {
-            continue;
-        };
-        let ts = v.get("ts").and_then(Value::as_u64).unwrap_or(0);
-        if ts < since {
-            continue;
-        }
-        match v.get("hook_name").and_then(Value::as_str) {
-            Some(name) if canonical.contains(name) => {
-                deliveries += 1;
-                let origin = match v.get("origin").and_then(Value::as_str) {
-                    Some("post_bash") => "post_bash",
-                    Some("sdk") => "sdk",
-                    _ => "unknown",
-                };
-                *by_origin.entry(origin).or_insert(0) += 1;
-            }
-            Some(_) => non_canonical += 1,
-            None => {}
-        }
-    }
-    let post_bash = by_name.get("post-bash").copied().unwrap_or(0);
-    let post_bash_deliveries = by_origin.get("post_bash").copied().unwrap_or(0);
-    // A razão só admite entregas ORIGINADAS no post-bash: uma entrega do SDK
-    // in-sandbox não prova que o PostToolUse chegou ao daemon.
-    let ratio = if post_bash > 0 {
-        json!(post_bash_deliveries as f64 / post_bash as f64)
-    } else {
-        Value::Null
+    // `Mirror::read` tells "no file yet" (`Ok(None)`) from a file it cannot read (`Err`); both
+    // are stated, neither is an empty aggregate: zero deliveries would read as a feeder that
+    // wrote nothing (cross-audit 12/11/2026, F8 and review D4).
+    let (agg, gap) = match mirror.map(|m| m.read(since)) {
+        Some(Ok(Some(agg))) => (Some(agg), None),
+        Some(Ok(None)) | None => (None, Some(("mirror_absent", Value::Bool(true)))),
+        Some(Err(e)) => (
+            None,
+            Some(("mirror_unreadable", Value::String(e.to_string()))),
+        ),
     };
-    json!({
+    let post_bash = by_name.get("post-bash").copied().unwrap_or(0);
+    // The ratio admits only deliveries ORIGINATED in post-bash: an in-sandbox SDK delivery does
+    // not prove that PostToolUse reached the daemon.
+    let ratio = match &agg {
+        Some(a) if post_bash > 0 => json!(a.post_bash_calls as f64 / post_bash as f64),
+        _ => Value::Null,
+    };
+    // F9-origem (02/09): each canonical call is credited to whoever wrote it (`origin`:
+    // `post_bash` | `sdk`; absent = `unknown`, legacy lines).
+    let by_origin = agg.as_ref().map(|a| {
+        json!({
+            "post_bash": a.post_bash_calls,
+            "sdk": a.sdk_calls,
+            "unknown": a.unknown_origin_calls,
+        })
+    });
+    let mut out = json!({
         "available": true,
         "since_epoch": since,
         "dispatched": by_name,
         "post_bash_dispatched": post_bash,
-        "mirror_deliveries_since": deliveries,
+        "mirror_deliveries_since": agg.as_ref().map(|a| a.canonical_calls()),
         "mirror_deliveries_by_origin": by_origin,
-        "post_bash_origin_deliveries_since": post_bash_deliveries,
-        "mirror_non_canonical_since": non_canonical,
+        "post_bash_origin_deliveries_since": agg.as_ref().map(|a| a.post_bash_calls),
+        "mirror_non_canonical_since": agg.as_ref().map(|a| a.non_canonical_calls),
         "post_bash_delivery_ratio": ratio,
-    })
+    });
+    if let (Some((key, why)), Some(obj)) = (gap, out.as_object_mut()) {
+        obj.insert(key.to_string(), why);
+    }
+    out
+}
+
+/// Test seam: a mirror holding `lines` — what the writers (or a crash) left on disk.
+#[cfg(test)]
+pub(crate) fn mirror_holding(dir: &std::path::Path, lines: &[&str]) -> Mirror {
+    let path = dir.join("sdk_signal_mirror.jsonl");
+    let body: String = lines.iter().map(|l| format!("{l}\n")).collect();
+    std::fs::write(&path, body).expect("write the mirror fixture");
+    Mirror::at(path)
 }
 
 /// A agregação pura por trás de [`code_mode_adherence`] — testável sem FS.

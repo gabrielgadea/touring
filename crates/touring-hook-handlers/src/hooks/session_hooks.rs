@@ -73,6 +73,13 @@ pub fn run_session_start_returning(
     // F1: Subscribe cognitive engine to CortexDispatcher broadcast for drift detection
     runtime.subscribe_to_cortex_dispatcher();
 
+    // C7: warm the incremental pipeline with the files the heat map says the user works
+    // on, so the first edit of each is incremental instead of a full parse. Bounded by
+    // `SESSION_PREFETCH_FILES`, best-effort, and a no-op while the heat map is empty.
+    let warmed =
+        runtime.prefetch_hot_files(touring_hook_runtime::hook_runtime::SESSION_PREFETCH_FILES);
+    tracing::debug!(warmed, "session_start: heat prefetch");
+
     // P3.1: Activate enrichment pipeline after cognitive init
     runtime.trigger_enrichment();
 
@@ -1207,6 +1214,37 @@ mod tests {
             "{json}"
         );
         // Reaching this line at all is the point: the old tail was `-> !`.
+    }
+
+    #[test]
+    fn session_start_warms_the_pipeline_with_the_hottest_files() {
+        let (tmp, mut rt) = setup();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        std::fs::write(tmp.path().join("src/hot.rs"), "pub fn hot() {}\n").unwrap();
+        std::fs::write(tmp.path().join("src/untouched.rs"), "pub fn x() {}\n").unwrap();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0);
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_edit("src/hot.rs", now);
+
+        let _ = run_session_start_returning(&mut rt, &serde_json::json!({"session_id": "s-heat"}));
+
+        let pipeline = rt.infra.pipeline.as_ref().expect("pipeline");
+        pipeline.with_read(|p| {
+            assert!(
+                p.get_document("src/hot.rs").is_some(),
+                "the hot file is warm"
+            );
+            assert!(
+                p.get_document("src/untouched.rs").is_none(),
+                "no heat, no prefetch"
+            );
+        });
+        assert_eq!(pipeline.stats().heat_prefetched, 1);
     }
 
     #[test]

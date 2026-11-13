@@ -2074,6 +2074,16 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
                 new_rt.init_async_knowledge();
                 // Initialize ANN memory recall (persistent cross-session embeddings)
                 new_rt.init_ann_memory();
+                // C8: the dependency index (symbols + the wiring's file-to-file edges) is NOT
+                // loaded here. It loads on the FIRST read that needs it (`HookRuntime::
+                // index_generation`), so a project the daemon opened and nobody reads pays
+                // neither its ~133 MiB nor its ~259 ms. The daemon only tells the runtime it may
+                // load on demand and log the load when it happens: it keeps this runtime across
+                // hooks, so the load is paid once (a one-hook `touring-hook` process leaves it
+                // off, and its graph signals stay as before C8). Do not add an eager load:
+                // `the_daemon_does_not_touch_the_index_when_it_builds_a_project_runtime`
+                // (touring-code/tests/index_loader_guard.rs) fails on it.
+                new_rt.infra.index_on_demand = true;
                 // Initialize WASM inferlets (async — runs in the daemon's tokio runtime)
                 new_rt.init_inferlets(4).await;
                 // Initialize hook memory schema (ephemeral/working/semantic tier tables)

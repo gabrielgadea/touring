@@ -170,8 +170,9 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
             count,
             Some((1.0_f32, format!("blast cached({} deps)", count))),
         )
-    } else if let Some(idx) = runtime.infra.symbol_index.as_ref() {
+    } else if let Some(generation) = runtime.index_generation() {
         // Fallback: compute fresh via SymbolIndex
+        let idx: &touring_code::ast::SymbolIndex = generation.index();
         let bc = crate::shared::signals::blast_radius_file_count(Some(idx), &rel_path).unwrap_or(0);
         let sig = blast_radius_signal(Some(idx), &rel_path, true);
         (bc, sig)
@@ -981,7 +982,8 @@ fn compose_quality_evolution(
         let rt = runtime?;
         if let Some(count) = rt.ctx.session_bus.borrow().get_blast_radius(rel_path) {
             count
-        } else if let Some(idx) = rt.infra.symbol_index.as_ref() {
+        } else if let Some(generation) = rt.index_generation() {
+            let idx: &touring_code::ast::SymbolIndex = generation.index();
             crate::shared::signals::blast_radius_file_count(Some(idx), rel_path).unwrap_or(0)
         } else {
             0

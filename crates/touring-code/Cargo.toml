@@ -19,7 +19,7 @@ touring-pyright = { path = "../touring-pyright" }
 touring-foundation = { path = "../touring-foundation" }
 touring-simd = { path = "../touring-simd" }
 # W5 shim-elimination 2026-05-30: touring-vfs fused into touring-storage::vfs.
-touring-storage = { path = "../touring-storage" }
+touring-storage = { path = "../touring-storage", features = ["knowledge"] }
 
 # ── tree-sitter parsing stack (W4.2 — ast module) ────────────────────────────
 tree-sitter = { workspace = true, features = ["wasm"] }
@@ -51,13 +51,11 @@ quote = { workspace = true }
 prettyplease = { workspace = true }
 # span-locations: real byte ranges for syn item spans — the gotcha #49 fix in
 # ast/format/preserve/formatter.rs replaces textual keyword search with spans.
+# NOT unused, whatever `-W unused_crate_dependencies` says: no source names `proc_macro2`, but
+# `item.span().byte_range()` (formatter.rs:44) exists only when THIS dependency turns the feature
+# on (removing it: E0599 `no method named byte_range`; checked 12/11/2026, F12).
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 cargo_metadata = { workspace = true }
-public-api = { workspace = true }
-
-# ── W4.5 — touring-semantics fusion (semantics module) ───────────────────────
-anyhow = { workspace = true }
-once_cell = { workspace = true }
 
 # ── Standard touring stack ───────────────────────────────────────────────────
 rusqlite = { workspace = true }
@@ -70,7 +68,6 @@ ropey = { workspace = true }
 indexmap = { workspace = true }
 thiserror = { workspace = true }
 miette = { workspace = true }
-lru = { workspace = true }
 moka = { workspace = true }
 rayon = { workspace = true }
 petgraph = { workspace = true }
@@ -82,9 +79,11 @@ parking_lot = { workspace = true }
 static_assertions = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 strum = { workspace = true }
-derive_more = { workspace = true }
 
 [dev-dependencies]
+# Only `ast/rust_semantic.rs` names it, under `#[cfg(test)]` (`use public_api as _` and the
+# `public_api_crate_is_accessible` test); no lib/bin/example/bench target does (F12, 12/11/2026).
+public-api = { workspace = true }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
 criterion = { workspace = true }
@@ -159,14 +158,6 @@ harness = false
 
 [[bench]]
 name = "rope_document"
-harness = false
-
-[[bench]]
-name = "prioritized_pipeline"
-harness = false
-
-[[bench]]
-name = "lazy_loading"
 harness = false
 
 [[bench]]

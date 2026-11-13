@@ -54,7 +54,9 @@ pub enum WorkspaceIoError {
 ///   of `if/match/while/for/&&/||/?` tokens).
 ///
 /// The walker skips `target/`, `.git/`, and `node_modules/` directories
-/// to keep large repos snappy.
+/// to keep large repos snappy, and never enters a symlink to a directory
+/// found INSIDE the tree (a link back to an ancestor would loop until the
+/// kernel's ELOOP); `root` itself may be a link.
 ///
 /// # Errors
 ///
@@ -108,19 +110,38 @@ fn collect_rs_files(dir: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() {
-            if matches!(
-                path.file_name().and_then(|s| s.to_str()),
-                Some("target" | ".git" | "node_modules")
-            ) {
-                continue;
+        // `DirEntry::file_type` does NOT follow a symlink (`Path::is_dir` does). A directory
+        // link met INSIDE the tree is never entered: one pointing back at an ancestor — `mise`
+        // keeps `~/.local/state/mise/trusted-configs/<x> -> ~` — made the walk re-enter its own
+        // root until the kernel's 40-link limit, 41 laps of the same files and an ELOOP error
+        // (cross-audit 12/11/2026, F9). The ROOT itself may still be a link: `read_dir(root)`
+        // above follows it.
+        let file_type = entry.file_type()?;
+        if is_directory_link(&path, file_type) {
+            continue;
+        }
+        if file_type.is_dir() {
+            if !is_skipped_dir(&path) {
+                collect_rs_files(&path, out)?;
             }
-            collect_rs_files(&path, out)?;
         } else if path.extension().is_some_and(|e| e == "rs") {
             out.push(path);
         }
     }
     Ok(())
+}
+
+/// A symlink whose target is a directory (a dangling or file link is not one).
+fn is_directory_link(path: &Path, file_type: fs::FileType) -> bool {
+    file_type.is_symlink() && path.is_dir()
+}
+
+/// The directories the walk never enters: build output, VCS metadata and vendored packages.
+fn is_skipped_dir(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|s| s.to_str()),
+        Some("target" | ".git" | "node_modules")
+    )
 }
 
 fn relativise(file: &Path, root: &Path) -> String {
@@ -340,6 +361,57 @@ mod tests {
             .find(|f| f.func == "branchy")
             .map(|f| f.cc);
         assert!(cc.is_some_and(|n| n >= 2), "expected CC >= 2, got {cc:?}");
+    }
+
+    /// F9 (cross-audit 12/11/2026): `touring status -j` from `$HOME` took 27–57 s at 99 % of a
+    /// core. `mise` keeps `~/.local/state/mise/trusted-configs/<x> -> ~`, a symlink back to the
+    /// root of the walk; `path.is_dir()` follows it, so the walk re-entered the root until the
+    /// kernel's 40-link limit and aborted with ELOOP — an `Err` for a tree with ONE source file.
+    #[test]
+    fn a_symlink_back_to_the_root_neither_loops_nor_aborts_the_walk() {
+        let tmp = tempdir();
+        write_tmp(tmp.path(), "src/lib.rs", "pub fn once() {}\n");
+        std::os::unix::fs::symlink("..", tmp.path().join("src/loop")).expect("symlink");
+        let started = std::time::Instant::now();
+        let ws =
+            build_workspace_from_path(tmp.path()).expect("a link back to the root is not an error");
+        assert_eq!(
+            ws.file_lines.len(),
+            1,
+            "the one file must be counted once, not once per lap of the loop"
+        );
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "the walk must not re-enter the root: {:?}",
+            started.elapsed()
+        );
+    }
+
+    /// A directory link is never followed, so what sits behind it is counted where it lives, once.
+    #[test]
+    fn a_file_behind_a_directory_link_is_counted_once() {
+        let tmp = tempdir();
+        write_tmp(tmp.path(), "real/a.rs", "pub fn only() {}\n");
+        std::os::unix::fs::symlink("real", tmp.path().join("alias")).expect("symlink");
+        let ws = build_workspace_from_path(tmp.path()).expect("walk");
+        assert_eq!(
+            ws.file_lines.keys().collect::<Vec<_>>(),
+            vec!["real/a.rs"],
+            "the alias must not duplicate the file"
+        );
+        assert_eq!(ws.function_count(), 1);
+    }
+
+    /// The ROOT may itself be a link (a project reached through a symlinked path): only the
+    /// links met INSIDE the tree are not followed.
+    #[test]
+    fn a_root_that_is_itself_a_symlink_is_still_walked() {
+        let tmp = tempdir();
+        write_tmp(tmp.path(), "proj/lib.rs", "pub fn f() {}\n");
+        let link = tmp.path().join("link");
+        std::os::unix::fs::symlink("proj", &link).expect("symlink");
+        let ws = build_workspace_from_path(&link).expect("walk through the root link");
+        assert_eq!(ws.file_lines.len(), 1);
     }
 
     fn tempdir() -> tempfile::TempDir {

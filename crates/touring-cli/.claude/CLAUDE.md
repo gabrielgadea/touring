@@ -86,9 +86,19 @@ Read-only, wired in `cli_kpi` after `surface_usage`; nothing writes a policy or 
 
 In `src/cli/kpi/code_mode.rs` (`pub(crate) fn code_mode_signal_use`; the kpi module was split into
 `src/cli/kpi/`), the function:
-- Reads `~/.claude/touring/sdk_signal_mirror.jsonl` (F3 sink)
-- Counts distinct canonical SDK hooks (8 total) + total call count
-- Returns `{available, used, total, ratio, total_calls}`
+- Reads the F3 sink (`~/.claude/touring/sdk_signal_mirror.jsonl`) through
+  `touring_code::sdk_signal_mirror::Mirror` (C5, 12/11/2026): `code_mode_signal_use_at(&Mirror)` is ONE
+  `Mirror::read(0)`, so counts and latency come from the same lines and a torn line is skipped, never
+  fatal. `hooks_complement` reads it once more through `hooks_complement_from(.., Option<&Mirror>, ..)`;
+  no code in this crate parses a mirror line or builds the path
+- Counts distinct canonical SDK hooks (8 total) + total call count (aliases like `cli-index-find` count
+  in `non_canonical_calls`, never in `used`)
+- Returns `{available, used, total, ratio, total_calls, non_canonical_calls, duration_ms_p50, duration_ms_p99}`
+  (+ `skipped_lines` only when the reader skipped a line). A mirror that exists and cannot be read
+  is `{available: false, reason: "unreadable: <why>"}`, distinct from `"no mirror yet"`;
+  `hooks_complement` states the same two cases as `mirror_absent: true` / `mirror_unreadable: "<why>"`
+  and leaves the mirror-derived numbers (`mirror_deliveries_*`, `post_bash_delivery_ratio`) `null`,
+  never 0
 - Wired into `cli_kpi()` (`src/cli/kpi.rs`) so `touring kpi -j` includes it
 
 Public surface:
@@ -158,6 +168,24 @@ cargo run --example kpi_f6_smoke                     # F6 e2e
   found Graft dropping >1 MB files with `grep` claiming "all indexed code was
   searched" — and, in the live workspace, 5.865 files of residue that no
   rebuild removed.
+- **The extension list is the parser's table seen twice (cross-audit 12/11/2026, F1)**:
+  `INDEX_SUPPORTED_EXTS` admits every extension `Lang::from_path` reads — `.mts`/`.cts`,
+  `.htm`, `.zsh` and `.jsonc` joined the list that day — except those named WITH A REASON in
+  `PARSER_READS_INDEX_REFUSES` (`go`, `java`: `more-languages` grammars, admission a product
+  decision). `the_index_admits_every_extension_the_parser_reads_or_says_why_not`
+  (`index_policy.rs`) sweeps every `[a-z0-9]` extension of 1-4 characters through the public
+  `Lang::from_path` and fails on a divergence in either direction, so a new grammar cannot
+  reach the parser without the index being told. Gap: a 5+ character row is only seen if
+  named in the test's `LONGER` (no public enumerator in `touring-code`). The same table now
+  backs `cli-shadow-validate` (`rlsearch.rs`): an extension the parser does not read answers
+  `error: unsupported_extension` instead of being judged as Rust. So do the AST and semantics
+  handlers (`cli-ast-quality|calls|scope|imports`, `cli-resolve-def|find-references|rename`), all
+  through ONE helper, `cli::shared::lang_or_error(file_path, neutral)` (the error plus the handler's
+  own envelope), and `touring ast importance` (an error, exit 1). A `None` from `Lang::from_path` is
+  never turned into a chosen language: `touring-code/tests/lang_fallback_guard.rs` scans
+  `crates/*/src` and fails on a new `unwrap_or(Lang::X)` / `map_or(Lang::X, ..)` outside its
+  written allow-list (empty). The one alias kept is `.markdown` in `shadow_lang` (the old private
+  table knew it; the parser's table reads `.md`/`.mdx` only).
 - **Git's ignore rules are part of the policy (cross-audit 14/09/2026, R2-2)**:
   `IndexPolicy::gitignored` asks `touring_foundation::gitignore::GitIgnoreRules`
   (`.git/info/exclude` + every `.gitignore` down to the path, deeper files win,
@@ -290,7 +318,15 @@ cargo run --example kpi_f6_smoke                     # F6 e2e
   table (`resolve_consumer_kinds_from_producers`), so a cold rebuild is
   byte-identical to a warm one. Acceptance is the measurement that found the
   defects: `kill -9` mid-rebuild loses no wiring row and is reported, and the
-  cold/warm dumps diff to zero (analysis §28/§29).
+  cold/warm dumps diff to zero (analysis §28/§29). Since 12/11/2026 a test holds it:
+  `cli::shared::heat_invariant::assert_tables_independent_of_heat` rebuilds the same tree with
+  an empty heat map and with the heat ranking the files both ways, and the tables (rowids
+  included, volatile cells found by a control run) must not move. It caught C7's
+  "hottest first" walk — the rowids of `graph.db`/`symbols` diverged — and that reordering
+  left BOTH batch walks (the rebuild and `file-knowledge populate`, whose test is
+  `populate_leaves_the_same_tables_whatever_the_heat`): the walk's order is the walker's
+  (path order), whatever the daemon's heat. A batch writer that wants heat must not let it
+  decide the ORDER; heat decides eviction and prefetch only.
 - **`index status` is answered off the actor (decision 3-A, 14/09/2026)**:
   `index_status_from_disk` reads committed state through READ-ONLY, NO_MUTEX
   connections and the dispatch serves it before queueing (`serve_status_off_actor`),
@@ -309,10 +345,15 @@ cargo run --example kpi_f6_smoke                     # F6 e2e
 
 ## Cross-emitter invariant (Python ↔ Rust)
 
-`scripts/gen_sdk.py` produces the same `SignalReport` JSON shape as
-`touring_code::sdk::signal_report_from_journal`. `cargo run --example
-sdk_smoke` (in `touring-code`) prints both side-by-side and diffs them.
-**Schema-drift fails the smoke test** — keep them in sync.
+`scripts/gen_sdk.py` produces the same `SignalReport` JSON as
+`touring_code::sdk::signal_report_from_journal`, and **Rust is the reference**.
+What FAILS on drift is `crates/touring-code/tests/sdk_cross_emitter.rs` (it runs the
+script over a journal with every family of line — runs, `{"repeat_blocked":…}`, non-object
+and torn lines — and compares the parsed JSON, minus `generated_at_unix`); the
+`sdk_smoke` example only WRITES a report and compares nothing (the old promise that it
+failed on drift was false; the two had drifted, 57.405 × 57.539 runs, 12/11/2026). A "run"
+is what the strict `JournalEntry` reader counts. `_extras` (byte totals) is the one
+declared Python-only extension: opt-in with `gen_sdk.py --extras`, absent by default.
 
 ## See also
 

@@ -4,7 +4,6 @@
 //! work end-to-end with the complete integration chain.
 
 use indexmap::IndexMap;
-#[allow(unused_imports)]
 use touring_code::ast::graph::SymbolIndex;
 use touring_code::ast::graph::enriched::compute_enriched_blast_radius;
 use touring_code::ast::graph::pheromone::{PheromoneGraph, SymbolPheromoneMap};

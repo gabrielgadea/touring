@@ -21,6 +21,7 @@ use tree_sitter::Node;
 use crate::ast::languages::Lang;
 use crate::ast::parser::parse_thread_local;
 use crate::vgp::lang::caminho;
+use crate::vgp::lang::vista::Vista;
 
 /// Static signature of a project function/method (kwarg checks and return-type inference).
 #[derive(Debug, Clone, Default)]
@@ -206,15 +207,16 @@ pub enum Tri {
 /// Cache de processo do resolver: (caminho, sha256 do conteúdo) → tabela do módulo.
 type ModuleCache = std::cell::RefCell<HashMap<(PathBuf, String), Option<Rc<ModuleInfo>>>>;
 
-/// Disk content already read: per SET of allowed roots, then per path.
+/// Module content already read (an overlay or the disk, as the view answered): per SET of allowed
+/// roots, then per path.
 type FsCache = std::cell::RefCell<HashMap<Vec<PathBuf>, HashMap<PathBuf, Option<String>>>>;
 
 /// On-demand module resolver: project → sibling → venv, overlay first, (path, sha) cached.
 pub struct Resolver<'a> {
     root: &'a Path,
-    overlays: &'a HashMap<String, String>,
+    vista: Vista<'a>,
     cache: ModuleCache,
-    /// Disk content already read, per SET of allowed roots: the answer depends on the roots, so
+    /// Content already read, per SET of allowed roots: the answer depends on the roots, so
     /// what was read under a wide set is never served to a narrow one.
     fs_cache: FsCache,
     /// `<root>/.venv/lib/python*/site-packages`, listed once (the venv does not change mid-check).
@@ -231,7 +233,7 @@ impl<'a> Resolver<'a> {
     pub(crate) fn new(root: &'a Path, overlays: &'a HashMap<String, String>) -> Self {
         Self {
             root,
-            overlays,
+            vista: Vista::nova(overlays),
             cache: ModuleCache::new(HashMap::new()),
             fs_cache: std::cell::RefCell::new(HashMap::new()),
             site_packages_cache: std::cell::OnceCell::new(),
@@ -294,19 +296,16 @@ impl<'a> Resolver<'a> {
         info.map(Rc::new)
     }
 
-    /// Overlay first; then the filesystem (a directory is not a file).
+    /// Overlay first; then the filesystem (a directory is not a file) — the view's precedence,
+    /// remembered per set of roots (the overlays do not change while the resolver lives).
     fn content_of(&self, path: &Path, raizes: &[PathBuf]) -> Option<String> {
-        let key = path.to_string_lossy().to_string();
-        if let Some(c) = self.overlays.get(&key) {
-            return Some(c.clone());
-        }
         if let Some(hit) = self.fs_cache.borrow().get(raizes).and_then(|m| m.get(path)) {
             return hit.clone();
         }
         // V-4 (31/10/2026): only what is inside the allowed roots is read — the
         // project root AND the `site-packages` the resolver itself declares (under the
         // conventional `.venv/lib`). A path that only the CONTENT names is not a root.
-        let c = caminho::ler_contido(raizes, path).ok();
+        let c = self.vista.ler(raizes, path, None).ok();
         self.fs_cache
             .borrow_mut()
             .entry(raizes.to_vec())

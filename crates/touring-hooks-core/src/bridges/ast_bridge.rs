@@ -11,6 +11,7 @@
 
 use std::path::Path;
 
+use touring_code::ast::graph::FileReferences;
 use touring_code::ast::{
     Lang, PubSymbol, QualityReport, Severity, Symbol, SymbolDiff, SymbolIndex, analyze_quality,
     compute_complexity_for_source, diff_pub_symbols, enrich_symbols_with_complexity,
@@ -133,48 +134,32 @@ pub fn extract_file_imports(source: &str, file_path: &str) -> Vec<(String, Vec<S
         None => return Vec::new(),
     };
 
-    touring_code::ast::graph::extract_imports(source, lang)
+    FileReferences::new(source, lang)
+        .imports()
         .into_iter()
         .map(|imp| (imp.module_path, imp.symbols))
         .collect()
 }
 
 /// The imports that are USES of what they name — the ones a consumer edge is
-/// recorded for. [`extract_file_imports`] minus what the file only forwards or
-/// never touches: Rust re-exports (`pub use`, `pub(crate) use`) and Python
-/// names never referenced outside the import statements (an `__all__` or
-/// `__init__.py` façade, a dead import). Decision of 18/09/2026 (Gabriel):
-/// importing is not using, in both languages. The rebuild and the hook path
-/// both reach this through `record_import_consumers`.
+/// recorded for: [`extract_file_imports`] minus what the file only forwards (a Rust
+/// re-export it never names in its own code) or never touches (a Python name absent
+/// outside its import statements). Decision of 18/09/2026 (Gabriel): importing is
+/// not using. The rule lives in [`FileReferences::consumed_imports`]; this adapter
+/// only turns a path into a language and an import into a `(module, symbols)` pair.
+/// The rebuild and the hook path both reach it through `record_import_consumers`.
 ///
 /// Symbols are removed, never modules: an import left with no symbol records
 /// nothing downstream.
 pub fn extract_consumed_imports(source: &str, file_path: &str) -> Vec<(String, Vec<String>)> {
-    let imports = extract_file_imports(source, file_path);
-    match Lang::from_path(Path::new(file_path)) {
-        Some(Lang::Rust) => {
-            // A re-export the file ALSO names in its own code is a use of it
-            // (`pub use a::X;` then `[X, …]` in a table).
-            let used = touring_code::ast::graph::rust_names_used_outside_use(source);
-            let forwarded: std::collections::HashSet<(String, String)> =
-                touring_code::ast::graph::rust_reexports(source)
-                    .into_iter()
-                    .flat_map(|imp| {
-                        let module = imp.module_path;
-                        imp.symbols.into_iter().map(move |s| (module.clone(), s))
-                    })
-                    .filter(|(_, symbol)| !used.contains(symbol))
-                    .collect();
-            drop_symbols(imports, |module, symbol| {
-                forwarded.contains(&(module.to_string(), symbol.to_string()))
-            })
-        }
-        Some(Lang::Python) => {
-            let unreferenced = touring_code::ast::graph::python_unreferenced_imports(source);
-            drop_symbols(imports, |_, symbol| unreferenced.contains(symbol))
-        }
-        _ => imports,
-    }
+    let Some(lang) = Lang::from_path(Path::new(file_path)) else {
+        return Vec::new();
+    };
+    FileReferences::new(source, lang)
+        .consumed_imports()
+        .into_iter()
+        .map(|imp| (imp.module_path, imp.symbols))
+        .collect()
 }
 
 #[cfg(test)]
@@ -275,38 +260,6 @@ mod consumed_import_tests {
             "only forwarded"
         );
     }
-}
-
-/// `imports` with every `(module, symbol)` that `drop` accepts removed.
-fn drop_symbols(
-    imports: Vec<(String, Vec<String>)>,
-    drop: impl Fn(&str, &str) -> bool,
-) -> Vec<(String, Vec<String>)> {
-    imports
-        .into_iter()
-        .map(|(module, symbols)| {
-            let kept = symbols.into_iter().filter(|s| !drop(&module, s)).collect();
-            (module, kept)
-        })
-        .collect()
-}
-
-/// Extract method-call / associated-function-call identifiers used in
-/// the file. Captures `.method()` dispatch and `Type::assoc_fn()` syntax
-/// that the import-based extractor misses.
-///
-/// Returns an unordered, deduplicated `Vec<String>` of identifier names.
-/// Callers cross-reference the names against wiring_map producer rows to
-/// record dynamic-dispatch consumer edges (F9 of the 2026-05-11 audit).
-///
-/// Empty vec for non-Rust files (Python / TS imports already cover both
-/// types and functions, so the extra walk is not needed there).
-pub fn extract_file_method_calls(source: &str, file_path: &str) -> Vec<String> {
-    let lang = match Lang::from_path(Path::new(file_path)) {
-        Some(l) => l,
-        None => return Vec::new(),
-    };
-    touring_code::ast::graph::extract_method_calls(source, lang)
 }
 
 /// Compute blast radius for a file using the touring-ast symbol index.

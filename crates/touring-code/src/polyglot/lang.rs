@@ -4,6 +4,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use super::error::{Error, Result};
+use crate::ast::grammar::{Grammar, Reach};
 
 /// Touring-facing language enum. Thin wrapper over `SupportLang` so the public
 /// API stays stable if ast-grep's enum shape changes upstream.
@@ -158,12 +159,21 @@ impl FromStr for Lang {
     }
 }
 
-/// Auto-detect a language from a file path's extension. Returns `None` if the
-/// extension is missing or not mapped. Callers should fall back to explicit
-/// `--lang` when `None`.
+/// Auto-detect a language from a file path's extension (case-insensitive).
+/// Returns `None` if the extension is missing or not mapped. Callers should
+/// fall back to explicit `--lang` when `None`.
+///
+/// Identity comes first from the extension table shared with the `ast` and VGP
+/// readers ([`Grammar::of_extension`], exact reach: a `.scss` file is not CSS to
+/// ast-grep, and ast-grep has no Markdown or TOML grammar). The languages only
+/// ast-grep carries (`c`, `cpp`, `rb`, `kt`, `lua`, …) fall back to
+/// [`Lang::from_str`] on the extension.
 pub fn detect_lang(path: impl AsRef<Path>) -> Option<Lang> {
     let ext = path.as_ref().extension().and_then(|e| e.to_str())?;
-    Lang::from_str(ext).ok()
+    let ext = ext.to_ascii_lowercase();
+    Grammar::of_extension(&ext, Reach::Exact)
+        .and_then(|grammar| Lang::from_str(grammar.name()).ok())
+        .or_else(|| Lang::from_str(&ext).ok())
 }
 
 #[cfg(test)]
@@ -179,6 +189,41 @@ mod tests {
         assert_eq!(detect_lang("dir/sub/bar.js"), Some(Lang::JavaScript));
         assert_eq!(detect_lang("no_ext"), None);
         assert_eq!(detect_lang("foo.unknown"), None);
+    }
+
+    /// Extensions the ast table and the VGP table already read as these languages
+    /// (C1: one shared extension table). `detect_lang` used to answer `None`.
+    #[test]
+    fn detect_every_extension_the_shared_table_knows() {
+        assert_eq!(detect_lang("a.jsx"), Some(Lang::JavaScript));
+        assert_eq!(detect_lang("a.mjs"), Some(Lang::JavaScript));
+        assert_eq!(detect_lang("a.cjs"), Some(Lang::JavaScript));
+        assert_eq!(detect_lang("a.pyi"), Some(Lang::Python));
+        assert_eq!(detect_lang("a.zsh"), Some(Lang::Bash));
+        assert_eq!(detect_lang("a.mts"), Some(Lang::TypeScript));
+        assert_eq!(detect_lang("a.cts"), Some(Lang::TypeScript));
+    }
+
+    /// The ast-grep engine reads only extensions that ARE the language (a SCSS or
+    /// MDX file is not CSS or Markdown to it), and has no grammar for Markdown or TOML.
+    #[test]
+    fn detect_ignores_neighbour_extensions_and_languages_ast_grep_lacks() {
+        for path in ["a.scss", "a.mdx", "a.jsonc", "a.md", "a.toml"] {
+            assert_eq!(detect_lang(path), None, "{path}");
+        }
+    }
+
+    /// The languages only ast-grep carries are still found by their extension, and
+    /// the extension is read case-insensitively.
+    #[test]
+    fn detect_keeps_the_ast_grep_only_languages_and_ignores_case() {
+        assert_eq!(detect_lang("a.c"), Some(Lang::C));
+        assert_eq!(detect_lang("a.cpp"), Some(Lang::Cpp));
+        assert_eq!(detect_lang("a.rb"), Some(Lang::Ruby));
+        assert_eq!(detect_lang("a.kt"), Some(Lang::Kotlin));
+        assert_eq!(detect_lang("a.ex"), Some(Lang::Elixir));
+        assert_eq!(detect_lang("A.PY"), Some(Lang::Python));
+        assert_eq!(detect_lang("A.TSX"), Some(Lang::Tsx));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! E2E integration tests for pln2 implemented features.
 //!
-//! Covers: B6 (lazy loading), B7 (WiringFingerprintStore), E1 (cross-crate blast),
+//! Covers: B6 (HeatMap capacity), B7 (WiringFingerprintStore), E1 (cross-crate blast),
 //! E3 (RenameCandidate), E4 (quality_trend), F1 (OtelConfig), G1 (pattern scanners),
 //! G2 (RL reward), G3 (AnalysisInsights), C9 (pub consts).
 
@@ -48,64 +48,8 @@ pub fn helper(x: i32) -> i32 {
 "#;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// B6: Lazy loading — IncrementalPipeline
+// B6: HeatMap capacity (the lazy-loading surface was removed in C6, 12/11/2026)
 // ─────────────────────────────────────────────────────────────────────────────
-
-#[test]
-fn test_b6_lazy_loading_queue_and_count() {
-    let mut pipeline = IncrementalPipeline::new();
-    assert_eq!(
-        pipeline.pending_lazy_count(),
-        0,
-        "fresh pipeline has 0 pending"
-    );
-
-    pipeline.queue_for_lazy("src/a.rs", "pub fn a() {}");
-    pipeline.queue_for_lazy("src/b.rs", "pub fn b() {}");
-    assert_eq!(
-        pipeline.pending_lazy_count(),
-        2,
-        "should have 2 pending after queuing"
-    );
-}
-
-#[test]
-fn test_b6_ensure_loaded_triggers_parse() {
-    let mut pipeline = IncrementalPipeline::new();
-    pipeline.queue_for_lazy("src/proc.rs", RUST_SOURCE);
-
-    // ensure_loaded should parse the queued file and remove it from pending
-    let loaded = pipeline.ensure_loaded("src/proc.rs");
-    assert!(loaded, "ensure_loaded should return true for a queued file");
-    assert_eq!(
-        pipeline.pending_lazy_count(),
-        0,
-        "pending should be 0 after ensure_loaded"
-    );
-}
-
-#[test]
-fn test_b6_prefetch_from_heat() {
-    let mut pipeline = IncrementalPipeline::new();
-    // Queue several files
-    for i in 0..5 {
-        pipeline.queue_for_lazy(format!("src/file_{i}.rs"), format!("pub fn f{i}() {{}}"));
-    }
-
-    let mut heat = HeatMap::new(100);
-    // Record edits to make some files "hot"
-    heat.record_edit("src/file_0.rs", NOW);
-    heat.record_edit("src/file_0.rs", NOW);
-    heat.record_edit("src/file_1.rs", NOW);
-
-    // prefetch_from_heat should load top-N hottest files
-    let loaded = pipeline.prefetch_from_heat(&heat, 2);
-    assert!(
-        loaded <= 2,
-        "prefetch_from_heat must load at most N={} files, loaded={loaded}",
-        2
-    );
-}
 
 #[test]
 fn test_b6_heat_map_capacity_invariant() {
@@ -492,10 +436,18 @@ fn test_pln2_full_pipeline_integration() {
         .index_file("src/processor.rs", RUST_SOURCE, Lang::Rust)
         .expect("index_file must not fail on valid Rust");
 
-    // 2. Build IncrementalPipeline + lazy loading (B6)
+    // 2. Build IncrementalPipeline and parse a file through it
     let mut inc_pipeline = IncrementalPipeline::new();
-    inc_pipeline.queue_for_lazy("src/extra.rs", "pub fn extra() -> i32 { 42 }");
-    let _ = inc_pipeline.ensure_loaded("src/extra.rs");
+    let parsed = inc_pipeline
+        .process_file("src/extra.rs", "pub fn extra() -> i32 { 42 }")
+        .expect("process_file must not fail on valid Rust");
+    assert!(
+        parsed
+            .symbols_added
+            .iter()
+            .any(|s| s.symbol_name == "extra"),
+        "the pipeline must report the symbol it parsed"
+    );
 
     // 3. WiringFingerprintStore (B7)
     let conn = Connection::open_in_memory().expect("in-memory db");

@@ -31,11 +31,20 @@ use tree_sitter::{Query, QueryCursor};
 
 use crate::ast::document::RopeDocument;
 use crate::ast::error::{AstError, AstResult};
+use crate::ast::file_heat::HeatMap;
 use crate::ast::graph::SymbolLocation;
 use crate::ast::languages::Lang;
 use crate::ast::parser::IncrementalParser;
 use crate::ast::revision::SymbolCache;
 use crate::ast::store::SymbolStore;
+
+/// Seconds since the Unix epoch — the clock the heat map is read against.
+fn unix_now_secs() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
 
 // ── Result type ─────────────────────────────────────────────────────────────
 
@@ -73,11 +82,41 @@ pub struct IncrementalPipeline {
     symbol_cache: Mutex<SymbolCache>,
     /// Maximum document memory in bytes. 0 = unlimited.
     max_memory_bytes: usize,
-    /// Files queued for lazy parsing: file_path → source content.
-    ///
-    /// Files in this queue are NOT yet parsed. They are parsed on-demand
-    /// when [`ensure_loaded`] is called for the first time.
-    lazy_queue: HashMap<String, String>,
+    /// What the budget and the heat did, for [`IncrementalPipeline::stats`].
+    counters: BudgetCounters,
+}
+
+/// Counters behind [`PipelineMemoryStats`]; plain integers, the pipeline is `&mut` when they move.
+#[derive(Debug, Default, Clone, Copy)]
+struct BudgetCounters {
+    evictions: u64,
+    heat_consulted: u64,
+    heat_prefetched: u64,
+}
+
+/// A reading of the pipeline's memory and of what the budget did — what
+/// `touring status -j` reports under `pipeline`. (Not `PipelineStats`: that name is
+/// the NLP pipeline's in `touring-intelligence`.)
+///
+/// `memory_mb` counts the rope bytes of the loaded documents (the unit the budget
+/// is enforced in); the parse tree each file also holds is released together with
+/// its document on eviction but is not part of this number.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PipelineMemoryStats {
+    /// Documents currently loaded.
+    pub documents: usize,
+    /// Parse trees currently cached.
+    pub trees: usize,
+    /// Rope bytes of the loaded documents, in megabytes.
+    pub memory_mb: f64,
+    /// Budget in whole megabytes; `0` = unlimited.
+    pub budget_mb: usize,
+    /// Documents evicted because the budget was exceeded.
+    pub evictions: u64,
+    /// Evictions decided with a non-empty heat map to rank the victims.
+    pub heat_consulted: u64,
+    /// Files loaded from disk by a heat-driven prefetch.
+    pub heat_prefetched: u64,
 }
 
 impl std::fmt::Debug for IncrementalPipeline {
@@ -105,22 +144,7 @@ impl IncrementalPipeline {
             symbol_store: None,
             symbol_cache: Mutex::new(SymbolCache::new()),
             max_memory_bytes: 0,
-            lazy_queue: HashMap::new(),
-        }
-    }
-
-    /// Wave 13: Create pipeline with tuned symbol cache capacity.
-    ///
-    /// When `PIPELINE_CHANNEL_CAPACITY` env var is set, enables buffered mode
-    /// with the specified cache capacity hint.
-    pub fn with_cache_capacity(capacity: usize) -> Self {
-        Self {
-            parser: IncrementalParser::new(),
-            documents: HashMap::new(),
-            symbol_store: None,
-            symbol_cache: Mutex::new(SymbolCache::with_capacity(capacity)),
-            max_memory_bytes: 0,
-            lazy_queue: HashMap::new(),
+            counters: BudgetCounters::default(),
         }
     }
 
@@ -128,7 +152,7 @@ impl IncrementalPipeline {
     ///
     /// # Errors
     /// Returns an error if the SQLite database cannot be opened.
-    pub fn with_symbol_store(db_path: &str) -> AstResult<Self> {
+    fn with_symbol_store(db_path: &str) -> AstResult<Self> {
         let store = SymbolStore::new(Path::new(db_path))?;
         Ok(Self {
             parser: IncrementalParser::new(),
@@ -136,44 +160,101 @@ impl IncrementalPipeline {
             symbol_store: Some(store),
             symbol_cache: Mutex::new(SymbolCache::new()),
             max_memory_bytes: 0,
-            lazy_queue: HashMap::new(),
+            counters: BudgetCounters::default(),
         })
     }
 
     // ── Memory budget ───────────────────────────────────────────────────
 
-    /// Set a memory budget in megabytes. When exceeded, oldest documents are evicted.
-    /// Pass `0` for unlimited (default).
+    /// Set a memory budget in megabytes for the loaded documents; `0` = unlimited
+    /// (default). The budget is applied by [`enforce_budget`](Self::enforce_budget),
+    /// which the caller runs after each file it feeds in: the caller owns the heat
+    /// map that ranks the victims.
     pub fn with_memory_budget_mb(mut self, mb: usize) -> Self {
         self.max_memory_bytes = mb.saturating_mul(1024 * 1024);
         self
     }
 
-    /// Estimated memory usage in megabytes based on document rope sizes.
+    /// Rope bytes of the loaded documents, in megabytes — the unit the budget uses.
     pub fn memory_usage_mb(&self) -> f64 {
         let bytes: usize = self.documents.values().map(|d| d.len_bytes()).sum();
         bytes as f64 / (1024.0 * 1024.0)
     }
 
-    /// Evict documents until total rope memory is under `max_memory_bytes`.
-    /// No-op when `max_memory_bytes == 0` (unlimited).
-    fn evict_if_over_budget(&mut self) {
+    /// Memory use and what the budget did so far.
+    pub fn stats(&self) -> PipelineMemoryStats {
+        PipelineMemoryStats {
+            documents: self.documents.len(),
+            trees: self.parser.cache_size(),
+            memory_mb: self.memory_usage_mb(),
+            budget_mb: self.max_memory_bytes / (1024 * 1024),
+            evictions: self.counters.evictions,
+            heat_consulted: self.counters.heat_consulted,
+            heat_prefetched: self.counters.heat_prefetched,
+        }
+    }
+
+    /// Evict documents, coldest first, until the loaded rope bytes fit the budget.
+    /// Returns how many were evicted; `0` when the budget is unlimited or already met.
+    ///
+    /// Contract (the one policy — nothing else in the pipeline evicts):
+    /// - `keep` — the file the caller just processed, `None` when there is none — is
+    ///   never the victim, even when it alone exceeds the budget;
+    /// - order is deterministic: a file with no entry in `heat` is colder than any
+    ///   tracked one, then lower heat score first, then path order;
+    /// - a victim loses its document, its parse tree and its symbol-cache entry, so
+    ///   its next edit is a full re-parse (`process_file`), never a stale increment.
+    pub fn enforce_budget(&mut self, heat: &HeatMap, keep: Option<&str>) -> usize {
         if self.max_memory_bytes == 0 {
-            return;
+            return 0;
         }
-        loop {
-            let current: usize = self.documents.values().map(|d| d.len_bytes()).sum();
-            if current <= self.max_memory_bytes {
-                break;
-            }
-            // Evict one document per iteration. HashMap has no guaranteed order;
-            // we evict whichever key comes first. Future work: track LRU order.
-            if let Some(key) = self.documents.keys().next().cloned() {
-                self.documents.remove(&key);
-            } else {
-                break; // no documents left
-            }
+        let mut current: usize = self.documents.values().map(|d| d.len_bytes()).sum();
+        if current <= self.max_memory_bytes {
+            return 0;
         }
+        let scores: HashMap<&str, f64> = heat
+            .get_priority_order(unix_now_secs())
+            .into_iter()
+            .collect();
+        let mut evicted = 0usize;
+        while current > self.max_memory_bytes {
+            let Some((path, bytes)) = self.coldest_document(&scores, keep) else {
+                break; // only `keep` is left
+            };
+            self.evict_document(&path);
+            current = current.saturating_sub(bytes);
+            evicted += 1;
+        }
+        self.counters.evictions += evicted as u64;
+        if evicted > 0 && !heat.is_empty() {
+            self.counters.heat_consulted += 1;
+        }
+        evicted
+    }
+
+    /// The coldest loaded document other than `keep`, with its rope bytes: no heat
+    /// entry first, then the lowest score, then path order (deterministic).
+    fn coldest_document(
+        &self,
+        scores: &HashMap<&str, f64>,
+        keep: Option<&str>,
+    ) -> Option<(String, usize)> {
+        let coldness = |path: &str| scores.get(path).copied().unwrap_or(f64::NEG_INFINITY);
+        self.documents
+            .iter()
+            .filter(|(path, _)| Some(path.as_str()) != keep)
+            .min_by(|(a, _), (b, _)| coldness(a).total_cmp(&coldness(b)).then_with(|| a.cmp(b)))
+            .map(|(path, doc)| (path.clone(), doc.len_bytes()))
+    }
+
+    /// Drop everything the pipeline holds for `path`: document, parse tree, cached symbols.
+    fn evict_document(&mut self, path: &str) {
+        self.documents.remove(path);
+        self.parser.invalidate_tree(path);
+        self.symbol_cache
+            .lock()
+            .expect("symbol_cache lock")
+            .remove(Path::new(path));
     }
 
     // ── Public API ──────────────────────────────────────────────────────
@@ -291,10 +372,10 @@ impl IncrementalPipeline {
         let lang = Lang::from_path(Path::new(file_path))
             .ok_or_else(|| AstError::UnknownLanguage(file_path.to_string()))?;
 
-        // Create / replace the document, then evict if over memory budget.
+        // Create / replace the document. The memory budget is NOT applied here: the
+        // caller that owns the heat map runs `enforce_budget` after this returns.
         let doc = RopeDocument::new(file_path, content);
         self.documents.insert(file_path.to_string(), doc);
-        self.evict_if_over_budget();
 
         // Notify the symbol cache about this file change.
         self.symbol_cache
@@ -385,33 +466,34 @@ impl IncrementalPipeline {
     }
 
     /// Returns true if the parser has a cached tree for `file_path`.
-    pub fn cached_tree(&self, file_path: &str) -> bool {
+    fn cached_tree(&self, file_path: &str) -> bool {
         self.parser.cached_tree(file_path).is_some()
     }
 
     /// INS-A3: Pre-warm the parser cache for session-predicted files.
     ///
-    /// Reads each predicted file from disk and calls `process_file` if the
-    /// file is not already cached, warming up tree-sitter's incremental parse
-    /// cache so that the first real edit is fast.
+    /// `predicted` holds pipeline KEYS — the project-relative spelling the index
+    /// uses. Each one not yet loaded is read from `root.join(key)` (an absolute key
+    /// joins to itself) and processed under that same key, warming tree-sitter's
+    /// incremental parse cache so that the first real edit is fast.
     ///
     /// Files that cannot be read (missing, unknown language, I/O error) are
     /// silently skipped — prefetch is best-effort.
     ///
     /// Returns the number of files successfully pre-warmed.
-    pub fn prefetch_for_session(&mut self, predicted_paths: &[String]) -> usize {
+    pub fn prefetch_for_session(&mut self, root: &Path, predicted: &[String]) -> usize {
         let mut warmed = 0usize;
-        for path in predicted_paths {
+        for key in predicted {
             // Skip already-cached files — no work needed.
-            if self.documents.contains_key(path.as_str()) {
+            if self.documents.contains_key(key.as_str()) {
                 continue;
             }
             // Skip unknown languages early to avoid I/O.
-            if std::path::Path::new(path).extension().is_none() {
+            if Path::new(key).extension().is_none() {
                 continue;
             }
-            if let Ok(content) = std::fs::read_to_string(path)
-                && self.process_file(path, &content).is_ok()
+            if let Ok(content) = std::fs::read_to_string(root.join(key))
+                && self.process_file(key, &content).is_ok()
             {
                 warmed += 1;
             }
@@ -419,97 +501,33 @@ impl IncrementalPipeline {
         warmed
     }
 
-    // ── Lazy loading ────────────────────────────────────────────────────
-
-    /// Queue a file for lazy parsing.
-    ///
-    /// The file is NOT parsed immediately. Parsing is deferred until
-    /// `ensure_loaded` is called for this path (or `prefetch_from_heat`
-    /// triggers it). This reduces startup latency when only a subset of
-    /// indexed files will actually be queried.
-    ///
-    /// If the file is already loaded (in `documents`), this is a no-op.
-    /// Calling `queue_for_lazy` a second time for the same path overwrites
-    /// the queued source content.
-    pub fn queue_for_lazy(&mut self, file_path: impl Into<String>, source: impl Into<String>) {
-        let path = file_path.into();
-        if self.documents.contains_key(&path) {
-            return; // Already loaded — no-op.
-        }
-        self.lazy_queue.insert(path, source.into());
-    }
-
-    /// Ensure a file is loaded, triggering lazy parsing if needed.
-    ///
-    /// If `file_path` is in the lazy queue, it is parsed now via `process_file`.
-    /// Returns `true` if the file was lazily loaded, `false` if it was already
-    /// loaded or not in the queue.
-    pub fn ensure_loaded(&mut self, file_path: &str) -> bool {
-        if let Some(source) = self.lazy_queue.remove(file_path) {
-            let _ = self.process_file(file_path, &source);
-            return true;
-        }
-        false
-    }
-
-    /// Number of files currently pending in the lazy queue (not yet parsed).
-    pub fn pending_lazy_count(&self) -> usize {
-        self.lazy_queue.len()
-    }
-
     /// Prefetch the top-`n` hottest files from the heat map.
     ///
-    /// Triggers `ensure_loaded` for each file in priority order.
-    /// Files not in the lazy queue are silently skipped.
-    /// Returns the number of files actually loaded from the queue.
+    /// Ranks the keys by `heat_map` priority (heat × blast-radius weight, decayed to
+    /// now) and warms the cache for the first `n` through
+    /// [`prefetch_for_session`](Self::prefetch_for_session). Only keys `admit` accepts
+    /// count toward the `n` (the heat map also holds files the index never admits —
+    /// outside the project, excluded directories — and those must not be loaded). A
+    /// budget that the prefetch overshoots is enforced right after, so it can only
+    /// displace files colder than the ones it just loaded. Returns the number loaded.
     pub fn prefetch_from_heat(
         &mut self,
-        heat_map: &crate::ast::file_heat::HeatMap,
+        root: &Path,
+        heat_map: &HeatMap,
         n: usize,
+        admit: impl Fn(&str) -> bool,
     ) -> usize {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs_f64())
-            .unwrap_or(0.0);
-        let priority = heat_map.get_priority_order(now);
-        let paths: Vec<String> = priority
+        let hottest: Vec<String> = heat_map
+            .get_priority_order(unix_now_secs())
             .into_iter()
+            .filter(|(key, _score)| admit(key))
             .take(n)
-            .map(|(path, _score)| path.to_string())
+            .map(|(key, _score)| key.to_string())
             .collect();
-        let mut loaded = 0usize;
-        for path in paths {
-            if self.ensure_loaded(&path) {
-                loaded += 1;
-            }
-        }
+        let loaded = self.prefetch_for_session(root, &hottest);
+        self.counters.heat_prefetched += loaded as u64;
+        self.enforce_budget(heat_map, None);
         loaded
-    }
-
-    /// Evict all documents and cached trees.
-    pub fn clear_cache(&mut self) {
-        // Collect keys BEFORE clearing so we can invalidate cached trees.
-        let paths: Vec<String> = self.documents.keys().cloned().collect();
-        for p in &paths {
-            self.parser.invalidate_tree(p);
-        }
-        self.documents.clear();
-        self.symbol_cache.lock().expect("symbol_cache lock").clear();
-        // Also reset the parser's internal state for a clean slate.
-        self.parser = IncrementalParser::new();
-    }
-
-    /// Get symbol cache statistics: (hits, early_cutoffs, recomputations).
-    pub fn symbol_cache_stats(&self) -> (u64, u64, u64) {
-        self.symbol_cache.lock().expect("symbol_cache lock").stats()
-    }
-
-    /// Get a lock guard for the symbol cache.
-    ///
-    /// Returns a `MutexGuard<SymbolCache>` — the lock is held until the guard is dropped.
-    /// Do not hold this guard while calling any mutating method on the pipeline.
-    pub fn symbol_cache(&self) -> std::sync::MutexGuard<'_, SymbolCache> {
-        self.symbol_cache.lock().expect("symbol_cache lock")
     }
 
     // ── Symbol extraction via tree-sitter queries ───────────────────────
@@ -685,170 +703,30 @@ impl IncrementalPipeline {
 
         Ok(())
     }
-
-    // ── IA-1: FileHeat ↔ blast_radius_weight wiring ─────────────────────
-
-    /// Wire FileHeat ↔ blast_radius_weight automatically on every edit.
-    ///
-    /// This is the ACO pheromone deposit step: records the edit in `heat_map`
-    /// and updates `blast_radius_weight` based on how many symbols the file
-    /// defines (proxy for import count when `SymbolStore` is unavailable).
-    ///
-    /// # Arguments
-    /// * `file_path` — path of the edited file (used as heat-map key).
-    /// * `start_byte`, `old_end_byte`, `new_text` — forwarded to `process_edit`.
-    /// * `heat_map` — mutable reference to the shared `HeatMap`.
-    ///
-    /// # Returns
-    /// The [`IncrementalEditResult`] from the underlying `process_edit` call,
-    /// or an error string if parsing fails.
-    pub fn process_edit_with_heat(
-        &mut self,
-        file_path: &str,
-        start_byte: usize,
-        old_end_byte: usize,
-        new_text: &str,
-        heat_map: &mut crate::ast::file_heat::HeatMap,
-    ) -> AstResult<IncrementalEditResult> {
-        let result = self.process_edit(file_path, start_byte, old_end_byte, new_text)?;
-
-        // Record the edit event — pheromone deposit step.
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
-        heat_map.record_edit(file_path, now);
-
-        // Update blast_radius_weight using symbol count as a proxy for
-        // import depth. ln_1p normalises large counts to avoid dominance.
-        let symbol_count = result.symbols_added.len();
-        let weight = (symbol_count as f64).ln_1p() / 10.0;
-        heat_map.set_blast_radius_weight(file_path, weight);
-
-        Ok(result)
-    }
-}
-
-// ── IA-3: PrioritizedPipeline ────────────────────────────────────────────────
-
-/// ACO-scheduled incremental pipeline.
-///
-/// Wraps [`IncrementalPipeline`] with a heat-ordered re-indexing queue.
-/// Files are enqueued for re-indexing as they are edited, then drained in
-/// descending heat-score order so that "hot" (frequently edited, high
-/// blast-radius) files are always re-indexed first.
-///
-/// # Example
-/// ```rust
-/// use touring_code::ast::incremental_pipeline::PrioritizedPipeline;
-///
-/// let mut pp = PrioritizedPipeline::new(100);
-/// pp.enqueue("hot.rs".to_string());
-/// pp.enqueue("cold.rs".to_string());
-/// // hot.rs will typically be returned first by next_hot().
-/// ```
-pub struct PrioritizedPipeline {
-    inner: IncrementalPipeline,
-    heat_map: crate::ast::file_heat::HeatMap,
-    pending: std::collections::HashSet<String>,
-}
-
-impl PrioritizedPipeline {
-    /// Create a new [`PrioritizedPipeline`] with the given heat-map capacity.
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            inner: IncrementalPipeline::new(),
-            heat_map: crate::ast::file_heat::HeatMap::new(capacity),
-            pending: std::collections::HashSet::new(),
-        }
-    }
-
-    /// Expose the inner pipeline for direct operations.
-    pub fn pipeline(&mut self) -> &mut IncrementalPipeline {
-        &mut self.inner
-    }
-
-    /// Enqueue a file for re-indexing and record an edit event in the heat map.
-    #[instrument(skip(self), fields(file = %file_path))]
-    pub fn enqueue(&mut self, file_path: String) {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
-        self.heat_map.record_edit(&file_path, now);
-        self.pending.insert(file_path);
-    }
-
-    /// Enqueue a file for re-parsing with an explicit priority weight.
-    ///
-    /// Identical to `enqueue` but also sets the blast-radius weight on the
-    /// internal heat map, so hot files with high blast radius float to the top
-    /// of the priority queue returned by `get_priority_order`.
-    ///
-    /// # Arguments
-    /// * `file_path` – canonical path of the file to enqueue.
-    /// * `weight`    – multiplicative priority boost (0.0 = no boost).
-    pub fn enqueue_with_priority(&mut self, file_path: String, weight: f64) {
-        self.heat_map.set_blast_radius_weight(&file_path, weight);
-        self.enqueue(file_path);
-    }
-
-    /// Return the hottest pending file path for re-indexing, removing it from
-    /// the queue. Returns `None` when the queue is empty.
-    pub fn next_hot(&mut self) -> Option<String> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
-        // get_priority_order returns (&str, score) sorted desc — find first pending.
-        let hottest = self
-            .heat_map
-            .get_priority_order(now)
-            .into_iter()
-            .find(|(f, _)| self.pending.contains(*f))
-            .map(|(f, _)| f.to_string());
-
-        if let Some(ref path) = hottest {
-            self.pending.remove(path);
-        }
-        hottest
-    }
-
-    /// Number of files currently waiting to be re-indexed.
-    pub fn pending_count(&self) -> usize {
-        self.pending.len()
-    }
 }
 
 // ── Thread-safe wrapper ─────────────────────────────────────────────────────
 
-/// Thread-safe wrapper around [`IncrementalPipeline`].
+/// Thread-safe wrapper around [`IncrementalPipeline`] using a `RwLock`: shared
+/// ownership across threads via `Arc`, concurrent readers, serialized writers —
+/// better throughput than a `Mutex` for read-heavy workloads (`get_symbols`,
+/// `cache_stats`, `stats`).
 ///
-/// `IncrementalPipeline` is `!Send` because it contains `tree_sitter::Parser`.
-/// This wrapper uses a `Mutex` to allow shared ownership across threads via `Arc`.
+/// `Send + Sync` are proven by the compiler, not promised: `IncrementalPipeline`
+/// owns no `tree_sitter::Parser` (those live in the per-thread cache of
+/// `ast::grammar`), only trees, ropes, a `Mutex`-guarded symbol cache and a
+/// `SymbolStore` whose connection sits behind a `Mutex`. The test
+/// `test_shared_pipeline_send_sync` stops compiling the day a field breaks that.
 ///
 /// # Usage
 /// ```ignore
 /// let shared = Arc::new(SharedPipeline::new());
 /// // In any thread:
-/// shared.with(|pipeline| pipeline.process_file("test.py", source));
+/// shared.with_write(|pipeline| pipeline.process_file("test.py", source));
 /// ```
-/// Thread-safe wrapper around [`IncrementalPipeline`] using a `RwLock`.
-///
-/// This allows concurrent read access while serializing writes, improving
-/// throughput for read-heavy workloads (process_file, get_symbols, cache_stats)
-/// vs a Mutex which serializes all access.
 pub struct SharedPipeline {
     inner: parking_lot::RwLock<IncrementalPipeline>,
 }
-
-// SAFETY: SharedPipeline wraps its inner state (including tree_sitter::Parser which is
-// !Send, and optionally rusqlite::Connection which is !Send+!Sync) in a parking_lot::RwLock.
-// The RwLock serializes all write access; read access can proceed concurrently since
-// IncrementalPipeline internal state is protected by the lock. This makes it safe to
-// both send SharedPipeline across threads and share references to it.
-unsafe impl Send for SharedPipeline {}
-unsafe impl Sync for SharedPipeline {}
 
 impl SharedPipeline {
     /// Create a new thread-safe pipeline without symbol storage.
@@ -864,6 +742,39 @@ impl SharedPipeline {
         Ok(Self {
             inner: parking_lot::RwLock::new(pipeline),
         })
+    }
+
+    /// Give the pipeline a memory budget in megabytes (`0` = unlimited); see
+    /// [`IncrementalPipeline::enforce_budget`] for what the budget means.
+    pub fn with_memory_budget_mb(self, mb: usize) -> Self {
+        Self {
+            inner: parking_lot::RwLock::new(self.inner.into_inner().with_memory_budget_mb(mb)),
+        }
+    }
+
+    /// Memory use and what the budget did so far (thread-safe, shared read lock).
+    pub fn stats(&self) -> PipelineMemoryStats {
+        self.with_read(|p| p.stats())
+    }
+
+    /// Evict the coldest documents until the budget is met, never `keep` (the file
+    /// the caller just processed, if any). Returns how many were evicted. See
+    /// [`IncrementalPipeline::enforce_budget`].
+    pub fn enforce_budget(&self, heat: &HeatMap, keep: Option<&str>) -> usize {
+        self.with_write(|p| p.enforce_budget(heat, keep))
+    }
+
+    /// Warm the cache with the `n` hottest files of `heat` that `admit` accepts, read
+    /// from under `root`. Returns how many were loaded. See
+    /// [`IncrementalPipeline::prefetch_from_heat`].
+    pub fn prefetch_from_heat(
+        &self,
+        root: &Path,
+        heat: &HeatMap,
+        n: usize,
+        admit: impl Fn(&str) -> bool,
+    ) -> usize {
+        self.with_write(|p| p.prefetch_from_heat(root, heat, n, admit))
     }
 
     /// Execute a closure with exclusive write access to the pipeline.
@@ -893,17 +804,6 @@ impl SharedPipeline {
         self.with_write(|p| p.process_file(file_path, content))
     }
 
-    /// Process an edit through the pipeline (thread-safe).
-    pub fn process_edit(
-        &self,
-        file_path: &str,
-        start_byte: usize,
-        old_end_byte: usize,
-        new_text: &str,
-    ) -> AstResult<IncrementalEditResult> {
-        self.with_write(|p| p.process_edit(file_path, start_byte, old_end_byte, new_text))
-    }
-
     /// Get symbols for a file (thread-safe).
     ///
     /// Uses a shared read lock — multiple threads can call this concurrently.
@@ -925,40 +825,6 @@ impl SharedPipeline {
     pub fn cache_stats(&self) -> (usize, usize) {
         self.with_read(|p| p.cache_stats())
     }
-
-    /// Clear all caches (thread-safe).
-    pub fn clear_cache(&self) {
-        self.with_write(|p| p.clear_cache())
-    }
-
-    /// Invalidate cached parse trees for files affected by a change.
-    ///
-    /// Uses `SymbolIndex::blast_radius()` to find all transitively dependent
-    /// files, then clears their cached trees so the next access re-parses.
-    /// Returns the number of invalidated files.
-    pub fn invalidate_dependents(
-        &self,
-        changed_file: &str,
-        index: &crate::ast::graph::SymbolIndex,
-    ) -> AstResult<usize> {
-        let radius = index.blast_radius(changed_file);
-        let mut invalidated = 0;
-        self.with_write(|p| {
-            for file in &radius.affected_files {
-                if p.documents.contains_key(file) {
-                    p.documents.remove(file);
-                    invalidated += 1;
-                }
-            }
-        });
-        tracing::debug!(
-            changed = changed_file,
-            invalidated,
-            total_affected = radius.affected_files.len(),
-            "invalidated dependent parse caches"
-        );
-        Ok(invalidated)
-    }
 }
 
 impl Default for SharedPipeline {
@@ -971,122 +837,6 @@ impl std::fmt::Debug for SharedPipeline {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SharedPipeline")
             .field("locked", &self.inner.is_locked())
-            .finish()
-    }
-}
-
-// ── Async-safe wrapper ──────────────────────────────────────────────────────
-
-/// Async-safe wrapper around [`IncrementalPipeline`].
-///
-/// Uses [`tokio::sync::Mutex`] for compatibility with async runtimes.
-/// The pipeline itself is synchronous (tree-sitter is CPU-bound), but
-/// the async Mutex allows holding the guard across `.await` points without
-/// blocking the executor — unlike `std::sync::Mutex` which would.
-///
-/// # Usage
-/// ```ignore
-/// let shared = Arc::new(AsyncSharedPipeline::new());
-/// shared.process_file("test.py", source).await?;
-/// ```
-#[cfg(feature = "async-pipeline")]
-pub struct AsyncSharedPipeline {
-    inner: tokio::sync::Mutex<IncrementalPipeline>,
-}
-
-// SAFETY: Same reasoning as SharedPipeline — the inner IncrementalPipeline
-// contains !Send types (tree_sitter::Parser, optionally rusqlite::Connection).
-// tokio::sync::Mutex serializes all access, ensuring only one task touches
-// the non-Send/Sync types at a time.
-#[cfg(feature = "async-pipeline")]
-unsafe impl Send for AsyncSharedPipeline {}
-#[cfg(feature = "async-pipeline")]
-unsafe impl Sync for AsyncSharedPipeline {}
-
-#[cfg(feature = "async-pipeline")]
-impl AsyncSharedPipeline {
-    /// Create a new async pipeline without symbol storage.
-    pub fn new() -> Self {
-        Self {
-            inner: tokio::sync::Mutex::new(IncrementalPipeline::new()),
-        }
-    }
-
-    /// Create a new async pipeline with symbol storage.
-    ///
-    /// # Errors
-    /// Returns an error if the SQLite database cannot be opened.
-    pub fn with_symbol_store(db_path: &str) -> AstResult<Self> {
-        let pipeline = IncrementalPipeline::with_symbol_store(db_path)?;
-        Ok(Self {
-            inner: tokio::sync::Mutex::new(pipeline),
-        })
-    }
-
-    /// Execute a closure with exclusive access to the pipeline.
-    ///
-    /// Async equivalent of `SharedPipeline::with`.
-    pub async fn with<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&mut IncrementalPipeline) -> R,
-    {
-        let mut guard = self.inner.lock().await;
-        f(&mut guard)
-    }
-
-    /// Process a full file through the pipeline (async).
-    pub async fn process_file(
-        &self,
-        file_path: &str,
-        content: &str,
-    ) -> AstResult<IncrementalEditResult> {
-        let mut pipeline = self.inner.lock().await;
-        pipeline.process_file(file_path, content)
-    }
-
-    /// Process an edit through the pipeline (async).
-    pub async fn process_edit(
-        &self,
-        file_path: &str,
-        start_byte: usize,
-        old_end_byte: usize,
-        new_text: &str,
-    ) -> AstResult<IncrementalEditResult> {
-        let mut pipeline = self.inner.lock().await;
-        pipeline.process_edit(file_path, start_byte, old_end_byte, new_text)
-    }
-
-    /// Get symbols for a file (async).
-    pub async fn get_symbols(&self, file_path: &str) -> Vec<SymbolLocation> {
-        let pipeline = self.inner.lock().await;
-        pipeline.get_symbols(file_path)
-    }
-
-    /// Get cache stats (async).
-    pub async fn cache_stats(&self) -> (usize, usize) {
-        let pipeline = self.inner.lock().await;
-        pipeline.cache_stats()
-    }
-
-    /// Clear all caches (async).
-    pub async fn clear_cache(&self) {
-        let mut pipeline = self.inner.lock().await;
-        pipeline.clear_cache();
-    }
-}
-
-#[cfg(feature = "async-pipeline")]
-impl Default for AsyncSharedPipeline {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(feature = "async-pipeline")]
-impl std::fmt::Debug for AsyncSharedPipeline {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsyncSharedPipeline")
-            .field("locked", &self.inner.try_lock().is_err())
             .finish()
     }
 }
@@ -1297,21 +1047,6 @@ mod tests {
         assert_eq!(trees, 2);
     }
 
-    #[test]
-    fn test_clear_cache_resets_all() {
-        let mut pipeline = IncrementalPipeline::new();
-        pipeline.process_file("a.py", "def a(): pass\n").unwrap();
-        pipeline.process_file("b.rs", "fn b() {}\n").unwrap();
-
-        assert_eq!(pipeline.cache_stats(), (2, 2));
-
-        pipeline.clear_cache();
-
-        assert_eq!(pipeline.cache_stats(), (0, 0));
-        assert!(pipeline.get_document("a.py").is_none());
-        assert!(pipeline.get_symbols("a.py").is_empty());
-    }
-
     // ── Edge cases ──────────────────────────────────────────────────────
 
     #[test]
@@ -1453,8 +1188,10 @@ mod tests {
 
     #[test]
     fn test_shared_pipeline_send_sync() {
-        // Compile-time check: SharedPipeline must be Send + Sync.
+        // Compile-time check: no `unsafe impl` backs this — the compiler derives it, so the
+        // day a field of the pipeline is not thread-safe, this stops compiling.
         fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<super::IncrementalPipeline>();
         assert_send_sync::<super::SharedPipeline>();
     }
 
@@ -1484,277 +1221,281 @@ mod tests {
         assert_eq!(docs, 4);
         assert_eq!(trees, 4);
     }
-
-    #[test]
-    fn test_shared_pipeline_clear_cache() {
-        let shared = super::SharedPipeline::new();
-        shared.process_file("a.py", "x = 1\n").unwrap();
-        assert_eq!(shared.cache_stats(), (1, 1));
-        shared.clear_cache();
-        assert_eq!(shared.cache_stats(), (0, 0));
-    }
-
-    // ── AsyncSharedPipeline tests ───────────────────────────────────────
-
-    #[cfg(feature = "async-pipeline")]
-    mod async_tests {
-        #[tokio::test]
-        async fn test_async_pipeline_basic() {
-            let shared = super::super::AsyncSharedPipeline::new();
-            let result = shared
-                .process_file("test.py", "def foo(): pass\n")
-                .await
-                .unwrap();
-            assert!(!result.was_incremental);
-            assert!(!result.symbols_added.is_empty());
-        }
-
-        #[tokio::test]
-        async fn test_async_pipeline_send_sync() {
-            fn assert_send_sync<T: Send + Sync>() {}
-            assert_send_sync::<super::super::AsyncSharedPipeline>();
-        }
-
-        #[tokio::test]
-        async fn test_async_pipeline_process_edit() {
-            let shared = super::super::AsyncSharedPipeline::new();
-
-            // Load file first.
-            shared
-                .process_file(
-                    "test.py",
-                    "def hello():\n    pass\n\ndef world():\n    return 42\n",
-                )
-                .await
-                .unwrap();
-
-            // Rename "hello" to "hola" (bytes 4..9).
-            let result = shared.process_edit("test.py", 4, 9, "hola").await.unwrap();
-            assert!(result.was_incremental);
-
-            let syms = shared.get_symbols("test.py").await;
-            let names: Vec<&str> = syms.iter().map(|s| s.symbol_name.as_str()).collect();
-            assert!(names.contains(&"hola"), "Missing 'hola' in {names:?}");
-            assert!(!names.contains(&"hello"), "'hello' should be gone");
-            assert!(names.contains(&"world"), "Missing 'world' in {names:?}");
-        }
-
-        #[tokio::test]
-        async fn test_async_pipeline_cache_stats_and_clear() {
-            let shared = super::super::AsyncSharedPipeline::new();
-
-            assert_eq!(shared.cache_stats().await, (0, 0));
-
-            shared
-                .process_file("a.py", "def a(): pass\n")
-                .await
-                .unwrap();
-            assert_eq!(shared.cache_stats().await, (1, 1));
-
-            shared.process_file("b.rs", "fn b() {}\n").await.unwrap();
-            assert_eq!(shared.cache_stats().await, (2, 2));
-
-            shared.clear_cache().await;
-            assert_eq!(shared.cache_stats().await, (0, 0));
-        }
-
-        #[tokio::test]
-        async fn test_async_pipeline_with_closure() {
-            let shared = super::super::AsyncSharedPipeline::new();
-            shared.process_file("test.py", "x = 1\n").await.unwrap();
-
-            let count = shared.with(|p| p.cache_stats().0).await;
-            assert_eq!(count, 1);
-        }
-
-        #[tokio::test]
-        async fn test_async_pipeline_concurrent_tasks() {
-            use std::sync::Arc;
-
-            let shared = Arc::new(super::super::AsyncSharedPipeline::new());
-            let mut handles = vec![];
-
-            for i in 0..4 {
-                let shared_clone = Arc::clone(&shared);
-                handles.push(tokio::spawn(async move {
-                    let name = format!("test_{i}.py");
-                    let source = format!("def func_{i}(): return {i}\n");
-                    shared_clone.process_file(&name, &source).await.unwrap();
-                    let syms = shared_clone.get_symbols(&name).await;
-                    assert!(!syms.is_empty(), "Task {i} should get symbols");
-                }));
-            }
-
-            for h in handles {
-                h.await.expect("Task should not panic");
-            }
-
-            let (docs, trees) = shared.cache_stats().await;
-            assert_eq!(docs, 4);
-            assert_eq!(trees, 4);
-        }
-
-        #[tokio::test]
-        async fn test_async_pipeline_debug_and_default() {
-            let shared = super::super::AsyncSharedPipeline::default();
-            let debug = format!("{shared:?}");
-            assert!(
-                debug.contains("AsyncSharedPipeline"),
-                "Debug should contain type name: {debug}"
-            );
-        }
-    }
 }
 
-// ── IA-1 + IA-3 tests ───────────────────────────────────────────────────────
+// ── IA-1 + C7 tests ───────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod aco_tests {
     use super::*;
     use crate::ast::file_heat::HeatMap;
 
-    // ── IA-1: process_edit_with_heat ────────────────────────────────────
+    /// A source of at least `bytes` bytes of valid Rust.
+    fn rust_source_of(bytes: usize) -> String {
+        "fn f() {}\n".repeat(bytes / 10 + 1)
+    }
 
-    #[test]
-    fn test_process_edit_with_heat_updates_heat_map() {
-        let mut pipeline = IncrementalPipeline::new();
+    /// A heat map where each `(key, edits)` was edited `edits` times just now.
+    fn heat_of(entries: &[(&str, u32)]) -> HeatMap {
         let mut heat_map = HeatMap::new(100);
-
-        // First load the file so process_edit can find the document.
-        pipeline
-            .process_file("test.py", "def hello():\n    pass\n")
-            .expect("process_file");
-
-        let result = pipeline
-            .process_edit_with_heat("test.py", 4, 9, "world", &mut heat_map)
-            .expect("process_edit_with_heat");
-
-        // heat_map should now have an entry for test.py
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
-        let order = heat_map.get_priority_order(now);
-        assert!(!order.is_empty(), "heat_map should have test.py");
-        assert!(order[0].1 > 0.0, "heat score should be positive after edit");
-        // Result should be valid.
-        assert!(result.parse_time_us < 5_000_000);
+        for (key, edits) in entries {
+            for _ in 0..*edits {
+                heat_map.record_edit(key, unix_now_secs());
+            }
+        }
+        heat_map
     }
 
+    // ── Heat → cache warm-up ─────────────────────────────────────────────
+
     #[test]
-    fn test_process_edit_with_heat_sets_blast_radius_weight() {
+    fn test_prefetch_from_heat_loads_only_the_hottest_files_from_disk() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for (name, body) in [
+            ("hot.rs", "pub fn hot() {}\n"),
+            ("warm.rs", "pub fn warm() {}\n"),
+            ("cold.rs", "pub fn cold() {}\n"),
+        ] {
+            std::fs::write(dir.path().join(name), body).expect("write fixture");
+        }
+        // Keys are project-relative, the way the index spells them.
+        let heat_map = heat_of(&[("hot.rs", 3), ("warm.rs", 2), ("cold.rs", 1)]);
+
         let mut pipeline = IncrementalPipeline::new();
-        let mut heat_map = HeatMap::new(100);
-
-        // A Rust file with multiple symbols → non-zero blast_radius_weight.
-        let rust_src = "pub fn a() {}\npub fn b() {}\npub fn c() {}\n";
-        pipeline
-            .process_file("multi.rs", rust_src)
-            .expect("process_file");
-
-        pipeline
-            .process_edit_with_heat("multi.rs", 0, 0, "", &mut heat_map)
-            .expect("process_edit_with_heat");
-
-        // blast_radius_weight should be >= 0.0 (may be 0 if symbols_added is empty
-        // on a no-op edit, that is still correct behaviour).
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs_f64();
-        let order = heat_map.get_priority_order(now);
-        assert!(!order.is_empty(), "heat_map should have multi.rs");
-        // score >= 0 is always true for f64, but we verify the entry exists.
-        assert!(order[0].1 >= 0.0);
-    }
-
-    // ── IA-3: PrioritizedPipeline ────────────────────────────────────────
-
-    #[test]
-    fn test_prioritized_pipeline_empty_returns_none() {
-        let mut pp = PrioritizedPipeline::new(100);
-        assert!(pp.next_hot().is_none());
-    }
-
-    #[test]
-    fn test_prioritized_pipeline_pending_count() {
-        let mut pp = PrioritizedPipeline::new(100);
-        pp.enqueue("a.rs".to_string());
-        pp.enqueue("b.rs".to_string());
-        pp.enqueue("c.rs".to_string());
-        assert_eq!(pp.pending_count(), 3);
-
-        pp.next_hot();
-        assert_eq!(pp.pending_count(), 2);
-    }
-
-    #[test]
-    fn test_prioritized_pipeline_hot_first() {
-        let mut pp = PrioritizedPipeline::new(100);
-
-        // Enqueue cold.rs once, hot.rs three times to accumulate heat.
-        pp.enqueue("cold.rs".to_string());
-        pp.enqueue("hot.rs".to_string());
-        pp.enqueue("hot.rs".to_string()); // duplicate enqueue records extra heat
-        pp.enqueue("hot.rs".to_string());
-
-        // hot.rs should be returned first.
-        let first = pp.next_hot().expect("should have a file");
-        assert_eq!(first, "hot.rs", "hottest file should come first");
-    }
-
-    #[test]
-    fn test_prioritized_pipeline_drains_all() {
-        let mut pp = PrioritizedPipeline::new(100);
-        pp.enqueue("x.rs".to_string());
-        pp.enqueue("y.rs".to_string());
-
-        assert!(pp.next_hot().is_some());
-        assert!(pp.next_hot().is_some());
-        assert!(pp.next_hot().is_none(), "queue should be empty now");
-    }
-}
-
-// ── B6: Lazy Symbol Loading tests ───────────────────────────────────────────
-
-#[cfg(test)]
-mod lazy_loading_tests {
-    use super::*;
-
-    #[test]
-    fn test_queue_for_lazy_and_ensure_loaded() {
-        let mut pipeline = IncrementalPipeline::new();
-        let source = "pub fn lazy_fn() {}";
-        pipeline.queue_for_lazy("src/lazy.rs", source);
-        assert_eq!(pipeline.pending_lazy_count(), 1, "file should be in queue");
-
-        // ensure_loaded triggers parsing
-        let loaded = pipeline.ensure_loaded("src/lazy.rs");
-        assert!(loaded, "ensure_loaded should return true for queued file");
         assert_eq!(
-            pipeline.pending_lazy_count(),
-            0,
-            "queue should be empty after loading"
+            pipeline.prefetch_from_heat(dir.path(), &heat_map, 2, |_| true),
+            2,
+            "the two hottest files are read from disk and parsed"
         );
-
-        // Calling ensure_loaded again returns false (already loaded)
-        let loaded2 = pipeline.ensure_loaded("src/lazy.rs");
+        assert!(pipeline.get_document("hot.rs").is_some(), "hottest loaded");
         assert!(
-            !loaded2,
-            "ensure_loaded returns false for already-loaded file"
+            pipeline.get_document("warm.rs").is_some(),
+            "second hottest loaded"
+        );
+        assert!(
+            pipeline.get_document("cold.rs").is_none(),
+            "the coldest stays unloaded"
+        );
+        assert_eq!(pipeline.stats().heat_prefetched, 2, "the counter moved");
+
+        assert_eq!(
+            pipeline.prefetch_from_heat(dir.path(), &heat_map, 2, |_| true),
+            0,
+            "files already loaded are not read again"
         );
     }
 
     #[test]
-    fn test_queue_for_lazy_no_op_when_already_loaded() {
+    fn test_prefetch_from_heat_counts_only_admitted_keys_toward_n() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for name in ["refused.rs", "ok_a.rs", "ok_b.rs"] {
+            std::fs::write(dir.path().join(name), "pub fn f() {}\n").expect("write fixture");
+        }
+        // refused.rs is the hottest: without the filter it would take the only slot.
+        let heat_map = heat_of(&[("refused.rs", 9), ("ok_a.rs", 3), ("ok_b.rs", 1)]);
         let mut pipeline = IncrementalPipeline::new();
-        pipeline.process_file("src/already.rs", "fn foo() {}").ok();
-        pipeline.queue_for_lazy("src/already.rs", "pub fn bar() {}");
-        // Already loaded — queue should NOT have this file
-        assert_eq!(
-            pipeline.pending_lazy_count(),
-            0,
-            "already-loaded file should not be queued"
+        let loaded =
+            pipeline.prefetch_from_heat(dir.path(), &heat_map, 1, |key| key != "refused.rs");
+        assert_eq!(loaded, 1);
+        assert!(pipeline.get_document("refused.rs").is_none(), "never read");
+        assert!(
+            pipeline.get_document("ok_a.rs").is_some(),
+            "the hottest ADMITTED file"
         );
+        assert!(pipeline.get_document("ok_b.rs").is_none(), "n = 1 is spent");
+    }
+
+    #[test]
+    fn test_prefetch_from_heat_skips_a_hot_file_that_is_gone() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let heat_map = heat_of(&[("gone.rs", 1)]);
+
+        let mut pipeline = IncrementalPipeline::new();
+        assert_eq!(
+            pipeline.prefetch_from_heat(dir.path(), &heat_map, 5, |_| true),
+            0,
+            "prefetch is best-effort: an unreadable file is skipped, not an error"
+        );
+    }
+
+    // ── C7: the memory budget, ranked by heat ────────────────────────────
+
+    /// A pipeline with `files` loaded (400 KiB each) under a 1 MiB budget.
+    fn loaded_pipeline(files: &[&str]) -> IncrementalPipeline {
+        let mut pipeline = IncrementalPipeline::new().with_memory_budget_mb(1);
+        let body = rust_source_of(400 * 1024);
+        for file in files {
+            pipeline.process_file(file, &body).expect("process_file");
+        }
+        pipeline
+    }
+
+    #[test]
+    fn test_enforce_budget_never_evicts_the_file_it_was_told_to_keep() {
+        let mut pipeline = IncrementalPipeline::new().with_memory_budget_mb(1);
+        pipeline
+            .process_file("big.rs", &rust_source_of(2 * 1024 * 1024))
+            .expect("process_file");
+        assert_eq!(
+            pipeline.enforce_budget(&HeatMap::new(10), Some("big.rs")),
+            0
+        );
+        assert!(
+            pipeline.get_document("big.rs").is_some(),
+            "the file just processed is never its own victim, even alone over the budget"
+        );
+    }
+
+    #[test]
+    fn test_enforce_budget_evicts_the_untracked_before_the_hottest() {
+        // 3 x 400 KiB > 1 MiB: exactly one victim. cold1/cold2 have no heat entry.
+        let mut pipeline = loaded_pipeline(&["hot.rs", "cold1.rs", "cold2.rs"]);
+        let heat = heat_of(&[("hot.rs", 3)]);
+        assert_eq!(pipeline.enforce_budget(&heat, Some("cold2.rs")), 1);
+        assert!(
+            pipeline.get_document("hot.rs").is_some(),
+            "the hot file stays"
+        );
+        assert!(
+            pipeline.get_document("cold1.rs").is_none(),
+            "untracked, first in path order: the victim"
+        );
+        assert!(pipeline.get_document("cold2.rs").is_some(), "kept");
+    }
+
+    #[test]
+    fn test_enforce_budget_among_tracked_files_evicts_the_lowest_score() {
+        let mut pipeline = loaded_pipeline(&["a.rs", "b.rs", "c.rs"]);
+        let heat = heat_of(&[("a.rs", 5), ("b.rs", 3), ("c.rs", 1)]);
+        assert_eq!(pipeline.enforce_budget(&heat, None), 1);
+        assert!(
+            pipeline.get_document("c.rs").is_none(),
+            "c.rs is the coldest"
+        );
+        assert!(pipeline.get_document("a.rs").is_some());
+        assert!(pipeline.get_document("b.rs").is_some());
+    }
+
+    #[test]
+    fn test_enforce_budget_without_heat_is_deterministic_by_path() {
+        for _ in 0..4 {
+            let mut pipeline = loaded_pipeline(&["z.rs", "m.rs", "a.rs"]);
+            pipeline.enforce_budget(&HeatMap::new(10), Some("z.rs"));
+            assert!(
+                pipeline.get_document("a.rs").is_none(),
+                "the same victim every time (no HashMap order)"
+            );
+        }
+    }
+
+    #[test]
+    fn test_enforce_budget_releases_tree_and_symbols_with_the_document() {
+        let mut pipeline = loaded_pipeline(&["a.rs", "b.rs", "c.rs"]);
+        let heat = heat_of(&[("a.rs", 5), ("b.rs", 3), ("c.rs", 1)]);
+        assert!(pipeline.cached_tree("c.rs") && !pipeline.get_symbols("c.rs").is_empty());
+        pipeline.enforce_budget(&heat, None);
+        assert!(
+            !pipeline.cached_tree("c.rs"),
+            "the tree goes with the document"
+        );
+        assert!(
+            pipeline.get_symbols("c.rs").is_empty(),
+            "so do the cached symbols"
+        );
+        assert!(
+            pipeline.cached_tree("a.rs"),
+            "the survivors keep their tree"
+        );
+    }
+
+    #[test]
+    fn test_enforce_budget_is_a_noop_when_unlimited_or_within_budget() {
+        let mut unlimited = IncrementalPipeline::new();
+        unlimited
+            .process_file("a.rs", &rust_source_of(2 * 1024 * 1024))
+            .expect("process_file");
+        assert_eq!(unlimited.enforce_budget(&HeatMap::new(10), None), 0);
+        let mut within = IncrementalPipeline::new().with_memory_budget_mb(8);
+        within
+            .process_file("a.rs", &rust_source_of(1024))
+            .expect("process_file");
+        assert_eq!(within.enforce_budget(&HeatMap::new(10), None), 0);
+        assert!(within.get_document("a.rs").is_some());
+    }
+
+    #[test]
+    fn test_stats_report_memory_budget_evictions_and_heat_use() {
+        let mut pipeline = loaded_pipeline(&["a.rs", "b.rs", "c.rs"]);
+        let before = pipeline.stats();
+        assert_eq!(
+            (
+                before.documents,
+                before.trees,
+                before.budget_mb,
+                before.evictions
+            ),
+            (3, 3, 1, 0)
+        );
+        assert!(
+            before.memory_mb > 1.0,
+            "the three documents exceed the budget"
+        );
+
+        pipeline.enforce_budget(&HeatMap::new(10), None);
+        let blind = pipeline.stats();
+        assert_eq!(
+            (blind.evictions, blind.heat_consulted),
+            (1, 0),
+            "no heat to consult"
+        );
+
+        let mut again = loaded_pipeline(&["a.rs", "b.rs", "c.rs"]);
+        again.enforce_budget(&heat_of(&[("a.rs", 2)]), None);
+        let ranked = again.stats();
+        assert_eq!((ranked.evictions, ranked.heat_consulted), (1, 1));
+        assert!(ranked.memory_mb <= 1.0, "back inside the budget");
+        assert_eq!((ranked.documents, ranked.trees), (2, 2));
+    }
+
+    #[test]
+    fn test_prefetch_from_heat_under_a_budget_displaces_only_colder_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let body = rust_source_of(600 * 1024);
+        for name in ["hot.rs", "warm.rs"] {
+            std::fs::write(dir.path().join(name), &body).expect("write fixture");
+        }
+        let mut pipeline = IncrementalPipeline::new().with_memory_budget_mb(1);
+        pipeline
+            .process_file("stale.rs", &rust_source_of(600 * 1024))
+            .expect("stale.rs");
+        let heat = heat_of(&[("hot.rs", 4), ("warm.rs", 2)]);
+        assert_eq!(
+            pipeline.prefetch_from_heat(dir.path(), &heat, 1, |_| true),
+            1
+        );
+        assert!(
+            pipeline.get_document("hot.rs").is_some(),
+            "the prefetched file"
+        );
+        assert!(
+            pipeline.get_document("stale.rs").is_none(),
+            "the untracked file made room for the hot one"
+        );
+    }
+
+    #[test]
+    fn test_shared_pipeline_budget_stats_and_enforce_round_trip() {
+        let shared = SharedPipeline::new().with_memory_budget_mb(1);
+        let body = rust_source_of(400 * 1024);
+        for file in ["a.rs", "b.rs", "c.rs"] {
+            shared.process_file(file, &body).expect("process_file");
+        }
+        assert_eq!(shared.stats().budget_mb, 1);
+        assert_eq!(
+            shared.enforce_budget(&heat_of(&[("a.rs", 3)]), Some("c.rs")),
+            1
+        );
+        let stats = shared.stats();
+        assert_eq!((stats.documents, stats.evictions), (2, 1));
     }
 }

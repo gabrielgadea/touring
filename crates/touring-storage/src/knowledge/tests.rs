@@ -185,6 +185,90 @@ fn test_edit_history() {
     assert_eq!(edits[0].edit_type, "Edit");
 }
 
+fn insert_edit_at(db: &FileKnowledgeDB, file: &str, edited_at: &str) {
+    db.conn_ref()
+        .execute(
+            "INSERT INTO edit_history (file_path, edit_type, edited_at) VALUES (?1, 'Edit', ?2)",
+            rusqlite::params![file, edited_at],
+        )
+        .unwrap();
+}
+
+#[test]
+fn test_recent_edit_heat_counts_edits_and_orders_by_recency() {
+    let (_tmp, db) = test_db();
+    insert_edit_at(&db, "src/old.rs", "2026-10-01 10:00:00");
+    insert_edit_at(&db, "src/busy.rs", "2026-11-10 08:00:00");
+    insert_edit_at(&db, "src/busy.rs", "2026-11-11 09:00:00");
+    insert_edit_at(&db, "src/busy.rs", "2026-11-12 10:00:00");
+    insert_edit_at(&db, "src/new.rs", "2026-11-12 11:00:00");
+
+    let heat = db.recent_edit_heat(10).unwrap();
+    let files: Vec<&str> = heat.iter().map(|r| r.file_path.as_str()).collect();
+    assert_eq!(files, ["src/new.rs", "src/busy.rs", "src/old.rs"]);
+    let busy = &heat[1];
+    assert_eq!(busy.edits, 3, "one row per edit, counted per file");
+    // 2026-11-12 10:00:00 UTC
+    assert_eq!(busy.last_edit_epoch, 1_794_477_600.0);
+}
+
+#[test]
+fn test_recent_edit_heat_leaves_out_files_outside_the_project() {
+    let (_tmp, db) = test_db();
+    insert_edit_at(&db, "src/inside.rs", "2026-11-10 10:00:00");
+    // Files outside the project are recorded under their absolute path, and the
+    // most recent ones would crowd the project's own files out of a small heat map.
+    insert_edit_at(
+        &db,
+        "/home/user/.claude/skills/x/adw.py",
+        "2026-11-12 10:00:00",
+    );
+    let files: Vec<String> = db
+        .recent_edit_heat(10)
+        .unwrap()
+        .into_iter()
+        .map(|r| r.file_path)
+        .collect();
+    assert_eq!(files, ["src/inside.rs"]);
+}
+
+#[test]
+fn test_recent_edit_heat_respects_the_limit_and_an_empty_history() {
+    let (_tmp, db) = test_db();
+    assert!(
+        db.recent_edit_heat(5).unwrap().is_empty(),
+        "no edits, no heat"
+    );
+    for (i, file) in ["a.rs", "b.rs", "c.rs"].iter().enumerate() {
+        insert_edit_at(&db, file, &format!("2026-11-1{i} 10:00:00"));
+    }
+    let heat = db.recent_edit_heat(2).unwrap();
+    assert_eq!(heat.len(), 2);
+    assert_eq!(heat[0].file_path, "c.rs", "the most recent first");
+}
+
+/// "History unreadable" is not "no history": with the table gone the reader must say so
+/// (an `Err`), where it used to answer an empty list the boot seed took for a cold start.
+#[test]
+fn test_recent_edit_heat_reports_an_unreadable_history_instead_of_an_empty_one() {
+    let (_tmp, db) = test_db();
+    insert_edit_at(&db, "src/a.rs", "2026-11-10 10:00:00");
+    assert_eq!(
+        db.recent_edit_heat(5).unwrap().len(),
+        1,
+        "control: readable"
+    );
+
+    db.conn_ref()
+        .execute("DROP TABLE edit_history", [])
+        .unwrap();
+
+    assert!(
+        db.recent_edit_heat(5).is_err(),
+        "a missing history table is an error, not a cold start"
+    );
+}
+
 #[test]
 fn test_file_access_log() {
     let (_tmp, db) = test_db();

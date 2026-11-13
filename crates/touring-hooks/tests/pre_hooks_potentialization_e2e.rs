@@ -302,29 +302,44 @@ fn blast_radius_signal_none_index_returns_none() {
     );
 }
 
+/// An index with no edge source never looked at ANY file: "sem cobertura" would be the state of
+/// the whole project, repeated on every pre_edit/pre_read/pre_write, not news about this file.
+/// The reader stays silent (and never says "isolado": silence claims nothing).
 #[test]
-fn blast_radius_signal_empty_index_returns_isolated_signal() {
+fn blast_radius_signal_empty_index_is_silent() {
     let index = SymbolIndex::new();
-    let result = blast_radius_signal(Some(&index), "src/lib.rs", false);
-    assert!(
-        result.is_some(),
-        "blast_radius_signal with empty index should return Some (isolated)"
-    );
-    let (score, text) = result.unwrap();
+    for verbose in [true, false] {
+        assert_eq!(
+            blast_radius_signal(Some(&index), "src/lib.rs", verbose),
+            None,
+            "a project with no coverage at all says nothing about one file (verbose={verbose})"
+        );
+    }
+}
+
+/// The informative case: the wiring reads `.rs` in this project and did not read this `.rs`.
+#[test]
+fn blast_radius_signal_says_no_coverage_for_a_source_file_the_wiring_should_have_read() {
+    let mut index = SymbolIndex::new();
+    index.load_file_edges(Vec::<(String, String)>::new(), ["src/other.rs".to_string()]);
+    let (score, text) = blast_radius_signal(Some(&index), "src/lib.rs", false)
+        .expect("an uncovered .rs where the wiring reads .rs is informative");
     assert!(score >= 0.0, "score must be non-negative, got {score}");
     assert!(
-        !text.is_empty(),
-        "signal text must be non-empty for isolated file"
+        text.contains("sem cobertura") && !text.contains("isolado"),
+        "a source file the index never looked at is 'sem cobertura', never 'isolado', got: {text:?}"
     );
-    assert!(
-        text.contains("0 deps") || text.contains("isolado") || text.contains("blast"),
-        "isolated file signal should reference deps or blast, got: {text:?}"
+    // The same project says nothing about a doc: the wiring never reads `.md`.
+    assert_eq!(
+        blast_radius_signal(Some(&index), "docs/readme.md", false),
+        None
     );
 }
 
 #[test]
 fn blast_radius_signal_verbose_at_least_as_long_as_compact() {
-    let index = SymbolIndex::new();
+    let mut index = SymbolIndex::new();
+    index.load_file_edges(Vec::<(String, String)>::new(), ["src/other.rs".to_string()]);
     let result_v = blast_radius_signal(Some(&index), "src/mod.rs", true);
     let result_c = blast_radius_signal(Some(&index), "src/mod.rs", false);
     assert!(

@@ -983,8 +983,15 @@ fn phase_learning(rt: &mut HookRuntime) -> PhaseResult {
     let blast_count: usize = rt
         .infra
         .symbol_index
-        .as_ref()
-        .map(|idx| idx.reverse_deps.values().map(|v| v.len()).sum())
+        .get()
+        .map(|generation| {
+            generation
+                .index()
+                .reverse_deps
+                .values()
+                .map(|v| v.len())
+                .sum()
+        })
         .unwrap_or(0);
     update_linucb_blast_signal(rt, blast_count);
     tests_passed += 1; // calling the feedback function always counts as a pass

@@ -462,14 +462,333 @@ pub fn cli_status(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String 
                 )
             })
             .collect();
+    let (pipeline, heat) = pipeline_and_heat_status(rt);
+    let file_edges = file_edges_status(rt);
     let status = serde_json::json!(
         { "index" : { "symbol_count" : symbol_count, "file_count" : file_count,
         "initialized" : rt.infra.symbol_store.is_some() }, "wiring" : { "orphan_count" :
         orphan_count }, "learning" : { "ema_reward" : ema_reward }, "daemon_health" :
         daemon_health, "composite_health_score" : composite_health_score,
         "code_mode" : { "runs" : runs, "bash_calls" : bash_calls,
-        "adoption_ratio" : adoption_ratio, "gates" : gates } }
+        "adoption_ratio" : adoption_ratio, "gates" : gates }, "pipeline" : pipeline,
+        "heat" : heat, "file_edges" : file_edges, "cortex_pipeline" : "not_counted" }
     );
     serde_json::to_string(&status)
         .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
+}
+
+/// C7: the `pipeline` and `heat` sections of `touring status -j` — what the daemon's
+/// incremental pipeline holds, what its memory budget has evicted, and how much heat
+/// the budget and the session-start prefetch have used. Absence is `null`, never `0`
+/// (no pipeline; a hook holding the heat map at this instant). `budget_source` says who
+/// decided `budget_mb`: `env` (the knob), `default` (derived from the machine) or
+/// `disabled` (`TOURING_PIPELINE_MEMORY_MB=0`).
+///
+/// The daemon holds one more real pipeline, the cortex's (`incremental_indexing.rs`),
+/// which this budget does not govern and these numbers do not include: `cli_status`
+/// says so with `"cortex_pipeline": "not_counted"` rather than underestimating.
+fn pipeline_and_heat_status(rt: &HookRuntime) -> (serde_json::Value, serde_json::Value) {
+    let stats = rt.infra.pipeline.as_ref().map(|p| p.stats());
+    let pipeline = stats.map_or(serde_json::Value::Null, |s| {
+        serde_json::json!({
+            "documents": s.documents,
+            "trees": s.trees,
+            "memory_mb": s.memory_mb,
+            "budget_mb": s.budget_mb,
+            "budget_source": rt.infra.pipeline_budget_source.as_str(),
+            "evictions": s.evictions,
+        })
+    });
+    let tracked = rt
+        .learning
+        .heat_map
+        .try_borrow()
+        .ok()
+        .map(|heat| heat.len());
+    let mut heat = serde_json::json!({
+        "tracked": tracked,
+        "consulted": stats.map(|s| s.heat_consulted),
+        "prefetched": stats.map(|s| s.heat_prefetched),
+    });
+    // A `null` is never left to be read as a zero: the section says why, field by field.
+    let mut reasons: Vec<&str> = Vec::new();
+    if tracked.is_none() {
+        reasons.push("tracked: the heat map is held by a hook right now");
+    }
+    if stats.is_none() {
+        reasons.push("consulted, prefetched: the daemon has no incremental pipeline");
+    }
+    if !reasons.is_empty() {
+        heat["reason"] = serde_json::Value::String(reasons.join("; "));
+    }
+    (pipeline, heat)
+}
+
+/// C8: the `file_edges` section of `touring status -j` — whether the dependency index (and
+/// with it the wiring's resolved file-to-file edges the hooks' graph signals read) is loaded,
+/// how big it is, and who decided. `source` is `default` or `disabled`
+/// (`TOURING_FILE_EDGES_DISABLED=1`, read when the runtime was built); `enabled` is false
+/// exactly when it is `disabled`. `edges` and `covered_files` are `null`, never `0`, while no
+/// index is loaded, and `reason` says why: an unloaded index is not an index with no edges.
+/// Asking never loads it: the index loads on the first read that needs it (a hook's graph
+/// signal), so an enabled project nobody has read yet reports `edges: null` and the reason
+/// below — the state right after the daemon opened it — not a number the status itself paid for.
+fn file_edges_status(rt: &HookRuntime) -> serde_json::Value {
+    let source = rt.infra.file_edges_source;
+    let coverage = rt
+        .infra
+        .symbol_index
+        .get()
+        .map(|generation| generation.index().edge_coverage_summary());
+    let mut section = serde_json::json!({
+        "enabled": source.enabled(),
+        "source": source.as_str(),
+        "edges": coverage.map(|c| c.edges),
+        "covered_files": coverage.map(|c| c.covered_files),
+    });
+    if coverage.is_none() {
+        let reason = if source.enabled() {
+            "the dependency index is not loaded yet: it loads on the first hook read that \
+             needs a graph signal (and `touring index rebuild` refreshes it once loaded)"
+        } else {
+            "TOURING_FILE_EDGES_DISABLED is set: the index is not loaded and the graph \
+             signals stay silent (unset it and restart the daemon)"
+        };
+        section["reason"] = serde_json::Value::String(reason.to_string());
+    }
+    section
+}
+
+#[cfg(test)]
+mod status_pipeline_tests {
+    use super::cli_status;
+    use crate::runtime::HookRuntime;
+    use touring_code::ast::SharedPipeline;
+
+    /// Comment padding: a big document with almost no symbols to extract.
+    fn padded(bytes: usize) -> String {
+        format!(
+            "pub fn f() {{}}\n{}",
+            "// padding padding padding padding padding padding padding\n".repeat(bytes / 58 + 1)
+        )
+    }
+
+    fn status_of(rt: &mut HookRuntime) -> serde_json::Value {
+        serde_json::from_str(&cli_status(rt, &serde_json::json!({}))).expect("status json")
+    }
+
+    #[test]
+    fn status_reports_the_pipeline_memory_and_what_the_budget_did() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.infra.pipeline = Some(SharedPipeline::new().with_memory_budget_mb(1));
+        for name in ["a.rs", "b.rs", "c.rs"] {
+            rt.process_file(name, &padded(400 * 1024))
+                .expect("process_file");
+        }
+
+        let status = status_of(&mut rt);
+        let pipeline = &status["pipeline"];
+        assert_eq!(pipeline["budget_mb"], 1, "{status}");
+        assert_eq!(
+            pipeline["evictions"], 1,
+            "3 x 400 KiB over 1 MiB: one victim"
+        );
+        assert_eq!(pipeline["documents"], 2);
+        assert_eq!(pipeline["trees"], 2, "the victim's tree left with it");
+        let memory = pipeline["memory_mb"].as_f64().expect("memory_mb");
+        assert!(memory > 0.5 && memory <= 1.0, "inside the budget: {memory}");
+    }
+
+    #[test]
+    fn status_names_where_the_pipeline_budget_came_from() {
+        use touring_hook_runtime::hook_runtime::BudgetSource;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        for source in [
+            BudgetSource::Env,
+            BudgetSource::Default,
+            BudgetSource::Disabled,
+        ] {
+            rt.infra.pipeline_budget_source = source;
+            assert_eq!(
+                status_of(&mut rt)["pipeline"]["budget_source"],
+                source.as_str()
+            );
+        }
+    }
+
+    /// An index holding one resolved edge (`app.rs` imports `lib.rs`) over two covered files.
+    fn index_with_one_edge() -> touring_code::ast::SymbolIndex {
+        let mut index = touring_code::ast::SymbolIndex::new();
+        index.load_file_edges(
+            [("src/app.rs".to_string(), "src/lib.rs".to_string())],
+            ["src/app.rs".to_string(), "src/lib.rs".to_string()],
+        );
+        index
+    }
+
+    #[test]
+    fn status_file_edges_on_default_reports_the_loaded_index() {
+        use touring_hook_runtime::index_slot::FileEdgesSource;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.infra.file_edges_source = FileEdgesSource::Default;
+        rt.infra.symbol_index.replace(index_with_one_edge());
+
+        let section = status_of(&mut rt)["file_edges"].clone();
+        assert_eq!(section["enabled"], true, "{section}");
+        assert_eq!(section["source"], "default", "{section}");
+        assert_eq!(section["edges"], 1, "{section}");
+        assert_eq!(section["covered_files"], 2, "{section}");
+        assert!(
+            section.get("reason").is_none(),
+            "numbers are present, so nothing to explain: {section}"
+        );
+    }
+
+    #[test]
+    fn status_file_edges_when_disabled_says_so_and_never_prints_zero() {
+        use touring_hook_runtime::index_slot::{FileEdgesSource, IndexLoad};
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.infra.file_edges_source = FileEdgesSource::Disabled;
+        // The switch is honoured by the loader itself: nothing is read, the slot stays empty.
+        assert_eq!(rt.load_symbol_index(), IndexLoad::Disabled);
+
+        let section = status_of(&mut rt)["file_edges"].clone();
+        assert_eq!(section["enabled"], false, "{section}");
+        assert_eq!(section["source"], "disabled", "{section}");
+        assert!(
+            section["edges"].is_null() && section["covered_files"].is_null(),
+            "an index that was not loaded is not an index with 0 edges: {section}"
+        );
+        assert!(
+            section["reason"]
+                .as_str()
+                .is_some_and(|r| r.contains("TOURING_FILE_EDGES_DISABLED")),
+            "the null names the switch: {section}"
+        );
+    }
+
+    #[test]
+    fn status_file_edges_enabled_but_not_loaded_yet_says_so() {
+        use touring_hook_runtime::index_slot::FileEdgesSource;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.infra.file_edges_source = FileEdgesSource::Default;
+
+        let section = status_of(&mut rt)["file_edges"].clone();
+        assert_eq!(section["enabled"], true, "{section}");
+        assert!(section["edges"].is_null(), "{section}");
+        assert!(
+            section["reason"]
+                .as_str()
+                .is_some_and(|r| r.contains("not loaded yet")),
+            "{section}"
+        );
+    }
+
+    /// Asking for the status is not a read that needs the graph: it must leave the slot empty
+    /// and must not even attempt the load (an attempt on a project with no store would leave
+    /// the `failed` mark, which `index rebuild` clears — so the mark is the witness).
+    #[test]
+    fn status_never_loads_the_dependency_index() {
+        use touring_hook_runtime::index_slot::FileEdgesSource;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.infra.file_edges_source = FileEdgesSource::Default;
+        // On demand, like every runtime the daemon builds: the one that could load.
+        rt.infra.index_on_demand = true;
+
+        for _ in 0..2 {
+            let _ = status_of(&mut rt);
+        }
+        assert!(
+            !rt.infra.symbol_index.is_loaded(),
+            "status must not load the index"
+        );
+        assert!(
+            !rt.infra.symbol_index.load_failed(),
+            "status must not even try: an attempt on a store-less project would mark the slot failed"
+        );
+    }
+
+    #[test]
+    fn status_declares_the_cortex_pipeline_not_counted_instead_of_underestimating() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        assert_eq!(status_of(&mut rt)["cortex_pipeline"], "not_counted");
+    }
+
+    #[test]
+    fn status_reports_how_much_heat_is_tracked_consulted_and_prefetched() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join("src")).expect("src");
+        std::fs::write(tmp.path().join("src/hot.rs"), "pub fn hot() {}\n").expect("write");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0);
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_edit("src/hot.rs", now);
+        assert_eq!(rt.prefetch_hot_files(4), 1);
+
+        let status = status_of(&mut rt);
+        assert_eq!(status["heat"]["tracked"], 1, "{status}");
+        assert_eq!(status["heat"]["prefetched"], 1);
+        assert_eq!(
+            status["heat"]["consulted"], 0,
+            "no eviction has needed the heat yet"
+        );
+    }
+
+    #[test]
+    fn status_without_a_pipeline_says_null_never_zero() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.infra.pipeline = None;
+        let status = status_of(&mut rt);
+        assert!(status["pipeline"].is_null(), "{status}");
+        assert!(
+            status["heat"]["prefetched"].is_null(),
+            "absence is not zero"
+        );
+        let reason = status["heat"]["reason"].as_str().unwrap_or_default();
+        assert!(
+            reason.contains("consulted, prefetched") && reason.contains("no incremental pipeline"),
+            "the null fields say why: {status}"
+        );
+        assert!(
+            !reason.contains("tracked"),
+            "`tracked` was readable, so it is not blamed: {status}"
+        );
+    }
+
+    #[test]
+    fn status_says_why_tracked_is_null_when_a_hook_holds_the_heat_map() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        let free = status_of(&mut rt);
+        assert_eq!(free["heat"]["tracked"], 0, "control: a free map is read");
+        assert!(
+            free["heat"].get("reason").is_none(),
+            "nothing is null, so there is nothing to explain: {free}"
+        );
+
+        // `cli_status` takes `&mut HookRuntime`, which the held guard forbids: read the
+        // section through the function the handler calls.
+        let _held = rt.learning.heat_map.borrow_mut();
+        let (_, busy) = super::pipeline_and_heat_status(&rt);
+        assert!(busy["tracked"].is_null(), "{busy}");
+        assert!(
+            busy["reason"]
+                .as_str()
+                .is_some_and(|r| r.contains("tracked") && r.contains("held by a hook")),
+            "the null says why: {busy}"
+        );
+    }
 }

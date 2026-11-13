@@ -293,8 +293,12 @@ fn evaluate_edit_write(runtime: &HookRuntime, tool_input: &serde_json::Value) ->
 
     let rel_path = crate::hook_runtime::make_relative(file_path, &runtime.project_root);
 
-    let blast_radius =
-        blast_radius_file_count(runtime.infra.symbol_index.as_ref(), &rel_path).unwrap_or(0);
+    let index_generation = runtime.index_generation();
+    let blast_radius = blast_radius_file_count(
+        index_generation.as_ref().map(|g| g.index().as_ref()),
+        &rel_path,
+    )
+    .unwrap_or(0);
 
     tracing::debug!(
         file_path,

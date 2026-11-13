@@ -402,28 +402,33 @@ fn init_learning_state(
     (ranker, drift)
 }
 
-/// Initialize SymbolStore and load symbols into the graph index.
+/// Initialize SymbolStore and load the dependency index (symbols + the wiring's resolved
+/// file edges, from `knowledge_db`) into the graph index.
 fn init_symbol_store(
     db_path: &std::path::Path,
+    knowledge_db: &std::path::Path,
     graph_index: &mut SymbolIndex,
 ) -> Option<Arc<Mutex<SymbolStore>>> {
     match SymbolStore::new(db_path) {
         Ok(store) => {
-            match store.load_into_index(graph_index) {
+            match touring_code::ast::store::load_index_for(&store, knowledge_db) {
                 // S-03 warm self-check: a populated DB that loads 0 symbols is a
                 // cold-index symptom (stale/empty symbols.db). Surface it loudly so
                 // a `touring status` symbol_count=0 is diagnosable at the source
                 // rather than silently degrading every downstream index query.
-                Ok(0) => warn!(
+                Ok(loaded) if loaded.stats().total_locations == 0 => warn!(
                     "SymbolStore opened but loaded 0 symbols from {} — index is COLD; \
                      run `touring index rebuild` if this persists",
                     db_path.display()
                 ),
-                Ok(n) => info!(
-                    "SymbolStore opened: loaded {} symbols from {} (index warm-on-start)",
-                    n,
-                    db_path.display()
-                ),
+                Ok(loaded) => {
+                    info!(
+                        "SymbolStore opened: loaded {} symbols from {} (index warm-on-start)",
+                        loaded.stats().total_locations,
+                        db_path.display()
+                    );
+                    *graph_index = loaded;
+                }
                 Err(e) => warn!("SymbolStore load failed (starting empty): {}", e),
             }
             Some(Arc::new(Mutex::new(store)))
@@ -544,7 +549,11 @@ impl TouringServer {
 
         // Phase 4: Symbol store and graph index
         let mut graph_index_inner = SymbolIndex::new();
-        let symbol_store = init_symbol_store(&config.symbols_db_path, &mut graph_index_inner);
+        let symbol_store = init_symbol_store(
+            &config.symbols_db_path,
+            &TouringConfig::knowledge_db_canonical(&config.project_root),
+            &mut graph_index_inner,
+        );
 
         // H3: async-pipeline — verify stream subscription API is accessible.
         // Each consumer calls subscribe_stream() independently to get their own broadcast Receiver.
@@ -1337,13 +1346,22 @@ impl TouringServer {
                                 let store = store_arc.lock().await;
                                 let mut idx = graph_index.lock().await;
                                 idx.clear();
-                                // Reload current project
-                                match store.load_into_index(&mut idx) {
-                                    Ok(n) => info!(
-                                        "SymbolRefresh: loaded {} symbol records from current",
-                                        n
-                                    ),
-                                    Err(e) => warn!("SymbolRefresh: load_into_index failed: {}", e),
+                                // Reload current project through the index's one loader
+                                // (symbols + the wiring's resolved file edges)
+                                let knowledge_db =
+                                    TouringConfig::knowledge_db_canonical(&project_root);
+                                match touring_code::ast::store::load_index_for(
+                                    &store,
+                                    &knowledge_db,
+                                ) {
+                                    Ok(loaded) => {
+                                        info!(
+                                            "SymbolRefresh: loaded {} symbol records from current",
+                                            loaded.stats().total_locations
+                                        );
+                                        *idx = loaded;
+                                    }
+                                    Err(e) => warn!("SymbolRefresh: index load failed: {}", e),
                                 }
                                 // Reload all cross-project databases (merge into same index)
                                 if let Some(home) = std::env::var_os("HOME") {

@@ -194,9 +194,6 @@ pub trait SymbolIndexOps {
 
     /// Persist symbols for a file into the SymbolStore.
     fn persist_symbols(&self, file_path: &str, symbols: &[SymbolLocation]) -> Result<(), String>;
-
-    /// Get the underlying symbol index reference (requires mutable access).
-    fn symbol_index_ref(&self) -> Option<&SymbolIndex>;
 }
 
 // ── Pipeline ────────────────────────────────────────────────────────────

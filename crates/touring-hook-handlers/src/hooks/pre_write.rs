@@ -537,9 +537,10 @@ fn collect_upfront_signals(
     // Blast radius: impact of this write on the broader codebase.
     // Passes real SymbolIndex from runtime (was None in ast_content_signals which
     // lacked runtime access — functional gap fixed by moving to collect_upfront_signals).
-    if let Some((score, text)) =
-        blast_radius_signal(runtime.infra.symbol_index.as_ref(), rel_path, false)
-    {
+    let index_generation = runtime.index_generation();
+    let index_ref: Option<&touring_code::ast::SymbolIndex> =
+        index_generation.as_ref().map(|g| g.index().as_ref());
+    if let Some((score, text)) = blast_radius_signal(index_ref, rel_path, false) {
         signals.push((score, text));
     }
 
@@ -547,10 +548,9 @@ fn collect_upfront_signals(
     // Mirrors pre_read.rs:collect_index_signals. Surfaces symbols with similar names
     // or module structure so Claude can follow naming conventions and patterns
     // already established in the codebase when writing new files.
-    if let Some((score, text)) = crate::shared::signals::similar_symbol_signal_for_path(
-        runtime.infra.symbol_index.as_ref(),
-        rel_path,
-    ) {
+    if let Some((score, text)) =
+        crate::shared::signals::similar_symbol_signal_for_path(index_ref, rel_path)
+    {
         signals.push((score, text));
     }
 

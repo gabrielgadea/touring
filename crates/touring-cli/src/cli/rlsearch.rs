@@ -52,6 +52,16 @@ pub fn cli_mcts_search(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     };
     result.to_string()
 }
+/// The language `cli_shadow_validate` judges a path as: the parser's table (`Lang::from_path`)
+/// plus the ONE spelling the handler's old private table accepted that the parser does not read,
+/// `.markdown` (the table reads `.md`/`.mdx`). Dropping it silently turned a file the handler used
+/// to validate into an `unsupported_extension` error (cross-audit 12/11/2026, F2 review).
+fn shadow_lang(path: &std::path::Path) -> Option<Lang> {
+    Lang::from_path(path).or_else(|| {
+        (path.extension().and_then(|e| e.to_str()) == Some("markdown")).then_some(Lang::Markdown)
+    })
+}
+
 /// Speculatively validates a candidate edit via the shadow validator, returning a confidence score as JSON.
 pub fn cli_shadow_validate(_rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let file_path = payload
@@ -62,26 +72,20 @@ pub fn cli_shadow_validate(_rt: &mut HookRuntime, payload: &serde_json::Value) -
         .get("content")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let lang = std::path::Path::new(file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .and_then(|ext| match ext {
-            "rs" => Some(Lang::Rust),
-            "py" | "pyi" => Some(Lang::Python),
-            "ts" | "tsx" => Some(Lang::TypeScript),
-            "js" | "jsx" | "mjs" | "cjs" => Some(Lang::JavaScript),
-            "sh" | "bash" | "zsh" => Some(Lang::Bash),
-            "go" => Some(Lang::Go),
-            "java" => Some(Lang::Java),
-            "html" | "htm" => Some(Lang::Html),
-            "css" => Some(Lang::Css),
-            "md" | "markdown" => Some(Lang::Markdown),
-            "json" => Some(Lang::Json),
-            "toml" => Some(Lang::Toml),
-            "yaml" | "yml" => Some(Lang::Yaml),
-            _ => None,
-        })
-        .unwrap_or(Lang::Rust);
+    // The parser's own table, shared with the index and the VGP readers: this handler
+    // used to keep a private copy whose fallback was `Lang::Rust`, so `.mts`/`.cts`
+    // (and any extension nobody listed) were judged as Rust (cross-audit 12/11/2026,
+    // F2). A language the parser does not read is reported, never guessed.
+    let Some(lang) = shadow_lang(std::path::Path::new(file_path)) else {
+        return serde_json::json!(
+            { "file_path" : file_path, "valid" : false, "score" : 0.0, "bayesian_score" :
+            0.0, "layers" : [], "error" : "unsupported_extension", "detail" :
+            "the extension of `file_path` is not a language the parser reads, so there is no \
+             grammar to validate against; send a `file_path` whose extension names one \
+             (e.g. `.rs`, `.ts`, `.mts`, `.py`, `.sh`)" }
+        )
+        .to_string();
+    };
     let result = speculate_v2(content, lang, None, None);
     serde_json::json!(
         { "file_path" : file_path, "valid" : result.all_passed, "score" : result
@@ -224,4 +228,106 @@ pub fn cli_rl_warmstart(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         "method": "cross_project_experience_replay (real outcomes, read-only)",
     })
     .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+
+    fn shadow(file_path: &str, content: &str) -> Value {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        let raw = cli_shadow_validate(
+            &mut rt,
+            &json!({"file_path": file_path, "content": content}),
+        );
+        serde_json::from_str(&raw).expect("handler returns JSON")
+    }
+
+    /// F2 (cross-audit 12/11/2026): the handler kept a private extension table whose
+    /// fallback was `Lang::Rust`, so a TypeScript module spelled `.mts` was judged as
+    /// Rust and failed on a syntax the file does not have.
+    #[test]
+    fn a_typescript_module_is_judged_as_typescript_not_rust() {
+        let ts = "export function twice(x: number): number { return x * 2; }\n";
+        for file in ["src/a.ts", "src/a.mts", "src/a.cts"] {
+            let out = shadow(file, ts);
+            assert_eq!(
+                out["valid"],
+                json!(true),
+                "`{file}` must validate as TS: {out}"
+            );
+            assert!(out.get("error").is_none(), "{file}: {out}");
+            assert!(!out["layers"].as_array().expect("layers").is_empty());
+        }
+    }
+
+    /// F2: an extension the parser does not read is reported, never judged as Rust —
+    /// valid Rust text under a `.xyz` name used to come back `valid: true`.
+    #[test]
+    fn an_unknown_extension_is_an_explicit_error_not_a_rust_verdict() {
+        let rust = "fn main() {}\n";
+        for file in ["notes.xyz", "Makefile", ""] {
+            let out = shadow(file, rust);
+            assert_eq!(
+                out["error"],
+                json!("unsupported_extension"),
+                "`{file}`: {out}"
+            );
+            assert_eq!(out["valid"], json!(false), "`{file}`: {out}");
+            assert_eq!(out["layers"], json!([]), "`{file}`: {out}");
+            assert_eq!(out["file_path"], json!(file));
+            assert!(
+                out["detail"]
+                    .as_str()
+                    .is_some_and(|d| d.contains("file_path")),
+                "the detail must teach the fix: {out}"
+            );
+        }
+    }
+
+    /// EVERY extension the handler's old private table validated (`git show
+    /// HEAD:crates/touring-cli/src/cli/rlsearch.rs`, 23 of them) keeps its verdict: sound
+    /// content under each is `valid`, never an `unsupported_extension` error. The review of
+    /// the F2 change found `.markdown` missing — the parser's table reads `.md`/`.mdx` only.
+    #[test]
+    fn every_extension_the_old_table_knew_still_validates() {
+        let ts = "export const a = 1;\n";
+        let js = "const a = 1;\n";
+        let sh = "echo hi\n";
+        let html = "<html><body>x</body></html>\n";
+        for (file, content) in [
+            ("a.rs", "fn main() {}\n"),
+            ("a.py", "def f():\n    return 1\n"),
+            ("a.pyi", "def f() -> int: ...\n"),
+            ("a.ts", ts),
+            ("a.tsx", ts),
+            ("a.js", js),
+            ("a.jsx", js),
+            ("a.mjs", js),
+            ("a.cjs", js),
+            ("a.sh", sh),
+            ("a.bash", sh),
+            ("a.zsh", sh),
+            ("a.go", "package main\n\nfunc main() {}\n"),
+            ("a.java", "class A {}\n"),
+            ("a.html", html),
+            ("a.htm", html),
+            ("a.css", "a { color: red; }\n"),
+            ("a.md", "# title\n"),
+            ("a.markdown", "# title\n"),
+            ("a.json", "{\"a\": 1}\n"),
+            ("a.toml", "a = 1\n"),
+            ("a.yaml", "a: 1\n"),
+            ("a.yml", "a: 1\n"),
+        ] {
+            let out = shadow(file, content);
+            assert!(
+                out.get("error").is_none(),
+                "`{file}` was validated by the old table: {out}"
+            );
+            assert_eq!(out["valid"], json!(true), "`{file}` sound content: {out}");
+        }
+    }
 }

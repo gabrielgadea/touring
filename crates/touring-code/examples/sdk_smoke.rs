@@ -6,8 +6,10 @@
 //! cargo run --example sdk_smoke -- <journal_path> <out_path>
 //! ```
 //!
-//! Run with `gen_sdk.py --check` and diff the two outputs to prove the
-//! schemas agree. The diff is the cross-process invariant.
+//! This example only WRITES the Rust report; it compares nothing. The cross-process
+//! invariant (Rust is the reference, `gen_sdk.py` must print the same report) is
+//! enforced by `tests/sdk_cross_emitter.rs`, which runs both over a journal with every
+//! family of line and fails on any difference.
 
 use std::env;
 use std::path::PathBuf;

@@ -198,3 +198,35 @@ impl std::str::FromStr for Language {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::grammar::Grammar;
+
+    /// The tier matrix is a maturity table, not a grammar table: it lists languages
+    /// that have no grammar in this crate (Kotlin, Swift, C, Ruby, PHP). For the ones
+    /// that DO have one, the name is the same string on both sides, so a rename on
+    /// one side fails here instead of drifting (C1: one door from a language to a grammar).
+    #[test]
+    fn a_tier_language_with_a_grammar_shares_its_name() {
+        #[cfg(feature = "more-languages")]
+        let with_grammar = ["rust", "typescript", "python", "go", "java"];
+        #[cfg(not(feature = "more-languages"))]
+        let with_grammar = ["rust", "typescript", "python"];
+        for language in Language::all() {
+            let name = language.to_string();
+            assert_eq!(
+                Grammar::from_name(&name).is_some(),
+                with_grammar.contains(&name.as_str()),
+                "{name}"
+            );
+        }
+        for name in with_grammar {
+            assert!(
+                Language::all().iter().any(|l| l.to_string() == name),
+                "{name} has a grammar but no tier"
+            );
+        }
+    }
+}

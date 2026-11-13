@@ -152,9 +152,7 @@ pub(crate) fn handle_task_sync_post_output(rt: &mut HookRuntime, input: &Value) 
     let wiring_count = artifact_paths
         .iter()
         // Same single refresh as an edit: inferred edges survive (B2).
-        .filter(|path| {
-            crate::wiring::refresh_file_wiring_from_disk(&rt.ctx.knowledge, &rt.project_root, path)
-        })
+        .filter(|path| rt.refresh_file_wiring_and_edges_from_disk(path))
         .count();
     let wiring_hint = if wiring_count > 0 {
         format!(" | wiring: {wiring_count} file(s) re-verified")

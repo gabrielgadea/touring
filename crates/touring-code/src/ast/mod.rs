@@ -9,9 +9,9 @@
 //!
 //! - `more-languages` — enables Go and Java parsing support via
 //!   `tree-sitter-go` and `tree-sitter-java`.
-//! - `async-pipeline` — enables [`AsyncSharedPipeline`] which wraps
-//!   `IncrementalPipeline` in a `tokio::sync::Mutex` for async runtime
-//!   compatibility.
+//! - `async-pipeline` — enables `SymbolStore::subscribe_stream`, a
+//!   `tokio::sync::broadcast` stream of the change sets the store commits
+//!   (consumed by `touring-server`'s boot).
 
 // Tier A (2026-04-19): test-only prelude with pretty_assertions shadow.
 #[cfg(test)]
@@ -35,6 +35,8 @@ pub mod file_heat;
 /// the Go grammar behind `more-languages` (P-H of the polyglot-parity plan).
 #[cfg(feature = "more-languages")]
 pub mod go_wiring;
+/// The one door from a path or a language to a grammar and a bounded parse.
+pub(crate) mod grammar;
 pub mod graph;
 pub mod import_resolver;
 pub mod incremental_pipeline;
@@ -86,11 +88,7 @@ pub use graph::{
     ImportInfo, IndexStats, SHARD_COUNT, SymbolIndex, SymbolLocation,
     compute_enriched_blast_radius,
 };
-#[cfg(feature = "async-pipeline")]
-pub use incremental_pipeline::AsyncSharedPipeline;
-pub use incremental_pipeline::{
-    IncrementalEditResult, IncrementalPipeline, PrioritizedPipeline, SharedPipeline,
-};
+pub use incremental_pipeline::{IncrementalEditResult, IncrementalPipeline, SharedPipeline};
 pub use languages::Lang;
 pub use parser::{IncrementalParser, ParsedFile, ParserPool, SharedTree};
 pub use semantic_search::SemanticSymbolIndex;

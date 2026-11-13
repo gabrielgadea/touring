@@ -5,10 +5,11 @@
 
 use std::path::Path;
 
-use tree_sitter::{Node, Parser, Tree};
+use tree_sitter::{Node, Tree};
 
 use touring_foundation::truncate_str;
 
+use crate::ast::grammar::{Grammar, Refusal};
 use crate::ast::languages::Lang;
 use crate::ast::symbols::{Symbol, extract_symbols, find_depth_zero_colon};
 
@@ -214,8 +215,8 @@ pub fn replace_symbol_body(
     symbol_name: &str,
     new_body: &str,
 ) -> SurgeryResult<String> {
-    // Detect language from source (simple heuristic)
-    let lang = detect_language(source)?;
+    // Guess the language from the source (simple heuristic)
+    let lang = guess_lang_from_content(source)?;
 
     // Find the symbol
     let symbol = find_symbol(source, symbol_name, lang)?;
@@ -310,8 +311,13 @@ fn apply_indentation(content: &str, base_indent: usize) -> String {
     result
 }
 
-/// Detect language from source content (simple heuristic)
-fn detect_language(source: &str) -> SurgeryResult<Lang> {
+/// Guess the language of a bare snippet from its CONTENT (a keyword heuristic).
+///
+/// Not an identity question — that is [`Grammar::of_path`] / [`Lang::from_path`] —
+/// but the fallback of the three functions that receive source with no path
+/// (`replace_symbol_body`, `get_symbol_range`, `extract_symbol_body`); the ones
+/// that know the path or the language take it from the caller.
+fn guess_lang_from_content(source: &str) -> SurgeryResult<Lang> {
     // Check for Python indicators
     if source.contains("def ") && (source.contains(":") || source.contains("    ")) {
         return Ok(Lang::Python);
@@ -351,13 +357,12 @@ fn detect_language(source: &str) -> SurgeryResult<Lang> {
 /// # Returns
 /// Ok(true) if syntax is valid, Err otherwise
 pub fn validate_syntax(content: &str, lang: Lang) -> SurgeryResult<bool> {
-    let mut parser = Parser::new();
-    parser
-        .set_language(&lang.tree_sitter_language())
-        .map_err(|e| SurgeryError::InvalidLanguage(format!("{:?}", e)))?;
-
-    let tree = crate::ast::parser::parse_bounded(&mut parser, content, None)
-        .ok_or_else(|| SurgeryError::ParseError("Failed to parse source".to_string()))?;
+    let tree = Grammar::of_lang(lang)
+        .parse(content)
+        .map_err(|refusal| match refusal {
+            Refusal::Rejected(why) => SurgeryError::InvalidLanguage(why),
+            Refusal::Halted => SurgeryError::ParseError("Failed to parse source".to_string()),
+        })?;
 
     // Check for error nodes
     if tree.root_node().has_error() {
@@ -476,7 +481,7 @@ pub fn replace_symbol_body_for_file(
 /// # Returns
 /// (start_byte, end_byte) of the symbol
 pub fn get_symbol_range(source: &str, symbol_name: &str) -> SurgeryResult<(usize, usize)> {
-    let lang = detect_language(source)?;
+    let lang = guess_lang_from_content(source)?;
     let symbol = find_symbol(source, symbol_name, lang)?;
     Ok((symbol.start_byte, symbol.end_byte))
 }
@@ -500,7 +505,7 @@ pub fn get_symbol_range_with_lang(
 /// # Returns
 /// The body content (excluding signature)
 pub fn extract_symbol_body(source: &str, symbol_name: &str) -> SurgeryResult<String> {
-    let lang = detect_language(source)?;
+    let lang = guess_lang_from_content(source)?;
     let symbol = find_symbol(source, symbol_name, lang)?;
     let tree = parse_source(source, lang)?;
     let (body_start, body_end) = find_body_range(source, &symbol, &tree)?;
@@ -567,17 +572,33 @@ pub fn format_rust_code_best_effort(source: &str) -> (String, bool) {
 mod tests {
     use super::*;
 
+    /// A parse that outlives its budget is a `ParseError`, never a hang or a
+    /// "valid" verdict.
     #[test]
-    fn test_detect_language_python() {
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let py = "def f():\n    pass\n".repeat(3_000);
+        assert_eq!(validate_syntax(&py, Lang::Python), Ok(true));
+        with_budget(Duration::ZERO, || {
+            assert!(matches!(
+                validate_syntax(&py, Lang::Python),
+                Err(SurgeryError::ParseError(_))
+            ));
+        });
+    }
+
+    #[test]
+    fn test_guess_lang_from_content_python() {
         let source = "def foo(): pass";
-        let lang = detect_language(source).unwrap();
+        let lang = guess_lang_from_content(source).unwrap();
         assert_eq!(lang, Lang::Python);
     }
 
     #[test]
-    fn test_detect_language_rust() {
+    fn test_guess_lang_from_content_rust() {
         let source = "fn foo() {}";
-        let lang = detect_language(source).unwrap();
+        let lang = guess_lang_from_content(source).unwrap();
         assert_eq!(lang, Lang::Rust);
     }
 

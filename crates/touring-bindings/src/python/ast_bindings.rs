@@ -225,7 +225,7 @@ pub fn py_extract_imports(
     let lang = Lang::from_path(Path::new(&file_path))
         .ok_or_else(|| AstParseError::new_err(format!("Unsupported language for: {file_path}")))?;
 
-    let imports = touring_code::ast::graph::extract_imports(&source, lang);
+    let imports = touring_code::ast::graph::FileReferences::new(&source, lang).imports();
     Ok(imports
         .into_iter()
         .map(|i| (i.module_path, i.symbols))
@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_extract_imports_python() {
         let source = "from os.path import join, exists\nimport sys\n";
-        let imports = touring_code::ast::graph::extract_imports(source, Lang::Python);
+        let imports = touring_code::ast::graph::FileReferences::new(source, Lang::Python).imports();
         assert!(!imports.is_empty());
         // Check at least one import was found
         let has_os_path = imports.iter().any(|i| i.module_path.contains("os"));

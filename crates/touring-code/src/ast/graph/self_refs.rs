@@ -12,26 +12,30 @@
 //! D9 (18/09/2026): Rust too. A method used only through `self.m()` or
 //! `Self::m` read as an orphan, so the only honest ways to quiet the judge were
 //! to invent an external caller or to drop the method. And both the rebuild and
-//! the edit path write these edges through [`self_referenced_names`]: until then
+//! the edit path write these edges through `FileReferences::self_references`: until then
 //! only the rebuild did, so editing a file demoted its internal symbols to
 //! orphans until the next rebuild.
 
 use std::collections::BTreeSet;
 
 use super::method_calls::{MacroToken, MacroVia, macro_token};
+use crate::ast::grammar::Grammar;
 use crate::ast::languages::Lang;
-use crate::ast::parser::parse_bounded;
 use crate::ast::symbols::Symbol;
 
-/// The public symbols of `symbols` that `source` itself uses, in `language` —
+/// The public symbols of `symbols` that `source` itself uses, read as `lang` —
 /// the one entry point of the rebuild and of the edit path, so the two can never
 /// disagree about what `internal_only` means. Languages without a rule answer
 /// empty.
 #[must_use]
-pub fn self_referenced_names(source: &str, symbols: &[Symbol], language: &str) -> BTreeSet<String> {
-    match language {
-        "python" => python_self_referenced_names(source, symbols),
-        "rust" => rust_self_referenced_names(source, symbols),
+pub(crate) fn self_referenced_names(
+    source: &str,
+    symbols: &[Symbol],
+    lang: Lang,
+) -> BTreeSet<String> {
+    match lang {
+        Lang::Python => python_self_referenced_names(source, symbols),
+        Lang::Rust => rust_self_referenced_names(source, symbols),
         _ => BTreeSet::new(),
     }
 }
@@ -43,14 +47,7 @@ pub fn self_referenced_names(source: &str, symbols: &[Symbol], language: &str) -
 /// that is merely declared is never reported; a module-level constant read from
 /// a function below it is.
 fn python_self_referenced_names(source: &str, symbols: &[Symbol]) -> BTreeSet<String> {
-    let mut parser = tree_sitter::Parser::new();
-    if parser
-        .set_language(&Lang::Python.tree_sitter_language())
-        .is_err()
-    {
-        return BTreeSet::new();
-    }
-    let Some(tree) = parse_bounded(&mut parser, source, None) else {
+    let Ok(tree) = Grammar::Python.parse(source) else {
         return BTreeSet::new();
     };
 
@@ -105,14 +102,7 @@ enum RustUse<'a> {
 ///   segment of `a::name` (another module's item), and never the type an `impl`
 ///   header implements (declaring `impl Foo` is not a use of `Foo`).
 fn rust_self_referenced_names(source: &str, symbols: &[Symbol]) -> BTreeSet<String> {
-    let mut parser = tree_sitter::Parser::new();
-    if parser
-        .set_language(&Lang::Rust.tree_sitter_language())
-        .is_err()
-    {
-        return BTreeSet::new();
-    }
-    let Some(tree) = parse_bounded(&mut parser, source, None) else {
+    let Ok(tree) = Grammar::Rust.parse(source) else {
         return BTreeSet::new();
     };
     let bytes = source.as_bytes();
@@ -280,7 +270,32 @@ fn stands_alone(node: tree_sitter::Node) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::languages::Lang;
     use crate::ast::symbols::extract_symbols;
+
+    /// A parse that outlives its budget is "no tree": both readers answer "no
+    /// self-references" instead of hanging.
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let rs = format!(
+            "pub fn used() {{}}\npub fn caller() {{ used(); }}\n{}",
+            "fn filler() {}\n".repeat(3_000)
+        );
+        let rs_symbols = extract_symbols(&rs, Lang::Rust).expect("rust symbols");
+        let py = format!(
+            "VALUE = 1\n\ndef use_it():\n    return VALUE\n\n{}",
+            "def filler():\n    pass\n\n".repeat(3_000)
+        );
+        let py_symbols = extract_symbols(&py, Lang::Python).expect("python symbols");
+        assert!(!rust_self_referenced_names(&rs, &rs_symbols).is_empty());
+        assert!(!python_self_referenced_names(&py, &py_symbols).is_empty());
+        with_budget(Duration::ZERO, || {
+            assert!(rust_self_referenced_names(&rs, &rs_symbols).is_empty());
+            assert!(python_self_referenced_names(&py, &py_symbols).is_empty());
+        });
+    }
 
     fn rust_symbols(source: &str) -> Vec<Symbol> {
         extract_symbols(source, Lang::Rust).expect("rust symbols")
@@ -368,8 +383,8 @@ mod tests {
     fn the_dispatcher_routes_by_language_and_is_empty_elsewhere() {
         let py = "PUB = 1\n\n\ndef f():\n    return PUB\n";
         let py_syms = extract_symbols(py, Lang::Python).expect("python symbols");
-        assert!(self_referenced_names(py, &py_syms, "python").contains("PUB"));
-        assert!(self_referenced_names(py, &py_syms, "markdown").is_empty());
+        assert!(self_referenced_names(py, &py_syms, Lang::Python).contains("PUB"));
+        assert!(self_referenced_names(py, &py_syms, Lang::Markdown).is_empty());
     }
 
     fn symbols(source: &str) -> Vec<Symbol> {

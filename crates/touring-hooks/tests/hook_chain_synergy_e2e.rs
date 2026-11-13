@@ -12,7 +12,7 @@
 //! - I-4: validate_edit_impact shows complexity increase for complex fn
 //! - I-5: callgraph_signal_for_file (via pre_edit::run_returning with real file)
 //! - I-5b: callgraph_signal_for_write (via pre_write::run_returning)
-//! - I-6: bfs_hop_signal (via pre_read::run_returning)
+//! - I-6: pre_read::run_returning over the index slot (the `bfs_hop_signal` it tested was retired in C8)
 //! - I-7: LearningLoop records GenerationEvent and updates strategy stats
 
 #![allow(clippy::indexing_slicing)]
@@ -706,10 +706,18 @@ pub enum Status {
     );
 }
 
-// ─── I-6: bfs_hop_signal (via pre_read::run_returning) ───────────────────────
+// ─── I-6: pre_read::run_returning over the index slot (was: bfs_hop_signal) ──
+//
+// `bfs_hop_signal` (I-6) was retired in C8: it cloned the whole index per read to run a
+// second BFS, and the pipeline's blast group already says the radius in one bounded line.
+// `i6_bfs_hop_signal_format_contract_verified_via_symbol_index` left with it: it never called
+// the signal (private in `pre_read.rs`), it asserted that a map the test had just filled
+// was not empty, so it could not fail. What stays are the two runs that prove pre_read
+// completes with and without an index; the retirement itself is pinned by
+// `test_index_signals_no_longer_carry_bfs_hops` in `pre_read_tests.rs`.
 
-/// Proves: pre_read hook runs without panic for a file that has no symbol index.
-/// When no SymbolIndex is available, bfs_hop_signal returns None silently.
+/// Proves: pre_read hook runs without panic for a file that has no symbol index
+/// (the slot is empty: the graph signals have nothing to read and stay silent).
 #[test]
 fn i6_pre_read_runs_without_panic_when_no_symbol_index() {
     let (tmp, rt) = setup_runtime();
@@ -742,72 +750,6 @@ fn i6_pre_read_runs_without_panic_when_no_symbol_index() {
     }
 }
 
-/// Proves: bfs_hop_signal output format is correct when it fires.
-///
-/// Directly tests the format contract by building a SymbolIndex with reverse
-/// deps and calling bfs_hop_signal's contract via pre_read — when the signal
-/// fires, the context must contain "bfs_hops[".
-#[test]
-fn i6_bfs_hop_signal_format_contract_verified_via_symbol_index() {
-    use touring_code::ast::SymbolIndex;
-
-    // Build a minimal SymbolIndex with reverse deps so bfs_hop_signal can fire.
-    let mut idx = SymbolIndex::default();
-
-    // Register "my_fn" as defined in src/lib.rs
-    idx.symbols
-        .entry("my_fn".to_string())
-        .or_default()
-        .push(touring_code::ast::SymbolLocation {
-            file_path: "src/lib.rs".to_string(),
-            symbol_name: "my_fn".to_string(),
-            line: 1,
-            column: 0,
-            is_definition: true,
-            kind: None,
-        });
-
-    // Register src/main.rs as referencing my_fn (external reference)
-    idx.symbols
-        .entry("my_fn".to_string())
-        .or_default()
-        .push(touring_code::ast::SymbolLocation {
-            file_path: "src/main.rs".to_string(),
-            symbol_name: "my_fn".to_string(),
-            line: 5,
-            column: 0,
-            is_definition: false,
-            kind: None,
-        });
-
-    // Wire reverse_deps: lib.rs is imported by main.rs
-    idx.reverse_deps
-        .entry("src/lib.rs".to_string())
-        .or_default()
-        .push("src/main.rs".to_string());
-
-    // Verify the index has the structure we expect
-    assert!(
-        idx.reverse_deps.contains_key("src/lib.rs"),
-        "reverse_deps must contain src/lib.rs"
-    );
-    assert!(
-        !idx.reverse_deps["src/lib.rs"].is_empty(),
-        "src/lib.rs must have at least one reverse dep"
-    );
-
-    // Prove the data structure is correctly wired for bfs_hop_signal to fire
-    // (the signal guards on reverse_deps being non-empty for the target file)
-    let has_reverse_deps = idx
-        .reverse_deps
-        .get("src/lib.rs")
-        .map_or(false, |v| !v.is_empty());
-    assert!(
-        has_reverse_deps,
-        "guard condition for bfs_hop_signal must be satisfied"
-    );
-}
-
 /// Proves: pre_read hook completes normally when the file exists.
 #[test]
 fn i6_pre_read_run_returning_completes_for_existing_file() {
@@ -834,10 +776,10 @@ pub fn main() {
         }
     });
 
-    // Must complete without panic — bfs_hop_signal fires only when index has
-    // reverse_deps for this file; otherwise silently returns None.
+    // Must complete without panic: the graph signals fire only over a loaded index and
+    // stay silent otherwise.
     let _response = touring_hooks::pre_read::run_returning(&rt, &input);
-    // Reaching this point proves no panic in the bfs_hop_signal path
+    // Reaching this point proves no panic in the index-signal path
 }
 
 // ─── I-7: LearningLoop records GenerationEvent ────────────────────────────────

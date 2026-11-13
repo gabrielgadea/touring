@@ -19,8 +19,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use crate::ast::languages::Lang;
-use crate::ast::parser::parse_bounded;
+use crate::ast::grammar::Grammar;
 
 /// A local name bound by an import, with the byte offset where that binding
 /// appears.
@@ -48,15 +47,8 @@ fn bind(aliases: &mut Bindings, local: &str, module: String, at: usize) {
 /// guess, and a wrong producer key is worse than a missing edge. A relative
 /// `from . import x` is left alone for the same reason.
 #[must_use]
-pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
-    let mut parser = tree_sitter::Parser::new();
-    if parser
-        .set_language(&Lang::Python.tree_sitter_language())
-        .is_err()
-    {
-        return Vec::new();
-    }
-    let Some(tree) = parse_bounded(&mut parser, source, None) else {
+pub(crate) fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
+    let Ok(tree) = Grammar::Python.parse(source) else {
         return Vec::new();
     };
     let bytes = source.as_bytes();
@@ -104,15 +96,8 @@ pub fn python_qualified_uses(source: &str) -> Vec<(String, String)> {
 /// it. A reference is an identifier in code: an attribute name (`obj.Nome`), a
 /// keyword-argument name (`f(Nome=1)`) and a string (`__all__ = ["Nome"]`) are not.
 #[must_use]
-pub fn python_unreferenced_imports(source: &str) -> BTreeSet<String> {
-    let mut parser = tree_sitter::Parser::new();
-    if parser
-        .set_language(&Lang::Python.tree_sitter_language())
-        .is_err()
-    {
-        return BTreeSet::new();
-    }
-    let Some(tree) = parse_bounded(&mut parser, source, None) else {
+pub(crate) fn python_unreferenced_imports(source: &str) -> BTreeSet<String> {
+    let Ok(tree) = Grammar::Python.parse(source) else {
         return BTreeSet::new();
     };
     let bytes = source.as_bytes();
@@ -327,6 +312,30 @@ fn attribute_pair(node: tree_sitter::Node, bytes: &[u8]) -> Option<(String, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A parse that outlives its budget is "no tree": both readers answer empty
+    /// instead of hanging.
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let mut py = String::from("import numpy as np\nnp.array\n");
+        for i in 0..2_000 {
+            py.push_str(&format!("from m import N{i}\n"));
+        }
+        assert!(
+            !python_qualified_uses(&py).is_empty(),
+            "control: a qualified use"
+        );
+        assert!(
+            !python_unreferenced_imports(&py).is_empty(),
+            "control: unused imports"
+        );
+        with_budget(Duration::ZERO, || {
+            assert!(python_qualified_uses(&py).is_empty());
+            assert!(python_unreferenced_imports(&py).is_empty());
+        });
+    }
 
     #[test]
     fn an_aliased_module_attribute_is_a_qualified_use() {

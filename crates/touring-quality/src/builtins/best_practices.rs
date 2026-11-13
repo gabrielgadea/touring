@@ -34,6 +34,24 @@ const MIN_RUNS: u64 = 20;
 /// Piso de aderência (M1) — abaixo com amostra suficiente, Warn.
 const ADHERENCE_FLOOR: f64 = 0.8;
 
+/// The eight canonical SDK hooks, by the name the mirror records (`hook_name`).
+///
+/// A copy on purpose: this crate must stay standalone-buildable
+/// (`--no-default-features`) and cannot depend on `touring-code`, where the source of
+/// truth lives (`touring_code::sdk::HookName::ALL`). The copy cannot drift in silence:
+/// the test `sdk_hook_names_match_the_canonical_set` in `touring-server` — a crate that
+/// sees both — fails when the two lists differ.
+pub const SDK_HOOK_NAMES: [&str; 8] = [
+    "ast_meta",
+    "ast_blast",
+    "index_find",
+    "wiring_orphans",
+    "memory_recall",
+    "pre_edit",
+    "tantivy_search",
+    "parallel",
+];
+
 /// Gate das diretrizes E/A/M + ponte para o CI externo de best practices.
 pub struct BestPracticesGate;
 
@@ -145,20 +163,26 @@ fn hooks_complement_wired(root: &Path) -> (usize, usize) {
 /// and the gate is `pass` for signal_use — fail-open at the data-source
 /// level, not at the gate level.
 fn signal_use_counts(mirror_path: &Path) -> (usize, usize) {
-    const TOTAL_HOOKS: usize = 8; // mirrors `HookName::ALL.len()`
+    let total = SDK_HOOK_NAMES.len();
     let Ok(text) = std::fs::read_to_string(mirror_path) else {
-        return (0, TOTAL_HOOKS);
+        return (0, total);
     };
-    let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    let mut seen: std::collections::BTreeSet<&'static str> = std::collections::BTreeSet::new();
     for line in text.lines() {
         let Ok(entry) = serde_json::from_str::<serde_json::Value>(line) else {
             continue;
         };
-        if let Some(name) = entry.get("hook_name").and_then(|v| v.as_str()) {
-            seen.insert(name.to_string());
+        // Only the canonical eight count — what the KPI credits
+        // (`MirrorAggregate::canonical_calls`). A hook called under its RPC alias
+        // (`cli-ast-meta`) or any other name is traffic, not SDK adoption; counting
+        // it, capped at 8, made eight aliases read `8/8` (cross-audit 12/11/2026, F5).
+        if let Some(name) = entry.get("hook_name").and_then(|v| v.as_str())
+            && let Some(canonical) = SDK_HOOK_NAMES.iter().find(|c| **c == name)
+        {
+            seen.insert(canonical);
         }
     }
-    (seen.len().min(TOTAL_HOOKS), TOTAL_HOOKS)
+    (seen.len(), total)
 }
 
 impl Gate for BestPracticesGate {
@@ -354,6 +378,55 @@ mod tests {
         let (used, total) = signal_use_counts(&p);
         assert_eq!(used, 0);
         assert_eq!(total, 8);
+    }
+
+    /// A mirror whose lines carry exactly `names` as `hook_name` (one call each).
+    fn mirror_with(dir: &Path, names: &[&str]) -> PathBuf {
+        let body: String = names
+            .iter()
+            .map(|n| format!("{{\"hook_name\":\"{n}\",\"duration_ms\":1,\"success\":true}}\n"))
+            .collect();
+        let path = dir.join("sdk_signal_mirror.jsonl");
+        std::fs::write(&path, body).expect("write mirror");
+        path
+    }
+
+    /// F5 (cross-audit 12/11/2026): the count took EVERY distinct `hook_name` and capped it at 8,
+    /// so eight `cli-*` aliases (a hook called under its RPC name, which the KPI deliberately
+    /// does not credit) read `8/8` and the gate approved M1 with ZERO canonical hooks.
+    #[test]
+    fn signal_use_counts_only_canonical_hooks_never_aliases() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let aliases = [
+            "cli-ast-meta",
+            "cli-ast-blast",
+            "cli-index-find",
+            "cli-wiring-orphans",
+            "cli-memory-recall",
+            "cli-pre-edit",
+            "cli-tantivy-search",
+            "cli-parallel",
+        ];
+        let (used, total) = signal_use_counts(&mirror_with(dir.path(), &aliases));
+        assert_eq!(used, 0, "an alias is not one of the 8 canonical hooks");
+        assert_eq!(total, 8);
+    }
+
+    #[test]
+    fn aliases_beside_canonical_hooks_do_not_inflate_the_count() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let names = [
+            "ast_meta",
+            "memory_recall",
+            "parallel",
+            "cli-ast-blast",
+            "cli-index-find",
+            "cli-pre-edit",
+            "something_else",
+            "ast_meta", // a repeat counts once
+        ];
+        let (used, _) = signal_use_counts(&mirror_with(dir.path(), &names));
+        assert_eq!(used, 3, "ast_meta + memory_recall + parallel, nothing else");
     }
 
     #[test]

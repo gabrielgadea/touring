@@ -393,10 +393,10 @@ fn scan_blast_modules(
     // Build a BlastRadiusEngine once from the symbol index if available.
     // This wires BlastRadiusEngine::compute_with_timeout into the hot path,
     // providing per-call latency budgets derived from the remaining pipeline budget.
-    let engine = runtime.infra.symbol_index.as_ref().map(|idx| {
-        use std::sync::Arc;
+    // The generation shares the loaded index by `Arc`: no copy of the index per call.
+    let engine = runtime.index_generation().map(|generation| {
         use touring_analysis::blast_radius::BlastRadiusEngine;
-        BlastRadiusEngine::bfs_only(Arc::new(idx.clone()))
+        BlastRadiusEngine::bfs_only(std::sync::Arc::clone(generation.index()))
     });
 
     for sym in symbols {

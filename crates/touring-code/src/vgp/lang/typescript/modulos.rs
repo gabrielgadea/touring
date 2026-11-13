@@ -16,6 +16,7 @@ use super::decls::{Decl, baixar_decl};
 use super::jsdoc;
 use super::projeto::{Projeto, Resolvido};
 use super::util::{conteudo_string, tem_token, texto};
+use crate::ast::grammar::{Grammar, Reach};
 use crate::vgp::lang::parse;
 
 /// How a local name was bound by an `import`.
@@ -370,15 +371,17 @@ fn registrar_cjs_chamada(info: &mut ModuloInfo, chamada: Node, src: &str) {
 // ---------------------------------------------------------------------------------- loader
 
 /// The grammar for a module file by extension; `None` for non-code (json, css, images…).
+///
+/// The extension table is the shared one of `ast::grammar` (the extension as WRITTEN, exact reach);
+/// what this loader adds is "only the TS/JS families are modules it reads". A dotfile or a name
+/// with no extension (`.ts`, `ts`) has no language, as everywhere else in the VGP.
 pub(super) fn lang_do_arquivo(p: &Path) -> Option<&'static str> {
-    let nome = p.file_name()?.to_str()?;
-    let ext = nome.rsplit('.').next()?;
-    match ext {
-        "ts" | "mts" | "cts" => Some("typescript"),
-        "tsx" => Some("tsx"),
-        "js" | "jsx" | "mjs" | "cjs" => Some("javascript"),
-        _ => None,
-    }
+    let grammar = Grammar::of_path(p, Reach::Exact)?;
+    matches!(
+        grammar,
+        Grammar::TypeScript | Grammar::Tsx | Grammar::JavaScript
+    )
+    .then(|| grammar.name())
 }
 
 /// Loads, parses and summarises modules by path — each at most once per check.
@@ -556,6 +559,77 @@ impl<'a> Carregador<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::grammar::extensions;
+
+    /// The language of a module file: only the TS/JS families are code the loader reads, the
+    /// extension is read as WRITTEN (TypeScript's own resolution is case-sensitive about it), and
+    /// everything else — data, styles, other languages, no extension — is `None`.
+    #[test]
+    fn a_lingua_do_arquivo_e_a_das_familias_ts_e_js_lida_como_escrita() {
+        let casos: &[(&str, Option<&str>)] = &[
+            ("/p/a.ts", Some("typescript")),
+            ("/p/a.mts", Some("typescript")),
+            ("/p/a.cts", Some("typescript")),
+            ("/p/a.d.ts", Some("typescript")),
+            ("/p/a.b.ts", Some("typescript")),
+            ("/p/a.tsx", Some("tsx")),
+            ("/p/a.js", Some("javascript")),
+            ("/p/a.jsx", Some("javascript")),
+            ("/p/a.mjs", Some("javascript")),
+            ("/p/a.cjs", Some("javascript")),
+            // known to the shared table, but not a module this loader reads
+            ("/p/a.py", None),
+            ("/p/a.rs", None),
+            ("/p/a.json", None),
+            ("/p/a.css", None),
+            ("/p/a.scss", None),
+            ("/p/a.html", None),
+            ("/p/a.md", None),
+            ("/p/a.sh", None),
+            // not in the table at all
+            ("/p/a.vue", None),
+            ("/p/a.svelte", None),
+            ("/p/a.node", None),
+            ("/p/a.", None),
+            ("/p/a", None),
+            ("/", None),
+            // the extension as written: `.TS` is not `.ts`
+            ("/p/A.TS", None),
+            ("/p/A.Js", None),
+        ];
+        for (caminho, esperado) in casos {
+            assert_eq!(lang_do_arquivo(Path::new(caminho)), *esperado, "{caminho}");
+        }
+    }
+
+    /// One table: every extension the shared grammar table gives the TS/JS grammars is read, with
+    /// the name of its grammar — a second table in the loader would drift from it.
+    #[test]
+    fn toda_extensao_ts_e_js_da_tabela_unica_e_lida_pelo_carregador() {
+        for gramatica in [Grammar::TypeScript, Grammar::Tsx, Grammar::JavaScript] {
+            let extensoes = extensions(gramatica, Reach::Exact);
+            assert!(!extensoes.is_empty(), "{}", gramatica.name());
+            for ext in extensoes {
+                assert_eq!(
+                    lang_do_arquivo(Path::new(&format!("/p/m.{ext}"))),
+                    Some(gramatica.name()),
+                    ".{ext}"
+                );
+            }
+        }
+    }
+
+    /// A dotfile or a name with no extension is not a TS/JS file (VL0 §2: `Path::extension` is
+    /// `None` for `.py`): the loader read `.ts`, `ts`, `.js`, `mjs`… as source by taking the
+    /// text after the last dot of the whole NAME.
+    #[test]
+    fn dotfile_e_nome_sem_extensao_nao_tem_lingua() {
+        for nome in [
+            "/p/.ts", "/p/ts", "/p/tsx", "/p/mts", "/p/.js", "/p/js", "/p/mjs", "/p/.tsx",
+        ] {
+            assert_eq!(lang_do_arquivo(Path::new(nome)), None, "{nome}");
+        }
+    }
 
     fn resumo(lang: &str, src: &str) -> ModuloInfo {
         let arvore = parse(lang, src).expect("parse");

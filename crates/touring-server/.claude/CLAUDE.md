@@ -163,9 +163,13 @@ Protocol stub auto-injected into the sandbox). **F4** added two methods:
    + success flag via `record_hook_call` — populating the per-hook
    call counts that `touring kpi -j` exposes as `code_mode_signal_use`.
 
-The schema mirrors `crates/touring-code/src/sdk_signal_mirror.rs::HookCallEntry`
-byte-for-byte (Rust source of truth). Schema-drift fails the
-`signal_report_from_journal_and_mirror` roundtrip.
+The schema mirrors the line `crates/touring-code/src/sdk_signal_mirror.rs::Mirror::record`
+writes (`ts`, `hook_name`, `duration_ms`, `success`, `origin`, in that order; Rust source of
+truth, behind the `Mirror` interface — C5, 12/11/2026). The Python template is a second
+writer of that format; what guards it is `orchestrate_python_sdk_mirror_lines_declare_sdk_origin`
+(the `origin` literal comes from `MirrorOrigin::as_str`), and `Mirror::read` SKIPS a line it
+cannot read instead of aborting. The old `signal_report_from_journal_and_mirror` roundtrip no
+longer exists.
 
 **Critical lesson (lesson:executor-do-comando-nao-e-o-binario-buildado, applied 01/09)**:
 edits to this template require `cargo build --release --workspace`
@@ -187,7 +191,7 @@ lives in `touring-hooks`, and the `touring` it writes unifies features different
   `orchestrate_python_sdk_avoids_dynamic_import` (`__import__` tripped the
   CEG's own forbidden-call detector — the product flagging its own template).
 - **P2 — the mirror env is WIRED**: `run.rs` sets
-  `RunTunables.sdk_signal_mirror = default_mirror_path(HOME)` on every
+  `RunTunables.sdk_signal_mirror = Mirror::from_env()?.path()` on every
   `--orchestrate` run → `ctx_execute_impl` → `SandboxConfig.sdk_signal_mirror`
   → the spawn funnel exports `TOURING_SDK_SIGNAL_MIRROR` + pre-creates the
   file + grants a FILE-level Landlock write rule (`touring-ceg

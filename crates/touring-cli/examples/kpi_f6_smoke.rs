@@ -7,39 +7,34 @@
 //!
 //! Exit 0 if the aggregator returns a Value, 1 if any FS read fails.
 
-use std::path::PathBuf;
-
 use serde_json::json;
+use touring_code::sdk::HookName;
+use touring_code::sdk_signal_mirror::Mirror;
 use touring_foundation::run_outcome::{Journal, count_runs};
 
+/// The signal-use reading through the mirror's own interface: the line format, the path
+/// and the canonical set live behind `Mirror::read`, so `used` counts the 8 canonical
+/// hooks only (the previous local parser counted every distinct name — `cli-*` aliases
+/// included — and read `used: 20`, `ratio: 2.5` on the real mirror).
 fn code_mode_signal_use() -> serde_json::Value {
-    const TOTAL_HOOKS: u64 = 8;
-    let Some(home) = std::env::var_os("HOME") else {
+    let Some(mirror) = Mirror::from_env() else {
         return json!({"available": false, "reason": "HOME unset"});
     };
-    let path = PathBuf::from(home).join(".claude/touring/sdk_signal_mirror.jsonl");
-    match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            let mut seen: std::collections::BTreeSet<String> = Default::default();
-            let mut calls = 0u64;
-            for line in content.lines() {
-                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
-                    continue;
-                };
-                if let Some(name) = v.get("hook_name").and_then(|x| x.as_str()) {
-                    seen.insert(name.to_string());
-                    calls += 1;
-                }
-            }
+    match mirror.read(0) {
+        Ok(Some(agg)) => {
+            let total = HookName::ALL.len() as u64;
+            let used = agg.canonical_hooks_used as u64;
             json!({
                 "available": true,
-                "used": seen.len() as u64,
-                "total": TOTAL_HOOKS,
-                "ratio": seen.len() as f64 / TOTAL_HOOKS as f64,
-                "total_calls": calls,
+                "used": used,
+                "total": total,
+                "ratio": used as f64 / total as f64,
+                "total_calls": agg.total_calls,
+                "non_canonical_calls": agg.non_canonical_calls,
             })
         }
-        Err(_) => json!({"available": false, "reason": "no mirror yet"}),
+        Ok(None) => json!({"available": false, "reason": "no mirror yet"}),
+        Err(e) => json!({"available": false, "reason": format!("unreadable: {e}")}),
     }
 }
 

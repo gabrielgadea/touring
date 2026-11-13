@@ -156,6 +156,18 @@ pub struct EditEvent {
     pub edited_at: String,
 }
 
+/// One file's persisted edit history, summarized for the heat map: how many edits the
+/// history holds for it and when the last one happened.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EditHeatRow {
+    /// File the edits were recorded for (project-relative for files inside the project).
+    pub file_path: String,
+    /// Number of edit events recorded for the file.
+    pub edits: u32,
+    /// Instant of the file's most recent edit, in seconds since the Unix epoch (UTC).
+    pub last_edit_epoch: f64,
+}
+
 /// S1.3: Error pattern with exponential-decay-weighted count across sessions.
 #[derive(Debug, Clone)]
 pub struct WeightedErrorPattern {

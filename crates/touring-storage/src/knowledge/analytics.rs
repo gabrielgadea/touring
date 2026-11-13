@@ -133,6 +133,23 @@ impl FileKnowledgeDB {
         };
         rows.filter_map(|r| r.ok()).collect()
     }
+    /// Every co-edit pair on record as `(source, target, coedit_count)`, ordered. A pair
+    /// is stored in the direction it was first seen and the reverse can exist as a row of
+    /// its own: a reader that wants one number per pair adds the two, as
+    /// [`Self::get_coedit_neighbors`] does.
+    ///
+    /// # Errors
+    /// Propagates the SQLite error of the query or of reading a row.
+    pub fn co_edit_pairs(&self) -> Result<Vec<(String, String, i64)>, rusqlite::Error> {
+        let sql = format!(
+            "SELECT source_path, target_path, coedit_count FROM {fc}
+             WHERE coedit_count > 0 ORDER BY source_path, target_path",
+            fc = schema_guard::TABLE_FILE_COEDITS
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        rows.collect()
+    }
     /// Decay co-edit weights older than `half_life_days`.
     ///
     /// Halves the `coedit_count` for records not updated within the half-life

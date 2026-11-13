@@ -13,9 +13,8 @@
 use crate::runtime::HookRuntime;
 use rusqlite::params;
 use std::path::Path;
-use touring_analysis::e2e::schema_guard;
 use touring_code::ast::{
-    CallGraph, FileHeat, HeatMap, ImportResolver, Lang, QualityReport, ScopeMap, SymbolDetail,
+    CallGraph, HeatMap, ImportResolver, Lang, QualityReport, ScopeMap, SymbolDetail,
     SymbolLocation, analyze_quality, build_call_graph, build_scope_map, extract_imports_resolved,
     extract_symbol_details, module_tree::ModuleTree, semantic_search::SemanticSymbolIndex,
     symbols::SymbolKind,
@@ -31,11 +30,6 @@ use touring_code::ast::{
 /// Alias porque a tupla de quatro coleções é o que o passe realmente carrega, e
 /// nomeá-la é mais barato que quatro vetores paralelos.
 type PendingConsumer = (String, Vec<String>, Vec<String>, Vec<(String, String)>);
-
-/// Um uso qualificado pendente do B5 (16/09/2026): arquivo consumidor, seu
-/// caminho absoluto (o resolvedor de import precisa dele) e os pares
-/// `(módulo, símbolo)` de cada `alias.Nome`.
-type PendingQualifiedUse = (String, String, Vec<(String, String)>);
 
 /// `cli-index-status` — returns symbol store health and statistics.
 ///
@@ -719,10 +713,6 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // Written with the inferred edges after the walk, because the clear there
     // would wipe anything the walk had already recorded.
     let mut pending_self_refs: Vec<(String, std::collections::BTreeSet<String>)> = Vec::new();
-    // B5 (16/09/2026): per Python file, `(abs path, [(module path, symbol)])` for
-    // every `alias.Nome` whose alias came from an `import`. Resolved after the
-    // walk, for the same reason the inferred edges are.
-    let mut pending_python_qualified: Vec<PendingQualifiedUse> = Vec::new();
     let mut errors: u32 = 0;
     // Wave 2026-05-14 — root-cause fix for the "rebuild is additive only"
     // gotcha that forced manual SQL purges after every `rm -rf crates/X`.
@@ -883,6 +873,11 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
     }
 
+    // The walk's order is the walker's, and it stays so: the tables a rebuild writes must
+    // not depend on the heat map of the daemon that runs it (I16; the test
+    // `a_rebuild_leaves_the_same_tables_whatever_the_heat` pins it — a hottest-first
+    // reordering, tried in C7, changed the rowids of `graph.db`/`symbols`).
+
     // OOM-prevention gate (Wave 2026-05-12).
     //
     // Previously this loop processed every file in `paths` without checking
@@ -958,9 +953,7 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         // A companion file is stored under its key (`@companion/<name>/<rel>`),
         // a project file under its relative path — the policy owns both spellings.
         let rel_path = policy.key_for(path).unwrap_or_else(|| {
-            crate::runtime::make_relative(path.to_str().unwrap_or(""), &project_root)
-                .trim_start_matches("./")
-                .to_string()
+            crate::runtime::project_key(path.to_str().unwrap_or(""), &project_root)
         });
         // The two daemon SIGSEGVs of 13-14/09/2026 died inside tree-sitter mid-rebuild
         // and no record said which file: a fatal signal now names it.
@@ -1119,29 +1112,17 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                         if language == "rust"
                             || (language == "python" && rt.ctx.knowledge.polyglot())
                         {
-                            let names = touring_code::ast::graph::self_referenced_names(
-                                &content, &symbols, language,
-                            );
+                            let names = language
+                                .parse::<touring_code::ast::Lang>()
+                                .map(|lang| {
+                                    touring_code::ast::graph::FileReferences::new(&content, lang)
+                                        .self_references(&symbols)
+                                })
+                                .unwrap_or_default();
                             if !names.is_empty() {
                                 pending_self_refs.push((rel_path.clone(), names));
                             }
                         }
-                        if language == "python" && rt.ctx.knowledge.polyglot() {
-                            // B5 (16/09/2026): `import modulo as gm` + `gm.Nome`.
-                            // A bare `import` carries no symbol, so the import pass
-                            // below wrote nothing and every symbol reached through
-                            // the module object read as an orphan.
-                            let qualified =
-                                touring_code::ast::graph::python_qualified_uses(&content);
-                            if !qualified.is_empty() {
-                                pending_python_qualified.push((
-                                    rel_path.clone(),
-                                    abs_path_str.to_string(),
-                                    qualified,
-                                ));
-                            }
-                        }
-
                         // The import edges of this file: resolved, credited to the
                         // module that DEFINES each symbol (a façade is never
                         // credited with a consumer it only forwards — 08/08/2026,
@@ -1156,6 +1137,29 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                             language,
                             &content,
                         );
+                        // B5 (16/09/2026): `import modulo as gm` + `gm.Nome`. A bare
+                        // `import` carries no symbol, so the import pass above wrote
+                        // nothing and every symbol reached through the module object
+                        // read as an orphan. F16 (13/11/2026): import evidence, written
+                        // as `ast_resolved` like the rows above — so it belongs to THIS
+                        // walk step, where the file's other non-inferred rows are cleared
+                        // and re-derived in one transaction. Deferred to the post-walk
+                        // pass (where the inferred rows go) it would be cleared here and
+                        // missing from every already-walked file until the walk ended,
+                        // or for good after a `kill -9` (I16). The Python method pass,
+                        // post-walk, reads these rows as the modules a file reaches.
+                        if language == "python" && rt.ctx.knowledge.polyglot() {
+                            touring_hook_runtime::wiring::record_python_qualified_uses(
+                                &rt.ctx.knowledge,
+                                &rel_path,
+                                abs_path_str,
+                                &touring_code::ast::graph::FileReferences::new(
+                                    &content,
+                                    touring_code::ast::Lang::Python,
+                                )
+                                .python_qualified_uses(),
+                            );
+                        }
                         // Option B (19/09/2026): the traversal credits every
                         // module a path names, not only the leaf.
                         if language == "rust" {
@@ -1175,26 +1179,19 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
                         // `tags::derive_tags` consumers read as false orphans.
                         // Also collects type/const refs (`tags::TAG_TABLES_DDL`,
                         // `&ParsedTag`) that no call-expression pass can see.
-                        let method_names =
-                            crate::ast_bridge::extract_file_method_calls(&content, abs_path_str);
-                        let type_refs = touring_code::ast::Lang::from_path(Path::new(&rel_path))
-                            .map(|lang| {
-                                touring_code::ast::graph::extract_type_and_const_refs(
-                                    &content, lang,
-                                )
-                            })
-                            .unwrap_or_default();
                         // D2 (2026-09-02): pares (módulo, nome) das chamadas
                         // qualificadas — `super::backup::run()` guarda `backup`,
                         // e é o qualificador que torna o nome decidível.
-                        let qualified_calls =
-                            touring_code::ast::Lang::from_path(Path::new(&rel_path))
-                                .map(|lang| {
-                                    touring_code::ast::graph::extract_qualified_calls(
-                                        &content, lang,
-                                    )
-                                })
-                                .unwrap_or_default();
+                        let touring_code::ast::graph::InferredReferences {
+                            method_names,
+                            type_refs,
+                            qualified_calls,
+                        } = touring_code::ast::Lang::from_path(Path::new(&rel_path))
+                            .map(|lang| {
+                                touring_code::ast::graph::FileReferences::new(&content, lang)
+                                    .inferred()
+                            })
+                            .unwrap_or_default();
                         if !method_names.is_empty()
                             || !type_refs.is_empty()
                             || !qualified_calls.is_empty()
@@ -1266,17 +1263,6 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         // the new ones — never a file with none.
         for walked in &walked_rel_paths {
             let _ = rt.ctx.knowledge.clear_inferred_consumer_entries(walked);
-        }
-        // B5: qualified Python use (`import modulo as m` + `m.Nome`), the same
-        // pass the hook path runs. It goes before the by-name pass because the
-        // Python method gate reads the modules a file already has edges to.
-        for (consumer_file, abs_path, uses) in &pending_python_qualified {
-            touring_hook_runtime::wiring::record_python_qualified_uses(
-                &rt.ctx.knowledge,
-                consumer_file,
-                abs_path,
-                uses,
-            );
         }
         for (consumer_file, method_names, type_refs, qualified_calls) in &pending_consumers {
             let _ = rt.ctx.knowledge.record_inferred_consumers(
@@ -1593,6 +1579,14 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "status",
     ));
 
+    // C8: the daemon's in-memory dependency index is as old as its last load, and the walk
+    // just rewrote the stores it reads (symbols, wiring edges, coverage). If a generation is
+    // held, load it again as a new one: a hook still holding the old one finishes with it. If
+    // none is held, leave it so (`not_loaded`): the index loads on the first read that needs
+    // it, from the stores this walk just wrote, so reloading here would only spend ~259 ms and
+    // ~133 MiB on a project nobody has read yet. Both go through the runtime's ONE loader.
+    let index_reload = index_reload_json(&rt.reload_symbol_index_if_loaded());
+
     let max_indexable_file_bytes = index_policy::MAX_INDEXABLE_FILE_BYTES;
     serde_json::json!({
         "files_indexed": files_indexed,
@@ -1650,8 +1644,38 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "search_refresh_failures": search_refresh_failures,
         "search_segments_merged": search_segments_merged,
         "search_compact_error": search_compact_error,
+        // C8: the daemon's in-memory dependency index, reloaded from what the walk wrote.
+        "index_reload": index_reload,
     })
     .to_string()
+}
+
+/// C8: what the end-of-rebuild reload of the daemon's dependency index did, as JSON
+/// (`state` is `loaded`, `not_loaded`, `disabled`, `no_store` or `failed`; a state other than
+/// `loaded` carries `detail`, which says what to do about it — `not_loaded` is not a fault: no
+/// generation was held, so there was nothing to refresh and the first read will load it).
+fn index_reload_json(load: &touring_hook_runtime::index_slot::IndexLoad) -> serde_json::Value {
+    use touring_hook_runtime::index_slot::IndexLoad;
+    match load {
+        IndexLoad::Loaded {
+            files,
+            edges,
+            covered_files,
+        } => serde_json::json!({
+            "state": "loaded",
+            "files": files,
+            "edges": edges,
+            "covered_files": covered_files,
+        }),
+        IndexLoad::NotLoaded => {
+            serde_json::json!({ "state": "not_loaded", "detail": load.describe() })
+        }
+        IndexLoad::Disabled => {
+            serde_json::json!({ "state": "disabled", "detail": load.describe() })
+        }
+        IndexLoad::NoStore => serde_json::json!({ "state": "no_store", "detail": load.describe() }),
+        IndexLoad::Failed(_) => serde_json::json!({ "state": "failed", "detail": load.describe() }),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1821,28 +1845,22 @@ pub fn cli_ast_blast(rt: &mut HookRuntime, payload: &serde_json::Value) -> Strin
         return cached;
     }
 
-    let db = &rt.ctx.knowledge;
-
-    let consumers: Vec<String> = {
-        let mut stmt = match db.conn_ref().prepare(&format!(
-            "SELECT DISTINCT consumer_file FROM {} WHERE module_file = ?1 AND consumer_file IS NOT NULL",
-            schema_guard::TABLE_WIRING_MAP
-        )) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::debug!("ast blast prepare failed: {}", e);
-                return serde_json::json!({
-                    "file_path": file_path,
-                    "blast_radius": 0,
-                    "consumers": [],
-                    "error": format!("{}", e)
-                })
-                .to_string();
-            }
-        };
-        stmt.query_map(params![file_path], |r| r.get::<_, String>(0))
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+    // The dependents of a FILE: the same filter `file_dependency_edges` (the graph the
+    // index loads) uses — no self edge, no virtual call site, no name guess (F13: a consumer
+    // counts on import evidence, an `ast_inferred` row alone is not one), each consumer once,
+    // path order.
+    let consumers: Vec<String> = match rt.ctx.knowledge.file_importers(file_path) {
+        Ok(consumers) => consumers,
+        Err(e) => {
+            tracing::debug!("ast blast importers query failed: {}", e);
+            return serde_json::json!({
+                "file_path": file_path,
+                "blast_radius": 0,
+                "consumers": [],
+                "error": format!("{}", e)
+            })
+            .to_string();
+        }
     };
 
     let out = serde_json::json!({
@@ -1906,6 +1924,10 @@ pub fn cli_ast_semantic(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     .to_string()
 }
 
+// The language `cli-ast-quality|calls|scope|imports` analyse `file_path` as — the parser's table,
+// or the typed `unsupported_extension` error (F10). One helper for every handler (F11).
+use crate::cli::shared::lang_or_error;
+
 /// `cli-ast-quality` — analyze code quality (anti-patterns, complexity, severity).
 /// Uses touring_code::ast::analyze_quality.
 pub fn cli_ast_quality(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
@@ -1914,8 +1936,11 @@ pub fn cli_ast_quality(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         Err(e) => return e,
     };
 
+    let lang = match lang_or_error(file_path, serde_json::json!({})) {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
     let source = std::fs::read_to_string(file_path).unwrap_or_default();
-    let lang = Lang::from_path(Path::new(&file_path)).unwrap_or(Lang::Rust);
     let report: QualityReport = analyze_quality(&source, lang);
 
     // S-25: RL reward = the quality actually measured, not a constant. This
@@ -1950,8 +1975,14 @@ pub fn cli_ast_calls(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
         Err(e) => return e,
     };
 
+    let lang = match lang_or_error(
+        file_path,
+        serde_json::json!({"symbol": symbol, "callers": [], "callees": []}),
+    ) {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
     let source = std::fs::read_to_string(file_path).unwrap_or_default();
-    let lang = Lang::from_path(Path::new(&file_path)).unwrap_or(Lang::Rust);
     let graph: CallGraph = build_call_graph(&source, lang);
 
     // If a symbol is specified, return callers/callees for that symbol
@@ -1984,82 +2015,66 @@ pub fn cli_ast_calls(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
     .to_string()
 }
 
-/// `cli-ast-heat` — compute file heat score (edits * recency_decay * blast_radius).
-/// Uses touring_code::ast::{HeatMap, FileHeat}.
+/// `cli-ast-heat` — the heat of one file: `edits * recency_decay * (1 + blast_radius_weight)`.
+///
+/// Reads the heat map the hooks feed (`post_edit` records edits, `pre_read` records
+/// reads), seeded at daemon boot from the edit history — the same map the pipeline's
+/// memory budget and the session-start prefetch rank by, so what this prints is what
+/// those decisions used. (It used to count `wiring_map` rows as "edits" and read a
+/// `last_edit` column the table does not have; the error was swallowed and the epoch
+/// was always `0.0`.) The file is looked up by its project key (`project_key`: relative to
+/// the project, never `./`-prefixed; an absolute path is made relative first).
+///
+/// What each answer means:
+/// - `tracked: true` — the map holds an entry; the numbers are its own.
+/// - `tracked: false` — the map was read and holds NO entry for the file (never edited or
+///   read since the history the boot seeded from, or pushed out of the 100-file map); the
+///   numbers are the zeros of an empty entry.
+/// - `tracked: null` + `reason` — the map could not be read (a hook holds it right now): the
+///   numbers are `null` too, never zeros. Ask again.
+///
+/// `blast_radius_weight` is the heat map's own value and nothing produces it today, so it is
+/// always `0.0` and `blast_radius_weight_has_producer` says `false` (C7, 12/11/2026). It
+/// used to be derived from `wiring_map` (consumers x 0.1) before the output read the
+/// runtime's map; that derivation was dropped with the move, not carried over.
 pub fn cli_ast_heat(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let file_path = match crate::cli::shared::require_file_path(payload) {
         Ok(fp) => fp,
         Err(e) => return e,
     };
+    ast_heat_json(rt, file_path).to_string()
+}
 
-    // Use knowledge DB to get heat data
-    let db = &rt.ctx.knowledge;
-    let edits: u32 = db
-        .conn_ref()
-        .query_row(
-            &format!(
-                "SELECT COUNT(*) FROM {} WHERE module_file = ?1",
-                schema_guard::TABLE_WIRING_MAP
-            ),
-            params![file_path],
-            |r| r.get(0),
-        )
-        .unwrap_or(0);
-
-    let access_count: u32 = db
-        .conn_ref()
-        .query_row(
-            &format!(
-                "SELECT COUNT(*) FROM {} WHERE file_path = ?1",
-                schema_guard::TABLE_FILE_KNOWLEDGE
-            ),
-            params![file_path],
-            |r| r.get(0),
-        )
-        .unwrap_or(0);
-
-    let last_edit_epoch: f64 = db
-        .conn_ref()
-        .query_row(
-            &format!(
-                "SELECT last_edit FROM {} WHERE file_path = ?1",
-                schema_guard::TABLE_FILE_KNOWLEDGE
-            ),
-            params![file_path],
-            |r| r.get(0),
-        )
-        .unwrap_or(0.0);
-
-    let blast_radius_weight: f64 = {
-        let consumers: i64 = db
-            .conn_ref()
-            .query_row(
-                &format!(
-                    "SELECT COUNT(DISTINCT consumer_file) FROM {} WHERE module_file = ?1",
-                    schema_guard::TABLE_WIRING_MAP
-                ),
-                params![file_path],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        (consumers as f64) * 0.1
-    };
-
-    let file_heat =
-        FileHeat::from_existing(edits, last_edit_epoch, access_count, blast_radius_weight);
-
+/// The JSON of [`cli_ast_heat`] for `file_path`, over the runtime's heat map (a function of
+/// the runtime so a test can hold the map's `RefCell` and see the busy answer).
+fn ast_heat_json(rt: &HookRuntime, file_path: &str) -> serde_json::Value {
+    let key = crate::runtime::project_key(file_path, &rt.project_root);
     let now = chrono::Utc::now().timestamp() as f64;
-    let heat_score = file_heat.heat_score(now, HeatMap::DEFAULT_HALF_LIFE_SECS);
-
+    let Ok(map) = rt.learning.heat_map.try_borrow() else {
+        return serde_json::json!({
+            "file_path": file_path,
+            "tracked": null,
+            "reason": "the heat map is held by a hook right now and could not be read; ask again",
+            "heat_score": null,
+            "edits": null,
+            "access_count": null,
+            "last_edit_epoch": null,
+            "blast_radius_weight": null,
+            "blast_radius_weight_has_producer": false,
+        });
+    };
+    let entry = map.get(&key);
+    let heat = entry.cloned().unwrap_or_default();
     serde_json::json!({
         "file_path": file_path,
-        "heat_score": heat_score,
-        "edits": edits,
-        "access_count": access_count,
-        "last_edit_epoch": last_edit_epoch,
-        "blast_radius_weight": blast_radius_weight
+        "tracked": entry.is_some(),
+        "heat_score": heat.heat_score(now, HeatMap::DEFAULT_HALF_LIFE_SECS),
+        "edits": heat.edits,
+        "access_count": heat.access_count,
+        "last_edit_epoch": heat.last_edit_epoch,
+        "blast_radius_weight": heat.blast_radius_weight,
+        "blast_radius_weight_has_producer": false,
     })
-    .to_string()
 }
 
 /// `cli-ast-modules` — build module tree for a directory.
@@ -2138,8 +2153,11 @@ pub fn cli_ast_scope(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Stri
         Err(e) => return e,
     };
 
+    let lang = match lang_or_error(file_path, serde_json::json!({"entries": [], "count": 0})) {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
     let source = std::fs::read_to_string(file_path).unwrap_or_default();
-    let lang = Lang::from_path(Path::new(&file_path)).unwrap_or(Lang::Rust);
     let scope_map: ScopeMap = build_scope_map(&source, lang);
 
     let entries: Vec<serde_json::Value> = scope_map
@@ -2278,6 +2296,82 @@ mod cli_ast_detail_tests {
     }
 }
 
+/// F10 (cross-audit 12/11/2026): `cli-ast-quality|calls|scope|imports` took the language from the
+/// parser's table and, for an extension it does not read, fell back to `Lang::Rust` — a `.xyz`
+/// file was analysed as Rust and answered with a plausible report. The file can be ANY path the
+/// caller names (`touring ast quality <file>` and the `--orchestrate` SDK), not only one the index
+/// policy admitted, so the fallback was reachable. An extension the parser does not read is an
+/// explicit error now, and the file is not even read.
+#[cfg(test)]
+mod ast_language_tests {
+    use super::*;
+
+    type Handler = fn(&mut HookRuntime, &serde_json::Value) -> String;
+
+    fn call(handler: Handler, file_path: &std::path::Path) -> serde_json::Value {
+        let rt_root = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(rt_root.path()).expect("HookRuntime::new");
+        let raw = handler(
+            &mut rt,
+            &serde_json::json!({"file_path": file_path.to_str().expect("utf-8 path")}),
+        );
+        serde_json::from_str(&raw).expect("handler returns JSON")
+    }
+
+    fn handlers() -> [(&'static str, Handler); 4] {
+        [
+            ("cli-ast-quality", cli_ast_quality),
+            ("cli-ast-calls", cli_ast_calls),
+            ("cli-ast-scope", cli_ast_scope),
+            ("cli-ast-imports", cli_ast_imports),
+        ]
+    }
+
+    #[test]
+    fn an_extension_the_parser_does_not_read_is_an_explicit_error_never_rust() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for name in ["notes.xyz", "Makefile"] {
+            let file = dir.path().join(name);
+            // sound Rust under a name the parser does not read: the old fallback analysed it
+            std::fs::write(&file, "use std::fmt;\nfn main() { if true {} }\n").expect("write");
+            for (label, handler) in handlers() {
+                let out = call(handler, &file);
+                assert_eq!(
+                    out["error"],
+                    serde_json::json!("unsupported_extension"),
+                    "{label} on `{name}`: {out}"
+                );
+                assert_eq!(out["file_path"], serde_json::json!(file.to_str().unwrap()));
+                assert!(
+                    out["detail"]
+                        .as_str()
+                        .is_some_and(|d| d.contains("file_path")),
+                    "{label}: the detail must teach the fix: {out}"
+                );
+                assert!(
+                    out.get("language").is_none() && out.get("report").is_none(),
+                    "{label}: nothing was analysed, so nothing is reported: {out}"
+                );
+            }
+        }
+    }
+
+    /// Control: a language the parser reads is still analysed, as ITS language.
+    #[test]
+    fn a_language_the_parser_reads_is_still_analysed_as_itself() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("m.mts");
+        std::fs::write(&file, "import { a } from './a';\nexport const b = a;\n").expect("write");
+        for (label, handler) in handlers() {
+            let out = call(handler, &file);
+            assert!(out.get("error").is_none(), "{label}: {out}");
+            if let Some(language) = out.get("language") {
+                assert_eq!(language, &serde_json::json!("typescript"), "{label}: {out}");
+            }
+        }
+    }
+}
+
 /// `cli-ast-imports` — extract and resolve imports for a file.
 /// Uses touring_code::ast::extract_imports_resolved.
 pub fn cli_ast_imports(_rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
@@ -2286,8 +2380,11 @@ pub fn cli_ast_imports(_rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         Err(e) => return e,
     };
 
+    let lang = match lang_or_error(file_path, serde_json::json!({"imports": [], "count": 0})) {
+        Ok(lang) => lang,
+        Err(e) => return e,
+    };
     let source = std::fs::read_to_string(file_path).unwrap_or_default();
-    let lang = Lang::from_path(Path::new(&file_path)).unwrap_or(Lang::Rust);
     let resolver: ImportResolver = extract_imports_resolved(&source, lang);
 
     let imports: Vec<serde_json::Value> = resolver
@@ -2688,6 +2785,159 @@ mod containment_tests {
     }
 }
 
+/// C7 (12/11/2026): `touring ast heat` reads the heat map the hooks feed — the same
+/// one eviction and prefetch rank by — instead of counting wiring rows.
+#[cfg(test)]
+mod ast_heat_tests {
+    use super::{ast_heat_json, cli_ast_heat};
+    use crate::runtime::HookRuntime;
+
+    fn now() -> f64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0)
+    }
+
+    fn heat_of(rt: &mut HookRuntime, file: &str) -> serde_json::Value {
+        let out = cli_ast_heat(rt, &serde_json::json!({ "file_path": file }));
+        serde_json::from_str(&out).expect("json")
+    }
+
+    #[test]
+    fn ast_heat_reports_the_runtime_heat_of_a_file_by_its_relative_key() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        for _ in 0..3 {
+            rt.learning
+                .heat_map
+                .borrow_mut()
+                .record_edit("src/hot.rs", now());
+        }
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_access("src/hot.rs", now());
+
+        // The caller may spell the path absolute or relative: one key.
+        let absolute = tmp.path().join("src/hot.rs").to_string_lossy().into_owned();
+        for spelling in [absolute.as_str(), "src/hot.rs"] {
+            let heat = heat_of(&mut rt, spelling);
+            assert_eq!(heat["tracked"], true, "{spelling}: {heat}");
+            assert_eq!(heat["edits"], 3, "{spelling}: edits come from the heat map");
+            assert_eq!(heat["access_count"], 1);
+            assert!(heat["heat_score"].as_f64().unwrap_or(0.0) > 0.0, "{heat}");
+            assert!(
+                heat["last_edit_epoch"].as_f64().unwrap_or(0.0) > 1.0e9,
+                "a real instant, not the 0.0 a missing column used to give: {heat}"
+            );
+        }
+    }
+
+    #[test]
+    fn ast_heat_of_an_untracked_file_says_so_with_zeros() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        let heat = heat_of(&mut rt, "src/never_touched.rs");
+        assert_eq!(heat["tracked"], false, "{heat}");
+        assert_eq!(heat["edits"], 0);
+        assert_eq!(heat["heat_score"].as_f64(), Some(0.0));
+    }
+
+    /// A map a hook holds at this very moment is "could not read", not "no heat": the
+    /// answer is `null` with the reason, never the zeros of an untracked file.
+    #[test]
+    fn ast_heat_says_null_and_why_when_a_hook_holds_the_map() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_edit("src/hot.rs", now());
+        let readable = ast_heat_json(&rt, "src/hot.rs");
+        assert_eq!(
+            (readable["tracked"].as_bool(), readable["edits"].as_u64()),
+            (Some(true), Some(1)),
+            "control: the same call over a free map reads the entry: {readable}"
+        );
+
+        let _held = rt.learning.heat_map.borrow_mut();
+        let busy = ast_heat_json(&rt, "src/hot.rs");
+
+        for field in [
+            "tracked",
+            "heat_score",
+            "edits",
+            "access_count",
+            "last_edit_epoch",
+            "blast_radius_weight",
+        ] {
+            assert!(busy[field].is_null(), "{field} must be null, not 0: {busy}");
+        }
+        assert!(
+            busy["reason"].as_str().is_some_and(|r| r.contains("held")),
+            "the answer says why: {busy}"
+        );
+    }
+
+    /// Nothing produces `blast_radius_weight` today (the old `consumers x 0.1` read from
+    /// `wiring_map` was dropped when the output moved to the runtime's heat map): the
+    /// field stays in the output, always `0.0`, and says so instead of looking measured.
+    #[test]
+    fn ast_heat_declares_that_nothing_produces_the_blast_radius_weight() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_edit("src/hot.rs", now());
+        for file in ["src/hot.rs", "src/never_touched.rs"] {
+            let heat = heat_of(&mut rt, file);
+            assert_eq!(heat["blast_radius_weight"].as_f64(), Some(0.0), "{heat}");
+            assert_eq!(
+                heat["blast_radius_weight_has_producer"], false,
+                "{file}: {heat}"
+            );
+        }
+    }
+
+    /// The key of the map is `project_key`: a `./`-relative spelling must reach the same
+    /// entry as the relative and the absolute ones.
+    #[test]
+    fn ast_heat_reads_a_dot_slash_spelling_through_the_same_key() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        rt.learning
+            .heat_map
+            .borrow_mut()
+            .record_edit("src/hot.rs", now());
+        let heat = heat_of(&mut rt, "./src/hot.rs");
+        assert_eq!(heat["tracked"], true, "{heat}");
+    }
+
+    #[test]
+    fn ast_heat_sees_the_edit_history_across_a_restart() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        {
+            let first = HookRuntime::new(tmp.path()).expect("runtime");
+            for _ in 0..2 {
+                first
+                    .ctx
+                    .knowledge
+                    .record_edit("src/seeded.rs", "Edit", None)
+                    .expect("record_edit");
+            }
+        }
+        let mut rt = HookRuntime::new(tmp.path()).expect("runtime");
+        let heat = heat_of(&mut rt, "src/seeded.rs");
+        assert_eq!(
+            (heat["tracked"].as_bool(), heat["edits"].as_u64()),
+            (Some(true), Some(2)),
+            "{heat}"
+        );
+    }
+}
+
 #[cfg(test)]
 mod index_why {
     use super::{
@@ -2827,6 +3077,87 @@ mod index_why {
         assert!(
             detail.contains(&MAX_INDEXABLE_FILE_BYTES.to_string()),
             "{detail}"
+        );
+    }
+
+    /// C8: the end of a rebuild refreshes a dependency index that is LOADED, from the stores the
+    /// walk just wrote; it never loads one nobody asked for (`not_loaded`), and the human kill
+    /// switch keeps it unloaded (`disabled`).
+    #[test]
+    fn a_rebuild_reloads_the_dependency_index_unless_the_switch_is_off() {
+        use touring_hook_runtime::index_slot::FileEdgesSource;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        std::fs::write(root.join("src/lib.rs"), "pub fn reload_probe_a() {}\n").expect("lib.rs");
+        std::fs::write(root.join("src/b.rs"), "pub fn reload_probe_b() {}\n").expect("b.rs");
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname=\"probe\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
+        )
+        .expect("Cargo.toml");
+
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        rt.infra.index_on_demand = true; // like every runtime the daemon builds
+        let args = serde_json::json!({"dir": root.to_string_lossy()});
+
+        // Switch off: the walk runs, the index is not loaded, and the payload says why.
+        rt.infra.file_edges_source = FileEdgesSource::Disabled;
+        let off: serde_json::Value =
+            serde_json::from_str(&cli_index_rebuild(&mut rt, &args)).expect("rebuild json");
+        assert_eq!(off["index_reload"]["state"], "disabled", "{off}");
+        assert!(
+            off["index_reload"]["detail"]
+                .as_str()
+                .is_some_and(|d| d.contains("TOURING_FILE_EDGES_DISABLED")),
+            "the detail names the switch: {off}"
+        );
+        assert!(!rt.infra.symbol_index.is_loaded(), "nothing was loaded");
+
+        // Switch on, but no generation held: the rebuild must NOT load one. The state is
+        // `not_loaded` (never a zero count that reads as an empty project) and the slot stays
+        // empty — the first read loads it from the stores this walk wrote.
+        rt.infra.file_edges_source = FileEdgesSource::Default;
+        let idle: serde_json::Value =
+            serde_json::from_str(&cli_index_rebuild(&mut rt, &args)).expect("rebuild json");
+        assert_eq!(idle["index_reload"]["state"], "not_loaded", "{idle}");
+        assert!(
+            idle["index_reload"].get("files").is_none(),
+            "no count is reported for an index nobody loaded: {idle}"
+        );
+        assert!(
+            !rt.infra.symbol_index.is_loaded(),
+            "a rebuild with no generation held must not load one"
+        );
+
+        // The first read loads it (lazily), from what the walk wrote.
+        let first = rt.index_generation().expect("the first read loads");
+        assert!(
+            first.index().file_to_symbols.contains_key("src/b.rs"),
+            "the lazy load read what the walk wrote"
+        );
+
+        // With a generation held, the next rebuild reloads it as a NEW generation: a file the
+        // walk adds is visible, and the generation the first read holds is left untouched.
+        std::fs::write(root.join("src/c.rs"), "pub fn reload_probe_c() {}\n").expect("c.rs");
+        let on: serde_json::Value =
+            serde_json::from_str(&cli_index_rebuild(&mut rt, &args)).expect("rebuild json");
+        assert_eq!(on["index_reload"]["state"], "loaded", "{on}");
+        assert!(
+            on["index_reload"]["files"].as_u64().unwrap_or(0) >= 3,
+            "{on}"
+        );
+        let generation = rt.infra.symbol_index.get().expect("a loaded generation");
+        assert!(
+            generation.index().file_to_symbols.contains_key("src/c.rs"),
+            "the reload read what the walk wrote"
+        );
+        assert!(
+            !first.index().file_to_symbols.contains_key("src/c.rs"),
+            "the generation a reader already held is never mutated"
         );
     }
 
@@ -3668,6 +3999,127 @@ mod index_why {
             edges(&rt),
             expected,
             "the edit path re-derives the same edges"
+        );
+    }
+
+    /// F16 (13/11/2026): `from memoria import modelo as mm` + `mm.No()` is IMPORT evidence. The
+    /// module path comes from the import statement and is resolved by the same resolver as a
+    /// `from m import X`; only the guess that `mm.No` is `modelo.py`'s `No` was ever a guess, and
+    /// the FILE depends on `modelo.py` whatever the attribute names. Written as `ast_inferred`
+    /// these rows stopped being file edges with F13 (3.094 `.py` pairs of the analise rested on
+    /// inferred rows alone, 2.426 of them of this form). Over the real rebuild and ingest paths:
+    /// the pair is an edge, the row is `ast_resolved`, and the row leaves with the use.
+    #[test]
+    fn a_python_alias_use_is_import_evidence_for_the_file_edge() {
+        let proj = tempfile::tempdir().expect("project tmpdir");
+        let root = proj.path();
+        std::fs::create_dir_all(root.join(".touring")).expect(".touring");
+        std::fs::write(
+            root.join(".touring/touring.toml"),
+            "polyglot_wiring = true\n",
+        )
+        .expect("touring.toml");
+        std::fs::create_dir_all(root.join("memoria")).expect("memoria");
+        std::fs::create_dir_all(root.join("artefato")).expect("artefato");
+        std::fs::write(
+            root.join("memoria/modelo.py"),
+            "class No:\n    def tags_cli(self):\n        return []\n",
+        )
+        .expect("modelo.py");
+        let consumer = root.join("artefato/qualificado.py");
+        let with_use = "from memoria import modelo as mm\n\n\ndef criar():\n    return mm.No()\n";
+        let without_use = "from memoria import modelo as mm\n\n\ndef criar():\n    return 1\n";
+        std::fs::write(&consumer, with_use).expect("qualificado.py");
+
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut rt = HookRuntime::new(root).expect("HookRuntime::new");
+        let edge = (
+            "artefato/qualificado.py".to_string(),
+            "memoria/modelo.py".to_string(),
+        );
+        let has_edge = |rt: &HookRuntime| {
+            rt.ctx
+                .knowledge
+                .file_dependency_edges()
+                .expect("edges")
+                .contains(&edge)
+        };
+        let alias_rows = |rt: &HookRuntime| -> Vec<(String, String)> {
+            rt.ctx
+                .knowledge
+                .conn_ref()
+                .prepare(
+                    "SELECT symbol_name, contract_source FROM wiring_map
+                     WHERE module_file = 'memoria/modelo.py' AND consumer_file = 'artefato/qualificado.py'",
+                )
+                .expect("prepare")
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .expect("query")
+                .collect::<Result<_, _>>()
+                .expect("rows")
+        };
+        let ingest = |rt: &mut HookRuntime| {
+            let out = super::cli_index_ingest(
+                rt,
+                &serde_json::json!({"path": consumer.to_string_lossy()}),
+            );
+            assert!(out.contains("\"ok\""), "{out}");
+        };
+
+        cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        assert!(has_edge(&rt), "rebuild: the alias use is a file edge");
+        assert_eq!(
+            alias_rows(&rt),
+            [("No".to_string(), "ast_resolved".to_string())],
+            "rebuild: the row carries the origin of an import, not of a name guess"
+        );
+
+        std::fs::write(&consumer, without_use).expect("drop the use");
+        ingest(&mut rt);
+        assert!(
+            !has_edge(&rt),
+            "edit: the use left the file, so did the edge"
+        );
+        assert!(
+            alias_rows(&rt).is_empty(),
+            "edit: no stale row is left behind"
+        );
+
+        std::fs::write(&consumer, with_use).expect("restore the use");
+        ingest(&mut rt);
+        assert!(has_edge(&rt), "edit: the use came back, so did the edge");
+
+        std::fs::write(&consumer, without_use).expect("drop the use again");
+        cli_index_rebuild(&mut rt, &serde_json::json!({"dir": root.to_string_lossy()}));
+        assert!(
+            !has_edge(&rt),
+            "rebuild: the use left the file, so did the edge"
+        );
+        assert!(
+            alias_rows(&rt).is_empty(),
+            "rebuild: no stale row is left behind"
+        );
+    }
+
+    /// I16 (`touring-cli/.claude/CLAUDE.md`): the tables a rebuild writes do not depend on the
+    /// heat map of the daemon that runs it (C7 once reordered the walk by heat and the rowids of
+    /// `graph.db`/`symbols` diverged; the reordering left the rebuild). The method and the
+    /// volatile-cell control live in `shared::heat_invariant`.
+    #[test]
+    fn a_rebuild_leaves_the_same_tables_whatever_the_heat() {
+        let _serial = super::REBUILD_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        crate::cli::shared::heat_invariant::assert_tables_independent_of_heat(
+            "index rebuild",
+            &|rt| {
+                let root = rt.project_root.to_string_lossy().into_owned();
+                let out = cli_index_rebuild(rt, &serde_json::json!({"dir": root}));
+                let report: serde_json::Value = serde_json::from_str(&out).expect("rebuild json");
+                assert_eq!(report["generation"]["state"], "complete", "{out}");
+            },
         );
     }
 

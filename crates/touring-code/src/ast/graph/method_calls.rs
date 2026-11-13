@@ -25,6 +25,7 @@ use std::collections::HashSet;
 
 use streaming_iterator::StreamingIterator;
 
+use crate::ast::grammar::Grammar;
 use crate::ast::languages::Lang;
 
 /// Extract every identifier that appears as a method name or as an
@@ -43,7 +44,7 @@ use crate::ast::languages::Lang;
 /// Single tree-sitter pass per file with a streaming `QueryCursor`.
 /// Allocations are dominated by the HashSet; typical input (~5-50 unique
 /// method names per file) consumes microseconds.
-pub fn extract_method_calls(source: &str, lang: Lang) -> Vec<String> {
+pub(crate) fn extract_method_calls(source: &str, lang: Lang) -> Vec<String> {
     let query_src = lang.method_call_query_file();
     if query_src.is_empty() {
         return Vec::new();
@@ -77,9 +78,7 @@ fn extract_method_calls_inner(
 
 /// `source` parsed under the bounded parse budget.
 fn parse(source: &str, lang: Lang) -> Option<tree_sitter::Tree> {
-    let mut parser = tree_sitter::Parser::new();
-    parser.set_language(&lang.tree_sitter_language()).ok()?;
-    crate::ast::parser::parse_bounded(&mut parser, source, None)
+    Grammar::of_lang(lang).parse(source).ok()
 }
 
 /// Runs `query_src` over `tree` and keeps the text of every capture `keep` accepts.
@@ -314,6 +313,31 @@ fn is_declared_type_name(node: tree_sitter::Node<'_>) -> bool {
 mod tests {
     #![allow(clippy::indexing_slicing)]
     use super::*;
+
+    /// A parse that outlives its budget is "no tree" at every parse of this file,
+    /// and each caller already reads "no tree" as a parse error (an empty answer).
+    /// Two of them (`extract_qualified_calls_inner`, `names_imported_from_other_crates`)
+    /// used to call `Parser::parse` directly and could not be halted.
+    #[test]
+    fn a_halted_parse_reads_as_a_parse_error() {
+        use crate::ast::grammar::with_budget;
+        use std::time::Duration;
+        let rust = "use other::Thing;\nfn f() { Thing::make(); }\n".repeat(2_000);
+        assert!(parse(&rust, Lang::Rust).is_some(), "control: it parses");
+        assert!(
+            extract_qualified_calls_inner(&rust, Lang::Rust).is_some_and(|c| !c.is_empty()),
+            "control: it has qualified calls"
+        );
+        assert!(
+            !names_imported_from_other_crates(&rust).is_empty(),
+            "control: it imports from another crate"
+        );
+        with_budget(Duration::ZERO, || {
+            assert!(parse(&rust, Lang::Rust).is_none());
+            assert_eq!(extract_qualified_calls_inner(&rust, Lang::Rust), None);
+            assert!(names_imported_from_other_crates(&rust).is_empty());
+        });
+    }
 
     /// The text scan walks BYTES but slices `&str`: every cut must land on a char
     /// boundary. Measured 13/09/2026: a Romanian `ș` right before `::` aborted
@@ -569,7 +593,7 @@ const QUALIFIED_CALL_QUERY: &str = r"
 /// Returns an empty vector when the language has no tree-sitter grammar loaded
 /// or the source does not parse — a blind spot is never an error here.
 #[must_use]
-pub fn extract_qualified_calls(source: &str, lang: Lang) -> Vec<(String, String)> {
+pub(crate) fn extract_qualified_calls(source: &str, lang: Lang) -> Vec<(String, String)> {
     extract_qualified_calls_inner(source, lang).unwrap_or_default()
 }
 
@@ -693,11 +717,9 @@ fn scan_qualified_calls_text(text: &str) -> Vec<(String, String)> {
 }
 
 fn extract_qualified_calls_inner(source: &str, lang: Lang) -> Option<Vec<(String, String)>> {
-    use tree_sitter::{Parser, Query, QueryCursor};
+    use tree_sitter::{Query, QueryCursor};
 
-    let mut parser = Parser::new();
-    parser.set_language(&lang.tree_sitter_language()).ok()?;
-    let tree = parser.parse(source, None)?;
+    let tree = parse(source, lang)?;
     let ts_lang = lang.tree_sitter_language();
     let query = Query::new(&ts_lang, QUALIFIED_CALL_QUERY).ok()?;
 
@@ -751,7 +773,7 @@ fn extract_qualified_calls_inner(source: &str, lang: Lang) -> Option<Vec<(String
 /// (`tags::derive_tags(...)`) — harmless: the consumer edge they would add
 /// already exists from the call pass, and consumer recording is idempotent.
 /// The name a declaration introduces is never a reference to itself.
-pub fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
+pub(crate) fn extract_type_and_const_refs(source: &str, lang: Lang) -> Vec<String> {
     const TYPE_REF_QUERY: &str = r"
         (type_identifier) @ref
         (scoped_type_identifier name: (type_identifier) @ref)
@@ -849,15 +871,8 @@ fn path_root(node: tree_sitter::Node<'_>, source: &str) -> Option<String> {
 /// `crate`, `super` nor `self`, nor a module this file declares with `mod`. The
 /// alias is what the code writes, so `use x::A as B` yields `B`.
 fn names_imported_from_other_crates(source: &str) -> HashSet<String> {
-    let mut parser = tree_sitter::Parser::new();
     let mut out = HashSet::new();
-    if parser
-        .set_language(&Lang::Rust.tree_sitter_language())
-        .is_err()
-    {
-        return out;
-    }
-    let Some(tree) = parser.parse(source, None) else {
+    let Some(tree) = parse(source, Lang::Rust) else {
         return out;
     };
     let root = tree.root_node();
