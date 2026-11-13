@@ -853,12 +853,17 @@ def test_shellcheck_is_clean():
     assert proc.returncode == 0, proc.stdout
 
 
-def test_claude_md_documents_the_test_gate_in_section_2_1():
+def test_the_test_gate_is_documented_where_claude_md_section_2_1_points():
+    # 11/11/2026: the gotchas (a)-(f) left CLAUDE.md §2.1 for docs/propagate-release-gotchas.md.
+    # The section must still point there, and item (e) must still say what the gate does.
     text = (REPO / "CLAUDE.md").read_text(encoding="utf-8")
     start = text.index("2.1. **Propagação reprodutível")
     section = text[start : text.index("\n2.2. ", start)]
-    item = re.search(r"\(e\)(.+?)(?=\n\s*\(f\)|\Z)", section, re.DOTALL)
-    assert item, "CLAUDE.md §2.1 must list the test gate as item (e)"
+    gotchas = "docs/propagate-release-gotchas.md"
+    assert gotchas in section, f"CLAUDE.md §2.1 must point to {gotchas}"
+    body = (REPO / gotchas).read_text(encoding="utf-8")
+    item = re.search(r"\*\*\(e\)\*\*(.+?)(?=\n- \*\*\(f\)\*\*|\Z)", body, re.DOTALL)
+    assert item, f"{gotchas} must list the test gate as item (e)"
     for needle in ("testes", "hw-slot", "--all-targets"):
         assert needle in item.group(1), f"item (e) must mention {needle!r}"
 
