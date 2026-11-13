@@ -6,6 +6,7 @@ description: >
   "wired integration", "speculative validation", "format-rust", "prettyplease", "RustSemanticReport",
   "TracedAstError", "AstResultExt". Elite implementation agent for TACO Phase 5.
 model: sonnet
+effort: high
 color: green
 tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch]
 ---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm

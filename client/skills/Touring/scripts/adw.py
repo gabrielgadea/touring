@@ -110,6 +110,12 @@ ACTIVITY_TIMEOUT_S = 5
 # these are the fallback when no library mapping exists.
 TIER_MODELS = {"sota": "opus", "mid": "sonnet", "fast": "haiku",
                "workhorse": "sonnet", "light": "haiku"}
+#: Pool effort per model family (Gabriel, 13/11/2026): the level a headless node runs at.
+#: The `Agent` gate cannot see a `claude -p` call, so THIS runner applies the level (D8);
+#: tiers.toml `[effort]` overrides, and a node's own `effort` overrides both. Same table as
+#: client/hooks/model_pool.py — a test holds the two equal.
+MODEL_EFFORTS = {"opus": "medium", "sonnet": "high", "haiku": "xhigh"}
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
 # Narrated-success heuristic for Class-D detection (Law L3): the agent CLAIMS
 # success; only a gate may confirm it.
 SUCCESS_NARRATIVE = re.compile(
@@ -371,6 +377,29 @@ def tier_models() -> dict[str, str]:
         except (tomllib.TOMLDecodeError, OSError):
             pass  # a broken central config must not brick every runner
     return mapping
+
+
+def _tiers_table(table: str) -> dict[str, str]:
+    """One `[table]` of the library's tiers.toml; empty when the file is missing or broken."""
+    tiers_path = library_dir() / "tiers.toml"
+    if not tiers_path.is_file():
+        return {}
+    try:
+        data = tomllib.loads(tiers_path.read_text(encoding="utf-8"))
+    except (tomllib.TOMLDecodeError, OSError):
+        return {}  # a broken central config must not brick every runner
+    return {k: str(v) for k, v in (data.get(table) or {}).items()}
+
+
+def model_efforts() -> dict[str, str]:
+    """Model family → effort: library tiers.toml `[effort]` overrides the built-in pool levels."""
+    return {**MODEL_EFFORTS, **_tiers_table("effort")}
+
+
+def effort_for_model(model: str) -> str | None:
+    """The pool effort of `model` (alias or full id); None for a model outside the pool — never a guess."""
+    low = model.lower()
+    return next((effort for family, effort in model_efforts().items() if family in low), None)
 
 
 # ── fragments (B1): composable pieces, resolved by inlining ───────────────────
@@ -680,6 +709,7 @@ NODE_FIELDS: dict[str, NodeField] = {
     "driver": _field(str, "agent", dedicated=True),
     "prompt": _field(str, "agent"),
     "tier": _field(str, "agent"),
+    "effort": _field(str, "agent", choices=EFFORT_LEVELS),
     "allowed_tools": _field(list, "agent", of=str),
     "tools": _field(str, "agent", dedicated=True),
     "skill": _field((str, list), "agent", of=str),
@@ -1447,12 +1477,13 @@ def _lint_agent_codegen_tier(spec: Spec, warnings: list[str]) -> None:
     """W8 T8 (2026-08-23) — a codegen agent node without an explicit `tier`
     silently inherits the session's (expensive) default model.
 
-    Measured externally: TanStack runs its entire code mode on Haiku because
-    *generating code is an easier task than orchestrating tools* — the model
-    writes TS "extremely fast" and the eval (models-eval/results.json) shows
-    haiku-4-5 at accuracy 10/10 on the multi-table join. The same economics
-    apply to ADW nodes whose whole job is mechanical code generation: the
-    warning induces an explicit cost decision, never a silent default.
+    The warning induces an explicit cost decision, never a silent default. Which
+    tier it recommends follows the model matrix (Gabriel, 13/11/2026): implementation
+    belongs to Sonnet (`workhorse`, effort high) and the cheap tier to search,
+    extraction and classification. Until 12/11 the recommendation was `haiku`, on an
+    external measurement (TanStack ran its code mode on haiku-4-5, 10/10 on a
+    multi-table join); the matrix now decides, and a node may still declare the cheap
+    tier on purpose when a downstream gate validates the result.
     """
     CODEGEN_MARKERS = (
         "gere o código", "gerar o código", "escreva o código", "generate code",
@@ -1468,8 +1499,9 @@ def _lint_agent_codegen_tier(spec: Spec, warnings: list[str]) -> None:
             warnings.append(
                 f"agent `{node.name}`: the prompt reads as mechanical code generation but the "
                 f"node declares no `tier`, so it inherits the session's expensive default. "
-                f"Codegen runs well on a cheap tier (measured: TanStack code mode on haiku) — "
-                f"set `tier = \"haiku\"` (see tiers.toml) or declare the expensive tier on purpose."
+                f"The model matrix sends implementation to Sonnet — set `tier = \"workhorse\"` "
+                f"(sonnet at effort high; see tiers.toml), or declare another tier on purpose "
+                f"(`light` only when a downstream gate validates the result)."
             )
 
 
@@ -2768,8 +2800,14 @@ def _claude_cmd(node: Node, journal: Journal, prompt: str,
             node_tools=[str(t) for t in node.raw.get("allowed_tools") or []])
         cmd += ["--agents", json.dumps({role: definition}, ensure_ascii=False), "--agent", role]
     tier = node.raw.get("tier", "")
-    if tier:
-        cmd += ["--model", tier_models().get(tier, tier)]
+    model = tier_models().get(tier, tier) if tier else ""
+    if model:
+        cmd += ["--model", model]
+    # The node's own `effort` wins; else the pool level of the tier's model. A node with no tier
+    # inherits the session's model and its saved level, so nothing is sent for it.
+    effort = node.raw.get("effort") or (effort_for_model(model) if model else None)
+    if effort:
+        cmd += ["--effort", str(effort)]
     tools = skill_tools(node)
     if node.raw.get("tools") == TOOLS_NONE:
         cmd += ["--tools", ""]  # E6: the call gets NO tools at all (EGM egm-resolve:132-134)

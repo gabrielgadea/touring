@@ -34,7 +34,7 @@ touring index find <symbol>                  # symbol exists? (VGP)
 
 # DIAGNOSTICS
 touring doctor -j                            # health check
-touring status -j | jq '{index, orphans, rl, composite_health_score}'
+touring status -j | jq '{index: .index.symbol_count, orphans: .wiring.orphan_count, rl: .learning.ema_reward, composite_health_score}'
 touring index why <file|@companion/key>      # why a file is/isn't indexed: skipped_dir, oversized, unsupported_extension, companion_not_configured… + residue:true se o store ainda guarda linhas (I13)
 # Memórias, rules, skills, agents, commands (~/.claude) e a auto-memory do projeto são INDEXADAS como raízes-companheiras
 # (`@companion/<nome>/<rel>`; config `[index]` do `.touring/touring.toml`) — `search unified`/`tantivy search`/`find` as devolvem por essa chave.

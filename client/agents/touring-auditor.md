@@ -7,6 +7,7 @@ description: >
   "scope audit", "RustQualitySignals", "rust-semantic audit", "TracedAstError". Elite cross-audit
   agent.
 model: sonnet
+effort: high
 color: magenta
 tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch, TodoWrite]
 ---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm

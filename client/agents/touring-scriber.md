@@ -6,6 +6,7 @@ description: >
   decision log", "CHANGELOG", "architecture documentation", "workspace-info", "RustSemanticReport",
   "dependents_of". Elite documentation agent.
 model: sonnet
+effort: high
 color: yellow
 tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch]
 ---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm

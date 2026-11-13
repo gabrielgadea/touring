@@ -5542,3 +5542,75 @@ def test_every_generic_library_flow_declares_goals_and_verification():
             pobres.append(f"{f.stem}:verification")
     assert total >= 10, f"so {total} flows genericos examinados"
     assert not pobres, "campos de design ausentes: " + ", ".join(pobres)
+
+
+# ── 13/11/2026: headless nodes carry the pool's effort; codegen follows the model matrix ──
+# Gabriel's directive: opus medium · sonnet high · haiku xhigh. The `Agent` gate cannot see a
+# `claude -p` node, so the runner is the executor that applies the level (D8).
+
+@pytest.mark.parametrize(("tier", "model", "effort"), [
+    ("sota", "opus", "medium"), ("workhorse", "sonnet", "high"), ("mid", "sonnet", "high"),
+    ("light", "haiku", "xhigh"), ("fast", "haiku", "xhigh"), ("claude-haiku-5-5", "claude-haiku-5-5", "xhigh"),
+])
+def test_a_tiered_node_runs_at_the_pool_effort_of_its_model(tier, model, effort):
+    cmd = adw._claude_cmd(_agent(tier=tier, prompt="go"), journal=None, prompt="go")
+    assert cmd[cmd.index("--model") + 1] == model
+    assert cmd[cmd.index("--effort") + 1] == effort
+
+
+def test_the_node_effort_field_overrides_the_pool_default():
+    cmd = adw._claude_cmd(_agent(tier="workhorse", effort="low", prompt="go"), journal=None, prompt="go")
+    assert cmd[cmd.index("--effort") + 1] == "low" and cmd.count("--effort") == 1
+
+
+def test_a_node_without_tier_or_effort_sends_no_effort_and_one_with_effort_sends_it():
+    assert "--effort" not in adw._claude_cmd(_agent(prompt="go"), journal=None, prompt="go")
+    cmd = adw._claude_cmd(_agent(effort="xhigh", prompt="go"), journal=None, prompt="go")
+    assert cmd[cmd.index("--effort") + 1] == "xhigh" and "--model" not in cmd
+
+
+def test_a_model_outside_the_pool_gets_no_effort_guess():
+    cmd = adw._claude_cmd(_agent(tier="kimi-k3.1-pro", prompt="go"), journal=None, prompt="go")
+    assert "--effort" not in cmd
+
+
+def test_the_library_effort_table_overrides_the_builtin(tmp_path, monkeypatch):
+    (tmp_path / "tiers.toml").write_text('[tiers]\nworkhorse = "sonnet"\n[effort]\nsonnet = "medium"\n')
+    monkeypatch.setenv("TOURING_ADW_LIBRARY", str(tmp_path))
+    assert adw.model_efforts()["sonnet"] == "medium" and adw.model_efforts()["haiku"] == "xhigh"
+    cmd = adw._claude_cmd(_agent(tier="workhorse", prompt="go"), journal=None, prompt="go")
+    assert cmd[cmd.index("--effort") + 1] == "medium"
+
+
+def test_the_shipped_tiers_file_declares_the_pool_efforts():
+    data = tomllib.loads((Path(adw.__file__).resolve().parents[1] / "adw-library" / "tiers.toml").read_text())
+    assert data["effort"] == {"opus": "medium", "sonnet": "high", "haiku": "xhigh"} == adw.MODEL_EFFORTS
+
+
+def test_the_runner_efforts_equal_the_session_pool_when_the_pool_module_is_reachable():
+    """D8 across the two executors: the `Agent` gate (model_pool.py) and this runner must teach one table."""
+    pool = Path.home() / "projects" / "touring" / "client" / "hooks" / "model_pool.py"
+    if not pool.is_file():
+        pytest.skip("model_pool.py not on this machine")
+    families = dict(re.findall(r'PoolSlot\("(\w+)", SUBAGENT, \d+, "(\w+)"', pool.read_text()))
+    assert families == adw.MODEL_EFFORTS
+
+
+def test_the_effort_field_is_declared_with_the_five_levels():
+    assert adw.EFFORT_LEVELS == ("low", "medium", "high", "xhigh", "max")
+    assert 'effort": _field(str, "agent", choices=EFFORT_LEVELS)' in Path(adw.__file__).read_text()
+
+
+def test_the_codegen_lint_sends_implementation_to_the_workhorse_tier():
+    """Model matrix of 13/11/2026: implementation is Sonnet's; the cheap tier is for search and extraction."""
+    node = _agent(prompt="Gere o código do módulo a partir do spec.")
+    spec = type("S", (), {"nodes": {"a": node}})()
+    warnings: list[str] = []
+    adw._lint_agent_codegen_tier(spec, warnings)
+    assert len(warnings) == 1
+    assert 'tier = "workhorse"' in warnings[0] and 'tier = "haiku"' not in warnings[0]
+
+
+def test_the_library_fixer_that_rewrites_code_runs_on_the_workhorse_tier():
+    lib = Path(adw.__file__).resolve().parents[1] / "adw-library"
+    assert tomllib.loads((lib / "error-teach.toml").read_text())["node"]["fix_batch"]["tier"] == "workhorse"

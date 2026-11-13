@@ -7,6 +7,7 @@ description: >
   "dependents_of", "packages_with_feature". This agent is invoked in TACO Phase 2 after
   touring-scouter completes.
 model: sonnet
+effort: high
 color: cyan
 tools: [Bash, Glob, Grep, Read, LS, WebFetch, TodoWrite, WebSearch]
 ---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm

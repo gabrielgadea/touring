@@ -42,13 +42,14 @@ idempotent = true
 on_pass = "fix_batch"
 on_fail = "__fail__"
 
-# The fixer: mechanical rewrite on a cheap tier (W8 lint rationale — measured
-# TanStack: codegen runs well on haiku). Explicit tier = the cost decision the
-# _lint_agent_codegen_tier warning exists to induce.
+# The fixer rewrites code, so it runs on the implementation tier of the model matrix
+# (13/11/2026: sonnet, effort high). Until 12/11 it ran on haiku, on the TanStack
+# measurement. Explicit tier = the cost decision the _lint_agent_codegen_tier
+# warning exists to induce.
 [node.fix_batch]
 type = "agent"
 driver = "claude"
-tier = "haiku"
+tier = "workhorse"
 prompt = """Você é um editor de mensagens de erro Rust. O relatório abaixo lista literais de `bail!`/`anyhow!` que NÃO ensinam o próximo passo (file:line 'mensagem'):
 
 {{nodes.audit.summary}}

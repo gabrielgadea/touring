@@ -4,12 +4,13 @@
 #                --var write_set="<files the implementer will touch>" \
 #                --var verify_cmd="<test command>"
 
-# Tier routing (W8 S-8.5, plano code-mode-total): nós de GERAÇÃO MECÂNICA de
-# código declaram `tier = "haiku"` quando um gate a jusante VALIDA o resultado
-# (compila/testa — o barato falhar é barato). Medido na fonte TanStack
-# (models-eval): haiku 4.5 acurácia 10/10 em code mode — gerar código é mais
-# fácil que orquestrar tools. JAMAIS em nós de julgamento/audit/critic: juízo
-# barato é a constante 0.990. O lint `_lint_agent_codegen_tier` induz a decisão.
+# Tier routing (matriz de modelos de 13/11/2026): nó que IMPLEMENTA código declara
+# `tier = "workhorse"` (sonnet, effort high); `light` (haiku, effort xhigh) fica para
+# busca, extração e classificação, e para geração mecânica só de propósito, quando um
+# gate a jusante VALIDA o resultado. Até 12/11 a recomendação era haiku, pela medição
+# TanStack (haiku 4.5, 10/10 em code mode). JAMAIS tier barato em nós de
+# julgamento/audit/critic: juízo barato é a constante 0.990. O lint
+# `_lint_agent_codegen_tier` induz a decisão.
 [adw]
 name = "feature"
 description = "Full feature pipeline: expert memory, SOTA scout, plan, conflict-check, verified build"

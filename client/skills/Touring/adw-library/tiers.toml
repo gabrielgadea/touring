@@ -7,3 +7,11 @@ light = "haiku"
 # aliases kept for older specs
 mid = "sonnet"
 fast = "haiku"
+
+# Model family → effort for headless nodes (pool of 13/11/2026: opus medium · sonnet high ·
+# haiku xhigh). adw.py passes `--effort`; a node's own `effort = "..."` overrides. Same table
+# as client/hooks/model_pool.py (the `Agent` gate) — test_adw.py holds the two equal.
+[effort]
+opus = "medium"
+sonnet = "high"
+haiku = "xhigh"
