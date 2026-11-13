@@ -21,6 +21,7 @@ import collections
 import json
 import os
 import re
+import shlex
 import sys
 
 SETTINGS = os.path.expanduser("~/.claude/settings.json")
@@ -145,13 +146,55 @@ def emit_kind(body):
     return "inerte"
 
 
-#: `touring-hook <sub>`, with the binary quoted or not (`"$HOME/.claude/hooks/touring-hook" teammate-idle`).
-SHIM_CALL_RE = re.compile(r"""touring-hook["']?[ \t]+([A-Za-z][A-Za-z0-9_-]*)""")
+SHIM_BINARY = "touring-hook"
+#: Shell operators (and newline) after which a new command starts.
+_CONTROL_CHARS = frozenset(";&|()\n")
+#: Words after which the next token is still in command position (`then touring-hook x`, `exec touring-hook x`).
+_COMMAND_PREFIX_WORDS = frozenset({"then", "else", "elif", "do", "exec", "!", "{", "if", "while", "until"})
+_ENV_ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+_SUBCOMMAND_RE = re.compile(r"[A-Za-z][A-Za-z0-9_-]*\Z")
+
+
+def _shell_tokens(command):
+    """Tokens of `command` with quotes removed and control operators split out; None when it does not tokenize."""
+    # Bash drops backslash-newline before building argv; shlex would keep the newline as part of the word.
+    lexer = shlex.shlex(command.replace("\\\n", ""), posix=True, punctuation_chars=";&|()<>\n")
+    lexer.whitespace = " \t\r"  # newline separates commands, so it must reach the state machine as an operator
+    lexer.whitespace_split = True
+    try:
+        return list(lexer)
+    except ValueError:  # unterminated quote or escape: nothing can be claimed about what runs
+        return None
 
 
 def shim_subcommands(command):
-    """Every `touring-hook <sub>` the command runs, in order — a shell `if` may name one per branch."""
-    return SHIM_CALL_RE.findall(command)
+    """Every `touring-hook <sub>` the command EXECUTES, in order — a shell `if` may name one per branch.
+
+    Tokenizes like a shell: the binary counts only in command position (first word, after a control operator or a
+    keyword like `then`/`exec`, after leading `VAR=value`), so `echo touring-hook x` or `ls touring-hook x` mention
+    the shim without running it. A command that does not tokenize names no subcommand (it stays opaque)."""
+    tokens = _shell_tokens(command)
+    if tokens is None:
+        return []
+    subs = []
+    at_command = True
+    for index, token in enumerate(tokens):
+        if set(token) <= _CONTROL_CHARS:
+            at_command = True
+            continue
+        if at_command and _keeps_command_position(token):
+            continue
+        if at_command and token.rsplit("/", 1)[-1] == SHIM_BINARY:
+            nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
+            if _SUBCOMMAND_RE.match(nxt):
+                subs.append(nxt)
+        at_command = False
+    return subs
+
+
+def _keeps_command_position(token):
+    """A prefix word or `VAR=value` runs nothing itself: the next token is still the command."""
+    return token in _COMMAND_PREFIX_WORDS or bool(_ENV_ASSIGNMENT_RE.match(token))
 
 
 def classify(command):

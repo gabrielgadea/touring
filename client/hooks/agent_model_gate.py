@@ -148,7 +148,6 @@ BUILTIN_DEFAULTS = {"claude-code-guide": "haiku", "statusline-setup": "sonnet"}
 ENV_BLIND_TYPES = frozenset({"Explore", "Plan"})
 FRONTMATTER = re.compile(r"\A\ufeff?---\r?\n(.*?)\r?\n---", re.DOTALL)
 INLINE_COMMENT = re.compile(r"\s+#.*$")
-SESSION_MODEL = re.compile(rb'"model":"(claude-[^"]+)"')
 TRANSCRIPT_TAIL_BYTES = 262_144
 
 
@@ -162,7 +161,8 @@ def frontmatter(path: Path) -> dict[str, str]:
     for line in (match.group(1) if match else "").splitlines():
         key, sep, value = line.partition(":")
         if sep and not line.startswith((" ", "\t", "#")):
-            fields[key.strip()] = INLINE_COMMENT.sub("", value).strip().strip("\"'")
+            # Quotes first, then the blanks they protected: `model: "   "` is an absent model, not a decision.
+            fields[key.strip()] = INLINE_COMMENT.sub("", value).strip().strip("\"'").strip()
     return fields
 
 
@@ -391,17 +391,33 @@ def main_session_model(transcript_path: str | None, env: Mapping[str, str], home
 
 
 def session_model(transcript_path: str | None) -> str | None:
-    """Model of the last assistant turn, from the transcript TAIL only (the hook input carries none)."""
+    """Model of the last main-session assistant turn, from the transcript TAIL only (the hook input carries none).
+
+    Each tail line is parsed as a JSONL record; only `type == "assistant"` records outside a sidechain whose
+    `message.model` starts with `claude-` count. A read that began mid-file drops its first (cut) line.
+    """
     if not transcript_path:
         return None
     try:
         with open(transcript_path, "rb") as fh:
             fh.seek(0, os.SEEK_END)
-            fh.seek(max(0, fh.tell() - TRANSCRIPT_TAIL_BYTES))
-            found = SESSION_MODEL.findall(fh.read())
+            start = max(0, fh.tell() - TRANSCRIPT_TAIL_BYTES)
+            fh.seek(start)
+            lines = fh.read().splitlines()
+        for raw in reversed(lines[1:] if start else lines):
+            try:
+                record = json.loads(raw)
+            except ValueError:
+                continue
+            if not isinstance(record, dict) or record.get("type") != "assistant" or record.get("isSidechain"):
+                continue
+            message = record.get("message")
+            model = message.get("model") if isinstance(message, dict) else None
+            if isinstance(model, str) and model.startswith("claude-"):
+                return model
     except OSError:
         return None
-    return found[-1].decode("ascii", errors="replace") if found else None
+    return None
 
 
 #: First line of a fit deny, by (why, origin). A definition's pin is named as such: the call omitted `model`.
@@ -460,7 +476,7 @@ def _omitted_reason(call: str, model: str | None, quota: str | None) -> list[str
     return [
         (f"[agent-model-gate] Agent sem `model` ({call}) herdaria {model or 'o modelo desta sessão'}: "
          "a decisão de modelo não foi tomada. Reemita a MESMA chamada com `model` e o `effort` da linha:"),
-        *(f"  {alias:<6} — {use}" + (f' · effort: "{default_effort(alias)}"' if alias != "fable" else "")
+        *(f"  {alias:<6} — {use}" + f' · effort: "{default_effort(alias)}"'
           for alias, use in MATRIX),
         *([f"{quota}."] if quota else []),
         "Passam sem `model`: " + " · ".join(phrase for _, phrase in EXEMPTIONS) + ".",

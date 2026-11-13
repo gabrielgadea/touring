@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,13 +25,14 @@ def _load(name: str):
 
 
 pool = _load("model_pool")
+gate = _load("agent_model_gate")
 hook = _load("model_pool_roster")
 
 
 def _run(payload: dict, tmp_path: Path, **env: str) -> subprocess.CompletedProcess:
     clean = {k: v for k, v in os.environ.items()
              if k not in {"ANTHROPIC_BASE_URL", "MODEL_POOL_ROSTER_DISABLED", "MODEL_POOL_PREWARM",
-                          "TOURING_HOOK_INJECTION", "CLAUDE_PROJECT_DIR"}}
+                          "TOURING_HOOK_INJECTION", "CLAUDE_PROJECT_DIR", "ANTHROPIC_MODEL"}}
     clean.update(HOME=str(tmp_path), TOURING_INJECTION_DEDUP_DISABLED="1", **env)
     return subprocess.run([sys.executable, str(SCRIPT)], input=json.dumps(payload).encode(), capture_output=True,
                           env=clean, timeout=20, check=False)
@@ -133,16 +135,25 @@ def test_prewarm_off_keeps_the_roster_and_drops_the_order(tmp_path: Path) -> Non
 # ---- the hook: sister sessions --------------------------------------------------------------------------
 
 def _sessions(tmp_path: Path, rows: list[dict]) -> tuple[Path, Path]:
-    """A fake ~/.claude/sessions and /proc: each row is a live `claude` process with its env."""
+    """A fake ~/.claude/sessions and /proc: each row is a live `claude` process with its env.
+
+    `proc_start` is the registry's `procStart` (omitted when absent); `starttime` is field 22 of the fake
+    /proc/<pid>/stat (no stat file when absent).
+    """
     sessions, proc = tmp_path / "sessions", tmp_path / "proc"
     sessions.mkdir()
     for row in rows:
-        (sessions / f"{row['pid']}.json").write_text(json.dumps(
-            {"pid": row["pid"], "name": row["name"], "cwd": row["cwd"], "status": row.get("status", "idle")}))
+        meta = {"pid": row["pid"], "name": row["name"], "cwd": row["cwd"], "status": row.get("status", "idle")}
+        if "proc_start" in row:
+            meta["procStart"] = row["proc_start"]
+        (sessions / f"{row['pid']}.json").write_text(json.dumps(meta))
         base = proc / str(row["pid"])
         base.mkdir(parents=True)
         (base / "comm").write_text("claude\n")
         (base / "environ").write_bytes("\0".join(f"{k}={v}" for k, v in row.get("env", {}).items()).encode())
+        if "starttime" in row:  # state + 18 filler fields, then starttime = field 22 (index 19 after the comm's `)`)
+            tail = " ".join(["S", *["0"] * 18, str(row["starttime"]), "0 0"])
+            (base / "stat").write_text(f"{row['pid']} (claude) {tail}\n")
     return sessions, proc
 
 
@@ -178,3 +189,139 @@ def test_a_missing_session_registry_is_declared_and_never_reported_as_zero_siste
 def test_the_hook_output_carries_the_sisters_line(tmp_path: Path) -> None:
     text = _context(_run({"source": "resume", "cwd": str(tmp_path)}, tmp_path))
     assert "Sessões irmãs" in text
+
+
+# ---- P1: the announcement never promises a seat the gate refuses ------------------------------------------
+
+def _ordered_seats(text: str) -> list[str]:
+    """The seats the startup order names, in order; [] when the text orders none. The stated count must match."""
+    match = re.search(r"invoque os (\d+) assentos — (.+?) — cada um", text)
+    if not match:
+        return []
+    seats = match.group(2).split(" · ")
+    assert int(match.group(1)) == len(seats), "the order says one count and names another"
+    return seats
+
+
+def _call_for(text: str, seat: str) -> dict:
+    """The `Agent` arguments the roster line of `seat` teaches (`opus-1`, or one of `sonnet-1..3`)."""
+    family, number = seat.rsplit("-", 1)
+    for line in text.splitlines():
+        head = re.match(r"\s*(\w+)-(\d+)(?:\.\.(\d+))?\s", line)
+        if head and head.group(1) == family and int(head.group(2)) <= int(number) <= int(head.group(3) or head.group(2)):
+            args = re.search(r'Agent\(model="(\w+)", effort="(\w+)"\)', line)
+            assert args, f"the line of {seat} orders it but teaches no Agent(...) call: {line!r}"
+            return {"subagent_type": "general-purpose", "model": args.group(1), "effort": args.group(2)}
+    raise AssertionError(f"no roster line for {seat}")
+
+
+SESSIONS = [("claude-fable-5-2", "fable"), ("claude-opus-5-5", "opus"), ("claude-sonnet-5-5", "sonnet"), (None, None)]
+
+
+@pytest.mark.parametrize(("model", "family"), SESSIONS)
+def test_no_ordered_call_is_refused_by_the_gate(tmp_path: Path, model: str | None, family: str | None) -> None:
+    payload = {"source": "startup", "cwd": str(tmp_path), **({"model": model} if model else {})}
+    text = hook.build_context(payload, {}, tmp_path, tmp_path / "proc")
+    seats = _ordered_seats(text)
+    assert seats, "startup must order seats"
+    for seat in seats:
+        verdict = gate.decide(_call_for(text, seat), {}, [], tmp_path, session_family=family)
+        assert verdict.allowed, f"{seat} is ordered but the gate says {verdict.why}"
+
+
+@pytest.mark.parametrize(("model", "opens"), [("claude-fable-5-2", True), ("claude-opus-5-5", False),
+                                              ("claude-sonnet-5-5", False), (None, False)])
+def test_the_opus_seat_is_ordered_only_under_a_fable_session_and_is_said_closed_otherwise(
+        tmp_path: Path, model: str | None, opens: bool) -> None:
+    payload = {"source": "startup", "cwd": str(tmp_path), **({"model": model} if model else {})}
+    text = hook.build_context(payload, {}, tmp_path, tmp_path / "proc")
+    seats = _ordered_seats(text)
+    assert ("opus-1" in seats) is opens and len(seats) == (9 if opens else 8)
+    opus_line = next(line for line in text.splitlines() if line.lstrip().startswith("opus-1"))
+    assert ("FECHADO" in opus_line) is not opens
+
+
+def test_the_session_model_resolves_like_the_gate_payload_then_transcript_then_env_then_settings(tmp_path: Path) -> None:
+    def seats(payload: dict, env: dict) -> int:
+        return len(_ordered_seats(hook.build_context({"source": "startup", "cwd": str(tmp_path), **payload}, env,
+                                                     tmp_path, tmp_path / "proc")))
+
+    assert seats({}, {"ANTHROPIC_MODEL": "claude-fable-5-2"}) == 9          # env
+    assert seats({}, {"ANTHROPIC_MODEL": "claude-opus-5-5"}) == 8
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(json.dumps({"model": "claude-fable-5-2"}))
+    assert seats({}, {}) == 9                                                # settings.json
+    assert seats({"model": "claude-opus-5-5"}, {"ANTHROPIC_MODEL": "claude-fable-5-2"}) == 8  # payload wins
+
+
+def test_importing_the_gate_has_no_side_effect(tmp_path: Path) -> None:
+    proc = subprocess.run([sys.executable, "-c", f"import sys; sys.path.insert(0, {str(HOOKS)!r}); import agent_model_gate"],
+                          input=b"", capture_output=True, env={**os.environ, "HOME": str(tmp_path)}, timeout=20, check=False)
+    assert proc.returncode == 0 and proc.stdout == b"" and proc.stderr == b""
+    assert not (tmp_path / ".claude").exists()
+
+
+# ---- P2: a recycled PID is not the old session ---------------------------------------------------------------
+
+KIMI = {"ANTHROPIC_BASE_URL": "https://api.kimi.com/coding/", "ANTHROPIC_MODEL": "kimi-novo"}
+
+
+def test_a_recycled_pid_whose_starttime_differs_from_the_registry_is_a_dead_entry(tmp_path: Path) -> None:
+    cwd = str(tmp_path / "proj")
+    sessions, proc = _sessions(tmp_path, [{"pid": 42, "name": "irmã-antiga", "cwd": cwd, "env": KIMI,
+                                           "proc_start": "111", "starttime": 222}])
+    rows, stale = hook.live_sisters(cwd, sessions, proc)
+    assert rows == [] and stale == 1
+    assert "irmã-antiga" not in hook.sisters_line(cwd, sessions, proc)
+
+
+def test_the_same_incarnation_is_still_listed(tmp_path: Path) -> None:
+    cwd = str(tmp_path / "proj")
+    sessions, proc = _sessions(tmp_path, [{"pid": 42, "name": "irmã", "cwd": cwd, "env": KIMI,
+                                           "proc_start": "5015532", "starttime": 5015532}])
+    rows, stale = hook.live_sisters(cwd, sessions, proc)
+    assert [r["name"] for r in rows] == ["irmã"] and stale == 0
+
+
+def test_a_registry_without_procstart_is_taken_as_before(tmp_path: Path) -> None:
+    cwd = str(tmp_path / "proj")
+    sessions, proc = _sessions(tmp_path, [{"pid": 42, "name": "irmã", "cwd": cwd, "env": KIMI, "starttime": 222}])
+    rows, stale = hook.live_sisters(cwd, sessions, proc)
+    assert [r["name"] for r in rows] == ["irmã"] and stale == 0
+
+
+def test_a_procstart_with_no_readable_stat_is_not_invented_into_a_death(tmp_path: Path) -> None:
+    cwd = str(tmp_path / "proj")
+    sessions, proc = _sessions(tmp_path, [{"pid": 42, "name": "irmã", "cwd": cwd, "env": KIMI, "proc_start": "111"}])
+    rows, stale = hook.live_sisters(cwd, sessions, proc)
+    assert [r["name"] for r in rows] == ["irmã"] and stale == 0
+
+
+def test_the_real_live_registry_procstart_is_the_proc_starttime() -> None:
+    """The field's meaning, checked on whatever real sessions exist (skipped where there are none)."""
+    pairs = []
+    for path in (Path.home() / ".claude" / "sessions").glob("*.json"):
+        try:
+            meta = json.loads(path.read_text(encoding="utf-8"))
+            stat = Path(f"/proc/{int(meta['pid'])}/stat").read_text()
+        except (OSError, ValueError, KeyError):
+            continue
+        if "procStart" in meta:
+            pairs.append((str(meta["procStart"]), stat.rsplit(")", 1)[1].split()[19]))
+    if not pairs:
+        pytest.skip("no live interactive session with procStart on this machine")
+    assert all(registry == live for registry, live in pairs)
+
+
+# ---- P3: a symlinked cwd does not hide a live sister ---------------------------------------------------------
+
+def test_a_symlinked_cwd_matches_the_real_one_in_both_directions(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    sessions, proc = _sessions(tmp_path, [{"pid": 7, "name": "pelo-real", "cwd": str(real), "env": KIMI},
+                                          {"pid": 8, "name": "pelo-link", "cwd": str(link), "env": KIMI}])
+    for hook_cwd in (str(real), str(link)):
+        rows, _ = hook.live_sisters(hook_cwd, sessions, proc)
+        assert sorted(r["name"] for r in rows) == ["pelo-link", "pelo-real"], hook_cwd

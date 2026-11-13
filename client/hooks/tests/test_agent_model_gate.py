@@ -946,3 +946,86 @@ def test_every_way_back_a_deny_teaches_carries_the_effort_so_it_is_not_denied_tw
     assert '`model: "sonnet"` e `effort: "high"`' in opus and '`model: "haiku"` e `effort: "xhigh"`' in opus
     _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "Explore", "model": "haiku", "effort": "xhigh"}),
                     "explicit:haiku")
+
+
+# ---- 13/11/2026: second independent review (G2, G3, M1) -----------------------------------------------
+
+def _raw_def(tmp_path: Path, name: str, fields: str) -> Path:
+    agents = tmp_path / "proj" / ".claude" / "agents"
+    agents.mkdir(parents=True, exist_ok=True)
+    path = agents / f"{name}.md"
+    path.write_text(f"---\nname: {name}\ndescription: x\n{fields}---\ncorpo\n", encoding="utf-8")
+    return path
+
+
+def test_a_blank_quoted_model_in_the_definition_is_no_decision(tmp_path: Path) -> None:
+    """G2: `model: "   "` is an absent `model`, so the omitted-model deny stands."""
+    _raw_def(tmp_path, "vazio", 'model: "   "\n')
+    _assert_denied(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "vazio"}))
+
+
+def test_a_blank_quoted_effort_in_the_definition_is_no_decision(tmp_path: Path) -> None:
+    """G2: `effort: "   "` is an absent `effort`, so the effort deny teaches the pool level."""
+    _raw_def(tmp_path, "esforco", 'model: sonnet\neffort: "   "\n')
+    reason = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "subagent_type": "esforco"}), "effort:ausente")
+    assert 'effort: "high"' in reason
+
+
+def test_the_fable_way_back_carries_the_effort_and_the_reissue_passes(tmp_path: Path) -> None:
+    """G3: the fable row of the matrix names `effort`, and the reissue as taught is not denied a second time."""
+    omitted = _assert_denied(tmp_path, _run(tmp_path, NO_EFFORT))
+    line = next(ln for ln in omitted.splitlines() if ln.strip().startswith("fable"))
+    assert 'effort: "medium"' in line, line
+    _consent(tmp_path, _in(timedelta(hours=1)))
+    reason = _assert_denied_why(tmp_path, _run(tmp_path, {**NO_EFFORT, "model": "fable"}), "effort:ausente")
+    assert 'effort: "medium"' in reason
+    _assert_allowed(tmp_path, _run(tmp_path, {**NO_EFFORT, "model": "fable", "effort": "medium"}), "fable:consentido")
+
+
+def _spaced(tmp_path: Path, name: str, *records: dict[str, Any]) -> Path:
+    path = tmp_path / name
+    path.write_text("".join(json.dumps(rec, separators=(", ", ": ")) + "\n" for rec in records))
+    return path
+
+
+def test_the_session_model_reads_json_with_spaces_so_the_env_does_not_win(tmp_path: Path) -> None:
+    """M1 A and B: pretty-separated records still say what ran; the env is only the fallback."""
+    hook = _load(HOOK, "agent_model_gate_m1")
+    home = tmp_path / "home"
+    sonnet = _spaced(tmp_path, "a.jsonl", {"type": "assistant", "message": {"model": "claude-sonnet-5-5"}})
+    fable = _spaced(tmp_path, "b.jsonl", {"type": "assistant", "message": {"model": "claude-fable-5-2"}})
+    assert hook.main_session_model(str(sonnet), {"ANTHROPIC_MODEL": "claude-fable-5-2"}, home) == "claude-sonnet-5-5"
+    assert hook.main_session_model(str(fable), {"ANTHROPIC_MODEL": "claude-opus-5-5"}, home) == "claude-fable-5-2"
+
+
+def test_a_non_assistant_record_never_changes_the_session_model(tmp_path: Path) -> None:
+    """M1 C: a later `user` record carrying a model is not a turn of the main session."""
+    hook = _load(HOOK, "agent_model_gate_m1c")
+    path = tmp_path / "c.jsonl"
+    path.write_text('{"type":"assistant","message":{"model":"claude-sonnet-5-5"}}\n'
+                    '{"type":"user","message":{"model":"claude-fable-5-2"}}\n')
+    assert hook.session_model(str(path)) == "claude-sonnet-5-5"
+
+
+def test_sidechains_foreign_models_and_broken_lines_are_skipped(tmp_path: Path) -> None:
+    hook = _load(HOOK, "agent_model_gate_m1d")
+    path = tmp_path / "d.jsonl"
+    path.write_text('{"type":"assistant","message":{"model":"claude-sonnet-5-5"}}\n'
+                    '{"type":"assistant","isSidechain":true,"message":{"model":"claude-fable-5-2"}}\n'
+                    '{"type":"assistant","message":{"model":"<synthetic>"}}\n'
+                    '{"type":"assistant","message":{"model":"claude-opus-5-5"\n'
+                    '[1, 2]\n'
+                    '"loose"\n')
+    assert hook.session_model(str(path)) == "claude-sonnet-5-5"
+
+
+def test_the_cut_line_of_a_tail_read_is_dropped(tmp_path: Path) -> None:
+    """A read that starts mid-file begins inside a line: that first fragment is never parsed as a record."""
+    hook = _load(HOOK, "agent_model_gate_m1e")
+    head = '{"type":"assistant","message":{"model":"claude-opus-5-5"},"pad":"'
+    record = head + "p" * (hook.TRANSCRIPT_TAIL_BYTES - 1 - len(head) - 2) + '"}'
+    assert len(record) + 1 == hook.TRANSCRIPT_TAIL_BYTES
+    path = tmp_path / "e.jsonl"
+    # The window opens exactly on this valid record, preceded by a long line: the reader cannot know it is whole.
+    path.write_text("z" * 50 + record + "\n")
+    assert hook.session_model(str(path)) is None
