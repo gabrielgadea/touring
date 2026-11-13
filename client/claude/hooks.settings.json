@@ -940,6 +940,16 @@
           "timeout": 10
         }
       ]
+    },
+    {
+      "matcher": "Agent",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/subagent_output_contract.py",
+          "timeout": 5
+        }
+      ]
     }
   ],
   "PostToolBatch": [
