@@ -1117,6 +1117,11 @@
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook subagent-start",
           "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/subagent_output_contract.py",
+          "timeout": 5
         }
       ]
     }
@@ -1129,6 +1134,11 @@
           "command": "$HOME/.claude/hooks/touring-hook subagent-stop",
           "timeout": 5,
           "async": true
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/subagent_output_contract.py",
+          "timeout": 5
         }
       ]
     }

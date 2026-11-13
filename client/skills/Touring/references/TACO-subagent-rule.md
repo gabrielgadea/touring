@@ -98,10 +98,12 @@ Deliver the task per your role (scout/architect/engineer/validator).
 **YOUR RESPONSE MUST BE ONLY VALID RAW JSON**. No prose, no markdown, no fences.
 
 ```
-{"role": "YOUR_ROLE", "status": "completed|failed|partial", "result": {...}, "quality_gates": {...}, "issues": [], "next_recommendations": []}
+{"role": "YOUR_ROLE", "status": "completed|failed|partial", "result": {...}, "report_path": null, "quality_gates": {...}, "issues": [], "next_recommendations": []}
 ```
 
 **ABSOLUTELY FORBIDDEN:** triple backticks, markdown code blocks, prose before/after. Response must START with `{` and END with `}` — nothing else. Any text outside the JSON = FAILURE.
+
+**Entregável longo vai para arquivo, não para a resposta (13/11/2026).** A mensagem final tem teto de **8000 caracteres**: acima dele o texto pode chegar cortado ao orquestrador, e o que chega é reenviado em todo turno dele. Desenho, gramática, spec, relatório, tabela ou diff longos → grave o texto INTEGRAL em `~/claude-artefatos/<projeto>/subagentes/<agent_type>-<agent_id[:8]>.md` (o caminho exato vem no início do seu contexto) e devolva no JSON o campo `"report_path"` com esse caminho, mais o resumo: conclusão, decisões, pendências e as evidências `arquivo:linha`. Nunca resuma no arquivo o que o pedido quer inteiro; nunca cole na resposta o que já está no arquivo. Quem aplica é o executor: o hook `subagent_output_contract.py` anuncia o contrato no `SubagentStart` e devolve uma vez, no `SubagentStop`, a resposta acima do teto (`~/projects/touring/client/hooks/subagent_output_contract.py`).
 
 ---
 
