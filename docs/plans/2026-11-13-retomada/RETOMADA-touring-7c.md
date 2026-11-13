@@ -1,6 +1,47 @@
-# RETOMADA — sessão `touring-7c` (13/11/2026, estado gravado com o contexto em 55%)
+# RETOMADA — sessão `touring-7c` (parada em 13/11/2026 ~14:10 BRT)
 
-Branch `feat/2026-09-16-shell-quality-wiring-python`, **12 commits à frente do `origin`, sem push**.
+## PARADA — LER PRIMEIRO (substitui o que abaixo disser o contrário)
+
+Gabriel: «preciso desligar. pare e salve tudo para ser retomado em uma sessão futura».
+
+- **Git:** branch `feat/2026-09-16-shell-quality-wiring-python` **igual ao `origin`** depois do push (autorizado por
+  ele: «sim, pode seguir com os três»). Último commit de código: `a0fa46b4`; depois dele só esta nota. Árvore limpa
+  de arquivo rastreado; `crates/GateId` segue como lixo não rastreado (não commitar, não apagar).
+- **Rito de release 30.4.110: PARADO por mim, no gate de testes (passo 1). Nada foi instalado.** Dos 30 pacotes,
+  13 foram iniciados (inferlets … `touring-hook-runtime`, este interrompido compilando), **0 falhas**. Passos 2
+  (`update-touring`), 3 (toolchain), 4 (default) e 5 (projetos) não rodaram. Log:
+  `~/claude-artefatos/touring/propagate-30.4.110-etapa1-retomada.log`. O rito não retoma do meio: roda inteiro de novo.
+- **Estado misto que continua:** `touring --version` = 30.4.110 (symlink para `target/release/`), o daemon global
+  (PID 3714 na parada) roda de executável apagado, e não existe toolchain `30.4.110` em `~/.touring/toolchains/`
+  (há 30.4.109). Depois do boot o daemon sobe do binário novo sem `update-touring`/verify.
+- **Subagentes e assentos:** todos parados (`opus-1`, `haiku-1`, `sonnet-1..3`); nenhuma delegação aberta. As irmãs
+  `touring-62` (Kimi) e `touring-0e` (MiniMax) estavam ociosas, sem tarefa pendente minha.
+- **Fora deste repositório, alterado e NÃO commitado:** `~/projects/analise/CLAUDE.md` (6 trechos da matriz de
+  modelos, misturados a mudanças de sessão de lá) — commit é da sessão dona de lá ou do Gabriel.
+
+**Retomar, em ordem:**
+1. `touring daemon-ctl status` e `touring doctor -j`; `scripts/hw-slot --status` (corte térmico: 88 °C).
+2. Rito inteiro: `scripts/propagate-release.sh 30.4.110 --stop-before-propagate > ~/claude-artefatos/touring/propagate-30.4.110-etapa1-<data>.log 2>&1`
+   em segundo plano. **Lição medida hoje:** com a máquina a 94–98 °C (jobs do analise nos slots `heavy` e um
+   `markdown-oxide` do Zed a 205% de CPU) ele fez 8 pacotes em 2h30; encerrado o `markdown-oxide`, fez 5 em ~35 min.
+   Rodar com a máquina fria (madrugada, ou sem sessão pesada do analise). Não subir o corte térmico, não usar `--skip-gates`.
+3. `touring index rebuild`, depois o juiz (comando na seção "Fila depois do rito").
+4. Consertos C5 → C2 → C3 → C1 → C4 do detector de órfãos (assentos Sonnet, teste RED antes).
+5. Propagação ao `analise`: só com o "livre" da sessão dona de lá.
+
+**Decisões do Gabriel já tomadas hoje (não reabrir):** push da branch feito · pasta `subagentes/` nunca é limpa,
+alarme em 1 GB · contrato de entrega é fidelidade e persistência, não teto.
+
+**Perguntas abertas com ele:** (a) aplicar `autoInstallIdeExtension: false` para calar o erro do `/ide` (o `/ide`
+não tem modo Zed; a integração com o Zed é pelo painel de agentes dele, via ACP) — ofereci, ele não respondeu;
+(b) backup de `~/claude-artefatos`; (c) se a medição TanStack devia prevalecer sobre a matriz nova no lint de
+codegen dos ADWs (apliquei a matriz: `workhorse`).
+
+---
+
+# Estado anterior (gravado com o contexto em 55%)
+
+Na hora desta seção a branch estava 12 commits à frente do `origin`, sem push (o push veio depois).
 Árvore limpa de arquivo rastreado (`crates/GateId` é lixo não rastreado: não commitar, não apagar).
 
 ## Pedidos do Gabriel nesta sessão (palavras dele)
@@ -16,7 +57,7 @@ Branch `feat/2026-09-16-shell-quality-wiring-python`, **12 commits à frente do 
 5. `/decision-canvas` sobre limpeza de `subagentes/`, rito 30.4.110 e `git push` — **aguarda o sim dele** (abaixo).
 6. «verifique o porque a integração com a IDE está com problemas» (`/ide zed` tenta instalar a extensão do VS Code).
 
-## Commits desta sessão (todos locais)
+## Commits desta sessão (todos no `origin` desde o push)
 
 | Commit | O quê |
 |---|---|
@@ -25,6 +66,7 @@ Branch `feat/2026-09-16-shell-quality-wiring-python`, **12 commits à frente do 
 | `12043c9f` | guarda de injeção vê shim entre aspas; 20 achados de lint em 9 hooks |
 | `67794a8f` | 9 defeitos achados pela revisão do Kimi (gate, roster, detector de shim) |
 | `acf5871d` | contrato de saída do subagente, 1ª versão (teto de 8000) — **superada** |
+| `a0fa46b4` | pasta de entregas nunca é limpa; alarme de 1 GB medido 1×/dia; esta nota |
 | `7fe86f05` | redesenho: `subagent_output_contract.py` arquiva toda entrega inteira (disco + memória Touring + aviso ao orquestrador); teto virou opt-in |
 
 Verificação da última rodada: `python3 -m pytest client/hooks/tests scripts/test_guard_injection_policy_shim.py
@@ -47,7 +89,7 @@ haiku `xhigh`; hooks aplicados pelo instalador). Cópia anterior do settings:
   a sessão roda no terminal do Zed (`TERM_PROGRAM=zed`, pai `zed-editor` PID 4049), não existe `~/.claude/ide/`,
   não há `code` no PATH (só `zeditor`), `~/.claude.json` sem `autoConnectIde`/`autoInstallIdeExtension`.
 
-## Aguardando o sim do Gabriel (recomendações do canvas)
+## Recomendações do canvas (ele disse sim às três; feitas)
 
 1. `git push` da branch agora (push em branch de feature não dispara workflow: CI só em `main`/PR, release só em tag).
 2. Encerrar o `markdown-oxide` (PID 2714092), medir a temperatura 10 min depois; se o rito não destravar em 1 h,
